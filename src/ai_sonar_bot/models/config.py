@@ -80,6 +80,7 @@ class AppConfig(BaseModel):
         base_branch: Repository base branch.
         branch_prefix: Prefix for generated branches.
         dry_run: Whether dry-run mode is enabled by default.
+        mock_sonar_issues_path: Optional path to a local SonarQube issue fixture.
         max_retry_count: Maximum retry attempts after validation failure.
         supported_severities: Allowed SonarQube severities.
         supported_issue_types: Allowed SonarQube issue types.
@@ -94,6 +95,7 @@ class AppConfig(BaseModel):
     base_branch: str
     branch_prefix: str = "ai-sonar"
     dry_run: bool = False
+    mock_sonar_issues_path: Path | None = None
     max_retry_count: int = 1
     supported_severities: list[str] = Field(default_factory=list)
     supported_issue_types: list[str] = Field(default_factory=list)

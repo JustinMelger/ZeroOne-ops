@@ -5,7 +5,9 @@ This module will provide SonarQube REST integration for issue retrieval.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -79,6 +81,36 @@ class SonarClient:
         if not isinstance(issue, dict):
             raise SonarClientError("Unexpected SonarQube response: missing issue object.")
         return _normalize_issue(issue)
+
+
+def load_issues_fixture(path: Path) -> list[SonarIssue]:
+    """Load SonarQube issues from a local JSON fixture.
+
+    Args:
+        path: Path to the fixture file.
+
+    Returns:
+        Normalized SonarQube issues from the fixture.
+
+    Raises:
+        SonarClientError: If the file is missing or invalid.
+    """
+    if not path.exists():
+        raise SonarClientError(f"SonarQube fixture file not found: {path}")
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise SonarClientError(f"SonarQube fixture file is invalid JSON: {path}") from error
+
+    if not isinstance(payload, dict):
+        raise SonarClientError("Unexpected SonarQube fixture payload.")
+
+    issues = payload.get("issues")
+    if not isinstance(issues, list):
+        raise SonarClientError("Unexpected SonarQube fixture: missing issues list.")
+
+    return [_normalize_issue(item) for item in issues if isinstance(item, dict)]
 
 
 def _parse_json_response(response: httpx.Response) -> dict[str, Any]:

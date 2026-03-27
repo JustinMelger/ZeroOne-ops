@@ -39,6 +39,42 @@ class IssueAnalysis(BaseModel):
     proposed_strategy: str
 
 
+class CodeContextSnippet(BaseModel):
+    """Represent a focused source-code snippet.
+
+    Attributes:
+        start_line: First included source line number.
+        end_line: Last included source line number.
+        content: Source content with line-number prefixes.
+    """
+
+    start_line: int
+    end_line: int
+    content: str
+
+
+class IssueContext(BaseModel):
+    """Represent structured source context for a selected issue.
+
+    Attributes:
+        issue_key: SonarQube issue key.
+        file_path: Repository-relative file path for the issue.
+        line: Issue line number if provided by SonarQube.
+        file_size_bytes: Size of the source file in bytes.
+        snippet: Focused source snippet around the issue line.
+        full_file_included: Whether the returned content covers the whole file.
+        truncated: Whether context had to be truncated due to file size rules.
+    """
+
+    issue_key: str
+    file_path: str
+    line: int | None = None
+    file_size_bytes: int
+    snippet: CodeContextSnippet
+    full_file_included: bool
+    truncated: bool
+
+
 class PatchProposal(BaseModel):
     """Represent a proposed code patch.
 

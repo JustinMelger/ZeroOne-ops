@@ -22,8 +22,8 @@ Completed:
 
 Not yet implemented:
 
-- [ ] issue selection wired into the runner
-- [ ] code context analysis
+- [x] issue selection wired into the runner
+- [x] code context analysis
 - [ ] LLM integration
 - [ ] patch application
 - [ ] git branch and commit automation
@@ -44,7 +44,7 @@ Status:
 
 - [x] fetch open SonarQube issues for the configured project
 - [x] normalize issues into internal models
-- [ ] verify local file mapping
+- [x] verify local file mapping
 
 Done when:
 
@@ -63,10 +63,10 @@ Goal:
 
 Status:
 
-- [ ] filter unsupported issues
-- [ ] skip issues already handled
-- [ ] select one actionable issue per run
-- [ ] persist selection state
+- [x] filter unsupported issues
+- [x] skip issues already handled
+- [x] select one actionable issue per run
+- [x] persist selection state
 
 Done when:
 
@@ -84,9 +84,9 @@ Goal:
 
 Done when:
 
-- [ ] the context builder returns focused code context
-- [ ] missing files or missing lines are handled cleanly
-- [ ] the analysis input is stable enough for prompt construction
+- [x] the context builder returns focused code context
+- [x] missing files or missing lines are handled cleanly
+- [x] the analysis input is stable enough for prompt construction
 
 ### Phase 4: LLM Analysis and Patch Proposal
 
@@ -176,8 +176,8 @@ Done when:
 
 ## Recommended Implementation Order
 
-- [ ] Wire issue selection into the runner.
-- [ ] Improve the context builder around issue file and line.
+- [x] Wire issue selection into the runner.
+- [x] Improve the context builder around issue file and line.
 - [ ] Implement git precondition checks and branch creation.
 - [ ] Implement the GitLab client for merge request creation.
 - [ ] Implement LLM analysis and patch generation.
