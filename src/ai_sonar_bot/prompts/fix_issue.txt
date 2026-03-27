@@ -1,0 +1,1 @@
+Analyze the SonarQube issue and propose the smallest safe fix.
