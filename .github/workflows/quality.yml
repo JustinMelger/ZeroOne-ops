@@ -35,6 +35,7 @@ jobs:
 
   architecture:
     runs-on: ubuntu-latest
+    needs: lint
 
     steps:
       - name: Check out repository
@@ -58,6 +59,7 @@ jobs:
 
   typecheck:
     runs-on: ubuntu-latest
+    needs: architecture
 
     steps:
       - name: Check out repository
@@ -81,6 +83,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    needs: typecheck
 
     steps:
       - name: Check out repository
