@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from ai_sonar_bot.models.config import AppConfig
+from ai_sonar_bot.models.config import AppConfig, SonarQubeConnectionConfig
 
 
 class SettingsError(RuntimeError):
@@ -63,3 +63,29 @@ def load_config() -> AppConfig:
         data["state"] = state
 
     return AppConfig.model_validate(data)
+
+
+def load_sonarqube_connection_config() -> SonarQubeConnectionConfig:
+    """Load SonarQube connection settings from the environment.
+
+    Returns:
+        Validated SonarQube connection settings.
+
+    Raises:
+        SettingsError: If a required SonarQube environment variable is missing.
+    """
+    required = {
+        "SONARQUBE_URL": os.environ.get("SONARQUBE_URL"),
+        "SONARQUBE_TOKEN": os.environ.get("SONARQUBE_TOKEN"),
+        "SONARQUBE_PROJECT_KEY": os.environ.get("SONARQUBE_PROJECT_KEY"),
+    }
+    missing = sorted(name for name, value in required.items() if not value)
+    if missing:
+        names = ", ".join(missing)
+        raise SettingsError(f"Missing required SonarQube environment variables: {names}")
+
+    return SonarQubeConnectionConfig(
+        url=required["SONARQUBE_URL"] or "",
+        token=required["SONARQUBE_TOKEN"] or "",
+        project_key=required["SONARQUBE_PROJECT_KEY"] or "",
+    )

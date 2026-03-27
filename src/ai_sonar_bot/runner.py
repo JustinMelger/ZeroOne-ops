@@ -12,8 +12,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ai_sonar_bot.models.state import IssueState, RunRecord, RunStatus, utc_now
+from ai_sonar_bot.providers.sonar_client import SonarClient
 from ai_sonar_bot.services.state_store import StateStore
-from ai_sonar_bot.settings import load_config
+from ai_sonar_bot.settings import SettingsError, load_config, load_sonarqube_connection_config
 
 LOGGER = logging.getLogger(__name__)
 
@@ -93,14 +94,23 @@ def run(*, dry_run: bool = False) -> RunSummary:
 
     effective_dry_run = dry_run or config.dry_run
     if effective_dry_run:
+        issue_count = 0
+        message = "Dry run complete. SonarQube credentials not configured."
+        try:
+            sonar_client = SonarClient(load_sonarqube_connection_config())
+            issues = sonar_client.search_open_issues()
+            issue_count = len(issues)
+            message = f"Dry run complete. Retrieved {issue_count} open SonarQube issues."
+        except SettingsError:
+            LOGGER.info("dry run skipped SonarQube fetch", extra={"run_id": run_id})
         record.status = RunStatus.NO_ISSUE
         record.updated_at = utc_now()
         state_store.save(state)
-        LOGGER.info("dry run complete", extra={"run_id": run_id})
+        LOGGER.info("dry run complete", extra={"run_id": run_id, "issue_count": issue_count})
         return RunSummary(
             run_id=run_id,
             status=record.status,
-            message="Dry run complete. Integrations are not implemented yet.",
+            message=message,
             state_path=config.state.path,
         )
 

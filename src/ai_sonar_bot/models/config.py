@@ -47,6 +47,22 @@ class GitLabConfig(BaseModel):
     labels: list[str] = Field(default_factory=list)
 
 
+class SonarQubeConnectionConfig(BaseModel):
+    """Configure SonarQube API connectivity.
+
+    Attributes:
+        url: SonarQube base URL.
+        token: SonarQube API token.
+        project_key: SonarQube project key.
+        page_size: Number of issues to request per page.
+    """
+
+    url: str
+    token: str
+    project_key: str
+    page_size: int = 100
+
+
 class StateConfig(BaseModel):
     """Configure local state persistence.
 
