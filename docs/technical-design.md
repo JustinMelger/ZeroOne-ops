@@ -11,7 +11,7 @@ V1 constraints:
 - SonarQube as the issue source
 - one issue processed per run
 - local JSON state store
-- human approval required before push and merge request creation
+- non-interactive CI execution supported
 
 ## 2. Technical Objectives
 
@@ -110,7 +110,7 @@ The bot runs as a synchronous pipeline in v1:
 7. Request analysis and patch proposal from the LLM.
 8. Apply changes.
 9. Run validation commands.
-10. Request human approval.
+10. In local mode, optionally request human approval.
 11. Commit and push branch.
 12. Create GitLab merge request.
 13. Persist final state.
@@ -135,11 +135,13 @@ flowchart TD
     N -- No --> O[Optional single retry]
     O --> P{Recovered?}
     P -- No --> Q[Persist failure state]
-    N -- Yes --> R[Request human approval]
+    N -- Yes --> R{Execution mode}
     P -- Yes --> R
-    R --> S{Approved?}
-    S -- No --> T[Persist manual stop state]
-    S -- Yes --> U[Commit and Push]
+    R -- CI --> U[Commit and Push]
+    R -- Local --> S[Optional human approval]
+    S --> T{Approved?}
+    T -- No --> Q
+    T -- Yes --> U
     U --> V[Create GitLab MR]
     V --> W[Persist success state]
     W --> X[Exit]
@@ -161,6 +163,7 @@ Suggested commands:
 - `ai-sonar-bot run`
 - `ai-sonar-bot run --dry-run`
 - `ai-sonar-bot run --issue-key <key>`
+- `ai-sonar-bot run --mode ci`
 - `ai-sonar-bot approve --run-id <id>` for a future non-interactive workflow
 
 For v1, only `run` is required.
@@ -251,6 +254,8 @@ Responsibilities:
 - request explicit approval in the terminal,
 - return approved or rejected.
 
+This service should be bypassed in CI mode.
+
 ### 6.12 `services/branch_manager.py`
 
 Responsibilities:
@@ -311,6 +316,7 @@ Optional:
 - `AI_SONAR_BOT_STATE_PATH`
 - `AI_SONAR_BOT_LOG_LEVEL`
 - `AI_SONAR_BOT_BASE_BRANCH`
+- `AI_SONAR_BOT_EXECUTION_MODE`
 
 ## 7.3 Runtime Config File
 
@@ -320,6 +326,7 @@ Example `.ai-sonar-bot.json`:
 {
   "base_branch": "main",
   "branch_prefix": "ai-sonar",
+  "execution_mode": "ci",
   "dry_run": false,
   "max_retry_count": 1,
   "supported_severities": ["BLOCKER", "CRITICAL", "MAJOR"],
@@ -355,6 +362,7 @@ Suggested top-level model:
 
 ```python
 class AppConfig(BaseModel):
+    execution_mode: Literal["local", "ci"] = "ci"
     base_branch: str
     branch_prefix: str = "ai-sonar"
     dry_run: bool = False
@@ -753,9 +761,17 @@ If any command fails:
 3. if retry count is below max, send feedback to the LLM,
 4. otherwise mark the issue as `validation_failed`.
 
-## 16. Human Approval Design
+## 16. Approval Model
 
-## 16.1 Terminal Flow
+## 16.1 CI Mode
+
+In CI mode:
+
+- validation success should lead directly to branch push and merge request creation,
+- there must be no interactive terminal prompt,
+- GitLab merge request review is the human approval mechanism.
+
+## 16.2 Local Mode
 
 After validation passes, the CLI should show:
 
@@ -775,7 +791,7 @@ If the user answers:
 - `y` or `yes`: continue
 - anything else: stop and persist state as `rejected`
 
-## 16.2 Approval Diagram
+## 16.3 Approval Diagram
 
 ```mermaid
 sequenceDiagram
@@ -864,7 +880,7 @@ Recommended order:
 3. Implement SonarQube client and issue selection.
 4. Implement git branch manager and validation runner.
 5. Implement LLM integration and patch application.
-6. Implement terminal approval flow.
+6. Implement CI execution mode and optional local approval flow.
 7. Implement GitLab MR creation.
 8. Add dry-run behavior and tests.
 
@@ -887,6 +903,24 @@ The technical design is complete when implementation can be started with no unre
 - approval flow,
 - patch application strategy,
 - validation and error handling behavior.
+
+## 23. Pipeline Execution
+
+The intended deployment model for v1 is a non-interactive pipeline job, likely inside Docker.
+
+Pipeline requirements:
+
+- repository checkout available in the container workspace,
+- git installed and authenticated for push,
+- SonarQube, GitLab, and OpenAI credentials injected through environment variables,
+- no terminal interaction required,
+- one issue processed per execution.
+
+Recommended behavior:
+
+- run on a schedule or manual trigger,
+- create at most one merge request per execution,
+- rely on GitLab merge request review and approval rules for human sign-off.
 
 ## 22. Packaging and Developer Tooling Decisions
 

@@ -24,11 +24,12 @@ Not yet implemented:
 
 - [x] issue selection wired into the runner
 - [x] code context analysis
-- [ ] LLM integration
-- [ ] patch application
+- [x] LLM integration
+- [x] patch application
 - [ ] git branch and commit automation
 - [ ] GitLab merge request creation
-- [ ] human approval workflow
+- [ ] CI execution mode
+- [ ] optional local approval workflow
 
 ## V1 Delivery Phases
 
@@ -99,9 +100,9 @@ Goal:
 Done when:
 
 - [x] the LLM returns structured analysis data
-- [ ] the LLM returns structured patch data
-- [ ] invalid or unsafe responses are rejected
-- [ ] patch proposals are constrained to allowed files
+- [x] the LLM returns structured patch data
+- [x] invalid or unsafe responses are rejected
+- [x] patch proposals are constrained to allowed files
 
 ### Phase 5: Patch Application and Validation
 
@@ -113,7 +114,7 @@ Goal:
 
 Done when:
 
-- [ ] a generated patch can be applied safely
+- [x] a generated patch can be applied safely
 - [ ] validation output is captured and summarized
 - [ ] failed validation can trigger one controlled retry
 
@@ -150,15 +151,15 @@ Done when:
 
 Goal:
 
-- pause after validation
-- show change summary in the terminal
-- require explicit human approval before publish
+- support non-interactive CI execution
+- use GitLab merge request review as the approval gate in pipelines
+- keep optional local interactive approval for developer-triggered runs
 
 Done when:
 
-- [ ] approval is required before commit and push
-- [ ] rejection exits cleanly and updates state
-- [ ] approval decisions are reflected in the run record
+- [ ] CI mode bypasses terminal prompts and creates merge requests automatically
+- [ ] local mode can still request interactive approval when enabled
+- [ ] approval behavior is reflected in config and run state
 
 ### Phase 9: Hardening
 
@@ -181,9 +182,9 @@ Done when:
 - [x] Improve the context builder around issue file and line.
 - [ ] Implement git precondition checks and branch creation.
 - [ ] Implement the GitLab client for merge request creation.
-- [ ] Implement LLM analysis and patch generation.
+- [x] Implement LLM analysis and patch generation.
 - [ ] Implement patch apply and validation retry flow.
-- [ ] Add the human approval gate.
+- [ ] Add CI execution mode and optional local approval flow.
 - [ ] Harden coverage, logging, and failure handling.
 
 ## Deferred Beyond V1

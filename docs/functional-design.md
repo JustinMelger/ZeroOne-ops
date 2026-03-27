@@ -485,3 +485,17 @@ The design is satisfied when a v1 implementation can:
 6. Request human approval, then push a branch and open a merge request when validation passes.
 7. Persist execution state and avoid duplicate merge request creation for the same issue.
 8. Exit safely with clear logs when no issue is fixable.
+
+## 21. Execution Modes
+
+V1 should support two execution modes:
+
+- Local mode
+  - intended for developer-triggered terminal runs
+  - may optionally request interactive approval before publish
+- CI mode
+  - intended for non-interactive execution in a pipeline or Docker container
+  - must create the merge request automatically after validation succeeds
+  - uses GitLab merge request review as the human approval mechanism
+
+In CI mode, the merge request itself is the approval gate. The bot should not block waiting for terminal input.
