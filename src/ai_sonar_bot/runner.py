@@ -227,9 +227,7 @@ def _analyze_selected_issue(
     if context is None:
         return "Context unavailable for the selected issue."
     if not dry_run or config.mock_llm_analysis_path is None:
-        return (
-            f"Context ready from lines {context.snippet.start_line}-{context.snippet.end_line}."
-        )
+        return f"Context ready from lines {context.snippet.start_line}-{context.snippet.end_line}."
 
     analysis = FixGenerator(FixtureLLMClient(config.mock_llm_analysis_path)).analyze(
         selected_issue,
