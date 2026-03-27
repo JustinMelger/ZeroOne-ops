@@ -1,0 +1,75 @@
+[project]
+name = "ai-sonar-bot"
+version = "0.1.0"
+description = "AI bot that creates GitLab merge requests from SonarQube issues."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "httpx>=0.28.1",
+  "pydantic>=2.11.3",
+  "typer>=0.16.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "import-linter>=2.3",
+  "mypy>=1.15.0",
+  "pytest>=8.3.5",
+  "pytest-cov>=6.1.1",
+  "ruff>=0.11.4",
+]
+
+[project.scripts]
+ai-sonar-bot = "ai_sonar_bot.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+default-groups = ["dev"]
+
+[dependency-groups]
+dev = [
+  "import-linter>=2.3",
+  "mypy>=1.15.0",
+  "pytest>=8.3.5",
+  "pytest-cov>=6.1.1",
+  "ruff>=0.11.4",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "D",
+  "E",
+  "F",
+  "I",
+  "UP",
+  "B",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+packages = ["ai_sonar_bot"]
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--cov=ai_sonar_bot --cov-report=term-missing"
