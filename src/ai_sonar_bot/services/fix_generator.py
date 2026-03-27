@@ -6,7 +6,7 @@ provider.
 
 from __future__ import annotations
 
-from ai_sonar_bot.models.analysis import IssueAnalysis, PatchProposal
+from ai_sonar_bot.models.analysis import IssueAnalysis, IssueContext, PatchProposal
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.providers.llm_client import LLMClient
 
@@ -26,7 +26,7 @@ class FixGenerator:
         """
         self.llm_client = llm_client
 
-    def analyze(self, issue: SonarIssue, context: str) -> IssueAnalysis:
+    def analyze(self, issue: SonarIssue, context: IssueContext) -> IssueAnalysis:
         """Analyze an issue.
 
         Args:
@@ -38,7 +38,7 @@ class FixGenerator:
         """
         return self.llm_client.analyze_issue(issue, context)
 
-    def generate(self, issue: SonarIssue, context: str) -> PatchProposal:
+    def generate(self, issue: SonarIssue, context: IssueContext) -> PatchProposal:
         """Generate a patch proposal.
 
         Args:

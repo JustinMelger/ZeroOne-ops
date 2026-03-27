@@ -98,7 +98,8 @@ Goal:
 
 Done when:
 
-- [ ] the LLM returns structured analysis and patch data
+- [x] the LLM returns structured analysis data
+- [ ] the LLM returns structured patch data
 - [ ] invalid or unsafe responses are rejected
 - [ ] patch proposals are constrained to allowed files
 

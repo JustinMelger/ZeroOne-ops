@@ -61,11 +61,14 @@ def load_config() -> AppConfig:
     _load_environment_file()
     data = _load_json_file(_config_path())
     env_base_branch = os.environ.get("AI_SONAR_BOT_BASE_BRANCH")
+    env_mock_llm_analysis_path = os.environ.get("AI_SONAR_BOT_MOCK_LLM_ANALYSIS_PATH")
     env_mock_sonar_issues_path = os.environ.get("AI_SONAR_BOT_MOCK_SONAR_ISSUES_PATH")
     env_state_path = os.environ.get("AI_SONAR_BOT_STATE_PATH")
 
     if env_base_branch:
         data["base_branch"] = env_base_branch
+    if env_mock_llm_analysis_path:
+        data["mock_llm_analysis_path"] = env_mock_llm_analysis_path
     if env_mock_sonar_issues_path:
         data["mock_sonar_issues_path"] = env_mock_sonar_issues_path
     if env_state_path:

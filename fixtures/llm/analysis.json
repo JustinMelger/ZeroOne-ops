@@ -1,0 +1,12 @@
+{
+  "issue_key": "FIXTURE-AX12345",
+  "classification": "auto_fixable",
+  "summary": "The issue is limited to one local file and can be fixed with a small code cleanup.",
+  "risk_notes": [
+    "Keep the change scoped to the selected file."
+  ],
+  "target_files": [
+    "src/ai_sonar_bot/runner.py"
+  ],
+  "proposed_strategy": "Remove or refactor the flagged code path with the smallest safe edit."
+}

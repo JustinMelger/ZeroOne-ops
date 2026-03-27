@@ -2,6 +2,7 @@
   "base_branch": "main",
   "branch_prefix": "ai-sonar",
   "dry_run": false,
+  "mock_llm_analysis_path": "fixtures/llm/analysis.json",
   "mock_sonar_issues_path": "fixtures/sonar/issues.json",
   "max_retry_count": 1,
   "supported_severities": ["BLOCKER", "CRITICAL", "MAJOR"],

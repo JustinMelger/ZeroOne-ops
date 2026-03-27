@@ -93,6 +93,8 @@ def test_run_dry_run_uses_fixture_when_configured(tmp_path: Path, monkeypatch) -
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
     fixture_dir = tmp_path / "fixtures" / "sonar"
     fixture_dir.mkdir(parents=True)
+    llm_fixture_dir = tmp_path / "fixtures" / "llm"
+    llm_fixture_dir.mkdir(parents=True)
     (fixture_dir / "issues.json").write_text(
         """
         {
@@ -113,10 +115,24 @@ def test_run_dry_run_uses_fixture_when_configured(tmp_path: Path, monkeypatch) -
         """.strip(),
         encoding="utf-8",
     )
+    (llm_fixture_dir / "analysis.json").write_text(
+        """
+        {
+          "issue_key": "FIXTURE-1",
+          "classification": "auto_fixable",
+          "summary": "Fixture analysis summary",
+          "risk_notes": [],
+          "target_files": ["src/service.py"],
+          "proposed_strategy": "Add the minimal fix."
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
     (tmp_path / ".ai-sonar-bot.json").write_text(
         """
         {
           "base_branch": "main",
+          "mock_llm_analysis_path": "fixtures/llm/analysis.json",
           "mock_sonar_issues_path": "fixtures/sonar/issues.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
@@ -134,3 +150,4 @@ def test_run_dry_run_uses_fixture_when_configured(tmp_path: Path, monkeypatch) -
 
     assert summary.status.value == "selected"
     assert "FIXTURE-1" in summary.message
+    assert "Analysis classification: auto_fixable" in summary.message

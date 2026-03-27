@@ -14,7 +14,10 @@ from pathlib import Path
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import AppState, IssueState, RunRecord, RunStatus, utc_now
+from ai_sonar_bot.providers.llm_client import FixtureLLMClient
 from ai_sonar_bot.providers.sonar_client import SonarClient, load_issues_fixture
+from ai_sonar_bot.services.context_builder import ContextBuilder
+from ai_sonar_bot.services.fix_generator import FixGenerator
 from ai_sonar_bot.services.issue_selector import IssueSelector
 from ai_sonar_bot.services.state_store import StateStore
 from ai_sonar_bot.settings import SettingsError, load_config, load_sonarqube_connection_config
@@ -94,8 +97,9 @@ def run(*, dry_run: bool = False) -> RunSummary:
         updated_at=started_at,
     )
     state_store.append_run(state, record)
+    repo_root = Path.cwd()
     selected_issue, issue_count, no_issue_message = _select_issue(
-        repo_root=Path.cwd(),
+        repo_root=repo_root,
         config=config,
         dry_run=dry_run or config.dry_run,
         state=state,
@@ -118,13 +122,19 @@ def run(*, dry_run: bool = False) -> RunSummary:
                 attempt_count=attempt_count,
             ),
         )
+        analysis_summary = _analyze_selected_issue(
+            repo_root=repo_root,
+            config=config,
+            selected_issue=selected_issue,
+            dry_run=dry_run or config.dry_run,
+        )
         state_store.save(state)
         return RunSummary(
             run_id=run_id,
             status=record.status,
             message=(
                 f"Selected SonarQube issue {selected_issue.key} in {selected_issue.file_path} "
-                f"({selected_issue.rule}, {selected_issue.severity})."
+                f"({selected_issue.rule}, {selected_issue.severity}). {analysis_summary}"
             ),
             state_path=config.state.path,
         )
@@ -193,6 +203,42 @@ def _select_issue(
             f"No eligible SonarQube issue found among {issue_count} open issues.",
         )
     return selected_issue, issue_count, ""
+
+
+def _analyze_selected_issue(
+    *,
+    repo_root: Path,
+    config: AppConfig,
+    selected_issue: SonarIssue,
+    dry_run: bool,
+) -> str:
+    """Analyze a selected issue when a dry-run analysis fixture is configured.
+
+    Args:
+        repo_root: Repository root path.
+        config: Application configuration.
+        selected_issue: Selected SonarQube issue.
+        dry_run: Whether the current run is in dry-run mode.
+
+    Returns:
+        Human-readable analysis summary text.
+    """
+    context = ContextBuilder(repo_root, config).build(selected_issue)
+    if context is None:
+        return "Context unavailable for the selected issue."
+    if not dry_run or config.mock_llm_analysis_path is None:
+        return (
+            f"Context ready from lines {context.snippet.start_line}-{context.snippet.end_line}."
+        )
+
+    analysis = FixGenerator(FixtureLLMClient(config.mock_llm_analysis_path)).analyze(
+        selected_issue,
+        context,
+    )
+    return (
+        f"Analysis classification: {analysis.classification.value}. "
+        f"Strategy: {analysis.proposed_strategy}"
+    )
 
 
 def _issue_file_exists(repo_root: Path, issue: SonarIssue) -> bool:
