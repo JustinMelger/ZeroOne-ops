@@ -123,8 +123,7 @@ def run(*, dry_run: bool = False) -> RunSummary:
         run_id=run_id,
         status=record.status,
         message=(
-            "Scaffold created. SonarQube, LLM, and GitLab integrations still need "
-            "implementation."
+            "Scaffold created. SonarQube, LLM, and GitLab integrations still need implementation."
         ),
         state_path=config.state.path,
     )
