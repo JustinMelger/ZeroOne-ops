@@ -23,7 +23,7 @@ V1 constraints:
 
 ## 3. Recommended Stack
 
-- Python 3.12+
+- Python 3.13.x
 - `uv` for dependency management, virtualenv management, and command execution
 - `httpx` for API requests
 - `pydantic` for config and data models
@@ -68,6 +68,8 @@ ai-sonar-bot/
       llm_client.py
     services/
       __init__.py
+      issue_intake.py
+      analysis_service.py
       issue_selector.py
       context_builder.py
       fix_generator.py
@@ -103,17 +105,16 @@ The bot runs as a synchronous pipeline in v1:
 
 1. Load config.
 2. Initialize clients and state store.
-3. Fetch open SonarQube issues.
-4. Select one supported issue.
-5. Create a local work branch.
-6. Build code context.
-7. Request analysis and patch proposal from the LLM.
-8. Apply changes.
-9. Run validation commands.
-10. In local mode, optionally request human approval.
-11. Commit and push branch.
-12. Create GitLab merge request.
-13. Persist final state.
+3. Use `IssueIntakeService` to fetch and select one supported issue.
+4. Create a local work branch.
+5. Use `AnalysisService` to build code context.
+6. Request analysis and patch proposal from the LLM.
+7. Apply changes.
+8. Run validation commands.
+9. In local mode, optionally request human approval.
+10. Commit and push branch.
+11. Create GitLab merge request.
+12. Persist final state.
 
 ### 5.2 Execution Diagram
 
@@ -122,12 +123,11 @@ flowchart TD
     A[CLI Entry] --> B[Load Settings]
     B --> C[Create Service Container]
     C --> D[Read State File]
-    D --> E[Fetch SonarQube Issues]
-    E --> F[Select Eligible Issue]
-    F --> G{Issue found?}
-    G -- No --> H[Exit cleanly]
-    G -- Yes --> I[Create Work Branch]
-    I --> J[Build File and Rule Context]
+    D --> E[IssueIntakeService]
+    E --> F{Issue found?}
+    F -- No --> H[Exit cleanly]
+    F -- Yes --> I[Create Work Branch]
+    I --> J[AnalysisService]
     J --> K[LLM Analysis and Patch]
     K --> L[Apply Patch]
     L --> M[Run Validation Commands]
@@ -172,12 +172,14 @@ For v1, only `run` is required.
 
 Responsibilities:
 
-- orchestrate the end-to-end flow,
+- act as the composition root,
+- orchestrate high-level flow,
 - handle step-level exceptions,
 - decide terminal run status,
 - write state updates.
 
-This is the only module that should coordinate multiple services directly.
+This module should stay thin. Workflow details should move into dedicated
+services once they are non-trivial.
 
 ### 6.3 `settings.py`
 
@@ -211,7 +213,26 @@ Responsibilities:
 - enforce response format,
 - return parsed analysis and patch data.
 
-### 6.7 `services/issue_selector.py`
+### 6.7 `services/issue_intake.py`
+
+Responsibilities:
+
+- fetch SonarQube issues from the configured source,
+- filter out issues that do not map to local files,
+- delegate final prioritization to the issue selector,
+- return a typed result with selection outcome and issue counts.
+
+### 6.8 `services/analysis_service.py`
+
+Responsibilities:
+
+- build source context for the selected issue,
+- choose the active LLM backend,
+- coordinate analysis and patch generation,
+- enforce rejection rules for manual-only issues,
+- optionally apply generated patches during dry-run testing.
+
+### 6.9 `services/issue_selector.py`
 
 Responsibilities:
 
@@ -220,7 +241,7 @@ Responsibilities:
 - rank issues,
 - return the single selected issue.
 
-### 6.8 `services/context_builder.py`
+### 6.10 `services/context_builder.py`
 
 Responsibilities:
 
@@ -229,7 +250,7 @@ Responsibilities:
 - identify related test files when possible,
 - include validation command metadata in the LLM context.
 
-### 6.9 `services/fix_generator.py`
+### 6.11 `services/fix_generator.py`
 
 Responsibilities:
 
@@ -238,7 +259,7 @@ Responsibilities:
 - request a patch,
 - validate patch boundaries before apply.
 
-### 6.10 `services/validator.py`
+### 6.12 `services/validator.py`
 
 Responsibilities:
 
@@ -246,7 +267,7 @@ Responsibilities:
 - stream or capture output,
 - summarize failures for retry prompts.
 
-### 6.11 `services/approval.py`
+### 6.13 `services/approval.py`
 
 Responsibilities:
 
@@ -256,7 +277,7 @@ Responsibilities:
 
 This service should be bypassed in CI mode.
 
-### 6.12 `services/branch_manager.py`
+### 6.14 `services/branch_manager.py`
 
 Responsibilities:
 
@@ -265,7 +286,7 @@ Responsibilities:
 - commit changes,
 - push to origin.
 
-### 6.13 `services/mr_service.py`
+### 6.15 `services/mr_service.py`
 
 Responsibilities:
 
@@ -273,7 +294,7 @@ Responsibilities:
 - call GitLab client to create the MR,
 - attach issue metadata in a consistent template.
 
-### 6.14 `services/state_store.py`
+### 6.16 `services/state_store.py`
 
 Responsibilities:
 
@@ -878,11 +899,12 @@ Recommended order:
 1. Scaffold package, CLI, and settings.
 2. Implement models and JSON state store.
 3. Implement SonarQube client and issue selection.
-4. Implement git branch manager and validation runner.
-5. Implement LLM integration and patch application.
-6. Implement CI execution mode and optional local approval flow.
-7. Implement GitLab MR creation.
-8. Add dry-run behavior and tests.
+4. Extract issue intake and analysis orchestration into dedicated services.
+5. Implement git branch manager and validation runner.
+6. Implement LLM integration and patch application.
+7. Implement CI execution mode and optional local approval flow.
+8. Implement GitLab MR creation.
+9. Add dry-run behavior and tests.
 
 ## 20. Open Technical Risks
 

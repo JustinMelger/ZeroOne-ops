@@ -19,6 +19,7 @@ Completed:
 - [x] local `just` commands
 - [x] SonarQube client implementation
 - [x] automatic `.env` loading
+- [x] service-level refactor for issue intake and analysis orchestration
 
 Not yet implemented:
 
@@ -71,7 +72,7 @@ Status:
 
 Done when:
 
-- the runner selects one eligible issue
+- `IssueIntakeService` selects one eligible issue
 - the selected issue is stored in state
 - dry-run shows the selected issue key, file, rule, and severity
 
@@ -88,6 +89,7 @@ Done when:
 - [x] the context builder returns focused code context
 - [x] missing files or missing lines are handled cleanly
 - [x] the analysis input is stable enough for prompt construction
+- [x] analysis orchestration is isolated in a dedicated service
 
 ### Phase 4: LLM Analysis and Patch Proposal
 
@@ -180,6 +182,7 @@ Done when:
 
 - [x] Wire issue selection into the runner.
 - [x] Improve the context builder around issue file and line.
+- [x] Extract issue intake and analysis orchestration into dedicated services.
 - [ ] Implement git precondition checks and branch creation.
 - [ ] Implement the GitLab client for merge request creation.
 - [x] Implement LLM analysis and patch generation.
