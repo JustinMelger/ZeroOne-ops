@@ -1,0 +1,10 @@
+{
+  "issue_key": "FIXTURE-AX12345",
+  "files_touched": [
+    "src/ai_sonar_bot/runner.py"
+  ],
+  "unified_diff": "diff --git a/src/ai_sonar_bot/runner.py b/src/ai_sonar_bot/runner.py\n--- a/src/ai_sonar_bot/runner.py\n+++ b/src/ai_sonar_bot/runner.py\n@@\n-# old\n+# new\n",
+  "commit_message": "fix(sonar): clean up runner issue flow [FIXTURE-AX12345]",
+  "mr_title": "fix: clean up runner issue flow",
+  "mr_description": "## Summary\n- apply the proposed runner cleanup\n\n## SonarQube Issue\n- FIXTURE-AX12345"
+}
