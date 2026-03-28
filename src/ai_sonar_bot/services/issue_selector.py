@@ -36,7 +36,7 @@ class IssueSelector:
             The first eligible issue, or ``None`` if no issue qualifies.
         """
         for issue in issues:
-            if issue.severity not in self.config.supported_severities:
+            if not issue.matches_supported_severities(self.config.supported_severities):
                 continue
             if issue.type not in self.config.supported_issue_types:
                 continue

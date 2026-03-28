@@ -7,7 +7,7 @@ from ai_sonar_bot.services.issue_selector import IssueSelector
 def build_config() -> AppConfig:
     return AppConfig(
         base_branch="main",
-        supported_severities=["MAJOR"],
+        supported_severities=["LOW"],
         supported_issue_types=["BUG"],
         validation_commands=[],
         analysis=AnalysisConfig(),
@@ -30,11 +30,12 @@ def test_select_skips_issue_with_existing_merge_request() -> None:
             component="component",
             project="project",
             file_path="src/a.py",
+            impacts=[],
         ),
         SonarIssue(
             key="B",
             rule="python:S124",
-            severity="MAJOR",
+            severity="MINOR",
             type="BUG",
             status="OPEN",
             message="Issue B",
@@ -52,3 +53,33 @@ def test_select_skips_issue_with_existing_merge_request() -> None:
 
     assert selected is not None
     assert selected.key == "B"
+
+
+def test_select_uses_maintainability_low_when_present() -> None:
+    config = build_config()
+    selector = IssueSelector(config)
+    issues = [
+        SonarIssue(
+            key="LOW-1",
+            rule="python:S1125",
+            severity="UNKNOWN",
+            type="BUG",
+            status="OPEN",
+            message="Issue",
+            component="component",
+            project="project",
+            file_path="src/a.py",
+            impacts=[
+                {
+                    "software_quality": "MAINTAINABILITY",
+                    "severity": "LOW",
+                }
+            ],
+        )
+    ]
+    state = AppState(repository=RepositoryState(base_branch="main"))
+
+    selected = selector.select(issues, state)
+
+    assert selected is not None
+    assert selected.key == "LOW-1"

@@ -1,17 +1,23 @@
 {
   "issues": [
     {
-      "key": "FIXTURE-AX12345",
-      "rule": "python:S1135",
-      "severity": "MAJOR",
+      "key": "FIXTURE-AX20001",
+      "rule": "python:S1125",
+      "severity": "UNKNOWN",
       "type": "CODE_SMELL",
       "status": "OPEN",
-      "message": "Resolve the TODO left in the runner module.",
-      "component": "sample-project:src/ai_sonar_bot/runner.py",
+      "message": "Boolean literals should not be used in comparisons.",
+      "component": "sample-project:samples/auto_fixable_example.py",
       "project": "sample-project",
-      "line": 1,
+      "line": 2,
+      "impacts": [
+        {
+          "softwareQuality": "MAINTAINABILITY",
+          "severity": "LOW"
+        }
+      ],
       "effort": "5min",
-      "tags": ["todo", "maintainability"],
+      "tags": ["clumsy", "readability"],
       "creationDate": "2026-03-27T10:00:00+0000"
     }
   ]

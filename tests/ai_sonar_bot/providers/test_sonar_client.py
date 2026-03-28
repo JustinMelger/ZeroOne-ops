@@ -32,6 +32,12 @@ def test_search_open_issues_normalizes_project_prefixed_component() -> None:
                         "component": "sample-project:src/service.py",
                         "project": "sample-project",
                         "line": 12,
+                        "impacts": [
+                            {
+                                "softwareQuality": "MAINTAINABILITY",
+                                "severity": "LOW",
+                            }
+                        ],
                         "effort": "5min",
                         "tags": ["cwe", "bug"],
                         "creationDate": "2026-03-27T10:00:00+0000",
@@ -53,7 +59,50 @@ def test_search_open_issues_normalizes_project_prefixed_component() -> None:
     assert len(issues) == 1
     assert issues[0].file_path == "src/service.py"
     assert issues[0].line == 12
+    assert issues[0].impacts[0].software_quality == "MAINTAINABILITY"
+    assert issues[0].impacts[0].severity == "LOW"
     assert issues[0].creation_date is not None
+
+
+def test_search_open_issues_accepts_mqr_only_severity_payload() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        del request
+        return httpx.Response(
+            200,
+            json={
+                "issues": [
+                    {
+                        "key": "AX20001",
+                        "rule": "python:S1125",
+                        "type": "CODE_SMELL",
+                        "status": "OPEN",
+                        "message": "Boolean literals should not be used in comparisons.",
+                        "component": "sample-project:samples/auto_fixable_example.py",
+                        "project": "sample-project",
+                        "line": 2,
+                        "impacts": [
+                            {
+                                "softwareQuality": "MAINTAINABILITY",
+                                "severity": "LOW",
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+
+    client = SonarClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://sonarqube.example.com",
+        ),
+    )
+
+    issues = client.search_open_issues()
+
+    assert issues[0].severity == "UNKNOWN"
+    assert issues[0].matches_supported_severities(["LOW"]) is True
 
 
 def test_get_issue_raises_on_http_error() -> None:
