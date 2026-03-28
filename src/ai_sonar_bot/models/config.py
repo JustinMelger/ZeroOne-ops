@@ -7,6 +7,7 @@ environment overrides.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -63,6 +64,20 @@ class SonarQubeConnectionConfig(BaseModel):
     page_size: int = 100
 
 
+class OpenAIConnectionConfig(BaseModel):
+    """Configure OpenAI API connectivity.
+
+    Attributes:
+        api_key: OpenAI API key.
+        model: OpenAI model identifier.
+        base_url: Optional override for the API base URL.
+    """
+
+    api_key: str
+    model: str
+    base_url: str | None = None
+
+
 class StateConfig(BaseModel):
     """Configure local state persistence.
 
@@ -77,11 +92,15 @@ class AppConfig(BaseModel):
     """Represent validated runtime configuration.
 
     Attributes:
+        execution_mode: Whether the bot is running locally or in CI.
         base_branch: Repository base branch.
         branch_prefix: Prefix for generated branches.
         dry_run: Whether dry-run mode is enabled by default.
+        apply_patch_in_dry_run: Whether dry-run may apply proposed patches locally.
+        openai_solution_output_path: Path where OpenAI solutions should be written.
         mock_sonar_issues_path: Optional path to a local SonarQube issue fixture.
         mock_llm_analysis_path: Optional path to a local LLM analysis fixture.
+        mock_llm_patch_path: Optional path to a local LLM patch fixture.
         max_retry_count: Maximum retry attempts after validation failure.
         supported_severities: Allowed SonarQube severities.
         supported_issue_types: Allowed SonarQube issue types.
@@ -93,11 +112,15 @@ class AppConfig(BaseModel):
         state: State persistence settings.
     """
 
+    execution_mode: Literal["local", "ci"] = "ci"
     base_branch: str
     branch_prefix: str = "ai-sonar"
     dry_run: bool = False
+    apply_patch_in_dry_run: bool = False
+    openai_solution_output_path: Path = Path("artifacts/openai-solution.json")
     mock_sonar_issues_path: Path | None = None
     mock_llm_analysis_path: Path | None = None
+    mock_llm_patch_path: Path | None = None
     max_retry_count: int = 1
     supported_severities: list[str] = Field(default_factory=list)
     supported_issue_types: list[str] = Field(default_factory=list)
@@ -107,3 +130,12 @@ class AppConfig(BaseModel):
     approval: ApprovalConfig = Field(default_factory=ApprovalConfig)
     gitlab: GitLabConfig
     state: StateConfig = Field(default_factory=StateConfig)
+
+    def requires_local_approval(self) -> bool:
+        """Return whether this run should block for terminal approval.
+
+        Returns:
+            ``True`` when the bot is running locally and pre-publish approval is
+            configured as required.
+        """
+        return self.execution_mode == "local" and self.approval.required

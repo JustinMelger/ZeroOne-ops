@@ -13,7 +13,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from ai_sonar_bot.models.config import AppConfig, SonarQubeConnectionConfig
+from ai_sonar_bot.models.config import AppConfig, OpenAIConnectionConfig, SonarQubeConnectionConfig
 
 
 class SettingsError(RuntimeError):
@@ -60,15 +60,32 @@ def load_config() -> AppConfig:
     """
     _load_environment_file()
     data = _load_json_file(_config_path())
+    env_execution_mode = os.environ.get("AI_SONAR_BOT_EXECUTION_MODE")
     env_base_branch = os.environ.get("AI_SONAR_BOT_BASE_BRANCH")
+    env_apply_patch_in_dry_run = os.environ.get("AI_SONAR_BOT_APPLY_PATCH_IN_DRY_RUN")
     env_mock_llm_analysis_path = os.environ.get("AI_SONAR_BOT_MOCK_LLM_ANALYSIS_PATH")
+    env_mock_llm_patch_path = os.environ.get("AI_SONAR_BOT_MOCK_LLM_PATCH_PATH")
+    env_openai_solution_output_path = os.environ.get("AI_SONAR_BOT_OPENAI_SOLUTION_OUTPUT_PATH")
     env_mock_sonar_issues_path = os.environ.get("AI_SONAR_BOT_MOCK_SONAR_ISSUES_PATH")
     env_state_path = os.environ.get("AI_SONAR_BOT_STATE_PATH")
 
+    if env_execution_mode:
+        data["execution_mode"] = env_execution_mode
     if env_base_branch:
         data["base_branch"] = env_base_branch
+    if env_apply_patch_in_dry_run:
+        data["apply_patch_in_dry_run"] = env_apply_patch_in_dry_run.lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+    if env_openai_solution_output_path:
+        data["openai_solution_output_path"] = env_openai_solution_output_path
     if env_mock_llm_analysis_path:
         data["mock_llm_analysis_path"] = env_mock_llm_analysis_path
+    if env_mock_llm_patch_path:
+        data["mock_llm_patch_path"] = env_mock_llm_patch_path
     if env_mock_sonar_issues_path:
         data["mock_sonar_issues_path"] = env_mock_sonar_issues_path
     if env_state_path:
@@ -103,4 +120,30 @@ def load_sonarqube_connection_config() -> SonarQubeConnectionConfig:
         url=required["SONARQUBE_URL"] or "",
         token=required["SONARQUBE_TOKEN"] or "",
         project_key=required["SONARQUBE_PROJECT_KEY"] or "",
+    )
+
+
+def load_openai_connection_config() -> OpenAIConnectionConfig:
+    """Load OpenAI connection settings from the environment.
+
+    Returns:
+        Validated OpenAI connection settings.
+
+    Raises:
+        SettingsError: If a required OpenAI environment variable is missing.
+    """
+    _load_environment_file()
+    required = {
+        "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY"),
+        "OPENAI_MODEL": os.environ.get("OPENAI_MODEL"),
+    }
+    missing = sorted(name for name, value in required.items() if not value)
+    if missing:
+        names = ", ".join(missing)
+        raise SettingsError(f"Missing required OpenAI environment variables: {names}")
+
+    return OpenAIConnectionConfig(
+        api_key=required["OPENAI_API_KEY"] or "",
+        model=required["OPENAI_MODEL"] or "",
+        base_url=os.environ.get("OPENAI_BASE_URL"),
     )

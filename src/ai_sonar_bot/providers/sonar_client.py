@@ -13,7 +13,7 @@ from typing import Any
 import httpx
 
 from ai_sonar_bot.models.config import SonarQubeConnectionConfig
-from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.sonar import SonarImpact, SonarIssue
 
 
 class SonarClientError(RuntimeError):
@@ -155,7 +155,7 @@ def _normalize_issue(payload: dict[str, Any]) -> SonarIssue:
     return SonarIssue(
         key=_required_string(payload, "key"),
         rule=_required_string(payload, "rule"),
-        severity=_required_string(payload, "severity"),
+        severity=_optional_string(payload.get("severity")) or "UNKNOWN",
         type=_required_string(payload, "type"),
         status=_required_string(payload, "status"),
         message=_required_string(payload, "message"),
@@ -165,6 +165,7 @@ def _normalize_issue(payload: dict[str, Any]) -> SonarIssue:
         line=_optional_int(payload.get("line")),
         effort=_optional_string(payload.get("effort")),
         tags=_optional_string_list(payload.get("tags")),
+        impacts=_optional_impacts(payload.get("impacts")),
         creation_date=_parse_datetime(_optional_string(payload.get("creationDate"))),
     )
 
@@ -239,6 +240,34 @@ def _optional_string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, str)]
+
+
+def _optional_impacts(value: Any) -> list[SonarImpact]:
+    """Return normalized software-quality impacts from a payload.
+
+    Args:
+        value: Raw `impacts` value from SonarQube.
+
+    Returns:
+        Parsed impact models, ignoring invalid entries.
+    """
+    if not isinstance(value, list):
+        return []
+    impacts: list[SonarImpact] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        software_quality = _optional_string(item.get("softwareQuality"))
+        severity = _optional_string(item.get("severity"))
+        if software_quality is None or severity is None:
+            continue
+        impacts.append(
+            SonarImpact(
+                software_quality=software_quality.upper(),
+                severity=severity.upper(),
+            )
+        )
+    return impacts
 
 
 def _parse_datetime(value: str | None) -> datetime | None:
