@@ -18,3 +18,4 @@ build/
 *.pyd
 .env
 .ai-sonar-bot-state.json
+artifacts/

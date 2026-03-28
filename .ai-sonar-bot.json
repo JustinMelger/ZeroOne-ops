@@ -1,11 +1,15 @@
 {
+  "execution_mode": "ci",
   "base_branch": "main",
   "branch_prefix": "ai-sonar",
   "dry_run": false,
+  "apply_patch_in_dry_run": false,
+  "openai_solution_output_path": "artifacts/openai-solution.json",
   "mock_llm_analysis_path": "fixtures/llm/analysis.json",
+  "mock_llm_patch_path": "fixtures/llm/patch.json",
   "mock_sonar_issues_path": "fixtures/sonar/issues.json",
   "max_retry_count": 1,
-  "supported_severities": ["BLOCKER", "CRITICAL", "MAJOR"],
+  "supported_severities": ["LOW"],
   "supported_issue_types": ["CODE_SMELL", "BUG", "VULNERABILITY"],
   "supported_rules": [],
   "validation_commands": [
