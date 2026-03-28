@@ -11,16 +11,11 @@ import secrets
 from dataclasses import dataclass
 from pathlib import Path
 
-from ai_sonar_bot.models.config import AppConfig
-from ai_sonar_bot.models.sonar import SonarIssue
-from ai_sonar_bot.models.state import AppState, IssueState, RunRecord, RunStatus, utc_now
-from ai_sonar_bot.providers.llm_client import FixtureLLMClient
-from ai_sonar_bot.providers.sonar_client import SonarClient, load_issues_fixture
-from ai_sonar_bot.services.context_builder import ContextBuilder
-from ai_sonar_bot.services.fix_generator import FixGenerator
-from ai_sonar_bot.services.issue_selector import IssueSelector
+from ai_sonar_bot.models.state import IssueState, RunRecord, RunStatus, utc_now
+from ai_sonar_bot.services.analysis_service import AnalysisService
+from ai_sonar_bot.services.issue_intake import IssueIntakeService
 from ai_sonar_bot.services.state_store import StateStore
-from ai_sonar_bot.settings import SettingsError, load_config, load_sonarqube_connection_config
+from ai_sonar_bot.settings import load_config
 
 LOGGER = logging.getLogger(__name__)
 
@@ -98,34 +93,33 @@ def run(*, dry_run: bool = False) -> RunSummary:
     )
     state_store.append_run(state, record)
     repo_root = Path.cwd()
-    selected_issue, issue_count, no_issue_message = _select_issue(
+    intake_result = IssueIntakeService(
         repo_root=repo_root,
         config=config,
-        dry_run=dry_run or config.dry_run,
+    ).select_issue(
         state=state,
+        dry_run=dry_run or config.dry_run,
         run_id=run_id,
     )
 
-    if selected_issue is not None:
-        issue_state = state.issues.get(selected_issue.key)
+    if intake_result.selected_issue is not None:
+        issue_state = state.issues.get(intake_result.selected_issue.key)
         attempt_count = issue_state.attempt_count if issue_state is not None else 0
         record.status = RunStatus.SELECTED
-        record.issue_key = selected_issue.key
+        record.issue_key = intake_result.selected_issue.key
         record.updated_at = utc_now()
-        state.active_issue_key = selected_issue.key
+        state.active_issue_key = intake_result.selected_issue.key
         state_store.set_issue_state(
             state,
-            issue_key=selected_issue.key,
+            issue_key=intake_result.selected_issue.key,
             issue_state=IssueState(
                 status=RunStatus.SELECTED.value,
                 last_run_id=run_id,
                 attempt_count=attempt_count,
             ),
         )
-        analysis_summary = _analyze_selected_issue(
-            repo_root=repo_root,
-            config=config,
-            selected_issue=selected_issue,
+        analysis_result = AnalysisService(repo_root=repo_root, config=config).analyze_issue(
+            selected_issue=intake_result.selected_issue,
             dry_run=dry_run or config.dry_run,
         )
         state_store.save(state)
@@ -133,8 +127,10 @@ def run(*, dry_run: bool = False) -> RunSummary:
             run_id=run_id,
             status=record.status,
             message=(
-                f"Selected SonarQube issue {selected_issue.key} in {selected_issue.file_path} "
-                f"({selected_issue.rule}, {selected_issue.severity}). {analysis_summary}"
+                f"[{config.execution_mode}] Selected SonarQube issue "
+                f"{intake_result.selected_issue.key} in {intake_result.selected_issue.file_path} "
+                f"({intake_result.selected_issue.rule}, {intake_result.selected_issue.severity}). "
+                f"{analysis_result.summary}"
             ),
             state_path=config.state.path,
         )
@@ -143,110 +139,13 @@ def run(*, dry_run: bool = False) -> RunSummary:
     record.updated_at = utc_now()
     state.active_issue_key = None
     state_store.save(state)
-    LOGGER.info("run complete", extra={"run_id": run_id, "issue_count": issue_count})
+    LOGGER.info(
+        "run complete",
+        extra={"run_id": run_id, "issue_count": intake_result.issue_count},
+    )
     return RunSummary(
         run_id=run_id,
         status=record.status,
-        message=no_issue_message,
+        message=f"[{config.execution_mode}] {intake_result.message}",
         state_path=config.state.path,
     )
-
-
-def _select_issue(
-    *,
-    repo_root: Path,
-    config: AppConfig,
-    dry_run: bool,
-    state: AppState,
-    run_id: str,
-) -> tuple[SonarIssue | None, int, str]:
-    """Fetch and select one eligible SonarQube issue.
-
-    Args:
-        repo_root: Repository root path.
-        config: Application configuration.
-        dry_run: Whether the current run is executing in dry-run mode.
-        state: Current application state.
-        run_id: Active run identifier.
-
-    Returns:
-        A tuple of selected issue, fetched issue count, and fallback message.
-    """
-    issue_count = 0
-    if dry_run and config.mock_sonar_issues_path is not None:
-        issues = load_issues_fixture(config.mock_sonar_issues_path)
-        issue_count = len(issues)
-        existing_issues = [issue for issue in issues if _issue_file_exists(repo_root, issue)]
-        selected_issue = IssueSelector(config).select(existing_issues, state)
-        if selected_issue is None:
-            return (
-                None,
-                issue_count,
-                f"No eligible SonarQube issue found in fixture {config.mock_sonar_issues_path}.",
-            )
-        return selected_issue, issue_count, ""
-
-    try:
-        sonar_client = SonarClient(load_sonarqube_connection_config())
-    except SettingsError:
-        LOGGER.info("skipped SonarQube fetch", extra={"run_id": run_id})
-        return None, issue_count, "No issue selected. SonarQube credentials not configured."
-
-    issues = sonar_client.search_open_issues()
-    issue_count = len(issues)
-    existing_issues = [issue for issue in issues if _issue_file_exists(repo_root, issue)]
-    selected_issue = IssueSelector(config).select(existing_issues, state)
-    if selected_issue is None:
-        return (
-            None,
-            issue_count,
-            f"No eligible SonarQube issue found among {issue_count} open issues.",
-        )
-    return selected_issue, issue_count, ""
-
-
-def _analyze_selected_issue(
-    *,
-    repo_root: Path,
-    config: AppConfig,
-    selected_issue: SonarIssue,
-    dry_run: bool,
-) -> str:
-    """Analyze a selected issue when a dry-run analysis fixture is configured.
-
-    Args:
-        repo_root: Repository root path.
-        config: Application configuration.
-        selected_issue: Selected SonarQube issue.
-        dry_run: Whether the current run is in dry-run mode.
-
-    Returns:
-        Human-readable analysis summary text.
-    """
-    context = ContextBuilder(repo_root, config).build(selected_issue)
-    if context is None:
-        return "Context unavailable for the selected issue."
-    if not dry_run or config.mock_llm_analysis_path is None:
-        return f"Context ready from lines {context.snippet.start_line}-{context.snippet.end_line}."
-
-    analysis = FixGenerator(FixtureLLMClient(config.mock_llm_analysis_path)).analyze(
-        selected_issue,
-        context,
-    )
-    return (
-        f"Analysis classification: {analysis.classification.value}. "
-        f"Strategy: {analysis.proposed_strategy}"
-    )
-
-
-def _issue_file_exists(repo_root: Path, issue: SonarIssue) -> bool:
-    """Check whether an issue points to an existing local file.
-
-    Args:
-        repo_root: Repository root path.
-        issue: Candidate SonarQube issue.
-
-    Returns:
-        ``True`` if the file exists locally, otherwise ``False``.
-    """
-    return (repo_root / issue.file_path).exists()
