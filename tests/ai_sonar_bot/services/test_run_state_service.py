@@ -109,7 +109,6 @@ def test_build_summary_includes_merge_request_action(tmp_path: Path) -> None:
     )
 
     assert (
-        summary.message
-        == "[ci] Published successfully. Merge request reused: "
+        summary.message == "[ci] Published successfully. Merge request reused: "
         "https://gitlab.example.com/group/project/-/merge_requests/9"
     )
