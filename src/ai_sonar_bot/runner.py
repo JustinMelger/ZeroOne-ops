@@ -224,8 +224,8 @@ def run(*, dry_run: bool = False) -> RunSummary:
                     last_run_id=run_id,
                     attempt_count=attempt_count + 1,
                     branch_name=record.branch_name,
-                    ),
-                )
+                ),
+            )
             if config.execution_mode == "ci":
                 publish_result = _publish_branch_and_create_mr(
                     repo_root=repo_root,
