@@ -54,3 +54,16 @@ class MergeRequestService:
             description=description,
             labels=labels,
         )
+
+    def find_open(
+        self,
+        project_id: str,
+        source_branch: str,
+        target_branch: str,
+    ) -> MergeRequestInfo | None:
+        """Find an existing open merge request."""
+        return self.gitlab_client.find_open_merge_request(
+            project_id=project_id,
+            source_branch=source_branch,
+            target_branch=target_branch,
+        )

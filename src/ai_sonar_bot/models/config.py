@@ -48,6 +48,20 @@ class GitLabConfig(BaseModel):
     labels: list[str] = Field(default_factory=list)
 
 
+class GitLabConnectionConfig(BaseModel):
+    """Configure GitLab API connectivity.
+
+    Attributes:
+        url: GitLab base URL.
+        token: GitLab API token.
+        project_id: GitLab project identifier.
+    """
+
+    url: str
+    token: str
+    project_id: str
+
+
 class SonarQubeConnectionConfig(BaseModel):
     """Configure SonarQube API connectivity.
 

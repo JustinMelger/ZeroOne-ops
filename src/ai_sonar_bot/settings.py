@@ -13,7 +13,12 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from ai_sonar_bot.models.config import AppConfig, OpenAIConnectionConfig, SonarQubeConnectionConfig
+from ai_sonar_bot.models.config import (
+    AppConfig,
+    GitLabConnectionConfig,
+    OpenAIConnectionConfig,
+    SonarQubeConnectionConfig,
+)
 
 
 class SettingsError(RuntimeError):
@@ -146,4 +151,32 @@ def load_openai_connection_config() -> OpenAIConnectionConfig:
         api_key=required["OPENAI_API_KEY"] or "",
         model=required["OPENAI_MODEL"] or "",
         base_url=os.environ.get("OPENAI_BASE_URL"),
+    )
+
+
+def load_gitlab_connection_config() -> GitLabConnectionConfig:
+    """Load GitLab connection settings from the environment.
+
+    Returns:
+        Validated GitLab connection settings.
+
+    Raises:
+        SettingsError: If a required GitLab environment variable is missing.
+    """
+    _load_environment_file()
+    project_id = os.environ.get("GITLAB_PROJECT_ID") or os.environ.get("CI_PROJECT_ID")
+    required = {
+        "GITLAB_URL": os.environ.get("GITLAB_URL"),
+        "GITLAB_TOKEN": os.environ.get("GITLAB_TOKEN"),
+        "GITLAB_PROJECT_ID": project_id,
+    }
+    missing = sorted(name for name, value in required.items() if not value)
+    if missing:
+        names = ", ".join(missing)
+        raise SettingsError(f"Missing required GitLab environment variables: {names}")
+
+    return GitLabConnectionConfig(
+        url=required["GITLAB_URL"] or "",
+        token=required["GITLAB_TOKEN"] or "",
+        project_id=project_id or "",
     )

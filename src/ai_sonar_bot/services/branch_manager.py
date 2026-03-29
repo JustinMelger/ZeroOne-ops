@@ -97,9 +97,14 @@ class BranchManager:
         self._run_git_command(["commit", "-m", commit_message])
         commit_sha = self._run_git_command(["rev-parse", "HEAD"]).strip()
         if push:
-            current_branch = self._run_git_command(["branch", "--show-current"]).strip()
-            self._run_git_command(["push", "-u", remote_name, current_branch])
+            self.push_current_branch(remote_name=remote_name)
         return commit_sha
+
+    def push_current_branch(self, *, remote_name: str = "origin") -> str:
+        """Push the current branch to the configured remote."""
+        current_branch = self._run_git_command(["branch", "--show-current"]).strip()
+        self._run_git_command(["push", "-u", remote_name, current_branch])
+        return current_branch
 
     def _run_git_command(self, args: list[str]) -> str:
         """Run a git command in the repository.

@@ -30,9 +30,15 @@ class AnalysisResult:
 
     Attributes:
         summary: Human-readable analysis summary.
+        patch: Generated patch proposal, if one was produced.
+        patch_applied: Whether a patch was applied to the working tree.
+        validation_passed: Whether validation passed after patch application.
     """
 
     summary: str
+    patch: PatchProposal | None = None
+    patch_applied: bool = False
+    validation_passed: bool | None = None
 
 
 class AnalysisService:
@@ -69,19 +75,12 @@ class AnalysisService:
         context = self.context_builder.build(selected_issue)
         if context is None:
             return AnalysisResult(summary="Context unavailable for the selected issue.")
-        if not dry_run:
-            return AnalysisResult(
-                summary=(
-                    "Context ready from lines "
-                    f"{context.snippet.start_line}-{context.snippet.end_line}."
-                )
-            )
 
         llm_client = self._build_llm_client()
         if llm_client is None:
             return AnalysisResult(
                 summary=(
-                    "Context ready from lines "
+                    "LLM backend not configured. Context ready from lines "
                     f"{context.snippet.start_line}-{context.snippet.end_line}."
                 )
             )
@@ -109,7 +108,8 @@ class AnalysisService:
                     clear_patch=True,
                 )
             return AnalysisResult(
-                summary=f"{summary}. Patch generation skipped because manual review is required."
+                summary=f"{summary}. Patch generation skipped because manual review is required.",
+                validation_passed=False,
             )
         if self.config.mock_llm_patch_path is None and not isinstance(llm_client, OpenAILLMClient):
             return AnalysisResult(summary=summary)
@@ -125,16 +125,16 @@ class AnalysisService:
             f"{summary}. Proposed files: {', '.join(patch.files_touched)}. "
             f"MR title: {patch.mr_title}"
         )
-        if not self.config.apply_patch_in_dry_run:
-            return AnalysisResult(summary=summary)
-        return AnalysisResult(
-            summary=self._apply_and_validate_patch(
-                summary=summary,
-                fix_generator=fix_generator,
-                selected_issue=selected_issue,
-                context=context,
-                initial_patch=patch,
-            )
+        should_apply_patch = not dry_run or self.config.apply_patch_in_dry_run
+        if not should_apply_patch:
+            return AnalysisResult(summary=summary, patch=patch)
+        return self._apply_and_validate_patch(
+            dry_run=dry_run,
+            patch=patch,
+            summary=summary,
+            fix_generator=fix_generator,
+            selected_issue=selected_issue,
+            context=context,
         )
 
     def _build_llm_client(self) -> FixtureLLMClient | OpenAILLMClient | None:
@@ -159,49 +159,73 @@ class AnalysisService:
     def _apply_and_validate_patch(
         self,
         *,
+        dry_run: bool,
+        patch: PatchProposal,
         summary: str,
         fix_generator: FixGenerator,
         selected_issue: SonarIssue,
         context: IssueContext,
-        initial_patch: PatchProposal,
-    ) -> str:
+    ) -> AnalysisResult:
         """Apply a patch locally and run configured validation commands.
 
         Args:
+            dry_run: Whether the current execution is a dry run.
+            patch: Initial generated patch proposal.
             summary: Existing summary text to extend.
             fix_generator: LLM-backed fix generator.
             selected_issue: Selected SonarQube issue.
             context: Built issue context.
-            initial_patch: First generated patch proposal.
 
         Returns:
-            Human-readable execution summary including validation outcome.
+            Structured analysis result including validation outcome.
         """
-        patch = initial_patch
         for attempt in range(self.config.max_retry_count + 1):
             snapshot = self._snapshot_files(patch.files_touched)
             try:
                 self.patch_applier.apply(patch)
             except PatchApplyError as error:
-                return f"{summary}. Patch apply failed: {error}"
+                return AnalysisResult(
+                    summary=f"{summary}. Patch apply failed: {error}",
+                    patch=patch,
+                    patch_applied=False,
+                    validation_passed=False,
+                )
             validation_result = self.validator.run(self.config.validation_commands)
             if validation_result.passed:
+                mode_label = "dry-run" if dry_run else "run"
                 if attempt == 0:
-                    return (
-                        f"{summary}. Patch applied locally in dry-run. {validation_result.summary}"
+                    return AnalysisResult(
+                        summary=(
+                            f"{summary}. Patch applied locally in {mode_label}. "
+                            f"{validation_result.summary}"
+                        ),
+                        patch=patch,
+                        patch_applied=True,
+                        validation_passed=True,
                     )
-                return (
-                    f"{summary}. Patch applied locally in dry-run. "
-                    f"{validation_result.summary} after retry {attempt}."
+                return AnalysisResult(
+                    summary=(
+                        f"{summary}. Patch applied locally in {mode_label}. "
+                        f"{validation_result.summary} after retry {attempt}."
+                    ),
+                    patch=patch,
+                    patch_applied=True,
+                    validation_passed=True,
                 )
             self._restore_files(snapshot)
             if attempt >= self.config.max_retry_count:
-                return (
-                    f"{summary}. Patch applied locally in dry-run. "
-                    f"{validation_result.summary} Retry attempts exhausted."
+                mode_label = "dry-run" if dry_run else "run"
+                return AnalysisResult(
+                    summary=(
+                        f"{summary}. Patch applied locally in {mode_label}. "
+                        f"{validation_result.summary} Retry attempts exhausted."
+                    ),
+                    patch=patch,
+                    patch_applied=False,
+                    validation_passed=False,
                 )
             patch = fix_generator.generate(selected_issue, context)
-        return summary
+        return AnalysisResult(summary=summary, patch=patch)
 
     def _snapshot_files(self, file_paths: list[str]) -> dict[Path, str | None]:
         """Capture file contents before applying a patch.
