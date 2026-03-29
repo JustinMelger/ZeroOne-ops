@@ -75,4 +75,4 @@ warn_unused_configs = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "--cov=ai_sonar_bot --cov-report=term-missing"
+addopts = "--cov=ai_sonar_bot --cov-report=term-missing --cov-fail-under=80"

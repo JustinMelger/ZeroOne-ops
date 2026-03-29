@@ -20,17 +20,18 @@ Completed:
 - [x] SonarQube client implementation
 - [x] automatic `.env` loading
 - [x] service-level refactor for issue intake and analysis orchestration
-
-Not yet implemented:
-
 - [x] issue selection wired into the runner
 - [x] code context analysis
 - [x] LLM integration
 - [x] patch application
-- [ ] git branch and commit automation
-- [ ] GitLab merge request creation
-- [ ] CI execution mode
+- [x] git branch and commit automation
+- [x] GitLab merge request creation
+- [x] CI execution mode
+
+Still open:
+
 - [ ] optional local approval workflow
+- [ ] richer failure logging in state and logs
 
 ## V1 Delivery Phases
 
@@ -117,8 +118,8 @@ Goal:
 Done when:
 
 - [x] a generated patch can be applied safely
-- [ ] validation output is captured and summarized
-- [ ] failed validation can trigger one controlled retry
+- [x] validation output is captured and summarized
+- [x] failed validation can trigger one controlled retry
 
 ### Phase 6: Git Automation
 
@@ -131,9 +132,9 @@ Goal:
 
 Done when:
 
-- [ ] the bot creates a predictable branch name
-- [ ] unsafe repository states are rejected
-- [ ] commit and push work from the configured repository root
+- [x] the bot creates a predictable branch name
+- [x] unsafe repository states are rejected
+- [x] commit and push work from the configured repository root
 
 ### Phase 7: GitLab Merge Request Creation
 
@@ -145,9 +146,10 @@ Goal:
 
 Done when:
 
-- [ ] a validated branch can produce a GitLab merge request
-- [ ] the merge request contains SonarQube context
-- [ ] the local state records the merge request URL
+- [x] a validated branch can produce a GitLab merge request
+- [x] the merge request contains SonarQube context
+- [x] the local state records the merge request URL
+- [x] duplicate open merge requests are reused instead of recreated
 
 ### Phase 8: Human Approval Gate
 
@@ -159,9 +161,9 @@ Goal:
 
 Done when:
 
-- [ ] CI mode bypasses terminal prompts and creates merge requests automatically
+- [x] CI mode bypasses terminal prompts and creates merge requests automatically
 - [ ] local mode can still request interactive approval when enabled
-- [ ] approval behavior is reflected in config and run state
+- [x] approval behavior is reflected in config and run state
 
 ### Phase 9: Hardening
 
@@ -175,7 +177,7 @@ Goal:
 Done when:
 
 - [ ] the main execution path is covered by tests
-- [ ] CI enforces an agreed minimum coverage threshold
+- [x] CI enforces an agreed minimum coverage threshold
 - [ ] failures are diagnosable from logs and state
 
 ## Recommended Implementation Order
@@ -183,12 +185,13 @@ Done when:
 - [x] Wire issue selection into the runner.
 - [x] Improve the context builder around issue file and line.
 - [x] Extract issue intake and analysis orchestration into dedicated services.
-- [ ] Implement git precondition checks and branch creation.
-- [ ] Implement the GitLab client for merge request creation.
+- [x] Implement git precondition checks and branch creation.
+- [x] Implement the GitLab client for merge request creation.
 - [x] Implement LLM analysis and patch generation.
-- [ ] Implement patch apply and validation retry flow.
-- [ ] Add CI execution mode and optional local approval flow.
-- [ ] Harden coverage, logging, and failure handling.
+- [x] Implement patch apply and validation retry flow.
+- [ ] Add optional local approval flow.
+- [x] Harden duplicate-MR messaging and reuse behavior.
+- [ ] Harden logging and failure handling.
 
 ## Deferred Beyond V1
 

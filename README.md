@@ -9,9 +9,16 @@ This repository currently contains:
 - functional and technical design documents,
 - a Python project scaffold,
 - configuration and state models,
-- a dry-run capable CLI and runner skeleton.
+- a working GitLab-first execution pipeline.
 
-SonarQube intake, dry-run issue analysis, fixture-backed patch generation, and the real OpenAI dry-run path are implemented. GitLab MR creation and non-dry-run publish flow are still in progress.
+Implemented today:
+
+- SonarQube issue intake and selection
+- focused code context building
+- fixture-backed and OpenAI-backed analysis
+- patch generation, application, validation, and single retry
+- local branch creation and commit flow
+- CI-mode branch push and GitLab merge request creation or reuse
 
 ## Tooling
 
@@ -39,7 +46,7 @@ For analysis-only dry-runs, the scaffold also includes [fixtures/llm/analysis.js
 
 For patch-proposal dry-runs, the scaffold also includes [fixtures/llm/patch.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/fixtures/llm/patch.json) through `mock_llm_patch_path`.
 
-This fixture mode is only used during dry-run. Normal runs still expect real SonarQube credentials.
+This fixture mode is only used during dry-run. Normal runs expect real SonarQube credentials for issue intake.
 
 The default execution mode is `ci`, which means the intended approval gate is GitLab merge request review. If you want an eventual local interactive flow, set `AI_SONAR_BOT_EXECUTION_MODE=local` or change `execution_mode` in [.ai-sonar-bot.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/.ai-sonar-bot.json).
 
@@ -69,6 +76,42 @@ uv run mypy src
 uv run ruff check .
 uv run ruff format --check .
 ```
+
+## Execution Modes
+
+Local mode:
+
+- creates a branch
+- applies and validates the patch
+- commits locally
+- does not create a merge request unless you switch to CI mode
+
+CI mode:
+
+- creates a branch
+- applies and validates the patch
+- commits and pushes the branch
+- creates or reuses a GitLab merge request
+- reports in the run summary whether the merge request was created or reused
+
+Required GitLab variables for real MR creation:
+
+- `GITLAB_URL`
+- `GITLAB_TOKEN`
+- `GITLAB_PROJECT_ID` or GitLab CI's built-in `CI_PROJECT_ID`
+
+In GitLab CI, `CI_PROJECT_ID` is used automatically when `GITLAB_PROJECT_ID` is not set.
+
+## Quality Gate
+
+The repository quality pipeline runs in this order:
+
+1. `lint`
+2. `architecture`
+3. `typecheck`
+4. `test`
+
+The test step enforces a minimum total coverage threshold of `80%`.
 
 ## Configuration
 

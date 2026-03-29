@@ -12,6 +12,7 @@ V1 constraints:
 - one issue processed per run
 - local JSON state store
 - non-interactive CI execution supported
+- low-severity maintainability issues targeted first
 
 ## 2. Technical Objectives
 
@@ -110,11 +111,13 @@ The bot runs as a synchronous pipeline in v1:
 5. Use `AnalysisService` to build code context.
 6. Request analysis and patch proposal from the LLM.
 7. Apply changes.
-8. Run validation commands.
-9. In local mode, optionally request human approval.
-10. Commit and push branch.
-11. Create GitLab merge request.
-12. Persist final state.
+8. Run validation commands and retry once on failure.
+9. In local mode, stop after a validated local commit.
+10. In CI mode, push branch and create or reuse a GitLab merge request.
+11. Persist final state.
+
+The current implementation follows this path. The remaining approval work is
+limited to an optional local interactive mode.
 
 ### 5.2 Execution Diagram
 
@@ -138,13 +141,11 @@ flowchart TD
     N -- Yes --> R{Execution mode}
     P -- Yes --> R
     R -- CI --> U[Commit and Push]
-    R -- Local --> S[Optional human approval]
-    S --> T{Approved?}
-    T -- No --> Q
-    T -- Yes --> U
-    U --> V[Create GitLab MR]
-    V --> W[Persist success state]
-    W --> X[Exit]
+    R -- Local --> V[Create Local Commit]
+    U --> W[Create or Reuse GitLab MR]
+    V --> X[Persist success state]
+    W --> X
+    X --> Y[Exit]
 ```
 
 ## 6. Python Module Responsibilities
@@ -201,8 +202,9 @@ Responsibilities:
 
 Responsibilities:
 
-- resolve project ID if needed,
 - create merge requests,
+- look up existing open merge requests for the generated branch,
+- use `CI_PROJECT_ID` as a fallback when `GITLAB_PROJECT_ID` is not set in GitLab CI,
 - optionally add labels, assignees, or reviewers later.
 
 ### 6.6 `providers/llm_client.py`
@@ -230,6 +232,8 @@ Responsibilities:
 - choose the active LLM backend,
 - coordinate analysis and patch generation,
 - enforce rejection rules for manual-only issues,
+- apply generated patches,
+- run validation and one retry,
 - optionally apply generated patches during dry-run testing.
 
 ### 6.9 `services/issue_selector.py`
@@ -291,7 +295,8 @@ Responsibilities:
 Responsibilities:
 
 - assemble merge request title and description,
-- call GitLab client to create the MR,
+- look up an existing open merge request for the work branch,
+- call GitLab client to create the MR only when reuse is not possible,
 - attach issue metadata in a consistent template.
 
 ### 6.16 `services/state_store.py`
@@ -317,6 +322,11 @@ Precedence order:
 1. CLI flags
 2. Environment variables
 3. `.ai-sonar-bot.json`
+
+GitLab project resolution:
+
+- use `GITLAB_PROJECT_ID` when explicitly configured,
+- otherwise use GitLab CI's `CI_PROJECT_ID` when available.
 4. defaults
 
 ## 7.2 Environment Variables
@@ -328,7 +338,7 @@ Required:
 - `SONARQUBE_PROJECT_KEY`
 - `GITLAB_URL`
 - `GITLAB_TOKEN`
-- `GITLAB_PROJECT_ID` or `GITLAB_PROJECT_PATH`
+- `GITLAB_PROJECT_ID` or GitLab CI `CI_PROJECT_ID`
 - `LLM_API_KEY`
 
 Optional:
@@ -904,7 +914,8 @@ Recommended order:
 6. Implement LLM integration and patch application.
 7. Implement CI execution mode and optional local approval flow.
 8. Implement GitLab MR creation.
-9. Add dry-run behavior and tests.
+9. Add duplicate-MR safeguards and clearer publish failure handling.
+10. Add dry-run behavior and tests.
 
 ## 20. Open Technical Risks
 
