@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from ai_sonar_bot.models.analysis import AnalysisClassification
+from ai_sonar_bot.models.analysis import AnalysisClassification, IssueContext, PatchProposal
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.providers.llm_client import (
@@ -20,6 +20,7 @@ from ai_sonar_bot.providers.llm_client import (
 from ai_sonar_bot.services.context_builder import ContextBuilder
 from ai_sonar_bot.services.fix_generator import FixGenerator
 from ai_sonar_bot.services.patch_applier import PatchApplier, PatchApplyError
+from ai_sonar_bot.services.validator import Validator
 from ai_sonar_bot.settings import SettingsError, load_openai_connection_config
 
 
@@ -53,6 +54,7 @@ class AnalysisService:
         self.config = config
         self.context_builder = ContextBuilder(repo_root, config)
         self.patch_applier = PatchApplier(repo_root)
+        self.validator = Validator(repo_root)
 
     def analyze_issue(self, *, selected_issue: SonarIssue, dry_run: bool) -> AnalysisResult:
         """Analyze a selected issue.
@@ -125,11 +127,15 @@ class AnalysisService:
         )
         if not self.config.apply_patch_in_dry_run:
             return AnalysisResult(summary=summary)
-        try:
-            self.patch_applier.apply(patch)
-        except PatchApplyError as error:
-            return AnalysisResult(summary=f"{summary}. Patch apply failed: {error}")
-        return AnalysisResult(summary=f"{summary}. Patch applied locally in dry-run.")
+        return AnalysisResult(
+            summary=self._apply_and_validate_patch(
+                summary=summary,
+                fix_generator=fix_generator,
+                selected_issue=selected_issue,
+                context=context,
+                initial_patch=patch,
+            )
+        )
 
     def _build_llm_client(self) -> FixtureLLMClient | OpenAILLMClient | None:
         """Build the configured LLM client for dry-run workflows.
@@ -149,3 +155,79 @@ class AnalysisService:
                 self.config.mock_llm_analysis_path,
                 patch_fixture_path=self.config.mock_llm_patch_path,
             )
+
+    def _apply_and_validate_patch(
+        self,
+        *,
+        summary: str,
+        fix_generator: FixGenerator,
+        selected_issue: SonarIssue,
+        context: IssueContext,
+        initial_patch: PatchProposal,
+    ) -> str:
+        """Apply a patch locally and run configured validation commands.
+
+        Args:
+            summary: Existing summary text to extend.
+            fix_generator: LLM-backed fix generator.
+            selected_issue: Selected SonarQube issue.
+            context: Built issue context.
+            initial_patch: First generated patch proposal.
+
+        Returns:
+            Human-readable execution summary including validation outcome.
+        """
+        patch = initial_patch
+        for attempt in range(self.config.max_retry_count + 1):
+            snapshot = self._snapshot_files(patch.files_touched)
+            try:
+                self.patch_applier.apply(patch)
+            except PatchApplyError as error:
+                return f"{summary}. Patch apply failed: {error}"
+            validation_result = self.validator.run(self.config.validation_commands)
+            if validation_result.passed:
+                if attempt == 0:
+                    return (
+                        f"{summary}. Patch applied locally in dry-run. {validation_result.summary}"
+                    )
+                return (
+                    f"{summary}. Patch applied locally in dry-run. "
+                    f"{validation_result.summary} after retry {attempt}."
+                )
+            self._restore_files(snapshot)
+            if attempt >= self.config.max_retry_count:
+                return (
+                    f"{summary}. Patch applied locally in dry-run. "
+                    f"{validation_result.summary} Retry attempts exhausted."
+                )
+            patch = fix_generator.generate(selected_issue, context)
+        return summary
+
+    def _snapshot_files(self, file_paths: list[str]) -> dict[Path, str | None]:
+        """Capture file contents before applying a patch.
+
+        Args:
+            file_paths: Repository-relative file paths touched by the patch.
+
+        Returns:
+            A mapping from absolute file path to previous file content, or
+            ``None`` when the file did not exist.
+        """
+        snapshot: dict[Path, str | None] = {}
+        for file_path in file_paths:
+            target = self.repo_root / file_path
+            snapshot[target] = target.read_text(encoding="utf-8") if target.exists() else None
+        return snapshot
+
+    def _restore_files(self, snapshot: dict[Path, str | None]) -> None:
+        """Restore files from a previously captured snapshot.
+
+        Args:
+            snapshot: Previously captured file content mapping.
+        """
+        for target, content in snapshot.items():
+            if content is None:
+                if target.exists():
+                    target.unlink()
+                continue
+            target.write_text(content, encoding="utf-8")

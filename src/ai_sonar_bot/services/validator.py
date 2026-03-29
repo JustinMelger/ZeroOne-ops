@@ -39,9 +39,39 @@ class Validator:
         Returns:
             Structured validation results for the executed commands.
         """
+        if not commands:
+            return ValidationResult(
+                passed=True,
+                results=[],
+                summary="No validation commands configured.",
+            )
         results: list[ValidationCommandResult] = []
         for command in commands:
-            started = time.perf_counter()
+            result = self._run_command(command)
+            results.append(result)
+            if result.exit_code != 0:
+                return ValidationResult(
+                    passed=False,
+                    results=results,
+                    summary=(f"Validation failed: {command} (exit code {result.exit_code})."),
+                )
+        return ValidationResult(
+            passed=True,
+            results=results,
+            summary="All validation commands passed.",
+        )
+
+    def _run_command(self, command: str) -> ValidationCommandResult:
+        """Run a single validation command.
+
+        Args:
+            command: Shell command to execute.
+
+        Returns:
+            Structured result for the executed command.
+        """
+        started = time.perf_counter()
+        try:
             completed = subprocess.run(
                 command,
                 cwd=self.repo_root,
@@ -51,24 +81,35 @@ class Validator:
                 timeout=self.timeout_seconds,
                 check=False,
             )
-            duration_ms = int((time.perf_counter() - started) * 1000)
-            results.append(
-                ValidationCommandResult(
-                    command=command,
-                    exit_code=completed.returncode,
-                    stdout=completed.stdout,
-                    stderr=completed.stderr,
-                    duration_ms=duration_ms,
-                )
-            )
-            if completed.returncode != 0:
-                return ValidationResult(
-                    passed=False,
-                    results=results,
-                    summary=f"Validation failed: {command}",
-                )
-        return ValidationResult(
-            passed=True,
-            results=results,
-            summary="All validation commands passed.",
+            returncode = completed.returncode
+            stdout = completed.stdout
+            stderr = completed.stderr
+        except subprocess.TimeoutExpired as error:
+            returncode = 124
+            stdout = _coerce_output(error.stdout)
+            stderr = _coerce_output(error.stderr)
+            stderr = f"{stderr}\nCommand timed out after {self.timeout_seconds}s.".strip()
+        duration_ms = int((time.perf_counter() - started) * 1000)
+        return ValidationCommandResult(
+            command=command,
+            exit_code=returncode,
+            stdout=stdout,
+            stderr=stderr,
+            duration_ms=duration_ms,
         )
+
+
+def _coerce_output(value: bytes | str | None) -> str:
+    """Normalize subprocess output values to strings.
+
+    Args:
+        value: Captured subprocess output value.
+
+    Returns:
+        Decoded string output.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value
