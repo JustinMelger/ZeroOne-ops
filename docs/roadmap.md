@@ -31,7 +31,6 @@ Completed:
 
 Still open:
 
-- [ ] optional local approval workflow
 - [x] richer failure logging in state and logs
 
 ## V1 Delivery Phases
@@ -163,7 +162,7 @@ Goal:
 Done when:
 
 - [x] CI mode bypasses terminal prompts and creates merge requests automatically
-- [ ] local mode can still request interactive approval when enabled
+- [x] local mode can still request interactive approval when enabled
 - [x] approval behavior is reflected in config and run state
 
 ### Phase 9: Hardening
@@ -190,7 +189,7 @@ Done when:
 - [x] Implement the GitLab client for merge request creation.
 - [x] Implement LLM analysis and patch generation.
 - [x] Implement patch apply and validation retry flow.
-- [ ] Add optional local approval flow.
+- [x] Add optional local approval flow.
 - [x] Harden duplicate-MR messaging and reuse behavior.
 - [x] Harden logging and failure handling.
 

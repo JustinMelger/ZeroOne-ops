@@ -44,6 +44,7 @@ class FailureStage(StrEnum):
     ANALYSIS = "analysis"
     PATCH_APPLY = "patch_apply"
     VALIDATION = "validation"
+    APPROVAL = "approval"
     BRANCH_PREPARATION = "branch_preparation"
     COMMIT = "commit"
     PUBLISH = "publish"

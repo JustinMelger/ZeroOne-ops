@@ -95,6 +95,17 @@ def run(*, dry_run: bool = False) -> RunSummary:
             error_message=execution_result.failure.message,
             failure=execution_result.failure,
         )
+    if (
+        execution_result.final_status is not None
+        and execution_result.final_status.value == "rejected"
+    ):
+        return run_state_service.reject_issue(
+            record=record,
+            issue_key=intake_result.selected_issue.key,
+            attempt_count=attempt_count + 1,
+            branch_name=execution_result.branch_name,
+            message=execution_result.status_message,
+        )
 
     if execution_result.commit_sha is not None:
         run_state_service.mark_fix_generated(

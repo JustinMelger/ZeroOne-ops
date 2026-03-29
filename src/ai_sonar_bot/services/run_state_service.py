@@ -182,6 +182,45 @@ class RunStateService:
             message=error_message,
         )
 
+    def reject_issue(
+        self,
+        *,
+        record: RunRecord,
+        issue_key: str,
+        attempt_count: int,
+        branch_name: str | None,
+        message: str,
+    ) -> RunSummary:
+        """Persist a local approval rejection and return the run summary."""
+        record.status = RunStatus.REJECTED
+        record.branch_name = branch_name
+        record.updated_at = utc_now()
+        self.state_store.set_issue_state(
+            self.state,
+            issue_key=issue_key,
+            issue_state=IssueState(
+                status=RunStatus.REJECTED.value,
+                last_run_id=record.run_id,
+                attempt_count=attempt_count,
+                branch_name=branch_name,
+                last_error=message,
+            ),
+        )
+        self.state_store.save(self.state)
+        LOGGER.info(
+            "run rejected",
+            extra={
+                "run_id": record.run_id,
+                "issue_key": issue_key,
+                "branch_name": branch_name,
+            },
+        )
+        return self.build_summary(
+            run_id=record.run_id,
+            status=record.status,
+            message=message,
+        )
+
     def finish_no_issue(self, *, record: RunRecord, message: str, issue_count: int) -> RunSummary:
         """Persist a no-issue result and return the run summary."""
         record.status = RunStatus.NO_ISSUE

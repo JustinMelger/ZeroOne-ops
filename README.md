@@ -83,7 +83,8 @@ Local mode:
 
 - creates a branch
 - applies and validates the patch
-- commits locally
+- requests interactive approval before commit when approval is enabled
+- commits locally after approval
 - does not create a merge request unless you switch to CI mode
 
 CI mode:
@@ -93,6 +94,7 @@ CI mode:
 - commits and pushes the branch
 - creates or reuses a GitLab merge request
 - reports in the run summary whether the merge request was created or reused
+- never blocks for terminal approval
 
 Required GitLab variables for real MR creation:
 

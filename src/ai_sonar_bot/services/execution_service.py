@@ -10,9 +10,10 @@ from pathlib import Path
 
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.sonar import SonarIssue
-from ai_sonar_bot.models.state import FailureDetails, FailureStage
+from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunStatus
 from ai_sonar_bot.providers.gitlab_client import GitLabClient, GitLabClientError
 from ai_sonar_bot.services.analysis_service import AnalysisResult, AnalysisService
+from ai_sonar_bot.services.approval import ApprovalService
 from ai_sonar_bot.services.branch_manager import BranchManager, BranchManagerError
 from ai_sonar_bot.services.mr_service import MergeRequestService
 from ai_sonar_bot.settings import load_gitlab_connection_config
@@ -30,6 +31,7 @@ class ExecutionResult:
     mr_url: str | None = None
     mr_action: str | None = None
     publish_attempted: bool = False
+    final_status: RunStatus | None = None
 
 
 @dataclass
@@ -60,6 +62,7 @@ class ExecutionService:
         self.repo_root = repo_root
         self.config = config
         self.analysis_service = AnalysisService(repo_root=repo_root, config=config)
+        self.approval_service = ApprovalService()
         self.branch_manager = BranchManager(repo_root)
 
     def execute(self, *, selected_issue: SonarIssue, dry_run: bool) -> ExecutionResult:
@@ -111,6 +114,36 @@ class ExecutionService:
             )
         patch = analysis_result.patch
         assert patch is not None
+        if self.config.requires_local_approval():
+            validation_result = analysis_result.validation_result
+            if validation_result is None:
+                return ExecutionResult(
+                    analysis_result=analysis_result,
+                    status_message=(
+                        "Local approval could not run because validation did not execute."
+                    ),
+                    failure=FailureDetails(
+                        stage=FailureStage.APPROVAL,
+                        message=(
+                            "Local approval could not run because validation did not execute."
+                        ),
+                    ),
+                    branch_name=branch_name,
+                )
+            approved = self.approval_service.request(
+                issue=selected_issue,
+                changed_files=patch.files_touched,
+                validation=validation_result,
+                commit_message=patch.commit_message,
+                mr_title=patch.mr_title,
+            )
+            if not approved:
+                return ExecutionResult(
+                    analysis_result=analysis_result,
+                    status_message="Local approval rejected the proposed change.",
+                    branch_name=branch_name,
+                    final_status=RunStatus.REJECTED,
+                )
 
         try:
             commit_sha = self.branch_manager.commit_and_push(

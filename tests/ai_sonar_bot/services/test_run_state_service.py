@@ -112,3 +112,29 @@ def test_build_summary_includes_merge_request_action(tmp_path: Path) -> None:
         summary.message == "[ci] Published successfully. Merge request reused: "
         "https://gitlab.example.com/group/project/-/merge_requests/9"
     )
+
+
+def test_reject_issue_persists_rejected_status(tmp_path: Path) -> None:
+    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    config = build_config(state_path)
+    store = StateStore(
+        state_path,
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key="project-key",
+    )
+    service = RunStateService(config=config, state_store=store, state=build_state())
+
+    record = service.start_run("run-1")
+    summary = service.reject_issue(
+        record=record,
+        issue_key="ISSUE-1",
+        attempt_count=1,
+        branch_name="ai-sonar/fix",
+        message="Local approval rejected the proposed change.",
+    )
+
+    loaded = store.load()
+    assert summary.status == RunStatus.REJECTED
+    assert loaded.issues["ISSUE-1"].status == "rejected"
+    assert loaded.issues["ISSUE-1"].branch_name == "ai-sonar/fix"

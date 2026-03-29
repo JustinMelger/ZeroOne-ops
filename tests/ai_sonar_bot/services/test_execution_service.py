@@ -83,7 +83,17 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
             patch=build_patch(),
             patch_applied=True,
             validation_passed=True,
+            validation_result={
+                "passed": True,
+                "results": [],
+                "summary": "All validation commands passed.",
+            },
         ),
+    )
+    monkeypatch.setattr(
+        service.approval_service,
+        "request",
+        lambda issue, changed_files, validation, commit_message, mr_title: True,
     )
 
     def fail_commit(commit_message: str, *, push: bool = False) -> str:
@@ -126,6 +136,11 @@ def test_execute_reuses_existing_merge_request_in_ci_mode(tmp_path: Path, monkey
             patch=build_patch(),
             patch_applied=True,
             validation_passed=True,
+            validation_result={
+                "passed": True,
+                "results": [],
+                "summary": "All validation commands passed.",
+            },
         ),
     )
     monkeypatch.setattr(
@@ -176,3 +191,45 @@ def test_execute_reuses_existing_merge_request_in_ci_mode(tmp_path: Path, monkey
     assert result.mr_action == "reused"
     assert result.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/9"
     assert result.publish_attempted is True
+
+
+def test_execute_returns_rejected_when_local_approval_declines(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = ExecutionService(tmp_path, build_config(execution_mode="local"))
+
+    monkeypatch.setattr(service.branch_manager, "ensure_ready", lambda: None)
+    monkeypatch.setattr(
+        service.branch_manager,
+        "build_branch_name",
+        lambda *, branch_prefix, issue_key, file_path: "ai-sonar/fix",
+    )
+    monkeypatch.setattr(service.branch_manager, "create_branch", lambda branch_name: None)
+    monkeypatch.setattr(
+        service.analysis_service,
+        "analyze_issue",
+        lambda *, selected_issue, dry_run: AnalysisResult(
+            summary="Patch applied locally in run. All validation commands passed.",
+            patch=build_patch(),
+            patch_applied=True,
+            validation_passed=True,
+            validation_result={
+                "passed": True,
+                "results": [],
+                "summary": "All validation commands passed.",
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        service.approval_service,
+        "request",
+        lambda issue, changed_files, validation, commit_message, mr_title: False,
+    )
+
+    result = service.execute(selected_issue=build_issue(), dry_run=False)
+
+    assert result.failure is None
+    assert result.final_status == "rejected"
+    assert result.status_message == "Local approval rejected the proposed change."
+    assert result.commit_sha is None

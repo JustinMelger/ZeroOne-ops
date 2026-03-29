@@ -14,6 +14,7 @@ from ai_sonar_bot.models.analysis import (
     IssueContext,
     PatchProposal,
     ValidationCommandResult,
+    ValidationResult,
 )
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.sonar import SonarIssue
@@ -39,6 +40,7 @@ class AnalysisResult:
         patch: Generated patch proposal, if one was produced.
         patch_applied: Whether a patch was applied to the working tree.
         validation_passed: Whether validation passed after patch application.
+        validation_result: Captured validation result when validation was run.
         failure: Structured failure details when analysis or validation fails.
     """
 
@@ -46,6 +48,7 @@ class AnalysisResult:
     patch: PatchProposal | None = None
     patch_applied: bool = False
     validation_passed: bool | None = None
+    validation_result: ValidationResult | None = None
     failure: FailureDetails | None = None
 
 
@@ -197,6 +200,7 @@ class AnalysisService:
                     patch=patch,
                     patch_applied=False,
                     validation_passed=False,
+                    validation_result=None,
                     failure=FailureDetails(
                         stage=FailureStage.PATCH_APPLY,
                         message=f"Patch apply failed: {error}",
@@ -215,6 +219,7 @@ class AnalysisService:
                         patch=patch,
                         patch_applied=True,
                         validation_passed=True,
+                        validation_result=validation_result,
                     )
                 return AnalysisResult(
                     summary=(
@@ -224,6 +229,7 @@ class AnalysisService:
                     patch=patch,
                     patch_applied=True,
                     validation_passed=True,
+                    validation_result=validation_result,
                 )
             self._restore_files(snapshot)
             if attempt >= self.config.max_retry_count:
@@ -236,6 +242,7 @@ class AnalysisService:
                     patch=patch,
                     patch_applied=False,
                     validation_passed=False,
+                    validation_result=validation_result,
                     failure=self._build_validation_failure(
                         validation_summary=validation_result.summary,
                         retry_count=attempt,

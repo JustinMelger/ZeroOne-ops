@@ -38,5 +38,5 @@ class ApprovalService:
         print(f"Validation: {validation.summary}")
         print(f"Commit message: {commit_message}")
         print(f"Merge request title: {mr_title}")
-        response = input("Create merge request? [y/N]: ").strip().lower()
+        response = input("Approve change? [y/N]: ").strip().lower()
         return response in {"y", "yes"}
