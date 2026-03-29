@@ -77,6 +77,81 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
+## Docker And GitLab CI
+
+A containerized runtime is included in [Dockerfile](/Users/justinmelger/Desktop/github/ai-sonar-bot/Dockerfile). It installs `uv`, the bot, and the full project dependency set so validation commands such as `uv run pytest` are available when the bot runs inside the repository checkout.
+
+Build the image:
+
+```bash
+docker build -t ai-sonar-bot:latest .
+```
+
+Run it against a checked-out repository:
+
+```bash
+docker run --rm \
+  -v "$(pwd):/workspace" \
+  --env-file .env \
+  ai-sonar-bot:latest
+```
+
+The image keeps the installed bot in `/opt/ai-sonar-bot` and uses `/workspace` as the repository root, so mounting another repository does not hide the bot's virtual environment.
+
+## GitHub Releases And GHCR
+
+GitHub release automation is included through:
+
+- [release-please.yml](/Users/justinmelger/Desktop/github/ai-sonar-bot/.github/workflows/release-please.yml)
+- [publish-image.yml](/Users/justinmelger/Desktop/github/ai-sonar-bot/.github/workflows/publish-image.yml)
+- [release-please-config.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/release-please-config.json)
+- [.release-please-manifest.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/.release-please-manifest.json)
+
+How it works:
+
+- merge Conventional Commit messages into `main`
+- `release-please` opens or updates a release PR
+- when that PR is merged, `release-please` creates a Git tag like `v0.2.0`
+- the tag triggers the image publish workflow
+- GHCR receives tags like `0.2.0`, `0.2`, `0`, and `latest`
+
+The release workflow uses `secrets.RELEASE_PLEASE_TOKEN` instead of the default `GITHUB_TOKEN`. This is intentional: tags and releases created by the default `GITHUB_TOKEN` do not trigger downstream workflows reliably, so the image publish workflow would not run.
+
+Recommended GitHub setup:
+
+- create a fine-grained personal access token or GitHub App token as `RELEASE_PLEASE_TOKEN`
+- grant it repository contents and pull request write access
+- make the GHCR package public if you want unauthenticated image pulls
+
+After a release tag exists, users can pull a specific version with:
+
+```bash
+docker pull ghcr.io/<owner>/ai-sonar-bot:0.2.0
+```
+
+An example GitLab pipeline is provided in [.gitlab-ci.example.yml](/Users/justinmelger/Desktop/github/ai-sonar-bot/.gitlab-ci.example.yml). In a target repository, copy that file to `.gitlab-ci.yml` and set these CI variables:
+
+- `SONARQUBE_URL`
+- `SONARQUBE_TOKEN`
+- `SONARQUBE_PROJECT_KEY`
+- `GITLAB_URL`
+- `GITLAB_TOKEN`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+
+`GITLAB_PROJECT_ID` is optional in GitLab CI because the bot falls back to `CI_PROJECT_ID`.
+
+Recommended GitLab CI setup:
+
+- keep the bot job restricted to the default branch
+- trigger it from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT=true`
+- store `SONARQUBE_TOKEN`, `GITLAB_TOKEN`, and `OPENAI_API_KEY` as protected CI variables
+- use a token that is allowed to push branches and create merge requests
+- keep `GIT_DEPTH=0` so branch and push behavior is predictable
+- set a fixed git author and committer identity in the job
+
+The example pipeline now does all of the above and also uses a `resource_group` so two bot jobs do not try to mutate the same repository checkout at once.
+
 ## Execution Modes
 
 Local mode:
