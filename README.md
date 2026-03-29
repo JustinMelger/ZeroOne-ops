@@ -115,6 +115,8 @@ How it works:
 - the created GitHub release or version tag triggers the image publish workflow
 - GHCR receives tags like `0.2.0`, `0.2`, `0`, and `latest`
 
+If a release already exists and you need to retry publication, the image workflow also supports manual `workflow_dispatch` runs from the GitHub Actions UI.
+
 The release workflow uses `secrets.RELEASE_PLEASE_TOKEN` instead of the default `GITHUB_TOKEN`. This is intentional: tags and releases created by the default `GITHUB_TOKEN` do not trigger downstream workflows reliably, so the image publish workflow would not run.
 
 Recommended GitHub setup:
