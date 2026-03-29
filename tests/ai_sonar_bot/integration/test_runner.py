@@ -256,3 +256,568 @@ def test_run_dry_run_can_apply_patch_when_enabled(tmp_path: Path, monkeypatch) -
     assert summary.status.value == "selected"
     assert "Patch applied locally in dry-run" in summary.message
     assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 2\n"
+
+
+def test_run_non_dry_run_creates_branch_and_local_commit(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
+    monkeypatch.setenv("SONARQUBE_TOKEN", "token")
+    monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "config", "user.name", "AI Sonar Bot"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "ai-sonar-bot@example.com"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    (tmp_path / "src").mkdir()
+    tracked = tmp_path / "src" / "service.py"
+    tracked.write_text("value = 1\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "src/service.py"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "chore: initial"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    llm_fixture_dir = tmp_path / "fixtures" / "llm"
+    llm_fixture_dir.mkdir(parents=True)
+    (llm_fixture_dir / "analysis.json").write_text(
+        """
+        {
+          "issue_key": "FIXTURE-3",
+          "classification": "auto_fixable",
+          "summary": "Fixture analysis summary",
+          "risk_notes": [],
+          "target_files": ["src/service.py"],
+          "proposed_strategy": "Apply the minimal fix."
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    (llm_fixture_dir / "patch.json").write_text(
+        (
+            "{\n"
+            '  "issue_key": "FIXTURE-3",\n'
+            '  "files_touched": ["src/service.py"],\n'
+            '  "unified_diff": "diff --git a/src/service.py b/src/service.py\\n'
+            "--- a/src/service.py\\n"
+            "+++ b/src/service.py\\n"
+            "@@ -1 +1 @@\\n"
+            "-value = 1\\n"
+            '+value = 2\\n",\n'
+            '  "commit_message": "fix(sonar): patch service [FIXTURE-3]",\n'
+            '  "mr_title": "fix: patch service",\n'
+            '  "mr_description": "summary"\n'
+            "}"
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+            {
+              "execution_mode": "local",
+              "base_branch": "main",
+              "branch_prefix": "ai-sonar",
+              "mock_llm_analysis_path": "fixtures/llm/analysis.json",
+              "mock_llm_patch_path": "fixtures/llm/patch.json",
+              "supported_severities": ["MAJOR"],
+              "supported_issue_types": ["BUG"],
+              "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    def fake_search_open_issues(self) -> list[SonarIssue]:
+        del self
+        return [
+            SonarIssue(
+                key="FIXTURE-3",
+                rule="python:S2259",
+                severity="MAJOR",
+                type="BUG",
+                status="OPEN",
+                message="Fixture issue",
+                component="sample-project:src/service.py",
+                project="sample-project",
+                file_path="src/service.py",
+                line=1,
+            )
+        ]
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.sonar_client.SonarClient.search_open_issues",
+        fake_search_open_issues,
+    )
+    subprocess.run(
+        ["git", "add", ".ai-sonar-bot.json", "fixtures"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "chore: add bot fixtures"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    summary = run(dry_run=False)
+
+    assert summary.status.value == "fix_generated"
+    assert "All validation commands passed." in summary.message
+    current_branch = subprocess.run(
+        ["git", "branch", "--show-current"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert current_branch == "ai-sonar/fixture-3/service"
+    assert tracked.read_text(encoding="utf-8") == "value = 2\n"
+
+
+def test_run_ci_mode_pushes_branch_and_creates_merge_request(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
+    monkeypatch.setenv("SONARQUBE_TOKEN", "token")
+    monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    remote_repo = tmp_path.parent / "remote.git"
+    subprocess.run(
+        ["git", "init", "--bare", str(remote_repo)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "remote", "add", "origin", str(remote_repo)],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "AI Sonar Bot"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "ai-sonar-bot@example.com"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    (tmp_path / "src").mkdir()
+    tracked = tmp_path / "src" / "service.py"
+    tracked.write_text("value = 1\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "src/service.py"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "chore: initial"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "push",
+            "-u",
+            "origin",
+            subprocess.run(
+                ["git", "branch", "--show-current"],
+                cwd=tmp_path,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip(),
+        ],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    llm_fixture_dir = tmp_path / "fixtures" / "llm"
+    llm_fixture_dir.mkdir(parents=True)
+    (llm_fixture_dir / "analysis.json").write_text(
+        """
+        {
+          "issue_key": "FIXTURE-4",
+          "classification": "auto_fixable",
+          "summary": "Fixture analysis summary",
+          "risk_notes": [],
+          "target_files": ["src/service.py"],
+          "proposed_strategy": "Apply the minimal fix."
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    (llm_fixture_dir / "patch.json").write_text(
+        (
+            "{\n"
+            '  "issue_key": "FIXTURE-4",\n'
+            '  "files_touched": ["src/service.py"],\n'
+            '  "unified_diff": "diff --git a/src/service.py b/src/service.py\\n'
+            "--- a/src/service.py\\n"
+            "+++ b/src/service.py\\n"
+            "@@ -1 +1 @@\\n"
+            "-value = 1\\n"
+            '+value = 2\\n",\n'
+            '  "commit_message": "fix(sonar): patch service [FIXTURE-4]",\n'
+            '  "mr_title": "fix: patch service",\n'
+            '  "mr_description": "summary"\n'
+            "}"
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "execution_mode": "ci",
+          "base_branch": "main",
+          "branch_prefix": "ai-sonar",
+          "mock_llm_analysis_path": "fixtures/llm/analysis.json",
+          "mock_llm_patch_path": "fixtures/llm/patch.json",
+          "supported_severities": ["MAJOR"],
+          "supported_issue_types": ["BUG"],
+          "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": ["ai-sonar-bot"]
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    def fake_search_open_issues(self) -> list[SonarIssue]:
+        del self
+        return [
+            SonarIssue(
+                key="FIXTURE-4",
+                rule="python:S2259",
+                severity="MAJOR",
+                type="BUG",
+                status="OPEN",
+                message="Fixture issue",
+                component="sample-project:src/service.py",
+                project="sample-project",
+                file_path="src/service.py",
+                line=1,
+            )
+        ]
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.sonar_client.SonarClient.search_open_issues",
+        fake_search_open_issues,
+    )
+
+    def fake_find_open(
+        self,
+        project_id: str,
+        source_branch: str,
+        target_branch: str,
+    ):
+        del self, project_id, source_branch, target_branch
+        return None
+
+    def fake_create(
+        self,
+        project_id: str,
+        source_branch: str,
+        target_branch: str,
+        title: str,
+        description: str,
+        labels: list[str],
+    ):
+        del self, project_id, source_branch, target_branch, title, description, labels
+        from ai_sonar_bot.models.gitlab import MergeRequestInfo
+
+        return MergeRequestInfo(
+            iid=9,
+            web_url="https://gitlab.example.com/group/project/-/merge_requests/9",
+            title="fix: patch service",
+        )
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.mr_service.MergeRequestService.find_open",
+        fake_find_open,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.mr_service.MergeRequestService.create",
+        fake_create,
+    )
+
+    subprocess.run(
+        ["git", "add", ".ai-sonar-bot.json", "fixtures"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "chore: add bot fixtures"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    summary = run(dry_run=False)
+
+    assert summary.status.value == "mr_created"
+    assert "Merge request created:" in summary.message
+    assert "https://gitlab.example.com/group/project/-/merge_requests/9" in summary.message
+
+
+def test_run_ci_mode_reuses_existing_merge_request(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
+    monkeypatch.setenv("SONARQUBE_TOKEN", "token")
+    monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    remote_repo = tmp_path.parent / "remote-reuse.git"
+    subprocess.run(
+        ["git", "init", "--bare", str(remote_repo)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "remote", "add", "origin", str(remote_repo)],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "AI Sonar Bot"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "ai-sonar-bot@example.com"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    (tmp_path / "src").mkdir()
+    tracked = tmp_path / "src" / "service.py"
+    tracked.write_text("value = 1\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "src/service.py"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "chore: initial"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "push",
+            "-u",
+            "origin",
+            subprocess.run(
+                ["git", "branch", "--show-current"],
+                cwd=tmp_path,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip(),
+        ],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    llm_fixture_dir = tmp_path / "fixtures" / "llm"
+    llm_fixture_dir.mkdir(parents=True)
+    (llm_fixture_dir / "analysis.json").write_text(
+        """
+        {
+          "issue_key": "FIXTURE-5",
+          "classification": "auto_fixable",
+          "summary": "Fixture analysis summary",
+          "risk_notes": [],
+          "target_files": ["src/service.py"],
+          "proposed_strategy": "Apply the minimal fix."
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    (llm_fixture_dir / "patch.json").write_text(
+        (
+            "{\n"
+            '  "issue_key": "FIXTURE-5",\n'
+            '  "files_touched": ["src/service.py"],\n'
+            '  "unified_diff": "diff --git a/src/service.py b/src/service.py\\n'
+            "--- a/src/service.py\\n"
+            "+++ b/src/service.py\\n"
+            "@@ -1 +1 @@\\n"
+            "-value = 1\\n"
+            '+value = 2\\n",\n'
+            '  "commit_message": "fix(sonar): patch service [FIXTURE-5]",\n'
+            '  "mr_title": "fix: patch service",\n'
+            '  "mr_description": "summary"\n'
+            "}"
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "execution_mode": "ci",
+          "base_branch": "main",
+          "branch_prefix": "ai-sonar",
+          "mock_llm_analysis_path": "fixtures/llm/analysis.json",
+          "mock_llm_patch_path": "fixtures/llm/patch.json",
+          "supported_severities": ["MAJOR"],
+          "supported_issue_types": ["BUG"],
+          "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": ["ai-sonar-bot"]
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    def fake_search_open_issues(self) -> list[SonarIssue]:
+        del self
+        return [
+            SonarIssue(
+                key="FIXTURE-5",
+                rule="python:S2259",
+                severity="MAJOR",
+                type="BUG",
+                status="OPEN",
+                message="Fixture issue",
+                component="sample-project:src/service.py",
+                project="sample-project",
+                file_path="src/service.py",
+                line=1,
+            )
+        ]
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.sonar_client.SonarClient.search_open_issues",
+        fake_search_open_issues,
+    )
+
+    def fake_find_open(
+        self,
+        project_id: str,
+        source_branch: str,
+        target_branch: str,
+    ):
+        del self, project_id, source_branch, target_branch
+        from ai_sonar_bot.models.gitlab import MergeRequestInfo
+
+        return MergeRequestInfo(
+            iid=11,
+            web_url="https://gitlab.example.com/group/project/-/merge_requests/11",
+            title="fix: patch service",
+        )
+
+    def fail_create(
+        self,
+        project_id: str,
+        source_branch: str,
+        target_branch: str,
+        title: str,
+        description: str,
+        labels: list[str],
+    ):
+        del self, project_id, source_branch, target_branch, title, description, labels
+        raise AssertionError("create should not be called when an open merge request exists")
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.mr_service.MergeRequestService.find_open",
+        fake_find_open,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.mr_service.MergeRequestService.create",
+        fail_create,
+    )
+
+    subprocess.run(
+        ["git", "add", ".ai-sonar-bot.json", "fixtures"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "chore: add bot fixtures"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    summary = run(dry_run=False)
+
+    assert summary.status.value == "mr_created"
+    assert "Merge request reused:" in summary.message
+    assert "https://gitlab.example.com/group/project/-/merge_requests/11" in summary.message

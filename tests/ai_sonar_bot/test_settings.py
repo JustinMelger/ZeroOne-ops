@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from ai_sonar_bot.settings import load_config, load_sonarqube_connection_config
+from ai_sonar_bot.settings import (
+    load_config,
+    load_gitlab_connection_config,
+    load_sonarqube_connection_config,
+)
 
 
 def test_settings_load_environment_from_dotenv(tmp_path: Path, monkeypatch) -> None:
@@ -65,3 +69,15 @@ def test_settings_allow_execution_mode_override(tmp_path: Path, monkeypatch) -> 
 
     assert config.execution_mode == "local"
     assert config.requires_local_approval() is True
+
+
+def test_gitlab_settings_fall_back_to_ci_project_id(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("GITLAB_PROJECT_ID", raising=False)
+    monkeypatch.setenv("CI_PROJECT_ID", "456")
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+
+    config = load_gitlab_connection_config()
+
+    assert config.project_id == "456"
