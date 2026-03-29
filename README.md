@@ -188,7 +188,8 @@ The repository quality pipeline runs in this order:
 1. `lint`
 2. `architecture`
 3. `typecheck`
-4. `test`
+4. `security`
+5. `test`
 
 The test step enforces a minimum total coverage threshold of `80%`.
 

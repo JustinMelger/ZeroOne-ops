@@ -19,3 +19,4 @@ build/
 .env
 .ai-sonar-bot-state.json
 artifacts/
+future_plans.md
