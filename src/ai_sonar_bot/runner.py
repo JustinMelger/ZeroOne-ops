@@ -10,8 +10,16 @@ import os
 import secrets
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from ai_sonar_bot.models.state import IssueState, RunRecord, RunStatus, utc_now
+from ai_sonar_bot.models.state import (
+    FailureDetails,
+    FailureStage,
+    IssueState,
+    RunRecord,
+    RunStatus,
+    utc_now,
+)
 from ai_sonar_bot.providers.gitlab_client import GitLabClient, GitLabClientError
 from ai_sonar_bot.services.analysis_service import AnalysisService
 from ai_sonar_bot.services.branch_manager import BranchManager, BranchManagerError
@@ -19,6 +27,10 @@ from ai_sonar_bot.services.issue_intake import IssueIntakeService
 from ai_sonar_bot.services.mr_service import MergeRequestService
 from ai_sonar_bot.services.state_store import StateStore
 from ai_sonar_bot.settings import load_config, load_gitlab_connection_config
+
+if TYPE_CHECKING:
+    from ai_sonar_bot.models.config import AppConfig
+    from ai_sonar_bot.models.state import AppState
 
 LOGGER = logging.getLogger(__name__)
 
@@ -156,31 +168,35 @@ def run(*, dry_run: bool = False) -> RunSummary:
                 file_path=intake_result.selected_issue.file_path,
             )
             if branch_result.error_message is not None:
-                record.status = RunStatus.FAILED
-                record.error_message = branch_result.error_message
-                record.updated_at = utc_now()
-                state_store.set_issue_state(
-                    state,
+                return _fail_run(
+                    config=config,
+                    state=state,
+                    state_store=state_store,
+                    record=record,
                     issue_key=intake_result.selected_issue.key,
-                    issue_state=IssueState(
-                        status=RunStatus.FAILED.value,
-                        last_run_id=run_id,
-                        attempt_count=attempt_count,
-                        last_error=branch_result.error_message,
+                    attempt_count=attempt_count,
+                    error_message=branch_result.error_message,
+                    failure=FailureDetails(
+                        stage=FailureStage.BRANCH_PREPARATION,
+                        message=branch_result.error_message,
                     ),
-                )
-                state_store.save(state)
-                return RunSummary(
-                    run_id=run_id,
-                    status=record.status,
-                    message=f"[{config.execution_mode}] {branch_result.error_message}",
-                    state_path=config.state.path,
                 )
             record.branch_name = branch_result.branch_name
         analysis_result = AnalysisService(repo_root=repo_root, config=config).analyze_issue(
             selected_issue=intake_result.selected_issue,
             dry_run=active_dry_run,
         )
+        if analysis_result.failure is not None:
+            return _fail_run(
+                config=config,
+                state=state,
+                state_store=state_store,
+                record=record,
+                issue_key=intake_result.selected_issue.key,
+                attempt_count=attempt_count + (0 if active_dry_run else 1),
+                error_message=analysis_result.failure.message,
+                failure=analysis_result.failure,
+            )
         if (
             not active_dry_run
             and analysis_result.patch is not None
@@ -192,26 +208,18 @@ def run(*, dry_run: bool = False) -> RunSummary:
                 commit_message=analysis_result.patch.commit_message,
             )
             if commit_result.error_message is not None:
-                record.status = RunStatus.FAILED
-                record.error_message = commit_result.error_message
-                record.updated_at = utc_now()
-                state_store.set_issue_state(
-                    state,
+                return _fail_run(
+                    config=config,
+                    state=state,
+                    state_store=state_store,
+                    record=record,
                     issue_key=intake_result.selected_issue.key,
-                    issue_state=IssueState(
-                        status=RunStatus.FAILED.value,
-                        last_run_id=run_id,
-                        attempt_count=attempt_count + 1,
-                        branch_name=record.branch_name,
-                        last_error=commit_result.error_message,
+                    attempt_count=attempt_count + 1,
+                    error_message=commit_result.error_message,
+                    failure=FailureDetails(
+                        stage=FailureStage.COMMIT,
+                        message=commit_result.error_message,
                     ),
-                )
-                state_store.save(state)
-                return RunSummary(
-                    run_id=run_id,
-                    status=record.status,
-                    message=f"[{config.execution_mode}] {commit_result.error_message}",
-                    state_path=config.state.path,
                 )
             record.status = RunStatus.FIX_GENERATED
             record.commit_sha = commit_result.commit_sha
@@ -236,26 +244,18 @@ def run(*, dry_run: bool = False) -> RunSummary:
                     labels=config.gitlab.labels,
                 )
                 if publish_result.error_message is not None:
-                    record.status = RunStatus.FAILED
-                    record.error_message = publish_result.error_message
-                    record.updated_at = utc_now()
-                    state_store.set_issue_state(
-                        state,
+                    return _fail_run(
+                        config=config,
+                        state=state,
+                        state_store=state_store,
+                        record=record,
                         issue_key=intake_result.selected_issue.key,
-                        issue_state=IssueState(
-                            status=RunStatus.FAILED.value,
-                            last_run_id=run_id,
-                            attempt_count=attempt_count + 1,
-                            branch_name=record.branch_name,
-                            last_error=publish_result.error_message,
+                        attempt_count=attempt_count + 1,
+                        error_message=publish_result.error_message,
+                        failure=FailureDetails(
+                            stage=FailureStage.PUBLISH,
+                            message=publish_result.error_message,
                         ),
-                    )
-                    state_store.save(state)
-                    return RunSummary(
-                        run_id=run_id,
-                        status=record.status,
-                        message=f"[{config.execution_mode}] {publish_result.error_message}",
-                        state_path=config.state.path,
                     )
                 record.status = RunStatus.MR_CREATED
                 record.mr_url = publish_result.mr_url
@@ -377,4 +377,54 @@ def _publish_branch_and_create_mr(
         branch_name=branch_name,
         mr_url=created_mr.web_url,
         mr_action="created",
+    )
+
+
+def _fail_run(
+    *,
+    config: AppConfig,
+    state: AppState,
+    state_store: StateStore,
+    record: RunRecord,
+    issue_key: str,
+    attempt_count: int,
+    error_message: str,
+    failure: FailureDetails,
+) -> RunSummary:
+    """Persist a failure consistently and return a run summary."""
+    record.status = RunStatus.FAILED
+    record.error_message = error_message
+    record.failure = failure
+    record.updated_at = utc_now()
+    state_store.set_issue_state(
+        state,
+        issue_key=issue_key,
+        issue_state=IssueState(
+            status=RunStatus.FAILED.value,
+            last_run_id=record.run_id,
+            attempt_count=attempt_count,
+            branch_name=record.branch_name,
+            mr_url=record.mr_url,
+            last_error=error_message,
+            failure=failure,
+        ),
+    )
+    state_store.save(state)
+    LOGGER.error(
+        "run failed",
+        extra={
+            "run_id": record.run_id,
+            "issue_key": issue_key,
+            "stage": failure.stage.value,
+            "branch_name": record.branch_name,
+            "commit_sha": record.commit_sha,
+            "failed_command": failure.failed_command,
+            "exit_code": failure.exit_code,
+        },
+    )
+    return RunSummary(
+        run_id=record.run_id,
+        status=record.status,
+        message=f"[{config.execution_mode}] {error_message}",
+        state_path=config.state.path,
     )

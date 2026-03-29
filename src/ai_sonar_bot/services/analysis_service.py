@@ -9,9 +9,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from ai_sonar_bot.models.analysis import AnalysisClassification, IssueContext, PatchProposal
+from ai_sonar_bot.models.analysis import (
+    AnalysisClassification,
+    IssueContext,
+    PatchProposal,
+    ValidationCommandResult,
+)
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.state import FailureDetails, FailureStage
 from ai_sonar_bot.providers.llm_client import (
     FixtureLLMClient,
     OpenAILLMClient,
@@ -33,12 +39,14 @@ class AnalysisResult:
         patch: Generated patch proposal, if one was produced.
         patch_applied: Whether a patch was applied to the working tree.
         validation_passed: Whether validation passed after patch application.
+        failure: Structured failure details when analysis or validation fails.
     """
 
     summary: str
     patch: PatchProposal | None = None
     patch_applied: bool = False
     validation_passed: bool | None = None
+    failure: FailureDetails | None = None
 
 
 class AnalysisService:
@@ -189,6 +197,11 @@ class AnalysisService:
                     patch=patch,
                     patch_applied=False,
                     validation_passed=False,
+                    failure=FailureDetails(
+                        stage=FailureStage.PATCH_APPLY,
+                        message=f"Patch apply failed: {error}",
+                        retry_count=attempt,
+                    ),
                 )
             validation_result = self.validator.run(self.config.validation_commands)
             if validation_result.passed:
@@ -223,9 +236,53 @@ class AnalysisService:
                     patch=patch,
                     patch_applied=False,
                     validation_passed=False,
+                    failure=self._build_validation_failure(
+                        validation_summary=validation_result.summary,
+                        retry_count=attempt,
+                        command_result=validation_result.results[-1]
+                        if validation_result.results
+                        else None,
+                    ),
                 )
             patch = fix_generator.generate(selected_issue, context)
         return AnalysisResult(summary=summary, patch=patch)
+
+    def _build_validation_failure(
+        self,
+        *,
+        validation_summary: str,
+        retry_count: int,
+        command_result: ValidationCommandResult | None,
+    ) -> FailureDetails:
+        """Build structured validation failure details.
+
+        Args:
+            validation_summary: Aggregate validation summary.
+            retry_count: Retries consumed before failure.
+            command_result: Final failed command result, if available.
+
+        Returns:
+            Structured failure details for persistence and logging.
+        """
+        stdout_excerpt = None
+        stderr_excerpt = None
+        failed_command = None
+        exit_code = None
+        if command_result is not None:
+            failed_command = command_result.command
+            exit_code = command_result.exit_code
+            stdout_excerpt = _truncate_output(command_result.stdout)
+            stderr_excerpt = _truncate_output(command_result.stderr)
+        return FailureDetails(
+            stage=FailureStage.VALIDATION,
+            message=validation_summary,
+            retry_count=retry_count,
+            validation_summary=validation_summary,
+            failed_command=failed_command,
+            exit_code=exit_code,
+            stdout_excerpt=stdout_excerpt,
+            stderr_excerpt=stderr_excerpt,
+        )
 
     def _snapshot_files(self, file_paths: list[str]) -> dict[Path, str | None]:
         """Capture file contents before applying a patch.
@@ -255,3 +312,21 @@ class AnalysisService:
                     target.unlink()
                 continue
             target.write_text(content, encoding="utf-8")
+
+
+def _truncate_output(value: str, limit: int = 500) -> str | None:
+    """Truncate command output for state persistence.
+
+    Args:
+        value: Raw command output.
+        limit: Maximum number of characters to keep.
+
+    Returns:
+        Trimmed output string, or ``None`` when empty.
+    """
+    stripped = value.strip()
+    if not stripped:
+        return None
+    if len(stripped) <= limit:
+        return stripped
+    return f"{stripped[:limit]}..."

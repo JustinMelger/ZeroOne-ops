@@ -31,7 +31,7 @@ Completed:
 Still open:
 
 - [ ] optional local approval workflow
-- [ ] richer failure logging in state and logs
+- [x] richer failure logging in state and logs
 
 ## V1 Delivery Phases
 
@@ -178,7 +178,7 @@ Done when:
 
 - [ ] the main execution path is covered by tests
 - [x] CI enforces an agreed minimum coverage threshold
-- [ ] failures are diagnosable from logs and state
+- [x] failures are diagnosable from logs and state
 
 ## Recommended Implementation Order
 
@@ -191,7 +191,7 @@ Done when:
 - [x] Implement patch apply and validation retry flow.
 - [ ] Add optional local approval flow.
 - [x] Harden duplicate-MR messaging and reuse behavior.
-- [ ] Harden logging and failure handling.
+- [x] Harden logging and failure handling.
 
 ## Deferred Beyond V1
 

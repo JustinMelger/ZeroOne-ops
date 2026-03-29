@@ -244,4 +244,8 @@ def test_analyze_issue_rolls_back_when_validation_fails(tmp_path: Path, monkeypa
 
     assert "Validation failed: false" in result.summary
     assert "Retry attempts exhausted." in result.summary
+    assert result.failure is not None
+    assert result.failure.stage.value == "validation"
+    assert result.failure.failed_command == "false"
+    assert result.failure.exit_code == 1
     assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 1\n"

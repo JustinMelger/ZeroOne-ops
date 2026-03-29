@@ -1,6 +1,14 @@
 from pathlib import Path
 
-from ai_sonar_bot.models.state import AppState, RepositoryState
+from ai_sonar_bot.models.state import (
+    AppState,
+    FailureDetails,
+    FailureStage,
+    IssueState,
+    RepositoryState,
+    RunRecord,
+    RunStatus,
+)
 from ai_sonar_bot.services.state_store import StateStore
 
 
@@ -17,6 +25,33 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
     assert isinstance(initial, AppState)
 
     initial.active_issue_key = "ABC"
+    initial.runs.append(
+        RunRecord(
+            run_id="run-1",
+            status=RunStatus.FAILED,
+            started_at="2026-03-29T10:00:00Z",
+            updated_at="2026-03-29T10:01:00Z",
+            error_message="Validation failed.",
+            failure=FailureDetails(
+                stage=FailureStage.VALIDATION,
+                message="Validation failed.",
+                failed_command="pytest",
+                exit_code=1,
+            ),
+        )
+    )
+    initial.issues["ABC"] = IssueState(
+        status="failed",
+        last_run_id="run-1",
+        attempt_count=1,
+        last_error="Validation failed.",
+        failure=FailureDetails(
+            stage=FailureStage.VALIDATION,
+            message="Validation failed.",
+            failed_command="pytest",
+            exit_code=1,
+        ),
+    )
     store.save(initial)
 
     loaded = store.load()
@@ -25,4 +60,16 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key="project-key",
+    )
+    assert loaded.runs[0].failure == FailureDetails(
+        stage=FailureStage.VALIDATION,
+        message="Validation failed.",
+        failed_command="pytest",
+        exit_code=1,
+    )
+    assert loaded.issues["ABC"].failure == FailureDetails(
+        stage=FailureStage.VALIDATION,
+        message="Validation failed.",
+        failed_command="pytest",
+        exit_code=1,
     )

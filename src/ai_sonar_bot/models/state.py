@@ -37,6 +37,42 @@ class RunStatus(StrEnum):
     FAILED = "failed"
 
 
+class FailureStage(StrEnum):
+    """Enumerate execution stages that can fail."""
+
+    ISSUE_INTAKE = "issue_intake"
+    ANALYSIS = "analysis"
+    PATCH_APPLY = "patch_apply"
+    VALIDATION = "validation"
+    BRANCH_PREPARATION = "branch_preparation"
+    COMMIT = "commit"
+    PUBLISH = "publish"
+
+
+class FailureDetails(BaseModel):
+    """Capture structured diagnostics for a failed run stage.
+
+    Attributes:
+        stage: Execution stage that failed.
+        message: Short human-readable failure summary.
+        retry_count: Number of retries consumed before the failure.
+        validation_summary: Validation summary when the failure happened during checks.
+        failed_command: Validation command that failed, if known.
+        exit_code: Exit code for the failed command, if known.
+        stdout_excerpt: Truncated command stdout for debugging.
+        stderr_excerpt: Truncated command stderr for debugging.
+    """
+
+    stage: FailureStage
+    message: str
+    retry_count: int = 0
+    validation_summary: str | None = None
+    failed_command: str | None = None
+    exit_code: int | None = None
+    stdout_excerpt: str | None = None
+    stderr_excerpt: str | None = None
+
+
 class RunRecord(BaseModel):
     """Represent a single execution record.
 
@@ -50,6 +86,7 @@ class RunRecord(BaseModel):
         started_at: Run start time.
         updated_at: Last update time.
         error_message: Optional error summary.
+        failure: Structured failure details when the run fails.
     """
 
     run_id: str
@@ -61,6 +98,7 @@ class RunRecord(BaseModel):
     started_at: datetime
     updated_at: datetime
     error_message: str | None = None
+    failure: FailureDetails | None = None
 
 
 class IssueState(BaseModel):
@@ -73,6 +111,7 @@ class IssueState(BaseModel):
         mr_url: Merge request URL, if any.
         attempt_count: Number of automated attempts made.
         last_error: Most recent error for the issue.
+        failure: Structured failure details for the latest failed attempt.
         updated_at: Last update timestamp.
     """
 
@@ -82,6 +121,7 @@ class IssueState(BaseModel):
     mr_url: str | None = None
     attempt_count: int = 0
     last_error: str | None = None
+    failure: FailureDetails | None = None
     updated_at: datetime = Field(default_factory=utc_now)
 
 
