@@ -199,6 +199,29 @@ Done when:
 - advanced issue prioritization
 - autonomous retry loops beyond one retry
 
+## Post-V1: GitHub Support
+
+After the GitLab-first v1 is complete, GitHub support should be added as a
+focused follow-up rather than folded into the v1 scope.
+
+Required changes:
+
+- add a GitHub provider client alongside the existing GitLab client
+- introduce an SCM provider switch in configuration
+- extract a provider-neutral publish interface for merge request or pull request creation
+- rename GitLab-specific publish concepts in shared models and services to neutral change-request terms where needed
+- support GitHub repository identification and token configuration
+- implement duplicate pull request detection for GitHub
+- map labels, reviewers, and assignees to GitHub APIs
+- update state fields if they are too GitLab-specific, for example `mr_url`
+- add GitHub integration tests and CI coverage for the publish layer
+
+Done when:
+
+- a validated branch can create a GitHub pull request through a provider-neutral publish flow
+- the state model can persist either GitLab merge request URLs or GitHub pull request URLs cleanly
+- shared workflow code does not depend on GitLab-only terminology outside the GitLab provider layer
+
 ## Working Rule
 
 For v1, prefer shipping thin vertical slices over building all abstractions first.
