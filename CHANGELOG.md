@@ -1,0 +1,36 @@
+# Changelog
+
+## [0.2.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.1.0...ai-sonar-bot-v0.2.0) (2026-03-29)
+
+
+### Features
+
+* add basic git ([380e957](https://github.com/JustinMelger/ai-sonar-bot/commit/380e9570eda554be9228a2b295dae4629e3a9d0e))
+* add gitlab implementation ([d64828d](https://github.com/JustinMelger/ai-sonar-bot/commit/d64828d9c7029fd698d0e65a50c5fcf1014f98a4))
+* add local approval ([7012e06](https://github.com/JustinMelger/ai-sonar-bot/commit/7012e069ae049289d5e35004f88ea03f3a20ca86))
+* add OpenAI dry-run ([77dc7db](https://github.com/JustinMelger/ai-sonar-bot/commit/77dc7db5be342c6a076f5d70b3ddd223cb2b99b5))
+* add patch application support for dry run ([4234ed0](https://github.com/JustinMelger/ai-sonar-bot/commit/4234ed05c9f5ac72411b0cf0a45cb6c88c11b659))
+* add selected-issue context building and dry-run LLM analysis ([4952367](https://github.com/JustinMelger/ai-sonar-bot/commit/49523670e521ecbfb984c9ec702d3903fffce06f))
+* add sq client ([582826c](https://github.com/JustinMelger/ai-sonar-bot/commit/582826c6c6440bf769e255f6e9bb36e2ecbfcd9d))
+* **cicd:** add docker + release please ([283c40d](https://github.com/JustinMelger/ai-sonar-bot/commit/283c40de3e3a55322933440769f421b90a7cea1b))
+* complete phase 3 +4, add dry run dummy issue for local dev ([c4464f8](https://github.com/JustinMelger/ai-sonar-bot/commit/c4464f854283f1eca695c6c7a553077faa7a09d9))
+* improve failure logging ([01aafc6](https://github.com/JustinMelger/ai-sonar-bot/commit/01aafc6bcaf86dc38063907390413527e62abba0))
+* low maintainiability sq issue selection ([8507396](https://github.com/JustinMelger/ai-sonar-bot/commit/85073965d32f344b0831a0c84e2010107971557a))
+* scaffold project ([60428da](https://github.com/JustinMelger/ai-sonar-bot/commit/60428dae4d988c93b69e250c76ee4b7791d83cad))
+* scaffold project ([7f61866](https://github.com/JustinMelger/ai-sonar-bot/commit/7f61866cf5289b31ebaeda33dfaae79faf9771bc))
+
+
+### Bug Fixes
+
+* run lint ([eea2d04](https://github.com/JustinMelger/ai-sonar-bot/commit/eea2d04390409b34f97e0f0dce95f87b0485bb14))
+* run lint ([b6d52e1](https://github.com/JustinMelger/ai-sonar-bot/commit/b6d52e18871e62ad4898b15362a24d6ec72b4b00))
+* run lint ([6de682d](https://github.com/JustinMelger/ai-sonar-bot/commit/6de682ddcbe289e38bef70b25e48f024a5f5deea))
+
+
+### Documentation
+
+* add engineering standards + update implementation docs ([14ac47b](https://github.com/JustinMelger/ai-sonar-bot/commit/14ac47b499654796bffc44366d868767b1f349be))
+* add roadmap to v1 ([57b30cc](https://github.com/JustinMelger/ai-sonar-bot/commit/57b30cc3ecb9fa2750fa8b2bd6e18fa87b4b55c9))
+* design ai sonar bot ([89a2396](https://github.com/JustinMelger/ai-sonar-bot/commit/89a23969e0b9913a6dcc4838cae165b4b89081db))
+* update design for ci runner ([ea0d592](https://github.com/JustinMelger/ai-sonar-bot/commit/ea0d592c14c6e6eff4f66b4786f7b3fee0b32acc))
+* update roadmap + design ([5d58b94](https://github.com/JustinMelger/ai-sonar-bot/commit/5d58b94520d2cf08584137dc02f7784129ba76c0))
