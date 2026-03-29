@@ -20,6 +20,7 @@ Completed:
 - [x] SonarQube client implementation
 - [x] automatic `.env` loading
 - [x] service-level refactor for issue intake and analysis orchestration
+- [x] runner refactor into execution and run-state services
 - [x] issue selection wired into the runner
 - [x] code context analysis
 - [x] LLM integration

@@ -71,6 +71,7 @@ ai-sonar-bot/
       __init__.py
       issue_intake.py
       analysis_service.py
+      execution_service.py
       issue_selector.py
       context_builder.py
       fix_generator.py
@@ -78,6 +79,7 @@ ai-sonar-bot/
       approval.py
       branch_manager.py
       mr_service.py
+      run_state_service.py
       state_store.py
     prompts/
       fix_issue.txt
@@ -107,14 +109,14 @@ The bot runs as a synchronous pipeline in v1:
 1. Load config.
 2. Initialize clients and state store.
 3. Use `IssueIntakeService` to fetch and select one supported issue.
-4. Create a local work branch.
+4. Use `ExecutionService` to coordinate branch creation, analysis, validation, commit, and optional publish.
 5. Use `AnalysisService` to build code context.
 6. Request analysis and patch proposal from the LLM.
 7. Apply changes.
 8. Run validation commands and retry once on failure.
 9. In local mode, stop after a validated local commit.
 10. In CI mode, push branch and create or reuse a GitLab merge request.
-11. Persist final state.
+11. Use `RunStateService` to persist run and issue lifecycle updates.
 
 The current implementation follows this path. The remaining approval work is
 limited to an optional local interactive mode.
@@ -128,24 +130,26 @@ flowchart TD
     C --> D[Read State File]
     D --> E[IssueIntakeService]
     E --> F{Issue found?}
-    F -- No --> H[Exit cleanly]
-    F -- Yes --> I[Create Work Branch]
-    I --> J[AnalysisService]
-    J --> K[LLM Analysis and Patch]
-    K --> L[Apply Patch]
-    L --> M[Run Validation Commands]
-    M --> N{Validation pass?}
-    N -- No --> O[Optional single retry]
-    O --> P{Recovered?}
-    P -- No --> Q[Persist failure state]
-    N -- Yes --> R{Execution mode}
-    P -- Yes --> R
-    R -- CI --> U[Commit and Push]
-    R -- Local --> V[Create Local Commit]
-    U --> W[Create or Reuse GitLab MR]
-    V --> X[Persist success state]
-    W --> X
-    X --> Y[Exit]
+    F -- No --> G[RunStateService]
+    G --> H[Exit cleanly]
+    F -- Yes --> I[ExecutionService]
+    I --> J[Create Work Branch]
+    J --> K[AnalysisService]
+    K --> L[LLM Analysis and Patch]
+    L --> M[Apply Patch]
+    M --> N[Run Validation Commands]
+    N --> O{Validation pass?}
+    O -- No --> P[Optional single retry]
+    P --> Q{Recovered?}
+    Q -- No --> R[RunStateService]
+    O -- Yes --> S{Execution mode}
+    Q -- Yes --> S
+    S -- CI --> T[Commit, Push, Create or Reuse GitLab MR]
+    S -- Local --> U[Create Local Commit]
+    T --> V[RunStateService]
+    U --> V
+    R --> W[Exit]
+    V --> W
 ```
 
 ## 6. Python Module Responsibilities
@@ -174,10 +178,8 @@ For v1, only `run` is required.
 Responsibilities:
 
 - act as the composition root,
-- orchestrate high-level flow,
-- handle step-level exceptions,
-- decide terminal run status,
-- write state updates.
+- wire together state, intake, and execution services,
+- build the final CLI-facing run summary.
 
 This module should stay thin. Workflow details should move into dedicated
 services once they are non-trivial.
@@ -236,7 +238,17 @@ Responsibilities:
 - run validation and one retry,
 - optionally apply generated patches during dry-run testing.
 
-### 6.9 `services/issue_selector.py`
+### 6.9 `services/execution_service.py`
+
+Responsibilities:
+
+- coordinate the post-intake workflow for one selected issue,
+- create a local branch when required,
+- call the analysis service,
+- create a local commit after successful validation,
+- publish the branch and create or reuse a GitLab merge request in CI mode.
+
+### 6.10 `services/issue_selector.py`
 
 Responsibilities:
 
@@ -245,7 +257,7 @@ Responsibilities:
 - rank issues,
 - return the single selected issue.
 
-### 6.10 `services/context_builder.py`
+### 6.11 `services/context_builder.py`
 
 Responsibilities:
 
@@ -254,7 +266,7 @@ Responsibilities:
 - identify related test files when possible,
 - include validation command metadata in the LLM context.
 
-### 6.11 `services/fix_generator.py`
+### 6.12 `services/fix_generator.py`
 
 Responsibilities:
 
@@ -263,7 +275,7 @@ Responsibilities:
 - request a patch,
 - validate patch boundaries before apply.
 
-### 6.12 `services/validator.py`
+### 6.13 `services/validator.py`
 
 Responsibilities:
 
@@ -271,7 +283,7 @@ Responsibilities:
 - stream or capture output,
 - summarize failures for retry prompts.
 
-### 6.13 `services/approval.py`
+### 6.14 `services/approval.py`
 
 Responsibilities:
 
@@ -281,7 +293,7 @@ Responsibilities:
 
 This service should be bypassed in CI mode.
 
-### 6.14 `services/branch_manager.py`
+### 6.15 `services/branch_manager.py`
 
 Responsibilities:
 
@@ -290,7 +302,7 @@ Responsibilities:
 - commit changes,
 - push to origin.
 
-### 6.15 `services/mr_service.py`
+### 6.16 `services/mr_service.py`
 
 Responsibilities:
 
@@ -299,7 +311,16 @@ Responsibilities:
 - call GitLab client to create the MR only when reuse is not possible,
 - attach issue metadata in a consistent template.
 
-### 6.16 `services/state_store.py`
+### 6.17 `services/run_state_service.py`
+
+Responsibilities:
+
+- append and update run records,
+- persist issue lifecycle transitions,
+- centralize structured failure persistence,
+- build user-facing run summaries consistently.
+
+### 6.18 `services/state_store.py`
 
 Responsibilities:
 
