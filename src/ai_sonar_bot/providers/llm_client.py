@@ -264,9 +264,7 @@ def load_structured_edit_fixture(path: Path) -> StructuredEditProposal:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
-        raise LLMClientError(
-            f"LLM structured edit fixture file is invalid JSON: {path}"
-        ) from error
+        raise LLMClientError(f"LLM structured edit fixture file is invalid JSON: {path}") from error
 
     if not isinstance(payload, dict):
         raise LLMClientError("Unexpected LLM structured edit fixture payload.")

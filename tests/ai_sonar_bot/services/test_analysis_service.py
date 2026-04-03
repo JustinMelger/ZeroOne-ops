@@ -104,7 +104,7 @@ def test_analyze_issue_applies_patch_in_dry_run_from_fixture(
             "{\n"
             '  "issue_key": "FIXTURE-1",\n'
             '  "edits": [\n'
-            '    {\n'
+            "    {\n"
             '      "file_path": "src/service.py",\n'
             '      "search_text": "value = 1",\n'
             '      "replace_text": "value = 2",\n'
@@ -163,7 +163,7 @@ def test_analyze_issue_runs_validation_after_patch_apply(tmp_path: Path, monkeyp
             "{\n"
             '  "issue_key": "FIXTURE-1",\n'
             '  "edits": [\n'
-            '    {\n'
+            "    {\n"
             '      "file_path": "src/service.py",\n'
             '      "search_text": "value = 1",\n'
             '      "replace_text": "value = 2",\n'
@@ -222,7 +222,7 @@ def test_analyze_issue_rolls_back_when_validation_fails(tmp_path: Path, monkeypa
             "{\n"
             '  "issue_key": "FIXTURE-1",\n'
             '  "edits": [\n'
-            '    {\n'
+            "    {\n"
             '      "file_path": "src/service.py",\n'
             '      "search_text": "value = 1",\n'
             '      "replace_text": "value = 2",\n'

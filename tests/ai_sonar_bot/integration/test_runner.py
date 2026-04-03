@@ -230,7 +230,7 @@ def test_run_dry_run_can_apply_patch_when_enabled(tmp_path: Path, monkeypatch) -
             "{\n"
             '  "issue_key": "FIXTURE-2",\n'
             '  "edits": [\n'
-            '    {\n'
+            "    {\n"
             '      "file_path": "src/service.py",\n'
             '      "search_text": "value = 1",\n'
             '      "replace_text": "value = 2",\n'
@@ -432,7 +432,7 @@ def test_run_non_dry_run_creates_branch_and_local_commit(tmp_path: Path, monkeyp
             "{\n"
             '  "issue_key": "FIXTURE-3",\n'
             '  "edits": [\n'
-            '    {\n'
+            "    {\n"
             '      "file_path": "src/service.py",\n'
             '      "search_text": "value = 1",\n'
             '      "replace_text": "value = 2",\n'
@@ -579,7 +579,7 @@ def test_run_local_mode_rejects_when_approval_declines(tmp_path: Path, monkeypat
             "{\n"
             '  "issue_key": "FIXTURE-6",\n'
             '  "edits": [\n'
-            '    {\n'
+            "    {\n"
             '      "file_path": "src/service.py",\n'
             '      "search_text": "value = 1",\n'
             '      "replace_text": "value = 2",\n'
@@ -753,7 +753,7 @@ def test_run_ci_mode_pushes_branch_and_creates_merge_request(tmp_path: Path, mon
             "{\n"
             '  "issue_key": "FIXTURE-4",\n'
             '  "edits": [\n'
-            '    {\n'
+            "    {\n"
             '      "file_path": "src/service.py",\n'
             '      "search_text": "value = 1",\n'
             '      "replace_text": "value = 2",\n'
@@ -964,7 +964,7 @@ def test_run_ci_mode_reuses_existing_merge_request(tmp_path: Path, monkeypatch) 
             "{\n"
             '  "issue_key": "FIXTURE-5",\n'
             '  "edits": [\n'
-            '    {\n'
+            "    {\n"
             '      "file_path": "src/service.py",\n'
             '      "search_text": "value = 1",\n'
             '      "replace_text": "value = 2",\n'
