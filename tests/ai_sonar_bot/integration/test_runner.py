@@ -1,6 +1,12 @@
 import subprocess
 from pathlib import Path
 
+from ai_sonar_bot.models.analysis import (
+    AnalysisClassification,
+    IssueAnalysis,
+    StructuredEditProposal,
+    TextEdit,
+)
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.runner import run
 
@@ -129,12 +135,18 @@ def test_run_dry_run_uses_fixture_when_configured(tmp_path: Path, monkeypatch) -
         """.strip(),
         encoding="utf-8",
     )
-    (llm_fixture_dir / "patch.json").write_text(
+    (llm_fixture_dir / "edit.json").write_text(
         """
         {
           "issue_key": "FIXTURE-1",
-          "files_touched": ["src/service.py"],
-          "unified_diff": "diff --git a/src/service.py b/src/service.py\\n",
+          "edits": [
+            {
+              "file_path": "src/service.py",
+              "search_text": "value = 1",
+              "replace_text": "value = 2",
+              "line_hint": 1
+            }
+          ],
           "commit_message": "fix(sonar): patch service [FIXTURE-1]",
           "mr_title": "fix: patch service",
           "mr_description": "summary"
@@ -147,7 +159,7 @@ def test_run_dry_run_uses_fixture_when_configured(tmp_path: Path, monkeypatch) -
         {
           "base_branch": "main",
           "mock_llm_analysis_path": "fixtures/llm/analysis.json",
-          "mock_llm_patch_path": "fixtures/llm/patch.json",
+          "mock_llm_edit_path": "fixtures/llm/edit.json",
           "mock_sonar_issues_path": "fixtures/sonar/issues.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
@@ -213,17 +225,18 @@ def test_run_dry_run_can_apply_patch_when_enabled(tmp_path: Path, monkeypatch) -
         """.strip(),
         encoding="utf-8",
     )
-    (llm_fixture_dir / "patch.json").write_text(
+    (llm_fixture_dir / "edit.json").write_text(
         (
             "{\n"
             '  "issue_key": "FIXTURE-2",\n'
-            '  "files_touched": ["src/service.py"],\n'
-            '  "unified_diff": "diff --git a/src/service.py b/src/service.py\\n'
-            "--- a/src/service.py\\n"
-            "+++ b/src/service.py\\n"
-            "@@ -1 +1 @@\\n"
-            "-value = 1\\n"
-            '+value = 2\\n",\n'
+            '  "edits": [\n'
+            '    {\n'
+            '      "file_path": "src/service.py",\n'
+            '      "search_text": "value = 1",\n'
+            '      "replace_text": "value = 2",\n'
+            '      "line_hint": 1\n'
+            "    }\n"
+            "  ],\n"
             '  "commit_message": "fix(sonar): patch service [FIXTURE-2]",\n'
             '  "mr_title": "fix: patch service",\n'
             '  "mr_description": "summary"\n'
@@ -237,7 +250,7 @@ def test_run_dry_run_can_apply_patch_when_enabled(tmp_path: Path, monkeypatch) -
           "base_branch": "main",
           "apply_patch_in_dry_run": true,
           "mock_llm_analysis_path": "fixtures/llm/analysis.json",
-          "mock_llm_patch_path": "fixtures/llm/patch.json",
+          "mock_llm_edit_path": "fixtures/llm/edit.json",
           "mock_sonar_issues_path": "fixtures/sonar/issues.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
@@ -254,6 +267,105 @@ def test_run_dry_run_can_apply_patch_when_enabled(tmp_path: Path, monkeypatch) -
     summary = run(dry_run=True)
 
     assert summary.status.value == "selected"
+    assert "Patch applied locally in dry-run" in summary.message
+    assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 2\n"
+
+
+def test_run_dry_run_can_apply_bot_rendered_diff_from_structured_edit(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
+    monkeypatch.setenv("SONARQUBE_TOKEN", "token")
+    monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "apply_patch_in_dry_run": true,
+          "supported_severities": ["MAJOR"],
+          "supported_issue_types": ["BUG"],
+          "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    def fake_search_open_issues(self) -> list[SonarIssue]:
+        del self
+        return [
+            SonarIssue(
+                key="STRUCTURED-1",
+                rule="python:S1125",
+                severity="MAJOR",
+                type="BUG",
+                status="OPEN",
+                message="Simplify boolean comparison.",
+                component="sample-project:src/service.py",
+                project="sample-project",
+                file_path="src/service.py",
+                line=1,
+            )
+        ]
+
+    class StructuredEditLLMClient:
+        def analyze_issue(self, issue: SonarIssue, context) -> IssueAnalysis:
+            del issue, context
+            return IssueAnalysis(
+                issue_key="STRUCTURED-1",
+                classification=AnalysisClassification.AUTO_FIXABLE,
+                summary="Fixture analysis summary",
+                risk_notes=[],
+                target_files=["src/service.py"],
+                proposed_strategy="Apply the minimal fix.",
+            )
+
+        def generate_structured_edit(
+            self,
+            issue: SonarIssue,
+            context,
+        ) -> StructuredEditProposal:
+            del issue, context
+            return StructuredEditProposal(
+                issue_key="STRUCTURED-1",
+                edits=[
+                    TextEdit(
+                        file_path="src/service.py",
+                        search_text="value = 1",
+                        replace_text="value = 2",
+                        line_hint=1,
+                    )
+                ],
+                commit_message="fix(sonar): patch service [STRUCTURED-1]",
+                mr_title="fix: patch service",
+                mr_description="summary",
+            )
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.sonar_client.SonarClient.search_open_issues",
+        fake_search_open_issues,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.analysis_service.AnalysisService._build_llm_client",
+        lambda self: StructuredEditLLMClient(),
+    )
+
+    summary = run(dry_run=True)
+
+    assert summary.status.value == "selected"
+    assert "Diff rendered by bot from structured edit proposal." in summary.message
     assert "Patch applied locally in dry-run" in summary.message
     assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 2\n"
 
@@ -315,17 +427,18 @@ def test_run_non_dry_run_creates_branch_and_local_commit(tmp_path: Path, monkeyp
         """.strip(),
         encoding="utf-8",
     )
-    (llm_fixture_dir / "patch.json").write_text(
+    (llm_fixture_dir / "edit.json").write_text(
         (
             "{\n"
             '  "issue_key": "FIXTURE-3",\n'
-            '  "files_touched": ["src/service.py"],\n'
-            '  "unified_diff": "diff --git a/src/service.py b/src/service.py\\n'
-            "--- a/src/service.py\\n"
-            "+++ b/src/service.py\\n"
-            "@@ -1 +1 @@\\n"
-            "-value = 1\\n"
-            '+value = 2\\n",\n'
+            '  "edits": [\n'
+            '    {\n'
+            '      "file_path": "src/service.py",\n'
+            '      "search_text": "value = 1",\n'
+            '      "replace_text": "value = 2",\n'
+            '      "line_hint": 1\n'
+            "    }\n"
+            "  ],\n"
             '  "commit_message": "fix(sonar): patch service [FIXTURE-3]",\n'
             '  "mr_title": "fix: patch service",\n'
             '  "mr_description": "summary"\n'
@@ -340,7 +453,7 @@ def test_run_non_dry_run_creates_branch_and_local_commit(tmp_path: Path, monkeyp
               "base_branch": "main",
               "branch_prefix": "ai-sonar",
               "mock_llm_analysis_path": "fixtures/llm/analysis.json",
-              "mock_llm_patch_path": "fixtures/llm/patch.json",
+              "mock_llm_edit_path": "fixtures/llm/edit.json",
               "supported_severities": ["MAJOR"],
               "supported_issue_types": ["BUG"],
               "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
@@ -461,17 +574,18 @@ def test_run_local_mode_rejects_when_approval_declines(tmp_path: Path, monkeypat
         """.strip(),
         encoding="utf-8",
     )
-    (llm_fixture_dir / "patch.json").write_text(
+    (llm_fixture_dir / "edit.json").write_text(
         (
             "{\n"
             '  "issue_key": "FIXTURE-6",\n'
-            '  "files_touched": ["src/service.py"],\n'
-            '  "unified_diff": "diff --git a/src/service.py b/src/service.py\\n'
-            "--- a/src/service.py\\n"
-            "+++ b/src/service.py\\n"
-            "@@ -1 +1 @@\\n"
-            "-value = 1\\n"
-            '+value = 2\\n",\n'
+            '  "edits": [\n'
+            '    {\n'
+            '      "file_path": "src/service.py",\n'
+            '      "search_text": "value = 1",\n'
+            '      "replace_text": "value = 2",\n'
+            '      "line_hint": 1\n'
+            "    }\n"
+            "  ],\n"
             '  "commit_message": "fix(sonar): patch service [FIXTURE-6]",\n'
             '  "mr_title": "fix: patch service",\n'
             '  "mr_description": "summary"\n'
@@ -486,7 +600,7 @@ def test_run_local_mode_rejects_when_approval_declines(tmp_path: Path, monkeypat
           "base_branch": "main",
           "branch_prefix": "ai-sonar",
           "mock_llm_analysis_path": "fixtures/llm/analysis.json",
-          "mock_llm_patch_path": "fixtures/llm/patch.json",
+          "mock_llm_edit_path": "fixtures/llm/edit.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
           "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
@@ -634,17 +748,18 @@ def test_run_ci_mode_pushes_branch_and_creates_merge_request(tmp_path: Path, mon
         """.strip(),
         encoding="utf-8",
     )
-    (llm_fixture_dir / "patch.json").write_text(
+    (llm_fixture_dir / "edit.json").write_text(
         (
             "{\n"
             '  "issue_key": "FIXTURE-4",\n'
-            '  "files_touched": ["src/service.py"],\n'
-            '  "unified_diff": "diff --git a/src/service.py b/src/service.py\\n'
-            "--- a/src/service.py\\n"
-            "+++ b/src/service.py\\n"
-            "@@ -1 +1 @@\\n"
-            "-value = 1\\n"
-            '+value = 2\\n",\n'
+            '  "edits": [\n'
+            '    {\n'
+            '      "file_path": "src/service.py",\n'
+            '      "search_text": "value = 1",\n'
+            '      "replace_text": "value = 2",\n'
+            '      "line_hint": 1\n'
+            "    }\n"
+            "  ],\n"
             '  "commit_message": "fix(sonar): patch service [FIXTURE-4]",\n'
             '  "mr_title": "fix: patch service",\n'
             '  "mr_description": "summary"\n'
@@ -659,7 +774,7 @@ def test_run_ci_mode_pushes_branch_and_creates_merge_request(tmp_path: Path, mon
           "base_branch": "main",
           "branch_prefix": "ai-sonar",
           "mock_llm_analysis_path": "fixtures/llm/analysis.json",
-          "mock_llm_patch_path": "fixtures/llm/patch.json",
+          "mock_llm_edit_path": "fixtures/llm/edit.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
           "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
@@ -844,17 +959,18 @@ def test_run_ci_mode_reuses_existing_merge_request(tmp_path: Path, monkeypatch) 
         """.strip(),
         encoding="utf-8",
     )
-    (llm_fixture_dir / "patch.json").write_text(
+    (llm_fixture_dir / "edit.json").write_text(
         (
             "{\n"
             '  "issue_key": "FIXTURE-5",\n'
-            '  "files_touched": ["src/service.py"],\n'
-            '  "unified_diff": "diff --git a/src/service.py b/src/service.py\\n'
-            "--- a/src/service.py\\n"
-            "+++ b/src/service.py\\n"
-            "@@ -1 +1 @@\\n"
-            "-value = 1\\n"
-            '+value = 2\\n",\n'
+            '  "edits": [\n'
+            '    {\n'
+            '      "file_path": "src/service.py",\n'
+            '      "search_text": "value = 1",\n'
+            '      "replace_text": "value = 2",\n'
+            '      "line_hint": 1\n'
+            "    }\n"
+            "  ],\n"
             '  "commit_message": "fix(sonar): patch service [FIXTURE-5]",\n'
             '  "mr_title": "fix: patch service",\n'
             '  "mr_description": "summary"\n'
@@ -869,7 +985,7 @@ def test_run_ci_mode_reuses_existing_merge_request(tmp_path: Path, monkeypatch) 
           "base_branch": "main",
           "branch_prefix": "ai-sonar",
           "mock_llm_analysis_path": "fixtures/llm/analysis.json",
-          "mock_llm_patch_path": "fixtures/llm/patch.json",
+          "mock_llm_edit_path": "fixtures/llm/edit.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
           "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],

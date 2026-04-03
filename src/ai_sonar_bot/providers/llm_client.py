@@ -42,25 +42,6 @@ class LLMClient:
         """
         raise NotImplementedError("LLM integration is not implemented yet.")
 
-    def generate_patch(
-        self,
-        issue: SonarIssue,
-        context: IssueContext,
-        *,
-        retry_feedback: str | None = None,
-    ) -> PatchProposal:
-        """Generate a patch proposal for a SonarQube issue.
-
-        Args:
-            issue: Issue to fix.
-            context: Repository context for the issue.
-            retry_feedback: Optional feedback from a failed prior patch attempt.
-
-        Returns:
-            Structured patch proposal.
-        """
-        raise NotImplementedError("LLM integration is not implemented yet.")
-
     def generate_structured_edit(
         self,
         issue: SonarIssue,
@@ -140,55 +121,6 @@ class OpenAILLMClient(LLMClient):
         )
         return analysis
 
-    def generate_patch(
-        self,
-        issue: SonarIssue,
-        context: IssueContext,
-        *,
-        retry_feedback: str | None = None,
-    ) -> PatchProposal:
-        """Generate a patch proposal with OpenAI.
-
-        Args:
-            issue: Issue to fix.
-            context: Repository context for the issue.
-            retry_feedback: Optional feedback from a failed prior patch attempt.
-
-        Returns:
-            Structured patch proposal.
-
-        Raises:
-            LLMClientError: If the API call fails or returns an invalid payload.
-        """
-        input_text = _build_patch_prompt(issue, context, retry_feedback=retry_feedback)
-        try:
-            response = self.client.responses.parse(
-                model=self.config.model,
-                input=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You propose minimal safe code patches for SonarQube issues and "
-                            "return strictly structured JSON."
-                        ),
-                    },
-                    {"role": "user", "content": input_text},
-                ],
-                text_format=PatchProposal,
-            )
-        except Exception as error:
-            raise LLMClientError("OpenAI patch generation request failed.") from error
-
-        if response.output_parsed is None:
-            raise LLMClientError("OpenAI patch generation did not return parsed output.")
-        patch = response.output_parsed
-        _write_solution_file(
-            self.solution_output_path,
-            issue_key=issue.key,
-            patch=patch,
-        )
-        return patch
-
     def generate_structured_edit(
         self,
         issue: SonarIssue,
@@ -235,22 +167,22 @@ class FixtureLLMClient(LLMClient):
 
     Args:
         analysis_fixture_path: Path to a local JSON analysis fixture.
-        patch_fixture_path: Optional path to a local JSON patch fixture.
+        structured_edit_fixture_path: Optional path to a local JSON structured edit fixture.
     """
 
     def __init__(
         self,
         analysis_fixture_path: Path,
-        patch_fixture_path: Path | None = None,
+        structured_edit_fixture_path: Path | None = None,
     ) -> None:
         """Initialize the fixture-backed LLM client.
 
         Args:
             analysis_fixture_path: Path to a local JSON analysis fixture.
-            patch_fixture_path: Optional path to a local JSON patch fixture.
+            structured_edit_fixture_path: Optional path to a local JSON structured edit fixture.
         """
         self.analysis_fixture_path = analysis_fixture_path
-        self.patch_fixture_path = patch_fixture_path
+        self.structured_edit_fixture_path = structured_edit_fixture_path
 
     def analyze_issue(self, issue: SonarIssue, context: IssueContext) -> IssueAnalysis:
         """Load a fixture-based issue analysis result.
@@ -265,44 +197,24 @@ class FixtureLLMClient(LLMClient):
         del issue, context
         return load_analysis_fixture(self.analysis_fixture_path)
 
-    def generate_patch(
-        self,
-        issue: SonarIssue,
-        context: IssueContext,
-        *,
-        retry_feedback: str | None = None,
-    ) -> PatchProposal:
-        """Load a fixture-based patch proposal result.
-
-        Args:
-            issue: Issue to fix.
-            context: Repository context for the issue.
-            retry_feedback: Optional feedback from a failed prior patch attempt.
-
-        Returns:
-            Structured patch proposal from the fixture.
-        """
-        del issue, context, retry_feedback
-        if self.patch_fixture_path is None:
-            raise LLMClientError("LLM patch fixture path is not configured.")
-        return load_patch_fixture(self.patch_fixture_path)
-
     def generate_structured_edit(
         self,
         issue: SonarIssue,
         context: IssueContext,
     ) -> StructuredEditProposal:
-        """Indicate that fixture-backed structured edits are not configured.
+        """Load a fixture-based structured edit result.
 
         Args:
             issue: Issue to fix.
             context: Repository context for the issue.
 
-        Raises:
-            LLMClientError: Always, because fixture structured edits are not configured yet.
+        Returns:
+            Structured edit proposal from the fixture.
         """
         del issue, context
-        raise LLMClientError("LLM structured edit generation is not configured.")
+        if self.structured_edit_fixture_path is None:
+            raise LLMClientError("LLM structured edit fixture path is not configured.")
+        return load_structured_edit_fixture(self.structured_edit_fixture_path)
 
 
 def load_analysis_fixture(path: Path) -> IssueAnalysis:
@@ -334,33 +246,35 @@ def load_analysis_fixture(path: Path) -> IssueAnalysis:
         raise LLMClientError("Invalid LLM analysis fixture structure.") from error
 
 
-def load_patch_fixture(path: Path) -> PatchProposal:
-    """Load a patch proposal result from a JSON fixture.
+def load_structured_edit_fixture(path: Path) -> StructuredEditProposal:
+    """Load a structured edit proposal result from a JSON fixture.
 
     Args:
-        path: Path to the patch fixture.
+        path: Path to the structured edit fixture.
 
     Returns:
-        Structured patch proposal.
+        Structured edit proposal.
 
     Raises:
         LLMClientError: If the fixture file is missing or invalid.
     """
     if not path.exists():
-        raise LLMClientError(f"LLM patch fixture file not found: {path}")
+        raise LLMClientError(f"LLM structured edit fixture file not found: {path}")
 
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
-        raise LLMClientError(f"LLM patch fixture file is invalid JSON: {path}") from error
+        raise LLMClientError(
+            f"LLM structured edit fixture file is invalid JSON: {path}"
+        ) from error
 
     if not isinstance(payload, dict):
-        raise LLMClientError("Unexpected LLM patch fixture payload.")
+        raise LLMClientError("Unexpected LLM structured edit fixture payload.")
 
     try:
-        return PatchProposal.model_validate(payload)
+        return StructuredEditProposal.model_validate(payload)
     except Exception as error:
-        raise LLMClientError("Invalid LLM patch fixture structure.") from error
+        raise LLMClientError("Invalid LLM structured edit fixture structure.") from error
 
 
 def _write_solution_file(
@@ -443,54 +357,6 @@ def _build_analysis_prompt(issue: SonarIssue, context: IssueContext) -> str:
         f"Snippet end line: {context.snippet.end_line}\n"
         f"Full file included: {context.full_file_included}\n"
         f"Context truncated: {context.truncated}\n\n"
-        "Code snippet:\n"
-        f"{context.snippet.content}\n"
-    )
-
-
-def _build_patch_prompt(
-    issue: SonarIssue,
-    context: IssueContext,
-    *,
-    retry_feedback: str | None = None,
-) -> str:
-    """Build the patch-generation prompt for OpenAI.
-
-    Args:
-        issue: SonarQube issue to fix.
-        context: Focused code context.
-        retry_feedback: Optional feedback from a failed prior patch attempt.
-
-    Returns:
-        Prompt text for structured patch generation.
-    """
-    retry_section = ""
-    if retry_feedback is not None:
-        retry_section = (
-            "Previous patch attempt failed validation before apply.\n"
-            f"Failure reason: {retry_feedback}\n"
-            "Return only a syntactically valid unified diff that can be applied with "
-            "`git apply`. Ensure hunk headers match the patch body exactly.\n\n"
-        )
-    return (
-        "Generate a minimal safe patch proposal for the following SonarQube issue and return "
-        "structured JSON.\n\n"
-        f"Issue key: {issue.key}\n"
-        f"Rule: {issue.rule}\n"
-        f"Severity: {issue.severity}\n"
-        f"Type: {issue.type}\n"
-        f"Message: {issue.message}\n"
-        f"File path: {context.file_path}\n"
-        f"Issue line: {context.line}\n"
-        f"Snippet start line: {context.snippet.start_line}\n"
-        f"Snippet end line: {context.snippet.end_line}\n\n"
-        "Requirements:\n"
-        "- Keep the change scoped to the issue.\n"
-        "- Produce a syntactically valid unified diff.\n"
-        "- Include `diff --git`, `---`, `+++`, and correct `@@` hunk headers.\n"
-        "- Make hunk line counts match the actual changed and context lines.\n"
-        "- Only touch repository-relative files.\n\n"
-        f"{retry_section}"
         "Code snippet:\n"
         f"{context.snippet.content}\n"
     )

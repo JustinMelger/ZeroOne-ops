@@ -126,25 +126,41 @@ class AnalysisService:
                 validation_passed=False,
             )
         try:
-            patch, rendered_from_structured_edit = self._generate_patch(
+            patch = self._generate_patch(
                 fix_generator=fix_generator,
                 selected_issue=selected_issue,
                 context=context,
             )
-        except LLMClientError:
-            return AnalysisResult(summary=summary)
+        except EditRenderError as error:
+            return AnalysisResult(
+                summary=f"{summary}. Structured edit could not be rendered safely: {error}",
+                validation_passed=False,
+                failure=FailureDetails(
+                    stage=FailureStage.ANALYSIS,
+                    message=f"Structured edit could not be rendered safely: {error}",
+                ),
+            )
+        except LLMClientError as error:
+            return AnalysisResult(
+                summary=f"{summary}. Structured edit generation failed: {error}",
+                validation_passed=False,
+                failure=FailureDetails(
+                    stage=FailureStage.ANALYSIS,
+                    message=f"Structured edit generation failed: {error}",
+                ),
+            )
         if isinstance(llm_client, OpenAILLMClient):
             _write_solution_file(
                 llm_client.solution_output_path,
                 issue_key=selected_issue.key,
+                patch=patch,
                 decision="accepted",
             )
         summary = (
             f"{summary}. Proposed files: {', '.join(patch.files_touched)}. "
-            f"MR title: {patch.mr_title}"
+            f"MR title: {patch.mr_title}. "
+            "Diff rendered by bot from structured edit proposal."
         )
-        if rendered_from_structured_edit:
-            summary = f"{summary}. Diff rendered by bot from structured edit proposal."
         should_apply_patch = not dry_run or self.config.apply_patch_in_dry_run
         if not should_apply_patch:
             return AnalysisResult(summary=summary, patch=patch)
@@ -173,7 +189,7 @@ class AnalysisService:
                 return None
             return FixtureLLMClient(
                 self.config.mock_llm_analysis_path,
-                patch_fixture_path=self.config.mock_llm_patch_path,
+                structured_edit_fixture_path=self.config.mock_llm_edit_path,
             )
 
     def _generate_patch(
@@ -182,8 +198,8 @@ class AnalysisService:
         fix_generator: FixGenerator,
         selected_issue: SonarIssue,
         context: IssueContext,
-    ) -> tuple[PatchProposal, bool]:
-        """Generate a patch proposal, preferring bot-rendered diffs.
+    ) -> PatchProposal:
+        """Generate a patch proposal from a structured edit.
 
         Args:
             fix_generator: LLM-backed fix generator.
@@ -191,13 +207,10 @@ class AnalysisService:
             context: Built issue context.
 
         Returns:
-            The generated patch proposal and whether it came from a structured edit.
+            The generated patch proposal.
         """
-        try:
-            structured_edit = fix_generator.generate_structured_edit(selected_issue, context)
-            return self.edit_renderer.render(structured_edit), True
-        except (AttributeError, EditRenderError, LLMClientError, NotImplementedError):
-            return fix_generator.generate(selected_issue, context), False
+        structured_edit = fix_generator.generate_structured_edit(selected_issue, context)
+        return self.edit_renderer.render(structured_edit)
 
     def _apply_and_validate_patch(
         self,
@@ -228,17 +241,6 @@ class AnalysisService:
                 self.patch_applier.validate(patch)
                 self.patch_applier.apply(patch)
             except PatchApplyError as error:
-                if (
-                    self._is_patch_format_failure(str(error))
-                    and attempt < self.config.max_retry_count
-                ):
-                    patch = self._regenerate_patch_with_format_feedback(
-                        fix_generator=fix_generator,
-                        selected_issue=selected_issue,
-                        context=context,
-                        failure_reason=str(error),
-                    )
-                    continue
                 return AnalysisResult(
                     summary=f"{summary}. Patch apply failed: {error}",
                     patch=patch,
@@ -296,37 +298,12 @@ class AnalysisService:
                         else None,
                     ),
                 )
-            patch, _ = self._generate_patch(
+            patch = self._generate_patch(
                 fix_generator=fix_generator,
                 selected_issue=selected_issue,
                 context=context,
             )
         return AnalysisResult(summary=summary, patch=patch)
-
-    def _is_patch_format_failure(self, error_message: str) -> bool:
-        """Return whether an apply failure points to malformed diff syntax."""
-        lowered = error_message.lower()
-        indicators = (
-            "malformed unified diff",
-            "corrupt patch",
-            "patch fragment without header",
-        )
-        return any(indicator in lowered for indicator in indicators)
-
-    def _regenerate_patch_with_format_feedback(
-        self,
-        *,
-        fix_generator: FixGenerator,
-        selected_issue: SonarIssue,
-        context: IssueContext,
-        failure_reason: str,
-    ) -> PatchProposal:
-        """Request a stricter retry patch after a diff-format failure."""
-        return fix_generator.generate(
-            selected_issue,
-            context,
-            retry_feedback=failure_reason,
-        )
 
     def _build_validation_failure(
         self,

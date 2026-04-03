@@ -1,0 +1,14 @@
+{
+  "issue_key": "FIXTURE-1",
+  "edits": [
+    {
+      "file_path": "samples/auto_fixable_example.py",
+      "search_text": "if enabled == True:",
+      "replace_text": "if enabled:",
+      "line_hint": 1
+    }
+  ],
+  "commit_message": "fix: simplify boolean comparison in auto_fixable_example.py",
+  "mr_title": "fix: simplify boolean comparison in auto_fixable_example.py",
+  "mr_description": "This change addresses a low-severity SonarQube issue by replacing an explicit boolean comparison with the idiomatic form."
+}

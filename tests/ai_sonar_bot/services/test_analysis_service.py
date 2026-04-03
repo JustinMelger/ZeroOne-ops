@@ -1,7 +1,12 @@
 import subprocess
 from pathlib import Path
 
-from ai_sonar_bot.models.analysis import AnalysisClassification, IssueAnalysis, PatchProposal
+from ai_sonar_bot.models.analysis import (
+    AnalysisClassification,
+    IssueAnalysis,
+    StructuredEditProposal,
+    TextEdit,
+)
 from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.services.analysis_service import AnalysisService
@@ -10,7 +15,7 @@ from ai_sonar_bot.services.analysis_service import AnalysisService
 def build_config(
     *,
     mock_llm_analysis_path: Path | None = None,
-    mock_llm_patch_path: Path | None = None,
+    mock_llm_edit_path: Path | None = None,
     apply_patch_in_dry_run: bool = False,
     validation_commands: list[str] | None = None,
     max_retry_count: int = 1,
@@ -28,7 +33,7 @@ def build_config(
         approval=ApprovalConfig(),
         gitlab=GitLabConfig(target_branch="main"),
         mock_llm_analysis_path=mock_llm_analysis_path,
-        mock_llm_patch_path=mock_llm_patch_path,
+        mock_llm_edit_path=mock_llm_edit_path,
         apply_patch_in_dry_run=apply_patch_in_dry_run,
         max_retry_count=max_retry_count,
     )
@@ -80,7 +85,7 @@ def test_analyze_issue_applies_patch_in_dry_run_from_fixture(
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
     analysis_path = tmp_path / "analysis.json"
-    patch_path = tmp_path / "patch.json"
+    edit_path = tmp_path / "edit.json"
     analysis_path.write_text(
         """
         {
@@ -94,17 +99,18 @@ def test_analyze_issue_applies_patch_in_dry_run_from_fixture(
         """.strip(),
         encoding="utf-8",
     )
-    patch_path.write_text(
+    edit_path.write_text(
         (
             "{\n"
             '  "issue_key": "FIXTURE-1",\n'
-            '  "files_touched": ["src/service.py"],\n'
-            '  "unified_diff": "diff --git a/src/service.py b/src/service.py\\n'
-            "--- a/src/service.py\\n"
-            "+++ b/src/service.py\\n"
-            "@@ -1 +1 @@\\n"
-            "-value = 1\\n"
-            '+value = 2\\n",\n'
+            '  "edits": [\n'
+            '    {\n'
+            '      "file_path": "src/service.py",\n'
+            '      "search_text": "value = 1",\n'
+            '      "replace_text": "value = 2",\n'
+            '      "line_hint": 1\n'
+            "    }\n"
+            "  ],\n"
             '  "commit_message": "fix(sonar): patch service [FIXTURE-1]",\n'
             '  "mr_title": "fix: patch service",\n'
             '  "mr_description": "summary"\n'
@@ -117,7 +123,7 @@ def test_analyze_issue_applies_patch_in_dry_run_from_fixture(
         tmp_path,
         build_config(
             mock_llm_analysis_path=analysis_path,
-            mock_llm_patch_path=patch_path,
+            mock_llm_edit_path=edit_path,
             apply_patch_in_dry_run=True,
         ),
     ).analyze_issue(
@@ -138,7 +144,7 @@ def test_analyze_issue_runs_validation_after_patch_apply(tmp_path: Path, monkeyp
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
     analysis_path = tmp_path / "analysis.json"
-    patch_path = tmp_path / "patch.json"
+    edit_path = tmp_path / "edit.json"
     analysis_path.write_text(
         """
         {
@@ -152,17 +158,18 @@ def test_analyze_issue_runs_validation_after_patch_apply(tmp_path: Path, monkeyp
         """.strip(),
         encoding="utf-8",
     )
-    patch_path.write_text(
+    edit_path.write_text(
         (
             "{\n"
             '  "issue_key": "FIXTURE-1",\n'
-            '  "files_touched": ["src/service.py"],\n'
-            '  "unified_diff": "diff --git a/src/service.py b/src/service.py\\n'
-            "--- a/src/service.py\\n"
-            "+++ b/src/service.py\\n"
-            "@@ -1 +1 @@\\n"
-            "-value = 1\\n"
-            '+value = 2\\n",\n'
+            '  "edits": [\n'
+            '    {\n'
+            '      "file_path": "src/service.py",\n'
+            '      "search_text": "value = 1",\n'
+            '      "replace_text": "value = 2",\n'
+            '      "line_hint": 1\n'
+            "    }\n"
+            "  ],\n"
             '  "commit_message": "fix(sonar): patch service [FIXTURE-1]",\n'
             '  "mr_title": "fix: patch service",\n'
             '  "mr_description": "summary"\n'
@@ -175,7 +182,7 @@ def test_analyze_issue_runs_validation_after_patch_apply(tmp_path: Path, monkeyp
         tmp_path,
         build_config(
             mock_llm_analysis_path=analysis_path,
-            mock_llm_patch_path=patch_path,
+            mock_llm_edit_path=edit_path,
             apply_patch_in_dry_run=True,
             validation_commands=['test "$(cat src/service.py)" = "value = 2"'],
         ),
@@ -196,7 +203,7 @@ def test_analyze_issue_rolls_back_when_validation_fails(tmp_path: Path, monkeypa
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
     analysis_path = tmp_path / "analysis.json"
-    patch_path = tmp_path / "patch.json"
+    edit_path = tmp_path / "edit.json"
     analysis_path.write_text(
         """
         {
@@ -210,17 +217,18 @@ def test_analyze_issue_rolls_back_when_validation_fails(tmp_path: Path, monkeypa
         """.strip(),
         encoding="utf-8",
     )
-    patch_path.write_text(
+    edit_path.write_text(
         (
             "{\n"
             '  "issue_key": "FIXTURE-1",\n'
-            '  "files_touched": ["src/service.py"],\n'
-            '  "unified_diff": "diff --git a/src/service.py b/src/service.py\\n'
-            "--- a/src/service.py\\n"
-            "+++ b/src/service.py\\n"
-            "@@ -1 +1 @@\\n"
-            "-value = 1\\n"
-            '+value = 2\\n",\n'
+            '  "edits": [\n'
+            '    {\n'
+            '      "file_path": "src/service.py",\n'
+            '      "search_text": "value = 1",\n'
+            '      "replace_text": "value = 2",\n'
+            '      "line_hint": 1\n'
+            "    }\n"
+            "  ],\n"
             '  "commit_message": "fix(sonar): patch service [FIXTURE-1]",\n'
             '  "mr_title": "fix: patch service",\n'
             '  "mr_description": "summary"\n'
@@ -233,7 +241,7 @@ def test_analyze_issue_rolls_back_when_validation_fails(tmp_path: Path, monkeypa
         tmp_path,
         build_config(
             mock_llm_analysis_path=analysis_path,
-            mock_llm_patch_path=patch_path,
+            mock_llm_edit_path=edit_path,
             apply_patch_in_dry_run=True,
             validation_commands=["false"],
             max_retry_count=1,
@@ -252,7 +260,10 @@ def test_analyze_issue_rolls_back_when_validation_fails(tmp_path: Path, monkeypa
     assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 1\n"
 
 
-def test_analyze_issue_retries_on_malformed_diff(tmp_path: Path, monkeypatch) -> None:
+def test_analyze_issue_retries_validation_with_regenerated_structured_edit(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_MODEL", raising=False)
@@ -263,7 +274,7 @@ def test_analyze_issue_retries_on_malformed_diff(tmp_path: Path, monkeypatch) ->
 
     class RetryLLMClient:
         def __init__(self) -> None:
-            self.patch_calls: list[str | None] = []
+            self.edit_calls = 0
 
         def analyze_issue(self, issue: SonarIssue, context) -> IssueAnalysis:
             del issue, context
@@ -276,42 +287,24 @@ def test_analyze_issue_retries_on_malformed_diff(tmp_path: Path, monkeypatch) ->
                 proposed_strategy="Apply the minimal fix.",
             )
 
-        def generate_patch(
+        def generate_structured_edit(
             self,
             issue: SonarIssue,
             context,
-            *,
-            retry_feedback: str | None = None,
-        ) -> PatchProposal:
+        ) -> StructuredEditProposal:
             del issue, context
-            self.patch_calls.append(retry_feedback)
-            if retry_feedback is None:
-                return PatchProposal(
-                    issue_key="FIXTURE-1",
-                    files_touched=["src/service.py"],
-                    unified_diff=(
-                        "diff --git a/src/service.py b/src/service.py\n"
-                        "--- a/src/service.py\n"
-                        "+++ b/src/service.py\n"
-                        "@@ -1,7 +1,7 @@\n"
-                        "-value = 1\n"
-                        "+value = 2\n"
-                    ),
-                    commit_message="fix(sonar): patch service [FIXTURE-1]",
-                    mr_title="fix: patch service",
-                    mr_description="summary",
-                )
-            return PatchProposal(
+            self.edit_calls += 1
+            replacement = "value = 3" if self.edit_calls == 1 else "value = 2"
+            return StructuredEditProposal(
                 issue_key="FIXTURE-1",
-                files_touched=["src/service.py"],
-                unified_diff=(
-                    "diff --git a/src/service.py b/src/service.py\n"
-                    "--- a/src/service.py\n"
-                    "+++ b/src/service.py\n"
-                    "@@ -1 +1 @@\n"
-                    "-value = 1\n"
-                    "+value = 2\n"
-                ),
+                edits=[
+                    TextEdit(
+                        file_path="src/service.py",
+                        search_text="value = 1",
+                        replace_text=replacement,
+                        line_hint=1,
+                    )
+                ],
                 commit_message="fix(sonar): patch service [FIXTURE-1]",
                 mr_title="fix: patch service",
                 mr_description="summary",
@@ -322,7 +315,6 @@ def test_analyze_issue_retries_on_malformed_diff(tmp_path: Path, monkeypatch) ->
         tmp_path,
         build_config(
             apply_patch_in_dry_run=True,
-            mock_llm_patch_path=tmp_path / "unused.json",
             validation_commands=['test "$(cat src/service.py)" = "value = 2"'],
             max_retry_count=1,
         ),
@@ -341,6 +333,149 @@ def test_analyze_issue_retries_on_malformed_diff(tmp_path: Path, monkeypatch) ->
     assert result.failure is None
     assert result.patch_applied is True
     assert result.validation_passed is True
-    assert retry_client.patch_calls[0] is None
-    assert "Malformed unified diff" in (retry_client.patch_calls[1] or "")
+    assert retry_client.edit_calls == 2
     assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 2\n"
+
+
+def test_analyze_issue_prefers_bot_rendered_diff_from_structured_edit(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+
+    class StructuredEditLLMClient:
+        def analyze_issue(self, issue: SonarIssue, context) -> IssueAnalysis:
+            del issue, context
+            return IssueAnalysis(
+                issue_key="FIXTURE-1",
+                classification=AnalysisClassification.AUTO_FIXABLE,
+                summary="Fixture analysis summary",
+                risk_notes=[],
+                target_files=["src/service.py"],
+                proposed_strategy="Apply the minimal fix.",
+            )
+
+        def generate_structured_edit(
+            self,
+            issue: SonarIssue,
+            context,
+        ) -> StructuredEditProposal:
+            del issue, context
+            return StructuredEditProposal(
+                issue_key="FIXTURE-1",
+                edits=[
+                    TextEdit(
+                        file_path="src/service.py",
+                        search_text="value = 1",
+                        replace_text="value = 2",
+                        line_hint=1,
+                    )
+                ],
+                commit_message="fix(sonar): patch service [FIXTURE-1]",
+                mr_title="fix: patch service",
+                mr_description="summary",
+            )
+
+    service = AnalysisService(
+        tmp_path,
+        build_config(
+            apply_patch_in_dry_run=True,
+            validation_commands=['test "$(cat src/service.py)" = "value = 2"'],
+        ),
+    )
+    monkeypatch.setattr(
+        AnalysisService,
+        "_build_llm_client",
+        lambda self: StructuredEditLLMClient(),
+    )
+
+    result = service.analyze_issue(
+        selected_issue=build_issue(),
+        dry_run=True,
+    )
+
+    assert "Diff rendered by bot from structured edit proposal." in result.summary
+    assert result.patch_applied is True
+    assert result.validation_passed is True
+    assert result.patch is not None
+    assert "diff --git a/src/service.py b/src/service.py" in result.patch.unified_diff
+    assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 2\n"
+
+
+def test_analyze_issue_rejects_unrenderable_structured_edit_without_raw_diff_fallback(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text(
+        "status_code = 1\nstatus_code = 2\n",
+        encoding="utf-8",
+    )
+
+    class AmbiguousStructuredEditLLMClient:
+        def analyze_issue(self, issue: SonarIssue, context) -> IssueAnalysis:
+            del issue, context
+            return IssueAnalysis(
+                issue_key="FIXTURE-1",
+                classification=AnalysisClassification.AUTO_FIXABLE,
+                summary="Fixture analysis summary",
+                risk_notes=[],
+                target_files=["src/service.py"],
+                proposed_strategy="Apply the minimal fix.",
+            )
+
+        def generate_structured_edit(
+            self,
+            issue: SonarIssue,
+            context,
+        ) -> StructuredEditProposal:
+            del issue, context
+            return StructuredEditProposal(
+                issue_key="FIXTURE-1",
+                edits=[
+                    TextEdit(
+                        file_path="src/service.py",
+                        search_text="status_code",
+                        replace_text="_",
+                    )
+                ],
+                commit_message="fix(sonar): patch service [FIXTURE-1]",
+                mr_title="fix: patch service",
+                mr_description="summary",
+            )
+
+    service = AnalysisService(
+        tmp_path,
+        build_config(
+            apply_patch_in_dry_run=True,
+            validation_commands=[],
+        ),
+    )
+    monkeypatch.setattr(
+        AnalysisService,
+        "_build_llm_client",
+        lambda self: AmbiguousStructuredEditLLMClient(),
+    )
+
+    result = service.analyze_issue(
+        selected_issue=build_issue(),
+        dry_run=True,
+    )
+
+    assert result.patch is None
+    assert result.patch_applied is False
+    assert result.failure is not None
+    assert result.failure.stage.value == "analysis"
+    assert "Structured edit could not be rendered safely" in result.summary
+    assert "matched multiple locations" in result.summary

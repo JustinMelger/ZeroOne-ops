@@ -3,7 +3,7 @@ stages:
 
 ai_sonar_bot:
   stage: ai-fix
-  image: registry.example.com/group/project/ai-sonar-bot:latest
+  image: ghcr.io/justinmelger/ai-sonar-bot:latest
   interruptible: false
   resource_group: ai-sonar-bot
   rules:
@@ -16,12 +16,23 @@ ai_sonar_bot:
     AI_SONAR_BOT_CONFIG: ".ai-sonar-bot.json"
     GIT_STRATEGY: clone
     GIT_DEPTH: "0"
+    GITLAB_URL: "https://${CI_SERVER_HOST}"
     GIT_AUTHOR_NAME: "AI Sonar Bot"
     GIT_AUTHOR_EMAIL: "ai-sonar-bot@example.com"
     GIT_COMMITTER_NAME: "AI Sonar Bot"
     GIT_COMMITTER_EMAIL: "ai-sonar-bot@example.com"
+    OPENAI_MODEL: "gpt-4.1-mini"
+    # Define these as protected CI/CD variables:
+    SONARQUBE_URL:
+    SONARQUBE_TOKEN
+    SONARQUBE_PROJECT_KEY
+    # GITLAB_TOKEN
+    # OPENAI_API_KEY
   before_script:
     - git config user.name "$GIT_AUTHOR_NAME"
     - git config user.email "$GIT_AUTHOR_EMAIL"
+    - >
+      git remote set-url origin
+      "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
   script:
     - uv run --project /opt/ai-sonar-bot ai-sonar-bot

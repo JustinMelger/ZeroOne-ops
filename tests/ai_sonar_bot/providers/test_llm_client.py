@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from ai_sonar_bot.providers.llm_client import load_analysis_fixture, load_patch_fixture
+from ai_sonar_bot.providers.llm_client import (
+    load_analysis_fixture,
+    load_structured_edit_fixture,
+)
 
 
 def test_load_analysis_fixture_returns_issue_analysis(tmp_path: Path) -> None:
@@ -26,14 +29,20 @@ def test_load_analysis_fixture_returns_issue_analysis(tmp_path: Path) -> None:
     assert analysis.target_files == ["src/service.py"]
 
 
-def test_load_patch_fixture_returns_patch_proposal(tmp_path: Path) -> None:
-    fixture_path = tmp_path / "patch.json"
+def test_load_structured_edit_fixture_returns_proposal(tmp_path: Path) -> None:
+    fixture_path = tmp_path / "edit.json"
     fixture_path.write_text(
         """
         {
           "issue_key": "AX1",
-          "files_touched": ["src/service.py"],
-          "unified_diff": "diff --git a/src/service.py b/src/service.py\\n",
+          "edits": [
+            {
+              "file_path": "src/service.py",
+              "search_text": "value = 1",
+              "replace_text": "value = 2",
+              "line_hint": 1
+            }
+          ],
           "commit_message": "fix(sonar): update service [AX1]",
           "mr_title": "fix: update service",
           "mr_description": "summary"
@@ -42,8 +51,8 @@ def test_load_patch_fixture_returns_patch_proposal(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    patch = load_patch_fixture(fixture_path)
+    proposal = load_structured_edit_fixture(fixture_path)
 
-    assert patch.issue_key == "AX1"
-    assert patch.files_touched == ["src/service.py"]
-    assert patch.mr_title == "fix: update service"
+    assert proposal.issue_key == "AX1"
+    assert proposal.edits[0].file_path == "src/service.py"
+    assert proposal.mr_title == "fix: update service"

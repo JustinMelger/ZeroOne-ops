@@ -193,12 +193,12 @@ Status:
 - [x] add structured edit proposal models
 - [x] add an edit renderer service for exact single-file replacements
 - [x] generate unified diffs in the bot from old and new file content
-- [ ] update the OpenAI client to return structured edits for the narrow path
-- [ ] use structured edit mode first for low-risk single-file fixes
-- [ ] keep raw diff mode only as a temporary fallback during migration
+- [x] update the OpenAI client to return structured edits for the narrow path
+- [x] use structured edit mode first for low-risk single-file fixes
+- [x] remove raw LLM-authored diff generation from the runtime path
 - [x] reject ambiguous edits instead of guessing
 - [x] add direct unit tests for the edit renderer
-- [ ] add integration coverage for structured edit -> diff -> apply -> validate
+- [x] add integration coverage for structured edit -> diff -> apply -> validate
 - [ ] update technical docs after the new path is stable
 
 ## Recommended Implementation Order
@@ -221,7 +221,6 @@ Status:
 - distributed or shared state storage
 - GitLab dashboard issue for CI-visible operational state and control
 - renovate-style GitLab token handling for automatic push authentication
-- bot-rendered diffs from structured edit proposals instead of raw LLM-authored unified diffs
 - support for GitHub in addition to GitLab
 - advanced issue prioritization
 - autonomous retry loops beyond one retry
@@ -269,55 +268,6 @@ Done when:
 - CI runs update the dashboard issue after each execution
 - operators can see current bot state without inspecting pipeline logs
 - dashboard content stays consistent with open merge requests and selected issues
-
-## Post-V1: Bot-Rendered Diffs
-
-After the current patch-generation flow is stable, reduce malformed patch
-failures by moving diff rendering from the LLM into the bot runtime.
-
-Purpose:
-
-- reduce `git apply` failures caused by malformed unified diff output
-- keep the LLM focused on edit intent instead of diff syntax
-- make low-risk single-file fixes more deterministic
-
-Suggested design:
-
-- introduce a structured edit proposal model for simple fixes
-- ask the LLM for:
-  - file path
-  - search text or target line
-  - replacement text
-  - commit message
-  - merge request metadata
-- let the bot:
-  - load the target file
-  - verify the edit can be applied unambiguously
-  - apply the edit in memory
-  - render a valid unified diff itself
-
-Rules:
-
-- use structured edit mode only when the change is narrow and deterministic
-- reject ambiguous edits instead of guessing
-- keep raw diff generation only as a temporary fallback while migrating
-
-Done when:
-
-- low-risk single-file fixes no longer depend on model-authored unified diffs
-- patch application failures due to malformed diff syntax drop materially
-- the bot can generate valid diffs from structured edit proposals before
-  calling the existing apply and validation flow
-
-Recommended implementation sequence:
-
-1. add a structured edit proposal model for narrow single-file fixes
-2. add an edit-rendering service that applies exact replacements in memory
-3. generate unified diffs in the bot from old and new file content
-4. use structured edit mode first for low-risk fixes
-5. keep raw LLM-authored diffs only as a temporary fallback during migration
-6. reject ambiguous edits instead of guessing
-7. expand beyond single-file single-edit fixes only after the narrow path is stable
 
 ## Post-V1: GitHub Support
 

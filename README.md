@@ -44,7 +44,7 @@ The default Sonar fixture now targets [samples/auto_fixable_example.py](/Users/j
 
 For analysis-only dry-runs, the scaffold also includes [fixtures/llm/analysis.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/fixtures/llm/analysis.json) through `mock_llm_analysis_path`.
 
-For patch-proposal dry-runs, the scaffold also includes [fixtures/llm/patch.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/fixtures/llm/patch.json) through `mock_llm_patch_path`.
+For structured-edit dry-runs, the scaffold also includes [fixtures/llm/edit.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/fixtures/llm/edit.json) through `mock_llm_edit_path`.
 
 This fixture mode is only used during dry-run. Normal runs expect real SonarQube credentials for issue intake.
 
