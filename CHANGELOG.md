@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.3.0...ai-sonar-bot-v0.3.1) (2026-04-03)
+
+
+### Bug Fixes
+
+* release please versioning package ([528a53c](https://github.com/JustinMelger/ai-sonar-bot/commit/528a53ce7cf959b2e28829c5d92d4cfced28ff8c))
+
 ## [0.3.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.2.0...ai-sonar-bot-v0.3.0) (2026-04-03)
 
 
