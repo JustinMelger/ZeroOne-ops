@@ -111,9 +111,10 @@ How it works:
 
 - merge Conventional Commit messages into `main`
 - `release-please` opens or updates a release PR
-- when that PR is merged, `release-please` creates a Git tag like `v0.2.0`
+- when that PR is merged, `release-please` creates a Git tag like `ai-sonar-bot-v0.3.0`
 - the created GitHub release or version tag triggers the image publish workflow
-- GHCR receives tags like `0.2.0`, `0.2`, `0`, and `latest`
+- the publish workflow normalizes that tag to semver for GHCR
+- GHCR receives tags like `0.3.0`, `0.3`, `0`, and `latest`
 
 If a release already exists and you need to retry publication, the image workflow also supports manual `workflow_dispatch` runs from the GitHub Actions UI. Provide the release tag, for example `v0.2.0`, so the workflow can publish the correct semver image tags.
 
