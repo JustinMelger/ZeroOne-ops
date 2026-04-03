@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.2.0...ai-sonar-bot-v0.3.0) (2026-04-03)
+
+
+### Features
+
+* add render models + edit ([a56c934](https://github.com/JustinMelger/ai-sonar-bot/commit/a56c934e3b2130c83bcfccf1cbecca68b8c57897))
+* add strucutred edits for open ai client ([a9d3ddd](https://github.com/JustinMelger/ai-sonar-bot/commit/a9d3ddd72d3c8295e70152f961585a59fe929c58))
+
+
+### Bug Fixes
+
+* run lint on file ([7033216](https://github.com/JustinMelger/ai-sonar-bot/commit/7033216e9e98750d0cf3a413906f6bd13bd287e0))
+
+
+### Documentation
+
+* update rm for v1 ([6beebdc](https://github.com/JustinMelger/ai-sonar-bot/commit/6beebdcf4ca00a1d40afc4158c04bf861306cec8))
+* update technical docs ([fe557b4](https://github.com/JustinMelger/ai-sonar-bot/commit/fe557b49fa8320bd8ad9a38372f47a270b056d3e))
+
 ## [0.2.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.1.0...ai-sonar-bot-v0.2.0) (2026-03-29)
 
 
