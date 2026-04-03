@@ -226,9 +226,7 @@ class OpenAILLMClient(LLMClient):
             raise LLMClientError("OpenAI structured edit generation request failed.") from error
 
         if response.output_parsed is None:
-            raise LLMClientError(
-                "OpenAI structured edit generation did not return parsed output."
-            )
+            raise LLMClientError("OpenAI structured edit generation did not return parsed output.")
         return response.output_parsed
 
 
