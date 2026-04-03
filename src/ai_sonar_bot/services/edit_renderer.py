@@ -91,9 +91,7 @@ class EditRenderer:
         return PatchProposal(
             issue_key=proposal.issue_key,
             files_touched=files_touched,
-            unified_diff=(
-                f"diff --git a/{target_file} b/{target_file}\n{unified_diff_text}"
-            ),
+            unified_diff=(f"diff --git a/{target_file} b/{target_file}\n{unified_diff_text}"),
             commit_message=proposal.commit_message,
             mr_title=proposal.mr_title,
             mr_description=proposal.mr_description,
@@ -114,16 +112,10 @@ class EditRenderer:
         """
         matches = _find_matches(content, edit.search_text)
         if not matches:
-            raise EditRenderError(
-                f"Could not find exact search text in {edit.file_path!r}."
-            )
+            raise EditRenderError(f"Could not find exact search text in {edit.file_path!r}.")
 
         selected_match = self._select_match(matches, edit)
-        return (
-            content[: selected_match.start]
-            + edit.replace_text
-            + content[selected_match.end :]
-        )
+        return content[: selected_match.start] + edit.replace_text + content[selected_match.end :]
 
     def _select_match(self, matches: list[_TextMatch], edit: TextEdit) -> _TextMatch:
         """Select the correct text match for an edit.
@@ -141,9 +133,7 @@ class EditRenderer:
         if len(matches) == 1:
             return matches[0]
         if edit.line_hint is None:
-            raise EditRenderError(
-                f"Search text in {edit.file_path!r} matched multiple locations."
-            )
+            raise EditRenderError(f"Search text in {edit.file_path!r} matched multiple locations.")
 
         hinted_matches = [match for match in matches if match.line_number == edit.line_hint]
         if len(hinted_matches) != 1:
