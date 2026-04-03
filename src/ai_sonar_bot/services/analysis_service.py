@@ -21,10 +21,12 @@ from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import FailureDetails, FailureStage
 from ai_sonar_bot.providers.llm_client import (
     FixtureLLMClient,
+    LLMClientError,
     OpenAILLMClient,
     _write_solution_file,
 )
 from ai_sonar_bot.services.context_builder import ContextBuilder
+from ai_sonar_bot.services.edit_renderer import EditRenderer, EditRenderError
 from ai_sonar_bot.services.fix_generator import FixGenerator
 from ai_sonar_bot.services.patch_applier import PatchApplier, PatchApplyError
 from ai_sonar_bot.services.validator import Validator
@@ -70,6 +72,7 @@ class AnalysisService:
         self.repo_root = repo_root
         self.config = config
         self.context_builder = ContextBuilder(repo_root, config)
+        self.edit_renderer = EditRenderer(repo_root)
         self.patch_applier = PatchApplier(repo_root)
         self.validator = Validator(repo_root)
 
@@ -122,19 +125,41 @@ class AnalysisService:
                 summary=f"{summary}. Patch generation skipped because manual review is required.",
                 validation_passed=False,
             )
-        if self.config.mock_llm_patch_path is None and not isinstance(llm_client, OpenAILLMClient):
-            return AnalysisResult(summary=summary)
-
-        patch = fix_generator.generate(selected_issue, context)
+        try:
+            patch = self._generate_patch(
+                fix_generator=fix_generator,
+                selected_issue=selected_issue,
+                context=context,
+            )
+        except EditRenderError as error:
+            return AnalysisResult(
+                summary=f"{summary}. Structured edit could not be rendered safely: {error}",
+                validation_passed=False,
+                failure=FailureDetails(
+                    stage=FailureStage.ANALYSIS,
+                    message=f"Structured edit could not be rendered safely: {error}",
+                ),
+            )
+        except LLMClientError as error:
+            return AnalysisResult(
+                summary=f"{summary}. Structured edit generation failed: {error}",
+                validation_passed=False,
+                failure=FailureDetails(
+                    stage=FailureStage.ANALYSIS,
+                    message=f"Structured edit generation failed: {error}",
+                ),
+            )
         if isinstance(llm_client, OpenAILLMClient):
             _write_solution_file(
                 llm_client.solution_output_path,
                 issue_key=selected_issue.key,
+                patch=patch,
                 decision="accepted",
             )
         summary = (
             f"{summary}. Proposed files: {', '.join(patch.files_touched)}. "
-            f"MR title: {patch.mr_title}"
+            f"MR title: {patch.mr_title}. "
+            "Diff rendered by bot from structured edit proposal."
         )
         should_apply_patch = not dry_run or self.config.apply_patch_in_dry_run
         if not should_apply_patch:
@@ -164,8 +189,28 @@ class AnalysisService:
                 return None
             return FixtureLLMClient(
                 self.config.mock_llm_analysis_path,
-                patch_fixture_path=self.config.mock_llm_patch_path,
+                structured_edit_fixture_path=self.config.mock_llm_edit_path,
             )
+
+    def _generate_patch(
+        self,
+        *,
+        fix_generator: FixGenerator,
+        selected_issue: SonarIssue,
+        context: IssueContext,
+    ) -> PatchProposal:
+        """Generate a patch proposal from a structured edit.
+
+        Args:
+            fix_generator: LLM-backed fix generator.
+            selected_issue: Selected SonarQube issue.
+            context: Built issue context.
+
+        Returns:
+            The generated patch proposal.
+        """
+        structured_edit = fix_generator.generate_structured_edit(selected_issue, context)
+        return self.edit_renderer.render(structured_edit)
 
     def _apply_and_validate_patch(
         self,
@@ -193,6 +238,7 @@ class AnalysisService:
         for attempt in range(self.config.max_retry_count + 1):
             snapshot = self._snapshot_files(patch.files_touched)
             try:
+                self.patch_applier.validate(patch)
                 self.patch_applier.apply(patch)
             except PatchApplyError as error:
                 return AnalysisResult(
@@ -205,6 +251,7 @@ class AnalysisService:
                         stage=FailureStage.PATCH_APPLY,
                         message=f"Patch apply failed: {error}",
                         retry_count=attempt,
+                        stdout_excerpt=_truncate_output(patch.unified_diff),
                     ),
                 )
             validation_result = self.validator.run(self.config.validation_commands)
@@ -251,7 +298,11 @@ class AnalysisService:
                         else None,
                     ),
                 )
-            patch = fix_generator.generate(selected_issue, context)
+            patch = self._generate_patch(
+                fix_generator=fix_generator,
+                selected_issue=selected_issue,
+                context=context,
+            )
         return AnalysisResult(summary=summary, patch=patch)
 
     def _build_validation_failure(

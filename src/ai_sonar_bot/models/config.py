@@ -114,7 +114,7 @@ class AppConfig(BaseModel):
         openai_solution_output_path: Path where OpenAI solutions should be written.
         mock_sonar_issues_path: Optional path to a local SonarQube issue fixture.
         mock_llm_analysis_path: Optional path to a local LLM analysis fixture.
-        mock_llm_patch_path: Optional path to a local LLM patch fixture.
+        mock_llm_edit_path: Optional path to a local LLM structured edit fixture.
         max_retry_count: Maximum retry attempts after validation failure.
         supported_severities: Allowed SonarQube severities.
         supported_issue_types: Allowed SonarQube issue types.
@@ -134,7 +134,7 @@ class AppConfig(BaseModel):
     openai_solution_output_path: Path = Path("artifacts/openai-solution.json")
     mock_sonar_issues_path: Path | None = None
     mock_llm_analysis_path: Path | None = None
-    mock_llm_patch_path: Path | None = None
+    mock_llm_edit_path: Path | None = None
     max_retry_count: int = 1
     supported_severities: list[str] = Field(default_factory=list)
     supported_issue_types: list[str] = Field(default_factory=list)

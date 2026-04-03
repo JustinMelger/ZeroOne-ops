@@ -95,6 +95,40 @@ class PatchProposal(BaseModel):
     mr_description: str
 
 
+class TextEdit(BaseModel):
+    """Represent one exact text replacement in a repository file.
+
+    Attributes:
+        file_path: Repository-relative file path to edit.
+        search_text: Exact existing text that should be replaced.
+        replace_text: Replacement text to apply.
+        line_hint: Optional 1-based line hint used to disambiguate repeated matches.
+    """
+
+    file_path: str
+    search_text: str
+    replace_text: str
+    line_hint: int | None = None
+
+
+class StructuredEditProposal(BaseModel):
+    """Represent a structured edit plan that the bot can render to a diff.
+
+    Attributes:
+        issue_key: SonarQube issue key.
+        edits: Exact text edits to apply.
+        commit_message: Proposed commit message.
+        mr_title: Proposed merge request title.
+        mr_description: Proposed merge request description.
+    """
+
+    issue_key: str
+    edits: list[TextEdit] = Field(default_factory=list)
+    commit_message: str
+    mr_title: str
+    mr_description: str
+
+
 class ValidationCommandResult(BaseModel):
     """Capture the result of a single validation command.
 

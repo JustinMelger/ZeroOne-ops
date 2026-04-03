@@ -44,7 +44,7 @@ The default Sonar fixture now targets [samples/auto_fixable_example.py](/Users/j
 
 For analysis-only dry-runs, the scaffold also includes [fixtures/llm/analysis.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/fixtures/llm/analysis.json) through `mock_llm_analysis_path`.
 
-For patch-proposal dry-runs, the scaffold also includes [fixtures/llm/patch.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/fixtures/llm/patch.json) through `mock_llm_patch_path`.
+For structured-edit dry-runs, the scaffold also includes [fixtures/llm/edit.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/fixtures/llm/edit.json) through `mock_llm_edit_path`.
 
 This fixture mode is only used during dry-run. Normal runs expect real SonarQube credentials for issue intake.
 
@@ -115,7 +115,7 @@ How it works:
 - the created GitHub release or version tag triggers the image publish workflow
 - GHCR receives tags like `0.2.0`, `0.2`, `0`, and `latest`
 
-If a release already exists and you need to retry publication, the image workflow also supports manual `workflow_dispatch` runs from the GitHub Actions UI.
+If a release already exists and you need to retry publication, the image workflow also supports manual `workflow_dispatch` runs from the GitHub Actions UI. Provide the release tag, for example `v0.2.0`, so the workflow can publish the correct semver image tags.
 
 The release workflow uses `secrets.RELEASE_PLEASE_TOKEN` instead of the default `GITHUB_TOKEN`. This is intentional: tags and releases created by the default `GITHUB_TOKEN` do not trigger downstream workflows reliably, so the image publish workflow would not run.
 
@@ -151,6 +151,7 @@ Recommended GitLab CI setup:
 - use a token that is allowed to push branches and create merge requests
 - keep `GIT_DEPTH=0` so branch and push behavior is predictable
 - set a fixed git author and committer identity in the job
+- rewrite the `origin` remote in CI to use `GITLAB_TOKEN` for authenticated pushes
 
 The example pipeline now does all of the above and also uses a `resource_group` so two bot jobs do not try to mutate the same repository checkout at once.
 

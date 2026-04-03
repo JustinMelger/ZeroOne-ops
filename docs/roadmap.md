@@ -180,6 +180,27 @@ Done when:
 - [x] CI enforces an agreed minimum coverage threshold
 - [x] failures are diagnosable from logs and state
 
+### Phase 10: Bot-Rendered Diffs
+
+Goal:
+
+- replace raw LLM-authored unified diffs with bot-rendered diffs for narrow,
+  low-risk fixes
+- reduce patch-format failures and simplify the patch pipeline
+
+Status:
+
+- [x] add structured edit proposal models
+- [x] add an edit renderer service for exact single-file replacements
+- [x] generate unified diffs in the bot from old and new file content
+- [x] update the OpenAI client to return structured edits for the narrow path
+- [x] use structured edit mode first for low-risk single-file fixes
+- [x] remove raw LLM-authored diff generation from the runtime path
+- [x] reject ambiguous edits instead of guessing
+- [x] add direct unit tests for the edit renderer
+- [x] add integration coverage for structured edit -> diff -> apply -> validate
+- [x] update technical docs after the new path is stable
+
 ## Recommended Implementation Order
 
 - [x] Wire issue selection into the runner.
@@ -198,9 +219,55 @@ Done when:
 - multi-issue processing per run
 - automatic merge request approval or merge
 - distributed or shared state storage
+- GitLab dashboard issue for CI-visible operational state and control
+- renovate-style GitLab token handling for automatic push authentication
 - support for GitHub in addition to GitLab
 - advanced issue prioritization
 - autonomous retry loops beyond one retry
+
+## Post-V1: GitLab Dashboard Issue
+
+After the base GitLab-first workflow is stable, add a Renovate-style dashboard
+issue for CI-visible operational state.
+
+Purpose:
+
+- make bot activity visible without relying on local JSON state
+- show pending, in-progress, rejected, and completed SonarQube issues
+- provide a lightweight operator control surface in GitLab
+
+Suggested design:
+
+- one persistent GitLab issue, for example `AI Code Ops Dashboard`
+- markdown sections for:
+  - open candidates
+  - in progress
+  - merge requests opened
+  - rejected or manual-review items
+  - recent failures
+- each row tracks:
+  - SonarQube issue key
+  - rule
+  - severity
+  - file
+  - current status
+  - branch
+  - merge request link
+  - last attempt timestamp
+
+Rules:
+
+- use merge request and branch lookup as the hard dedupe mechanism
+- use the dashboard issue as the visibility and operator layer
+- keep local JSON state for local runs, but reduce CI reliance on it over time
+- keep the dashboard design provider-portable so the same concept can map to a
+  GitHub issue when GitHub support is added later
+
+Done when:
+
+- CI runs update the dashboard issue after each execution
+- operators can see current bot state without inspecting pipeline logs
+- dashboard content stays consistent with open merge requests and selected issues
 
 ## Post-V1: GitHub Support
 
@@ -224,6 +291,42 @@ Done when:
 - a validated branch can create a GitHub pull request through a provider-neutral publish flow
 - the state model can persist either GitLab merge request URLs or GitHub pull request URLs cleanly
 - shared workflow code does not depend on GitLab-only terminology outside the GitLab provider layer
+
+## Post-V1: Renovate-Style GitLab Token Handling
+
+After the current CI configuration is stable, move GitLab push authentication
+closer to the bot so `GITLAB_TOKEN` behaves more like a single coupled bot
+credential.
+
+Purpose:
+
+- reduce CI-specific git remote rewriting
+- let one GitLab token cover both API and push behavior
+- make the bot behave more like Renovate in GitLab environments
+
+Suggested design:
+
+- keep `GitLabClient` responsible only for GitLab API calls
+- move push-auth setup into the git layer, for example `BranchManager` or a
+  dedicated git-auth service
+- in CI mode, derive the authenticated push remote from `GITLAB_TOKEN`,
+  `CI_SERVER_HOST`, and `CI_PROJECT_PATH`
+- keep CI config as a fallback, not the only place where push auth is wired
+
+Rules:
+
+- do not mix git transport concerns into the GitLab API client
+- keep token handling centralized and explicit
+- preserve compatibility with environments that already provide authenticated
+  remotes
+
+Done when:
+
+- CI mode can push branches with `GITLAB_TOKEN` without requiring manual remote
+  rewriting in `.gitlab-ci.yml`
+- GitLab API calls and git push operations use one coherent credential model
+- the GitLab CI example becomes simpler because push auth is configured by the
+  bot runtime
 
 ## Working Rule
 

@@ -69,7 +69,7 @@ def load_config() -> AppConfig:
     env_base_branch = os.environ.get("AI_SONAR_BOT_BASE_BRANCH")
     env_apply_patch_in_dry_run = os.environ.get("AI_SONAR_BOT_APPLY_PATCH_IN_DRY_RUN")
     env_mock_llm_analysis_path = os.environ.get("AI_SONAR_BOT_MOCK_LLM_ANALYSIS_PATH")
-    env_mock_llm_patch_path = os.environ.get("AI_SONAR_BOT_MOCK_LLM_PATCH_PATH")
+    env_mock_llm_edit_path = os.environ.get("AI_SONAR_BOT_MOCK_LLM_EDIT_PATH")
     env_openai_solution_output_path = os.environ.get("AI_SONAR_BOT_OPENAI_SOLUTION_OUTPUT_PATH")
     env_mock_sonar_issues_path = os.environ.get("AI_SONAR_BOT_MOCK_SONAR_ISSUES_PATH")
     env_state_path = os.environ.get("AI_SONAR_BOT_STATE_PATH")
@@ -89,8 +89,8 @@ def load_config() -> AppConfig:
         data["openai_solution_output_path"] = env_openai_solution_output_path
     if env_mock_llm_analysis_path:
         data["mock_llm_analysis_path"] = env_mock_llm_analysis_path
-    if env_mock_llm_patch_path:
-        data["mock_llm_patch_path"] = env_mock_llm_patch_path
+    if env_mock_llm_edit_path:
+        data["mock_llm_edit_path"] = env_mock_llm_edit_path
     if env_mock_sonar_issues_path:
         data["mock_sonar_issues_path"] = env_mock_sonar_issues_path
     if env_state_path:

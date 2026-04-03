@@ -14,8 +14,7 @@ typecheck:
     uv run mypy src
 
 security:
-    # Temporary ignore: pygments is only transitive here and currently pulled by CLI/test tooling.
-    uv run pip-audit --ignore-vuln CVE-2026-4539
+    uv run pip-audit
 
 test:
     uv run pytest
