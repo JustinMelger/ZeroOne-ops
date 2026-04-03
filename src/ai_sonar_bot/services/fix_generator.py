@@ -6,7 +6,12 @@ provider.
 
 from __future__ import annotations
 
-from ai_sonar_bot.models.analysis import IssueAnalysis, IssueContext, PatchProposal
+from ai_sonar_bot.models.analysis import (
+    IssueAnalysis,
+    IssueContext,
+    PatchProposal,
+    StructuredEditProposal,
+)
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.providers.llm_client import LLMClient
 
@@ -38,14 +43,37 @@ class FixGenerator:
         """
         return self.llm_client.analyze_issue(issue, context)
 
-    def generate(self, issue: SonarIssue, context: IssueContext) -> PatchProposal:
+    def generate(
+        self,
+        issue: SonarIssue,
+        context: IssueContext,
+        *,
+        retry_feedback: str | None = None,
+    ) -> PatchProposal:
         """Generate a patch proposal.
+
+        Args:
+            issue: SonarQube issue to fix.
+            context: Repository context for the issue.
+            retry_feedback: Optional feedback from a failed prior patch attempt.
+
+        Returns:
+            Structured patch proposal.
+        """
+        return self.llm_client.generate_patch(issue, context, retry_feedback=retry_feedback)
+
+    def generate_structured_edit(
+        self,
+        issue: SonarIssue,
+        context: IssueContext,
+    ) -> StructuredEditProposal:
+        """Generate a structured edit proposal.
 
         Args:
             issue: SonarQube issue to fix.
             context: Repository context for the issue.
 
         Returns:
-            Structured patch proposal.
+            Structured edit proposal for bot-rendered diffs.
         """
-        return self.llm_client.generate_patch(issue, context)
+        return self.llm_client.generate_structured_edit(issue, context)

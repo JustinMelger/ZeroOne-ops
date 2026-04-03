@@ -12,7 +12,12 @@ from typing import Any
 
 from openai import OpenAI
 
-from ai_sonar_bot.models.analysis import IssueAnalysis, IssueContext, PatchProposal
+from ai_sonar_bot.models.analysis import (
+    IssueAnalysis,
+    IssueContext,
+    PatchProposal,
+    StructuredEditProposal,
+)
 from ai_sonar_bot.models.config import OpenAIConnectionConfig
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.utils.files import ensure_parent
@@ -37,17 +42,43 @@ class LLMClient:
         """
         raise NotImplementedError("LLM integration is not implemented yet.")
 
-    def generate_patch(self, issue: SonarIssue, context: IssueContext) -> PatchProposal:
+    def generate_patch(
+        self,
+        issue: SonarIssue,
+        context: IssueContext,
+        *,
+        retry_feedback: str | None = None,
+    ) -> PatchProposal:
         """Generate a patch proposal for a SonarQube issue.
+
+        Args:
+            issue: Issue to fix.
+            context: Repository context for the issue.
+            retry_feedback: Optional feedback from a failed prior patch attempt.
+
+        Returns:
+            Structured patch proposal.
+        """
+        raise NotImplementedError("LLM integration is not implemented yet.")
+
+    def generate_structured_edit(
+        self,
+        issue: SonarIssue,
+        context: IssueContext,
+    ) -> StructuredEditProposal:
+        """Generate a narrow structured edit proposal.
 
         Args:
             issue: Issue to fix.
             context: Repository context for the issue.
 
         Returns:
-            Structured patch proposal.
+            Structured edit proposal for bot-rendered diffs.
+
+        Raises:
+            LLMClientError: If structured edit generation is unsupported or fails.
         """
-        raise NotImplementedError("LLM integration is not implemented yet.")
+        raise NotImplementedError("Structured edit generation is not implemented yet.")
 
 
 class OpenAILLMClient(LLMClient):
@@ -109,12 +140,19 @@ class OpenAILLMClient(LLMClient):
         )
         return analysis
 
-    def generate_patch(self, issue: SonarIssue, context: IssueContext) -> PatchProposal:
+    def generate_patch(
+        self,
+        issue: SonarIssue,
+        context: IssueContext,
+        *,
+        retry_feedback: str | None = None,
+    ) -> PatchProposal:
         """Generate a patch proposal with OpenAI.
 
         Args:
             issue: Issue to fix.
             context: Repository context for the issue.
+            retry_feedback: Optional feedback from a failed prior patch attempt.
 
         Returns:
             Structured patch proposal.
@@ -122,7 +160,7 @@ class OpenAILLMClient(LLMClient):
         Raises:
             LLMClientError: If the API call fails or returns an invalid payload.
         """
-        input_text = _build_patch_prompt(issue, context)
+        input_text = _build_patch_prompt(issue, context, retry_feedback=retry_feedback)
         try:
             response = self.client.responses.parse(
                 model=self.config.model,
@@ -150,6 +188,48 @@ class OpenAILLMClient(LLMClient):
             patch=patch,
         )
         return patch
+
+    def generate_structured_edit(
+        self,
+        issue: SonarIssue,
+        context: IssueContext,
+    ) -> StructuredEditProposal:
+        """Generate a structured edit proposal with OpenAI.
+
+        Args:
+            issue: Issue to fix.
+            context: Repository context for the issue.
+
+        Returns:
+            Structured edit proposal.
+
+        Raises:
+            LLMClientError: If the API call fails or returns invalid output.
+        """
+        input_text = _build_structured_edit_prompt(issue, context)
+        try:
+            response = self.client.responses.parse(
+                model=self.config.model,
+                input=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You propose exact file edits for SonarQube issues and return "
+                            "strictly structured JSON."
+                        ),
+                    },
+                    {"role": "user", "content": input_text},
+                ],
+                text_format=StructuredEditProposal,
+            )
+        except Exception as error:
+            raise LLMClientError("OpenAI structured edit generation request failed.") from error
+
+        if response.output_parsed is None:
+            raise LLMClientError(
+                "OpenAI structured edit generation did not return parsed output."
+            )
+        return response.output_parsed
 
 
 class FixtureLLMClient(LLMClient):
@@ -187,20 +267,44 @@ class FixtureLLMClient(LLMClient):
         del issue, context
         return load_analysis_fixture(self.analysis_fixture_path)
 
-    def generate_patch(self, issue: SonarIssue, context: IssueContext) -> PatchProposal:
+    def generate_patch(
+        self,
+        issue: SonarIssue,
+        context: IssueContext,
+        *,
+        retry_feedback: str | None = None,
+    ) -> PatchProposal:
         """Load a fixture-based patch proposal result.
 
         Args:
             issue: Issue to fix.
             context: Repository context for the issue.
+            retry_feedback: Optional feedback from a failed prior patch attempt.
 
         Returns:
             Structured patch proposal from the fixture.
         """
-        del issue, context
+        del issue, context, retry_feedback
         if self.patch_fixture_path is None:
             raise LLMClientError("LLM patch fixture path is not configured.")
         return load_patch_fixture(self.patch_fixture_path)
+
+    def generate_structured_edit(
+        self,
+        issue: SonarIssue,
+        context: IssueContext,
+    ) -> StructuredEditProposal:
+        """Indicate that fixture-backed structured edits are not configured.
+
+        Args:
+            issue: Issue to fix.
+            context: Repository context for the issue.
+
+        Raises:
+            LLMClientError: Always, because fixture structured edits are not configured yet.
+        """
+        del issue, context
+        raise LLMClientError("LLM structured edit generation is not configured.")
 
 
 def load_analysis_fixture(path: Path) -> IssueAnalysis:
@@ -346,16 +450,30 @@ def _build_analysis_prompt(issue: SonarIssue, context: IssueContext) -> str:
     )
 
 
-def _build_patch_prompt(issue: SonarIssue, context: IssueContext) -> str:
+def _build_patch_prompt(
+    issue: SonarIssue,
+    context: IssueContext,
+    *,
+    retry_feedback: str | None = None,
+) -> str:
     """Build the patch-generation prompt for OpenAI.
 
     Args:
         issue: SonarQube issue to fix.
         context: Focused code context.
+        retry_feedback: Optional feedback from a failed prior patch attempt.
 
     Returns:
         Prompt text for structured patch generation.
     """
+    retry_section = ""
+    if retry_feedback is not None:
+        retry_section = (
+            "Previous patch attempt failed validation before apply.\n"
+            f"Failure reason: {retry_feedback}\n"
+            "Return only a syntactically valid unified diff that can be applied with "
+            "`git apply`. Ensure hunk headers match the patch body exactly.\n\n"
+        )
     return (
         "Generate a minimal safe patch proposal for the following SonarQube issue and return "
         "structured JSON.\n\n"
@@ -370,8 +488,44 @@ def _build_patch_prompt(issue: SonarIssue, context: IssueContext) -> str:
         f"Snippet end line: {context.snippet.end_line}\n\n"
         "Requirements:\n"
         "- Keep the change scoped to the issue.\n"
-        "- Produce a valid unified diff.\n"
+        "- Produce a syntactically valid unified diff.\n"
+        "- Include `diff --git`, `---`, `+++`, and correct `@@` hunk headers.\n"
+        "- Make hunk line counts match the actual changed and context lines.\n"
         "- Only touch repository-relative files.\n\n"
+        f"{retry_section}"
+        "Code snippet:\n"
+        f"{context.snippet.content}\n"
+    )
+
+
+def _build_structured_edit_prompt(issue: SonarIssue, context: IssueContext) -> str:
+    """Build the structured-edit prompt for OpenAI.
+
+    Args:
+        issue: SonarQube issue to fix.
+        context: Focused code context.
+
+    Returns:
+        Prompt text for structured edit generation.
+    """
+    return (
+        "Generate a minimal exact text edit for the following SonarQube issue and return "
+        "structured JSON.\n\n"
+        f"Issue key: {issue.key}\n"
+        f"Rule: {issue.rule}\n"
+        f"Severity: {issue.severity}\n"
+        f"Type: {issue.type}\n"
+        f"Message: {issue.message}\n"
+        f"File path: {context.file_path}\n"
+        f"Issue line: {context.line}\n"
+        f"Snippet start line: {context.snippet.start_line}\n"
+        f"Snippet end line: {context.snippet.end_line}\n\n"
+        "Requirements:\n"
+        "- Return exactly one edit for one repository-relative file.\n"
+        "- Use exact existing source text in `search_text`.\n"
+        "- Keep the change minimal and scoped to the issue.\n"
+        "- Use `line_hint` when the same text may appear more than once.\n"
+        "- Do not return a unified diff.\n\n"
         "Code snippet:\n"
         f"{context.snippet.content}\n"
     )

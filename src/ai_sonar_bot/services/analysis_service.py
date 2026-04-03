@@ -21,10 +21,12 @@ from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import FailureDetails, FailureStage
 from ai_sonar_bot.providers.llm_client import (
     FixtureLLMClient,
+    LLMClientError,
     OpenAILLMClient,
     _write_solution_file,
 )
 from ai_sonar_bot.services.context_builder import ContextBuilder
+from ai_sonar_bot.services.edit_renderer import EditRenderer, EditRenderError
 from ai_sonar_bot.services.fix_generator import FixGenerator
 from ai_sonar_bot.services.patch_applier import PatchApplier, PatchApplyError
 from ai_sonar_bot.services.validator import Validator
@@ -70,6 +72,7 @@ class AnalysisService:
         self.repo_root = repo_root
         self.config = config
         self.context_builder = ContextBuilder(repo_root, config)
+        self.edit_renderer = EditRenderer(repo_root)
         self.patch_applier = PatchApplier(repo_root)
         self.validator = Validator(repo_root)
 
@@ -122,10 +125,14 @@ class AnalysisService:
                 summary=f"{summary}. Patch generation skipped because manual review is required.",
                 validation_passed=False,
             )
-        if self.config.mock_llm_patch_path is None and not isinstance(llm_client, OpenAILLMClient):
+        try:
+            patch, rendered_from_structured_edit = self._generate_patch(
+                fix_generator=fix_generator,
+                selected_issue=selected_issue,
+                context=context,
+            )
+        except LLMClientError:
             return AnalysisResult(summary=summary)
-
-        patch = fix_generator.generate(selected_issue, context)
         if isinstance(llm_client, OpenAILLMClient):
             _write_solution_file(
                 llm_client.solution_output_path,
@@ -136,6 +143,8 @@ class AnalysisService:
             f"{summary}. Proposed files: {', '.join(patch.files_touched)}. "
             f"MR title: {patch.mr_title}"
         )
+        if rendered_from_structured_edit:
+            summary = f"{summary}. Diff rendered by bot from structured edit proposal."
         should_apply_patch = not dry_run or self.config.apply_patch_in_dry_run
         if not should_apply_patch:
             return AnalysisResult(summary=summary, patch=patch)
@@ -167,6 +176,29 @@ class AnalysisService:
                 patch_fixture_path=self.config.mock_llm_patch_path,
             )
 
+    def _generate_patch(
+        self,
+        *,
+        fix_generator: FixGenerator,
+        selected_issue: SonarIssue,
+        context: IssueContext,
+    ) -> tuple[PatchProposal, bool]:
+        """Generate a patch proposal, preferring bot-rendered diffs.
+
+        Args:
+            fix_generator: LLM-backed fix generator.
+            selected_issue: Selected SonarQube issue.
+            context: Built issue context.
+
+        Returns:
+            The generated patch proposal and whether it came from a structured edit.
+        """
+        try:
+            structured_edit = fix_generator.generate_structured_edit(selected_issue, context)
+            return self.edit_renderer.render(structured_edit), True
+        except (AttributeError, EditRenderError, LLMClientError, NotImplementedError):
+            return fix_generator.generate(selected_issue, context), False
+
     def _apply_and_validate_patch(
         self,
         *,
@@ -193,8 +225,20 @@ class AnalysisService:
         for attempt in range(self.config.max_retry_count + 1):
             snapshot = self._snapshot_files(patch.files_touched)
             try:
+                self.patch_applier.validate(patch)
                 self.patch_applier.apply(patch)
             except PatchApplyError as error:
+                if (
+                    self._is_patch_format_failure(str(error))
+                    and attempt < self.config.max_retry_count
+                ):
+                    patch = self._regenerate_patch_with_format_feedback(
+                        fix_generator=fix_generator,
+                        selected_issue=selected_issue,
+                        context=context,
+                        failure_reason=str(error),
+                    )
+                    continue
                 return AnalysisResult(
                     summary=f"{summary}. Patch apply failed: {error}",
                     patch=patch,
@@ -205,6 +249,7 @@ class AnalysisService:
                         stage=FailureStage.PATCH_APPLY,
                         message=f"Patch apply failed: {error}",
                         retry_count=attempt,
+                        stdout_excerpt=_truncate_output(patch.unified_diff),
                     ),
                 )
             validation_result = self.validator.run(self.config.validation_commands)
@@ -251,8 +296,37 @@ class AnalysisService:
                         else None,
                     ),
                 )
-            patch = fix_generator.generate(selected_issue, context)
+            patch, _ = self._generate_patch(
+                fix_generator=fix_generator,
+                selected_issue=selected_issue,
+                context=context,
+            )
         return AnalysisResult(summary=summary, patch=patch)
+
+    def _is_patch_format_failure(self, error_message: str) -> bool:
+        """Return whether an apply failure points to malformed diff syntax."""
+        lowered = error_message.lower()
+        indicators = (
+            "malformed unified diff",
+            "corrupt patch",
+            "patch fragment without header",
+        )
+        return any(indicator in lowered for indicator in indicators)
+
+    def _regenerate_patch_with_format_feedback(
+        self,
+        *,
+        fix_generator: FixGenerator,
+        selected_issue: SonarIssue,
+        context: IssueContext,
+        failure_reason: str,
+    ) -> PatchProposal:
+        """Request a stricter retry patch after a diff-format failure."""
+        return fix_generator.generate(
+            selected_issue,
+            context,
+            retry_feedback=failure_reason,
+        )
 
     def _build_validation_failure(
         self,

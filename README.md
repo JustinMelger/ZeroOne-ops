@@ -151,6 +151,7 @@ Recommended GitLab CI setup:
 - use a token that is allowed to push branches and create merge requests
 - keep `GIT_DEPTH=0` so branch and push behavior is predictable
 - set a fixed git author and committer identity in the job
+- rewrite the `origin` remote in CI to use `GITLAB_TOKEN` for authenticated pushes
 
 The example pipeline now does all of the above and also uses a `resource_group` so two bot jobs do not try to mutate the same repository checkout at once.
 
