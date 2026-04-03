@@ -111,7 +111,7 @@ The bot runs as a synchronous pipeline in v1:
 3. Use `IssueIntakeService` to fetch and select one supported issue.
 4. Use `ExecutionService` to coordinate branch creation, analysis, validation, commit, and optional publish.
 5. Use `AnalysisService` to build code context.
-6. Request analysis and patch proposal from the LLM.
+6. Request analysis and a structured edit proposal from the LLM.
 7. Apply changes.
 8. Run validation commands and retry once on failure.
 9. In local mode, stop after a validated local commit.
@@ -464,7 +464,28 @@ class IssueAnalysis(BaseModel):
     proposed_strategy: str
 ```
 
-## 8.3 Patch Result Model
+## 8.3 Structured Edit Model
+
+```python
+class TextEdit(BaseModel):
+    file_path: str
+    search_text: str
+    replace_text: str
+    line_hint: int | None = None
+
+class StructuredEditProposal(BaseModel):
+    issue_key: str
+    edits: list[TextEdit]
+    commit_message: str
+    mr_title: str
+    mr_description: str
+```
+
+For v1, the LLM returns structured edits instead of a raw diff. The bot verifies
+that each edit is narrow and unambiguous, applies it in memory, and renders the
+unified diff itself.
+
+## 8.4 Patch Result Model
 
 ```python
 class PatchProposal(BaseModel):
@@ -476,9 +497,11 @@ class PatchProposal(BaseModel):
     mr_description: str
 ```
 
-For v1, the LLM should return a unified diff. The bot applies it locally and rejects patches that touch files outside the repository.
+For v1, `PatchProposal` is a bot-rendered artifact produced from a validated
+`StructuredEditProposal`. The bot applies it locally and rejects patches that
+touch files outside the repository.
 
-## 8.4 Validation Result Model
+## 8.5 Validation Result Model
 
 ```python
 class ValidationCommandResult(BaseModel):
@@ -494,7 +517,7 @@ class ValidationResult(BaseModel):
     summary: str
 ```
 
-## 8.5 Run State Model
+## 8.6 Run State Model
 
 ```python
 class RunStatus(str, Enum):
@@ -693,7 +716,7 @@ The LLM request should include:
 
 ## 12.2 Response Format
 
-Use structured JSON wrapped around a unified diff. Example:
+Use structured JSON for analysis plus a structured edit proposal. Example:
 
 ```json
 {
@@ -704,9 +727,15 @@ Use structured JSON wrapped around a unified diff. Example:
     "target_files": ["src/service.py"],
     "proposed_strategy": "Return early when the response is None."
   },
-  "patch": {
-    "files_touched": ["src/service.py"],
-    "unified_diff": "diff --git a/src/service.py b/src/service.py\n..."
+  "structured_edit": {
+    "edits": [
+      {
+        "file_path": "src/service.py",
+        "search_text": "if enabled == True:",
+        "replace_text": "if enabled:",
+        "line_hint": 14
+      }
+    ]
   },
   "metadata": {
     "commit_message": "fix: handle nullable response in service",
@@ -719,10 +748,11 @@ Use structured JSON wrapped around a unified diff. Example:
 ## 12.3 Guardrails
 
 - Reject responses missing required fields.
-- Reject patches that touch paths outside the repository.
-- Reject patches larger than a configured file count or byte size.
-- Reject empty patches for issues classified as auto-fixable.
-- Include validation failure output in the retry prompt.
+- Reject structured edits that touch paths outside the repository.
+- Reject edits that cannot be applied unambiguously.
+- Reject edits larger than a configured file count or byte size.
+- Reject empty edits for issues classified as auto-fixable.
+- Include validation failure output in the retry prompt when the edit must be regenerated.
 
 ## 13. Patch Application Design
 
@@ -730,15 +760,12 @@ Use structured JSON wrapped around a unified diff. Example:
 
 Preferred v1 strategy:
 
-- request unified diff output from the LLM,
-- write the diff to a temporary file,
-- apply it with `git apply --index --reject` or `git apply`,
-- inspect the result,
-- unstage if needed before validation.
-
-Alternative fallback:
-
-- file-by-file replacement from structured output if unified diff proves unreliable.
+- request a structured edit proposal from the LLM,
+- verify exact search-and-replace operations against the target file,
+- apply the edit in memory,
+- render a unified diff in the bot,
+- apply the rendered diff with `git apply`,
+- inspect the result before validation.
 
 ## 13.2 Safety Checks
 
@@ -747,6 +774,8 @@ Before applying a patch:
 - verify branch is not the base branch,
 - verify target files are inside repo root,
 - verify no forbidden paths are touched, such as `.git/`,
+- verify each structured edit matches exactly one location unless `line_hint`
+  disambiguates it,
 - verify file count is within the configured maximum.
 
 ## 14. Git Workflow Design

@@ -199,7 +199,7 @@ Status:
 - [x] reject ambiguous edits instead of guessing
 - [x] add direct unit tests for the edit renderer
 - [x] add integration coverage for structured edit -> diff -> apply -> validate
-- [ ] update technical docs after the new path is stable
+- [x] update technical docs after the new path is stable
 
 ## Recommended Implementation Order
 
