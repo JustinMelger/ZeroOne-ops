@@ -172,6 +172,7 @@ CI mode:
 - applies and validates the patch
 - commits and pushes the branch
 - creates or reuses a GitLab merge request
+- uses a deterministic merge request description template with issue traceability and validation details
 - reports in the run summary whether the merge request was created or reused
 - never blocks for terminal approval
 
