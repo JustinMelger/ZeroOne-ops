@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.3.1...ai-sonar-bot-v0.4.0) (2026-04-04)
+
+
+### Features
+
+* add template for mr ([4cb4cd8](https://github.com/JustinMelger/ai-sonar-bot/commit/4cb4cd884236259a3f00d363c1fd1639908220a7))
+* add tests for issue selection ([b59b532](https://github.com/JustinMelger/ai-sonar-bot/commit/b59b532fea974d5e74a7f3dacba379727e861091))
+* proceed with nex issue if mr already exists ([6e57ab9](https://github.com/JustinMelger/ai-sonar-bot/commit/6e57ab9efcb198680557d0c42bfcc3e49e7e4319))
+
+
+### Documentation
+
+* update roadmap for hardening phase ([86d66dd](https://github.com/JustinMelger/ai-sonar-bot/commit/86d66dd1e0d6eaa8f4c24c6f249e965b4d5d39af))
+* v1 harderning roadmap ([df9aaad](https://github.com/JustinMelger/ai-sonar-bot/commit/df9aaad8882c3b2b998c9c2dfbc8c9fc361ed2f8))
+
 ## [0.3.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.3.0...ai-sonar-bot-v0.3.1) (2026-04-03)
 
 
