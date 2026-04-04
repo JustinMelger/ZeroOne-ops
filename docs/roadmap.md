@@ -215,9 +215,10 @@ Status:
 - [ ] persist structured edit artifacts alongside analysis and rendered patch output for better debugging
 - [x] disable solution artifact file writing by default in CI mode so merge requests, logs, and state remain the primary traceability surfaces
 - [ ] verify rollback leaves the repository in a predictable state on approval rejection, patch-apply failure, and commit failure
-- [ ] tighten issue eligibility so v1 stays limited to low-risk single-file issues that fit the structured-edit model
+- [ ] tighten issue eligibility so v1 stays limited to low-risk single-file issues that fit the structured-edit model, including excluding rename-style SonarQube issues until symbol reference safety checks exist
 - [ ] improve logs and summaries so skip, reject, and ambiguity decisions are explicit
 - [x] enforce a deterministic merge request description template with stable traceability fields such as issue key, rule, severity, file, issue message, validation summary, and bot-rendered diff note
+- [ ] split oversized orchestration services so analysis, patch execution, artifact output, and publish concerns stay testable and maintainable
 - [ ] add an operator runbook covering CI variables, token scopes, expected workflow behavior, and recovery steps
 - [ ] add a documented end-to-end smoke test recipe for validating the bot against a real target repository
 
@@ -296,6 +297,42 @@ Done when:
 - CI runs update the dashboard issue after each execution
 - operators can see current bot state without inspecting pipeline logs
 - dashboard content stays consistent with open merge requests and selected issues
+
+## Post-V1: Symbol-Safe Rename Handling
+
+After the base SonarQube remediation flow is stable, add symbol-aware reference
+checks so naming issues can be handled safely instead of being excluded by the
+v1 guardrail.
+
+Purpose:
+
+- support low-risk rename issues without breaking surrounding code
+- replace the current message-based rename skip with explicit safety checks
+- widen the auto-fixable issue set only when reference integrity can be verified
+
+Suggested design:
+
+- classify rename-style SonarQube rules explicitly instead of relying on message
+  text alone
+- scan the file for symbol references before accepting a rename proposal
+- reject renames when the symbol has additional references outside the proposed
+  edit scope
+- prefer language-aware or AST-backed analysis when exact text search is not
+  reliable enough
+
+Rules:
+
+- do not allow rename-style auto-fixes without a reference safety check
+- keep the fallback conservative: ambiguous rename cases remain manual
+- widen rename support one narrow rule class at a time
+
+Done when:
+
+- rename-style SonarQube issues can be auto-fixed only when reference safety is
+  verified
+- risky or ambiguous rename proposals are rejected deterministically
+- the v1 message-based rename skip can be removed or reduced to a last-resort
+  fallback
 
 ## Post-V1: GitHub Support
 

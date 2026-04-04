@@ -42,8 +42,28 @@ class IssueSelector:
                 continue
             if self.config.supported_rules and issue.rule not in self.config.supported_rules:
                 continue
+            if _is_risky_rename_issue(issue):
+                continue
             issue_state = state.issues.get(issue.key)
             if issue_state and issue_state.status == "mr_created":
                 continue
             return issue
         return None
+
+
+def _is_risky_rename_issue(issue: SonarIssue) -> bool:
+    """Return whether an issue should be rejected as a risky rename for v1.
+
+    SonarQube naming issues often ask for renaming a variable, method, class,
+    parameter, or similar symbol. The current bot does not perform symbol-aware
+    reference analysis, so these issues are excluded from the v1 automation
+    scope to avoid local renames that break surrounding code.
+
+    Args:
+        issue: Candidate SonarQube issue.
+
+    Returns:
+        ``True`` when the issue should be skipped as a rename-style issue.
+    """
+    message = issue.message.lower()
+    return "rename this" in message

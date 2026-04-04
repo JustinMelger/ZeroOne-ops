@@ -83,3 +83,50 @@ def test_select_uses_maintainability_low_when_present() -> None:
 
     assert selected is not None
     assert selected.key == "LOW-1"
+
+
+def test_select_skips_risky_rename_issue_and_moves_to_next() -> None:
+    config = build_config()
+    selector = IssueSelector(config)
+    issues = [
+        SonarIssue(
+            key="RENAME-1",
+            rule="python:S9999",
+            severity="UNKNOWN",
+            type="BUG",
+            status="OPEN",
+            message="Rename this variable to match the regular expression.",
+            component="component",
+            project="project",
+            file_path="src/a.py",
+            impacts=[
+                {
+                    "software_quality": "MAINTAINABILITY",
+                    "severity": "LOW",
+                }
+            ],
+        ),
+        SonarIssue(
+            key="LOW-2",
+            rule="python:S1125",
+            severity="UNKNOWN",
+            type="BUG",
+            status="OPEN",
+            message="Boolean literals should not be used in comparisons.",
+            component="component",
+            project="project",
+            file_path="src/b.py",
+            impacts=[
+                {
+                    "software_quality": "MAINTAINABILITY",
+                    "severity": "LOW",
+                }
+            ],
+        ),
+    ]
+    state = AppState(repository=RepositoryState(base_branch="main"))
+
+    selected = selector.select(issues, state)
+
+    assert selected is not None
+    assert selected.key == "LOW-2"
