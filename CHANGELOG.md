@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.4.0...ai-sonar-bot-v0.4.1) (2026-04-04)
+
+
+### Bug Fixes
+
+* exclude rename issues from v1 ([caf9f04](https://github.com/JustinMelger/ai-sonar-bot/commit/caf9f041724a10440d1c2acb25f25b072cef03de))
+* exclude rename issues from v1 ([2084317](https://github.com/JustinMelger/ai-sonar-bot/commit/20843173b3f33b28db758d38dcef245a5b9c31b1))
+
 ## [0.4.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.3.1...ai-sonar-bot-v0.4.0) (2026-04-04)
 
 
