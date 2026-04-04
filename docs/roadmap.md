@@ -201,6 +201,34 @@ Status:
 - [x] add integration coverage for structured edit -> diff -> apply -> validate
 - [x] update technical docs after the new path is stable
 
+### Phase 11: V1 Hardening
+
+Goal:
+
+- make repeated CI usage safer and more predictable
+- tighten the allowed issue scope for low-risk automation
+- improve operator visibility and supportability
+
+Status:
+
+- [x] add a duplicate-issue guard that skips work when the SonarQube issue key already has an open merge request or active branch, then selects the next eligible issue instead of updating the existing branch by default
+- [ ] persist structured edit artifacts alongside analysis and rendered patch output for better debugging
+- [x] disable solution artifact file writing by default in CI mode so merge requests, logs, and state remain the primary traceability surfaces
+- [ ] verify rollback leaves the repository in a predictable state on approval rejection, patch-apply failure, and commit failure
+- [ ] tighten issue eligibility so v1 stays limited to low-risk single-file issues that fit the structured-edit model
+- [ ] improve logs and summaries so skip, reject, and ambiguity decisions are explicit
+- [x] enforce a deterministic merge request description template with stable traceability fields such as issue key, rule, severity, file, issue message, validation summary, and bot-rendered diff note
+- [ ] add an operator runbook covering CI variables, token scopes, expected workflow behavior, and recovery steps
+- [ ] add a documented end-to-end smoke test recipe for validating the bot against a real target repository
+
+Done when:
+
+- repeated scheduled or manual CI runs do not create duplicate work for the same open issue
+- when an issue already has an open bot merge request, the bot skips it and moves to the next eligible issue or exits cleanly if none remain
+- operators can understand why an issue was skipped, rejected, or turned into a merge request without reading code
+- the supported v1 issue scope is explicit in both config and docs
+- another engineer can configure and operate the bot from the runbook alone
+
 ## Recommended Implementation Order
 
 - [x] Wire issue selection into the runner.

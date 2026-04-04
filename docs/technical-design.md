@@ -215,7 +215,7 @@ Responsibilities:
 
 - send structured prompts,
 - enforce response format,
-- return parsed analysis and patch data.
+- return parsed analysis and structured edit data.
 
 ### 6.7 `services/issue_intake.py`
 

@@ -112,6 +112,7 @@ class AppConfig(BaseModel):
         dry_run: Whether dry-run mode is enabled by default.
         apply_patch_in_dry_run: Whether dry-run may apply proposed patches locally.
         openai_solution_output_path: Path where OpenAI solutions should be written.
+        write_solution_artifacts_in_ci: Whether CI mode should write solution artifact files.
         mock_sonar_issues_path: Optional path to a local SonarQube issue fixture.
         mock_llm_analysis_path: Optional path to a local LLM analysis fixture.
         mock_llm_edit_path: Optional path to a local LLM structured edit fixture.
@@ -132,6 +133,7 @@ class AppConfig(BaseModel):
     dry_run: bool = False
     apply_patch_in_dry_run: bool = False
     openai_solution_output_path: Path = Path("artifacts/openai-solution.json")
+    write_solution_artifacts_in_ci: bool = False
     mock_sonar_issues_path: Path | None = None
     mock_llm_analysis_path: Path | None = None
     mock_llm_edit_path: Path | None = None

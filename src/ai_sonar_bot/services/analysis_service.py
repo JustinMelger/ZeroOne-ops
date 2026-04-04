@@ -106,21 +106,24 @@ class AnalysisService:
             f"Strategy: {analysis.proposed_strategy}"
         )
         if isinstance(llm_client, OpenAILLMClient):
-            summary = (
-                f"{summary}. Solution file: "
-                f"{llm_client.solution_output_path.relative_to(self.repo_root)}"
-            )
+            solution_output_path = llm_client.solution_output_path
+            if solution_output_path is not None:
+                summary = (
+                    f"{summary}. Solution file: {solution_output_path.relative_to(self.repo_root)}"
+                )
         if analysis.classification == AnalysisClassification.MANUAL:
             if isinstance(llm_client, OpenAILLMClient):
-                _write_solution_file(
-                    llm_client.solution_output_path,
-                    issue_key=selected_issue.key,
-                    decision="rejected",
-                    rejection_reason=(
-                        "Analysis classified the issue as manual; patch generation was skipped."
-                    ),
-                    clear_patch=True,
-                )
+                solution_output_path = llm_client.solution_output_path
+                if solution_output_path is not None:
+                    _write_solution_file(
+                        solution_output_path,
+                        issue_key=selected_issue.key,
+                        decision="rejected",
+                        rejection_reason=(
+                            "Analysis classified the issue as manual; patch generation was skipped."
+                        ),
+                        clear_patch=True,
+                    )
             return AnalysisResult(
                 summary=f"{summary}. Patch generation skipped because manual review is required.",
                 validation_passed=False,
@@ -150,12 +153,13 @@ class AnalysisService:
                 ),
             )
         if isinstance(llm_client, OpenAILLMClient):
-            _write_solution_file(
-                llm_client.solution_output_path,
-                issue_key=selected_issue.key,
-                patch=patch,
-                decision="accepted",
-            )
+            if llm_client.solution_output_path is not None:
+                _write_solution_file(
+                    llm_client.solution_output_path,
+                    issue_key=selected_issue.key,
+                    patch=patch,
+                    decision="accepted",
+                )
         summary = (
             f"{summary}. Proposed files: {', '.join(patch.files_touched)}. "
             f"MR title: {patch.mr_title}. "
@@ -182,7 +186,7 @@ class AnalysisService:
         try:
             return OpenAILLMClient(
                 load_openai_connection_config(),
-                solution_output_path=self.repo_root / self.config.openai_solution_output_path,
+                solution_output_path=self._solution_output_path(),
             )
         except SettingsError:
             if self.config.mock_llm_analysis_path is None:
@@ -191,6 +195,12 @@ class AnalysisService:
                 self.config.mock_llm_analysis_path,
                 structured_edit_fixture_path=self.config.mock_llm_edit_path,
             )
+
+    def _solution_output_path(self) -> Path | None:
+        """Return the solution artifact path for the current execution mode."""
+        if self.config.execution_mode == "ci" and not self.config.write_solution_artifacts_in_ci:
+            return None
+        return self.repo_root / self.config.openai_solution_output_path
 
     def _generate_patch(
         self,

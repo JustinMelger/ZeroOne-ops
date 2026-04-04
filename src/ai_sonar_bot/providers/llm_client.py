@@ -69,7 +69,11 @@ class OpenAILLMClient(LLMClient):
         config: OpenAI connection settings.
     """
 
-    def __init__(self, config: OpenAIConnectionConfig, solution_output_path: Path) -> None:
+    def __init__(
+        self,
+        config: OpenAIConnectionConfig,
+        solution_output_path: Path | None,
+    ) -> None:
         """Initialize the OpenAI-backed LLM client.
 
         Args:
@@ -114,11 +118,12 @@ class OpenAILLMClient(LLMClient):
         if response.output_parsed is None:
             raise LLMClientError("OpenAI issue analysis did not return parsed output.")
         analysis = response.output_parsed
-        _write_solution_file(
-            self.solution_output_path,
-            issue_key=issue.key,
-            analysis=analysis,
-        )
+        if self.solution_output_path is not None:
+            _write_solution_file(
+                self.solution_output_path,
+                issue_key=issue.key,
+                analysis=analysis,
+            )
         return analysis
 
     def generate_structured_edit(

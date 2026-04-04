@@ -1073,6 +1073,5 @@ def test_run_ci_mode_reuses_existing_merge_request(tmp_path: Path, monkeypatch) 
 
     summary = run(dry_run=False)
 
-    assert summary.status.value == "mr_created"
-    assert "Merge request reused:" in summary.message
-    assert "https://gitlab.example.com/group/project/-/merge_requests/11" in summary.message
+    assert summary.status.value == "no_issue"
+    assert "No eligible SonarQube issue found among 1 open issues." in summary.message

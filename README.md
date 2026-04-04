@@ -63,7 +63,7 @@ export OPENAI_MODEL=gpt-4.1-mini
 
 When those are set, dry-run prefers the real OpenAI client over the local analysis and patch fixtures.
 
-For this version, the OpenAI client also writes the returned solution to a file. By default that file is [artifacts/openai-solution.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/artifacts/openai-solution.json), and you can override it with `AI_SONAR_BOT_OPENAI_SOLUTION_OUTPUT_PATH` or `openai_solution_output_path` in [.ai-sonar-bot.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/.ai-sonar-bot.json).
+For this version, the OpenAI client can also write the returned solution to a file. By default that file is [artifacts/openai-solution.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/artifacts/openai-solution.json), and you can override it with `AI_SONAR_BOT_OPENAI_SOLUTION_OUTPUT_PATH` or `openai_solution_output_path` in [.ai-sonar-bot.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/.ai-sonar-bot.json). In `ci` mode, solution artifacts are disabled by default so merge requests, logs, and state remain the primary traceability surface; set `AI_SONAR_BOT_WRITE_SOLUTION_ARTIFACTS_IN_CI=true` if you want to keep them for debugging.
 
 ## Commands
 
@@ -116,7 +116,7 @@ How it works:
 - the publish workflow normalizes that tag to semver for GHCR
 - GHCR receives tags like `0.3.0`, `0.3`, `0`, and `latest`
 
-If a release already exists and you need to retry publication, the image workflow also supports manual `workflow_dispatch` runs from the GitHub Actions UI. Provide the release tag, for example `v0.2.0`, so the workflow can publish the correct semver image tags.
+If a release already exists and you need to retry publication, the image workflow also supports manual `workflow_dispatch` runs from the GitHub Actions UI. Provide the release tag, for example `ai-sonar-bot-v0.3.0`, so the workflow can publish the correct semver image tags.
 
 The release workflow uses `secrets.RELEASE_PLEASE_TOKEN` instead of the default `GITHUB_TOKEN`. This is intentional: tags and releases created by the default `GITHUB_TOKEN` do not trigger downstream workflows reliably, so the image publish workflow would not run.
 
@@ -172,6 +172,7 @@ CI mode:
 - applies and validates the patch
 - commits and pushes the branch
 - creates or reuses a GitLab merge request
+- uses a deterministic merge request description template with issue traceability and validation details
 - reports in the run summary whether the merge request was created or reused
 - never blocks for terminal approval
 

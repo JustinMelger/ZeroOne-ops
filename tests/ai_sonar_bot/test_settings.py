@@ -81,3 +81,27 @@ def test_gitlab_settings_fall_back_to_ci_project_id(tmp_path: Path, monkeypatch)
     config = load_gitlab_connection_config()
 
     assert config.project_id == "456"
+
+
+def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_WRITE_SOLUTION_ARTIFACTS_IN_CI", "true")
+
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "execution_mode": "ci",
+          "write_solution_artifacts_in_ci": false,
+          "base_branch": "main",
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.write_solution_artifacts_in_ci is True
