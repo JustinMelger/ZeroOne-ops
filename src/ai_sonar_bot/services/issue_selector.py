@@ -5,6 +5,8 @@ This module filters and prioritizes SonarQube issues for automated handling.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import AppState
@@ -36,19 +38,64 @@ class IssueSelector:
             The first eligible issue, or ``None`` if no issue qualifies.
         """
         for issue in issues:
-            if not issue.matches_supported_severities(self.config.supported_severities):
-                continue
-            if issue.type not in self.config.supported_issue_types:
-                continue
-            if self.config.supported_rules and issue.rule not in self.config.supported_rules:
-                continue
-            if _is_risky_rename_issue(issue):
-                continue
-            issue_state = state.issues.get(issue.key)
-            if issue_state and issue_state.status == "mr_created":
+            if self.skip_reason(issue, state) is not None:
                 continue
             return issue
         return None
+
+    def skip_reason(self, issue: SonarIssue, state: AppState) -> str | None:
+        """Return the reason an issue should be skipped, if any.
+
+        Args:
+            issue: Candidate SonarQube issue.
+            state: Current persisted application state.
+
+        Returns:
+            A stable skip-reason code, or ``None`` if the issue is eligible.
+        """
+        if not issue.matches_supported_severities(self.config.supported_severities):
+            return "unsupported_severity"
+        if issue.type not in self.config.supported_issue_types:
+            return "unsupported_type"
+        if self.config.supported_rules and issue.rule not in self.config.supported_rules:
+            return "unsupported_rule"
+        if _is_risky_rename_issue(issue):
+            return "risky_rename"
+        issue_state = state.issues.get(issue.key)
+        if issue_state and issue_state.status == "mr_created":
+            return "existing_merge_request"
+        return None
+
+
+def describe_skip_reasons(reason_counts: dict[str, int]) -> str:
+    """Render skip-reason counts into a short human-readable sentence.
+
+    Args:
+        reason_counts: Mapping from skip-reason codes to occurrence counts.
+
+    Returns:
+        A compact sentence fragment suitable for run summaries.
+    """
+    ordered_reasons: Sequence[tuple[str, str]] = (
+        ("missing_local_file", "without a matching local file"),
+        ("in_progress_state", "already in progress locally"),
+        ("open_merge_request", "with an open merge request"),
+        ("risky_rename", "excluded as rename-style issues"),
+        ("unsupported_severity", "with unsupported severity"),
+        ("unsupported_type", "with unsupported type"),
+        ("unsupported_rule", "with unsupported rule"),
+        ("existing_merge_request", "already marked as merge-request created"),
+    )
+    parts = [
+        f"{reason_counts[reason]} {label}"
+        for reason, label in ordered_reasons
+        if reason_counts.get(reason, 0) > 0
+    ]
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0]
+    return ", ".join(parts[:-1]) + f", and {parts[-1]}"
 
 
 def _is_risky_rename_issue(issue: SonarIssue) -> bool:

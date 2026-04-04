@@ -1074,4 +1074,5 @@ def test_run_ci_mode_reuses_existing_merge_request(tmp_path: Path, monkeypatch) 
     summary = run(dry_run=False)
 
     assert summary.status.value == "no_issue"
-    assert "No eligible SonarQube issue found among 1 open issues." in summary.message
+    assert "No eligible SonarQube issue found in 1 open issues." in summary.message
+    assert "Skipped 1 with an open merge request." in summary.message

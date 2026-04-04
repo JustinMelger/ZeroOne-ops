@@ -7,6 +7,7 @@ eligible issue for processing.
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,7 +16,7 @@ from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import AppState
 from ai_sonar_bot.providers.gitlab_client import GitLabClient
 from ai_sonar_bot.providers.sonar_client import SonarClient, load_issues_fixture
-from ai_sonar_bot.services.issue_selector import IssueSelector
+from ai_sonar_bot.services.issue_selector import IssueSelector, describe_skip_reasons
 from ai_sonar_bot.services.mr_service import MergeRequestService
 from ai_sonar_bot.settings import (
     SettingsError,
@@ -40,6 +41,14 @@ class IssueIntakeResult:
     selected_issue: SonarIssue | None
     issue_count: int
     message: str
+
+
+@dataclass(frozen=True)
+class IssueEligibilityResult:
+    """Capture eligible issues and why others were skipped."""
+
+    eligible_issues: list[SonarIssue]
+    skip_reason_counts: Counter[str]
 
 
 class IssueIntakeService:
@@ -110,15 +119,20 @@ class IssueIntakeService:
             )
         issues = load_issues_fixture(fixture_path)
         issue_count = len(issues)
+        eligibility = self._eligible_issues(self._existing_issues(issues), state)
         selected_issue = self.selector.select(
-            self._eligible_issues(self._existing_issues(issues), state),
+            eligibility.eligible_issues,
             state,
         )
         if selected_issue is None:
             return IssueIntakeResult(
                 selected_issue=None,
                 issue_count=issue_count,
-                message=(f"No eligible SonarQube issue found in fixture {fixture_path}."),
+                message=self._build_no_issue_message(
+                    source=f"fixture {fixture_path}",
+                    issue_count=issue_count,
+                    skip_reason_counts=eligibility.skip_reason_counts,
+                ),
             )
         return IssueIntakeResult(selected_issue=selected_issue, issue_count=issue_count, message="")
 
@@ -144,15 +158,20 @@ class IssueIntakeService:
 
         issues = sonar_client.search_open_issues()
         issue_count = len(issues)
+        eligibility = self._eligible_issues(self._existing_issues(issues), state)
         selected_issue = self.selector.select(
-            self._eligible_issues(self._existing_issues(issues), state),
+            eligibility.eligible_issues,
             state,
         )
         if selected_issue is None:
             return IssueIntakeResult(
                 selected_issue=None,
                 issue_count=issue_count,
-                message=f"No eligible SonarQube issue found among {issue_count} open issues.",
+                message=self._build_no_issue_message(
+                    source=f"{issue_count} open issues",
+                    issue_count=issue_count,
+                    skip_reason_counts=eligibility.skip_reason_counts,
+                ),
             )
         return IssueIntakeResult(selected_issue=selected_issue, issue_count=issue_count, message="")
 
@@ -167,7 +186,7 @@ class IssueIntakeService:
         """
         return [issue for issue in issues if (self.repo_root / issue.file_path).exists()]
 
-    def _eligible_issues(self, issues: list[SonarIssue], state: AppState) -> list[SonarIssue]:
+    def _eligible_issues(self, issues: list[SonarIssue], state: AppState) -> IssueEligibilityResult:
         """Filter out issues that are already being handled.
 
         Args:
@@ -175,31 +194,57 @@ class IssueIntakeService:
             state: Current persisted application state.
 
         Returns:
-            Issues that are not already in progress.
+            Issues that are not already in progress plus skip-reason counts.
         """
         gitlab_config = self._load_gitlab_config()
         merge_request_service = self._build_merge_request_service(gitlab_config)
         eligible: list[SonarIssue] = []
+        skip_reason_counts: Counter[str] = Counter()
         for issue in issues:
-            if self._is_issue_already_in_progress(
+            duplicate_reason = self._duplicate_skip_reason(
                 issue,
                 state=state,
                 gitlab_config=gitlab_config,
                 merge_request_service=merge_request_service,
-            ):
+            )
+            if duplicate_reason is not None:
+                skip_reason_counts[duplicate_reason] += 1
+                LOGGER.info(
+                    "skipped issue during intake",
+                    extra={
+                        "issue_key": issue.key,
+                        "file_path": issue.file_path,
+                        "reason": duplicate_reason,
+                    },
+                )
+                continue
+            selector_reason = self.selector.skip_reason(issue, state)
+            if selector_reason is not None:
+                skip_reason_counts[selector_reason] += 1
+                LOGGER.info(
+                    "skipped issue during intake",
+                    extra={
+                        "issue_key": issue.key,
+                        "file_path": issue.file_path,
+                        "reason": selector_reason,
+                    },
+                )
                 continue
             eligible.append(issue)
-        return eligible
+        return IssueEligibilityResult(
+            eligible_issues=eligible,
+            skip_reason_counts=skip_reason_counts,
+        )
 
-    def _is_issue_already_in_progress(
+    def _duplicate_skip_reason(
         self,
         issue: SonarIssue,
         *,
         state: AppState,
         gitlab_config: GitLabConnectionConfig | None,
         merge_request_service: MergeRequestService | None,
-    ) -> bool:
-        """Return whether an issue is already represented by active bot work.
+    ) -> str | None:
+        """Return why an issue is already represented by active bot work.
 
         Args:
             issue: Candidate SonarQube issue.
@@ -208,7 +253,7 @@ class IssueIntakeService:
             merge_request_service: Merge request lookup service when available.
 
         Returns:
-            ``True`` when the issue should be skipped for this run.
+            A duplicate-skip reason, or ``None`` when the issue is not in progress.
         """
         issue_state = state.issues.get(issue.key)
         if issue_state is not None and issue_state.status in {
@@ -217,13 +262,13 @@ class IssueIntakeService:
             "fix_generated",
             "mr_created",
         }:
-            return True
+            return "in_progress_state"
         if (
             self.config.execution_mode != "ci"
             or gitlab_config is None
             or merge_request_service is None
         ):
-            return False
+            return None
         branch_name = build_issue_branch_name(
             branch_prefix=self.config.branch_prefix,
             issue_key=issue.key,
@@ -234,7 +279,9 @@ class IssueIntakeService:
             source_branch=branch_name,
             target_branch=self.config.gitlab.target_branch,
         )
-        return existing_mr is not None
+        if existing_mr is None:
+            return None
+        return "open_merge_request"
 
     def _load_gitlab_config(self) -> GitLabConnectionConfig | None:
         """Load GitLab config when CI duplicate detection needs it."""
@@ -255,3 +302,28 @@ class IssueIntakeService:
         if gitlab_config is None:
             return None
         return MergeRequestService(GitLabClient(gitlab_config))
+
+    def _build_no_issue_message(
+        self,
+        *,
+        source: str,
+        issue_count: int,
+        skip_reason_counts: Counter[str],
+    ) -> str:
+        """Build a no-issue summary that explains why intake produced nothing.
+
+        Args:
+            source: Human-readable issue source description.
+            issue_count: Total number of fetched issues.
+            skip_reason_counts: Counts by stable skip-reason code.
+
+        Returns:
+            A summary suitable for the final run output.
+        """
+        summary = f"No eligible SonarQube issue found in {source}."
+        if issue_count == 0:
+            return summary
+        skip_summary = describe_skip_reasons(dict(skip_reason_counts))
+        if not skip_summary:
+            return summary
+        return f"{summary} Skipped {skip_summary}."
