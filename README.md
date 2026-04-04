@@ -7,6 +7,7 @@ AI Sonar Bot is a Python CLI that fetches open SonarQube issues, analyzes one is
 This repository currently contains:
 
 - functional and technical design documents,
+- an operator runbook,
 - a Python project scaffold,
 - configuration and state models,
 - a working GitLab-first execution pipeline.
@@ -199,3 +200,5 @@ The test step enforces a minimum total coverage threshold of `80%`.
 ## Configuration
 
 Copy values from `.env.example` into a local `.env` file and adjust `.ai-sonar-bot.json` for repository-specific behavior. The application loads `.env` automatically.
+
+For CI operation and recovery guidance, see [runbook.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/runbook.md).

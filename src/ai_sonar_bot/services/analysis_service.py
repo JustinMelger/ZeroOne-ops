@@ -30,6 +30,7 @@ from ai_sonar_bot.services.edit_renderer import EditRenderer, EditRenderError
 from ai_sonar_bot.services.fix_generator import FixGenerator
 from ai_sonar_bot.services.patch_applier import PatchApplier, PatchApplyError
 from ai_sonar_bot.services.validator import Validator
+from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshot, WorkspaceSnapshotService
 from ai_sonar_bot.settings import SettingsError, load_openai_connection_config
 
 
@@ -52,6 +53,7 @@ class AnalysisResult:
     validation_passed: bool | None = None
     validation_result: ValidationResult | None = None
     failure: FailureDetails | None = None
+    workspace_snapshot: WorkspaceSnapshot | None = None
 
 
 class AnalysisService:
@@ -75,6 +77,7 @@ class AnalysisService:
         self.edit_renderer = EditRenderer(repo_root)
         self.patch_applier = PatchApplier(repo_root)
         self.validator = Validator(repo_root)
+        self.workspace_snapshot_service = WorkspaceSnapshotService(repo_root)
 
     def analyze_issue(self, *, selected_issue: SonarIssue, dry_run: bool) -> AnalysisResult:
         """Analyze a selected issue.
@@ -246,17 +249,19 @@ class AnalysisService:
             Structured analysis result including validation outcome.
         """
         for attempt in range(self.config.max_retry_count + 1):
-            snapshot = self._snapshot_files(patch.files_touched)
+            snapshot = self.workspace_snapshot_service.capture(patch.files_touched)
             try:
                 self.patch_applier.validate(patch)
                 self.patch_applier.apply(patch)
             except PatchApplyError as error:
+                self.workspace_snapshot_service.restore(snapshot)
                 return AnalysisResult(
                     summary=f"{summary}. Patch apply failed: {error}",
                     patch=patch,
                     patch_applied=False,
                     validation_passed=False,
                     validation_result=None,
+                    workspace_snapshot=snapshot,
                     failure=FailureDetails(
                         stage=FailureStage.PATCH_APPLY,
                         message=f"Patch apply failed: {error}",
@@ -277,6 +282,7 @@ class AnalysisService:
                         patch_applied=True,
                         validation_passed=True,
                         validation_result=validation_result,
+                        workspace_snapshot=snapshot,
                     )
                 return AnalysisResult(
                     summary=(
@@ -287,8 +293,9 @@ class AnalysisService:
                     patch_applied=True,
                     validation_passed=True,
                     validation_result=validation_result,
+                    workspace_snapshot=snapshot,
                 )
-            self._restore_files(snapshot)
+            self.workspace_snapshot_service.restore(snapshot)
             if attempt >= self.config.max_retry_count:
                 mode_label = "dry-run" if dry_run else "run"
                 return AnalysisResult(
@@ -300,6 +307,7 @@ class AnalysisService:
                     patch_applied=False,
                     validation_passed=False,
                     validation_result=validation_result,
+                    workspace_snapshot=snapshot,
                     failure=self._build_validation_failure(
                         validation_summary=validation_result.summary,
                         retry_count=attempt,
@@ -351,36 +359,6 @@ class AnalysisService:
             stdout_excerpt=stdout_excerpt,
             stderr_excerpt=stderr_excerpt,
         )
-
-    def _snapshot_files(self, file_paths: list[str]) -> dict[Path, str | None]:
-        """Capture file contents before applying a patch.
-
-        Args:
-            file_paths: Repository-relative file paths touched by the patch.
-
-        Returns:
-            A mapping from absolute file path to previous file content, or
-            ``None`` when the file did not exist.
-        """
-        snapshot: dict[Path, str | None] = {}
-        for file_path in file_paths:
-            target = self.repo_root / file_path
-            snapshot[target] = target.read_text(encoding="utf-8") if target.exists() else None
-        return snapshot
-
-    def _restore_files(self, snapshot: dict[Path, str | None]) -> None:
-        """Restore files from a previously captured snapshot.
-
-        Args:
-            snapshot: Previously captured file content mapping.
-        """
-        for target, content in snapshot.items():
-            if content is None:
-                if target.exists():
-                    target.unlink()
-                continue
-            target.write_text(content, encoding="utf-8")
-
 
 def _truncate_output(value: str, limit: int = 500) -> str | None:
     """Truncate command output for state persistence.

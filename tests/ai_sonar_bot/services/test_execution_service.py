@@ -6,6 +6,7 @@ from ai_sonar_bot.models.gitlab import MergeRequestInfo
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.services.analysis_service import AnalysisResult
 from ai_sonar_bot.services.execution_service import ExecutionService
+from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
 
 
 def build_config(*, execution_mode: str = "local") -> AppConfig:
@@ -67,6 +68,10 @@ def test_execute_returns_analysis_summary_in_dry_run(tmp_path: Path, monkeypatch
 
 def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> None:
     service = ExecutionService(tmp_path, build_config(execution_mode="local"))
+    (tmp_path / "src").mkdir()
+    target_file = tmp_path / "src" / "service.py"
+    target_file.write_text("value = 1\n", encoding="utf-8")
+    snapshot = WorkspaceSnapshotService(tmp_path).capture(["src/service.py"])
 
     monkeypatch.setattr(service.branch_manager, "ensure_ready", lambda: None)
     monkeypatch.setattr(
@@ -88,6 +93,7 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
                 results=[],
                 summary="All validation commands passed.",
             ),
+            workspace_snapshot=snapshot,
         ),
     )
     monkeypatch.setattr(
@@ -104,10 +110,12 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
         del commit_message, push
         from ai_sonar_bot.services.branch_manager import BranchManagerError
 
+        target_file.write_text("value = 2\n", encoding="utf-8")
         raise BranchManagerError("git commit failed")
 
     monkeypatch.setattr(service.branch_manager, "commit_and_push", commit_error)
     monkeypatch.setattr(service.branch_manager, "push_current_branch", fail_commit)
+    monkeypatch.setattr(service.branch_manager, "reset_index", lambda: None)
 
     result = service.execute(selected_issue=build_issue(), dry_run=False)
 
@@ -116,6 +124,7 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
     assert result.status_message == "Commit failed: git commit failed"
     assert result.branch_name == "ai-sonar/fix"
     assert result.commit_sha is None
+    assert target_file.read_text(encoding="utf-8") == "value = 1\n"
 
 
 def test_execute_reuses_existing_merge_request_in_ci_mode(tmp_path: Path, monkeypatch) -> None:
@@ -297,6 +306,10 @@ def test_execute_returns_rejected_when_local_approval_declines(
     monkeypatch,
 ) -> None:
     service = ExecutionService(tmp_path, build_config(execution_mode="local"))
+    (tmp_path / "src").mkdir()
+    target_file = tmp_path / "src" / "service.py"
+    target_file.write_text("value = 1\n", encoding="utf-8")
+    snapshot = WorkspaceSnapshotService(tmp_path).capture(["src/service.py"])
 
     monkeypatch.setattr(service.branch_manager, "ensure_ready", lambda: None)
     monkeypatch.setattr(
@@ -318,13 +331,17 @@ def test_execute_returns_rejected_when_local_approval_declines(
                 results=[],
                 summary="All validation commands passed.",
             ),
+            workspace_snapshot=snapshot,
         ),
     )
-    monkeypatch.setattr(
-        service.approval_service,
-        "request",
-        lambda issue, changed_files, validation, commit_message, mr_title: False,
-    )
+
+    def reject_approval(issue, changed_files, validation, commit_message, mr_title) -> bool:
+        del issue, changed_files, validation, commit_message, mr_title
+        target_file.write_text("value = 2\n", encoding="utf-8")
+        return False
+
+    monkeypatch.setattr(service.approval_service, "request", reject_approval)
+    monkeypatch.setattr(service.branch_manager, "reset_index", lambda: None)
 
     result = service.execute(selected_issue=build_issue(), dry_run=False)
 
@@ -332,3 +349,4 @@ def test_execute_returns_rejected_when_local_approval_declines(
     assert result.final_status == "rejected"
     assert result.status_message == "Local approval rejected the proposed change."
     assert result.commit_sha is None
+    assert target_file.read_text(encoding="utf-8") == "value = 1\n"

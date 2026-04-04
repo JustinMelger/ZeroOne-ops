@@ -16,6 +16,7 @@ from ai_sonar_bot.models.config import (
 )
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.services.analysis_service import AnalysisService
+from ai_sonar_bot.services.patch_applier import PatchApplyError
 
 
 def build_config(
@@ -268,6 +269,80 @@ def test_analyze_issue_rolls_back_when_validation_fails(tmp_path: Path, monkeypa
     assert result.failure.failed_command == "false"
     assert result.failure.exit_code == 1
     assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 1\n"
+
+
+def test_analyze_issue_rolls_back_when_patch_apply_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
+    (tmp_path / "src").mkdir()
+    target_file = tmp_path / "src" / "service.py"
+    target_file.write_text("value = 1\n", encoding="utf-8")
+    analysis_path = tmp_path / "analysis.json"
+    edit_path = tmp_path / "edit.json"
+    analysis_path.write_text(
+        """
+        {
+          "issue_key": "FIXTURE-1",
+          "classification": "auto_fixable",
+          "summary": "Fixture analysis summary",
+          "risk_notes": [],
+          "target_files": ["src/service.py"],
+          "proposed_strategy": "Apply the minimal fix."
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    edit_path.write_text(
+        (
+            "{\n"
+            '  "issue_key": "FIXTURE-1",\n'
+            '  "edits": [\n'
+            "    {\n"
+            '      "file_path": "src/service.py",\n'
+            '      "search_text": "value = 1",\n'
+            '      "replace_text": "value = 2",\n'
+            '      "line_hint": 1\n'
+            "    }\n"
+            "  ],\n"
+            '  "commit_message": "fix(sonar): patch service [FIXTURE-1]",\n'
+            '  "mr_title": "fix: patch service",\n'
+            '  "mr_description": "summary"\n'
+            "}"
+        ),
+        encoding="utf-8",
+    )
+
+    service = AnalysisService(
+        tmp_path,
+        build_config(
+            mock_llm_analysis_path=analysis_path,
+            mock_llm_edit_path=edit_path,
+            apply_patch_in_dry_run=True,
+        ),
+    )
+
+    def partial_apply(proposal) -> None:
+        del proposal
+        target_file.write_text("value = 2\n", encoding="utf-8")
+        raise PatchApplyError("simulated partial git apply failure")
+
+    monkeypatch.setattr(service.patch_applier, "apply", partial_apply)
+
+    result = service.analyze_issue(
+        selected_issue=build_issue(),
+        dry_run=True,
+    )
+
+    assert "Patch apply failed" in result.summary
+    assert result.failure is not None
+    assert result.failure.stage.value == "patch_apply"
+    assert target_file.read_text(encoding="utf-8") == "value = 1\n"
 
 
 def test_analyze_issue_skips_solution_artifact_in_ci_mode(tmp_path: Path, monkeypatch) -> None:

@@ -653,7 +653,7 @@ def test_run_local_mode_rejects_when_approval_declines(tmp_path: Path, monkeypat
 
     assert summary.status.value == "rejected"
     assert "Local approval rejected the proposed change." in summary.message
-    assert tracked.read_text(encoding="utf-8") == "value = 2\n"
+    assert tracked.read_text(encoding="utf-8") == "value = 1\n"
 
 
 def test_run_ci_mode_pushes_branch_and_creates_merge_request(tmp_path: Path, monkeypatch) -> None:

@@ -16,6 +16,7 @@ from ai_sonar_bot.services.analysis_service import AnalysisResult, AnalysisServi
 from ai_sonar_bot.services.approval import ApprovalService
 from ai_sonar_bot.services.branch_manager import BranchManager, BranchManagerError
 from ai_sonar_bot.services.mr_service import MergeRequestService
+from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
 from ai_sonar_bot.settings import load_gitlab_connection_config
 
 
@@ -64,6 +65,7 @@ class ExecutionService:
         self.analysis_service = AnalysisService(repo_root=repo_root, config=config)
         self.approval_service = ApprovalService()
         self.branch_manager = BranchManager(repo_root)
+        self.workspace_snapshot_service = WorkspaceSnapshotService(repo_root)
 
     def execute(self, *, selected_issue: SonarIssue, dry_run: bool) -> ExecutionResult:
         """Run the execution flow for a selected issue.
@@ -138,6 +140,7 @@ class ExecutionService:
                 mr_title=patch.mr_title,
             )
             if not approved:
+                self._rollback_pre_commit(analysis_result)
                 return ExecutionResult(
                     analysis_result=analysis_result,
                     status_message="Local approval rejected the proposed change.",
@@ -151,6 +154,7 @@ class ExecutionService:
                 push=False,
             )
         except BranchManagerError as error:
+            self._rollback_pre_commit(analysis_result)
             return ExecutionResult(
                 analysis_result=analysis_result,
                 status_message=f"Commit failed: {error}",
@@ -300,3 +304,15 @@ class ExecutionService:
                 "- Diff was rendered by the bot from a structured edit proposal.",
             ]
         )
+
+    def _rollback_pre_commit(self, analysis_result: AnalysisResult) -> None:
+        """Restore the pre-apply workspace state before commit succeeds.
+
+        Args:
+            analysis_result: Analysis result containing the original snapshot.
+        """
+        snapshot = analysis_result.workspace_snapshot
+        if snapshot is None:
+            return
+        self.branch_manager.reset_index()
+        self.workspace_snapshot_service.restore(snapshot)

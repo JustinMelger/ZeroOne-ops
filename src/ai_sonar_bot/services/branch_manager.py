@@ -106,6 +106,14 @@ class BranchManager:
         self._run_git_command(["push", "-u", remote_name, current_branch])
         return current_branch
 
+    def reset_index(self) -> None:
+        """Reset the git index to the current HEAD state.
+
+        Raises:
+            BranchManagerError: If index reset fails.
+        """
+        self._run_git_command(["reset", "--mixed", "HEAD"])
+
     def _run_git_command(self, args: list[str]) -> str:
         """Run a git command in the repository.
 
