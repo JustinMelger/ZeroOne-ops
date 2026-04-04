@@ -100,8 +100,7 @@ class PatchExecutionService:
             if validation_result.passed:
                 mode_label = "dry-run" if dry_run else "run"
                 success_summary = (
-                    f"{summary}. Patch applied locally in {mode_label}. "
-                    f"{validation_result.summary}"
+                    f"{summary}. Patch applied locally in {mode_label}. {validation_result.summary}"
                 )
                 if attempt > 0:
                     success_summary = (

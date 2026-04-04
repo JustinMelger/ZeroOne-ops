@@ -8,16 +8,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from ai_sonar_bot.models.analysis import ValidationResult
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunStatus
-from ai_sonar_bot.providers.gitlab_client import GitLabClient, GitLabClientError
 from ai_sonar_bot.services.analysis_service import AnalysisResult, AnalysisService
 from ai_sonar_bot.services.approval import ApprovalService
 from ai_sonar_bot.services.branch_manager import BranchManager, BranchManagerError
-from ai_sonar_bot.services.mr_service import MergeRequestService
+from ai_sonar_bot.services.publish_service import PublishResult, PublishService
 from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
-from ai_sonar_bot.settings import load_gitlab_connection_config
 
 
 @dataclass
@@ -33,16 +32,6 @@ class ExecutionResult:
     mr_action: str | None = None
     publish_attempted: bool = False
     final_status: RunStatus | None = None
-
-
-@dataclass
-class PublishResult:
-    """Summarize remote publish and merge request creation."""
-
-    branch_name: str | None = None
-    mr_url: str | None = None
-    mr_action: str | None = None
-    error_message: str | None = None
 
 
 class ExecutionService:
@@ -66,6 +55,7 @@ class ExecutionService:
         self.approval_service = ApprovalService()
         self.branch_manager = BranchManager(repo_root)
         self.workspace_snapshot_service = WorkspaceSnapshotService(repo_root)
+        self.publish_service = PublishService(config=config, branch_manager=self.branch_manager)
 
     def execute(self, *, selected_issue: SonarIssue, dry_run: bool) -> ExecutionResult:
         """Run the execution flow for a selected issue.
@@ -175,12 +165,10 @@ class ExecutionService:
 
         publish_result = self._publish_branch_and_create_mr(
             selected_issue=selected_issue,
-            analysis_result=analysis_result,
+            validation_result=analysis_result.validation_result,
             branch_name=branch_name or "",
             mr_title=patch.mr_title,
             mr_description=patch.mr_description,
-            target_branch=self.config.gitlab.target_branch,
-            labels=self.config.gitlab.labels,
         )
         if publish_result.error_message is not None:
             return ExecutionResult(
@@ -217,92 +205,18 @@ class ExecutionService:
         self,
         *,
         selected_issue: SonarIssue,
-        analysis_result: AnalysisResult,
+        validation_result: ValidationResult | None,
         branch_name: str,
         mr_title: str,
         mr_description: str,
-        target_branch: str,
-        labels: list[str],
     ) -> PublishResult:
-        """Push the current branch and create or reuse a GitLab merge request."""
-        try:
-            gitlab_config = load_gitlab_connection_config()
-            pushed_branch = self.branch_manager.push_current_branch()
-            merge_request_service = MergeRequestService(GitLabClient(gitlab_config))
-            existing_mr = merge_request_service.find_open(
-                project_id=gitlab_config.project_id,
-                source_branch=pushed_branch,
-                target_branch=target_branch,
-            )
-            if existing_mr is not None:
-                return PublishResult(
-                    branch_name=pushed_branch,
-                    mr_url=existing_mr.web_url,
-                    mr_action="reused",
-                )
-            created_mr = merge_request_service.create(
-                project_id=gitlab_config.project_id,
-                source_branch=branch_name,
-                target_branch=target_branch,
-                title=mr_title,
-                description=self._build_mr_description(
-                    selected_issue=selected_issue,
-                    analysis_result=analysis_result,
-                    change_summary=mr_description,
-                ),
-                labels=labels,
-            )
-        except (BranchManagerError, GitLabClientError, RuntimeError) as error:
-            return PublishResult(error_message=f"Publish failed: {error}")
-        return PublishResult(
+        """Delegate publish behavior to the dedicated publish service."""
+        return self.publish_service.publish(
+            selected_issue=selected_issue,
+            validation_result=validation_result,
             branch_name=branch_name,
-            mr_url=created_mr.web_url,
-            mr_action="created",
-        )
-
-    def _build_mr_description(
-        self,
-        *,
-        selected_issue: SonarIssue,
-        analysis_result: AnalysisResult,
-        change_summary: str,
-    ) -> str:
-        """Build a deterministic merge request description.
-
-        Args:
-            selected_issue: Selected SonarQube issue for this run.
-            analysis_result: Analysis and validation outcome for the issue.
-            change_summary: Short change summary from the generated patch metadata.
-
-        Returns:
-            Deterministic merge request description text.
-        """
-        issue_line = str(selected_issue.line) if selected_issue.line is not None else "n/a"
-        validation_summary = (
-            analysis_result.validation_result.summary
-            if analysis_result.validation_result is not None
-            else "Validation did not run."
-        )
-        return "\n".join(
-            [
-                "## Summary",
-                change_summary,
-                "",
-                "## SonarQube",
-                f"- Issue key: `{selected_issue.key}`",
-                f"- Rule: `{selected_issue.rule}`",
-                f"- Severity: `{selected_issue.severity}`",
-                f"- Type: `{selected_issue.type}`",
-                f"- File: `{selected_issue.file_path}`",
-                f"- Line: `{issue_line}`",
-                f"- Message: {selected_issue.message}",
-                "",
-                "## Validation",
-                f"- {validation_summary}",
-                "",
-                "## Notes",
-                "- Diff was rendered by the bot from a structured edit proposal.",
-            ]
+            mr_title=mr_title,
+            mr_description=mr_description,
         )
 
     def _rollback_pre_commit(self, analysis_result: AnalysisResult) -> None:

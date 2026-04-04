@@ -72,6 +72,9 @@ ai-sonar-bot/
       issue_intake.py
       analysis_service.py
       execution_service.py
+      patch_execution_service.py
+      solution_artifact_service.py
+      publish_service.py
       issue_selector.py
       context_builder.py
       fix_generator.py
@@ -79,6 +82,7 @@ ai-sonar-bot/
       approval.py
       branch_manager.py
       mr_service.py
+      workspace_snapshot.py
       run_state_service.py
       state_store.py
     prompts/
@@ -109,14 +113,12 @@ The bot runs as a synchronous pipeline in v1:
 1. Load config.
 2. Initialize clients and state store.
 3. Use `IssueIntakeService` to fetch and select one supported issue.
-4. Use `ExecutionService` to coordinate branch creation, analysis, validation, commit, and optional publish.
-5. Use `AnalysisService` to build code context.
-6. Request analysis and a structured edit proposal from the LLM.
-7. Apply changes.
-8. Run validation commands and retry once on failure.
-9. In local mode, stop after a validated local commit.
-10. In CI mode, push branch and create or reuse a GitLab merge request.
-11. Use `RunStateService` to persist run and issue lifecycle updates.
+4. Use `ExecutionService` to coordinate branch creation, approval, commit, and handoff to publish.
+5. Use `AnalysisService` to build code context, choose the active LLM backend, and render a patch from a structured edit.
+6. Use `PatchExecutionService` to apply changes, run validation commands, retry once on failure, and roll back the working tree before commit.
+7. In local mode, stop after a validated local commit.
+8. In CI mode, use `PublishService` to push the branch and create or reuse a GitLab merge request.
+9. Use `RunStateService` to persist run and issue lifecycle updates.
 
 The current implementation follows this path. The remaining approval work is
 limited to an optional local interactive mode.
@@ -135,8 +137,8 @@ flowchart TD
     F -- Yes --> I[ExecutionService]
     I --> J[Create Work Branch]
     J --> K[AnalysisService]
-    K --> L[LLM Analysis and Patch]
-    L --> M[Apply Patch]
+    K --> L[LLM Analysis and Bot-Rendered Patch]
+    L --> M[PatchExecutionService]
     M --> N[Run Validation Commands]
     N --> O{Validation pass?}
     O -- No --> P[Optional single retry]
@@ -144,7 +146,7 @@ flowchart TD
     Q -- No --> R[RunStateService]
     O -- Yes --> S{Execution mode}
     Q -- Yes --> S
-    S -- CI --> T[Commit, Push, Create or Reuse GitLab MR]
+    S -- CI --> T[Commit, PublishService, Create or Reuse GitLab MR]
     S -- Local --> U[Create Local Commit]
     T --> V[RunStateService]
     U --> V
@@ -232,11 +234,10 @@ Responsibilities:
 
 - build source context for the selected issue,
 - choose the active LLM backend,
-- coordinate analysis and patch generation,
+- coordinate issue analysis and structured edit generation,
+- render a patch proposal from a structured edit,
 - enforce rejection rules for manual-only issues,
-- apply generated patches,
-- run validation and one retry,
-- optionally apply generated patches during dry-run testing.
+- delegate artifact persistence and patch execution to focused services.
 
 ### 6.9 `services/execution_service.py`
 
@@ -246,9 +247,34 @@ Responsibilities:
 - create a local branch when required,
 - call the analysis service,
 - create a local commit after successful validation,
-- publish the branch and create or reuse a GitLab merge request in CI mode.
+- request local approval when configured,
+- delegate branch push and merge request creation to the publish service in CI mode.
 
-### 6.10 `services/issue_selector.py`
+### 6.10 `services/patch_execution_service.py`
+
+Responsibilities:
+
+- apply bot-rendered patches,
+- run validation commands,
+- retry once on failure,
+- restore the working tree before commit on patch-apply or validation failure.
+
+### 6.11 `services/solution_artifact_service.py`
+
+Responsibilities:
+
+- persist optional local solution artifacts for debugging,
+- keep artifact policy and file writing out of the LLM provider layer.
+
+### 6.12 `services/publish_service.py`
+
+Responsibilities:
+
+- push the prepared branch,
+- create or reuse a GitLab merge request,
+- build the deterministic merge request description template.
+
+### 6.13 `services/issue_selector.py`
 
 Responsibilities:
 
@@ -257,7 +283,7 @@ Responsibilities:
 - rank issues,
 - return the single selected issue.
 
-### 6.11 `services/context_builder.py`
+### 6.14 `services/context_builder.py`
 
 Responsibilities:
 
