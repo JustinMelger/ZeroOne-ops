@@ -212,15 +212,15 @@ Goal:
 Status:
 
 - [x] add a duplicate-issue guard that skips work when the SonarQube issue key already has an open merge request or active branch, then selects the next eligible issue instead of updating the existing branch by default
-- [ ] persist structured edit artifacts alongside analysis and rendered patch output for better debugging
+- [x] persist structured edit artifacts alongside analysis and rendered patch output for better debugging
 - [x] disable solution artifact file writing by default in CI mode so merge requests, logs, and state remain the primary traceability surfaces
 - [x] verify rollback leaves the repository in a predictable state on approval rejection, patch-apply failure, and commit failure
-- [ ] tighten issue eligibility so v1 stays limited to low-risk single-file issues that fit the structured-edit model, including excluding rename-style SonarQube issues until symbol reference safety checks exist and rejecting multi-file structured edits as out of scope
-- [ ] improve logs and summaries so skip, reject, and ambiguity decisions are explicit
+- [x] tighten issue eligibility so v1 stays limited to low-risk single-file issues that fit the structured-edit model, including excluding rename-style SonarQube issues until symbol reference safety checks exist and rejecting multi-file structured edits as out of scope
+- [x] improve logs and summaries so skip, reject, and ambiguity decisions are explicit
 - [x] enforce a deterministic merge request description template with stable traceability fields such as issue key, rule, severity, file, issue message, validation summary, and bot-rendered diff note
 - [x] split oversized orchestration services so analysis, patch execution, artifact output, and publish concerns stay testable and maintainable
 - [x] add an operator runbook covering CI variables, token scopes, expected workflow behavior, and recovery steps
-- [ ] add a documented end-to-end smoke test recipe for validating the bot against a real target repository
+- [x] add a documented end-to-end smoke test recipe for validating the bot against a real target repository
 
 Done when:
 

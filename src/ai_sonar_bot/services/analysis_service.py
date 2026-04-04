@@ -132,6 +132,7 @@ class AnalysisService:
                 fix_generator=fix_generator,
                 selected_issue=selected_issue,
                 context=context,
+                artifact_service=artifact_service,
             )
         except EditRenderError as error:
             return AnalysisResult(
@@ -167,7 +168,10 @@ class AnalysisService:
             fix_generator=fix_generator,
             selected_issue=selected_issue,
             context=context,
-            patch_factory=self._generate_patch,
+            patch_factory=lambda **kwargs: self._generate_patch(
+                artifact_service=artifact_service,
+                **kwargs,
+            ),
         )
         return AnalysisResult(
             summary=execution_result.summary,
@@ -210,6 +214,7 @@ class AnalysisService:
         fix_generator: FixGenerator,
         selected_issue: SonarIssue,
         context: IssueContext,
+        artifact_service: SolutionArtifactService,
     ) -> PatchProposal:
         """Generate a patch proposal from a structured edit.
 
@@ -217,11 +222,16 @@ class AnalysisService:
             fix_generator: LLM-backed fix generator.
             selected_issue: Selected SonarQube issue.
             context: Built issue context.
+            artifact_service: Artifact persistence service for analysis outputs.
 
         Returns:
             The generated patch proposal.
         """
         structured_edit = fix_generator.generate_structured_edit(selected_issue, context)
+        artifact_service.write_structured_edit(
+            issue_key=selected_issue.key,
+            structured_edit=structured_edit,
+        )
         target_files = {edit.file_path for edit in structured_edit.edits}
         if len(target_files) != 1:
             raise EditRenderError(

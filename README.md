@@ -205,4 +205,4 @@ The test step enforces a minimum total coverage threshold of `80%`.
 
 Copy values from `.env.example` into a local `.env` file and adjust `.ai-sonar-bot.json` for repository-specific behavior. The application loads `.env` automatically.
 
-For CI operation and recovery guidance, see [runbook.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/runbook.md).
+For CI operation, recovery guidance, and the rollout smoke-test recipe, see [runbook.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/runbook.md).

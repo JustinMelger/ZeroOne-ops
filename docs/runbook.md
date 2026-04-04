@@ -262,6 +262,94 @@ If you need them temporarily:
 - rerun the pipeline
 - remove the override once debugging is done
 
+## Smoke Test Recipe
+
+Use this recipe before you rely on the bot for unattended scheduled runs in a
+new repository.
+
+### Preconditions
+
+Make sure the target repository has:
+
+- a valid `.gitlab-ci.yml` based on [.gitlab-ci.example.yml](/Users/justinmelger/Desktop/github/ai-sonar-bot/.gitlab-ci.example.yml)
+- a repository-specific `.ai-sonar-bot.json`
+- required CI variables set
+- at least one open SonarQube issue that is:
+  - low severity in the maintainability model
+  - in a file that exists in the repository
+  - within the current v1 rule allowlist
+  - expected to require only one-file structured edits
+
+### Recommended First Test
+
+Start with one intentionally simple issue, ideally something equivalent to:
+
+- `python:S1125`
+- one local file
+- one exact text replacement
+
+Do not use a rename issue or a fix that obviously needs multiple files.
+
+### Steps
+
+1. confirm the target repository pipeline can pull the bot image successfully
+2. confirm the bot job has access to:
+   - SonarQube
+   - OpenAI
+   - GitLab push and merge request APIs
+3. trigger the bot job manually instead of waiting for a schedule
+4. watch the pipeline logs for:
+   - issue count fetched
+   - selected issue key
+   - structured edit generation
+   - diff rendered by bot
+   - validation success
+   - branch push
+   - merge request created or reused
+5. open the created merge request
+6. verify the merge request description contains:
+   - issue key
+   - rule
+   - severity
+   - file
+   - issue message
+   - validation summary
+   - bot-rendered diff note
+7. inspect the diff and confirm it stays within one file
+8. verify the branch name maps to the issue key and file path as expected
+
+### Expected Healthy Outcome
+
+A successful smoke test should produce:
+
+- one selected SonarQube issue
+- one bot branch
+- one merge request
+- a diff limited to one file
+- passing validation in the pipeline logs
+- no duplicate merge request creation on an immediate rerun
+
+### Recommended Follow-Up Check
+
+After the first successful run:
+
+1. rerun the pipeline once
+2. confirm the existing issue is skipped because an open merge request already exists
+3. confirm the bot either:
+   - selects the next eligible issue, or
+   - exits cleanly with `no_issue`
+
+### Failure Signals That Should Block Rollout
+
+Do not move to scheduled unattended runs yet if you see:
+
+- rename-style issues being selected
+- multi-file structured edits proposed
+- validation failures on supposedly low-risk rules
+- repeated attempts against the same open merge request
+- merge requests whose diffs widen beyond the selected issue
+- branch push or merge request creation auth instability
+
 ## Pre-Release Checklist
 
 Before calling the target repository setup stable, confirm:
@@ -272,3 +360,4 @@ Before calling the target repository setup stable, confirm:
 - validation commands match the repository
 - the GitLab token can both push and create merge requests
 - operators know where to inspect failures and how to rerun safely
+- the smoke test and immediate rerun both behave as expected

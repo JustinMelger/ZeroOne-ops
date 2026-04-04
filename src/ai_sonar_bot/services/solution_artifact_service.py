@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ai_sonar_bot.models.analysis import IssueAnalysis, PatchProposal
+from ai_sonar_bot.models.analysis import IssueAnalysis, PatchProposal, StructuredEditProposal
 from ai_sonar_bot.providers.llm_client import _write_solution_file
 
 
@@ -51,6 +51,21 @@ class SolutionArtifactService:
             issue_key=issue_key,
             patch=patch,
             decision="accepted",
+        )
+
+    def write_structured_edit(
+        self,
+        *,
+        issue_key: str,
+        structured_edit: StructuredEditProposal,
+    ) -> None:
+        """Persist structured edit data when artifact output is enabled."""
+        if self.output_path is None:
+            return
+        _write_solution_file(
+            self.output_path,
+            issue_key=issue_key,
+            structured_edit=structured_edit,
         )
 
     def write_manual_rejection(self, *, issue_key: str) -> None:
