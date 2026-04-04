@@ -211,8 +211,9 @@ Goal:
 
 Status:
 
-- [ ] add a duplicate-issue guard that skips work when the SonarQube issue key already has an open merge request or active branch
+- [ ] add a duplicate-issue guard that skips work when the SonarQube issue key already has an open merge request or active branch, then selects the next eligible issue instead of updating the existing branch by default
 - [ ] persist structured edit artifacts alongside analysis and rendered patch output for better debugging
+- [ ] disable solution artifact file writing by default in CI mode so merge requests, logs, and state remain the primary traceability surfaces
 - [ ] verify rollback leaves the repository in a predictable state on approval rejection, patch-apply failure, and commit failure
 - [ ] tighten issue eligibility so v1 stays limited to low-risk single-file issues that fit the structured-edit model
 - [ ] improve logs and summaries so skip, reject, and ambiguity decisions are explicit
@@ -223,6 +224,7 @@ Status:
 Done when:
 
 - repeated scheduled or manual CI runs do not create duplicate work for the same open issue
+- when an issue already has an open bot merge request, the bot skips it and moves to the next eligible issue or exits cleanly if none remain
 - operators can understand why an issue was skipped, rejected, or turned into a merge request without reading code
 - the supported v1 issue scope is explicit in both config and docs
 - another engineer can configure and operate the bot from the runbook alone
