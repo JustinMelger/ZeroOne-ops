@@ -2,7 +2,7 @@
 
 ## 1. Scope
 
-This document defines the technical design for v1 of the AI Sonar Bot described in [functional-design.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/functional-design.md).
+This document defines the technical design for v1 of the AI Sonar Bot described in [functional-design.md](functional-design.md).
 
 V1 constraints:
 
