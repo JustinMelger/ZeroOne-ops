@@ -213,7 +213,7 @@ Status:
 
 - [ ] add a duplicate-issue guard that skips work when the SonarQube issue key already has an open merge request or active branch, then selects the next eligible issue instead of updating the existing branch by default
 - [ ] persist structured edit artifacts alongside analysis and rendered patch output for better debugging
-- [ ] disable solution artifact file writing by default in CI mode so merge requests, logs, and state remain the primary traceability surfaces
+- [x] disable solution artifact file writing by default in CI mode so merge requests, logs, and state remain the primary traceability surfaces
 - [ ] verify rollback leaves the repository in a predictable state on approval rejection, patch-apply failure, and commit failure
 - [ ] tighten issue eligibility so v1 stays limited to low-risk single-file issues that fit the structured-edit model
 - [ ] improve logs and summaries so skip, reject, and ambiguity decisions are explicit

@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+from typing import Literal
 
 from ai_sonar_bot.models.analysis import (
     AnalysisClassification,
@@ -7,7 +8,12 @@ from ai_sonar_bot.models.analysis import (
     StructuredEditProposal,
     TextEdit,
 )
-from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
+from ai_sonar_bot.models.config import (
+    AnalysisConfig,
+    AppConfig,
+    ApprovalConfig,
+    GitLabConfig,
+)
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.services.analysis_service import AnalysisService
 
@@ -19,8 +25,11 @@ def build_config(
     apply_patch_in_dry_run: bool = False,
     validation_commands: list[str] | None = None,
     max_retry_count: int = 1,
+    execution_mode: Literal["local", "ci"] = "ci",
+    write_solution_artifacts_in_ci: bool = False,
 ) -> AppConfig:
     return AppConfig(
+        execution_mode=execution_mode,
         base_branch="main",
         supported_severities=["MAJOR"],
         supported_issue_types=["BUG"],
@@ -35,6 +44,7 @@ def build_config(
         mock_llm_analysis_path=mock_llm_analysis_path,
         mock_llm_edit_path=mock_llm_edit_path,
         apply_patch_in_dry_run=apply_patch_in_dry_run,
+        write_solution_artifacts_in_ci=write_solution_artifacts_in_ci,
         max_retry_count=max_retry_count,
     )
 
@@ -258,6 +268,56 @@ def test_analyze_issue_rolls_back_when_validation_fails(tmp_path: Path, monkeypa
     assert result.failure.failed_command == "false"
     assert result.failure.exit_code == 1
     assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 1\n"
+
+
+def test_analyze_issue_skips_solution_artifact_in_ci_mode(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-4.1-mini")
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.llm_client.OpenAILLMClient.analyze_issue",
+        lambda self, issue, context: IssueAnalysis(
+            issue_key=issue.key,
+            classification=AnalysisClassification.AUTO_FIXABLE,
+            summary="summary",
+            risk_notes=[],
+            target_files=[context.file_path],
+            proposed_strategy="Apply the minimal fix.",
+        ),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.llm_client.OpenAILLMClient.generate_structured_edit",
+        lambda self, issue, context: StructuredEditProposal(
+            issue_key=issue.key,
+            edits=[
+                TextEdit(
+                    file_path=context.file_path,
+                    search_text="value = 1",
+                    replace_text="value = 2",
+                    line_hint=1,
+                )
+            ],
+            commit_message="fix(sonar): patch service [FIXTURE-1]",
+            mr_title="fix: patch service",
+            mr_description="summary",
+        ),
+    )
+
+    result = AnalysisService(
+        tmp_path,
+        build_config(execution_mode="ci", write_solution_artifacts_in_ci=False),
+    ).analyze_issue(
+        selected_issue=build_issue(),
+        dry_run=True,
+    )
+
+    assert "Solution file:" not in result.summary
+    assert result.patch is not None
+    assert not (tmp_path / "artifacts" / "openai-solution.json").exists()
 
 
 def test_analyze_issue_retries_validation_with_regenerated_structured_edit(
