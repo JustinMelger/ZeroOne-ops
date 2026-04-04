@@ -20,6 +20,8 @@ Implemented today:
 - patch generation, application, validation, and single retry
 - local branch creation and commit flow
 - CI-mode branch push and GitLab merge request creation or reuse
+- a conservative built-in Sonar rule allowlist unless `supported_rules` is explicitly overridden
+- explicit v1 enforcement that structured edits may touch exactly one file
 
 ## Tooling
 
@@ -65,6 +67,8 @@ export OPENAI_MODEL=gpt-4.1-mini
 When those are set, dry-run prefers the real OpenAI client over the local analysis and patch fixtures.
 
 For this version, the OpenAI client can also write the returned solution to a file. By default that file is [artifacts/openai-solution.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/artifacts/openai-solution.json), and you can override it with `AI_SONAR_BOT_OPENAI_SOLUTION_OUTPUT_PATH` or `openai_solution_output_path` in [.ai-sonar-bot.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/.ai-sonar-bot.json). In `ci` mode, solution artifacts are disabled by default so merge requests, logs, and state remain the primary traceability surface; set `AI_SONAR_BOT_WRITE_SOLUTION_ARTIFACTS_IN_CI=true` if you want to keep them for debugging.
+
+For v1 safety, the bot only accepts structured edits that touch exactly one file. Multi-file proposals are rejected as out of scope.
 
 ## Commands
 

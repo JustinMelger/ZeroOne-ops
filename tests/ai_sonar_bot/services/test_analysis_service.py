@@ -614,3 +614,80 @@ def test_analyze_issue_rejects_unrenderable_structured_edit_without_raw_diff_fal
     assert result.failure.stage.value == "analysis"
     assert "Structured edit could not be rendered safely" in result.summary
     assert "matched multiple locations" in result.summary
+
+
+def test_analyze_issue_rejects_multi_file_structured_edit_for_v1(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / "src" / "other.py").write_text("other = 1\n", encoding="utf-8")
+
+    class MultiFileStructuredEditLLMClient:
+        def analyze_issue(self, issue: SonarIssue, context) -> IssueAnalysis:
+            del issue, context
+            return IssueAnalysis(
+                issue_key="FIXTURE-1",
+                classification=AnalysisClassification.AUTO_FIXABLE,
+                summary="Fixture analysis summary",
+                risk_notes=[],
+                target_files=["src/service.py", "src/other.py"],
+                proposed_strategy="Apply the minimal fix.",
+            )
+
+        def generate_structured_edit(
+            self,
+            issue: SonarIssue,
+            context,
+        ) -> StructuredEditProposal:
+            del issue, context
+            return StructuredEditProposal(
+                issue_key="FIXTURE-1",
+                edits=[
+                    TextEdit(
+                        file_path="src/service.py",
+                        search_text="value = 1",
+                        replace_text="value = 2",
+                        line_hint=1,
+                    ),
+                    TextEdit(
+                        file_path="src/other.py",
+                        search_text="other = 1",
+                        replace_text="other = 2",
+                        line_hint=1,
+                    ),
+                ],
+                commit_message="fix(sonar): patch service [FIXTURE-1]",
+                mr_title="fix: patch service",
+                mr_description="summary",
+            )
+
+    service = AnalysisService(
+        tmp_path,
+        build_config(
+            apply_patch_in_dry_run=True,
+            validation_commands=[],
+        ),
+    )
+    monkeypatch.setattr(
+        AnalysisService,
+        "_build_llm_client",
+        lambda self: MultiFileStructuredEditLLMClient(),
+    )
+
+    result = service.analyze_issue(
+        selected_issue=build_issue(),
+        dry_run=True,
+    )
+
+    assert result.patch is None
+    assert result.patch_applied is False
+    assert result.failure is not None
+    assert result.failure.stage.value == "analysis"
+    assert "Structured edit could not be rendered safely" in result.summary
+    assert "touch exactly one file" in result.summary

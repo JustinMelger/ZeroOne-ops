@@ -23,6 +23,7 @@ def test_run_dry_run_creates_summary(tmp_path: Path, monkeypatch) -> None:
           "base_branch": "main",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": [],
           "gitlab": {
             "target_branch": "main",
@@ -54,6 +55,7 @@ def test_run_selects_issue_with_existing_local_file(tmp_path: Path, monkeypatch)
           "base_branch": "main",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": [],
           "gitlab": {
             "target_branch": "main",
@@ -163,6 +165,7 @@ def test_run_dry_run_uses_fixture_when_configured(tmp_path: Path, monkeypatch) -
           "mock_sonar_issues_path": "fixtures/sonar/issues.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": [],
           "gitlab": {
             "target_branch": "main",
@@ -254,6 +257,7 @@ def test_run_dry_run_can_apply_patch_when_enabled(tmp_path: Path, monkeypatch) -
           "mock_sonar_issues_path": "fixtures/sonar/issues.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": [],
           "gitlab": {
             "target_branch": "main",
@@ -456,6 +460,7 @@ def test_run_non_dry_run_creates_branch_and_local_commit(tmp_path: Path, monkeyp
               "mock_llm_edit_path": "fixtures/llm/edit.json",
               "supported_severities": ["MAJOR"],
               "supported_issue_types": ["BUG"],
+              "supported_rules": ["python:S2259"],
               "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
           "gitlab": {
             "target_branch": "main",
@@ -603,6 +608,7 @@ def test_run_local_mode_rejects_when_approval_declines(tmp_path: Path, monkeypat
           "mock_llm_edit_path": "fixtures/llm/edit.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
           "gitlab": {
             "target_branch": "main",
@@ -777,6 +783,7 @@ def test_run_ci_mode_pushes_branch_and_creates_merge_request(tmp_path: Path, mon
           "mock_llm_edit_path": "fixtures/llm/edit.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
           "gitlab": {
             "target_branch": "main",
@@ -988,6 +995,7 @@ def test_run_ci_mode_reuses_existing_merge_request(tmp_path: Path, monkeypatch) 
           "mock_llm_edit_path": "fixtures/llm/edit.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
           "gitlab": {
             "target_branch": "main",

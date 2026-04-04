@@ -9,6 +9,7 @@ def build_config() -> AppConfig:
         base_branch="main",
         supported_severities=["LOW"],
         supported_issue_types=["BUG"],
+        supported_rules=["python:S123", "python:S124", "python:S1125", "python:S9999"],
         validation_commands=[],
         analysis=AnalysisConfig(),
         approval=ApprovalConfig(),

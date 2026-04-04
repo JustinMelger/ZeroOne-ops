@@ -20,10 +20,15 @@ The current v1 automation scope is intentionally narrow:
 - low-severity maintainability issues only
 - low-risk single-file fixes only
 - structured-edit generation with bot-rendered diffs
+- structured edits must touch exactly one file
 - GitLab merge request creation in `ci` mode
+- a conservative built-in Sonar rule allowlist unless the repo explicitly sets `supported_rules`
 
 The bot currently excludes rename-style issues by design. Rename changes need
 symbol-reference safety checks that are not part of v1 yet.
+
+If the LLM proposes a structured edit that touches more than one file, the run
+fails at analysis instead of trying to widen scope automatically.
 
 ## Required CI Variables
 

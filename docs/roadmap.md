@@ -215,7 +215,7 @@ Status:
 - [ ] persist structured edit artifacts alongside analysis and rendered patch output for better debugging
 - [x] disable solution artifact file writing by default in CI mode so merge requests, logs, and state remain the primary traceability surfaces
 - [x] verify rollback leaves the repository in a predictable state on approval rejection, patch-apply failure, and commit failure
-- [ ] tighten issue eligibility so v1 stays limited to low-risk single-file issues that fit the structured-edit model, including excluding rename-style SonarQube issues until symbol reference safety checks exist
+- [ ] tighten issue eligibility so v1 stays limited to low-risk single-file issues that fit the structured-edit model, including excluding rename-style SonarQube issues until symbol reference safety checks exist and rejecting multi-file structured edits as out of scope
 - [ ] improve logs and summaries so skip, reject, and ambiguity decisions are explicit
 - [x] enforce a deterministic merge request description template with stable traceability fields such as issue key, rule, severity, file, issue message, validation summary, and bot-rendered diff note
 - [x] split oversized orchestration services so analysis, patch execution, artifact output, and publish concerns stay testable and maintainable

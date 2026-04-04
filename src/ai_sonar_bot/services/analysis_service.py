@@ -222,4 +222,9 @@ class AnalysisService:
             The generated patch proposal.
         """
         structured_edit = fix_generator.generate_structured_edit(selected_issue, context)
+        target_files = {edit.file_path for edit in structured_edit.edits}
+        if len(target_files) != 1:
+            raise EditRenderError(
+                "V1 automation only supports structured edits that touch exactly one file."
+            )
         return self.edit_renderer.render(structured_edit)

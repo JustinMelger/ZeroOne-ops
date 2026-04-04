@@ -17,6 +17,7 @@ def build_config(
         base_branch="main",
         supported_severities=["MAJOR"],
         supported_issue_types=["BUG"],
+        supported_rules=["python:S2259"],
         validation_commands=[],
         analysis=AnalysisConfig(),
         approval=ApprovalConfig(),
