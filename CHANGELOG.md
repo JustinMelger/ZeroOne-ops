@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.4.1...ai-sonar-bot-v0.5.0) (2026-04-04)
+
+
+### Features
+
+* feat:  ([824d9af](https://github.com/JustinMelger/ai-sonar-bot/commit/824d9aff24e324abd6fbbf559e0e5491c27e5dad))
+* add rollback on failure ([c450824](https://github.com/JustinMelger/ai-sonar-bot/commit/c4508242abc09bdc92c56fff3d99cee3251a797e))
+* improve logging and summaries ([299df3a](https://github.com/JustinMelger/ai-sonar-bot/commit/299df3af92753516dce97cf1023c68d53fb01905))
+* persist structured edit artifacts ([164bc83](https://github.com/JustinMelger/ai-sonar-bot/commit/164bc831756d92d675f75c4e2cb127dd1ea19733))
+
+
+### Bug Fixes
+
+* **docs:** redirect link ([6b81c38](https://github.com/JustinMelger/ai-sonar-bot/commit/6b81c386b19bfe2c3055293842a1bc4cd64c17f3))
+* **docs:** redirect link ([d1da99e](https://github.com/JustinMelger/ai-sonar-bot/commit/d1da99e1437a4696f88ff38b10bf8c70fed4ad7c))
+
 ## [0.4.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.4.0...ai-sonar-bot-v0.4.1) (2026-04-04)
 
 
