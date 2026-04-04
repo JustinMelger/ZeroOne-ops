@@ -109,7 +109,7 @@ The merge request should contain:
 
 ## Recommended GitLab CI Setup
 
-Use the example pipeline from [.gitlab-ci.example.yml](.gitlab-ci.example.yml).
+Use the example pipeline from [.gitlab-ci.example.yml](../.gitlab-ci.example.yml).
 
 Recommended settings:
 
@@ -271,7 +271,7 @@ new repository.
 
 Make sure the target repository has:
 
-- a valid `.gitlab-ci.yml` based on [.gitlab-ci.example.yml](.gitlab-ci.example.yml)
+- a valid `.gitlab-ci.yml` based on [.gitlab-ci.example.yml](../.gitlab-ci.example.yml)
 - a repository-specific `.ai-sonar-bot.json`
 - required CI variables set
 - at least one open SonarQube issue that is:
