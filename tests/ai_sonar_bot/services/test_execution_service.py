@@ -2,10 +2,11 @@ from pathlib import Path
 
 from ai_sonar_bot.models.analysis import PatchProposal, ValidationResult
 from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
-from ai_sonar_bot.models.gitlab import MergeRequestInfo
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.services.analysis_service import AnalysisResult
 from ai_sonar_bot.services.execution_service import ExecutionService
+from ai_sonar_bot.services.publish_service import PublishResult
+from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
 
 
 def build_config(*, execution_mode: str = "local") -> AppConfig:
@@ -47,6 +48,56 @@ def build_patch() -> PatchProposal:
     )
 
 
+def fake_branch_name(*, branch_prefix: str, issue_key: str, file_path: str) -> str:
+    del branch_prefix, issue_key, file_path
+    return "ai-sonar/fix"
+
+
+def fake_create_branch(branch_name: str) -> None:
+    del branch_name
+
+
+def fake_noop() -> None:
+    return None
+
+
+def fake_analysis_result(*, selected_issue: SonarIssue, dry_run: bool) -> AnalysisResult:
+    del selected_issue, dry_run
+    return AnalysisResult(
+        summary="Patch applied locally in run. All validation commands passed.",
+        patch=build_patch(),
+        patch_applied=True,
+        validation_passed=True,
+        validation_result=ValidationResult(
+            passed=True,
+            results=[],
+            summary="All validation commands passed.",
+        ),
+    )
+
+
+def fake_publish_reused(**kwargs) -> PublishResult:
+    del kwargs
+    return PublishResult(
+        branch_name="ai-sonar/fix",
+        mr_url="https://gitlab.example.com/group/project/-/merge_requests/9",
+        mr_action="reused",
+    )
+
+
+def fake_gitlab_config():
+    return type(
+        "GitLabConfigStub",
+        (),
+        {"project_id": "123", "url": "https://gitlab.example.com", "token": "token"},
+    )()
+
+
+def fake_find_open_none(self, project_id, source_branch, target_branch):
+    del self, project_id, source_branch, target_branch
+    return None
+
+
 def test_execute_returns_analysis_summary_in_dry_run(tmp_path: Path, monkeypatch) -> None:
     service = ExecutionService(tmp_path, build_config())
 
@@ -67,18 +118,18 @@ def test_execute_returns_analysis_summary_in_dry_run(tmp_path: Path, monkeypatch
 
 def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> None:
     service = ExecutionService(tmp_path, build_config(execution_mode="local"))
+    (tmp_path / "src").mkdir()
+    target_file = tmp_path / "src" / "service.py"
+    target_file.write_text("value = 1\n", encoding="utf-8")
+    snapshot = WorkspaceSnapshotService(tmp_path).capture(["src/service.py"])
 
-    monkeypatch.setattr(service.branch_manager, "ensure_ready", lambda: None)
-    monkeypatch.setattr(
-        service.branch_manager,
-        "build_branch_name",
-        lambda *, branch_prefix, issue_key, file_path: "ai-sonar/fix",
-    )
-    monkeypatch.setattr(service.branch_manager, "create_branch", lambda branch_name: None)
-    monkeypatch.setattr(
-        service.analysis_service,
-        "analyze_issue",
-        lambda *, selected_issue, dry_run: AnalysisResult(
+    monkeypatch.setattr(service.branch_manager, "ensure_ready", fake_noop)
+    monkeypatch.setattr(service.branch_manager, "build_branch_name", fake_branch_name)
+    monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
+
+    def fake_analyze_issue(*, selected_issue: SonarIssue, dry_run: bool) -> AnalysisResult:
+        del selected_issue, dry_run
+        return AnalysisResult(
             summary="Patch applied locally in run. All validation commands passed.",
             patch=build_patch(),
             patch_applied=True,
@@ -88,13 +139,16 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
                 results=[],
                 summary="All validation commands passed.",
             ),
-        ),
-    )
-    monkeypatch.setattr(
-        service.approval_service,
-        "request",
-        lambda issue, changed_files, validation, commit_message, mr_title: True,
-    )
+            workspace_snapshot=snapshot,
+        )
+
+    monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analyze_issue)
+
+    def approve_request(issue, changed_files, validation, commit_message, mr_title) -> bool:
+        del issue, changed_files, validation, commit_message, mr_title
+        return True
+
+    monkeypatch.setattr(service.approval_service, "request", approve_request)
 
     def fail_commit(commit_message: str, *, push: bool = False) -> str:
         del commit_message, push
@@ -104,10 +158,12 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
         del commit_message, push
         from ai_sonar_bot.services.branch_manager import BranchManagerError
 
+        target_file.write_text("value = 2\n", encoding="utf-8")
         raise BranchManagerError("git commit failed")
 
     monkeypatch.setattr(service.branch_manager, "commit_and_push", commit_error)
     monkeypatch.setattr(service.branch_manager, "push_current_branch", fail_commit)
+    monkeypatch.setattr(service.branch_manager, "reset_index", fake_noop)
 
     result = service.execute(selected_issue=build_issue(), dry_run=False)
 
@@ -116,71 +172,26 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
     assert result.status_message == "Commit failed: git commit failed"
     assert result.branch_name == "ai-sonar/fix"
     assert result.commit_sha is None
+    assert target_file.read_text(encoding="utf-8") == "value = 1\n"
 
 
 def test_execute_reuses_existing_merge_request_in_ci_mode(tmp_path: Path, monkeypatch) -> None:
     service = ExecutionService(tmp_path, build_config(execution_mode="ci"))
 
-    monkeypatch.setattr(service.branch_manager, "ensure_ready", lambda: None)
-    monkeypatch.setattr(
-        service.branch_manager,
-        "build_branch_name",
-        lambda *, branch_prefix, issue_key, file_path: "ai-sonar/fix",
-    )
-    monkeypatch.setattr(service.branch_manager, "create_branch", lambda branch_name: None)
-    monkeypatch.setattr(
-        service.analysis_service,
-        "analyze_issue",
-        lambda *, selected_issue, dry_run: AnalysisResult(
-            summary="Patch applied locally in run. All validation commands passed.",
-            patch=build_patch(),
-            patch_applied=True,
-            validation_passed=True,
-            validation_result=ValidationResult(
-                passed=True,
-                results=[],
-                summary="All validation commands passed.",
-            ),
-        ),
-    )
-    monkeypatch.setattr(
-        service.branch_manager,
-        "commit_and_push",
-        lambda commit_message, *, push=False: "abc123",
-    )
-    monkeypatch.setattr(service.branch_manager, "push_current_branch", lambda: "ai-sonar/fix")
-    monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.load_gitlab_connection_config",
-        lambda: type(
-            "GitLabConfigStub",
-            (),
-            {"project_id": "123", "url": "https://gitlab.example.com", "token": "token"},
-        )(),
-    )
-    monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.MergeRequestService.find_open",
-        lambda self, project_id, source_branch, target_branch: MergeRequestInfo(
-            iid=9,
-            web_url="https://gitlab.example.com/group/project/-/merge_requests/9",
-            title="fix: patch service",
-        ),
-    )
+    monkeypatch.setattr(service.branch_manager, "ensure_ready", fake_noop)
+    monkeypatch.setattr(service.branch_manager, "build_branch_name", fake_branch_name)
+    monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
+    monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analysis_result)
 
-    def fail_create(
-        self,
-        project_id: str,
-        source_branch: str,
-        target_branch: str,
-        title: str,
-        description: str,
-        labels: list[str],
-    ) -> MergeRequestInfo:
-        del self, project_id, source_branch, target_branch, title, description, labels
-        raise AssertionError("create should not be called when an MR already exists")
+    def fake_commit(commit_message: str, *, push: bool = False) -> str:
+        del commit_message, push
+        return "abc123"
 
+    monkeypatch.setattr(service.branch_manager, "commit_and_push", fake_commit)
     monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.MergeRequestService.create",
-        fail_create,
+        service.publish_service,
+        "publish",
+        fake_publish_reused,
     )
 
     result = service.execute(selected_issue=build_issue(), dry_run=False)
@@ -199,60 +210,37 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
 ) -> None:
     service = ExecutionService(tmp_path, build_config(execution_mode="ci"))
 
-    monkeypatch.setattr(service.branch_manager, "ensure_ready", lambda: None)
-    monkeypatch.setattr(
-        service.branch_manager,
-        "build_branch_name",
-        lambda *, branch_prefix, issue_key, file_path: "ai-sonar/fix",
-    )
-    monkeypatch.setattr(service.branch_manager, "create_branch", lambda branch_name: None)
-    monkeypatch.setattr(
-        service.analysis_service,
-        "analyze_issue",
-        lambda *, selected_issue, dry_run: AnalysisResult(
-            summary="Patch applied locally in run. All validation commands passed.",
-            patch=build_patch(),
-            patch_applied=True,
-            validation_passed=True,
-            validation_result=ValidationResult(
-                passed=True,
-                results=[],
-                summary="All validation commands passed.",
-            ),
-        ),
-    )
-    monkeypatch.setattr(
-        service.branch_manager,
-        "commit_and_push",
-        lambda commit_message, *, push=False: "abc123",
-    )
-    monkeypatch.setattr(service.branch_manager, "push_current_branch", lambda: "ai-sonar/fix")
-    monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.load_gitlab_connection_config",
-        lambda: type(
-            "GitLabConfigStub",
-            (),
-            {"project_id": "123", "url": "https://gitlab.example.com", "token": "token"},
-        )(),
-    )
-    monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.MergeRequestService.find_open",
-        lambda self, project_id, source_branch, target_branch: None,
-    )
+    monkeypatch.setattr(service.branch_manager, "ensure_ready", fake_noop)
+    monkeypatch.setattr(service.branch_manager, "build_branch_name", fake_branch_name)
+    monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
+    monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analysis_result)
 
+    def fake_commit(commit_message: str, *, push: bool = False) -> str:
+        del commit_message, push
+        return "abc123"
+
+    monkeypatch.setattr(service.branch_manager, "commit_and_push", fake_commit)
     captured: dict[str, str] = {}
 
-    def capture_create(
-        self,
-        project_id: str,
-        source_branch: str,
-        target_branch: str,
-        title: str,
-        description: str,
-        labels: list[str],
-    ) -> MergeRequestInfo:
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.publish_service.load_gitlab_connection_config",
+        fake_gitlab_config,
+    )
+
+    def fake_push_current_branch() -> str:
+        return "ai-sonar/fix"
+
+    monkeypatch.setattr(service.branch_manager, "push_current_branch", fake_push_current_branch)
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.publish_service.MergeRequestService.find_open",
+        fake_find_open_none,
+    )
+
+    def capture_create(self, project_id, source_branch, target_branch, title, description, labels):
         del self, project_id, source_branch, target_branch, title, labels
         captured["description"] = description
+        from ai_sonar_bot.models.gitlab import MergeRequestInfo
+
         return MergeRequestInfo(
             iid=10,
             web_url="https://gitlab.example.com/group/project/-/merge_requests/10",
@@ -260,7 +248,7 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
         )
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.MergeRequestService.create",
+        "ai_sonar_bot.services.publish_service.MergeRequestService.create",
         capture_create,
     )
 
@@ -297,18 +285,18 @@ def test_execute_returns_rejected_when_local_approval_declines(
     monkeypatch,
 ) -> None:
     service = ExecutionService(tmp_path, build_config(execution_mode="local"))
+    (tmp_path / "src").mkdir()
+    target_file = tmp_path / "src" / "service.py"
+    target_file.write_text("value = 1\n", encoding="utf-8")
+    snapshot = WorkspaceSnapshotService(tmp_path).capture(["src/service.py"])
 
-    monkeypatch.setattr(service.branch_manager, "ensure_ready", lambda: None)
-    monkeypatch.setattr(
-        service.branch_manager,
-        "build_branch_name",
-        lambda *, branch_prefix, issue_key, file_path: "ai-sonar/fix",
-    )
-    monkeypatch.setattr(service.branch_manager, "create_branch", lambda branch_name: None)
-    monkeypatch.setattr(
-        service.analysis_service,
-        "analyze_issue",
-        lambda *, selected_issue, dry_run: AnalysisResult(
+    monkeypatch.setattr(service.branch_manager, "ensure_ready", fake_noop)
+    monkeypatch.setattr(service.branch_manager, "build_branch_name", fake_branch_name)
+    monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
+
+    def fake_analyze_issue(*, selected_issue: SonarIssue, dry_run: bool) -> AnalysisResult:
+        del selected_issue, dry_run
+        return AnalysisResult(
             summary="Patch applied locally in run. All validation commands passed.",
             patch=build_patch(),
             patch_applied=True,
@@ -318,13 +306,18 @@ def test_execute_returns_rejected_when_local_approval_declines(
                 results=[],
                 summary="All validation commands passed.",
             ),
-        ),
-    )
-    monkeypatch.setattr(
-        service.approval_service,
-        "request",
-        lambda issue, changed_files, validation, commit_message, mr_title: False,
-    )
+            workspace_snapshot=snapshot,
+        )
+
+    monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analyze_issue)
+
+    def reject_approval(issue, changed_files, validation, commit_message, mr_title) -> bool:
+        del issue, changed_files, validation, commit_message, mr_title
+        target_file.write_text("value = 2\n", encoding="utf-8")
+        return False
+
+    monkeypatch.setattr(service.approval_service, "request", reject_approval)
+    monkeypatch.setattr(service.branch_manager, "reset_index", fake_noop)
 
     result = service.execute(selected_issue=build_issue(), dry_run=False)
 
@@ -332,3 +325,4 @@ def test_execute_returns_rejected_when_local_approval_declines(
     assert result.final_status == "rejected"
     assert result.status_message == "Local approval rejected the proposed change."
     assert result.commit_sha is None
+    assert target_file.read_text(encoding="utf-8") == "value = 1\n"

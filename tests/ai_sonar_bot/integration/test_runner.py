@@ -23,6 +23,7 @@ def test_run_dry_run_creates_summary(tmp_path: Path, monkeypatch) -> None:
           "base_branch": "main",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": [],
           "gitlab": {
             "target_branch": "main",
@@ -54,6 +55,7 @@ def test_run_selects_issue_with_existing_local_file(tmp_path: Path, monkeypatch)
           "base_branch": "main",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": [],
           "gitlab": {
             "target_branch": "main",
@@ -163,6 +165,7 @@ def test_run_dry_run_uses_fixture_when_configured(tmp_path: Path, monkeypatch) -
           "mock_sonar_issues_path": "fixtures/sonar/issues.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": [],
           "gitlab": {
             "target_branch": "main",
@@ -254,6 +257,7 @@ def test_run_dry_run_can_apply_patch_when_enabled(tmp_path: Path, monkeypatch) -
           "mock_sonar_issues_path": "fixtures/sonar/issues.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": [],
           "gitlab": {
             "target_branch": "main",
@@ -456,6 +460,7 @@ def test_run_non_dry_run_creates_branch_and_local_commit(tmp_path: Path, monkeyp
               "mock_llm_edit_path": "fixtures/llm/edit.json",
               "supported_severities": ["MAJOR"],
               "supported_issue_types": ["BUG"],
+              "supported_rules": ["python:S2259"],
               "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
           "gitlab": {
             "target_branch": "main",
@@ -603,6 +608,7 @@ def test_run_local_mode_rejects_when_approval_declines(tmp_path: Path, monkeypat
           "mock_llm_edit_path": "fixtures/llm/edit.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
           "gitlab": {
             "target_branch": "main",
@@ -653,7 +659,7 @@ def test_run_local_mode_rejects_when_approval_declines(tmp_path: Path, monkeypat
 
     assert summary.status.value == "rejected"
     assert "Local approval rejected the proposed change." in summary.message
-    assert tracked.read_text(encoding="utf-8") == "value = 2\n"
+    assert tracked.read_text(encoding="utf-8") == "value = 1\n"
 
 
 def test_run_ci_mode_pushes_branch_and_creates_merge_request(tmp_path: Path, monkeypatch) -> None:
@@ -777,6 +783,7 @@ def test_run_ci_mode_pushes_branch_and_creates_merge_request(tmp_path: Path, mon
           "mock_llm_edit_path": "fixtures/llm/edit.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
           "gitlab": {
             "target_branch": "main",
@@ -988,6 +995,7 @@ def test_run_ci_mode_reuses_existing_merge_request(tmp_path: Path, monkeypatch) 
           "mock_llm_edit_path": "fixtures/llm/edit.json",
           "supported_severities": ["MAJOR"],
           "supported_issue_types": ["BUG"],
+          "supported_rules": ["python:S2259"],
           "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
           "gitlab": {
             "target_branch": "main",
@@ -1074,4 +1082,5 @@ def test_run_ci_mode_reuses_existing_merge_request(tmp_path: Path, monkeypatch) 
     summary = run(dry_run=False)
 
     assert summary.status.value == "no_issue"
-    assert "No eligible SonarQube issue found among 1 open issues." in summary.message
+    assert "No eligible SonarQube issue found in 1 open issues." in summary.message
+    assert "Skipped 1 with an open merge request." in summary.message

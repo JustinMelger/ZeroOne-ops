@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
@@ -16,6 +17,7 @@ def build_config(
         base_branch="main",
         supported_severities=["MAJOR"],
         supported_issue_types=["BUG"],
+        supported_rules=["python:S2259"],
         validation_commands=[],
         analysis=AnalysisConfig(),
         approval=ApprovalConfig(),
@@ -96,6 +98,8 @@ def test_select_issue_uses_existing_fixture_file_only(tmp_path: Path) -> None:
 
 
 def test_select_issue_returns_message_when_no_fixture_issue_matches(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
     fixture_path = tmp_path / "issues.json"
     fixture_path.write_text(
         """
@@ -125,6 +129,7 @@ def test_select_issue_returns_message_when_no_fixture_issue_matches(tmp_path: Pa
 
     assert result.selected_issue is None
     assert "No eligible SonarQube issue found in fixture" in result.message
+    assert "with unsupported severity" in result.message
 
 
 def test_select_issue_skips_state_tracked_in_progress_issue_and_moves_to_next(
@@ -187,6 +192,7 @@ def test_select_issue_skips_state_tracked_in_progress_issue_and_moves_to_next(
 def test_select_issue_skips_issue_with_existing_open_merge_request_in_ci(
     tmp_path: Path,
     monkeypatch,
+    caplog,
 ) -> None:
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
@@ -230,6 +236,7 @@ def test_select_issue_skips_issue_with_existing_open_merge_request_in_ci(
         mock_sonar_issues_path=fixture_path,
         execution_mode="ci",
     )
+    caplog.set_level(logging.INFO)
 
     result = IssueIntakeService(
         repo_root=tmp_path,
@@ -239,3 +246,83 @@ def test_select_issue_skips_issue_with_existing_open_merge_request_in_ci(
 
     assert result.selected_issue is not None
     assert result.selected_issue.key == "SECOND"
+    assert "skipped issue during intake" in caplog.text
+
+
+def test_select_issue_reports_skip_reasons_when_all_candidates_are_in_progress(
+    tmp_path: Path,
+    caplog,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    fixture_path = tmp_path / "issues.json"
+    fixture_path.write_text(
+        """
+        {
+          "issues": [
+            {
+              "key": "FIRST",
+              "rule": "python:S2259",
+              "severity": "MAJOR",
+              "type": "BUG",
+              "status": "OPEN",
+              "message": "First issue",
+              "component": "sample-project:src/service.py",
+              "project": "sample-project",
+              "line": 1
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    state = AppState(
+        repository=RepositoryState(base_branch="main"),
+        issues={"FIRST": IssueState(status="mr_created", last_run_id="run-1")},
+    )
+    caplog.set_level(logging.INFO)
+
+    result = IssueIntakeService(
+        repo_root=tmp_path,
+        config=build_config(mock_sonar_issues_path=fixture_path),
+    ).select_issue(state=state, dry_run=True, run_id="run-1")
+
+    assert result.selected_issue is None
+    assert "already in progress locally" in result.message
+    assert "skipped issue during intake" in caplog.text
+
+
+def test_select_issue_reports_rename_skip_reason_when_all_candidates_are_filtered(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    fixture_path = tmp_path / "issues.json"
+    fixture_path.write_text(
+        """
+        {
+          "issues": [
+            {
+              "key": "RENAME-1",
+              "rule": "python:S9999",
+              "severity": "MAJOR",
+              "type": "BUG",
+              "status": "OPEN",
+              "message": "Rename this variable to match the regular expression.",
+              "component": "sample-project:src/service.py",
+              "project": "sample-project",
+              "line": 1
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = IssueIntakeService(
+        repo_root=tmp_path,
+        config=build_config(mock_sonar_issues_path=fixture_path),
+    ).select_issue(state=build_state(), dry_run=True, run_id="run-1")
+
+    assert result.selected_issue is None
+    assert "rename-style issues" in result.message

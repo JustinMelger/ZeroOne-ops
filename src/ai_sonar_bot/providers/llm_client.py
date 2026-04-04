@@ -285,6 +285,7 @@ def _write_solution_file(
     *,
     issue_key: str,
     analysis: IssueAnalysis | None = None,
+    structured_edit: StructuredEditProposal | None = None,
     patch: PatchProposal | None = None,
     decision: str | None = None,
     rejection_reason: str | None = None,
@@ -296,6 +297,7 @@ def _write_solution_file(
         path: Output file path.
         issue_key: SonarQube issue key.
         analysis: Optional structured issue analysis.
+        structured_edit: Optional structured edit proposal.
         patch: Optional structured patch proposal.
         decision: Optional decision for the solution artifact.
         rejection_reason: Optional rejection reason for the solution artifact.
@@ -306,6 +308,8 @@ def _write_solution_file(
     payload["issue_key"] = issue_key
     if analysis is not None:
         payload["analysis"] = analysis.model_dump(mode="json")
+    if structured_edit is not None:
+        payload["structured_edit"] = structured_edit.model_dump(mode="json")
     if clear_patch:
         payload.pop("patch", None)
     if patch is not None:

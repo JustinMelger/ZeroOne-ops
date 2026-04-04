@@ -7,6 +7,7 @@ AI Sonar Bot is a Python CLI that fetches open SonarQube issues, analyzes one is
 This repository currently contains:
 
 - functional and technical design documents,
+- an operator runbook,
 - a Python project scaffold,
 - configuration and state models,
 - a working GitLab-first execution pipeline.
@@ -19,6 +20,8 @@ Implemented today:
 - patch generation, application, validation, and single retry
 - local branch creation and commit flow
 - CI-mode branch push and GitLab merge request creation or reuse
+- a conservative built-in Sonar rule allowlist unless `supported_rules` is explicitly overridden
+- explicit v1 enforcement that structured edits may touch exactly one file
 
 ## Tooling
 
@@ -39,18 +42,18 @@ uv run ai-sonar-bot --dry-run
 
 When the repository is not connected to a real SonarQube project yet, dry-run can use a local fixture file instead.
 
-The scaffold includes [fixtures/sonar/issues.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/fixtures/sonar/issues.json), and `.ai-sonar-bot.json` points to it by default through `mock_sonar_issues_path`.
-The default Sonar fixture now targets [samples/auto_fixable_example.py](/Users/justinmelger/Desktop/github/ai-sonar-bot/samples/auto_fixable_example.py), which is intentionally simple so the real OpenAI dry-run has an auto-fixable test case.
+The scaffold includes [fixtures/sonar/issues.json](fixtures/sonar/issues.json), and `.ai-sonar-bot.json` points to it by default through `mock_sonar_issues_path`.
+The default Sonar fixture now targets [samples/auto_fixable_example.py](samples/auto_fixable_example.py), which is intentionally simple so the real OpenAI dry-run has an auto-fixable test case.
 
-For analysis-only dry-runs, the scaffold also includes [fixtures/llm/analysis.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/fixtures/llm/analysis.json) through `mock_llm_analysis_path`.
+For analysis-only dry-runs, the scaffold also includes [fixtures/llm/analysis.json](fixtures/llm/analysis.json) through `mock_llm_analysis_path`.
 
-For structured-edit dry-runs, the scaffold also includes [fixtures/llm/edit.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/fixtures/llm/edit.json) through `mock_llm_edit_path`.
+For structured-edit dry-runs, the scaffold also includes [fixtures/llm/edit.json](fixtures/llm/edit.json) through `mock_llm_edit_path`.
 
 This fixture mode is only used during dry-run. Normal runs expect real SonarQube credentials for issue intake.
 
-The default execution mode is `ci`, which means the intended approval gate is GitLab merge request review. If you want an eventual local interactive flow, set `AI_SONAR_BOT_EXECUTION_MODE=local` or change `execution_mode` in [.ai-sonar-bot.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/.ai-sonar-bot.json).
+The default execution mode is `ci`, which means the intended approval gate is GitLab merge request review. If you want an eventual local interactive flow, set `AI_SONAR_BOT_EXECUTION_MODE=local` or change `execution_mode` in [.ai-sonar-bot.json](.ai-sonar-bot.json).
 
-If you explicitly want dry-run to apply the fixture patch locally, set `apply_patch_in_dry_run` to `true` in [.ai-sonar-bot.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/.ai-sonar-bot.json) or set `AI_SONAR_BOT_APPLY_PATCH_IN_DRY_RUN=true`.
+If you explicitly want dry-run to apply the fixture patch locally, set `apply_patch_in_dry_run` to `true` in [.ai-sonar-bot.json](.ai-sonar-bot.json) or set `AI_SONAR_BOT_APPLY_PATCH_IN_DRY_RUN=true`.
 
 ## Testing With OpenAI
 
@@ -63,7 +66,9 @@ export OPENAI_MODEL=gpt-4.1-mini
 
 When those are set, dry-run prefers the real OpenAI client over the local analysis and patch fixtures.
 
-For this version, the OpenAI client can also write the returned solution to a file. By default that file is [artifacts/openai-solution.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/artifacts/openai-solution.json), and you can override it with `AI_SONAR_BOT_OPENAI_SOLUTION_OUTPUT_PATH` or `openai_solution_output_path` in [.ai-sonar-bot.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/.ai-sonar-bot.json). In `ci` mode, solution artifacts are disabled by default so merge requests, logs, and state remain the primary traceability surface; set `AI_SONAR_BOT_WRITE_SOLUTION_ARTIFACTS_IN_CI=true` if you want to keep them for debugging.
+For this version, the OpenAI client can also write the returned solution to a file. By default that file is [artifacts/openai-solution.json](artifacts/openai-solution.json), and you can override it with `AI_SONAR_BOT_OPENAI_SOLUTION_OUTPUT_PATH` or `openai_solution_output_path` in [.ai-sonar-bot.json](.ai-sonar-bot.json). In `ci` mode, solution artifacts are disabled by default so merge requests, logs, and state remain the primary traceability surface; set `AI_SONAR_BOT_WRITE_SOLUTION_ARTIFACTS_IN_CI=true` if you want to keep them for debugging.
+
+For v1 safety, the bot only accepts structured edits that touch exactly one file. Multi-file proposals are rejected as out of scope.
 
 ## Commands
 
@@ -79,7 +84,7 @@ uv run ruff format --check .
 
 ## Docker And GitLab CI
 
-A containerized runtime is included in [Dockerfile](/Users/justinmelger/Desktop/github/ai-sonar-bot/Dockerfile). It installs `uv`, the bot, and the full project dependency set so validation commands such as `uv run pytest` are available when the bot runs inside the repository checkout.
+A containerized runtime is included in [Dockerfile](Dockerfile). It installs `uv`, the bot, and the full project dependency set so validation commands such as `uv run pytest` are available when the bot runs inside the repository checkout.
 
 Build the image:
 
@@ -102,10 +107,10 @@ The image keeps the installed bot in `/opt/ai-sonar-bot` and uses `/workspace` a
 
 GitHub release automation is included through:
 
-- [release-please.yml](/Users/justinmelger/Desktop/github/ai-sonar-bot/.github/workflows/release-please.yml)
-- [publish-image.yml](/Users/justinmelger/Desktop/github/ai-sonar-bot/.github/workflows/publish-image.yml)
-- [release-please-config.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/release-please-config.json)
-- [.release-please-manifest.json](/Users/justinmelger/Desktop/github/ai-sonar-bot/.release-please-manifest.json)
+- [release-please.yml](.github/workflows/release-please.yml)
+- [publish-image.yml](.github/workflows/publish-image.yml)
+- [release-please-config.json](release-please-config.json)
+- [.release-please-manifest.json](.release-please-manifest.json)
 
 How it works:
 
@@ -132,7 +137,7 @@ After a release tag exists, users can pull a specific version with:
 docker pull ghcr.io/<owner>/ai-sonar-bot:0.2.0
 ```
 
-An example GitLab pipeline is provided in [.gitlab-ci.example.yml](/Users/justinmelger/Desktop/github/ai-sonar-bot/.gitlab-ci.example.yml). In a target repository, copy that file to `.gitlab-ci.yml` and set these CI variables:
+An example GitLab pipeline is provided in [.gitlab-ci.example.yml](.gitlab-ci.example.yml). In a target repository, copy that file to `.gitlab-ci.yml` and set these CI variables:
 
 - `SONARQUBE_URL`
 - `SONARQUBE_TOKEN`
@@ -199,3 +204,5 @@ The test step enforces a minimum total coverage threshold of `80%`.
 ## Configuration
 
 Copy values from `.env.example` into a local `.env` file and adjust `.ai-sonar-bot.json` for repository-specific behavior. The application loads `.env` automatically.
+
+For CI operation, recovery guidance, and the rollout smoke-test recipe, see [runbook.md](docs/runbook.md).
