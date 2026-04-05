@@ -7,8 +7,12 @@ from ai_sonar_bot.models.analysis import (
     StructuredEditProposal,
     TextEdit,
 )
+from ai_sonar_bot.models.review import (
+    MergeRequestReviewCandidate,
+    ReviewResult,
+)
 from ai_sonar_bot.models.sonar import SonarIssue
-from ai_sonar_bot.runner import run
+from ai_sonar_bot.runner import review, run
 
 
 def test_run_dry_run_creates_summary(tmp_path: Path, monkeypatch) -> None:
@@ -38,6 +42,106 @@ def test_run_dry_run_creates_summary(tmp_path: Path, monkeypatch) -> None:
 
     assert summary.status.value == "no_issue"
     assert "SonarQube credentials not configured" in summary.message
+
+
+def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    merge_request = MergeRequestReviewCandidate(
+        iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        changes=[],
+    )
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.mr_intake.MergeRequestIntakeService.select_merge_request",
+        lambda self, state: type(
+            "Result",
+            (),
+            {
+                "selected_merge_request": merge_request,
+                "merge_request_count": 1,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
+        lambda self, merge_request, project_id: type(
+            "ContextResult",
+            (),
+            {
+                "context": MergeRequestReviewCandidate.model_validate(
+                    {
+                        "iid": merge_request.iid,
+                        "title": merge_request.title,
+                        "description": merge_request.description,
+                        "source_branch": merge_request.source_branch,
+                        "target_branch": merge_request.target_branch,
+                        "web_url": merge_request.web_url,
+                        "head_sha": merge_request.head_sha,
+                        "changed_files": [
+                            {
+                                "file_path": "src/service.py",
+                                "diff": "@@ -1,1 +1,1 @@",
+                                "start_line": 1,
+                                "end_line": 1,
+                                "content": "   1: value = 1",
+                                "full_file_included": True,
+                                "truncated": False
+                            }
+                        ]
+                    }
+                ),
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
+        lambda self, context: type(
+            "AnalysisResult",
+            (),
+            {
+                "review_result": ReviewResult(
+                    classification="no_findings",
+                    summary="No findings.",
+                    findings=[],
+                ),
+                "message": "Review classification: no_findings. Summary: No findings.",
+            },
+        )(),
+    )
+
+    summary = review(dry_run=True)
+
+    assert summary.status.value == "reviewed"
+    assert "Reviewed merge request !17 at abc123." in summary.message
+    assert "Dry-run skipped note publication." in summary.message
 
 
 def test_run_selects_issue_with_existing_local_file(tmp_path: Path, monkeypatch) -> None:

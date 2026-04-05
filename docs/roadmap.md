@@ -357,9 +357,9 @@ Goal:
 
 Status:
 
-- [ ] add review state records keyed by MR IID and head SHA
-- [ ] add a review runner path and CLI subcommand
-- [ ] keep the review workflow in the shared image with separate commands
+- [x] add review state records keyed by MR IID and head SHA
+- [x] add a review runner path and CLI subcommand
+- [x] keep the review workflow in the shared image with separate commands
 
 Done when:
 

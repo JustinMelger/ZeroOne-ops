@@ -33,6 +33,7 @@ class RunStatus(StrEnum):
     AWAITING_APPROVAL = "awaiting_approval"
     REJECTED = "rejected"
     MR_CREATED = "mr_created"
+    REVIEWED = "reviewed"
     MANUAL = "manual"
     FAILED = "failed"
 
@@ -48,6 +49,10 @@ class FailureStage(StrEnum):
     BRANCH_PREPARATION = "branch_preparation"
     COMMIT = "commit"
     PUBLISH = "publish"
+    REVIEW_INTAKE = "review_intake"
+    REVIEW_CONTEXT = "review_context"
+    REVIEW_ANALYSIS = "review_analysis"
+    REVIEW_PUBLISH = "review_publish"
 
 
 class FailureDetails(BaseModel):

@@ -9,11 +9,18 @@ import os
 import secrets
 from pathlib import Path
 
+from ai_sonar_bot.models.state import FailureDetails, FailureStage
+from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
 from ai_sonar_bot.services.execution_service import ExecutionService
 from ai_sonar_bot.services.issue_intake import IssueIntakeService
+from ai_sonar_bot.services.mr_intake import MergeRequestIntakeService
+from ai_sonar_bot.services.review_analysis_service import ReviewAnalysisService
+from ai_sonar_bot.services.review_context_builder import ReviewContextBuilder
+from ai_sonar_bot.services.review_publisher import ReviewPublisher
+from ai_sonar_bot.services.review_state_service import ReviewStateService
 from ai_sonar_bot.services.run_state_service import RunStateService, RunSummary
 from ai_sonar_bot.services.state_store import StateStore
-from ai_sonar_bot.settings import load_config
+from ai_sonar_bot.settings import load_config, load_gitlab_connection_config
 
 
 def _build_run_id() -> str:
@@ -138,4 +145,94 @@ def run(*, dry_run: bool = False) -> RunSummary:
         message=message,
         mr_url=execution_result.mr_url,
         mr_action=execution_result.mr_action,
+    )
+
+
+def review(*, dry_run: bool = False) -> RunSummary:
+    """Run the merge-request review workflow."""
+    config = load_config()
+    gitlab_config = load_gitlab_connection_config()
+    state_store = StateStore(
+        config.state.path,
+        base_branch=config.base_branch,
+        gitlab_project_id=_project_id_from_env(),
+        sonarqube_project_key=_sonarqube_key_from_env(),
+    )
+    state = state_store.load()
+    review_state_service = ReviewStateService(state_store=state_store, state=state)
+
+    run_id = _build_run_id()
+    record = review_state_service.start_run(run_id)
+    repo_root = Path.cwd()
+    active_dry_run = dry_run or config.dry_run
+
+    intake_result = MergeRequestIntakeService().select_merge_request(state=state)
+    if intake_result.selected_merge_request is None:
+        return review_state_service.finish_no_review(
+            record=record,
+            message=f"[{config.execution_mode}] {intake_result.message}",
+        )
+
+    review_client = GitLabReviewClient(gitlab_config)
+    context_result = ReviewContextBuilder(
+        repo_root=repo_root,
+        config=config,
+        review_client=review_client,
+    ).build(
+        intake_result.selected_merge_request,
+        project_id=gitlab_config.project_id,
+    )
+    if context_result.context is None:
+        return review_state_service.fail_review(
+            record=record,
+            error_message=f"[{config.execution_mode}] {context_result.message}",
+            failure=FailureDetails(
+                stage=FailureStage.REVIEW_CONTEXT,
+                message=context_result.message,
+            ),
+        )
+
+    analysis_result = ReviewAnalysisService(config).analyze(context_result.context)
+    if analysis_result.review_result is None:
+        return review_state_service.fail_review(
+            record=record,
+            error_message=f"[{config.execution_mode}] {analysis_result.message}",
+            failure=FailureDetails(
+                stage=FailureStage.REVIEW_ANALYSIS,
+                message=analysis_result.message,
+            ),
+        )
+
+    note_url: str | None = None
+    if not active_dry_run:
+        publish_result = ReviewPublisher(review_client).publish(
+            project_id=gitlab_config.project_id,
+            merge_request_iid=context_result.context.mr_iid,
+            context=context_result.context,
+            review_result=analysis_result.review_result,
+        )
+        if publish_result.error_message is not None:
+            return review_state_service.fail_review(
+                record=record,
+                error_message=f"[{config.execution_mode}] {publish_result.error_message}",
+                failure=FailureDetails(
+                    stage=FailureStage.REVIEW_PUBLISH,
+                    message=publish_result.error_message,
+                ),
+            )
+        if publish_result.note is not None:
+            note_url = publish_result.note.web_url
+
+    summary = review_state_service.mark_reviewed(
+        record=record,
+        merge_request=intake_result.selected_merge_request,
+        review_result=analysis_result.review_result,
+        note_url=note_url,
+        dry_run=active_dry_run,
+    )
+    return RunSummary(
+        run_id=summary.run_id,
+        status=summary.status,
+        message=f"[{config.execution_mode}] {summary.message}",
+        state_path=summary.state_path,
     )
