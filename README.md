@@ -97,10 +97,13 @@ uv run ai-sonar-bot review
 Current v1 review scope:
 
 - one merge request per run
+- when `CI_MERGE_REQUEST_IID` is present, review only that merge request
 - dedup by merge request IID and head SHA
 - deterministic summary-note publishing only
 - no inline diff comments
 - bounded changed-file context with review-specific limits
+- draft merge requests skipped by default
+- `no_findings` note publishing can be disabled to reduce cost and MR noise
 
 The review workflow uses:
 
@@ -182,7 +185,7 @@ The example now includes two jobs:
 - `ai_sonar_bot`
   - Sonar remediation on the default branch
 - `ai_sonar_bot_review`
-  - merge request review on `merge_request_event` pipelines or via `RUN_AI_SONAR_BOT_REVIEW=true`
+  - merge request review available as a manual job on `merge_request_event` pipelines or via `RUN_AI_SONAR_BOT_REVIEW=true`
 
 The example overrides the container `entrypoint` to `[""]`. This is required in
 GitLab CI because the published image uses `ai-sonar-bot` as its Docker
@@ -193,12 +196,15 @@ Recommended GitLab CI setup:
 
 - keep the bot job restricted to the default branch
 - trigger it from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT=true`
-- trigger the review job from merge request pipelines, or manually with `RUN_AI_SONAR_BOT_REVIEW=true`
+- make the review job manual on merge request pipelines, or trigger it manually with `RUN_AI_SONAR_BOT_REVIEW=true`
 - store `SONARQUBE_TOKEN`, `GITLAB_TOKEN`, and `OPENAI_API_KEY` as protected CI variables
 - use a token that is allowed to push branches and create merge requests
 - keep `GIT_DEPTH=0` so branch and push behavior is predictable
 - set a fixed git author and committer identity in the job
 - rewrite the `origin` remote in CI to use `GITLAB_TOKEN` for authenticated pushes
+- keep review scope narrow with a low `review.max_changed_files`
+- keep `review.skip_draft_merge_requests` enabled
+- set `review.publish_no_findings_note` to `false` if you want lower cost and less MR noise
 
 The Sonar remediation job in the example does all of the above and also uses a `resource_group` so two mutation jobs do not try to change the same repository checkout at once. The review job is read-mostly and publishes only merge request notes, so it uses a separate `resource_group`.
 

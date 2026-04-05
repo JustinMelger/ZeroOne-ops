@@ -9,10 +9,24 @@ from ai_sonar_bot.services.mr_selector import build_review_revision_key
 class FakeGitLabReviewClient:
     def __init__(self, merge_requests: list[MergeRequestReviewCandidate]) -> None:
         self.merge_requests = merge_requests
+        self.requested_merge_request_iid: int | None = None
 
     def list_open_merge_requests(self, *, project_id: str) -> list[MergeRequestReviewCandidate]:
         del project_id
         return self.merge_requests
+
+    def get_merge_request(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+    ) -> MergeRequestReviewCandidate:
+        del project_id
+        self.requested_merge_request_iid = merge_request_iid
+        for merge_request in self.merge_requests:
+            if merge_request.iid == merge_request_iid:
+                return merge_request
+        raise AssertionError(f"Unexpected merge request IID requested: {merge_request_iid}")
 
 
 def build_merge_request(
@@ -128,3 +142,20 @@ def test_select_merge_request_reports_when_all_open_mrs_are_already_reviewed(
     assert result.selected_merge_request is None
     assert result.merge_request_count == 1
     assert "already reviewed for their current head SHA" in result.message
+
+
+def test_select_merge_request_prefers_triggering_merge_request_iid_in_ci(monkeypatch) -> None:
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "18")
+    review_client = FakeGitLabReviewClient([build_merge_request(17), build_merge_request(18)])
+
+    result = MergeRequestIntakeService(review_client=review_client).select_merge_request(
+        state=build_state()
+    )
+
+    assert result.selected_merge_request is not None
+    assert result.selected_merge_request.iid == 18
+    assert result.merge_request_count == 1
+    assert review_client.requested_merge_request_iid == 18
