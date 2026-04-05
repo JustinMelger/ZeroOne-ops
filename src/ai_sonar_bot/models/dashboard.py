@@ -94,11 +94,7 @@ class DashboardDocument(BaseModel):
 
     def items_by_id(self) -> dict[str, DashboardItem]:
         """Return dashboard items keyed by ID."""
-        return {
-            item.id: item
-            for section in self.sections
-            for item in section.items
-        }
+        return {item.id: item for section in self.sections for item in section.items}
 
 
 def section_key_for_item(item: DashboardItem) -> DashboardSectionKey:
@@ -118,7 +114,4 @@ def section_key_for_item(item: DashboardItem) -> DashboardSectionKey:
 
 def empty_sections() -> list[DashboardSection]:
     """Build empty sections in deterministic order."""
-    return [
-        DashboardSection(key=key, title=SECTION_TITLES[key], items=[])
-        for key in SECTION_ORDER
-    ]
+    return [DashboardSection(key=key, title=SECTION_TITLES[key], items=[]) for key in SECTION_ORDER]

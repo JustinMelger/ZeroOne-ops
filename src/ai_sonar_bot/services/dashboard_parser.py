@@ -38,8 +38,7 @@ class DashboardParser:
     ) -> DashboardDocument:
         """Parse one dashboard issue body."""
         sections = [
-            DashboardSection(key=key, title=SECTION_TITLES[key], items=[])
-            for key in SECTION_ORDER
+            DashboardSection(key=key, title=SECTION_TITLES[key], items=[]) for key in SECTION_ORDER
         ]
         for section in sections:
             content = self._extract_section_content(body, section.title)
