@@ -96,3 +96,32 @@ def test_get_merge_request_normalizes_changes_response() -> None:
     assert len(merge_request.changes) == 1
     assert merge_request.changes[0].new_path == "src/new.py"
     assert merge_request.changes[0].renamed_file is True
+
+
+def test_create_merge_request_note_normalizes_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/projects/123/merge_requests/17/notes"
+        assert request.method == "POST"
+        return httpx.Response(
+            201,
+            json={
+                "id": 55,
+                "web_url": (
+                    "https://gitlab.example.com/group/project/-/merge_requests/17"
+                    "#note_55"
+                ),
+            },
+        )
+
+    client = GitLabReviewClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    note = client.create_merge_request_note(project_id="123", merge_request_iid=17, body="summary")
+
+    assert note.id == 55
+    assert note.web_url.endswith("#note_55")

@@ -8,6 +8,7 @@ from urllib.parse import quote_plus
 import httpx
 
 from ai_sonar_bot.models.config import GitLabConnectionConfig
+from ai_sonar_bot.models.gitlab import MergeRequestNote
 from ai_sonar_bot.models.review import MergeRequestChangedFile, MergeRequestReviewCandidate
 from ai_sonar_bot.providers.gitlab_client import GitLabClientError, _parse_json_response
 
@@ -55,6 +56,24 @@ class GitLabReviewClient:
         if not isinstance(payload, dict):
             raise GitLabClientError("Unexpected GitLab merge request detail payload.")
         return _normalize_review_candidate(payload)
+
+    def create_merge_request_note(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+        body: str,
+    ) -> MergeRequestNote:
+        """Publish one merge request note."""
+        encoded_project_id = quote_plus(project_id)
+        response = self._http_client.post(
+            f"/api/v4/projects/{encoded_project_id}/merge_requests/{merge_request_iid}/notes",
+            data={"body": body},
+        )
+        payload = _parse_json_response(response)
+        if not isinstance(payload, dict):
+            raise GitLabClientError("Unexpected GitLab merge request note payload.")
+        return _normalize_merge_request_note(payload)
 
 
 def _normalize_review_candidate(payload: dict[str, Any]) -> MergeRequestReviewCandidate:
@@ -135,3 +154,12 @@ def _normalize_changed_file(payload: dict[str, Any]) -> MergeRequestChangedFile:
         new_file=new_file,
         renamed_file=renamed_file,
     )
+
+
+def _normalize_merge_request_note(payload: dict[str, Any]) -> MergeRequestNote:
+    """Normalize a GitLab merge request note payload."""
+    note_id = payload.get("id")
+    web_url = payload.get("web_url")
+    if not isinstance(note_id, int) or not isinstance(web_url, str):
+        raise GitLabClientError("Unexpected GitLab merge request note structure.")
+    return MergeRequestNote(id=note_id, web_url=web_url)

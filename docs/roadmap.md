@@ -338,9 +338,9 @@ Goal:
 
 Status:
 
-- [ ] add `ReviewPublisher`
-- [ ] render one deterministic summary note template
-- [ ] support both findings-present and no-findings note shapes
+- [x] add `ReviewPublisher`
+- [x] render one deterministic summary note template
+- [x] support both findings-present and no-findings note shapes
 
 Done when:
 
