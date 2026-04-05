@@ -93,6 +93,8 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
         "`src/service.py` | `python:S1125` | `open` | `low` |"
     )
     assert expected_row in body
+    assert "<details>" in body
+    assert "<summary><code>sonar:1</code> details</summary>" in body
 
 
 def test_parse_rejects_free_form_content_in_managed_section() -> None:
