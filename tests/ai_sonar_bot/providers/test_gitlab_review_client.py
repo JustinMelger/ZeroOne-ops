@@ -122,3 +122,29 @@ def test_create_merge_request_note_normalizes_response() -> None:
 
     assert note.id == 55
     assert note.web_url.endswith("#note_55")
+
+
+def test_create_merge_request_note_allows_missing_web_url() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/projects/123/merge_requests/17/notes"
+        assert request.method == "POST"
+        return httpx.Response(
+            201,
+            json={
+                "id": 56,
+                "body": "summary",
+            },
+        )
+
+    client = GitLabReviewClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    note = client.create_merge_request_note(project_id="123", merge_request_iid=17, body="summary")
+
+    assert note.id == 56
+    assert note.web_url is None

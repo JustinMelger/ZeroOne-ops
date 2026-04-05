@@ -21,4 +21,4 @@ class MergeRequestNote(BaseModel):
     """Represent a published GitLab merge request note."""
 
     id: int
-    web_url: str
+    web_url: str | None = None
