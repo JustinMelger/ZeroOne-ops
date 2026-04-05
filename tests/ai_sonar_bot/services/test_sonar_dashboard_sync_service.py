@@ -14,9 +14,7 @@ class FakeDashboardService:
     def upsert_items(self, *, project_id: str, items: list) -> FakeDashboardDocument:
         assert project_id == "123"
         self.items = items
-        return FakeDashboardDocument(
-            "https://gitlab.example.com/group/project/-/issues/11"
-        )
+        return FakeDashboardDocument("https://gitlab.example.com/group/project/-/issues/11")
 
 
 def test_sync_normalizes_sonar_issues_into_dashboard_items() -> None:
