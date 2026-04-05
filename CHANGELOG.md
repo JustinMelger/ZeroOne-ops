@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.5.1...ai-sonar-bot-v0.6.0) (2026-04-05)
+
+
+### Features
+
+* gitlab review bot ([f11b383](https://github.com/JustinMelger/ai-sonar-bot/commit/f11b3834479bd869d714d7e34a04eeadc465a331))
+
 ## [0.5.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.5.0...ai-sonar-bot-v0.5.1) (2026-04-05)
 
 
