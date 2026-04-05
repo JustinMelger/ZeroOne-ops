@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.6.3...ai-sonar-bot-v0.7.0) (2026-04-05)
+
+
+### Features
+
+* add mirror for review to dashboard ([7e06303](https://github.com/JustinMelger/ai-sonar-bot/commit/7e06303d98af1d90b77448080e54bfc5633741d1))
+
 ## [0.6.3](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.6.2...ai-sonar-bot-v0.6.3) (2026-04-05)
 
 
