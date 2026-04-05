@@ -10,12 +10,15 @@ import secrets
 from pathlib import Path
 
 from ai_sonar_bot.models.state import FailureDetails, FailureStage
+from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
+from ai_sonar_bot.services.dashboard_service import DashboardService
 from ai_sonar_bot.services.execution_service import ExecutionService
 from ai_sonar_bot.services.issue_intake import IssueIntakeService
 from ai_sonar_bot.services.mr_intake import MergeRequestIntakeService
 from ai_sonar_bot.services.review_analysis_service import ReviewAnalysisService
 from ai_sonar_bot.services.review_context_builder import ReviewContextBuilder
+from ai_sonar_bot.services.review_dashboard_updater import ReviewDashboardUpdater
 from ai_sonar_bot.services.review_publisher import ReviewPublisher
 from ai_sonar_bot.services.review_state_service import ReviewStateService
 from ai_sonar_bot.services.run_state_service import RunStateService, RunSummary
@@ -204,6 +207,7 @@ def review(*, dry_run: bool = False) -> RunSummary:
         )
 
     note_url: str | None = None
+    dashboard_warning: str | None = None
     if not active_dry_run:
         publish_result = ReviewPublisher(review_client).publish(
             project_id=gitlab_config.project_id,
@@ -222,6 +226,14 @@ def review(*, dry_run: bool = False) -> RunSummary:
             )
         if publish_result.note is not None:
             note_url = publish_result.note.web_url
+        dashboard_update = ReviewDashboardUpdater(
+            DashboardService(GitLabDashboardClient(gitlab_config))
+        ).update(
+            project_id=gitlab_config.project_id,
+            merge_request=intake_result.selected_merge_request,
+            review_result=analysis_result.review_result,
+        )
+        dashboard_warning = dashboard_update.error_message
 
     summary = review_state_service.mark_reviewed(
         record=record,
@@ -233,6 +245,10 @@ def review(*, dry_run: bool = False) -> RunSummary:
     return RunSummary(
         run_id=summary.run_id,
         status=summary.status,
-        message=f"[{config.execution_mode}] {summary.message}",
+        message=(
+            f"[{config.execution_mode}] {summary.message}"
+            if dashboard_warning is None
+            else f"[{config.execution_mode}] {summary.message} {dashboard_warning}"
+        ),
         state_path=summary.state_path,
     )

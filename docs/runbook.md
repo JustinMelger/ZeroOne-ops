@@ -197,6 +197,10 @@ This is expected when:
 
 The note should be a single summary comment, not multiple inline comments.
 
+If dashboard mirroring is enabled later, the review note is still the primary
+output surface. A dashboard update failure after note publication should not
+turn the whole review run into a failed review.
+
 ### Run Failed
 
 Look at:
