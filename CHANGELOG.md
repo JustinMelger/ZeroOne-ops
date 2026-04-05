@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.9.0...ai-sonar-bot-v0.10.0) (2026-04-05)
+
+
+### Features
+
+* collapse details ([0a538d3](https://github.com/JustinMelger/ai-sonar-bot/commit/0a538d384d733a927799738921a617bede588953))
+* collapse details ([dba3165](https://github.com/JustinMelger/ai-sonar-bot/commit/dba316570f61ec5644b85047e52a4615c042a2ec))
+
 ## [0.9.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.8.0...ai-sonar-bot-v0.9.0) (2026-04-05)
 
 
