@@ -243,137 +243,19 @@ Done when:
 - [x] Harden duplicate-MR messaging and reuse behavior.
 - [x] Harden logging and failure handling.
 
-## Deferred Beyond V1
+## Beyond V1
 
-- multi-issue processing per run
-- automatic merge request approval or merge
-- distributed or shared state storage
-- GitLab dashboard issue for CI-visible operational state and control
-- renovate-style GitLab token handling for automatic push authentication
-- support for GitHub in addition to GitLab
-- advanced issue prioritization
-- autonomous retry loops beyond one retry
+Post-v1 ideas and expansion tracks now live in
+[future_plans.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/future_plans.md).
 
-## Post-V1: GitLab Dashboard Issue
+That includes:
 
-After the base GitLab-first workflow is stable, add a Renovate-style dashboard
-issue for CI-visible operational state.
-
-Purpose:
-
-- make bot activity visible without relying on local JSON state
-- show pending, in-progress, rejected, and completed SonarQube issues
-- provide a lightweight operator control surface in GitLab
-
-Suggested design:
-
-- one persistent GitLab issue, for example `AI Code Ops Dashboard`
-- markdown sections for:
-  - open candidates
-  - in progress
-  - merge requests opened
-  - rejected or manual-review items
-  - recent failures
-- each row tracks:
-  - SonarQube issue key
-  - rule
-  - severity
-  - file
-  - current status
-  - branch
-  - merge request link
-  - last attempt timestamp
-
-Rules:
-
-- use merge request and branch lookup as the hard dedupe mechanism
-- use the dashboard issue as the visibility and operator layer
-- keep local JSON state for local runs, but reduce CI reliance on it over time
-- keep the dashboard design provider-portable so the same concept can map to a
-  GitHub issue when GitHub support is added later
-
-Done when:
-
-- CI runs update the dashboard issue after each execution
-- operators can see current bot state without inspecting pipeline logs
-- dashboard content stays consistent with open merge requests and selected issues
-
-## Post-V1: Symbol-Safe Rename Handling
-
-After the base SonarQube remediation flow is stable, add symbol-aware reference
-checks so naming issues can be handled safely instead of being excluded by the
-v1 guardrail.
-
-Purpose:
-
-- support low-risk rename issues without breaking surrounding code
-- replace the current message-based rename skip with explicit safety checks
-- widen the auto-fixable issue set only when reference integrity can be verified
-
-Suggested design:
-
-- classify rename-style SonarQube rules explicitly instead of relying on message
-  text alone
-- scan the file for symbol references before accepting a rename proposal
-- reject renames when the symbol has additional references outside the proposed
-  edit scope
-- prefer language-aware or AST-backed analysis when exact text search is not
-  reliable enough
-
-Rules:
-
-- do not allow rename-style auto-fixes without a reference safety check
-- keep the fallback conservative: ambiguous rename cases remain manual
-- widen rename support one narrow rule class at a time
-
-Done when:
-
-- rename-style SonarQube issues can be auto-fixed only when reference safety is
-  verified
-- risky or ambiguous rename proposals are rejected deterministically
-- the v1 message-based rename skip can be removed or reduced to a last-resort
-  fallback
-
-## Post-V1: GitHub Support
-
-After the GitLab-first v1 is complete, GitHub support should be added as a
-focused follow-up rather than folded into the v1 scope.
-
-Required changes:
-
-- add a GitHub provider client alongside the existing GitLab client
-- introduce an SCM provider switch in configuration
-- extract a provider-neutral publish interface for merge request or pull request creation
-- rename GitLab-specific publish concepts in shared models and services to neutral change-request terms where needed
-- support GitHub repository identification and token configuration
-- implement duplicate pull request detection for GitHub
-- map labels, reviewers, and assignees to GitHub APIs
-- update state fields if they are too GitLab-specific, for example `mr_url`
-- add GitHub integration tests and CI coverage for the publish layer
-
-Done when:
-
-- a validated branch can create a GitHub pull request through a provider-neutral publish flow
-- the state model can persist either GitLab merge request URLs or GitHub pull request URLs cleanly
-- shared workflow code does not depend on GitLab-only terminology outside the GitLab provider layer
-
-## Post-V1: Renovate-Style GitLab Token Handling
-
-After the current CI configuration is stable, move GitLab push authentication
-closer to the bot so `GITLAB_TOKEN` behaves more like a single coupled bot
-credential.
-
-Purpose:
-
-- reduce CI-specific git remote rewriting
-- let one GitLab token cover both API and push behavior
-- make the bot behave more like Renovate in GitLab environments
-
-Suggested design:
-
-- keep `GitLabClient` responsible only for GitLab API calls
-- move push-auth setup into the git layer, for example `BranchManager` or a
-  dedicated git-auth service
+- GitLab dashboard issue support
+- symbol-safe rename handling
+- complex single-file refactors
+- GitHub support
+- Renovate-style GitLab token handling
+- broader platform expansion such as pipeline failure and review workflows
 - in CI mode, derive the authenticated push remote from `GITLAB_TOKEN`,
   `CI_SERVER_HOST`, and `CI_PROJECT_PATH`
 - keep CI config as a fallback, not the only place where push auth is wired
