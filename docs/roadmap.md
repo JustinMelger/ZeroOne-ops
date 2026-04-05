@@ -261,9 +261,9 @@ Goal:
 
 Status:
 
-- [ ] add review-specific models for merge request metadata and changed files
-- [ ] add a GitLab review client for open merge request listing and detail retrieval
-- [ ] add `MergeRequestIntake` with typed no-work summaries
+- [x] add review-specific models for merge request metadata and changed files
+- [x] add a GitLab review client for open merge request listing and detail retrieval
+- [x] add `MergeRequestIntake` with typed no-work summaries
 
 Done when:
 
