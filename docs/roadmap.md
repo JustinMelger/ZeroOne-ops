@@ -410,10 +410,10 @@ Goal:
 
 Status:
 
-- [ ] add dashboard models
-- [ ] add a GitLab dashboard client for issue lookup, creation, and updates
-- [ ] add deterministic dashboard parser and renderer services
-- [ ] add a dashboard service that loads, merges, and publishes structured
+- [x] add dashboard models
+- [x] add a GitLab dashboard client for issue lookup, creation, and updates
+- [x] add deterministic dashboard parser and renderer services
+- [x] add a dashboard service that loads, merges, and publishes structured
       dashboard content
 
 Done when:
