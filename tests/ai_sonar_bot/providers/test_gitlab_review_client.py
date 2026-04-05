@@ -106,10 +106,7 @@ def test_create_merge_request_note_normalizes_response() -> None:
             201,
             json={
                 "id": 55,
-                "web_url": (
-                    "https://gitlab.example.com/group/project/-/merge_requests/17"
-                    "#note_55"
-                ),
+                "web_url": ("https://gitlab.example.com/group/project/-/merge_requests/17#note_55"),
             },
         )
 

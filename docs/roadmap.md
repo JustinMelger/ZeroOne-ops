@@ -376,10 +376,10 @@ Goal:
 
 Status:
 
-- [ ] add tests for no-findings and findings-present review paths
-- [ ] add integration coverage for unchanged-SHA skip
-- [ ] document operator usage and rollout expectations
-- [ ] add a smoke-test recipe for one real merge request review run
+- [x] add tests for no-findings and findings-present review paths
+- [x] add integration coverage for unchanged-SHA skip
+- [x] document operator usage and rollout expectations
+- [x] add a smoke-test recipe for one real merge request review run
 
 Done when:
 
