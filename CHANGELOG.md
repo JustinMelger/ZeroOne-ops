@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.6.0...ai-sonar-bot-v0.6.1) (2026-04-05)
+
+
+### Documentation
+
+* update docs and new roadmap ([a1ed061](https://github.com/JustinMelger/ai-sonar-bot/commit/a1ed061061bbf8190c61d8a4d7e833b653463912))
+* update docs and new roadmap ([aca309f](https://github.com/JustinMelger/ai-sonar-bot/commit/aca309f9127c7fd14603dc9251679ea62671af4d))
+
 ## [0.6.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.5.1...ai-sonar-bot-v0.6.0) (2026-04-05)
 
 
