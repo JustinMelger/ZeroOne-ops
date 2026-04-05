@@ -19,7 +19,12 @@ class DashboardParseError(RuntimeError):
 
 
 _ITEM_BLOCK_PATTERN = re.compile(
-    r"^### Item: (?P<item_id>[^\n]+)\n\n```json\n(?P<payload>.*?)\n```\n?$",
+    (
+        r"^<details>\n"
+        r"<summary><code>(?P<item_id>[^\n<]+)</code> details</summary>\n\n"
+        r"```json\n(?P<payload>.*?)\n```\n\n"
+        r"</details>\n?$"
+    ),
     re.MULTILINE | re.DOTALL,
 )
 

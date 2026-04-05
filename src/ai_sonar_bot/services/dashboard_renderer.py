@@ -56,11 +56,14 @@ class DashboardRenderer:
     def _render_item(self, item: DashboardItem) -> list[str]:
         payload = item.model_dump(exclude_none=True)
         return [
-            f"### Item: {item.id}",
+            "<details>",
+            f"<summary><code>{item.id}</code> details</summary>",
             "",
             "```json",
             json.dumps(payload, indent=2, sort_keys=True),
             "```",
+            "",
+            "</details>",
         ]
 
     def render_document(self, document: DashboardDocument) -> str:
