@@ -504,6 +504,35 @@ Done when:
 - dashboard parsing/rendering is protected by regression coverage
 - release and pipeline failures are easier to diagnose
 
+### Dashboard Phase 6: CI/CD And Security Hardening
+
+Goal:
+
+- improve release reliability, workflow safety, and supply-chain hygiene for the
+  live repo
+
+Status:
+
+- [ ] harden GitHub release-to-GHCR publishing so tag and release mismatches are
+      easier to detect and recover from
+- [ ] review GitLab CI examples and workflow permissions for least-privilege
+      token usage
+- [ ] document secret usage boundaries for `GITLAB_TOKEN`,
+      `RELEASE_PLEASE_TOKEN`, and `OPENAI_API_KEY`
+- [ ] add focused smoke or regression checks for release and image publish
+      behavior
+- [ ] keep dependency and container security guidance current alongside
+      `pip-audit`
+
+Done when:
+
+- release creation and image publication failures are easier to diagnose and
+  recover from
+- CI examples reflect the minimum required permissions clearly
+- security-sensitive tokens have explicit documented roles
+- workflow and image publish regressions are more likely to be caught before a
+  broken release reaches operators
+
 ## Beyond V1
 
 Post-v1 ideas and expansion tracks now live in

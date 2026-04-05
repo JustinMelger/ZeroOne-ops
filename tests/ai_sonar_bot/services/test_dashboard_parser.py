@@ -60,6 +60,41 @@ def test_parse_round_trips_rendered_dashboard_body() -> None:
     assert document.sections[0].items[0].rule == "python:S1125"
 
 
+def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Dashboard",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[build_item(item_id="sonar:1")],
+            ),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(
+                key="merge_requests_opened",
+                title="Merge Requests Opened",
+                items=[],
+            ),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(
+                key="rejected_or_ignored",
+                title="Rejected Or Ignored",
+                items=[],
+            ),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    assert "| ID | Source | Type | File | Rule | Status | Priority |" in body
+    expected_row = (
+        "| `sonar:1` | sonarqube | code_smell_fix | "
+        "`src/service.py` | `python:S1125` | `open` | `low` |"
+    )
+    assert expected_row in body
+
+
 def test_parse_rejects_free_form_content_in_managed_section() -> None:
     parser = DashboardParser()
     body = """# AI Code Ops Dashboard
