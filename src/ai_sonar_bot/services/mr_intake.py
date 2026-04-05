@@ -9,7 +9,11 @@ from ai_sonar_bot.models.review import MergeRequestReviewCandidate
 from ai_sonar_bot.models.state import AppState
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
 from ai_sonar_bot.services.mr_selector import MergeRequestSelector
-from ai_sonar_bot.settings import SettingsError, load_gitlab_connection_config
+from ai_sonar_bot.settings import (
+    SettingsError,
+    load_current_merge_request_iid,
+    load_gitlab_connection_config,
+)
 
 
 @dataclass(frozen=True)
@@ -37,6 +41,7 @@ class MergeRequestIntakeService:
         """Fetch open merge requests and select one candidate."""
         try:
             gitlab_config = load_gitlab_connection_config()
+            merge_request_iid = load_current_merge_request_iid()
         except SettingsError:
             return MergeRequestIntakeResult(
                 selected_merge_request=None,
@@ -45,7 +50,17 @@ class MergeRequestIntakeService:
             )
 
         review_client = self.review_client or GitLabReviewClient(gitlab_config)
-        merge_requests = review_client.list_open_merge_requests(project_id=gitlab_config.project_id)
+        if merge_request_iid is not None:
+            merge_requests = [
+                review_client.get_merge_request(
+                    project_id=gitlab_config.project_id,
+                    merge_request_iid=merge_request_iid,
+                )
+            ]
+        else:
+            merge_requests = review_client.list_open_merge_requests(
+                project_id=gitlab_config.project_id
+            )
         merge_request_count = len(merge_requests)
         if not merge_requests:
             return MergeRequestIntakeResult(

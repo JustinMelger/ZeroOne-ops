@@ -190,3 +190,15 @@ def load_gitlab_connection_config() -> GitLabConnectionConfig:
         token=required["GITLAB_TOKEN"] or "",
         project_id=project_id or "",
     )
+
+
+def load_current_merge_request_iid() -> int | None:
+    """Load the current GitLab merge request IID from CI context when present."""
+    _load_environment_file()
+    raw_value = os.environ.get("CI_MERGE_REQUEST_IID")
+    if raw_value is None or raw_value == "":
+        return None
+    try:
+        return int(raw_value)
+    except ValueError as error:
+        raise SettingsError("CI_MERGE_REQUEST_IID must be an integer when set.") from error

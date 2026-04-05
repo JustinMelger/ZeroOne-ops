@@ -28,6 +28,14 @@
   "approval": {
     "required": true
   },
+  "review": {
+    "max_changed_files": 5,
+    "max_context_lines_before": 30,
+    "max_context_lines_after": 30,
+    "publish_no_findings_note": false,
+    "supported_paths": ["src/", "app/"],
+    "skip_draft_merge_requests": true
+  },
   "gitlab": {
     "target_branch": "main",
     "labels": ["ai-sonar-bot", "sonarqube"]

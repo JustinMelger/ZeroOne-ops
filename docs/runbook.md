@@ -38,6 +38,7 @@ The repository also contains a GitLab-first pull request review v1 workflow:
 - dedup by merge request IID and head SHA
 - no inline comments in v1
 - no code modification in the review workflow
+- draft merge requests skipped by default
 
 ## Required CI Variables
 
@@ -109,9 +110,10 @@ If no eligible issue remains, the run should exit cleanly with `no_issue`.
 
 In normal `ci` mode, one review run should do the following:
 
-1. fetch open GitLab merge requests
-2. skip merge request revisions already reviewed for the current head SHA
-3. select the next reviewable merge request
+1. if `CI_MERGE_REQUEST_IID` is present, fetch only that merge request
+2. otherwise, fetch open GitLab merge requests
+3. skip merge request revisions already reviewed for the current head SHA
+4. select the triggering merge request or the next reviewable merge request
 4. load changed-file diff data and bounded local source context
 5. run OpenAI review analysis
 6. classify the result as:
@@ -158,11 +160,13 @@ Recommended settings:
 For review-only jobs, branch push credentials are not required because the
 workflow only reads merge requests and writes merge request notes.
 
-For dashboard-backed Sonar discovery:
+For a lower-cost review setup:
 
-- run `ai-sonar-bot dashboard sonar` as a separate job
-- do not chain it as a pre-step inside the remediation job
-- treat it as discovery only, not as a code-changing workflow
+- keep the review job manual on merge request pipelines
+- rely on `CI_MERGE_REQUEST_IID` so the bot reviews only the current merge request
+- set `review.max_changed_files` conservatively, for example `5`
+- keep `review.skip_draft_merge_requests` enabled
+- set `review.publish_no_findings_note` to `false` if you want less MR noise and lower cost
 
 ## Common Outcomes
 
