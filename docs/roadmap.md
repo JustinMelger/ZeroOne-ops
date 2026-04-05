@@ -451,10 +451,10 @@ Goal:
 
 Status:
 
-- [ ] add Sonar-to-dashboard normalization
-- [ ] write eligible Sonar items into the dashboard backlog without triggering
+- [x] add Sonar-to-dashboard normalization
+- [x] write eligible Sonar items into the dashboard backlog without triggering
       remediation from the same workflow
-- [ ] preserve stable IDs and statuses for repeated Sonar discovery runs
+- [x] preserve stable IDs and statuses for repeated Sonar discovery runs
 
 Done when:
 

@@ -148,6 +148,7 @@ Recommended settings:
 
 - run only on the default branch
 - trigger from a schedule or explicit manual run
+- keep dashboard sync as a separate job from Sonar remediation
 - use `resource_group` so only one bot job runs at a time
 - override the job image `entrypoint` to `[""]`
 - use `GIT_DEPTH=0`
@@ -156,6 +157,12 @@ Recommended settings:
 
 For review-only jobs, branch push credentials are not required because the
 workflow only reads merge requests and writes merge request notes.
+
+For dashboard-backed Sonar discovery:
+
+- run `ai-sonar-bot dashboard sonar` as a separate job
+- do not chain it as a pre-step inside the remediation job
+- treat it as discovery only, not as a code-changing workflow
 
 ## Common Outcomes
 
