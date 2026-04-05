@@ -1,6 +1,7 @@
 # AI Sonar Bot
 
 AI Sonar Bot is a Python CLI that fetches open SonarQube issues, analyzes one issue, prepares a fix, validates the change, and creates a GitLab merge request for human review.
+The same image and CLI also contain a GitLab merge request review workflow.
 
 ## Status
 
@@ -36,6 +37,7 @@ Implemented today:
 ```bash
 uv sync
 uv run ai-sonar-bot --dry-run
+uv run ai-sonar-bot review --dry-run
 ```
 
 ## Dry-Run With Fixture Data
@@ -75,12 +77,38 @@ For v1 safety, the bot only accepts structured edits that touch exactly one file
 ```bash
 uv run ai-sonar-bot
 uv run ai-sonar-bot --dry-run
+uv run ai-sonar-bot review --dry-run
 uv run pytest
 uv run lint-imports
 uv run mypy src
 uv run ruff check .
 uv run ruff format --check .
 ```
+
+## Pull Request Review V1
+
+The review workflow is GitLab-first and runs from the same image and binary:
+
+```bash
+uv run ai-sonar-bot review --dry-run
+uv run ai-sonar-bot review
+```
+
+Current v1 review scope:
+
+- one merge request per run
+- dedup by merge request IID and head SHA
+- deterministic summary-note publishing only
+- no inline diff comments
+- bounded changed-file context with review-specific limits
+
+The review workflow uses:
+
+- `GITLAB_URL`
+- `GITLAB_TOKEN`
+- `GITLAB_PROJECT_ID` or `CI_PROJECT_ID`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
 
 ## Docker And GitLab CI
 
@@ -149,17 +177,25 @@ An example GitLab pipeline is provided in [.gitlab-ci.example.yml](.gitlab-ci.ex
 
 `GITLAB_PROJECT_ID` is optional in GitLab CI because the bot falls back to `CI_PROJECT_ID`.
 
+The example now includes two jobs:
+
+- `ai_sonar_bot`
+  - Sonar remediation on the default branch
+- `ai_sonar_bot_review`
+  - merge request review on `merge_request_event` pipelines or via `RUN_AI_SONAR_BOT_REVIEW=true`
+
 Recommended GitLab CI setup:
 
 - keep the bot job restricted to the default branch
 - trigger it from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT=true`
+- trigger the review job from merge request pipelines, or manually with `RUN_AI_SONAR_BOT_REVIEW=true`
 - store `SONARQUBE_TOKEN`, `GITLAB_TOKEN`, and `OPENAI_API_KEY` as protected CI variables
 - use a token that is allowed to push branches and create merge requests
 - keep `GIT_DEPTH=0` so branch and push behavior is predictable
 - set a fixed git author and committer identity in the job
 - rewrite the `origin` remote in CI to use `GITLAB_TOKEN` for authenticated pushes
 
-The example pipeline now does all of the above and also uses a `resource_group` so two bot jobs do not try to mutate the same repository checkout at once.
+The Sonar remediation job in the example does all of the above and also uses a `resource_group` so two mutation jobs do not try to change the same repository checkout at once. The review job is read-mostly and publishes only merge request notes, so it uses a separate `resource_group`.
 
 ## Execution Modes
 
@@ -205,4 +241,4 @@ The test step enforces a minimum total coverage threshold of `80%`.
 
 Copy values from `.env.example` into a local `.env` file and adjust `.ai-sonar-bot.json` for repository-specific behavior. The application loads `.env` automatically.
 
-For CI operation, recovery guidance, and the rollout smoke-test recipe, see [runbook.md](docs/runbook.md).
+For CI operation, recovery guidance, and the rollout smoke-test recipes for both Sonar remediation and merge request review, see [runbook.md](docs/runbook.md).

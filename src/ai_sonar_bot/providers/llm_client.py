@@ -19,6 +19,7 @@ from ai_sonar_bot.models.analysis import (
     StructuredEditProposal,
 )
 from ai_sonar_bot.models.config import OpenAIConnectionConfig
+from ai_sonar_bot.models.review import MergeRequestReviewContext, ReviewResult
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.utils.files import ensure_parent
 
@@ -60,6 +61,10 @@ class LLMClient:
             LLMClientError: If structured edit generation is unsupported or fails.
         """
         raise NotImplementedError("Structured edit generation is not implemented yet.")
+
+    def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
+        """Review one merge request and return structured findings."""
+        raise NotImplementedError("Merge request review is not implemented yet.")
 
 
 class OpenAILLMClient(LLMClient):
@@ -166,6 +171,31 @@ class OpenAILLMClient(LLMClient):
             raise LLMClientError("OpenAI structured edit generation did not return parsed output.")
         return response.output_parsed
 
+    def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
+        """Review a merge request with OpenAI."""
+        input_text = _build_review_prompt(context)
+        try:
+            response = self.client.responses.parse(
+                model=self.config.model,
+                input=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You review merge requests and return strictly structured "
+                            "JSON findings."
+                        ),
+                    },
+                    {"role": "user", "content": input_text},
+                ],
+                text_format=ReviewResult,
+            )
+        except Exception as error:
+            raise LLMClientError("OpenAI merge request review request failed.") from error
+
+        if response.output_parsed is None:
+            raise LLMClientError("OpenAI merge request review did not return parsed output.")
+        return response.output_parsed
+
 
 class FixtureLLMClient(LLMClient):
     """LLM client backed by a local analysis fixture file.
@@ -179,15 +209,18 @@ class FixtureLLMClient(LLMClient):
         self,
         analysis_fixture_path: Path,
         structured_edit_fixture_path: Path | None = None,
+        review_fixture_path: Path | None = None,
     ) -> None:
         """Initialize the fixture-backed LLM client.
 
         Args:
             analysis_fixture_path: Path to a local JSON analysis fixture.
             structured_edit_fixture_path: Optional path to a local JSON structured edit fixture.
+            review_fixture_path: Optional path to a local JSON review fixture.
         """
         self.analysis_fixture_path = analysis_fixture_path
         self.structured_edit_fixture_path = structured_edit_fixture_path
+        self.review_fixture_path = review_fixture_path
 
     def analyze_issue(self, issue: SonarIssue, context: IssueContext) -> IssueAnalysis:
         """Load a fixture-based issue analysis result.
@@ -220,6 +253,13 @@ class FixtureLLMClient(LLMClient):
         if self.structured_edit_fixture_path is None:
             raise LLMClientError("LLM structured edit fixture path is not configured.")
         return load_structured_edit_fixture(self.structured_edit_fixture_path)
+
+    def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
+        """Load a fixture-based review result."""
+        del context
+        if self.review_fixture_path is None:
+            raise LLMClientError("LLM review fixture path is not configured.")
+        return load_review_fixture(self.review_fixture_path)
 
 
 def load_analysis_fixture(path: Path) -> IssueAnalysis:
@@ -278,6 +318,25 @@ def load_structured_edit_fixture(path: Path) -> StructuredEditProposal:
         return StructuredEditProposal.model_validate(payload)
     except Exception as error:
         raise LLMClientError("Invalid LLM structured edit fixture structure.") from error
+
+
+def load_review_fixture(path: Path) -> ReviewResult:
+    """Load a structured review result from a JSON fixture."""
+    if not path.exists():
+        raise LLMClientError(f"LLM review fixture file not found: {path}")
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise LLMClientError(f"LLM review fixture file is invalid JSON: {path}") from error
+
+    if not isinstance(payload, dict):
+        raise LLMClientError("Unexpected LLM review fixture payload.")
+
+    try:
+        return ReviewResult.model_validate(payload)
+    except Exception as error:
+        raise LLMClientError("Invalid LLM review fixture structure.") from error
 
 
 def _write_solution_file(
@@ -399,4 +458,31 @@ def _build_structured_edit_prompt(issue: SonarIssue, context: IssueContext) -> s
         "- Do not return a unified diff.\n\n"
         "Code snippet:\n"
         f"{context.snippet.content}\n"
+    )
+
+
+def _build_review_prompt(context: MergeRequestReviewContext) -> str:
+    """Build the review prompt for OpenAI."""
+    changed_files = "\n\n".join(
+        (
+            f"File: {changed_file.file_path}\n"
+            f"Diff:\n{changed_file.diff or '(diff unavailable)'}\n"
+            f"Context lines {changed_file.start_line}-{changed_file.end_line}:\n"
+            f"{changed_file.content}"
+        )
+        for changed_file in context.changed_files
+    )
+    return (
+        "Review the merge request and return structured JSON only.\n\n"
+        "Focus on bugs, regressions, missing validation, and unsafe assumptions.\n"
+        "Return classification `no_findings` when nothing actionable stands out.\n"
+        "Return classification `manual_review_only` when the provided context is insufficient.\n\n"
+        f"Merge request IID: {context.mr_iid}\n"
+        f"Title: {context.title}\n"
+        f"Description: {context.description or '(none)'}\n"
+        f"Source branch: {context.source_branch}\n"
+        f"Target branch: {context.target_branch}\n"
+        f"Head SHA: {context.head_sha}\n\n"
+        "Changed files:\n"
+        f"{changed_files}\n"
     )

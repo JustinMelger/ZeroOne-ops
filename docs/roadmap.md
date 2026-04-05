@@ -261,9 +261,9 @@ Goal:
 
 Status:
 
-- [ ] add review-specific models for merge request metadata and changed files
-- [ ] add a GitLab review client for open merge request listing and detail retrieval
-- [ ] add `MergeRequestIntake` with typed no-work summaries
+- [x] add review-specific models for merge request metadata and changed files
+- [x] add a GitLab review client for open merge request listing and detail retrieval
+- [x] add `MergeRequestIntake` with typed no-work summaries
 
 Done when:
 
@@ -280,9 +280,9 @@ Goal:
 
 Status:
 
-- [ ] add `MergeRequestSelector`
-- [ ] store and compare dedup keys based on MR IID and head SHA
-- [ ] skip unchanged merge requests cleanly and move to the next eligible MR
+- [x] add `MergeRequestSelector`
+- [x] store and compare dedup keys based on MR IID and head SHA
+- [x] skip unchanged merge requests cleanly and move to the next eligible MR
 
 Done when:
 
@@ -300,9 +300,9 @@ Goal:
 
 Status:
 
-- [ ] add `ReviewContextBuilder`
-- [ ] load changed files and surrounding source context
-- [ ] cap changed-file count and per-file context size for v1
+- [x] add `ReviewContextBuilder`
+- [x] load changed files and surrounding source context
+- [x] cap changed-file count and per-file context size for v1
 
 Done when:
 
@@ -319,9 +319,9 @@ Goal:
 
 Status:
 
-- [ ] add review-specific finding/result models
-- [ ] add `ReviewAnalysisService`
-- [ ] validate LLM output shape before publishing
+- [x] add review-specific finding/result models
+- [x] add `ReviewAnalysisService`
+- [x] validate LLM output shape before publishing
 
 Done when:
 
@@ -338,9 +338,9 @@ Goal:
 
 Status:
 
-- [ ] add `ReviewPublisher`
-- [ ] render one deterministic summary note template
-- [ ] support both findings-present and no-findings note shapes
+- [x] add `ReviewPublisher`
+- [x] render one deterministic summary note template
+- [x] support both findings-present and no-findings note shapes
 
 Done when:
 
@@ -357,9 +357,9 @@ Goal:
 
 Status:
 
-- [ ] add review state records keyed by MR IID and head SHA
-- [ ] add a review runner path and CLI subcommand
-- [ ] keep the review workflow in the shared image with separate commands
+- [x] add review state records keyed by MR IID and head SHA
+- [x] add a review runner path and CLI subcommand
+- [x] keep the review workflow in the shared image with separate commands
 
 Done when:
 
@@ -376,10 +376,10 @@ Goal:
 
 Status:
 
-- [ ] add tests for no-findings and findings-present review paths
-- [ ] add integration coverage for unchanged-SHA skip
-- [ ] document operator usage and rollout expectations
-- [ ] add a smoke-test recipe for one real merge request review run
+- [x] add tests for no-findings and findings-present review paths
+- [x] add integration coverage for unchanged-SHA skip
+- [x] document operator usage and rollout expectations
+- [x] add a smoke-test recipe for one real merge request review run
 
 Done when:
 

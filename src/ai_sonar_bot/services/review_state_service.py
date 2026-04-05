@@ -1,0 +1,117 @@
+"""Review state orchestration service."""
+
+from __future__ import annotations
+
+import logging
+
+from ai_sonar_bot.models.review import MergeRequestReviewCandidate, ReviewResult
+from ai_sonar_bot.models.state import (
+    AppState,
+    FailureDetails,
+    MergeRequestReviewState,
+    RunRecord,
+    RunStatus,
+    utc_now,
+)
+from ai_sonar_bot.services.mr_selector import build_review_revision_key
+from ai_sonar_bot.services.run_state_service import RunSummary
+from ai_sonar_bot.services.state_store import StateStore
+
+LOGGER = logging.getLogger(__name__)
+
+
+class ReviewStateService:
+    """Persist review run lifecycle and reviewed revision state."""
+
+    def __init__(self, state_store: StateStore, state: AppState) -> None:
+        """Initialize the review state service."""
+        self.state_store = state_store
+        self.state = state
+
+    def start_run(self, run_id: str) -> RunRecord:
+        """Append and return a new started run record."""
+        started_at = utc_now()
+        record = RunRecord(
+            run_id=run_id,
+            status=RunStatus.STARTED,
+            started_at=started_at,
+            updated_at=started_at,
+        )
+        self.state_store.append_run(self.state, record)
+        return record
+
+    def finish_no_review(self, *, record: RunRecord, message: str) -> RunSummary:
+        """Persist a no-review result and return the run summary."""
+        record.status = RunStatus.NO_ISSUE
+        record.updated_at = utc_now()
+        self.state_store.save(self.state)
+        return RunSummary(
+            run_id=record.run_id,
+            status=record.status,
+            message=message,
+            state_path=self.state_store.path,
+        )
+
+    def fail_review(
+        self,
+        *,
+        record: RunRecord,
+        error_message: str,
+        failure: FailureDetails,
+    ) -> RunSummary:
+        """Persist a failed review run and return the summary."""
+        record.status = RunStatus.FAILED
+        record.error_message = error_message
+        record.failure = failure
+        record.updated_at = utc_now()
+        self.state_store.save(self.state)
+        LOGGER.error(
+            "review run failed",
+            extra={"run_id": record.run_id, "stage": failure.stage.value},
+        )
+        return RunSummary(
+            run_id=record.run_id,
+            status=record.status,
+            message=error_message,
+            state_path=self.state_store.path,
+        )
+
+    def mark_reviewed(
+        self,
+        *,
+        record: RunRecord,
+        merge_request: MergeRequestReviewCandidate,
+        review_result: ReviewResult,
+        note_url: str | None,
+        dry_run: bool,
+    ) -> RunSummary:
+        """Persist a reviewed merge request revision and return the summary."""
+        record.status = RunStatus.REVIEWED
+        record.updated_at = utc_now()
+        if not dry_run:
+            dedup_key = build_review_revision_key(
+                mr_iid=merge_request.iid,
+                head_sha=merge_request.head_sha,
+            )
+            self.state.reviews[dedup_key] = MergeRequestReviewState(
+                mr_iid=merge_request.iid,
+                head_sha=merge_request.head_sha,
+                status=review_result.classification,
+                last_run_id=record.run_id,
+                note_url=note_url,
+            )
+        self.state_store.save(self.state)
+        base_message = (
+            f"Reviewed merge request !{merge_request.iid} at {merge_request.head_sha}. "
+            f"Classification: {review_result.classification}. {review_result.summary}"
+        )
+        if dry_run:
+            base_message = f"{base_message} Dry-run skipped note publication."
+        elif note_url is not None:
+            base_message = f"{base_message} Review note: {note_url}"
+        return RunSummary(
+            run_id=record.run_id,
+            status=record.status,
+            message=base_message,
+            state_path=self.state_store.path,
+        )

@@ -1,10 +1,24 @@
 stages:
   - ai-fix
+  - ai-review
 
-ai_sonar_bot:
-  stage: ai-fix
+.ai_sonar_bot_base:
   image: ghcr.io/justinmelger/ai-sonar-bot:latest
   interruptible: false
+  variables:
+    AI_SONAR_BOT_EXECUTION_MODE: "ci"
+    AI_SONAR_BOT_CONFIG: ".ai-sonar-bot.json"
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
+    GITLAB_URL: "https://${CI_SERVER_HOST}"
+    OPENAI_MODEL: "gpt-5.4-mini"
+    # Define these as protected CI/CD variables:
+    # GITLAB_TOKEN
+    # OPENAI_API_KEY
+
+ai_sonar_bot:
+  extends: .ai_sonar_bot_base
+  stage: ai-fix
   resource_group: ai-sonar-bot
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
@@ -12,20 +26,14 @@ ai_sonar_bot:
       when: manual
     - when: never
   variables:
-    AI_SONAR_BOT_EXECUTION_MODE: "ci"
-    AI_SONAR_BOT_CONFIG: ".ai-sonar-bot.json"
-    GIT_STRATEGY: clone
-    GIT_DEPTH: "0"
-    GITLAB_URL: "https://${CI_SERVER_HOST}"
     GIT_AUTHOR_NAME: "AI Sonar Bot"
     GIT_AUTHOR_EMAIL: "ai-sonar-bot@example.com"
     GIT_COMMITTER_NAME: "AI Sonar Bot"
     GIT_COMMITTER_EMAIL: "ai-sonar-bot@example.com"
-    OPENAI_MODEL: "gpt-4.1-mini"
     # Define these as protected CI/CD variables:
-    SONARQUBE_URL:
-    SONARQUBE_TOKEN
-    SONARQUBE_PROJECT_KEY
+    # SONARQUBE_URL
+    # SONARQUBE_TOKEN
+    # SONARQUBE_PROJECT_KEY
     # GITLAB_TOKEN
     # OPENAI_API_KEY
   before_script:
@@ -36,3 +44,15 @@ ai_sonar_bot:
       "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
   script:
     - uv run --project /opt/ai-sonar-bot ai-sonar-bot
+
+ai_sonar_bot_review:
+  extends: .ai_sonar_bot_base
+  stage: ai-review
+  resource_group: ai-sonar-bot-review
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID && $CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_REVIEW == "true"'
+      when: manual
+    - when: never
+  script:
+    - uv run --project /opt/ai-sonar-bot ai-sonar-bot review

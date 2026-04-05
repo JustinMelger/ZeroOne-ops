@@ -36,6 +36,17 @@ class ApprovalConfig(BaseModel):
     required: bool = True
 
 
+class ReviewConfig(BaseModel):
+    """Configure pull-request review behavior."""
+
+    max_changed_files: int = 10
+    max_context_lines_before: int = 30
+    max_context_lines_after: int = 30
+    publish_no_findings_note: bool = True
+    supported_paths: list[str] = Field(default_factory=list)
+    skip_draft_merge_requests: bool = True
+
+
 class GitLabConfig(BaseModel):
     """Configure GitLab merge request behavior.
 
@@ -123,6 +134,7 @@ class AppConfig(BaseModel):
         validation_commands: Commands run after a generated patch is applied.
         analysis: Analysis-related settings.
         approval: Approval-related settings.
+        review: Review-related settings.
         gitlab: GitLab merge request settings.
         state: State persistence settings.
     """
@@ -144,6 +156,7 @@ class AppConfig(BaseModel):
     validation_commands: list[str] = Field(default_factory=list)
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
     approval: ApprovalConfig = Field(default_factory=ApprovalConfig)
+    review: ReviewConfig = Field(default_factory=ReviewConfig)
     gitlab: GitLabConfig
     state: StateConfig = Field(default_factory=StateConfig)
 
