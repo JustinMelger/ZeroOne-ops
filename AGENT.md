@@ -7,9 +7,19 @@ this repository.
 
 The source of truth for coding and architecture rules is:
 
-- [docs/engineering-standards.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/engineering-standards.md)
+- [docs/engineering-standards.md](docs/engineering-standards.md)
 
 When there is any ambiguity, follow that document over this summary.
+
+Current workflow behavior and future direction are documented in:
+
+- [docs/functional-design.md](docs/functional-design.md)
+- [docs/technical-design.md](docs/technical-design.md)
+- [docs/functional-design-pr-review.md](docs/functional-design-pr-review.md)
+- [docs/technical-design-pr-review.md](docs/technical-design-pr-review.md)
+- [docs/functional-design-dashboard.md](docs/functional-design-dashboard.md)
+- [docs/technical-design-dashboard.md](docs/technical-design-dashboard.md)
+- [future_plans.md](future_plans.md)
 
 ## Repository Intent
 
@@ -80,6 +90,6 @@ uv run pytest
 If you are changing workflow docs or CI behavior, also update the relevant
 documentation:
 
-- [README.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/README.md)
-- [docs/runbook.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/runbook.md)
-- [docs/roadmap.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/roadmap.md)
+- [README.md](README.md)
+- [docs/runbook.md](docs/runbook.md)
+- [docs/roadmap.md](docs/roadmap.md)

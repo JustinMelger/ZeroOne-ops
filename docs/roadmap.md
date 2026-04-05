@@ -387,6 +387,123 @@ Done when:
 - the review note format is stable and readable
 - another engineer can run and validate the review bot from docs alone
 
+## Next Phase: Dashboard And Operational Hardening
+
+This is the next active phase after the SonarQube remediation v1 and PR review
+bot v1 are both live.
+
+The goal is to finish the dashboard foundation and stabilize the two existing
+workflows in real CI usage before starting any new bot track.
+
+It follows:
+
+- [functional-design-dashboard.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/functional-design-dashboard.md)
+- [technical-design-dashboard.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/technical-design-dashboard.md)
+
+### Dashboard Phase 1: Dashboard Foundation
+
+Goal:
+
+- implement the GitLab dashboard issue as the shared visibility and control
+  plane
+- support deterministic rendering and parsing of structured dashboard items
+
+Status:
+
+- [ ] add dashboard models
+- [ ] add a GitLab dashboard client for issue lookup, creation, and updates
+- [ ] add deterministic dashboard parser and renderer services
+- [ ] add a dashboard service that loads, merges, and publishes structured
+      dashboard content
+
+Done when:
+
+- one dashboard issue can be created or reused deterministically
+- structured dashboard sections render and parse without ambiguity
+- the dashboard can be updated without duplicate item blocks
+
+### Dashboard Phase 2: Review Status Mirroring
+
+Goal:
+
+- mirror PR review workflow outcomes to the dashboard without replacing MR notes
+
+Status:
+
+- [ ] add review-status dashboard item models
+- [ ] add a review dashboard updater service
+- [ ] write reviewed SHA, review status, and MR links to the dashboard after a
+      completed review run
+
+Done when:
+
+- merge request reviews still publish their primary output on the MR
+- the dashboard shows review status for the reviewed MR revision
+- repeated review runs do not create duplicate dashboard status items for the
+  same MR IID and head SHA
+
+### Dashboard Phase 3: Sonar Discovery Mirroring
+
+Goal:
+
+- mirror supported SonarQube discovery results to the dashboard as structured
+  work items
+
+Status:
+
+- [ ] add Sonar-to-dashboard normalization
+- [ ] write eligible Sonar items into the dashboard backlog without triggering
+      remediation from the same workflow
+- [ ] preserve stable IDs and statuses for repeated Sonar discovery runs
+
+Done when:
+
+- supported Sonar items appear in the dashboard in a strict structured format
+- repeated discovery runs update existing dashboard items instead of duplicating
+  them
+- discovery remains separate from remediation
+
+### Dashboard Phase 4: Live Monitoring And Regression Capture
+
+Goal:
+
+- monitor the live Sonar and review bots before expanding to new sources
+
+Status:
+
+- [ ] collect real production failure examples and turn them into regression
+      tests
+- [ ] document recurring skip, reject, and failure patterns from live runs
+- [ ] review MR quality and false-positive/noise patterns for both workflows
+
+Done when:
+
+- production failures are being converted into tests and documentation
+- the most common noisy or unsafe cases are visible and understood
+- the current two workflows have a stable observed operating profile
+
+### Dashboard Phase 5: CI/CD And Testing Hardening
+
+Goal:
+
+- improve release, CI, and test confidence around the live workflows and the
+  new dashboard foundation
+
+Status:
+
+- [ ] tighten GitLab CI examples and smoke-test guidance around the two current
+      workflows
+- [ ] add integration coverage for the most important CI-facing workflow paths
+- [ ] add dashboard parser and renderer regression coverage
+- [ ] review container publish and example pipeline behavior for failure cases
+
+Done when:
+
+- CI examples reflect the real supported workflow commands and image behavior
+- the most important live workflow paths are covered by integration tests
+- dashboard parsing/rendering is protected by regression coverage
+- release and pipeline failures are easier to diagnose
+
 ## Beyond V1
 
 Post-v1 ideas and expansion tracks now live in
