@@ -243,10 +243,154 @@ Done when:
 - [x] Harden duplicate-MR messaging and reuse behavior.
 - [x] Harden logging and failure handling.
 
+## Next Selected Build: PR Review Bot V1
+
+This is the next active implementation track after the SonarQube remediation
+v1. It follows:
+
+- [functional-design-pr-review.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/functional-design-pr-review.md)
+- [technical-design-pr-review.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/technical-design-pr-review.md)
+
+### Review Phase 1: Merge Request Intake
+
+Goal:
+
+- fetch open GitLab merge requests
+- normalize merge request metadata
+- support selecting one MR per run
+
+Status:
+
+- [ ] add review-specific models for merge request metadata and changed files
+- [ ] add a GitLab review client for open merge request listing and detail retrieval
+- [ ] add `MergeRequestIntake` with typed no-work summaries
+
+Done when:
+
+- the bot can fetch open merge requests from GitLab
+- merge request payloads are normalized consistently
+- a dry-run can report real merge request counts
+
+### Review Phase 2: Review Selection and Dedup
+
+Goal:
+
+- choose one reviewable merge request per run
+- avoid duplicate reviews for the same MR revision
+
+Status:
+
+- [ ] add `MergeRequestSelector`
+- [ ] store and compare dedup keys based on MR IID and head SHA
+- [ ] skip unchanged merge requests cleanly and move to the next eligible MR
+
+Done when:
+
+- the bot reviews at most one MR per run
+- unchanged MR revisions are skipped without publishing duplicate notes
+- run summaries explain why an MR was skipped
+
+### Review Phase 3: Diff and Context Building
+
+Goal:
+
+- collect merge request diff data
+- map changed files to the local repository
+- build stable review context for the LLM
+
+Status:
+
+- [ ] add `ReviewContextBuilder`
+- [ ] load changed files and surrounding source context
+- [ ] cap changed-file count and per-file context size for v1
+
+Done when:
+
+- the bot can build deterministic review context from one MR
+- oversized or unsupported MRs are rejected cleanly
+- changed-file context is stable enough for prompt construction
+
+### Review Phase 4: Structured Review Analysis
+
+Goal:
+
+- request structured findings from the LLM
+- distinguish no-findings from findings-present and insufficient-context cases
+
+Status:
+
+- [ ] add review-specific finding/result models
+- [ ] add `ReviewAnalysisService`
+- [ ] validate LLM output shape before publishing
+
+Done when:
+
+- the LLM returns structured review results
+- malformed or oversized review outputs are rejected
+- the bot can classify review results deterministically
+
+### Review Phase 5: Review Note Publishing
+
+Goal:
+
+- publish one deterministic merge request note
+- keep output readable and non-spammy
+
+Status:
+
+- [ ] add `ReviewPublisher`
+- [ ] render one deterministic summary note template
+- [ ] support both findings-present and no-findings note shapes
+
+Done when:
+
+- the bot can publish one MR note through GitLab
+- findings are formatted consistently
+- no-findings output is distinguishable from failure to review
+
+### Review Phase 6: Review State and Runner Integration
+
+Goal:
+
+- persist review outcomes
+- wire the review workflow into the shared CLI and state system
+
+Status:
+
+- [ ] add review state records keyed by MR IID and head SHA
+- [ ] add a review runner path and CLI subcommand
+- [ ] keep the review workflow in the shared image with separate commands
+
+Done when:
+
+- review outcomes are persisted in state
+- the CLI can run the review workflow explicitly
+- the shared image can execute either Sonar remediation or PR review
+
+### Review Phase 7: Hardening
+
+Goal:
+
+- make the review bot usable in real GitLab workflows
+- keep reviews useful and low-noise
+
+Status:
+
+- [ ] add tests for no-findings and findings-present review paths
+- [ ] add integration coverage for unchanged-SHA skip
+- [ ] document operator usage and rollout expectations
+- [ ] add a smoke-test recipe for one real merge request review run
+
+Done when:
+
+- the bot avoids duplicate notes for unchanged MR revisions
+- the review note format is stable and readable
+- another engineer can run and validate the review bot from docs alone
+
 ## Beyond V1
 
 Post-v1 ideas and expansion tracks now live in
-[future_plans.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/future_plans.md).
+[future_plans.md](future_plans.md).
 
 That includes:
 
