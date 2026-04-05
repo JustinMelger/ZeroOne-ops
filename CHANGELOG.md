@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.3](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.6.2...ai-sonar-bot-v0.6.3) (2026-04-05)
+
+
+### Bug Fixes
+
+* run review only on triggered mr ([ad0813d](https://github.com/JustinMelger/ai-sonar-bot/commit/ad0813dacf4535a4139c728a9b2588a1ff4ef8c2))
+* run review only on triggered mr ([4edd23f](https://github.com/JustinMelger/ai-sonar-bot/commit/4edd23f84d8e95cc39ca1e88a7aa25578fb7f8af))
+
 ## [0.6.2](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.6.1...ai-sonar-bot-v0.6.2) (2026-04-05)
 
 
