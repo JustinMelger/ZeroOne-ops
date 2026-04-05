@@ -319,9 +319,9 @@ Goal:
 
 Status:
 
-- [ ] add review-specific finding/result models
-- [ ] add `ReviewAnalysisService`
-- [ ] validate LLM output shape before publishing
+- [x] add review-specific finding/result models
+- [x] add `ReviewAnalysisService`
+- [x] validate LLM output shape before publishing
 
 Done when:
 

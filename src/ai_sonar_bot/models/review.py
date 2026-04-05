@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -59,3 +61,21 @@ class MergeRequestReviewContext(BaseModel):
     draft: bool = False
     author_username: str | None = None
     changed_files: list[ReviewFileContext] = Field(default_factory=list)
+
+
+class ReviewFinding(BaseModel):
+    """Represent one structured review finding."""
+
+    severity: Literal["high", "medium", "low"]
+    file_path: str
+    title: str
+    explanation: str
+    suggested_follow_up: str
+
+
+class ReviewResult(BaseModel):
+    """Represent the structured result of one review pass."""
+
+    classification: Literal["no_findings", "findings_present", "manual_review_only"]
+    summary: str
+    findings: list[ReviewFinding] = Field(default_factory=list)
