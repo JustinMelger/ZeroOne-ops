@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.7.0...ai-sonar-bot-v0.8.0) (2026-04-05)
+
+
+### Features
+
+* add mirror for sq to dashboard ([c63cf03](https://github.com/JustinMelger/ai-sonar-bot/commit/c63cf0395b38efe1e6db5e43ce6686e3ca6ed2fd))
+
 ## [0.7.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.6.3...ai-sonar-bot-v0.7.0) (2026-04-05)
 
 
