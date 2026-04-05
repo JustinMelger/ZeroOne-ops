@@ -243,137 +243,163 @@ Done when:
 - [x] Harden duplicate-MR messaging and reuse behavior.
 - [x] Harden logging and failure handling.
 
-## Deferred Beyond V1
+## Next Selected Build: PR Review Bot V1
 
-- multi-issue processing per run
-- automatic merge request approval or merge
-- distributed or shared state storage
-- GitLab dashboard issue for CI-visible operational state and control
-- renovate-style GitLab token handling for automatic push authentication
-- support for GitHub in addition to GitLab
-- advanced issue prioritization
-- autonomous retry loops beyond one retry
+This is the next active implementation track after the SonarQube remediation
+v1. It follows:
 
-## Post-V1: GitLab Dashboard Issue
+- [functional-design-pr-review.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/functional-design-pr-review.md)
+- [technical-design-pr-review.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/technical-design-pr-review.md)
 
-After the base GitLab-first workflow is stable, add a Renovate-style dashboard
-issue for CI-visible operational state.
+### Review Phase 1: Merge Request Intake
 
-Purpose:
+Goal:
 
-- make bot activity visible without relying on local JSON state
-- show pending, in-progress, rejected, and completed SonarQube issues
-- provide a lightweight operator control surface in GitLab
+- fetch open GitLab merge requests
+- normalize merge request metadata
+- support selecting one MR per run
 
-Suggested design:
+Status:
 
-- one persistent GitLab issue, for example `AI Code Ops Dashboard`
-- markdown sections for:
-  - open candidates
-  - in progress
-  - merge requests opened
-  - rejected or manual-review items
-  - recent failures
-- each row tracks:
-  - SonarQube issue key
-  - rule
-  - severity
-  - file
-  - current status
-  - branch
-  - merge request link
-  - last attempt timestamp
-
-Rules:
-
-- use merge request and branch lookup as the hard dedupe mechanism
-- use the dashboard issue as the visibility and operator layer
-- keep local JSON state for local runs, but reduce CI reliance on it over time
-- keep the dashboard design provider-portable so the same concept can map to a
-  GitHub issue when GitHub support is added later
+- [ ] add review-specific models for merge request metadata and changed files
+- [ ] add a GitLab review client for open merge request listing and detail retrieval
+- [ ] add `MergeRequestIntake` with typed no-work summaries
 
 Done when:
 
-- CI runs update the dashboard issue after each execution
-- operators can see current bot state without inspecting pipeline logs
-- dashboard content stays consistent with open merge requests and selected issues
+- the bot can fetch open merge requests from GitLab
+- merge request payloads are normalized consistently
+- a dry-run can report real merge request counts
 
-## Post-V1: Symbol-Safe Rename Handling
+### Review Phase 2: Review Selection and Dedup
 
-After the base SonarQube remediation flow is stable, add symbol-aware reference
-checks so naming issues can be handled safely instead of being excluded by the
-v1 guardrail.
+Goal:
 
-Purpose:
+- choose one reviewable merge request per run
+- avoid duplicate reviews for the same MR revision
 
-- support low-risk rename issues without breaking surrounding code
-- replace the current message-based rename skip with explicit safety checks
-- widen the auto-fixable issue set only when reference integrity can be verified
+Status:
 
-Suggested design:
-
-- classify rename-style SonarQube rules explicitly instead of relying on message
-  text alone
-- scan the file for symbol references before accepting a rename proposal
-- reject renames when the symbol has additional references outside the proposed
-  edit scope
-- prefer language-aware or AST-backed analysis when exact text search is not
-  reliable enough
-
-Rules:
-
-- do not allow rename-style auto-fixes without a reference safety check
-- keep the fallback conservative: ambiguous rename cases remain manual
-- widen rename support one narrow rule class at a time
+- [ ] add `MergeRequestSelector`
+- [ ] store and compare dedup keys based on MR IID and head SHA
+- [ ] skip unchanged merge requests cleanly and move to the next eligible MR
 
 Done when:
 
-- rename-style SonarQube issues can be auto-fixed only when reference safety is
-  verified
-- risky or ambiguous rename proposals are rejected deterministically
-- the v1 message-based rename skip can be removed or reduced to a last-resort
-  fallback
+- the bot reviews at most one MR per run
+- unchanged MR revisions are skipped without publishing duplicate notes
+- run summaries explain why an MR was skipped
 
-## Post-V1: GitHub Support
+### Review Phase 3: Diff and Context Building
 
-After the GitLab-first v1 is complete, GitHub support should be added as a
-focused follow-up rather than folded into the v1 scope.
+Goal:
 
-Required changes:
+- collect merge request diff data
+- map changed files to the local repository
+- build stable review context for the LLM
 
-- add a GitHub provider client alongside the existing GitLab client
-- introduce an SCM provider switch in configuration
-- extract a provider-neutral publish interface for merge request or pull request creation
-- rename GitLab-specific publish concepts in shared models and services to neutral change-request terms where needed
-- support GitHub repository identification and token configuration
-- implement duplicate pull request detection for GitHub
-- map labels, reviewers, and assignees to GitHub APIs
-- update state fields if they are too GitLab-specific, for example `mr_url`
-- add GitHub integration tests and CI coverage for the publish layer
+Status:
+
+- [ ] add `ReviewContextBuilder`
+- [ ] load changed files and surrounding source context
+- [ ] cap changed-file count and per-file context size for v1
 
 Done when:
 
-- a validated branch can create a GitHub pull request through a provider-neutral publish flow
-- the state model can persist either GitLab merge request URLs or GitHub pull request URLs cleanly
-- shared workflow code does not depend on GitLab-only terminology outside the GitLab provider layer
+- the bot can build deterministic review context from one MR
+- oversized or unsupported MRs are rejected cleanly
+- changed-file context is stable enough for prompt construction
 
-## Post-V1: Renovate-Style GitLab Token Handling
+### Review Phase 4: Structured Review Analysis
 
-After the current CI configuration is stable, move GitLab push authentication
-closer to the bot so `GITLAB_TOKEN` behaves more like a single coupled bot
-credential.
+Goal:
 
-Purpose:
+- request structured findings from the LLM
+- distinguish no-findings from findings-present and insufficient-context cases
 
-- reduce CI-specific git remote rewriting
-- let one GitLab token cover both API and push behavior
-- make the bot behave more like Renovate in GitLab environments
+Status:
 
-Suggested design:
+- [ ] add review-specific finding/result models
+- [ ] add `ReviewAnalysisService`
+- [ ] validate LLM output shape before publishing
 
-- keep `GitLabClient` responsible only for GitLab API calls
-- move push-auth setup into the git layer, for example `BranchManager` or a
-  dedicated git-auth service
+Done when:
+
+- the LLM returns structured review results
+- malformed or oversized review outputs are rejected
+- the bot can classify review results deterministically
+
+### Review Phase 5: Review Note Publishing
+
+Goal:
+
+- publish one deterministic merge request note
+- keep output readable and non-spammy
+
+Status:
+
+- [ ] add `ReviewPublisher`
+- [ ] render one deterministic summary note template
+- [ ] support both findings-present and no-findings note shapes
+
+Done when:
+
+- the bot can publish one MR note through GitLab
+- findings are formatted consistently
+- no-findings output is distinguishable from failure to review
+
+### Review Phase 6: Review State and Runner Integration
+
+Goal:
+
+- persist review outcomes
+- wire the review workflow into the shared CLI and state system
+
+Status:
+
+- [ ] add review state records keyed by MR IID and head SHA
+- [ ] add a review runner path and CLI subcommand
+- [ ] keep the review workflow in the shared image with separate commands
+
+Done when:
+
+- review outcomes are persisted in state
+- the CLI can run the review workflow explicitly
+- the shared image can execute either Sonar remediation or PR review
+
+### Review Phase 7: Hardening
+
+Goal:
+
+- make the review bot usable in real GitLab workflows
+- keep reviews useful and low-noise
+
+Status:
+
+- [ ] add tests for no-findings and findings-present review paths
+- [ ] add integration coverage for unchanged-SHA skip
+- [ ] document operator usage and rollout expectations
+- [ ] add a smoke-test recipe for one real merge request review run
+
+Done when:
+
+- the bot avoids duplicate notes for unchanged MR revisions
+- the review note format is stable and readable
+- another engineer can run and validate the review bot from docs alone
+
+## Beyond V1
+
+Post-v1 ideas and expansion tracks now live in
+[future_plans.md](future_plans.md).
+
+That includes:
+
+- GitLab dashboard issue support
+- symbol-safe rename handling
+- complex single-file refactors
+- GitHub support
+- Renovate-style GitLab token handling
+- broader platform expansion such as pipeline failure and review workflows
 - in CI mode, derive the authenticated push remote from `GITLAB_TOKEN`,
   `CI_SERVER_HOST`, and `CI_PROJECT_PATH`
 - keep CI config as a fallback, not the only place where push auth is wired
