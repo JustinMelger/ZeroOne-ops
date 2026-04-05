@@ -270,6 +270,17 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
             body="summary",
         ),
     )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_dashboard_updater.ReviewDashboardUpdater.update",
+        lambda self, project_id, merge_request, review_result: type(
+            "DashboardResult",
+            (),
+            {
+                "dashboard_issue_url": ("https://gitlab.example.com/group/project/-/issues/11"),
+                "error_message": None,
+            },
+        )(),
+    )
 
     summary = review(dry_run=False)
 
@@ -286,6 +297,126 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         sonarqube_project_key=None,
     ).load()
     assert state.reviews["17:abc123"].status == "findings_present"
+
+
+def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    merge_request = MergeRequestReviewCandidate(
+        iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        changes=[],
+    )
+    review_context = MergeRequestReviewContext(
+        mr_iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                diff="@@ -1,1 +1,1 @@",
+                start_line=1,
+                end_line=1,
+                content="   1: value = 1",
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.mr_intake.MergeRequestIntakeService.select_merge_request",
+        lambda self, state: type(
+            "Result",
+            (),
+            {
+                "selected_merge_request": merge_request,
+                "merge_request_count": 1,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
+        lambda self, merge_request, project_id: type(
+            "ContextResult",
+            (),
+            {
+                "context": review_context,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
+        lambda self, context: type(
+            "AnalysisResult",
+            (),
+            {
+                "review_result": ReviewResult(
+                    classification="no_findings",
+                    summary="No findings.",
+                    findings=[],
+                ),
+                "message": "Review classification: no_findings. Summary: No findings.",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_publisher.ReviewPublisher.publish",
+        lambda self, project_id, merge_request_iid, context, review_result: ReviewPublishResult(
+            note=type("Note", (), {"id": 55, "web_url": None})(),
+            body="summary",
+        ),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_dashboard_updater.ReviewDashboardUpdater.update",
+        lambda self, project_id, merge_request, review_result: type(
+            "DashboardResult",
+            (),
+            {
+                "dashboard_issue_url": None,
+                "error_message": "Dashboard mirror failed: boom",
+            },
+        )(),
+    )
+
+    summary = review(dry_run=False)
+
+    assert summary.status.value == "reviewed"
+    assert "Dashboard mirror failed: boom" in summary.message
 
 
 def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeypatch) -> None:

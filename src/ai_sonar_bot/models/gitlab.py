@@ -22,3 +22,13 @@ class MergeRequestNote(BaseModel):
 
     id: int
     web_url: str | None = None
+
+
+class GitLabIssueInfo(BaseModel):
+    """Represent a GitLab issue used by the dashboard."""
+
+    id: int
+    iid: int
+    web_url: str
+    title: str
+    description: str

@@ -410,10 +410,10 @@ Goal:
 
 Status:
 
-- [ ] add dashboard models
-- [ ] add a GitLab dashboard client for issue lookup, creation, and updates
-- [ ] add deterministic dashboard parser and renderer services
-- [ ] add a dashboard service that loads, merges, and publishes structured
+- [x] add dashboard models
+- [x] add a GitLab dashboard client for issue lookup, creation, and updates
+- [x] add deterministic dashboard parser and renderer services
+- [x] add a dashboard service that loads, merges, and publishes structured
       dashboard content
 
 Done when:
@@ -430,9 +430,9 @@ Goal:
 
 Status:
 
-- [ ] add review-status dashboard item models
-- [ ] add a review dashboard updater service
-- [ ] write reviewed SHA, review status, and MR links to the dashboard after a
+- [x] add review-status dashboard item models
+- [x] add a review dashboard updater service
+- [x] write reviewed SHA, review status, and MR links to the dashboard after a
       completed review run
 
 Done when:
