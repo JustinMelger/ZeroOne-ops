@@ -184,6 +184,11 @@ The example now includes two jobs:
 - `ai_sonar_bot_review`
   - merge request review on `merge_request_event` pipelines or via `RUN_AI_SONAR_BOT_REVIEW=true`
 
+The example overrides the container `entrypoint` to `[""]`. This is required in
+GitLab CI because the published image uses `ai-sonar-bot` as its Docker
+entrypoint; without the override, the runner shell command is passed to the bot
+as if `sh` were a CLI subcommand.
+
 Recommended GitLab CI setup:
 
 - keep the bot job restricted to the default branch

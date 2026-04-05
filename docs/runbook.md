@@ -149,6 +149,7 @@ Recommended settings:
 - run only on the default branch
 - trigger from a schedule or explicit manual run
 - use `resource_group` so only one bot job runs at a time
+- override the job image `entrypoint` to `[""]`
 - use `GIT_DEPTH=0`
 - set a fixed git author/committer identity
 - rewrite `origin` to use `GITLAB_TOKEN` for authenticated pushes

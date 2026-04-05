@@ -3,7 +3,9 @@ stages:
   - ai-review
 
 .ai_sonar_bot_base:
-  image: ghcr.io/justinmelger/ai-sonar-bot:latest
+  image:
+    name: ghcr.io/justinmelger/ai-sonar-bot:latest
+    entrypoint: [""]
   interruptible: false
   variables:
     AI_SONAR_BOT_EXECUTION_MODE: "ci"
