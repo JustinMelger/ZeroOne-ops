@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.2](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.6.1...ai-sonar-bot-v0.6.2) (2026-04-05)
+
+
+### Bug Fixes
+
+* optional weburl ([d39263d](https://github.com/JustinMelger/ai-sonar-bot/commit/d39263dc6c047f39576c957e0e978630a104a90d))
+* optional weburl ([2b15b9b](https://github.com/JustinMelger/ai-sonar-bot/commit/2b15b9b9e545604655d50de2e55d4f2b7a90e9ac))
+
 ## [0.6.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.6.0...ai-sonar-bot-v0.6.1) (2026-04-05)
 
 
