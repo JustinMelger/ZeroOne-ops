@@ -1,5 +1,83 @@
 # Changelog
 
+## [0.6.2](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.6.1...ai-sonar-bot-v0.6.2) (2026-04-05)
+
+
+### Bug Fixes
+
+* optional weburl ([d39263d](https://github.com/JustinMelger/ai-sonar-bot/commit/d39263dc6c047f39576c957e0e978630a104a90d))
+* optional weburl ([2b15b9b](https://github.com/JustinMelger/ai-sonar-bot/commit/2b15b9b9e545604655d50de2e55d4f2b7a90e9ac))
+
+## [0.6.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.6.0...ai-sonar-bot-v0.6.1) (2026-04-05)
+
+
+### Documentation
+
+* update docs and new roadmap ([a1ed061](https://github.com/JustinMelger/ai-sonar-bot/commit/a1ed061061bbf8190c61d8a4d7e833b653463912))
+* update docs and new roadmap ([aca309f](https://github.com/JustinMelger/ai-sonar-bot/commit/aca309f9127c7fd14603dc9251679ea62671af4d))
+
+## [0.6.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.5.1...ai-sonar-bot-v0.6.0) (2026-04-05)
+
+
+### Features
+
+* gitlab review bot ([f11b383](https://github.com/JustinMelger/ai-sonar-bot/commit/f11b3834479bd869d714d7e34a04eeadc465a331))
+
+## [0.5.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.5.0...ai-sonar-bot-v0.5.1) (2026-04-05)
+
+
+### Documentation
+
+* functional + techncial design review bot ([d3ddfa1](https://github.com/JustinMelger/ai-sonar-bot/commit/d3ddfa14d40ccc43c5b02d0eef36bd54208642d0))
+* functional + techncial design review bot ([53abf7e](https://github.com/JustinMelger/ai-sonar-bot/commit/53abf7e54fafb04826f442d7580d455ebad4c93f))
+* update roadmap for v1 review ([e34d31e](https://github.com/JustinMelger/ai-sonar-bot/commit/e34d31e33d53a5694f141e3aa1c16abaa9f8066e))
+
+## [0.5.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.4.1...ai-sonar-bot-v0.5.0) (2026-04-04)
+
+
+### Features
+
+* feat:  ([824d9af](https://github.com/JustinMelger/ai-sonar-bot/commit/824d9aff24e324abd6fbbf559e0e5491c27e5dad))
+* add rollback on failure ([c450824](https://github.com/JustinMelger/ai-sonar-bot/commit/c4508242abc09bdc92c56fff3d99cee3251a797e))
+* improve logging and summaries ([299df3a](https://github.com/JustinMelger/ai-sonar-bot/commit/299df3af92753516dce97cf1023c68d53fb01905))
+* persist structured edit artifacts ([164bc83](https://github.com/JustinMelger/ai-sonar-bot/commit/164bc831756d92d675f75c4e2cb127dd1ea19733))
+
+
+### Bug Fixes
+
+* **docs:** redirect link ([6b81c38](https://github.com/JustinMelger/ai-sonar-bot/commit/6b81c386b19bfe2c3055293842a1bc4cd64c17f3))
+* **docs:** redirect link ([d1da99e](https://github.com/JustinMelger/ai-sonar-bot/commit/d1da99e1437a4696f88ff38b10bf8c70fed4ad7c))
+
+## [0.4.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.4.0...ai-sonar-bot-v0.4.1) (2026-04-04)
+
+
+### Bug Fixes
+
+* exclude rename issues from v1 ([caf9f04](https://github.com/JustinMelger/ai-sonar-bot/commit/caf9f041724a10440d1c2acb25f25b072cef03de))
+* exclude rename issues from v1 ([2084317](https://github.com/JustinMelger/ai-sonar-bot/commit/20843173b3f33b28db758d38dcef245a5b9c31b1))
+
+## [0.4.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.3.1...ai-sonar-bot-v0.4.0) (2026-04-04)
+
+
+### Features
+
+* add template for mr ([4cb4cd8](https://github.com/JustinMelger/ai-sonar-bot/commit/4cb4cd884236259a3f00d363c1fd1639908220a7))
+* add tests for issue selection ([b59b532](https://github.com/JustinMelger/ai-sonar-bot/commit/b59b532fea974d5e74a7f3dacba379727e861091))
+* proceed with nex issue if mr already exists ([6e57ab9](https://github.com/JustinMelger/ai-sonar-bot/commit/6e57ab9efcb198680557d0c42bfcc3e49e7e4319))
+
+
+### Documentation
+
+* update roadmap for hardening phase ([86d66dd](https://github.com/JustinMelger/ai-sonar-bot/commit/86d66dd1e0d6eaa8f4c24c6f249e965b4d5d39af))
+* v1 harderning roadmap ([df9aaad](https://github.com/JustinMelger/ai-sonar-bot/commit/df9aaad8882c3b2b998c9c2dfbc8c9fc361ed2f8))
+
+## [0.3.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.3.0...ai-sonar-bot-v0.3.1) (2026-04-03)
+
+
+### Bug Fixes
+
+* release please versioning package ([528a53c](https://github.com/JustinMelger/ai-sonar-bot/commit/528a53ce7cf959b2e28829c5d92d4cfced28ff8c))
+
 ## [0.3.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.2.0...ai-sonar-bot-v0.3.0) (2026-04-03)
 
 

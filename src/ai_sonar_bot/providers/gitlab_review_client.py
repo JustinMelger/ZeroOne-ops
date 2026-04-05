@@ -160,6 +160,8 @@ def _normalize_merge_request_note(payload: dict[str, Any]) -> MergeRequestNote:
     """Normalize a GitLab merge request note payload."""
     note_id = payload.get("id")
     web_url = payload.get("web_url")
-    if not isinstance(note_id, int) or not isinstance(web_url, str):
+    if not isinstance(note_id, int):
+        raise GitLabClientError("Unexpected GitLab merge request note structure.")
+    if web_url is not None and not isinstance(web_url, str):
         raise GitLabClientError("Unexpected GitLab merge request note structure.")
     return MergeRequestNote(id=note_id, web_url=web_url)
