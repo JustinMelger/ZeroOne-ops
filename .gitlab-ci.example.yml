@@ -47,6 +47,25 @@ ai_sonar_bot:
   script:
     - uv run --project /opt/ai-sonar-bot ai-sonar-bot
 
+ai_sonar_bot_dashboard:
+  extends: .ai_sonar_bot_base
+  stage: ai-fix
+  resource_group: ai-sonar-bot-dashboard
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_DASHBOARD == "true"'
+      when: manual
+    - when: never
+  variables:
+    # Define these as protected CI/CD variables:
+    # SONARQUBE_URL
+    # SONARQUBE_TOKEN
+    # SONARQUBE_PROJECT_KEY
+    # GITLAB_TOKEN
+    # OPENAI_API_KEY
+  script:
+    - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard sonar
+
 ai_sonar_bot_review:
   extends: .ai_sonar_bot_base
   stage: ai-review

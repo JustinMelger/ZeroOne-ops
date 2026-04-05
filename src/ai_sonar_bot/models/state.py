@@ -34,6 +34,7 @@ class RunStatus(StrEnum):
     REJECTED = "rejected"
     MR_CREATED = "mr_created"
     REVIEWED = "reviewed"
+    SYNCED = "synced"
     MANUAL = "manual"
     FAILED = "failed"
 

@@ -150,6 +150,7 @@ Recommended settings:
 
 - run only on the default branch
 - trigger from a schedule or explicit manual run
+- keep dashboard sync as a separate job from Sonar remediation
 - use `resource_group` so only one bot job runs at a time
 - override the job image `entrypoint` to `[""]`
 - use `GIT_DEPTH=0`

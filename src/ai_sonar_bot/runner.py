@@ -9,7 +9,7 @@ import os
 import secrets
 from pathlib import Path
 
-from ai_sonar_bot.models.state import FailureDetails, FailureStage
+from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunStatus
 from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
 from ai_sonar_bot.services.dashboard_service import DashboardService
@@ -22,6 +22,7 @@ from ai_sonar_bot.services.review_dashboard_updater import ReviewDashboardUpdate
 from ai_sonar_bot.services.review_publisher import ReviewPublisher
 from ai_sonar_bot.services.review_state_service import ReviewStateService
 from ai_sonar_bot.services.run_state_service import RunStateService, RunSummary
+from ai_sonar_bot.services.sonar_dashboard_sync_service import SonarDashboardSyncService
 from ai_sonar_bot.services.state_store import StateStore
 from ai_sonar_bot.settings import load_config, load_gitlab_connection_config
 
@@ -252,3 +253,65 @@ def review(*, dry_run: bool = False) -> RunSummary:
         ),
         state_path=summary.state_path,
     )
+
+
+def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
+    """Sync eligible SonarQube issues into the dashboard."""
+    config = load_config()
+    gitlab_config = load_gitlab_connection_config()
+    state_store = StateStore(
+        config.state.path,
+        base_branch=config.base_branch,
+        gitlab_project_id=_project_id_from_env(),
+        sonarqube_project_key=_sonarqube_key_from_env(),
+    )
+    state = state_store.load()
+    run_id = _build_run_id()
+    repo_root = Path.cwd()
+    active_dry_run = dry_run or config.dry_run
+
+    intake_service = IssueIntakeService(repo_root=repo_root, config=config)
+    collection = intake_service.collect_eligible_issues(
+        state=state,
+        dry_run=active_dry_run,
+        run_id=run_id,
+        allow_remote_duplicate_lookup=not active_dry_run,
+    )
+    if not collection.eligible_issues:
+        return RunSummary(
+            run_id=run_id,
+            status=collection_message_status(collection.message),
+            message=f"[{config.execution_mode}] {collection.message}",
+            state_path=state_store.path,
+        )
+    if active_dry_run:
+        return RunSummary(
+            run_id=run_id,
+            status=collection_message_status("synced"),
+            message=(
+                f"[{config.execution_mode}] Dry-run found {len(collection.eligible_issues)} "
+                "eligible SonarQube issues for dashboard sync."
+            ),
+            state_path=state_store.path,
+        )
+
+    sync_result = SonarDashboardSyncService(
+        DashboardService(GitLabDashboardClient(gitlab_config))
+    ).sync(
+        project_id=gitlab_config.project_id,
+        issues=collection.eligible_issues,
+    )
+    return RunSummary(
+        run_id=run_id,
+        status=collection_message_status("synced"),
+        message=(
+            f"[{config.execution_mode}] Synced {sync_result.synced_count} eligible "
+            f"SonarQube issues to the dashboard. Dashboard: {sync_result.dashboard_issue_url}"
+        ),
+        state_path=state_store.path,
+    )
+
+
+def collection_message_status(message: str) -> RunStatus:
+    """Map dashboard-sync outcomes to run statuses."""
+    return RunStatus.NO_ISSUE if message != "synced" else RunStatus.SYNCED

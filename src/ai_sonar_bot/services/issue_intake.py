@@ -45,6 +45,15 @@ class IssueIntakeResult:
 
 
 @dataclass(frozen=True)
+class IssueCollectionResult:
+    """Capture eligible SonarQube issues for non-remediation consumers."""
+
+    eligible_issues: list[SonarIssue]
+    issue_count: int
+    message: str
+
+
+@dataclass(frozen=True)
 class IssueEligibilityResult:
     """Capture eligible issues and why others were skipped."""
 
@@ -98,36 +107,59 @@ class IssueIntakeService:
         Returns:
             The selected issue result for the run.
         """
-        if dry_run and self.config.mock_sonar_issues_path is not None:
-            return self._select_from_fixture(state=state)
-        return self._select_from_sonarqube(state=state, run_id=run_id)
+        collection = self.collect_eligible_issues(state=state, dry_run=dry_run, run_id=run_id)
+        selected_issue = self.selector.select(collection.eligible_issues, state)
+        if selected_issue is None:
+            return IssueIntakeResult(
+                selected_issue=None,
+                issue_count=collection.issue_count,
+                message=collection.message,
+            )
+        return IssueIntakeResult(
+            selected_issue=selected_issue,
+            issue_count=collection.issue_count,
+            message="",
+        )
 
-    def _select_from_fixture(self, *, state: AppState) -> IssueIntakeResult:
-        """Select an issue from a local fixture.
+    def collect_eligible_issues(
+        self,
+        *,
+        state: AppState,
+        dry_run: bool,
+        run_id: str,
+        allow_remote_duplicate_lookup: bool = True,
+    ) -> IssueCollectionResult:
+        """Fetch issues and return all eligible candidates without selecting one."""
+        if dry_run and self.config.mock_sonar_issues_path is not None:
+            return self._collect_from_fixture(state=state)
+        return self._collect_from_sonarqube(
+            state=state,
+            run_id=run_id,
+            allow_remote_duplicate_lookup=allow_remote_duplicate_lookup,
+        )
+
+    def _collect_from_fixture(self, *, state: AppState) -> IssueCollectionResult:
+        """Collect eligible issues from a local fixture.
 
         Args:
             state: Current application state.
 
         Returns:
-            The fixture-backed issue intake result.
+            The fixture-backed eligible-issue result.
         """
         fixture_path = self.config.mock_sonar_issues_path
         if fixture_path is None:
-            return IssueIntakeResult(
-                selected_issue=None,
+            return IssueCollectionResult(
+                eligible_issues=[],
                 issue_count=0,
                 message="No SonarQube fixture path is configured.",
             )
         issues = load_issues_fixture(fixture_path)
         issue_count = len(issues)
         eligibility = self._eligible_issues(self._existing_issues(issues), state)
-        selected_issue = self.selector.select(
-            eligibility.eligible_issues,
-            state,
-        )
-        if selected_issue is None:
-            return IssueIntakeResult(
-                selected_issue=None,
+        if not eligibility.eligible_issues:
+            return IssueCollectionResult(
+                eligible_issues=[],
                 issue_count=issue_count,
                 message=self._build_no_issue_message(
                     source=f"fixture {fixture_path}",
@@ -135,38 +167,50 @@ class IssueIntakeService:
                     skip_reason_counts=eligibility.skip_reason_counts,
                 ),
             )
-        return IssueIntakeResult(selected_issue=selected_issue, issue_count=issue_count, message="")
+        return IssueCollectionResult(
+            eligible_issues=eligibility.eligible_issues,
+            issue_count=issue_count,
+            message="",
+        )
 
-    def _select_from_sonarqube(self, *, state: AppState, run_id: str) -> IssueIntakeResult:
-        """Select an issue from the real SonarQube API.
+    def _collect_from_sonarqube(
+        self,
+        *,
+        state: AppState,
+        run_id: str,
+        allow_remote_duplicate_lookup: bool,
+    ) -> IssueCollectionResult:
+        """Collect eligible issues from the real SonarQube API.
 
         Args:
             state: Current application state.
             run_id: Active run identifier.
+            allow_remote_duplicate_lookup: Whether CI duplicate-MR checks may
+                call GitLab during eligibility filtering.
 
         Returns:
-            The SonarQube-backed issue intake result.
+            The SonarQube-backed eligible-issue result.
         """
         try:
             sonar_client = SonarClient(load_sonarqube_connection_config())
         except SettingsError:
             LOGGER.info("skipped SonarQube fetch", extra={"run_id": run_id})
-            return IssueIntakeResult(
-                selected_issue=None,
+            return IssueCollectionResult(
+                eligible_issues=[],
                 issue_count=0,
                 message="No issue selected. SonarQube credentials not configured.",
             )
 
         issues = sonar_client.search_open_issues()
         issue_count = len(issues)
-        eligibility = self._eligible_issues(self._existing_issues(issues), state)
-        selected_issue = self.selector.select(
-            eligibility.eligible_issues,
+        eligibility = self._eligible_issues(
+            self._existing_issues(issues),
             state,
+            allow_remote_duplicate_lookup=allow_remote_duplicate_lookup,
         )
-        if selected_issue is None:
-            return IssueIntakeResult(
-                selected_issue=None,
+        if not eligibility.eligible_issues:
+            return IssueCollectionResult(
+                eligible_issues=[],
                 issue_count=issue_count,
                 message=self._build_no_issue_message(
                     source=f"{issue_count} open issues",
@@ -174,7 +218,11 @@ class IssueIntakeService:
                     skip_reason_counts=eligibility.skip_reason_counts,
                 ),
             )
-        return IssueIntakeResult(selected_issue=selected_issue, issue_count=issue_count, message="")
+        return IssueCollectionResult(
+            eligible_issues=eligibility.eligible_issues,
+            issue_count=issue_count,
+            message="",
+        )
 
     def _existing_issues(self, issues: list[SonarIssue]) -> list[SonarIssue]:
         """Filter issues to files that exist in the local repository.
@@ -187,17 +235,25 @@ class IssueIntakeService:
         """
         return [issue for issue in issues if (self.repo_root / issue.file_path).exists()]
 
-    def _eligible_issues(self, issues: list[SonarIssue], state: AppState) -> IssueEligibilityResult:
+    def _eligible_issues(
+        self,
+        issues: list[SonarIssue],
+        state: AppState,
+        *,
+        allow_remote_duplicate_lookup: bool = True,
+    ) -> IssueEligibilityResult:
         """Filter out issues that are already being handled.
 
         Args:
             issues: Candidate issues that already map to local files.
             state: Current persisted application state.
+            allow_remote_duplicate_lookup: Whether to check GitLab for existing
+                open merge requests that already represent a candidate issue.
 
         Returns:
             Issues that are not already in progress plus skip-reason counts.
         """
-        gitlab_config = self._load_gitlab_config()
+        gitlab_config = self._load_gitlab_config() if allow_remote_duplicate_lookup else None
         merge_request_service = self._build_merge_request_service(gitlab_config)
         eligible: list[SonarIssue] = []
         skip_reason_counts: Counter[str] = Counter()

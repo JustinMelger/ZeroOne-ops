@@ -180,10 +180,12 @@ An example GitLab pipeline is provided in [.gitlab-ci.example.yml](.gitlab-ci.ex
 
 `GITLAB_PROJECT_ID` is optional in GitLab CI because the bot falls back to `CI_PROJECT_ID`.
 
-The example now includes two jobs:
+The example now includes three jobs:
 
 - `ai_sonar_bot`
   - Sonar remediation on the default branch
+- `ai_sonar_bot_dashboard`
+  - Sonar discovery sync into the dashboard on the default branch
 - `ai_sonar_bot_review`
   - merge request review available as a manual job on `merge_request_event` pipelines or via `RUN_AI_SONAR_BOT_REVIEW=true`
 
@@ -195,8 +197,10 @@ as if `sh` were a CLI subcommand.
 Recommended GitLab CI setup:
 
 - keep the bot job restricted to the default branch
+- keep dashboard sync as a separate job from Sonar remediation
 - trigger it from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT=true`
-- make the review job manual on merge request pipelines, or trigger it manually with `RUN_AI_SONAR_BOT_REVIEW=true`
+- trigger dashboard sync from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT_DASHBOARD=true`
+- trigger the review job from merge request pipelines, or manually with `RUN_AI_SONAR_BOT_REVIEW=true`
 - store `SONARQUBE_TOKEN`, `GITLAB_TOKEN`, and `OPENAI_API_KEY` as protected CI variables
 - use a token that is allowed to push branches and create merge requests
 - keep `GIT_DEPTH=0` so branch and push behavior is predictable
@@ -206,7 +210,7 @@ Recommended GitLab CI setup:
 - keep `review.skip_draft_merge_requests` enabled
 - set `review.publish_no_findings_note` to `false` if you want lower cost and less MR noise
 
-The Sonar remediation job in the example does all of the above and also uses a `resource_group` so two mutation jobs do not try to change the same repository checkout at once. The review job is read-mostly and publishes only merge request notes, so it uses a separate `resource_group`.
+The Sonar remediation job in the example uses a `resource_group` so two mutation jobs do not try to change the same repository checkout at once. The dashboard sync job stays separate because it is discovery, not remediation. The review job is read-mostly and publishes only merge request notes, so it uses a separate `resource_group`.
 
 ## Execution Modes
 
