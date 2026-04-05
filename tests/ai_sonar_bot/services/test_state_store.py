@@ -5,6 +5,7 @@ from ai_sonar_bot.models.state import (
     FailureDetails,
     FailureStage,
     IssueState,
+    MergeRequestReviewState,
     RepositoryState,
     RunRecord,
     RunStatus,
@@ -52,6 +53,13 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
             exit_code=1,
         ),
     )
+    initial.reviews["17:abc123"] = MergeRequestReviewState(
+        mr_iid=17,
+        head_sha="abc123",
+        status="published",
+        last_run_id="run-2",
+        note_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_5",
+    )
     store.save(initial)
 
     loaded = store.load()
@@ -72,4 +80,12 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
         message="Validation failed.",
         failed_command="pytest",
         exit_code=1,
+    )
+    assert loaded.reviews["17:abc123"].mr_iid == 17
+    assert loaded.reviews["17:abc123"].head_sha == "abc123"
+    assert loaded.reviews["17:abc123"].status == "published"
+    assert loaded.reviews["17:abc123"].last_run_id == "run-2"
+    assert (
+        loaded.reviews["17:abc123"].note_url
+        == "https://gitlab.example.com/group/project/-/merge_requests/17#note_5"
     )

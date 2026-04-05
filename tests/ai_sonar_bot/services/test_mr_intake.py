@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from ai_sonar_bot.models.review import MergeRequestReviewCandidate
+from ai_sonar_bot.models.state import AppState, MergeRequestReviewState, RepositoryState
 from ai_sonar_bot.services.mr_intake import MergeRequestIntakeService
+from ai_sonar_bot.services.mr_selector import build_review_revision_key
 
 
 class FakeGitLabReviewClient:
@@ -29,6 +31,10 @@ def build_merge_request(
     )
 
 
+def build_state() -> AppState:
+    return AppState(repository=RepositoryState(base_branch="main"))
+
+
 def test_select_merge_request_returns_first_open_candidate(monkeypatch) -> None:
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
@@ -38,7 +44,7 @@ def test_select_merge_request_returns_first_open_candidate(monkeypatch) -> None:
         review_client=FakeGitLabReviewClient(
             [build_merge_request(17), build_merge_request(18, title="feat: next review")]
         )
-    ).select_merge_request()
+    ).select_merge_request(state=build_state())
 
     assert result.selected_merge_request is not None
     assert result.selected_merge_request.iid == 17
@@ -53,7 +59,7 @@ def test_select_merge_request_returns_message_when_no_open_candidates(monkeypatc
 
     result = MergeRequestIntakeService(
         review_client=FakeGitLabReviewClient([])
-    ).select_merge_request()
+    ).select_merge_request(state=build_state())
 
     assert result.selected_merge_request is None
     assert result.merge_request_count == 0
@@ -70,8 +76,55 @@ def test_select_merge_request_reports_missing_gitlab_credentials(
     monkeypatch.delenv("CI_PROJECT_ID", raising=False)
     monkeypatch.chdir(tmp_path)
 
-    result = MergeRequestIntakeService().select_merge_request()
+    result = MergeRequestIntakeService().select_merge_request(state=build_state())
 
     assert result.selected_merge_request is None
     assert result.merge_request_count == 0
     assert result.message == "No merge request selected. GitLab credentials not configured."
+
+
+def test_select_merge_request_skips_already_reviewed_revision(monkeypatch) -> None:
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    state = build_state()
+    state.reviews[build_review_revision_key(mr_iid=17, head_sha="sha-17")] = (
+        MergeRequestReviewState(
+            mr_iid=17,
+            head_sha="sha-17",
+            status="published",
+            last_run_id="run-1",
+        )
+    )
+
+    result = MergeRequestIntakeService(
+        review_client=FakeGitLabReviewClient([build_merge_request(17), build_merge_request(18)])
+    ).select_merge_request(state=state)
+
+    assert result.selected_merge_request is not None
+    assert result.selected_merge_request.iid == 18
+
+
+def test_select_merge_request_reports_when_all_open_mrs_are_already_reviewed(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    state = build_state()
+    state.reviews[build_review_revision_key(mr_iid=17, head_sha="sha-17")] = (
+        MergeRequestReviewState(
+            mr_iid=17,
+            head_sha="sha-17",
+            status="published",
+            last_run_id="run-1",
+        )
+    )
+
+    result = MergeRequestIntakeService(
+        review_client=FakeGitLabReviewClient([build_merge_request(17)])
+    ).select_merge_request(state=state)
+
+    assert result.selected_merge_request is None
+    assert result.merge_request_count == 1
+    assert "already reviewed for their current head SHA" in result.message

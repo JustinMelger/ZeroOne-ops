@@ -126,6 +126,17 @@ class IssueState(BaseModel):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class MergeRequestReviewState(BaseModel):
+    """Represent the latest known review state for one MR revision."""
+
+    mr_iid: int
+    head_sha: str
+    status: str
+    last_run_id: str
+    note_url: str | None = None
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
 class RepositoryState(BaseModel):
     """Represent repository-level state metadata.
 
@@ -150,6 +161,7 @@ class AppState(BaseModel):
         active_issue_key: Currently locked issue key, if any.
         runs: Execution history.
         issues: Latest state keyed by issue key.
+        reviews: Latest review state keyed by merge-request revision key.
     """
 
     version: int = 1
@@ -158,3 +170,4 @@ class AppState(BaseModel):
     active_issue_key: str | None = None
     runs: list[RunRecord] = Field(default_factory=list)
     issues: dict[str, IssueState] = Field(default_factory=dict)
+    reviews: dict[str, MergeRequestReviewState] = Field(default_factory=dict)

@@ -280,9 +280,9 @@ Goal:
 
 Status:
 
-- [ ] add `MergeRequestSelector`
-- [ ] store and compare dedup keys based on MR IID and head SHA
-- [ ] skip unchanged merge requests cleanly and move to the next eligible MR
+- [x] add `MergeRequestSelector`
+- [x] store and compare dedup keys based on MR IID and head SHA
+- [x] skip unchanged merge requests cleanly and move to the next eligible MR
 
 Done when:
 
