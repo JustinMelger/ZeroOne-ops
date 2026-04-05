@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.9.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.8.0...ai-sonar-bot-v0.9.0) (2026-04-05)
+
+
+### Features
+
+* dashboard ui ([62e63fe](https://github.com/JustinMelger/ai-sonar-bot/commit/62e63fe0ef3c9b5f54b8f16a2b8cde775f84446f))
+* dashboard ui ([8717f9d](https://github.com/JustinMelger/ai-sonar-bot/commit/8717f9db5150436544bff441a02ba4c10b2a3eed))
+
+
+### Bug Fixes
+
+* package not updatedafter release ([4ff3d04](https://github.com/JustinMelger/ai-sonar-bot/commit/4ff3d04cab50da2492daf0e4b6993a7eba96ef64))
+* package not updatedafter release ([6faf93d](https://github.com/JustinMelger/ai-sonar-bot/commit/6faf93de349fde647dc237249ab658a87cdf65d5))
+
 ## [0.8.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.7.0...ai-sonar-bot-v0.8.0) (2026-04-05)
 
 
