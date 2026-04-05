@@ -300,9 +300,9 @@ Goal:
 
 Status:
 
-- [ ] add `ReviewContextBuilder`
-- [ ] load changed files and surrounding source context
-- [ ] cap changed-file count and per-file context size for v1
+- [x] add `ReviewContextBuilder`
+- [x] load changed files and surrounding source context
+- [x] cap changed-file count and per-file context size for v1
 
 Done when:
 
