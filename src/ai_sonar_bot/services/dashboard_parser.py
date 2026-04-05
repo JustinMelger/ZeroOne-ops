@@ -84,6 +84,20 @@ class DashboardParser:
         remaining = content
         for block in normalized_blocks:
             remaining = remaining.replace(block, "", 1)
-        if remaining.strip():
+        if not self._is_supported_summary_content(remaining):
             raise DashboardParseError("Dashboard section contained unsupported free-form content.")
         return parsed
+
+    def _is_supported_summary_content(self, content: str) -> bool:
+        """Return whether remaining section content is a supported summary table."""
+        stripped = content.strip()
+        if not stripped:
+            return True
+        lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+        if len(lines) < 2:
+            return False
+        if lines[0] != "| ID | Source | Type | File | Rule | Status | Priority |":
+            return False
+        if lines[1] != "|---|---|---|---|---|---|---|":
+            return False
+        return all(line.startswith("| ") and line.endswith(" |") for line in lines[2:])
