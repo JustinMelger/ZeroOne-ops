@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.5.0...ai-sonar-bot-v0.5.1) (2026-04-05)
+
+
+### Documentation
+
+* functional + techncial design review bot ([d3ddfa1](https://github.com/JustinMelger/ai-sonar-bot/commit/d3ddfa14d40ccc43c5b02d0eef36bd54208642d0))
+* functional + techncial design review bot ([53abf7e](https://github.com/JustinMelger/ai-sonar-bot/commit/53abf7e54fafb04826f442d7580d455ebad4c93f))
+* update roadmap for v1 review ([e34d31e](https://github.com/JustinMelger/ai-sonar-bot/commit/e34d31e33d53a5694f141e3aa1c16abaa9f8066e))
+
 ## [0.5.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.4.1...ai-sonar-bot-v0.5.0) (2026-04-04)
 
 
