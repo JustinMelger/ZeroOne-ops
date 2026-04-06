@@ -480,7 +480,7 @@ Status:
       tests
 - [ ] document recurring skip, reject, and failure patterns from live runs
 - [ ] review MR quality and false-positive/noise patterns for both workflows
-- [ ] improve review logs so MR selection, dedup skips, context size,
+- [x] improve review logs so MR selection, dedup skips, context size,
       classification, note publication, and dashboard mirroring are explicit in
       run output
 - [ ] tighten the review note templates so `no_findings` and findings summaries
