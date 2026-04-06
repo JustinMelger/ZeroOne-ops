@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.11.2](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.11.1...ai-sonar-bot-v0.11.2) (2026-04-06)
+
+
+### Bug Fixes
+
+* package version ([284dc50](https://github.com/JustinMelger/ai-sonar-bot/commit/284dc5080e425fcca37fe81c698d18874dee29ce))
+* src lint import ([7a7f181](https://github.com/JustinMelger/ai-sonar-bot/commit/7a7f1819dcf0e8b12b02523c8274d52c867a7b94))
+* type issue ([c38546b](https://github.com/JustinMelger/ai-sonar-bot/commit/c38546b752933fa4c0ca967db8a900692acc9e2e))
+
+
+### Documentation
+
+* update agent md ([27e8c0a](https://github.com/JustinMelger/ai-sonar-bot/commit/27e8c0a6e5b6790a333606ea4bf6528bc097df6e))
+
 ## [0.11.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.11.0...ai-sonar-bot-v0.11.1) (2026-04-06)
 
 
