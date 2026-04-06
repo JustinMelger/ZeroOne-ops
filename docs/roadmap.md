@@ -176,7 +176,7 @@ Goal:
 
 Done when:
 
-- [ ] the main execution path is covered by tests
+- [x] the main execution path is covered by tests
 - [x] CI enforces an agreed minimum coverage threshold
 - [x] failures are diagnosable from logs and state
 
@@ -248,8 +248,8 @@ Done when:
 This is the next active implementation track after the SonarQube remediation
 v1. It follows:
 
-- [functional-design-pr-review.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/functional-design-pr-review.md)
-- [technical-design-pr-review.md](/Users/justinmelger/Desktop/github/ai-sonar-bot/docs/technical-design-pr-review.md)
+- [functional-design-pr-review.md](docs/functional-design-pr-review.md)
+- [technical-design-pr-review.md](docs/technical-design-pr-review.md)
 
 ### Review Phase 1: Merge Request Intake
 
@@ -503,7 +503,7 @@ Status:
       workflows
 - [ ] add integration coverage for the most important CI-facing workflow paths
 - [ ] add dashboard parser and renderer regression coverage
-- [ ] extract workflow prompts into separate prompt files so Sonar and review
+- [x] extract workflow prompts into separate prompt files so Sonar and review
       prompt policy can be reviewed and evolved without growing provider code
 
 Done when:

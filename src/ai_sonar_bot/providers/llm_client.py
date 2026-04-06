@@ -28,6 +28,9 @@ class LLMClientError(RuntimeError):
     """Raised when LLM analysis or patch generation fails."""
 
 
+_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+
+
 class LLMClient:
     """Placeholder LLM client for the initial scaffold."""
 
@@ -410,24 +413,19 @@ def _build_analysis_prompt(issue: SonarIssue, context: IssueContext) -> str:
     Returns:
         Prompt text for structured issue analysis.
     """
-    return (
-        "Analyze the following SonarQube issue and return structured JSON.\n\n"
-        "This workflow only supports low-risk single-file fixes. Prefer a manual "
-        "classification when the change appears to need broader semantic context, "
-        "symbol-wide renaming, coordinated edits, or behavior changes.\n\n"
-        f"Issue key: {issue.key}\n"
-        f"Rule: {issue.rule}\n"
-        f"Severity: {issue.severity}\n"
-        f"Type: {issue.type}\n"
-        f"Message: {issue.message}\n"
-        f"File path: {context.file_path}\n"
-        f"Issue line: {context.line}\n"
-        f"Snippet start line: {context.snippet.start_line}\n"
-        f"Snippet end line: {context.snippet.end_line}\n"
-        f"Full file included: {context.full_file_included}\n"
-        f"Context truncated: {context.truncated}\n\n"
-        "Code snippet:\n"
-        f"{context.snippet.content}\n"
+    return _load_prompt_template("analyze_issue.txt").format(
+        issue_key=issue.key,
+        rule=issue.rule,
+        severity=issue.severity,
+        issue_type=issue.type,
+        message=issue.message,
+        file_path=context.file_path,
+        issue_line=context.line,
+        snippet_start_line=context.snippet.start_line,
+        snippet_end_line=context.snippet.end_line,
+        full_file_included=context.full_file_included,
+        context_truncated=context.truncated,
+        code_snippet=context.snippet.content,
     )
 
 
@@ -441,30 +439,17 @@ def _build_structured_edit_prompt(issue: SonarIssue, context: IssueContext) -> s
     Returns:
         Prompt text for structured edit generation.
     """
-    return (
-        "Generate a minimal exact text edit for the following SonarQube issue and return "
-        "structured JSON.\n\n"
-        "This v1 remediation workflow only accepts safe single-file edits. Do not "
-        "propose refactors, cross-file coordination, broad rewrites, or edits that "
-        "depend on symbol-wide rename reasoning.\n\n"
-        f"Issue key: {issue.key}\n"
-        f"Rule: {issue.rule}\n"
-        f"Severity: {issue.severity}\n"
-        f"Type: {issue.type}\n"
-        f"Message: {issue.message}\n"
-        f"File path: {context.file_path}\n"
-        f"Issue line: {context.line}\n"
-        f"Snippet start line: {context.snippet.start_line}\n"
-        f"Snippet end line: {context.snippet.end_line}\n\n"
-        "Requirements:\n"
-        "- Return exactly one edit for one repository-relative file.\n"
-        "- Use exact existing source text in `search_text`.\n"
-        "- Keep the change minimal and scoped to the issue.\n"
-        "- Use `line_hint` when the same text may appear more than once.\n"
-        "- Preserve existing behavior unless the issue explicitly requires a safe local fix.\n"
-        "- Do not return a unified diff.\n\n"
-        "Code snippet:\n"
-        f"{context.snippet.content}\n"
+    return _load_prompt_template("generate_structured_edit.txt").format(
+        issue_key=issue.key,
+        rule=issue.rule,
+        severity=issue.severity,
+        issue_type=issue.type,
+        message=issue.message,
+        file_path=context.file_path,
+        issue_line=context.line,
+        snippet_start_line=context.snippet.start_line,
+        snippet_end_line=context.snippet.end_line,
+        code_snippet=context.snippet.content,
     )
 
 
@@ -479,19 +464,21 @@ def _build_review_prompt(context: MergeRequestReviewContext) -> str:
         )
         for changed_file in context.changed_files
     )
-    return (
-        "Review the merge request and return structured JSON only.\n\n"
-        "Focus on bugs, regressions, missing validation, and unsafe assumptions.\n"
-        "Prefer `no_findings` over speculative or stylistic comments. Only report "
-        "findings that are grounded in the changed code and likely matter to a reviewer.\n"
-        "Return classification `no_findings` when nothing actionable stands out.\n"
-        "Return classification `manual_review_only` when the provided context is insufficient.\n\n"
-        f"Merge request IID: {context.mr_iid}\n"
-        f"Title: {context.title}\n"
-        f"Description: {context.description or '(none)'}\n"
-        f"Source branch: {context.source_branch}\n"
-        f"Target branch: {context.target_branch}\n"
-        f"Head SHA: {context.head_sha}\n\n"
-        "Changed files:\n"
-        f"{changed_files}\n"
+    return _load_prompt_template("review_merge_request.txt").format(
+        mr_iid=context.mr_iid,
+        title=context.title,
+        description=context.description or "(none)",
+        source_branch=context.source_branch,
+        target_branch=context.target_branch,
+        head_sha=context.head_sha,
+        changed_files=changed_files,
     )
+
+
+def _load_prompt_template(name: str) -> str:
+    """Load a prompt template from the prompts directory."""
+    path = _PROMPTS_DIR / name
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise LLMClientError(f"Prompt template file could not be read: {path}") from error

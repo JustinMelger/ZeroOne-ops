@@ -1,0 +1,24 @@
+Generate a minimal exact text edit for the following SonarQube issue and return structured JSON.
+
+This v1 remediation workflow only accepts safe single-file edits. Do not propose refactors, cross-file coordination, broad rewrites, or edits that depend on symbol-wide rename reasoning.
+
+Issue key: {issue_key}
+Rule: {rule}
+Severity: {severity}
+Type: {issue_type}
+Message: {message}
+File path: {file_path}
+Issue line: {issue_line}
+Snippet start line: {snippet_start_line}
+Snippet end line: {snippet_end_line}
+
+Requirements:
+- Return exactly one edit for one repository-relative file.
+- Use exact existing source text in `search_text`.
+- Keep the change minimal and scoped to the issue.
+- Use `line_hint` when the same text may appear more than once.
+- Preserve existing behavior unless the issue explicitly requires a safe local fix.
+- Do not return a unified diff.
+
+Code snippet:
+{code_snippet}

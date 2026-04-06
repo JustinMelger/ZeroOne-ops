@@ -1,7 +1,12 @@
 from pathlib import Path
 
-from ai_sonar_bot.models.review import ReviewResult
+from ai_sonar_bot.models.analysis import CodeContextSnippet, IssueContext
+from ai_sonar_bot.models.review import MergeRequestReviewContext, ReviewFileContext, ReviewResult
+from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.providers.llm_client import (
+    _build_analysis_prompt,
+    _build_review_prompt,
+    _build_structured_edit_prompt,
     load_analysis_fixture,
     load_review_fixture,
     load_structured_edit_fixture,
@@ -86,3 +91,98 @@ def test_load_review_fixture_returns_review_result(tmp_path: Path) -> None:
     assert isinstance(review, ReviewResult)
     assert review.classification == "findings_present"
     assert review.findings[0].file_path == "src/service.py"
+
+
+def test_build_analysis_prompt_uses_prompt_template() -> None:
+    issue = SonarIssue(
+        key="AX1",
+        rule="python:S100",
+        severity="MAJOR",
+        type="CODE_SMELL",
+        status="OPEN",
+        message="Rename this function.",
+        component="project:src/service.py",
+        project="project",
+        file_path="src/service.py",
+    )
+    context = IssueContext(
+        issue_key="AX1",
+        file_path="src/service.py",
+        line=8,
+        file_size_bytes=128,
+        snippet=CodeContextSnippet(
+            start_line=4,
+            end_line=12,
+            content="def bad_name():\n    return 1\n",
+        ),
+        full_file_included=False,
+        truncated=True,
+    )
+
+    prompt = _build_analysis_prompt(issue, context)
+
+    assert "Issue key: AX1" in prompt
+    assert "This workflow only supports low-risk single-file fixes." in prompt
+    assert "Code snippet:\ndef bad_name():\n    return 1\n" in prompt
+
+
+def test_build_structured_edit_prompt_uses_prompt_template() -> None:
+    issue = SonarIssue(
+        key="AX1",
+        rule="python:S100",
+        severity="MAJOR",
+        type="CODE_SMELL",
+        status="OPEN",
+        message="Rename this function.",
+        component="project:src/service.py",
+        project="project",
+        file_path="src/service.py",
+    )
+    context = IssueContext(
+        issue_key="AX1",
+        file_path="src/service.py",
+        line=8,
+        file_size_bytes=128,
+        snippet=CodeContextSnippet(
+            start_line=4,
+            end_line=12,
+            content="def bad_name():\n    return 1\n",
+        ),
+        full_file_included=False,
+        truncated=False,
+    )
+
+    prompt = _build_structured_edit_prompt(issue, context)
+
+    assert "Generate a minimal exact text edit" in prompt
+    assert "Return exactly one edit for one repository-relative file." in prompt
+    assert "File path: src/service.py" in prompt
+
+
+def test_build_review_prompt_uses_prompt_template() -> None:
+    context = MergeRequestReviewContext(
+        mr_iid=17,
+        title="feat: add safety check",
+        description="Adds validation.",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                diff="@@ -1 +1 @@\n-value = 1\n+value = 2",
+                content="value = 2\n",
+                start_line=1,
+                end_line=1,
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+    prompt = _build_review_prompt(context)
+
+    assert "Review the merge request and return structured JSON only." in prompt
+    assert "Merge request IID: 17" in prompt
+    assert "File: src/service.py" in prompt
