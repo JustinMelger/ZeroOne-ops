@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.11.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.11.0...ai-sonar-bot-v0.11.1) (2026-04-06)
+
+
+### Bug Fixes
+
+* add completed items under correct header ([b681a33](https://github.com/JustinMelger/ai-sonar-bot/commit/b681a330611eeaf3f51a32acbef0fd3b1823116b))
+
+
+### Documentation
+
+* design dashboard based remedation bot ([9ef8a86](https://github.com/JustinMelger/ai-sonar-bot/commit/9ef8a8683920896026488c5542d09b57c9eacca4))
+* design dashboard based remedation bot ([da0299c](https://github.com/JustinMelger/ai-sonar-bot/commit/da0299c6a44a93735bc6eedc643643fbe9c296b2))
+
 ## [0.11.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.10.0...ai-sonar-bot-v0.11.0) (2026-04-06)
 
 
