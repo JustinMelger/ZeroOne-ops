@@ -38,6 +38,7 @@ def test_parse_round_trips_rendered_dashboard_body() -> None:
                 title="Merge Requests Opened",
                 items=[],
             ),
+            DashboardSection(key="completed", title="Completed", items=[]),
             DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
             DashboardSection(
                 key="rejected_or_ignored",
@@ -77,6 +78,7 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
                 title="Merge Requests Opened",
                 items=[],
             ),
+            DashboardSection(key="completed", title="Completed", items=[]),
             DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
             DashboardSection(
                 key="rejected_or_ignored",
@@ -110,6 +112,10 @@ unexpected free-form text
 No items.
 
 ## Merge Requests Opened
+
+No items.
+
+## Completed
 
 No items.
 
