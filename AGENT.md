@@ -18,7 +18,9 @@ Current workflow behavior and future direction are documented in:
 - [docs/functional-design-pr-review.md](docs/functional-design-pr-review.md)
 - [docs/technical-design-pr-review.md](docs/technical-design-pr-review.md)
 - [docs/functional-design-dashboard.md](docs/functional-design-dashboard.md)
+- [docs/functional-design-dashboard-remediation.md](docs/functional-design-dashboard-remediation.md)
 - [docs/technical-design-dashboard.md](docs/technical-design-dashboard.md)
+- [docs/technical-design-dashboard-remediation.md](docs/technical-design-dashboard-remediation.md)
 - [future_plans.md](future_plans.md)
 
 ## Repository Intent
