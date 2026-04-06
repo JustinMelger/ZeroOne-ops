@@ -7,6 +7,7 @@ an LLM provider.
 from __future__ import annotations
 
 import json
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -26,9 +27,6 @@ from ai_sonar_bot.utils.files import ensure_parent
 
 class LLMClientError(RuntimeError):
     """Raised when LLM analysis or patch generation fails."""
-
-
-_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
 
 class LLMClient:
@@ -477,8 +475,7 @@ def _build_review_prompt(context: MergeRequestReviewContext) -> str:
 
 def _load_prompt_template(name: str) -> str:
     """Load a prompt template from the prompts directory."""
-    path = _PROMPTS_DIR / name
     try:
-        return path.read_text(encoding="utf-8")
+        return resources.files("ai_sonar_bot").joinpath("prompts", name).read_text(encoding="utf-8")
     except OSError as error:
-        raise LLMClientError(f"Prompt template file could not be read: {path}") from error
+        raise LLMClientError(f"Prompt template file could not be read: {name}") from error

@@ -36,6 +36,14 @@ packages = ["src/ai_sonar_bot"]
 [tool.hatch.build.targets.wheel.package-data]
 "ai_sonar_bot" = ["prompts/*.txt", "py.typed"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/ai_sonar_bot/**/*.py",
+  "src/ai_sonar_bot/prompts/*.txt",
+  "src/ai_sonar_bot/py.typed",
+  "README.md",
+]
+
 [tool.uv]
 default-groups = ["dev"]
 
