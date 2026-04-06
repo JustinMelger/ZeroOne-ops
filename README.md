@@ -79,6 +79,7 @@ uv run ai-sonar-bot
 uv run ai-sonar-bot --dry-run
 uv run ai-sonar-bot review --dry-run
 uv run pytest
+PYTHONPATH=src uv run lint-imports
 uv run mypy src
 uv run ruff check .
 uv run ruff format --check .
@@ -182,11 +183,11 @@ An example GitLab pipeline is provided in [.gitlab-ci.example.yml](.gitlab-ci.ex
 The example now includes three jobs:
 
 - `ai_sonar_bot`
-  - Sonar remediation on the default branch
+  - the main Sonar remediation workflow on the default branch
 - `ai_sonar_bot_dashboard`
-  - Sonar discovery sync into the dashboard on the default branch
+  - discovery-only Sonar dashboard sync on the default branch
 - `ai_sonar_bot_review`
-  - merge request review available as a manual job on `merge_request_event` pipelines or via `RUN_AI_SONAR_BOT_REVIEW=true`
+  - the merge request review workflow, available as a manual job on `merge_request_event` pipelines or via `RUN_AI_SONAR_BOT_REVIEW=true`
 
 The example overrides the container `entrypoint` to `[""]`. This is required in
 GitLab CI because the published image uses `ai-sonar-bot` as its Docker
@@ -197,9 +198,9 @@ Recommended GitLab CI setup:
 
 - keep the bot job restricted to the default branch
 - keep dashboard sync as a separate job from Sonar remediation
-- trigger it from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT=true`
+- trigger `ai_sonar_bot` from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT=true`
 - trigger dashboard sync from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT_DASHBOARD=true`
-- trigger the review job from merge request pipelines, or manually with `RUN_AI_SONAR_BOT_REVIEW=true`
+- trigger `ai_sonar_bot_review` from merge request pipelines, or manually with `RUN_AI_SONAR_BOT_REVIEW=true`
 - store `SONARQUBE_TOKEN`, `GITLAB_TOKEN`, and `OPENAI_API_KEY` as protected CI variables
 - use a token that is allowed to push branches and create merge requests
 - keep `GIT_DEPTH=0` so branch and push behavior is predictable
@@ -210,6 +211,13 @@ Recommended GitLab CI setup:
 - set `review.publish_no_findings_note` to `false` if you want lower cost and less MR noise
 
 The Sonar remediation job in the example uses a `resource_group` so two mutation jobs do not try to change the same repository checkout at once. The dashboard sync job stays separate because it is discovery, not remediation. The review job is read-mostly and publishes only merge request notes, so it uses a separate `resource_group`.
+
+Recommended first rollout order:
+
+- run `ai_sonar_bot` manually once on the default branch
+- rerun `ai_sonar_bot` once immediately and confirm duplicate-MR handling is clean
+- run `ai_sonar_bot_review` manually on one small merge request pipeline
+- enable schedules only after both manual smoke runs behave as expected
 
 ## Execution Modes
 

@@ -499,7 +499,7 @@ Goal:
 
 Status:
 
-- [ ] tighten GitLab CI examples and smoke-test guidance around the two current
+- [x] tighten GitLab CI examples and smoke-test guidance around the two current
       workflows
 - [x] add integration coverage for the most important CI-facing workflow paths
 - [x] add dashboard parser and renderer regression coverage
