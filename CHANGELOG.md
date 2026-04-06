@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.11.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.10.0...ai-sonar-bot-v0.11.0) (2026-04-06)
+
+
+### Features
+
+* improve logging reviews ([5e286da](https://github.com/JustinMelger/ai-sonar-bot/commit/5e286da191a417e20775d6268e37817507a0f77c))
+
+
+### Bug Fixes
+
+* rm stale entries from dashboard when no longer in sq ([eaabea0](https://github.com/JustinMelger/ai-sonar-bot/commit/eaabea009b5579ea82941ba151f6d0fe6bed1334))
+
+
+### Documentation
+
+* add format ([e869a1a](https://github.com/JustinMelger/ai-sonar-bot/commit/e869a1a811bdaa1853e2a4bd544c6f01cbe133f0))
+
 ## [0.10.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.9.0...ai-sonar-bot-v0.10.0) (2026-04-05)
 
 
