@@ -20,6 +20,7 @@ DashboardSectionKey = Literal[
     "open_candidates",
     "in_progress",
     "merge_requests_opened",
+    "completed",
     "merge_request_reviews",
     "rejected_or_ignored",
     "recent_failures",
@@ -30,6 +31,7 @@ SECTION_TITLES: dict[DashboardSectionKey, str] = {
     "open_candidates": "Open Candidates",
     "in_progress": "In Progress",
     "merge_requests_opened": "Merge Requests Opened",
+    "completed": "Completed",
     "merge_request_reviews": "Merge Request Reviews",
     "rejected_or_ignored": "Rejected Or Ignored",
     "recent_failures": "Recent Failures",
@@ -39,6 +41,7 @@ SECTION_ORDER: tuple[DashboardSectionKey, ...] = (
     "open_candidates",
     "in_progress",
     "merge_requests_opened",
+    "completed",
     "merge_request_reviews",
     "rejected_or_ignored",
     "recent_failures",
@@ -107,6 +110,8 @@ def section_key_for_item(item: DashboardItem) -> DashboardSectionKey:
         return "in_progress"
     if item.status == "mr_opened":
         return "merge_requests_opened"
+    if item.status == "done":
+        return "completed"
     if item.status in {"rejected", "ignored"}:
         return "rejected_or_ignored"
     return "recent_failures"
