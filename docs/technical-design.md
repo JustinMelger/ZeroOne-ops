@@ -86,8 +86,9 @@ ai-sonar-bot/
       run_state_service.py
       state_store.py
     prompts/
-      fix_issue.txt
-      summarize_mr.txt
+      analyze_issue.txt
+      generate_structured_edit.txt
+      review_merge_request.txt
     utils/
       __init__.py
       git.py

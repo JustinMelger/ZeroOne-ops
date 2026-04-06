@@ -18,6 +18,9 @@ stages:
     # GITLAB_TOKEN
     # OPENAI_API_KEY
 
+# Main remediation workflow.
+# Trigger this from a schedule on the default branch, then use the manual rule
+# for the first smoke test and immediate rerun checks.
 ai_sonar_bot:
   extends: .ai_sonar_bot_base
   stage: ai-fix
@@ -47,6 +50,9 @@ ai_sonar_bot:
   script:
     - uv run --project /opt/ai-sonar-bot ai-sonar-bot
 
+# Discovery-only dashboard sync.
+# Keep this separate from remediation so operators can validate dashboard state
+# without also mutating the repository.
 ai_sonar_bot_dashboard:
   extends: .ai_sonar_bot_base
   stage: ai-fix
@@ -66,6 +72,9 @@ ai_sonar_bot_dashboard:
   script:
     - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard sonar
 
+# Merge request review workflow.
+# Prefer the merge_request_event manual trigger for the first smoke test so the
+# bot reviews only the current merge request through CI_MERGE_REQUEST_IID.
 ai_sonar_bot_review:
   extends: .ai_sonar_bot_base
   stage: ai-review

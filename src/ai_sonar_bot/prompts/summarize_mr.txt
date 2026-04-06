@@ -1,1 +1,0 @@
-Summarize the change for a GitLab merge request body.

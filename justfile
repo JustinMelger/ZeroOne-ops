@@ -8,7 +8,7 @@ lint:
     uv run ruff format --check .
 
 architecture:
-    uv run lint-imports
+    PYTHONPATH=src uv run lint-imports
 
 typecheck:
     uv run mypy src

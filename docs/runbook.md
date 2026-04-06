@@ -146,6 +146,15 @@ The merge request should contain:
 
 Use the example pipeline from [.gitlab-ci.example.yml](../.gitlab-ci.example.yml).
 
+Current job roles:
+
+- `ai_sonar_bot`
+  - the main repository-mutating Sonar remediation workflow
+- `ai_sonar_bot_dashboard`
+  - discovery-only dashboard sync for eligible Sonar findings
+- `ai_sonar_bot_review`
+  - merge request review note publication with no code changes
+
 Recommended settings:
 
 - run only on the default branch
@@ -167,6 +176,13 @@ For a lower-cost review setup:
 - set `review.max_changed_files` conservatively, for example `5`
 - keep `review.skip_draft_merge_requests` enabled
 - set `review.publish_no_findings_note` to `false` if you want less MR noise and lower cost
+
+Recommended first rollout order:
+
+1. manually run `ai_sonar_bot` once on the default branch
+2. rerun `ai_sonar_bot` once immediately to confirm duplicate-MR handling
+3. manually run `ai_sonar_bot_review` on one small merge request pipeline
+4. enable schedules only after both workflows behave as expected
 
 ## Common Outcomes
 
@@ -511,6 +527,32 @@ Do not move to unattended review runs yet if you see:
 - review notes that are malformed or inconsistent in shape
 - review runs failing to read merge request changes reliably
 - comments being published when the run should have been a dry-run
+
+## Dashboard Discovery Smoke Check
+
+Use this quick check after the remediation workflow is already healthy.
+
+### Preconditions
+
+Make sure the target repository has:
+
+- the `ai_sonar_bot_dashboard` job from the example pipeline
+- the same SonarQube and GitLab CI variables used by remediation
+- at least one eligible SonarQube finding that should appear in the dashboard
+
+### Steps
+
+1. trigger `ai_sonar_bot_dashboard` manually on the default branch
+2. watch the logs for the eligible issue count and dashboard sync summary
+3. open the dashboard issue in GitLab
+4. confirm the synced Sonar item appears once in the expected section
+5. rerun the dashboard job once and confirm the same item is updated instead of duplicated
+
+### Expected Healthy Outcome
+
+- one persistent dashboard issue exists or is reused
+- eligible Sonar items appear in structured sections
+- an immediate rerun updates existing dashboard items instead of duplicating them
 
 ## Pre-Release Checklist
 

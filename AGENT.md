@@ -79,15 +79,34 @@ Do not introduce imports that violate those boundaries.
 - Use integration tests for runner and provider wiring.
 - Add regression coverage for bug fixes when practical.
 
-## Before Finishing
+## Review Expectations
 
-Run the relevant checks for code changes:
+When reviewing changes in this repository:
+
+- check that layering rules are still respected
+- check that new logic is placed in the right model, provider, service, runner,
+  or CLI layer
+- check that tests cover behavior changes and regressions
+- check that the required verification commands were run
+- check that workflow, CI, or operator-facing behavior changes update the
+  relevant docs
+- prefer findings tied to repository rules and behavioral risk over generic
+  style commentary
+
+## Required Verification
+
+After every repository change, run the required checks before considering the
+task complete:
 
 ```bash
 uv run ruff check .
+just architecture
 uv run mypy src
 uv run pytest
 ```
+
+Do not treat the task as complete until these checks pass, or you have
+explicitly reported which check could not be run and why.
 
 If you are changing workflow docs or CI behavior, also update the relevant
 documentation:

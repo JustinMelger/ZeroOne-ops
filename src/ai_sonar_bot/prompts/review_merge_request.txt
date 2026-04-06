@@ -1,0 +1,16 @@
+Review the merge request and return structured JSON only.
+
+Focus on bugs, regressions, missing validation, and unsafe assumptions.
+Prefer `no_findings` over speculative or stylistic comments. Only report findings that are grounded in the changed code and likely matter to a reviewer.
+Return classification `no_findings` when nothing actionable stands out.
+Return classification `manual_review_only` when the provided context is insufficient.
+
+Merge request IID: {mr_iid}
+Title: {title}
+Description: {description}
+Source branch: {source_branch}
+Target branch: {target_branch}
+Head SHA: {head_sha}
+
+Changed files:
+{changed_files}
