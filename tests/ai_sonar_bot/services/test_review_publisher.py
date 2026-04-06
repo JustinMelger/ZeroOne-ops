@@ -71,9 +71,11 @@ def test_render_note_formats_findings_present() -> None:
     )
 
     assert "## AI Review Summary" in body
-    assert "Summary: One medium-risk finding." in body
+    assert "One medium-risk finding." in body
     assert "1. [medium] Missing test coverage (`src/service.py`)" in body
+    assert "- Reviewed merge request: `!17`" in body
     assert "- Reviewed commit SHA: `abc123`" in body
+    assert "- Files reviewed: 1" in body
 
 
 def test_render_note_formats_no_findings() -> None:
@@ -88,8 +90,10 @@ def test_render_note_formats_no_findings() -> None:
         ),
     )
 
-    assert "No findings in this pass for commit `abc123`." in body
-    assert "Summary:" not in body
+    assert "No actionable findings in this review pass." in body
+    assert "- Reviewed merge request: `!17`" in body
+    assert "- Files reviewed: 1" in body
+    assert "Notes:" not in body
 
 
 def test_publish_sends_rendered_note_body() -> None:

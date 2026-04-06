@@ -483,7 +483,7 @@ Status:
 - [x] improve review logs so MR selection, dedup skips, context size,
       classification, note publication, and dashboard mirroring are explicit in
       run output
-- [ ] tighten the review note templates so `no_findings` and findings summaries
+- [x] tighten the review note templates so `no_findings` and findings summaries
       stay concise, readable, and low-noise in real merge requests
 - [ ] add a bounded dashboard retention rule so the main issue keeps only a
       maximum active/recent item window instead of growing without limit

@@ -62,11 +62,12 @@ class ReviewPublisher:
                 [
                     "## AI Review Summary",
                     "",
-                    f"No findings in this pass for commit `{context.head_sha}`.",
+                    "No actionable findings in this review pass.",
                     "",
-                    "Notes:",
-                    "- AI-assisted review pass",
+                    "Scope:",
+                    f"- Reviewed merge request: `!{context.mr_iid}`",
                     f"- Reviewed commit SHA: `{context.head_sha}`",
+                    f"- Files reviewed: {len(context.changed_files)}",
                 ]
             )
 
@@ -84,12 +85,13 @@ class ReviewPublisher:
             [
                 "## AI Review Summary",
                 "",
-                f"Summary: {review_result.summary}",
+                review_result.summary,
                 "",
                 *finding_lines,
                 "",
-                "Notes:",
-                "- AI-assisted review pass",
+                "Scope:",
+                f"- Reviewed merge request: `!{context.mr_iid}`",
                 f"- Reviewed commit SHA: `{context.head_sha}`",
+                f"- Files reviewed: {len(context.changed_files)}",
             ]
         )
