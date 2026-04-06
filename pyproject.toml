@@ -33,8 +33,8 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/ai_sonar_bot"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/ai_sonar_bot/prompts" = "ai_sonar_bot/prompts"
+[tool.hatch.build.targets.wheel.package-data]
+"ai_sonar_bot" = ["prompts/*.txt", "py.typed"]
 
 [tool.uv]
 default-groups = ["dev"]

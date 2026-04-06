@@ -79,7 +79,6 @@ uv run ai-sonar-bot
 uv run ai-sonar-bot --dry-run
 uv run ai-sonar-bot review --dry-run
 uv run pytest
-uv run lint-imports
 uv run mypy src
 uv run ruff check .
 uv run ruff format --check .
