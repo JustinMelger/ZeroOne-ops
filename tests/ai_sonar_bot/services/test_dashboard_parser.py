@@ -144,3 +144,260 @@ No items.
         assert "parseable item blocks" in str(error)
     else:
         raise AssertionError("Expected DashboardParseError for unsupported free-form content.")
+
+
+def test_parse_accepts_summary_table_followed_by_multiple_item_blocks() -> None:
+    parser = DashboardParser()
+    body = """# AI Code Ops Dashboard
+
+## Open Candidates
+
+| ID | Source | Type | File | Rule | Status | Priority |
+|---|---|---|---|---|---|---|
+| `sonar:1` | sonarqube | code_smell_fix | `src/service.py` | `python:S1125` | `open` | `low` |
+| `sonar:2` | sonarqube | code_smell_fix | `src/other.py` | `python:S1481` | `open` | `medium` |
+
+<details>
+<summary><code>sonar:1</code> details</summary>
+
+```json
+{
+  "id": "sonar:1",
+  "source": "sonarqube",
+  "type": "code_smell_fix",
+  "status": "open",
+  "title": "Simplify boolean comparison",
+  "summary": "Replace explicit boolean equality with direct truthiness.",
+  "priority": "low",
+  "source_reference": "issue-1",
+  "file": "src/service.py",
+  "line": 42,
+  "rule": "python:S1125",
+  "severity": "LOW"
+}
+```
+
+</details>
+
+<details>
+<summary><code>sonar:2</code> details</summary>
+
+```json
+{
+  "id": "sonar:2",
+  "source": "sonarqube",
+  "type": "code_smell_fix",
+  "status": "open",
+  "title": "Remove unused variable",
+  "summary": "Delete the unused local variable.",
+  "priority": "medium",
+  "source_reference": "issue-2",
+  "file": "src/other.py",
+  "line": 9,
+  "rule": "python:S1481",
+  "severity": "MEDIUM"
+}
+```
+
+</details>
+
+## In Progress
+
+No items.
+
+## Merge Requests Opened
+
+No items.
+
+## Completed
+
+No items.
+
+## Merge Request Reviews
+
+No items.
+
+## Rejected Or Ignored
+
+No items.
+
+## Recent Failures
+
+No items.
+"""
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Dashboard",
+        body=body,
+    )
+
+    assert [item.id for item in document.sections[0].items] == ["sonar:1", "sonar:2"]
+
+
+def test_parse_rejects_item_heading_id_mismatch() -> None:
+    parser = DashboardParser()
+    body = """# AI Code Ops Dashboard
+
+## Open Candidates
+
+<details>
+<summary><code>sonar:1</code> details</summary>
+
+```json
+{
+  "id": "sonar:2",
+  "source": "sonarqube",
+  "type": "code_smell_fix",
+  "status": "open",
+  "title": "Simplify boolean comparison",
+  "summary": "Replace explicit boolean equality with direct truthiness.",
+  "priority": "low",
+  "source_reference": "issue-1"
+}
+```
+
+</details>
+
+## In Progress
+
+No items.
+
+## Merge Requests Opened
+
+No items.
+
+## Completed
+
+No items.
+
+## Merge Request Reviews
+
+No items.
+
+## Rejected Or Ignored
+
+No items.
+
+## Recent Failures
+
+No items.
+"""
+
+    try:
+        parser.parse(
+            issue_id=10,
+            issue_iid=11,
+            issue_url="https://gitlab.example.com/group/project/-/issues/11",
+            title="AI Code Ops Dashboard",
+            body=body,
+        )
+    except DashboardParseError as error:
+        assert "heading ID did not match" in str(error)
+    else:
+        raise AssertionError("Expected DashboardParseError for mismatched item IDs.")
+
+
+def test_parse_rejects_unsupported_summary_table_shape() -> None:
+    parser = DashboardParser()
+    body = """# AI Code Ops Dashboard
+
+## Open Candidates
+
+| ID | Source | Type | File | Rule | Status |
+|---|---|---|---|---|---|
+| `sonar:1` | sonarqube | code_smell_fix | `src/service.py` | `python:S1125` | `open` |
+
+<details>
+<summary><code>sonar:1</code> details</summary>
+
+```json
+{
+  "id": "sonar:1",
+  "source": "sonarqube",
+  "type": "code_smell_fix",
+  "status": "open",
+  "title": "Simplify boolean comparison",
+  "summary": "Replace explicit boolean equality with direct truthiness.",
+  "priority": "low",
+  "source_reference": "issue-1"
+}
+```
+
+</details>
+
+## In Progress
+
+No items.
+
+## Merge Requests Opened
+
+No items.
+
+## Completed
+
+No items.
+
+## Merge Request Reviews
+
+No items.
+
+## Rejected Or Ignored
+
+No items.
+
+## Recent Failures
+
+No items.
+"""
+
+    try:
+        parser.parse(
+            issue_id=10,
+            issue_iid=11,
+            issue_url="https://gitlab.example.com/group/project/-/issues/11",
+            title="AI Code Ops Dashboard",
+            body=body,
+        )
+    except DashboardParseError as error:
+        assert "unsupported free-form content" in str(error)
+    else:
+        raise AssertionError("Expected DashboardParseError for malformed summary table.")
+
+
+def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:
+    renderer = DashboardRenderer()
+    item = DashboardItem(
+        id="mr-review:42:abc123",
+        source="pull_request_review",
+        type="review_status",
+        status="done",
+        title="Review complete",
+        summary="No findings.",
+        priority="low",
+        source_reference="mr-42",
+        review_status="no_findings",
+        reviewed_head_sha="abc123",
+    )
+
+    body = renderer.render(
+        title="AI Code Ops Dashboard",
+        sections=[
+            DashboardSection(
+                key="merge_request_reviews",
+                title="Merge Request Reviews",
+                items=[item],
+            )
+        ],
+    )
+
+    expected_row = (
+        "| `mr-review:42:abc123` | pull_request_review | review_status | "
+        "`-` | `-` | `done` | `low` |"
+    )
+    assert expected_row in body
+    assert '"review_status": "no_findings"' in body
+    assert '"file":' not in body
+    assert '"rule":' not in body

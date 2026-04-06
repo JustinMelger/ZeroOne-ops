@@ -502,7 +502,7 @@ Status:
 - [ ] tighten GitLab CI examples and smoke-test guidance around the two current
       workflows
 - [ ] add integration coverage for the most important CI-facing workflow paths
-- [ ] add dashboard parser and renderer regression coverage
+- [x] add dashboard parser and renderer regression coverage
 - [x] extract workflow prompts into separate prompt files so Sonar and review
       prompt policy can be reviewed and evolved without growing provider code
 
