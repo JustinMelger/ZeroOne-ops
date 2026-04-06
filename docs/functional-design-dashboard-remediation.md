@@ -216,6 +216,21 @@ Recommended lifecycle transitions:
 
 The workflow should preserve stable item IDs across transitions.
 
+## 12.1 Stale In-Progress Recovery
+
+The first implementation should define what happens when a run marks an item
+`in_progress` and then does not finish cleanly because the job is canceled, the
+runner crashes, or the process loses network access mid-flight.
+
+At minimum, operators should be able to tell:
+
+- whether the item is still actively being processed,
+- whether the item should be moved back to `open`,
+- whether the item should be left `in_progress` for manual follow-up.
+
+The workflow should prefer explicit recovery rules over leaving stale
+`in_progress` items ambiguous forever.
+
 ## 13. Human Interaction Model
 
 Humans should be able to:
@@ -241,6 +256,15 @@ Dashboard-backed remediation should be introduced gradually:
 This avoids forcing the core remediation path to depend on the dashboard before
 its state transitions and retention rules are mature enough.
 
+During migration, the platform should also define which path owns a given item.
+
+The migration model should make it clear:
+
+- when direct Sonar remediation is allowed to work on an issue,
+- when dashboard-backed remediation is allowed to work on the corresponding
+  dashboard item,
+- how duplicate work is prevented while both paths remain available.
+
 ## 15. Success Criteria
 
 The dashboard-backed remediation workflow is successful when:
@@ -252,3 +276,33 @@ The dashboard-backed remediation workflow is successful when:
 - dashboard status updates remain accurate and understandable,
 - unsupported or unsafe items are skipped cleanly instead of being forced
   through remediation.
+
+## 16. Dashboard Contract Growth
+
+The first item contract is intentionally narrow, but the platform direction now
+includes future producers beyond SonarQube.
+
+To keep the dashboard viable as a shared work queue, the contract should remain
+clear about:
+
+- which fields are universally required for every remediation-ready item,
+- which fields are source-specific extensions,
+- how new producers can add structured metadata without weakening the strict
+  machine-managed format.
+
+This avoids turning one flat item model into an overloaded bucket of optional
+fields as more workflow types are added.
+
+## 17. Traceability Expectations
+
+Operators should be able to correlate one remediation attempt across:
+
+- dashboard item ID,
+- run summary,
+- branch name,
+- commit SHA,
+- merge request URL.
+
+Those traceability fields should remain stable across normal success, failure,
+and retry paths so the dashboard can act as a real operational control plane
+rather than only a backlog view.

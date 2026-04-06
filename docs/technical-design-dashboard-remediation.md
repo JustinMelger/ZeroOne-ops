@@ -91,6 +91,9 @@ Dashboard-backed remediation should run as a synchronous pipeline:
    - `failed` on execution failure.
 10. Return a run summary.
 
+The runtime path should also define how it behaves when a previously selected
+item is still marked `in_progress` from an interrupted earlier run.
+
 ### 5.2 Execution Diagram
 
 ```mermaid
@@ -302,6 +305,10 @@ Before selecting an item, the workflow should check:
 
 Stable dashboard item IDs should be the primary dedup key.
 
+During migration, selection should also respect path ownership rules so direct
+Sonar remediation and dashboard-backed remediation do not both act on the same
+underlying issue at the same time.
+
 ## 9. Lifecycle Updates
 
 ### 9.1 Before Execution
@@ -334,6 +341,18 @@ When policy or local approval rejects remediation:
 Status transitions should be explicit and deterministic. A later maintenance
 service can prune or archive older resolved items.
 
+### 9.5 Stale In-Progress Handling
+
+The implementation should define how stale `in_progress` items are detected and
+recovered.
+
+The first version does not need a distributed lease system, but it should still
+have one clear rule for whether a stale item:
+
+- stays `in_progress`,
+- moves back to `open`,
+- or requires explicit operator intervention.
+
 ## 10. Migration Strategy
 
 The migration should be staged:
@@ -346,6 +365,10 @@ The migration should be staged:
 
 This avoids turning the dashboard into a hard dependency before the lifecycle
 and retention behavior are proven in practice.
+
+The migration path should also define one ownership rule for overlapping work so
+the platform knows whether the direct Sonar path or the dashboard-backed path
+is authoritative for a given issue during rollout.
 
 ## 11. Testing Strategy
 
@@ -368,6 +391,9 @@ Add runner-level coverage for:
 - successful remediation moves item to `mr_opened`
 - failed remediation moves item to `failed`
 - rejected remediation moves item to `rejected`
+- stale `in_progress` handling follows the documented recovery rule
+- migration-mode dedup prevents duplicate work across direct Sonar and
+  dashboard-backed remediation
 
 ### 11.3 Regression Tests
 
@@ -385,3 +411,43 @@ regression tests just like the existing Sonar and review workflows.
 
 The implementation should prefer explicit rejection and good summaries over
 best-effort guessing.
+
+## 13. Dashboard Write Coordination
+
+The dashboard issue is a shared remote control plane, so the implementation
+should define how read-modify-write conflicts are handled when multiple jobs or
+producers touch it close together.
+
+The first version can stay simple, but it should make retry behavior explicit
+for:
+
+- loading stale dashboard content,
+- applying lifecycle updates after another writer has already changed the issue,
+- deciding when to fail safely instead of repeatedly overwriting unexpected
+  remote state.
+
+## 14. Traceability Contract
+
+The implementation should keep these identifiers available across logs,
+summaries, and dashboard lifecycle updates:
+
+- dashboard item ID,
+- run ID,
+- branch name when created,
+- commit SHA when created,
+- merge request URL when available.
+
+This should be treated as part of the execution contract, not only as a logging
+nice-to-have, because operator workflows will depend on correlating those
+surfaces reliably.
+
+## 15. Contract Extensibility
+
+As additional producers are added later, the dashboard remediation contract
+should distinguish between:
+
+- universal remediation fields required for every selectable work item,
+- source-specific metadata that can remain optional or namespaced.
+
+This keeps the provider-neutral remediation model from being overfit to the
+first Sonar-backed item shape.

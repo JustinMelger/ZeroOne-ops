@@ -537,6 +537,11 @@ Status:
 - [ ] add provider-neutral remediation work-item models
 - [ ] add a dashboard item intake service that loads and selects one candidate
 - [ ] add a dashboard item selector that only considers supported `open` items
+- [ ] use stable dashboard item IDs as the primary dedup key and skip items
+      already tracked as active in local state or represented by active merge
+      requests
+- [ ] define and implement one explicit stale `in_progress` recovery rule for
+      interrupted earlier runs
 - [ ] return stable skip reasons for unsupported status, unsupported type, and
       no-eligible-item outcomes
 
@@ -544,6 +549,9 @@ Done when:
 
 - one dashboard-backed remediation candidate can be selected deterministically
 - the workflow exits cleanly when no supported `open` item is available
+- active local state and active merge requests prevent duplicate remediation of
+      the same dashboard item
+- stale `in_progress` items are handled by one explicit documented recovery rule
 - selection logic is isolated from code-fixing logic
 
 ### Remediation Phase 2: Work Item Normalization And Context
@@ -581,16 +589,23 @@ Status:
 
 - [ ] add a dashboard remediation updater service for lifecycle transitions
 - [ ] mark selected items `in_progress` before remediation execution
-- [ ] mark successful items `mr_opened` with merge request URL and commit SHA
+- [ ] mark successful items `mr_opened` with branch name, merge request URL,
+      and commit SHA
 - [ ] mark failed or rejected items with clear status and error context
+- [ ] support the `done` lifecycle state for items that no longer need
+      remediation
+- [ ] keep dashboard item ID, run ID, branch name, commit SHA, and merge
+      request URL visible across lifecycle updates and run summaries
 
 Done when:
 
 - item lifecycle transitions are owned by one dedicated service
-- the dashboard shows `in_progress`, `mr_opened`, `failed`, and `rejected`
-      states accurately for the remediation path
+- the dashboard shows `in_progress`, `mr_opened`, `failed`, `rejected`, and
+      `done` states accurately for the remediation path
 - operators can follow one dashboard item from selection to merge request or
       failure without reading logs first
+- operators can correlate dashboard item, run, branch, commit, and merge
+      request data across logs, summaries, and dashboard state
 
 ### Remediation Phase 4: Runner And CLI Wiring
 
@@ -630,9 +645,15 @@ Status:
 - [ ] add focused integration coverage for the dashboard remediation execution
       path
 - [ ] add rollback and lifecycle regression coverage for failed dashboard runs
+- [ ] add integration or smoke coverage for the documented stale `in_progress`
+      recovery rule
 - [ ] document a smoke-test recipe for one real dashboard remediation run
 - [ ] document the migration model that keeps direct Sonar remediation available
       until dashboard-backed remediation is stable
+- [ ] compare dashboard-backed remediation outcomes against the existing direct
+      Sonar path before making dashboard-first remediation the default
+- [ ] define and validate how dashboard write conflicts or stale remote state
+      are retried or failed safely during rollout
 
 Done when:
 
@@ -640,6 +661,8 @@ Done when:
       the direct Sonar path
 - failed dashboard remediation attempts leave both the repository and dashboard
       in predictable states
+- stale `in_progress` recovery and dashboard write-conflict behavior are proven
+      in real workflow tests or smoke runs
 - operators have a documented rollout path for comparing direct Sonar
       remediation against dashboard-backed remediation
 
