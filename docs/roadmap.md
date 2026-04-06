@@ -455,12 +455,17 @@ Status:
 - [x] write eligible Sonar items into the dashboard backlog without triggering
       remediation from the same workflow
 - [x] preserve stable IDs and statuses for repeated Sonar discovery runs
+- [x] reconcile existing Sonar dashboard items when issues disappear from
+      SonarQube so stale active entries are marked done or moved out of active
+      sections
 
 Done when:
 
 - supported Sonar items appear in the dashboard in a strict structured format
 - repeated discovery runs update existing dashboard items instead of duplicating
   them
+- stale Sonar dashboard items no longer remain active when they disappear from
+  current SonarQube results
 - discovery remains separate from remediation
 
 ### Dashboard Phase 4: Live Monitoring And Regression Capture
@@ -475,12 +480,22 @@ Status:
       tests
 - [ ] document recurring skip, reject, and failure patterns from live runs
 - [ ] review MR quality and false-positive/noise patterns for both workflows
+- [ ] improve review logs so MR selection, dedup skips, context size,
+      classification, note publication, and dashboard mirroring are explicit in
+      run output
+- [ ] tighten the review note templates so `no_findings` and findings summaries
+      stay concise, readable, and low-noise in real merge requests
+- [ ] add a bounded dashboard retention rule so the main issue keeps only a
+      maximum active/recent item window instead of growing without limit
 
 Done when:
 
 - production failures are being converted into tests and documentation
 - the most common noisy or unsafe cases are visible and understood
 - the current two workflows have a stable observed operating profile
+- review runs are diagnosable from logs without needing to inspect code paths
+- review notes feel useful and lightweight instead of repetitive or noisy
+- the main dashboard remains readable and operationally useful over time
 
 ### Dashboard Phase 5: CI/CD And Testing Hardening
 
@@ -495,6 +510,8 @@ Status:
       workflows
 - [ ] add integration coverage for the most important CI-facing workflow paths
 - [ ] add dashboard parser and renderer regression coverage
+- [ ] extract workflow prompts into separate prompt files so Sonar and review
+      prompt policy can be reviewed and evolved without growing provider code
 - [ ] review container publish and example pipeline behavior for failure cases
 
 Done when:
@@ -502,6 +519,8 @@ Done when:
 - CI examples reflect the real supported workflow commands and image behavior
 - the most important live workflow paths are covered by integration tests
 - dashboard parsing/rendering is protected by regression coverage
+- prompt instructions are easier to review and maintain across multiple
+  workflows
 - release and pipeline failures are easier to diagnose
 
 ### Dashboard Phase 6: CI/CD And Security Hardening
@@ -521,8 +540,13 @@ Status:
       `RELEASE_PLEASE_TOKEN`, and `OPENAI_API_KEY`
 - [ ] add focused smoke or regression checks for release and image publish
       behavior
+- [ ] add a prerelease or release-candidate image publish path so CLI, CI, and
+      dashboard changes can be tested before a stable release
 - [ ] keep dependency and container security guidance current alongside
       `pip-audit`
+- [ ] add a staged security-tool rollout plan:
+      dependency scanning now, one Python-focused SAST tool next, then
+      container/base-image scanning once CI noise is acceptable
 
 Done when:
 
@@ -532,6 +556,9 @@ Done when:
 - security-sensitive tokens have explicit documented roles
 - workflow and image publish regressions are more likely to be caught before a
   broken release reaches operators
+- candidate images can be tested in real GitLab pipelines before promoting a
+  stable release
+- security tooling is introduced gradually enough to keep CI signal usable
 
 ## Beyond V1
 
