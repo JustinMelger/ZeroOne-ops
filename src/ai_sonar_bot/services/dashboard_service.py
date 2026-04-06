@@ -6,12 +6,22 @@ from ai_sonar_bot.models.dashboard import (
     DashboardDocument,
     DashboardItem,
     DashboardSection,
+    DashboardSectionKey,
     empty_sections,
     section_key_for_item,
 )
 from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
 from ai_sonar_bot.services.dashboard_parser import DashboardParser
 from ai_sonar_bot.services.dashboard_renderer import DashboardRenderer
+
+DEFAULT_SECTION_ITEM_LIMITS: dict[DashboardSectionKey, int] = {
+    "open_candidates": 50,
+    "in_progress": 25,
+    "merge_requests_opened": 25,
+    "merge_request_reviews": 25,
+    "rejected_or_ignored": 25,
+    "recent_failures": 25,
+}
 
 
 class DashboardService:
@@ -25,6 +35,7 @@ class DashboardService:
         renderer: DashboardRenderer | None = None,
         title: str = "AI Code Ops Dashboard",
         labels: list[str] | None = None,
+        section_item_limits: dict[DashboardSectionKey, int] | None = None,
     ) -> None:
         """Initialize the dashboard service."""
         self.client = client
@@ -32,6 +43,7 @@ class DashboardService:
         self.renderer = renderer or DashboardRenderer()
         self.title = title
         self.labels = labels or ["ai-code-ops", "dashboard"]
+        self.section_item_limits = section_item_limits or DEFAULT_SECTION_ITEM_LIMITS.copy()
 
     def load_or_create(self, *, project_id: str) -> DashboardDocument:
         """Load the dashboard issue or create it if missing."""
@@ -97,7 +109,10 @@ class DashboardService:
             DashboardSection(
                 key=section.key,
                 title=section.title,
-                items=sections_by_key[section.key],
+                items=self._apply_retention(
+                    section.key,
+                    sections_by_key[section.key],
+                ),
             )
             for section in empty_sections()
         ]
@@ -109,7 +124,19 @@ class DashboardService:
             sections=sections,
         )
 
+    def _apply_retention(
+        self,
+        section_key: DashboardSectionKey,
+        items: list[DashboardItem],
+    ) -> list[DashboardItem]:
+        """Bound the number of rendered items for one dashboard section."""
+        limit = self.section_item_limits.get(section_key)
+        if limit is None or limit <= 0:
+            return items
+        return items[:limit]
+
 
 def _item_sort_key(item: DashboardItem) -> tuple[str, str, str, str]:
     """Sort dashboard items deterministically within sections."""
-    return (item.priority, item.source, item.type, item.id)
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    return (str(priority_order.get(item.priority, 99)), item.source, item.type, item.id)

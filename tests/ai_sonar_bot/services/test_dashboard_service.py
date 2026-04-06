@@ -8,6 +8,7 @@ def build_item(
     item_id: str,
     status: str = "open",
     item_type: str = "code_smell_fix",
+    priority: str = "low",
 ) -> DashboardItem:
     return DashboardItem(
         id=item_id,
@@ -16,7 +17,7 @@ def build_item(
         status=status,
         title="Title",
         summary="Summary",
-        priority="low",
+        priority=priority,
         source_reference="ref-1",
     )
 
@@ -105,3 +106,38 @@ def test_upsert_items_updates_existing_dashboard_without_duplicates() -> None:
     assert updated.items_by_id()["sonar:1"].status == "in_progress"
     assert updated.sections[1].items[0].id == "sonar:1"
     assert updated.sections[3].items[0].id == "mr-review:42:abc123"
+
+
+def test_upsert_items_applies_section_retention_limits() -> None:
+    existing_issue = GitLabIssueInfo(
+        id=10,
+        iid=11,
+        web_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Dashboard",
+        description="",
+    )
+    client = FakeDashboardClient(existing_issue=existing_issue)
+    service = DashboardService(
+        client,
+        section_item_limits={
+            "open_candidates": 2,
+            "in_progress": 25,
+            "merge_requests_opened": 25,
+            "merge_request_reviews": 25,
+            "rejected_or_ignored": 25,
+            "recent_failures": 25,
+        },
+    )
+
+    updated = service.upsert_items(
+        project_id="123",
+        items=[
+            build_item(item_id="sonar:low", priority="low"),
+            build_item(item_id="sonar:medium", priority="medium"),
+            build_item(item_id="sonar:high", priority="high"),
+        ],
+    )
+
+    open_items = updated.sections[0].items
+    assert len(open_items) == 2
+    assert [item.id for item in open_items] == ["sonar:high", "sonar:medium"]
