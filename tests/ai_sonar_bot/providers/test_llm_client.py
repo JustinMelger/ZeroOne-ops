@@ -7,6 +7,8 @@ from ai_sonar_bot.providers.llm_client import (
     _build_analysis_prompt,
     _build_review_prompt,
     _build_structured_edit_prompt,
+    _load_prompt_template,
+    _render_prompt_template,
     load_analysis_fixture,
     load_review_fixture,
     load_structured_edit_fixture,
@@ -186,3 +188,29 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "Review the merge request and return structured JSON only." in prompt
     assert "Merge request IID: 17" in prompt
     assert "File: src/service.py" in prompt
+
+
+def test_load_prompt_template_rejects_unknown_template_name() -> None:
+    try:
+        _load_prompt_template("../../../etc/passwd")
+    except Exception as error:
+        assert str(error) == "Unsupported prompt template requested: ../../../etc/passwd"
+    else:
+        raise AssertionError("Expected prompt loader to reject unknown template names.")
+
+
+def test_render_prompt_template_reports_missing_placeholder(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.llm_client._load_prompt_template",
+        lambda name: "Issue key: {issue_key}\nRule: {rule}\n",
+    )
+
+    try:
+        _render_prompt_template("analyze_issue.txt", issue_key="AX1")
+    except Exception as error:
+        assert (
+            str(error)
+            == "Prompt template could not be rendered because `rule` is missing: analyze_issue.txt"
+        )
+    else:
+        raise AssertionError("Expected prompt rendering to fail on missing placeholders.")

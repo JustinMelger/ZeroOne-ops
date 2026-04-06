@@ -7,6 +7,7 @@ an LLM provider.
 from __future__ import annotations
 
 import json
+from functools import cache
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,15 @@ from ai_sonar_bot.utils.files import ensure_parent
 
 class LLMClientError(RuntimeError):
     """Raised when LLM analysis or patch generation fails."""
+
+
+_PROMPT_TEMPLATE_NAMES = frozenset(
+    {
+        "analyze_issue.txt",
+        "generate_structured_edit.txt",
+        "review_merge_request.txt",
+    }
+)
 
 
 class LLMClient:
@@ -411,7 +421,8 @@ def _build_analysis_prompt(issue: SonarIssue, context: IssueContext) -> str:
     Returns:
         Prompt text for structured issue analysis.
     """
-    return _load_prompt_template("analyze_issue.txt").format(
+    return _render_prompt_template(
+        "analyze_issue.txt",
         issue_key=issue.key,
         rule=issue.rule,
         severity=issue.severity,
@@ -437,7 +448,8 @@ def _build_structured_edit_prompt(issue: SonarIssue, context: IssueContext) -> s
     Returns:
         Prompt text for structured edit generation.
     """
-    return _load_prompt_template("generate_structured_edit.txt").format(
+    return _render_prompt_template(
+        "generate_structured_edit.txt",
         issue_key=issue.key,
         rule=issue.rule,
         severity=issue.severity,
@@ -462,7 +474,8 @@ def _build_review_prompt(context: MergeRequestReviewContext) -> str:
         )
         for changed_file in context.changed_files
     )
-    return _load_prompt_template("review_merge_request.txt").format(
+    return _render_prompt_template(
+        "review_merge_request.txt",
         mr_iid=context.mr_iid,
         title=context.title,
         description=context.description or "(none)",
@@ -473,9 +486,29 @@ def _build_review_prompt(context: MergeRequestReviewContext) -> str:
     )
 
 
+def _render_prompt_template(name: str, **values: object) -> str:
+    """Load and render one prompt template safely."""
+    template = _load_prompt_template(name)
+    try:
+        return template.format(**values)
+    except KeyError as error:
+        missing_key = error.args[0]
+        raise LLMClientError(
+            f"Prompt template could not be rendered because `{missing_key}` is missing: {name}"
+        ) from error
+    except ValueError as error:
+        raise LLMClientError(
+            f"Prompt template is invalid and could not be rendered: {name}"
+        ) from error
+
+
+@cache
 def _load_prompt_template(name: str) -> str:
     """Load a prompt template from the prompts directory."""
+    if name not in _PROMPT_TEMPLATE_NAMES:
+        raise LLMClientError(f"Unsupported prompt template requested: {name}")
     try:
-        return resources.files("ai_sonar_bot").joinpath("prompts", name).read_text(encoding="utf-8")
-    except OSError as error:
+        prompts_dir = resources.files("ai_sonar_bot").joinpath("prompts")
+        return prompts_dir.joinpath(name).read_text(encoding="utf-8")
+    except (ModuleNotFoundError, FileNotFoundError, OSError) as error:
         raise LLMClientError(f"Prompt template file could not be read: {name}") from error
