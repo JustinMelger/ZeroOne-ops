@@ -516,6 +516,135 @@ Done when:
 
 ### Post-Remedy Phase 6: CI/CD And Security Hardening
 
+## Next Selected Build: Dashboard Remediation Bot V1
+
+This is the next active implementation track after the dashboard foundation
+work. It follows:
+
+- [functional-design-dashboard-remediation.md](docs/functional-design-dashboard-remediation.md)
+- [technical-design-dashboard-remediation.md](docs/technical-design-dashboard-remediation.md)
+
+### Remediation Phase 1: Dashboard Item Intake
+
+Goal:
+
+- load the dashboard issue through the existing dashboard service
+- select one remediation-ready item safely
+- return clear no-work and skip outcomes
+
+Status:
+
+- [ ] add provider-neutral remediation work-item models
+- [ ] add a dashboard item intake service that loads and selects one candidate
+- [ ] add a dashboard item selector that only considers supported `open` items
+- [ ] return stable skip reasons for unsupported status, unsupported type, and
+      no-eligible-item outcomes
+
+Done when:
+
+- one dashboard-backed remediation candidate can be selected deterministically
+- the workflow exits cleanly when no supported `open` item is available
+- selection logic is isolated from code-fixing logic
+
+### Remediation Phase 2: Work Item Normalization And Context
+
+Goal:
+
+- normalize dashboard items into a provider-neutral remediation shape
+- reuse the current safe single-file context-building model
+- reject items that exceed current remediation scope
+
+Status:
+
+- [ ] add a dashboard item normalizer that validates the remediation-ready item contract
+- [ ] add a remediation context builder that maps normalized work items onto the
+      existing repository context flow
+- [ ] reject structurally incomplete or out-of-scope items before execution
+- [ ] keep the first supported type limited to the current Sonar-compatible
+      single-file code-smell path
+
+Done when:
+
+- the remediation execution path no longer depends on raw dashboard field names
+- supported items can produce the same bounded repository context used by the
+      current Sonar remediation path
+- unsupported items are skipped or rejected before patch execution starts
+
+### Remediation Phase 3: Dashboard Lifecycle Updates
+
+Goal:
+
+- keep the dashboard in sync with remediation progress
+- record stable item lifecycle transitions and traceability metadata
+
+Status:
+
+- [ ] add a dashboard remediation updater service for lifecycle transitions
+- [ ] mark selected items `in_progress` before remediation execution
+- [ ] mark successful items `mr_opened` with merge request URL and commit SHA
+- [ ] mark failed or rejected items with clear status and error context
+
+Done when:
+
+- item lifecycle transitions are owned by one dedicated service
+- the dashboard shows `in_progress`, `mr_opened`, `failed`, and `rejected`
+      states accurately for the remediation path
+- operators can follow one dashboard item from selection to merge request or
+      failure without reading logs first
+
+### Remediation Phase 4: Runner And CLI Wiring
+
+Goal:
+
+- expose dashboard-backed remediation as an explicit workflow
+- keep the current Sonar remediation path available during migration
+
+Status:
+
+- [ ] add a dedicated dashboard remediation CLI command
+- [ ] add a dashboard remediation runner path that wires intake, lifecycle
+      updates, analysis, patch execution, and publish flow
+- [ ] keep the existing direct Sonar remediation command intact during migration
+- [ ] return clear run summaries for no-work, failed, rejected, and MR-opened
+      outcomes
+
+Done when:
+
+- operators can run dashboard-backed remediation without hidden flags or local
+      code changes
+- the new runner path reuses the proven single-file remediation engine instead
+      of duplicating it
+- direct Sonar remediation remains available as a fallback during migration
+
+### Remediation Phase 5: Migration Hardening And Rollout
+
+Goal:
+
+- prove that dashboard-backed remediation is safe enough to run alongside the
+      direct Sonar path
+- document and test the migration model before making dashboard-first the
+      default
+
+Status:
+
+- [ ] add focused integration coverage for the dashboard remediation execution
+      path
+- [ ] add rollback and lifecycle regression coverage for failed dashboard runs
+- [ ] document a smoke-test recipe for one real dashboard remediation run
+- [ ] document the migration model that keeps direct Sonar remediation available
+      until dashboard-backed remediation is stable
+
+Done when:
+
+- one supported dashboard item can produce the same quality merge request as
+      the direct Sonar path
+- failed dashboard remediation attempts leave both the repository and dashboard
+      in predictable states
+- operators have a documented rollout path for comparing direct Sonar
+      remediation against dashboard-backed remediation
+
+### Post-Remedy Phase 11: CI/CD And Security Hardening
+
 Goal:
 
 - improve release reliability, workflow safety, and supply-chain hygiene after
