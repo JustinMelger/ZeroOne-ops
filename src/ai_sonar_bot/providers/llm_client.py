@@ -412,6 +412,9 @@ def _build_analysis_prompt(issue: SonarIssue, context: IssueContext) -> str:
     """
     return (
         "Analyze the following SonarQube issue and return structured JSON.\n\n"
+        "This workflow only supports low-risk single-file fixes. Prefer a manual "
+        "classification when the change appears to need broader semantic context, "
+        "symbol-wide renaming, coordinated edits, or behavior changes.\n\n"
         f"Issue key: {issue.key}\n"
         f"Rule: {issue.rule}\n"
         f"Severity: {issue.severity}\n"
@@ -441,6 +444,9 @@ def _build_structured_edit_prompt(issue: SonarIssue, context: IssueContext) -> s
     return (
         "Generate a minimal exact text edit for the following SonarQube issue and return "
         "structured JSON.\n\n"
+        "This v1 remediation workflow only accepts safe single-file edits. Do not "
+        "propose refactors, cross-file coordination, broad rewrites, or edits that "
+        "depend on symbol-wide rename reasoning.\n\n"
         f"Issue key: {issue.key}\n"
         f"Rule: {issue.rule}\n"
         f"Severity: {issue.severity}\n"
@@ -455,6 +461,7 @@ def _build_structured_edit_prompt(issue: SonarIssue, context: IssueContext) -> s
         "- Use exact existing source text in `search_text`.\n"
         "- Keep the change minimal and scoped to the issue.\n"
         "- Use `line_hint` when the same text may appear more than once.\n"
+        "- Preserve existing behavior unless the issue explicitly requires a safe local fix.\n"
         "- Do not return a unified diff.\n\n"
         "Code snippet:\n"
         f"{context.snippet.content}\n"
@@ -475,6 +482,8 @@ def _build_review_prompt(context: MergeRequestReviewContext) -> str:
     return (
         "Review the merge request and return structured JSON only.\n\n"
         "Focus on bugs, regressions, missing validation, and unsafe assumptions.\n"
+        "Prefer `no_findings` over speculative or stylistic comments. Only report "
+        "findings that are grounded in the changed code and likely matter to a reviewer.\n"
         "Return classification `no_findings` when nothing actionable stands out.\n"
         "Return classification `manual_review_only` when the provided context is insufficient.\n\n"
         f"Merge request IID: {context.mr_iid}\n"

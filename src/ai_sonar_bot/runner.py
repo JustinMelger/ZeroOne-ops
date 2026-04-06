@@ -5,6 +5,7 @@ This module acts as the composition root for the bot workflow.
 
 from __future__ import annotations
 
+import logging
 import os
 import secrets
 from pathlib import Path
@@ -25,6 +26,8 @@ from ai_sonar_bot.services.run_state_service import RunStateService, RunSummary
 from ai_sonar_bot.services.sonar_dashboard_sync_service import SonarDashboardSyncService
 from ai_sonar_bot.services.state_store import StateStore
 from ai_sonar_bot.settings import load_config, load_gitlab_connection_config
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _build_run_id() -> str:
@@ -176,6 +179,17 @@ def review(*, dry_run: bool = False) -> RunSummary:
             record=record,
             message=f"[{config.execution_mode}] {intake_result.message}",
         )
+    LOGGER.info(
+        "review run targeting merge request",
+        extra={
+            "run_id": run_id,
+            "mr_iid": intake_result.selected_merge_request.iid,
+            "head_sha": intake_result.selected_merge_request.head_sha,
+            "source_branch": intake_result.selected_merge_request.source_branch,
+            "target_branch": intake_result.selected_merge_request.target_branch,
+            "dry_run": active_dry_run,
+        },
+    )
 
     review_client = GitLabReviewClient(gitlab_config)
     context_result = ReviewContextBuilder(
@@ -195,6 +209,21 @@ def review(*, dry_run: bool = False) -> RunSummary:
                 message=context_result.message,
             ),
         )
+    changed_file_count = len(context_result.context.changed_files)
+    total_context_lines = sum(
+        changed_file.end_line - changed_file.start_line + 1
+        for changed_file in context_result.context.changed_files
+    )
+    LOGGER.info(
+        "review context built",
+        extra={
+            "run_id": run_id,
+            "mr_iid": context_result.context.mr_iid,
+            "head_sha": context_result.context.head_sha,
+            "changed_file_count": changed_file_count,
+            "context_line_count": total_context_lines,
+        },
+    )
 
     analysis_result = ReviewAnalysisService(config).analyze(context_result.context)
     if analysis_result.review_result is None:
@@ -206,6 +235,16 @@ def review(*, dry_run: bool = False) -> RunSummary:
                 message=analysis_result.message,
             ),
         )
+    LOGGER.info(
+        "review analysis completed",
+        extra={
+            "run_id": run_id,
+            "mr_iid": context_result.context.mr_iid,
+            "head_sha": context_result.context.head_sha,
+            "classification": analysis_result.review_result.classification,
+            "finding_count": len(analysis_result.review_result.findings),
+        },
+    )
 
     note_url: str | None = None
     dashboard_warning: str | None = None
@@ -227,6 +266,16 @@ def review(*, dry_run: bool = False) -> RunSummary:
             )
         if publish_result.note is not None:
             note_url = publish_result.note.web_url
+            LOGGER.info(
+                "review note published",
+                extra={
+                    "run_id": run_id,
+                    "mr_iid": context_result.context.mr_iid,
+                    "head_sha": context_result.context.head_sha,
+                    "note_id": publish_result.note.id,
+                    "note_url": publish_result.note.web_url,
+                },
+            )
         dashboard_update = ReviewDashboardUpdater(
             DashboardService(GitLabDashboardClient(gitlab_config))
         ).update(
@@ -235,6 +284,34 @@ def review(*, dry_run: bool = False) -> RunSummary:
             review_result=analysis_result.review_result,
         )
         dashboard_warning = dashboard_update.error_message
+        if dashboard_warning is None:
+            LOGGER.info(
+                "review dashboard mirrored",
+                extra={
+                    "run_id": run_id,
+                    "mr_iid": context_result.context.mr_iid,
+                    "head_sha": context_result.context.head_sha,
+                    "dashboard_issue_url": dashboard_update.dashboard_issue_url,
+                },
+            )
+        else:
+            LOGGER.warning(
+                "review dashboard mirror warning",
+                extra={
+                    "run_id": run_id,
+                    "mr_iid": context_result.context.mr_iid,
+                    "head_sha": context_result.context.head_sha,
+                },
+            )
+    else:
+        LOGGER.info(
+            "review dry-run skipped publication",
+            extra={
+                "run_id": run_id,
+                "mr_iid": context_result.context.mr_iid,
+                "head_sha": context_result.context.head_sha,
+            },
+        )
 
     summary = review_state_service.mark_reviewed(
         record=record,
