@@ -41,46 +41,64 @@ class ContextBuilder:
             Structured source context for the issue, or ``None`` if the file is
             missing.
         """
-        target = self.repo_root / issue.file_path
-        if not target.exists():
-            return None
-
-        file_size_bytes = target.stat().st_size
-        raw_content = target.read_text(encoding="utf-8")
-        lines = raw_content.splitlines()
-        line_count = len(lines)
-        issue_line = _clamp_issue_line(issue.line, line_count)
-
-        if file_size_bytes <= self.config.analysis.max_file_bytes:
-            start_line = 1
-            end_line = line_count if line_count > 0 else 1
-            snippet_lines = lines
-            full_file_included = True
-            truncated = False
-        else:
-            start_line, end_line = _window_bounds(
-                issue_line=issue_line,
-                line_count=line_count,
-                lines_before=self.config.analysis.context_lines_before,
-                lines_after=self.config.analysis.context_lines_after,
-            )
-            snippet_lines = lines[start_line - 1 : end_line]
-            full_file_included = False
-            truncated = True
-
-        return IssueContext(
+        return build_issue_context(
+            repo_root=self.repo_root,
+            config=self.config,
             issue_key=issue.key,
             file_path=issue.file_path,
-            line=issue.line,
-            file_size_bytes=file_size_bytes,
-            snippet=CodeContextSnippet(
-                start_line=start_line,
-                end_line=end_line,
-                content=_format_with_line_numbers(start_line=start_line, lines=snippet_lines),
-            ),
-            full_file_included=full_file_included,
-            truncated=truncated,
+            issue_line=issue.line,
         )
+
+
+def build_issue_context(
+    *,
+    repo_root: Path,
+    config: AppConfig,
+    issue_key: str,
+    file_path: str,
+    issue_line: int | None,
+) -> IssueContext | None:
+    """Build code context for a repository-relative target file."""
+    target = repo_root / file_path
+    if not target.exists():
+        return None
+
+    file_size_bytes = target.stat().st_size
+    raw_content = target.read_text(encoding="utf-8")
+    lines = raw_content.splitlines()
+    line_count = len(lines)
+    clamped_issue_line = _clamp_issue_line(issue_line, line_count)
+
+    if file_size_bytes <= config.analysis.max_file_bytes:
+        start_line = 1
+        end_line = line_count if line_count > 0 else 1
+        snippet_lines = lines
+        full_file_included = True
+        truncated = False
+    else:
+        start_line, end_line = _window_bounds(
+            issue_line=clamped_issue_line,
+            line_count=line_count,
+            lines_before=config.analysis.context_lines_before,
+            lines_after=config.analysis.context_lines_after,
+        )
+        snippet_lines = lines[start_line - 1 : end_line]
+        full_file_included = False
+        truncated = True
+
+    return IssueContext(
+        issue_key=issue_key,
+        file_path=file_path,
+        line=issue_line,
+        file_size_bytes=file_size_bytes,
+        snippet=CodeContextSnippet(
+            start_line=start_line,
+            end_line=end_line,
+            content=_format_with_line_numbers(start_line=start_line, lines=snippet_lines),
+        ),
+        full_file_included=full_file_included,
+        truncated=truncated,
+    )
 
 
 def _clamp_issue_line(issue_line: int | None, line_count: int) -> int:

@@ -534,15 +534,15 @@ Goal:
 
 Status:
 
-- [ ] add provider-neutral remediation work-item models
-- [ ] add a dashboard item intake service that loads and selects one candidate
-- [ ] add a dashboard item selector that only considers supported `open` items
+- [x] add provider-neutral remediation work-item models
+- [x] add a dashboard item intake service that loads and selects one candidate
+- [x] add a dashboard item selector that only considers supported `open` items
 - [ ] use stable dashboard item IDs as the primary dedup key and skip items
       already tracked as active in local state or represented by active merge
       requests
 - [ ] define and implement one explicit stale `in_progress` recovery rule for
       interrupted earlier runs
-- [ ] return stable skip reasons for unsupported status, unsupported type, and
+- [x] return stable skip reasons for unsupported status, unsupported type, and
       no-eligible-item outcomes
 
 Done when:
