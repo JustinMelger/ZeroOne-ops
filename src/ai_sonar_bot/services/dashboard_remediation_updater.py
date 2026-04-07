@@ -131,6 +131,20 @@ class DashboardRemediationUpdater:
         try:
             document = self.dashboard_service.load_or_create(project_id=project_id)
             current_item = self._require_item(document, dashboard_item_id)
+            if self._is_idempotent_update(
+                current_item=current_item,
+                status=status,
+                run_id=run_id,
+                branch_name=branch_name,
+                merge_request_url=merge_request_url,
+                merge_request_iid=merge_request_iid,
+                commit_sha=commit_sha,
+                log_excerpt=log_excerpt,
+            ):
+                return DashboardRemediationUpdateResult(
+                    dashboard_issue_url=document.issue_url,
+                    updated_item=current_item,
+                )
             updated_item = current_item.model_copy(
                 update={
                     "status": status,
@@ -167,6 +181,35 @@ class DashboardRemediationUpdater:
         return DashboardRemediationUpdateResult(
             dashboard_issue_url=updated_document.issue_url,
             updated_item=persisted_item,
+        )
+
+    def _is_idempotent_update(
+        self,
+        *,
+        current_item: DashboardItem,
+        status: str,
+        run_id: str,
+        branch_name: str | None,
+        merge_request_url: str | None,
+        merge_request_iid: int | None,
+        commit_sha: str | None,
+        log_excerpt: str | None,
+    ) -> bool:
+        """Return whether one lifecycle update would be a no-op replay."""
+        return (
+            current_item.status == status
+            and current_item.last_run_id == run_id
+            and (branch_name is None or current_item.branch_name == branch_name)
+            and (
+                merge_request_url is None
+                or current_item.merge_request_url == merge_request_url
+            )
+            and (
+                merge_request_iid is None
+                or current_item.merge_request_iid == merge_request_iid
+            )
+            and (commit_sha is None or current_item.commit_sha == commit_sha)
+            and (log_excerpt is None or current_item.log_excerpt == log_excerpt)
         )
 
     def _require_item(self, document: DashboardDocument, dashboard_item_id: str) -> DashboardItem:

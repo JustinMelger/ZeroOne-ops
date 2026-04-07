@@ -596,7 +596,7 @@ Status:
 - [x] mark successful items `mr_opened` with branch name, merge request URL,
       and commit SHA
 - [x] mark failed or rejected items with clear status and error context
-- [ ] support the `done` lifecycle state for items that no longer need
+- [x] support the `done` lifecycle state for items that no longer need
       remediation
 - [x] stamp every lifecycle transition with `last_run_id` and
       `status_updated_at`
@@ -604,10 +604,8 @@ Status:
       written back to the dashboard item
 - [x] keep dashboard item ID, run ID, branch name, commit SHA, and merge
       request URL visible across lifecycle updates and run summaries
-- [ ] keep lifecycle writes idempotent for retries or reruns of the same run ID
+- [x] keep lifecycle writes idempotent for retries or reruns of the same run ID
       where practical
-- [ ] keep merge-request-merged or merge-request-closed reconciliation out of
-      the first remediation workflow and document it as a later maintenance path
 
 Done when:
 
