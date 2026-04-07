@@ -108,6 +108,51 @@ def test_dashboard_remediate_dry_run_returns_no_issue_summary(tmp_path: Path, mo
     assert "No remediation-ready dashboard item found." in summary.message
 
 
+def test_dashboard_remediate_live_run_requires_ci_mode(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "local",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    def unexpected_select_item(self, project_id: str, state):  # noqa: ANN001
+        del self, project_id, state
+        raise AssertionError("dashboard intake should not run for live local mode")
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        unexpected_select_item,
+    )
+
+    summary = dashboard_remediate(dry_run=False)
+    state = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+    last_run = state.runs[-1]
+
+    assert summary.status.value == "failed"
+    assert "only supported in CI mode" in summary.message
+    assert last_run.failure is not None
+    assert last_run.failure.stage == FailureStage.ISSUE_INTAKE
+
+
 def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
     tmp_path: Path,
     monkeypatch,

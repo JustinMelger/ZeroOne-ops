@@ -148,6 +148,25 @@ class RunStateService:
             message=error_message,
         )
 
+    def fail_run(
+        self,
+        *,
+        record: RunRecord,
+        error_message: str,
+        failure: FailureDetails,
+    ) -> RunSummary:
+        """Persist a failed run that is not tied to a selected item."""
+        record.status = RunStatus.FAILED
+        record.error_message = error_message
+        record.failure = failure
+        record.updated_at = utc_now()
+        self.state_store.save(self.state)
+        return self.build_summary(
+            run_id=record.run_id,
+            status=record.status,
+            message=error_message,
+        )
+
     def reject_dashboard_item(
         self,
         *,

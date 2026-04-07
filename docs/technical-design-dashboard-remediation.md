@@ -137,7 +137,10 @@ Suggested commands:
 
 The first implementation should use `dashboard-remediate` as the explicit
 workflow entrypoint. Dashboard-backed remediation should stay a separate
-workflow, not a hidden flag on the old Sonar path.
+workflow, not a hidden flag on the old Sonar path. Live remediation should stay
+CI-only in the first implementation; local operator use is limited to
+`dashboard-remediate --dry-run` so the dashboard lifecycle does not need a
+separate local-success state yet.
 
 ### 6.2 `runner.py`
 

@@ -532,6 +532,10 @@ Do not move to unattended review runs yet if you see:
 
 Use this quick check after the remediation workflow is already healthy.
 
+For dashboard-backed remediation itself, keep the first rollout boundary simple:
+use `ai-sonar-bot dashboard-remediate --dry-run` for local inspection and use
+live `ai-sonar-bot dashboard-remediate` only from CI jobs.
+
 ### Preconditions
 
 Make sure the target repository has:

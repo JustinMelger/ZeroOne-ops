@@ -380,6 +380,19 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
     record = run_state_service.start_run(run_id)
     repo_root = Path.cwd()
     active_dry_run = dry_run or config.dry_run
+    if not active_dry_run and config.execution_mode != "ci":
+        message = (
+            "Dashboard remediation live execution is only supported in CI mode. "
+            "Use --dry-run locally."
+        )
+        return run_state_service.fail_run(
+            record=record,
+            error_message=message,
+            failure=FailureDetails(
+                stage=FailureStage.ISSUE_INTAKE,
+                message=message,
+            ),
+        )
     dashboard_service = DashboardService(GitLabDashboardClient(gitlab_config))
     intake_result = DashboardItemIntakeService(
         repo_root=repo_root,
