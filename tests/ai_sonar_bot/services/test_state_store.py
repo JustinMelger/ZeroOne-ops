@@ -2,6 +2,7 @@ from pathlib import Path
 
 from ai_sonar_bot.models.state import (
     AppState,
+    DashboardItemState,
     FailureDetails,
     FailureStage,
     IssueState,
@@ -26,6 +27,7 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
     assert isinstance(initial, AppState)
 
     initial.active_issue_key = "ABC"
+    initial.active_dashboard_item_id = "sonar:1"
     initial.runs.append(
         RunRecord(
             run_id="run-1",
@@ -53,6 +55,11 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
             exit_code=1,
         ),
     )
+    initial.dashboard_items["sonar:1"] = DashboardItemState(
+        status="in_progress",
+        last_run_id="run-3",
+        branch_name="ai-sonar/sonar-1",
+    )
     initial.reviews["17:abc123"] = MergeRequestReviewState(
         mr_iid=17,
         head_sha="abc123",
@@ -64,6 +71,7 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
 
     loaded = store.load()
     assert loaded.active_issue_key == "ABC"
+    assert loaded.active_dashboard_item_id == "sonar:1"
     assert loaded.repository == RepositoryState(
         base_branch="main",
         gitlab_project_id="123",
@@ -81,6 +89,9 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
         failed_command="pytest",
         exit_code=1,
     )
+    assert loaded.dashboard_items["sonar:1"].status == "in_progress"
+    assert loaded.dashboard_items["sonar:1"].last_run_id == "run-3"
+    assert loaded.dashboard_items["sonar:1"].branch_name == "ai-sonar/sonar-1"
     assert loaded.reviews["17:abc123"].mr_iid == 17
     assert loaded.reviews["17:abc123"].head_sha == "abc123"
     assert loaded.reviews["17:abc123"].status == "published"
