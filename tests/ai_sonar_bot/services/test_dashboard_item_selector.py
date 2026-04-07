@@ -51,9 +51,7 @@ def test_select_skips_items_with_active_local_dashboard_state(tmp_path: Path) ->
     selector = DashboardItemSelector(repo_root=tmp_path)
     state = AppState(
         repository=RepositoryState(base_branch="main"),
-        dashboard_items={
-            "sonar:1": DashboardItemState(status="in_progress", last_run_id="run-1")
-        },
+        dashboard_items={"sonar:1": DashboardItemState(status="in_progress", last_run_id="run-1")},
     )
 
     selected = selector.select(

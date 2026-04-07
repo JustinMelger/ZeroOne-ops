@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from ai_sonar_bot.models.dashboard import DashboardItem, DashboardSection
 from ai_sonar_bot.services.dashboard_parser import DashboardParseError, DashboardParser
 from ai_sonar_bot.services.dashboard_renderer import DashboardRenderer
@@ -59,6 +61,54 @@ def test_parse_round_trips_rendered_dashboard_body() -> None:
 
     assert document.sections[0].items[0].id == "sonar:1"
     assert document.sections[0].items[0].rule == "python:S1125"
+
+
+def test_parse_round_trips_dashboard_item_datetime_metadata() -> None:
+    renderer = DashboardRenderer()
+    parser = DashboardParser()
+    body = renderer.render(
+        title="AI Code Ops Dashboard",
+        sections=[
+            DashboardSection(
+                key="in_progress",
+                title="In Progress",
+                items=[
+                    build_item(item_id="sonar:1", status="in_progress").model_copy(
+                        update={
+                            "last_run_id": "run-1",
+                            "status_updated_at": datetime(2026, 4, 7, 12, 0, tzinfo=UTC),
+                        }
+                    )
+                ],
+            ),
+            DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
+            DashboardSection(
+                key="merge_requests_opened",
+                title="Merge Requests Opened",
+                items=[],
+            ),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(
+                key="rejected_or_ignored",
+                title="Rejected Or Ignored",
+                items=[],
+            ),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Dashboard",
+        body=body,
+    )
+
+    item = document.items_by_id()["sonar:1"]
+    assert item.last_run_id == "run-1"
+    assert item.status_updated_at == datetime(2026, 4, 7, 12, 0, tzinfo=UTC)
 
 
 def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None:

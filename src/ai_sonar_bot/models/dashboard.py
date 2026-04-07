@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -70,6 +71,9 @@ class DashboardItem(BaseModel):
     pipeline_id: int | None = None
     job_id: int | None = None
     job_name: str | None = None
+    branch_name: str | None = None
+    last_run_id: str | None = None
+    status_updated_at: datetime | None = None
     commit_sha: str | None = None
     merge_request_iid: int | None = None
     merge_request_url: str | None = None
