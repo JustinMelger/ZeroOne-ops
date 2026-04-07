@@ -661,23 +661,36 @@ Status:
 - [x] add focused integration coverage for the dashboard remediation execution
       path
 - [x] add rollback and lifecycle regression coverage for failed dashboard runs
-- [ ] add integration or smoke coverage for the documented stale `in_progress`
+- [x] add integration or smoke coverage for the documented stale `in_progress`
       recovery rule
-- [ ] document a smoke-test recipe for one real dashboard remediation run
-- [ ] document the migration model that keeps direct Sonar remediation available
+- [x] document a smoke-test recipe for one real dashboard remediation run
+- [x] document the migration model that keeps direct Sonar remediation available
       until dashboard-backed remediation is stable
-- [ ] document that Sonar dashboard sync remains the active discovery producer
+- [x] document that Sonar dashboard sync remains the active discovery producer
       for Sonar-derived dashboard items while direct Sonar remediation is phased
       out
-- [ ] review and update the existing Sonar dashboard sync behavior, tests, and
+- [x] review and update the existing Sonar dashboard sync behavior, tests, and
       operator guidance where needed so it remains a reliable producer for the
       dashboard-backed remediation flow, including keeping cleanup limited to
       stale untouched `open` Sonar items instead of rewriting remediation-owned
       lifecycle states
+- [ ] add cross-path dedup so direct Sonar remediation skips issues already
+      owned by dashboard-backed remediation while both paths remain available
+- [ ] move the dashboard remediation execution core from fabricated
+      `SonarIssue` inputs to a remediation-native execution contract
+- [ ] adapt the legacy direct Sonar remediation path into
+      `RemediationWorkItem` so both paths converge on the same execution model
+- [ ] treat Sonar-specific prompting and execution policy as one producer
+      profile instead of the default runtime contract
+- [ ] decide which generic remediation work-item fields are true execution
+      inputs in v1 and either honor them explicitly or document them as
+      pass-through metadata only
 - [ ] compare dashboard-backed remediation outcomes against the existing direct
       Sonar path before making dashboard-first remediation the default
 - [ ] define and validate how dashboard write conflicts or stale remote state
       are retried or failed safely during rollout
+- [ ] surface stale `in_progress` recovery clearly in the final run summary as
+      well as in the dashboard item log
 - [ ] design a later scheduled reconciliation workflow for merged or closed
       merge requests after the core remediation path is stable
 
@@ -691,6 +704,12 @@ Done when:
       in real workflow tests or smoke runs
 - operators have a documented rollout path for comparing direct Sonar
       remediation against dashboard-backed remediation
+- direct Sonar remediation does not select issues already owned by
+      dashboard-backed remediation during the migration window
+- dashboard-backed remediation execution no longer depends on rebuilding fake
+      Sonar issues for supported dashboard items
+- direct Sonar and dashboard-backed remediation share the same
+      remediation-native execution contract during migration
 - the roadmap and operator story stay clear that Sonar dashboard sync continues
       to own discovery for Sonar-derived items even after direct Sonar
       remediation is retired

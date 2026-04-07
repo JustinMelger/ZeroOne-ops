@@ -83,8 +83,8 @@ Dashboard-backed remediation should run as a synchronous pipeline:
 5. Mark the item `in_progress`.
 6. Normalize the dashboard item into a provider-neutral remediation work item.
 7. Build local repository context for that work item.
-8. Reuse the existing analysis, structured-edit generation, edit rendering,
-   patch execution, validation, and publish flow.
+8. Run analysis, structured-edit generation, edit rendering, patch execution,
+   validation, and publish through a remediation-native execution contract.
 9. Update the dashboard item to:
    - `mr_opened` on success,
    - `rejected` when policy or local approval rejects it,
@@ -150,6 +150,13 @@ Responsibilities:
 - wire together dashboard intake, lifecycle updates, and the existing
   remediation pipeline
 - build the final run summary
+
+The runner may still reuse the current single-file remediation engine during
+migration, but the long-term direction should be:
+
+- normalize source-specific inputs into a remediation-native execution model,
+- avoid rebuilding fake `SonarIssue` values just to enter the execution path,
+- keep SonarQube as one producer profile rather than the base execution type.
 
 ### 6.3 `models/remediation.py`
 
@@ -230,6 +237,18 @@ The dashboard-backed remediation flow should continue reusing:
 The new path should change intake and lifecycle management, not the proven
 single-file remediation engine.
 
+However, the migration should not stop at intake. To support future producers
+cleanly, the execution core should gradually move from Sonar-native types
+toward remediation-native inputs.
+
+Recommended direction:
+
+- adapt the legacy direct Sonar path into `RemediationWorkItem`,
+- update analysis, prompting, and execution services to consume the
+  remediation-native model,
+- treat Sonar-specific prompt shaping as one producer strategy rather than the
+  global workflow contract.
+
 ## 7. Data Model
 
 ### 7.1 `DashboardItem`
@@ -283,6 +302,10 @@ Optional execution metadata can continue to carry:
 
 This model allows remediation execution to stay independent from whether the
 item came from Sonar, pipeline discovery, or another producer.
+
+The implementation should avoid leaving this model as a thin wrapper around a
+later fabricated `SonarIssue`. If that happens, the execution path remains
+source-shaped even though intake looks generic.
 
 ## 8. Selection And Dedup Rules
 
@@ -518,3 +541,11 @@ should distinguish between:
 
 This keeps the provider-neutral remediation model from being overfit to the
 first Sonar-backed item shape.
+
+In practice, that means future-producer support should be added through:
+
+- one shared remediation-native execution contract,
+- producer-specific normalization and capability registration,
+- optional source-specific prompting or policy overlays,
+- explicit runtime use of agreed generic fields instead of carrying them only
+  as unused metadata.
