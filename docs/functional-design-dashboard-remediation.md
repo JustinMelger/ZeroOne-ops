@@ -133,6 +133,13 @@ Responsible for:
 - moving failed or rejected items out of active sections,
 - keeping the dashboard in sync with remediation progress.
 
+The first implementation should keep this responsibility narrow:
+
+- the remediation workflow owns transitions it can observe directly during its
+  active run,
+- later reconciliation of merged, closed, or otherwise externally changed merge
+  requests should remain a separate maintenance workflow.
+
 ## 9. Remediation-Ready Dashboard Item Contract
 
 An item should only be selectable for remediation when it includes:
@@ -216,6 +223,34 @@ Recommended lifecycle transitions:
 
 The workflow should preserve stable item IDs across transitions.
 
+For the first implementation, the remediation bot should own only the
+transitions it can observe directly while it is running:
+
+- `open -> in_progress`
+- `in_progress -> mr_opened`
+- `in_progress -> failed`
+- `in_progress -> rejected`
+
+Later transitions driven by external events, such as a merge request being
+merged or closed after the remediation run has ended, should be handled by a
+separate reconciliation workflow rather than making the remediation bot a full
+long-lived state controller.
+
+## 12.1 Stale In-Progress Recovery
+
+The first implementation should define what happens when a run marks an item
+`in_progress` and then does not finish cleanly because the job is canceled, the
+runner crashes, or the process loses network access mid-flight.
+
+At minimum, operators should be able to tell:
+
+- whether the item is still actively being processed,
+- whether the item should be moved back to `open`,
+- whether the item should be left `in_progress` for manual follow-up.
+
+The workflow should prefer explicit recovery rules over leaving stale
+`in_progress` items ambiguous forever.
+
 ## 13. Human Interaction Model
 
 Humans should be able to:
@@ -241,6 +276,21 @@ Dashboard-backed remediation should be introduced gradually:
 This avoids forcing the core remediation path to depend on the dashboard before
 its state transitions and retention rules are mature enough.
 
+During migration, the platform should also define which path owns a given item.
+
+The migration model should make it clear:
+
+- when direct Sonar remediation is allowed to work on an issue,
+- when dashboard-backed remediation is allowed to work on the corresponding
+  dashboard item,
+- how duplicate work is prevented while both paths remain available.
+
+The first version should keep that ownership rule simple:
+
+- remediation owns active execution transitions while the run is in progress,
+- later convergence of dashboard state with merged or closed merge requests is a
+  separate reconciliation concern.
+
 ## 15. Success Criteria
 
 The dashboard-backed remediation workflow is successful when:
@@ -252,3 +302,33 @@ The dashboard-backed remediation workflow is successful when:
 - dashboard status updates remain accurate and understandable,
 - unsupported or unsafe items are skipped cleanly instead of being forced
   through remediation.
+
+## 16. Dashboard Contract Growth
+
+The first item contract is intentionally narrow, but the platform direction now
+includes future producers beyond SonarQube.
+
+To keep the dashboard viable as a shared work queue, the contract should remain
+clear about:
+
+- which fields are universally required for every remediation-ready item,
+- which fields are source-specific extensions,
+- how new producers can add structured metadata without weakening the strict
+  machine-managed format.
+
+This avoids turning one flat item model into an overloaded bucket of optional
+fields as more workflow types are added.
+
+## 17. Traceability Expectations
+
+Operators should be able to correlate one remediation attempt across:
+
+- dashboard item ID,
+- run summary,
+- branch name,
+- commit SHA,
+- merge request URL.
+
+Those traceability fields should remain stable across normal success, failure,
+and retry paths so the dashboard can act as a real operational control plane
+rather than only a backlog view.

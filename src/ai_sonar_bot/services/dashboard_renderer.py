@@ -54,7 +54,7 @@ class DashboardRenderer:
         return lines
 
     def _render_item(self, item: DashboardItem) -> list[str]:
-        payload = item.model_dump(exclude_none=True)
+        payload = item.model_dump(mode="json", exclude_none=True)
         return [
             "<details>",
             f"<summary><code>{item.id}</code> details</summary>",

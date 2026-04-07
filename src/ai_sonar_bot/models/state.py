@@ -143,6 +143,18 @@ class MergeRequestReviewState(BaseModel):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class DashboardItemState(BaseModel):
+    """Represent the latest known remediation state for one dashboard item."""
+
+    status: str
+    last_run_id: str
+    branch_name: str | None = None
+    commit_sha: str | None = None
+    mr_url: str | None = None
+    last_error: str | None = None
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
 class RepositoryState(BaseModel):
     """Represent repository-level state metadata.
 
@@ -165,8 +177,10 @@ class AppState(BaseModel):
         updated_at: Last state update time.
         repository: Repository metadata.
         active_issue_key: Currently locked issue key, if any.
+        active_dashboard_item_id: Currently locked dashboard item ID, if any.
         runs: Execution history.
         issues: Latest state keyed by issue key.
+        dashboard_items: Latest remediation state keyed by dashboard item ID.
         reviews: Latest review state keyed by merge-request revision key.
     """
 
@@ -174,6 +188,8 @@ class AppState(BaseModel):
     updated_at: datetime = Field(default_factory=utc_now)
     repository: RepositoryState
     active_issue_key: str | None = None
+    active_dashboard_item_id: str | None = None
     runs: list[RunRecord] = Field(default_factory=list)
     issues: dict[str, IssueState] = Field(default_factory=dict)
+    dashboard_items: dict[str, DashboardItemState] = Field(default_factory=dict)
     reviews: dict[str, MergeRequestReviewState] = Field(default_factory=dict)

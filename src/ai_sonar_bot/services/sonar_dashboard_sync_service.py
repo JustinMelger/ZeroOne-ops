@@ -83,6 +83,13 @@ class SonarDashboardSyncService:
             line=issue.line,
             rule=issue.rule,
             severity=issue.severity,
+            branch_name=existing.branch_name if existing is not None else None,
+            last_run_id=existing.last_run_id if existing is not None else None,
+            status_updated_at=existing.status_updated_at if existing is not None else None,
+            commit_sha=existing.commit_sha if existing is not None else None,
+            merge_request_iid=existing.merge_request_iid if existing is not None else None,
+            merge_request_url=existing.merge_request_url if existing is not None else None,
+            log_excerpt=existing.log_excerpt if existing is not None else None,
         )
 
 
