@@ -602,7 +602,7 @@ Status:
       `status_updated_at`
 - [x] preserve existing non-lifecycle metadata when status transitions are
       written back to the dashboard item
-- [ ] keep dashboard item ID, run ID, branch name, commit SHA, and merge
+- [x] keep dashboard item ID, run ID, branch name, commit SHA, and merge
       request URL visible across lifecycle updates and run summaries
 - [ ] keep lifecycle writes idempotent for retries or reruns of the same run ID
       where practical

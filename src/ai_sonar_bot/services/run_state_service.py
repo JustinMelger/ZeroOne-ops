@@ -32,6 +32,11 @@ class RunSummary:
     status: RunStatus
     message: str
     state_path: Path
+    issue_key: str | None = None
+    dashboard_item_id: str | None = None
+    branch_name: str | None = None
+    commit_sha: str | None = None
+    mr_url: str | None = None
 
 
 class RunStateService:
@@ -357,6 +362,10 @@ class RunStateService:
         run_id: str,
         status: RunStatus,
         message: str,
+        issue_key: str | None = None,
+        dashboard_item_id: str | None = None,
+        branch_name: str | None = None,
+        commit_sha: str | None = None,
         mr_url: str | None = None,
         mr_action: str | None = None,
     ) -> RunSummary:
@@ -372,4 +381,9 @@ class RunStateService:
             status=status,
             message=summary,
             state_path=self.config.state.path,
+            issue_key=issue_key,
+            dashboard_item_id=dashboard_item_id,
+            branch_name=branch_name,
+            commit_sha=commit_sha,
+            mr_url=mr_url,
         )

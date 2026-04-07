@@ -24,6 +24,16 @@ def _echo_summary(*, dry_run: bool, review_mode: bool = False) -> None:
     summary = review(dry_run=dry_run) if review_mode else run(dry_run=dry_run)
     typer.echo(f"run_id={summary.run_id}")
     typer.echo(f"status={summary.status.value}")
+    if summary.issue_key is not None:
+        typer.echo(f"issue_key={summary.issue_key}")
+    if summary.dashboard_item_id is not None:
+        typer.echo(f"dashboard_item_id={summary.dashboard_item_id}")
+    if summary.branch_name is not None:
+        typer.echo(f"branch_name={summary.branch_name}")
+    if summary.commit_sha is not None:
+        typer.echo(f"commit_sha={summary.commit_sha}")
+    if summary.mr_url is not None:
+        typer.echo(f"mr_url={summary.mr_url}")
     typer.echo(summary.message)
     typer.echo(f"state_path={summary.state_path}")
 
@@ -34,6 +44,16 @@ def _echo_dashboard_summary(*, dry_run: bool) -> None:
     summary = sync_dashboard_sonar(dry_run=dry_run)
     typer.echo(f"run_id={summary.run_id}")
     typer.echo(f"status={summary.status.value}")
+    if summary.issue_key is not None:
+        typer.echo(f"issue_key={summary.issue_key}")
+    if summary.dashboard_item_id is not None:
+        typer.echo(f"dashboard_item_id={summary.dashboard_item_id}")
+    if summary.branch_name is not None:
+        typer.echo(f"branch_name={summary.branch_name}")
+    if summary.commit_sha is not None:
+        typer.echo(f"commit_sha={summary.commit_sha}")
+    if summary.mr_url is not None:
+        typer.echo(f"mr_url={summary.mr_url}")
     typer.echo(summary.message)
     typer.echo(f"state_path={summary.state_path}")
 
@@ -94,6 +114,16 @@ def dashboard_remediate_command(
     summary = dashboard_remediate(dry_run=dry_run)
     typer.echo(f"run_id={summary.run_id}")
     typer.echo(f"status={summary.status.value}")
+    if summary.issue_key is not None:
+        typer.echo(f"issue_key={summary.issue_key}")
+    if summary.dashboard_item_id is not None:
+        typer.echo(f"dashboard_item_id={summary.dashboard_item_id}")
+    if summary.branch_name is not None:
+        typer.echo(f"branch_name={summary.branch_name}")
+    if summary.commit_sha is not None:
+        typer.echo(f"commit_sha={summary.commit_sha}")
+    if summary.mr_url is not None:
+        typer.echo(f"mr_url={summary.mr_url}")
     typer.echo(summary.message)
     typer.echo(f"state_path={summary.state_path}")
 

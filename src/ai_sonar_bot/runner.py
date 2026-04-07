@@ -181,6 +181,9 @@ def run(*, dry_run: bool = False) -> RunSummary:
         run_id=record.run_id,
         status=record.status,
         message=message,
+        issue_key=intake_result.selected_issue.key,
+        branch_name=record.branch_name,
+        commit_sha=record.commit_sha,
         mr_url=execution_result.mr_url,
         mr_action=execution_result.mr_action,
     )
@@ -366,7 +369,6 @@ def review(*, dry_run: bool = False) -> RunSummary:
 def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
     """Run dashboard-backed remediation."""
     config = load_config()
-    gitlab_config = load_gitlab_connection_config()
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,
@@ -393,6 +395,7 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
                 message=message,
             ),
         )
+    gitlab_config = load_gitlab_connection_config()
     dashboard_service = DashboardService(GitLabDashboardClient(gitlab_config))
     intake_result = DashboardItemIntakeService(
         repo_root=repo_root,
@@ -569,6 +572,9 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
             f"{work_item.file_path} ({work_item.rule_id}, {work_item.severity}). "
             f"{execution_result.status_message}"
         ),
+        dashboard_item_id=work_item.dashboard_item_id,
+        branch_name=record.branch_name,
+        commit_sha=record.commit_sha,
         mr_url=execution_result.mr_url,
         mr_action=execution_result.mr_action,
     )

@@ -311,6 +311,13 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
     summary = dashboard_remediate(dry_run=False)
 
     assert summary.status.value == "mr_created"
+    assert summary.dashboard_item_id == "sonar:AX123"
+    assert summary.branch_name == "ai-sonar/ax123/service"
+    assert summary.commit_sha == "abc123"
+    assert (
+        summary.mr_url
+        == "https://gitlab.example.com/group/project/-/merge_requests/1"
+    )
     assert "Selected dashboard item sonar:AX123 in src/service.py" in summary.message
     assert "Merge request created:" in summary.message
     assert recorded_updates == [("in_progress", "sonar:AX123"), ("mr_opened", "sonar:AX123")]
