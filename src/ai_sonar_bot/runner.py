@@ -64,10 +64,7 @@ def _fail_dashboard_update(
     dashboard_error_message: str,
 ) -> RunSummary:
     """Return a failed run summary when a dashboard lifecycle write fails."""
-    message = (
-        f"{workflow_message} Dashboard lifecycle update failed: "
-        f"{dashboard_error_message}"
-    )
+    message = f"{workflow_message} Dashboard lifecycle update failed: {dashboard_error_message}"
     return run_state_service.fail_dashboard_item(
         record=record,
         dashboard_item_id=dashboard_item_id,

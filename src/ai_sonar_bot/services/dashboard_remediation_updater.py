@@ -200,14 +200,8 @@ class DashboardRemediationUpdater:
             current_item.status == status
             and current_item.last_run_id == run_id
             and (branch_name is None or current_item.branch_name == branch_name)
-            and (
-                merge_request_url is None
-                or current_item.merge_request_url == merge_request_url
-            )
-            and (
-                merge_request_iid is None
-                or current_item.merge_request_iid == merge_request_iid
-            )
+            and (merge_request_url is None or current_item.merge_request_url == merge_request_url)
+            and (merge_request_iid is None or current_item.merge_request_iid == merge_request_iid)
             and (commit_sha is None or current_item.commit_sha == commit_sha)
             and (log_excerpt is None or current_item.log_excerpt == log_excerpt)
         )
