@@ -590,14 +590,22 @@ Goal:
 Status:
 
 - [ ] add a dashboard remediation updater service for lifecycle transitions
+- [ ] keep lifecycle updates owned by that dedicated updater service instead of
+      spreading dashboard state writes across runner, execution, or publish code
 - [ ] mark selected items `in_progress` before remediation execution
 - [ ] mark successful items `mr_opened` with branch name, merge request URL,
       and commit SHA
 - [ ] mark failed or rejected items with clear status and error context
 - [ ] support the `done` lifecycle state for items that no longer need
       remediation
+- [ ] stamp every lifecycle transition with `last_run_id` and
+      `status_updated_at`
+- [ ] preserve existing non-lifecycle metadata when status transitions are
+      written back to the dashboard item
 - [ ] keep dashboard item ID, run ID, branch name, commit SHA, and merge
       request URL visible across lifecycle updates and run summaries
+- [ ] keep lifecycle writes idempotent for retries or reruns of the same run ID
+      where practical
 - [ ] keep merge-request-merged or merge-request-closed reconciliation out of
       the first remediation workflow and document it as a later maintenance path
 
@@ -606,6 +614,8 @@ Done when:
 - item lifecycle transitions are owned by one dedicated service
 - the dashboard shows `in_progress`, `mr_opened`, `failed`, `rejected`, and
       `done` states accurately for the remediation path
+- lifecycle updates preserve existing remediation/discovery metadata instead of
+      accidentally dropping fields during status changes
 - operators can follow one dashboard item from selection to merge request or
       failure without reading logs first
 - operators can correlate dashboard item, run, branch, commit, and merge
