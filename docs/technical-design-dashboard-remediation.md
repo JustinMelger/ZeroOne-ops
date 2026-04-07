@@ -415,6 +415,15 @@ For the first version, that ownership rule should stay simple:
 - a later reconciliation workflow owns passive convergence for merged, closed,
   or stale remote states.
 
+Sonar dashboard sync should keep its ownership equally narrow:
+
+- it remains the discovery producer for Sonar-derived dashboard items,
+- it may complete stale untouched `open` Sonar items that no longer exist
+  upstream,
+- it should not rewrite or remove Sonar-derived items once they have entered
+  remediation-owned states such as `in_progress`, `mr_opened`, `failed`,
+  `rejected`, or `done`.
+
 ## 11. Testing Strategy
 
 ### 11.1 Unit Tests
