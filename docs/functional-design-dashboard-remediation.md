@@ -133,6 +133,13 @@ Responsible for:
 - moving failed or rejected items out of active sections,
 - keeping the dashboard in sync with remediation progress.
 
+The first implementation should keep this responsibility narrow:
+
+- the remediation workflow owns transitions it can observe directly during its
+  active run,
+- later reconciliation of merged, closed, or otherwise externally changed merge
+  requests should remain a separate maintenance workflow.
+
 ## 9. Remediation-Ready Dashboard Item Contract
 
 An item should only be selectable for remediation when it includes:
@@ -216,6 +223,19 @@ Recommended lifecycle transitions:
 
 The workflow should preserve stable item IDs across transitions.
 
+For the first implementation, the remediation bot should own only the
+transitions it can observe directly while it is running:
+
+- `open -> in_progress`
+- `in_progress -> mr_opened`
+- `in_progress -> failed`
+- `in_progress -> rejected`
+
+Later transitions driven by external events, such as a merge request being
+merged or closed after the remediation run has ended, should be handled by a
+separate reconciliation workflow rather than making the remediation bot a full
+long-lived state controller.
+
 ## 12.1 Stale In-Progress Recovery
 
 The first implementation should define what happens when a run marks an item
@@ -264,6 +284,12 @@ The migration model should make it clear:
 - when dashboard-backed remediation is allowed to work on the corresponding
   dashboard item,
 - how duplicate work is prevented while both paths remain available.
+
+The first version should keep that ownership rule simple:
+
+- remediation owns active execution transitions while the run is in progress,
+- later convergence of dashboard state with merged or closed merge requests is a
+  separate reconciliation concern.
 
 ## 15. Success Criteria
 

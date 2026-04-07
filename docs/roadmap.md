@@ -584,6 +584,8 @@ Goal:
 
 - keep the dashboard in sync with remediation progress
 - record stable item lifecycle transitions and traceability metadata
+- keep first-version state ownership limited to transitions the remediation run
+      can observe directly
 
 Status:
 
@@ -596,6 +598,8 @@ Status:
       remediation
 - [ ] keep dashboard item ID, run ID, branch name, commit SHA, and merge
       request URL visible across lifecycle updates and run summaries
+- [ ] keep merge-request-merged or merge-request-closed reconciliation out of
+      the first remediation workflow and document it as a later maintenance path
 
 Done when:
 
@@ -606,6 +610,8 @@ Done when:
       failure without reading logs first
 - operators can correlate dashboard item, run, branch, commit, and merge
       request data across logs, summaries, and dashboard state
+- the first remediation workflow owns only active-run transitions and does not
+      try to reconcile later merged or closed merge requests yet
 
 ### Remediation Phase 4: Runner And CLI Wiring
 
@@ -650,10 +656,18 @@ Status:
 - [ ] document a smoke-test recipe for one real dashboard remediation run
 - [ ] document the migration model that keeps direct Sonar remediation available
       until dashboard-backed remediation is stable
+- [ ] document that Sonar dashboard sync remains the active discovery producer
+      for Sonar-derived dashboard items while direct Sonar remediation is phased
+      out
+- [ ] review and update the existing Sonar dashboard sync behavior, tests, and
+      operator guidance where needed so it remains a reliable producer for the
+      dashboard-backed remediation flow
 - [ ] compare dashboard-backed remediation outcomes against the existing direct
       Sonar path before making dashboard-first remediation the default
 - [ ] define and validate how dashboard write conflicts or stale remote state
       are retried or failed safely during rollout
+- [ ] design a later scheduled reconciliation workflow for merged or closed
+      merge requests after the core remediation path is stable
 
 Done when:
 
@@ -665,6 +679,15 @@ Done when:
       in real workflow tests or smoke runs
 - operators have a documented rollout path for comparing direct Sonar
       remediation against dashboard-backed remediation
+- the roadmap and operator story stay clear that Sonar dashboard sync continues
+      to own discovery for Sonar-derived items even after direct Sonar
+      remediation is retired
+- the Sonar dashboard sync path remains intentionally maintained as the
+      discovery/update mechanism for Sonar-derived dashboard items during the
+      remediation migration
+- merged or closed merge-request reconciliation remains explicitly deferred to a
+      later scheduled workflow instead of being hidden inside the first
+      remediation bot
 
 ### Post-Remedy Phase 11: CI/CD And Security Hardening
 
