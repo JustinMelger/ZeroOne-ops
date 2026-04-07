@@ -122,9 +122,7 @@ def test_mark_in_progress_stamps_run_metadata_and_preserves_existing_fields() ->
 def test_mark_mr_opened_writes_traceability_fields() -> None:
     dashboard_service = FakeDashboardService(
         build_document(
-            items=[
-                build_item(status="in_progress").model_copy(update={"last_run_id": "run-1"})
-            ]
+            items=[build_item(status="in_progress").model_copy(update={"last_run_id": "run-1"})]
         )
     )
     updater = DashboardRemediationUpdater(dashboard_service)

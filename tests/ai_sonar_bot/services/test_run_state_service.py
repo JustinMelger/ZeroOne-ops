@@ -250,10 +250,7 @@ def test_fail_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -
     assert summary.dashboard_item_id == "sonar:1"
     assert summary.branch_name == "ai-sonar/ax123/service"
     assert summary.commit_sha == "abc123"
-    assert (
-        summary.mr_url
-        == "https://gitlab.example.com/group/project/-/merge_requests/1"
-    )
+    assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
 
 
 def test_reject_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -> None:
@@ -280,7 +277,4 @@ def test_reject_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path)
     assert summary.dashboard_item_id == "sonar:1"
     assert summary.branch_name == "ai-sonar/ax123/service"
     assert summary.commit_sha == "abc123"
-    assert (
-        summary.mr_url
-        == "https://gitlab.example.com/group/project/-/merge_requests/1"
-    )
+    assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"

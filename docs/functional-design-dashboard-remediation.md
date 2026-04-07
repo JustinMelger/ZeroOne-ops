@@ -124,6 +124,18 @@ Responsible for:
 - rendering a bot-owned diff,
 - validating and publishing the result.
 
+The shared remediation workflow should consume a remediation-native work-item
+contract rather than requiring every producer to masquerade as a SonarQube
+issue internally.
+
+That means:
+
+- SonarQube remains one supported producer profile,
+- future producers should plug into the same workflow through the shared
+  remediation contract,
+- source-specific prompt shaping or policy can still exist where needed, but it
+  should not redefine the base execution model for every producer.
+
 ### 8.5 Dashboard Lifecycle Updater
 
 Responsible for:

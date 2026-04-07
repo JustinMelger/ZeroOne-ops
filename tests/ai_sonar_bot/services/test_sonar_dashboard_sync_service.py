@@ -155,3 +155,74 @@ def test_sync_marks_missing_active_sonar_items_done() -> None:
 
     assert dashboard_service.items[0].id == "sonar:STALE"
     assert dashboard_service.items[0].status == "done"
+
+
+def test_sync_preserves_missing_sonar_items_once_remediation_has_started() -> None:
+    dashboard_service = FakeDashboardService(
+        DashboardDocument(
+            issue_id=11,
+            issue_iid=11,
+            issue_url="https://gitlab.example.com/group/project/-/issues/11",
+            title="AI Code Ops Dashboard",
+            sections=[
+                DashboardSection(
+                    key="in_progress",
+                    title="In Progress",
+                    items=[
+                        DashboardItem(
+                            id="sonar:INPROGRESS",
+                            source="sonarqube",
+                            type="code_smell_fix",
+                            status="in_progress",
+                            title="python:S1125 in src/in_progress.py",
+                            summary="Still being remediated.",
+                            priority="low",
+                            source_reference="INPROGRESS",
+                            file="src/in_progress.py",
+                            line=10,
+                            rule="python:S1125",
+                            severity="LOW",
+                            branch_name="ai-sonar/inprogress",
+                            last_run_id="run-1",
+                        )
+                    ],
+                ),
+                DashboardSection(
+                    key="merge_requests_opened",
+                    title="Merge Requests Opened",
+                    items=[
+                        DashboardItem(
+                            id="sonar:MROPENED",
+                            source="sonarqube",
+                            type="code_smell_fix",
+                            status="mr_opened",
+                            title="python:S1125 in src/mr_opened.py",
+                            summary="Awaiting merge.",
+                            priority="low",
+                            source_reference="MROPENED",
+                            file="src/mr_opened.py",
+                            line=10,
+                            rule="python:S1125",
+                            severity="LOW",
+                            branch_name="ai-sonar/mr-opened",
+                            last_run_id="run-2",
+                            commit_sha="abc123",
+                            merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/9",
+                        )
+                    ],
+                ),
+            ],
+        )
+    )
+    service = SonarDashboardSyncService(dashboard_service)
+
+    service.sync(
+        project_id="123",
+        issues=[],
+    )
+
+    items_by_id = {item.id: item for item in dashboard_service.items}
+    assert items_by_id["sonar:INPROGRESS"].status == "in_progress"
+    assert items_by_id["sonar:INPROGRESS"].last_run_id == "run-1"
+    assert items_by_id["sonar:MROPENED"].status == "mr_opened"
+    assert items_by_id["sonar:MROPENED"].merge_request_url is not None
