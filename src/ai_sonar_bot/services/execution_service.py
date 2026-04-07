@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from ai_sonar_bot.models.analysis import ValidationResult
+from ai_sonar_bot.models.analysis import IssueContext, ValidationResult
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunStatus
@@ -91,6 +91,62 @@ class ExecutionService:
             selected_issue=selected_issue,
             dry_run=dry_run,
         )
+        return self._continue_execution(
+            selected_issue=selected_issue,
+            analysis_result=analysis_result,
+            dry_run=dry_run,
+            branch_name=branch_name,
+        )
+
+    def execute_with_context(
+        self,
+        *,
+        selected_issue: SonarIssue,
+        context: IssueContext,
+        dry_run: bool,
+    ) -> ExecutionResult:
+        """Run the execution flow for a selected issue with prebuilt context."""
+        branch_name: str | None = None
+        if not dry_run:
+            try:
+                self.branch_manager.ensure_ready()
+                branch_name = self.branch_manager.build_branch_name(
+                    branch_prefix=self.config.branch_prefix,
+                    issue_key=selected_issue.key,
+                    file_path=selected_issue.file_path,
+                )
+                self.branch_manager.create_branch(branch_name)
+            except BranchManagerError as error:
+                return ExecutionResult(
+                    analysis_result=AnalysisResult(summary="Execution stopped before analysis."),
+                    status_message=f"Branch preparation failed: {error}",
+                    failure=FailureDetails(
+                        stage=FailureStage.BRANCH_PREPARATION,
+                        message=f"Branch preparation failed: {error}",
+                    ),
+                )
+
+        analysis_result = self.analysis_service.analyze_issue_with_context(
+            selected_issue=selected_issue,
+            context=context,
+            dry_run=dry_run,
+        )
+        return self._continue_execution(
+            selected_issue=selected_issue,
+            analysis_result=analysis_result,
+            dry_run=dry_run,
+            branch_name=branch_name,
+        )
+
+    def _continue_execution(
+        self,
+        *,
+        selected_issue: SonarIssue,
+        analysis_result: AnalysisResult,
+        dry_run: bool,
+        branch_name: str | None,
+    ) -> ExecutionResult:
+        """Continue execution after analysis has completed."""
         if analysis_result.failure is not None:
             return ExecutionResult(
                 analysis_result=analysis_result,

@@ -9,7 +9,7 @@ import typer
 from typer import Context
 
 from ai_sonar_bot.logging import configure_logging
-from ai_sonar_bot.runner import review, run, sync_dashboard_sonar
+from ai_sonar_bot.runner import dashboard_remediate, review, run, sync_dashboard_sonar
 
 app = typer.Typer(add_completion=False, help="AI Sonar Bot CLI.")
 review_app = typer.Typer(add_completion=False, help="Merge request review workflow.")
@@ -83,6 +83,19 @@ def dashboard_sonar_command(
 ) -> None:
     """Sync eligible SonarQube issues into the dashboard."""
     _echo_dashboard_summary(dry_run=dry_run)
+
+
+@dashboard_app.command("remediate")
+def dashboard_remediate_command(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Run without publishing remediation."),
+) -> None:
+    """Run the dashboard-backed remediation workflow."""
+    configure_logging()
+    summary = dashboard_remediate(dry_run=dry_run)
+    typer.echo(f"run_id={summary.run_id}")
+    typer.echo(f"status={summary.status.value}")
+    typer.echo(summary.message)
+    typer.echo(f"state_path={summary.state_path}")
 
 
 def main() -> None:

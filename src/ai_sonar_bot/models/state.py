@@ -43,6 +43,7 @@ class FailureStage(StrEnum):
     """Enumerate execution stages that can fail."""
 
     ISSUE_INTAKE = "issue_intake"
+    DASHBOARD_UPDATE = "dashboard_update"
     ANALYSIS = "analysis"
     PATCH_APPLY = "patch_apply"
     VALIDATION = "validation"
@@ -98,6 +99,7 @@ class RunRecord(BaseModel):
 
     run_id: str
     issue_key: str | None = None
+    dashboard_item_id: str | None = None
     branch_name: str | None = None
     commit_sha: str | None = None
     mr_url: str | None = None

@@ -98,7 +98,20 @@ class AnalysisService:
         context = self.context_builder.build(selected_issue)
         if context is None:
             return AnalysisResult(summary="Context unavailable for the selected issue.")
+        return self.analyze_issue_with_context(
+            selected_issue=selected_issue,
+            context=context,
+            dry_run=dry_run,
+        )
 
+    def analyze_issue_with_context(
+        self,
+        *,
+        selected_issue: SonarIssue,
+        context: IssueContext,
+        dry_run: bool,
+    ) -> AnalysisResult:
+        """Analyze a selected issue with prebuilt source context."""
         llm_client = self._build_llm_client()
         if llm_client is None:
             return AnalysisResult(

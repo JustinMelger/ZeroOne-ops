@@ -564,11 +564,11 @@ Goal:
 
 Status:
 
-- [ ] add a dashboard item normalizer that validates the remediation-ready item contract
-- [ ] add a remediation context builder that maps normalized work items onto the
+- [x] add a dashboard item normalizer that validates the remediation-ready item contract
+- [x] add a remediation context builder that maps normalized work items onto the
       existing repository context flow
-- [ ] reject structurally incomplete or out-of-scope items before execution
-- [ ] keep the first supported type limited to the current Sonar-compatible
+- [x] reject structurally incomplete or out-of-scope items before execution
+- [x] keep the first supported type limited to the current Sonar-compatible
       single-file code-smell path
 
 Done when:
@@ -589,18 +589,18 @@ Goal:
 
 Status:
 
-- [ ] add a dashboard remediation updater service for lifecycle transitions
-- [ ] keep lifecycle updates owned by that dedicated updater service instead of
+- [x] add a dashboard remediation updater service for lifecycle transitions
+- [x] keep lifecycle updates owned by that dedicated updater service instead of
       spreading dashboard state writes across runner, execution, or publish code
-- [ ] mark selected items `in_progress` before remediation execution
-- [ ] mark successful items `mr_opened` with branch name, merge request URL,
+- [x] mark selected items `in_progress` before remediation execution
+- [x] mark successful items `mr_opened` with branch name, merge request URL,
       and commit SHA
-- [ ] mark failed or rejected items with clear status and error context
+- [x] mark failed or rejected items with clear status and error context
 - [ ] support the `done` lifecycle state for items that no longer need
       remediation
-- [ ] stamp every lifecycle transition with `last_run_id` and
+- [x] stamp every lifecycle transition with `last_run_id` and
       `status_updated_at`
-- [ ] preserve existing non-lifecycle metadata when status transitions are
+- [x] preserve existing non-lifecycle metadata when status transitions are
       written back to the dashboard item
 - [ ] keep dashboard item ID, run ID, branch name, commit SHA, and merge
       request URL visible across lifecycle updates and run summaries

@@ -10,13 +10,20 @@ import os
 import secrets
 from pathlib import Path
 
-from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunStatus
+from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunRecord, RunStatus
 from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
+from ai_sonar_bot.services.dashboard_item_intake import DashboardItemIntakeService
+from ai_sonar_bot.services.dashboard_item_normalizer import DashboardItemNormalizer
+from ai_sonar_bot.services.dashboard_remediation_adapter import (
+    remediation_work_item_to_sonar_issue,
+)
+from ai_sonar_bot.services.dashboard_remediation_updater import DashboardRemediationUpdater
 from ai_sonar_bot.services.dashboard_service import DashboardService
 from ai_sonar_bot.services.execution_service import ExecutionService
 from ai_sonar_bot.services.issue_intake import IssueIntakeService
 from ai_sonar_bot.services.mr_intake import MergeRequestIntakeService
+from ai_sonar_bot.services.remediation_context_builder import RemediationContextBuilder
 from ai_sonar_bot.services.review_analysis_service import ReviewAnalysisService
 from ai_sonar_bot.services.review_context_builder import ReviewContextBuilder
 from ai_sonar_bot.services.review_dashboard_updater import ReviewDashboardUpdater
@@ -46,6 +53,30 @@ def _project_id_from_env() -> str | None:
 def _sonarqube_key_from_env() -> str | None:
     """Read the SonarQube project key override from the environment."""
     return os.environ.get("SONARQUBE_PROJECT_KEY")
+
+
+def _fail_dashboard_update(
+    *,
+    run_state_service: RunStateService,
+    record: RunRecord,
+    dashboard_item_id: str,
+    workflow_message: str,
+    dashboard_error_message: str,
+) -> RunSummary:
+    """Return a failed run summary when a dashboard lifecycle write fails."""
+    message = (
+        f"{workflow_message} Dashboard lifecycle update failed: "
+        f"{dashboard_error_message}"
+    )
+    return run_state_service.fail_dashboard_item(
+        record=record,
+        dashboard_item_id=dashboard_item_id,
+        error_message=message,
+        failure=FailureDetails(
+            stage=FailureStage.DASHBOARD_UPDATE,
+            message=message,
+        ),
+    )
 
 
 def run(*, dry_run: bool = False) -> RunSummary:
@@ -329,6 +360,204 @@ def review(*, dry_run: bool = False) -> RunSummary:
             else f"[{config.execution_mode}] {summary.message} {dashboard_warning}"
         ),
         state_path=summary.state_path,
+    )
+
+
+def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
+    """Run dashboard-backed remediation."""
+    config = load_config()
+    gitlab_config = load_gitlab_connection_config()
+    state_store = StateStore(
+        config.state.path,
+        base_branch=config.base_branch,
+        gitlab_project_id=_project_id_from_env(),
+        sonarqube_project_key=_sonarqube_key_from_env(),
+    )
+    state = state_store.load()
+    run_state_service = RunStateService(config=config, state_store=state_store, state=state)
+
+    run_id = _build_run_id()
+    record = run_state_service.start_run(run_id)
+    repo_root = Path.cwd()
+    active_dry_run = dry_run or config.dry_run
+    dashboard_service = DashboardService(GitLabDashboardClient(gitlab_config))
+    intake_result = DashboardItemIntakeService(
+        repo_root=repo_root,
+        config=config,
+        dashboard_service=dashboard_service,
+    ).select_item(
+        project_id=gitlab_config.project_id,
+        state=state,
+    )
+    if intake_result.selected_item is None:
+        return run_state_service.finish_no_issue(
+            record=record,
+            message=intake_result.message,
+            issue_count=intake_result.item_count,
+        )
+
+    run_state_service.mark_dashboard_selected(
+        record=record,
+        dashboard_item_id=intake_result.selected_item.id,
+    )
+
+    normalizer = DashboardItemNormalizer()
+    normalization_result = normalizer.normalize(intake_result.selected_item)
+    if normalization_result.work_item is None:
+        if not active_dry_run:
+            DashboardRemediationUpdater(dashboard_service).mark_rejected(
+                project_id=gitlab_config.project_id,
+                dashboard_item_id=intake_result.selected_item.id,
+                run_id=run_id,
+                rejection_reason=normalization_result.message,
+            )
+        return run_state_service.reject_dashboard_item(
+            record=record,
+            dashboard_item_id=intake_result.selected_item.id,
+            branch_name=None,
+            message=normalization_result.message,
+        )
+    work_item = normalization_result.work_item
+    context = RemediationContextBuilder(repo_root, config).build(work_item)
+    if context is None:
+        message = f"Context unavailable for dashboard item {work_item.dashboard_item_id}."
+        if not active_dry_run:
+            DashboardRemediationUpdater(dashboard_service).mark_failed(
+                project_id=gitlab_config.project_id,
+                dashboard_item_id=work_item.dashboard_item_id,
+                run_id=run_id,
+                error_message=message,
+            )
+        return run_state_service.fail_dashboard_item(
+            record=record,
+            dashboard_item_id=work_item.dashboard_item_id,
+            error_message=message,
+            failure=FailureDetails(
+                stage=FailureStage.ISSUE_INTAKE,
+                message=message,
+            ),
+        )
+
+    live_dashboard_updates = not active_dry_run and config.execution_mode == "ci"
+    if live_dashboard_updates:
+        in_progress_result = DashboardRemediationUpdater(dashboard_service).mark_in_progress(
+            project_id=gitlab_config.project_id,
+            dashboard_item_id=work_item.dashboard_item_id,
+            run_id=run_id,
+        )
+        if in_progress_result.error_message is not None:
+            return _fail_dashboard_update(
+                run_state_service=run_state_service,
+                record=record,
+                dashboard_item_id=work_item.dashboard_item_id,
+                workflow_message=(
+                    f"Selected dashboard item {work_item.dashboard_item_id} for remediation."
+                ),
+                dashboard_error_message=in_progress_result.error_message,
+            )
+
+    selected_issue = remediation_work_item_to_sonar_issue(work_item)
+    execution_result = ExecutionService(repo_root=repo_root, config=config).execute_with_context(
+        selected_issue=selected_issue,
+        context=context,
+        dry_run=active_dry_run,
+    )
+    record.branch_name = execution_result.branch_name
+    record.commit_sha = execution_result.commit_sha
+
+    if execution_result.failure is not None:
+        if live_dashboard_updates:
+            failed_update = DashboardRemediationUpdater(dashboard_service).mark_failed(
+                project_id=gitlab_config.project_id,
+                dashboard_item_id=work_item.dashboard_item_id,
+                run_id=run_id,
+                error_message=execution_result.failure.message,
+            )
+            if failed_update.error_message is not None:
+                return _fail_dashboard_update(
+                    run_state_service=run_state_service,
+                    record=record,
+                    dashboard_item_id=work_item.dashboard_item_id,
+                    workflow_message=execution_result.failure.message,
+                    dashboard_error_message=failed_update.error_message,
+                )
+        return run_state_service.fail_dashboard_item(
+            record=record,
+            dashboard_item_id=work_item.dashboard_item_id,
+            error_message=execution_result.failure.message,
+            failure=execution_result.failure,
+        )
+    if (
+        execution_result.final_status is not None
+        and execution_result.final_status.value == "rejected"
+    ):
+        if live_dashboard_updates:
+            rejected_update = DashboardRemediationUpdater(dashboard_service).mark_rejected(
+                project_id=gitlab_config.project_id,
+                dashboard_item_id=work_item.dashboard_item_id,
+                run_id=run_id,
+                rejection_reason=execution_result.status_message,
+            )
+            if rejected_update.error_message is not None:
+                return _fail_dashboard_update(
+                    run_state_service=run_state_service,
+                    record=record,
+                    dashboard_item_id=work_item.dashboard_item_id,
+                    workflow_message=execution_result.status_message,
+                    dashboard_error_message=rejected_update.error_message,
+                )
+        return run_state_service.reject_dashboard_item(
+            record=record,
+            dashboard_item_id=work_item.dashboard_item_id,
+            branch_name=execution_result.branch_name,
+            message=execution_result.status_message,
+        )
+
+    if (
+        live_dashboard_updates
+        and execution_result.mr_url is not None
+        and execution_result.commit_sha
+    ):
+        record.mr_url = execution_result.mr_url
+        mr_opened_update = DashboardRemediationUpdater(dashboard_service).mark_mr_opened(
+            project_id=gitlab_config.project_id,
+            dashboard_item_id=work_item.dashboard_item_id,
+            run_id=run_id,
+            branch_name=execution_result.branch_name or "",
+            merge_request_url=execution_result.mr_url,
+            commit_sha=execution_result.commit_sha,
+        )
+        if mr_opened_update.error_message is not None:
+            return _fail_dashboard_update(
+                run_state_service=run_state_service,
+                record=record,
+                dashboard_item_id=work_item.dashboard_item_id,
+                workflow_message=(
+                    "Remediation succeeded and created a merge request, but the dashboard "
+                    "state could not be updated."
+                ),
+                dashboard_error_message=mr_opened_update.error_message,
+            )
+
+    if execution_result.mr_url is not None:
+        run_state_service.mark_dashboard_mr_created(
+            record=record,
+            dashboard_item_id=work_item.dashboard_item_id,
+            branch_name=execution_result.branch_name,
+            mr_url=execution_result.mr_url,
+        )
+
+    run_state_service.finish_success(record=record)
+    return run_state_service.build_summary(
+        run_id=record.run_id,
+        status=record.status,
+        message=(
+            f"Selected dashboard item {work_item.dashboard_item_id} in "
+            f"{work_item.file_path} ({work_item.rule_id}, {work_item.severity}). "
+            f"{execution_result.status_message}"
+        ),
+        mr_url=execution_result.mr_url,
+        mr_action=execution_result.mr_action,
     )
 
 

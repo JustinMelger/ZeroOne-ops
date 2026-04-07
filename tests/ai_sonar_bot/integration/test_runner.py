@@ -3,10 +3,18 @@ from pathlib import Path
 
 from ai_sonar_bot.models.analysis import (
     AnalysisClassification,
+    CodeContextSnippet,
     IssueAnalysis,
+    IssueContext,
     StructuredEditProposal,
     TextEdit,
 )
+from ai_sonar_bot.models.dashboard import (
+    DashboardDocument,
+    DashboardItem,
+    empty_sections,
+)
+from ai_sonar_bot.models.remediation import RemediationWorkItem
 from ai_sonar_bot.models.review import (
     MergeRequestReviewCandidate,
     MergeRequestReviewContext,
@@ -15,8 +23,13 @@ from ai_sonar_bot.models.review import (
     ReviewResult,
 )
 from ai_sonar_bot.models.sonar import SonarIssue
-from ai_sonar_bot.models.state import AppState, MergeRequestReviewState, RepositoryState
-from ai_sonar_bot.runner import review, run
+from ai_sonar_bot.models.state import (
+    AppState,
+    FailureStage,
+    MergeRequestReviewState,
+    RepositoryState,
+)
+from ai_sonar_bot.runner import dashboard_remediate, review, run
 from ai_sonar_bot.services.review_publisher import ReviewPublishResult
 from ai_sonar_bot.services.state_store import StateStore
 
@@ -48,6 +61,592 @@ def test_run_dry_run_creates_summary(tmp_path: Path, monkeypatch) -> None:
 
     assert summary.status.value == "no_issue"
     assert "SonarQube credentials not configured" in summary.message
+
+
+def test_dashboard_remediate_dry_run_returns_no_issue_summary(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        lambda self, project_id, state: type(
+            "DashboardIntakeResult",
+            (),
+            {
+                "selected_item": None,
+                "item_count": 0,
+                "message": "No remediation-ready dashboard item found.",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )(),
+    )
+
+    summary = dashboard_remediate(dry_run=True)
+
+    assert summary.status.value == "no_issue"
+    assert "No remediation-ready dashboard item found." in summary.message
+
+
+def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    selected_item = DashboardItem(
+        id="sonar:AX123",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="open",
+        title="python:S1125 in src/service.py",
+        summary="Replace boolean equality with direct truthiness.",
+        priority="low",
+        source_reference="AX123",
+        file="src/service.py",
+        line=42,
+        rule="python:S1125",
+        severity="LOW",
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        lambda self, project_id, state: type(
+            "DashboardIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        lambda self, item: type(
+            "NormalizationResult",
+            (),
+            {
+                "work_item": RemediationWorkItem(
+                    dashboard_item_id="sonar:AX123",
+                    source_type="sonarqube",
+                    source_ref="AX123",
+                    title=item.title,
+                    status="open",
+                    message=item.summary,
+                    file_path="src/service.py",
+                    line=42,
+                    rule_id="python:S1125",
+                    severity="LOW",
+                ),
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.remediation_context_builder.RemediationContextBuilder.build",
+        lambda self, work_item: IssueContext(
+            issue_key=work_item.dashboard_item_id,
+            file_path=work_item.file_path,
+            line=work_item.line,
+            file_size_bytes=10,
+            snippet=CodeContextSnippet(start_line=40, end_line=44, content="  42: value = value"),
+            full_file_included=True,
+            truncated=False,
+        ),
+    )
+    recorded_updates: list[tuple[str, str]] = []
+
+    def mark_in_progress(self, *, project_id: str, dashboard_item_id: str, run_id: str):
+        del project_id, run_id
+        recorded_updates.append(("in_progress", dashboard_item_id))
+        return type(
+            "UpdateResult",
+            (),
+            {
+                "dashboard_issue_url": "https://gitlab.example.com/group/project/-/issues/11",
+                "updated_item": selected_item,
+                "error_message": None,
+            },
+        )()
+
+    def mark_mr_opened(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        branch_name: str,
+        merge_request_url: str,
+        commit_sha: str,
+        merge_request_iid: int | None = None,
+    ):
+        del project_id, run_id, branch_name, merge_request_url, commit_sha, merge_request_iid
+        recorded_updates.append(("mr_opened", dashboard_item_id))
+        return type(
+            "UpdateResult",
+            (),
+            {
+                "dashboard_issue_url": "https://gitlab.example.com/group/project/-/issues/11",
+                "updated_item": selected_item,
+                "error_message": None,
+            },
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
+        mark_in_progress,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_mr_opened",
+        mark_mr_opened,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.execution_service.ExecutionService.execute_with_context",
+        lambda self, selected_issue, context, dry_run: type(
+            "ExecutionResult",
+            (),
+            {
+                "analysis_result": type("AnalysisResult", (), {"summary": "done"})(),
+                "status_message": "Patch applied locally in run. All validation commands passed.",
+                "failure": None,
+                "branch_name": "ai-sonar/ax123/service",
+                "commit_sha": "abc123",
+                "mr_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
+                "mr_action": "created",
+                "publish_attempted": True,
+                "final_status": None,
+            },
+        )(),
+    )
+
+    summary = dashboard_remediate(dry_run=False)
+
+    assert summary.status.value == "mr_created"
+    assert "Selected dashboard item sonar:AX123 in src/service.py" in summary.message
+    assert "Merge request created:" in summary.message
+    assert recorded_updates == [("in_progress", "sonar:AX123"), ("mr_opened", "sonar:AX123")]
+
+
+def test_dashboard_remediate_fails_when_mr_opened_update_cannot_persist(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    selected_item = DashboardItem(
+        id="sonar:AX123",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="open",
+        title="python:S1125 in src/service.py",
+        summary="Replace boolean equality with direct truthiness.",
+        priority="low",
+        source_reference="AX123",
+        file="src/service.py",
+        line=42,
+        rule="python:S1125",
+        severity="LOW",
+    )
+
+    def select_item(self, project_id: str, state):  # noqa: ANN001
+        del self, project_id, state
+        return type(
+            "DashboardIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )()
+
+    def normalize(self, item: DashboardItem):
+        del self
+        return type(
+            "NormalizationResult",
+            (),
+            {
+                "work_item": RemediationWorkItem(
+                    dashboard_item_id="sonar:AX123",
+                    source_type="sonarqube",
+                    source_ref="AX123",
+                    title=item.title,
+                    status="open",
+                    message=item.summary,
+                    file_path="src/service.py",
+                    line=42,
+                    rule_id="python:S1125",
+                    severity="LOW",
+                ),
+                "message": "",
+            },
+        )()
+
+    def build_context(self, work_item: RemediationWorkItem):
+        del self
+        return IssueContext(
+            issue_key=work_item.dashboard_item_id,
+            file_path=work_item.file_path,
+            line=work_item.line,
+            file_size_bytes=10,
+            snippet=CodeContextSnippet(start_line=40, end_line=44, content="  42: value = value"),
+            full_file_included=True,
+            truncated=False,
+        )
+
+    def mark_in_progress(self, *, project_id: str, dashboard_item_id: str, run_id: str):
+        del self, project_id, dashboard_item_id, run_id
+        return type(
+            "UpdateResult",
+            (),
+            {
+                "dashboard_issue_url": "https://gitlab.example.com/group/project/-/issues/11",
+                "updated_item": selected_item,
+                "error_message": None,
+            },
+        )()
+
+    def mark_mr_opened(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        branch_name: str,
+        merge_request_url: str,
+        commit_sha: str,
+        merge_request_iid: int | None = None,
+    ):
+        del (
+            self,
+            project_id,
+            dashboard_item_id,
+            run_id,
+            branch_name,
+            merge_request_url,
+            commit_sha,
+            merge_request_iid,
+        )
+        return type(
+            "UpdateResult",
+            (),
+            {
+                "dashboard_issue_url": None,
+                "updated_item": None,
+                "error_message": "Dashboard remediation update failed: write conflict",
+            },
+        )()
+
+    def execute_with_context(self, selected_issue, context, dry_run):  # noqa: ANN001
+        del self, selected_issue, context, dry_run
+        return type(
+            "ExecutionResult",
+            (),
+            {
+                "analysis_result": type("AnalysisResult", (), {"summary": "done"})(),
+                "status_message": "Patch applied locally in run. All validation commands passed.",
+                "failure": None,
+                "branch_name": "ai-sonar/ax123/service",
+                "commit_sha": "abc123",
+                "mr_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
+                "mr_action": "created",
+                "publish_attempted": True,
+                "final_status": None,
+            },
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        select_item,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        normalize,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.remediation_context_builder.RemediationContextBuilder.build",
+        build_context,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
+        mark_in_progress,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_mr_opened",
+        mark_mr_opened,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.execution_service.ExecutionService.execute_with_context",
+        execute_with_context,
+    )
+
+    summary = dashboard_remediate(dry_run=False)
+    state = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+    last_run = state.runs[-1]
+
+    assert summary.status.value == "failed"
+    assert "Dashboard lifecycle update failed" in summary.message
+    assert last_run.failure is not None
+    assert last_run.failure.stage == FailureStage.DASHBOARD_UPDATE
+    assert last_run.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
+
+
+def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    selected_item = DashboardItem(
+        id="sonar:AX123",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="open",
+        title="python:S1125 in src/service.py",
+        summary="Replace boolean equality with direct truthiness.",
+        priority="low",
+        source_reference="AX123",
+        file="src/service.py",
+        line=42,
+        rule="python:S1125",
+        severity="LOW",
+    )
+
+    def select_item(self, project_id: str, state):  # noqa: ANN001
+        del self, project_id, state
+        return type(
+            "DashboardIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )()
+
+    def normalize(self, item: DashboardItem):
+        del self
+        return type(
+            "NormalizationResult",
+            (),
+            {
+                "work_item": RemediationWorkItem(
+                    dashboard_item_id="sonar:AX123",
+                    source_type="sonarqube",
+                    source_ref="AX123",
+                    title=item.title,
+                    status="open",
+                    message=item.summary,
+                    file_path="src/service.py",
+                    line=42,
+                    rule_id="python:S1125",
+                    severity="LOW",
+                ),
+                "message": "",
+            },
+        )()
+
+    def build_context(self, work_item: RemediationWorkItem):
+        del self
+        return IssueContext(
+            issue_key=work_item.dashboard_item_id,
+            file_path=work_item.file_path,
+            line=work_item.line,
+            file_size_bytes=10,
+            snippet=CodeContextSnippet(start_line=40, end_line=44, content="  42: value = value"),
+            full_file_included=True,
+            truncated=False,
+        )
+
+    def mark_in_progress(self, *, project_id: str, dashboard_item_id: str, run_id: str):
+        del self, project_id, dashboard_item_id, run_id
+        return type(
+            "UpdateResult",
+            (),
+            {
+                "dashboard_issue_url": "https://gitlab.example.com/group/project/-/issues/11",
+                "updated_item": selected_item,
+                "error_message": None,
+            },
+        )()
+
+    def mark_failed(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        error_message: str,
+    ):
+        del self, project_id, dashboard_item_id, run_id, error_message
+        return type(
+            "UpdateResult",
+            (),
+            {
+                "dashboard_issue_url": None,
+                "updated_item": None,
+                "error_message": "Dashboard remediation update failed: write conflict",
+            },
+        )()
+
+    def execute_with_context(self, selected_issue, context, dry_run):  # noqa: ANN001
+        del self, selected_issue, context, dry_run
+        return type(
+            "ExecutionResult",
+            (),
+            {
+                "analysis_result": type("AnalysisResult", (), {"summary": "done"})(),
+                "status_message": "Patch failed in run.",
+                "failure": type(
+                    "Failure",
+                    (),
+                    {"stage": FailureStage.COMMIT, "message": "Commit failed: git commit failed"},
+                )(),
+                "branch_name": "ai-sonar/ax123/service",
+                "commit_sha": None,
+                "mr_url": None,
+                "mr_action": None,
+                "publish_attempted": False,
+                "final_status": None,
+            },
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        select_item,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        normalize,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.remediation_context_builder.RemediationContextBuilder.build",
+        build_context,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
+        mark_in_progress,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
+        mark_failed,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.execution_service.ExecutionService.execute_with_context",
+        execute_with_context,
+    )
+
+    summary = dashboard_remediate(dry_run=False)
+    state = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+    last_run = state.runs[-1]
+
+    assert summary.status.value == "failed"
+    assert "Commit failed: git commit failed" in summary.message
+    assert "Dashboard lifecycle update failed" in summary.message
+    assert last_run.failure is not None
+    assert last_run.failure.stage == FailureStage.DASHBOARD_UPDATE
 
 
 def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> None:
