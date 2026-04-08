@@ -78,7 +78,7 @@ class DashboardRemediationRunner:
                 issue_count=intake_result.item_count,
             )
 
-        self.run_state_service.mark_dashboard_selected(
+        self.run_state_service.dashboard.mark_selected(
             record=record,
             dashboard_item_id=intake_result.selected_item.id,
         )
@@ -92,7 +92,7 @@ class DashboardRemediationRunner:
                     run_id=run_id,
                     rejection_reason=normalization_result.message,
                 )
-            return self.run_state_service.reject_dashboard_item(
+            return self.run_state_service.dashboard.reject_item(
                 record=record,
                 dashboard_item_id=intake_result.selected_item.id,
                 branch_name=None,
@@ -113,7 +113,7 @@ class DashboardRemediationRunner:
                     run_id=run_id,
                     error_message=message,
                 )
-            return self.run_state_service.fail_dashboard_item(
+            return self.run_state_service.dashboard.fail_item(
                 record=record,
                 dashboard_item_id=work_item.dashboard_item_id,
                 error_message=_with_dashboard_recovery_note(
@@ -174,7 +174,7 @@ class DashboardRemediationRunner:
                         ),
                         dashboard_error_message=failed_update.error_message,
                     )
-            return self.run_state_service.fail_dashboard_item(
+            return self.run_state_service.dashboard.fail_item(
                 record=record,
                 dashboard_item_id=work_item.dashboard_item_id,
                 error_message=_with_dashboard_recovery_note(
@@ -205,7 +205,7 @@ class DashboardRemediationRunner:
                         ),
                         dashboard_error_message=rejected_update.error_message,
                     )
-            return self.run_state_service.reject_dashboard_item(
+            return self.run_state_service.dashboard.reject_item(
                 record=record,
                 dashboard_item_id=work_item.dashboard_item_id,
                 branch_name=execution_result.branch_name,
@@ -242,14 +242,14 @@ class DashboardRemediationRunner:
                 )
 
         if execution_result.mr_url is not None:
-            self.run_state_service.mark_dashboard_mr_created(
+            self.run_state_service.dashboard.mark_mr_created(
                 record=record,
                 dashboard_item_id=work_item.dashboard_item_id,
                 branch_name=execution_result.branch_name,
                 mr_url=execution_result.mr_url,
             )
 
-        self.run_state_service.finish_success(record=record)
+        self.run_state_service.dashboard.finish_success()
         return self.run_state_service.build_summary(
             run_id=record.run_id,
             status=record.status,
@@ -278,7 +278,7 @@ class DashboardRemediationRunner:
     ) -> RunSummary:
         """Return a failed run summary when a dashboard lifecycle write fails."""
         message = f"{workflow_message} Dashboard lifecycle update failed: {dashboard_error_message}"
-        return self.run_state_service.fail_dashboard_item(
+        return self.run_state_service.dashboard.fail_item(
             record=record,
             dashboard_item_id=dashboard_item_id,
             error_message=message,
