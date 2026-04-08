@@ -7,7 +7,10 @@ from ai_sonar_bot.models.config import (
     GitLabConfig,
     ReviewConfig,
 )
-from ai_sonar_bot.models.review import MergeRequestChangedFile, MergeRequestReviewCandidate
+from ai_sonar_bot.models.review import (
+    MergeRequestChangedFile,
+    MergeRequestReviewCandidate,
+)
 from ai_sonar_bot.services.review_context_builder import ReviewContextBuilder
 
 
@@ -170,3 +173,88 @@ def test_build_filters_to_supported_paths(tmp_path: Path) -> None:
     assert result.context is not None
     assert len(result.context.changed_files) == 1
     assert result.context.changed_files[0].file_path == "src/service.py"
+
+
+def test_build_parses_remediation_authored_merge_request_context(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text("value = 2\n", encoding="utf-8")
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -1,1 +1,1 @@\n-value = 1\n+value = 2\n",
+            )
+        ]
+    )
+    merge_request.description = "\n".join(
+        [
+            "## Summary",
+            "Update the service guard to avoid a null dereference.",
+            "",
+            "## Remediation Target",
+            "- Source: `SonarQube`",
+            "- Issue key: `AX123`",
+            "- Rule: `python:S2259`",
+            "- Severity: `MAJOR`",
+            "- Type: `BUG`",
+            "- File: `src/service.py`",
+            "- Line: `12`",
+            "- Message: Guard against nullable access.",
+            "",
+            "## Validation",
+            "- All validation commands passed.",
+            "",
+            "## Notes",
+            "- Diff was rendered by the bot from a structured edit proposal.",
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(),
+        review_client=FakeGitLabReviewClient(merge_request),
+    ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    assert result.context.remediation_context is not None
+    assert result.context.remediation_context.summary == (
+        "Update the service guard to avoid a null dereference."
+    )
+    assert result.context.remediation_context.source == "SonarQube"
+    assert result.context.remediation_context.item_reference_label == "Issue key"
+    assert result.context.remediation_context.item_reference == "AX123"
+    assert result.context.remediation_context.rule_id == "python:S2259"
+    assert result.context.remediation_context.severity == "MAJOR"
+    assert result.context.remediation_context.remediation_type == "BUG"
+    assert result.context.remediation_context.file_path == "src/service.py"
+    assert result.context.remediation_context.line == 12
+    assert result.context.remediation_context.validation_summary == (
+        "All validation commands passed."
+    )
+
+
+def test_build_keeps_working_for_normal_merge_requests_without_metadata(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text("value = 2\n", encoding="utf-8")
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -1,1 +1,1 @@\n-value = 1\n+value = 2\n",
+            )
+        ]
+    )
+    merge_request.description = "Human-authored merge request without bot metadata."
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(),
+        review_client=FakeGitLabReviewClient(merge_request),
+    ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    assert result.context.remediation_context is None

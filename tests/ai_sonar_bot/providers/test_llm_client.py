@@ -2,7 +2,12 @@ from pathlib import Path
 
 from ai_sonar_bot.models.analysis import CodeContextSnippet, IssueContext
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget
-from ai_sonar_bot.models.review import MergeRequestReviewContext, ReviewFileContext, ReviewResult
+from ai_sonar_bot.models.review import (
+    MergeRequestReviewContext,
+    RemediationReviewContext,
+    ReviewFileContext,
+    ReviewResult,
+)
 from ai_sonar_bot.providers.llm_fixtures import (
     load_analysis_fixture,
     load_review_fixture,
@@ -233,7 +238,52 @@ def test_build_review_prompt_uses_prompt_template() -> None:
 
     assert "Review the merge request and return structured JSON only." in prompt
     assert "Merge request IID: 17" in prompt
+    assert "Remediation-authored context:\n(none)" in prompt
     assert "File: src/service.py" in prompt
+
+
+def test_build_review_prompt_includes_remediation_context_when_present() -> None:
+    context = MergeRequestReviewContext(
+        mr_iid=17,
+        title="fix: add null guard",
+        description="Bot-authored remediation merge request.",
+        source_branch="ai-sonar/AX123",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        remediation_context=RemediationReviewContext(
+            summary="Add a null guard before dereferencing the service result.",
+            source="SonarQube",
+            item_reference_label="Issue key",
+            item_reference="AX123",
+            rule_id="python:S2259",
+            severity="MAJOR",
+            remediation_type="BUG",
+            file_path="src/service.py",
+            line=12,
+            message="Guard against nullable access.",
+            validation_summary="All validation commands passed.",
+            notes="Diff was rendered by the bot from a structured edit proposal.",
+        ),
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                diff="@@ -1 +1 @@\n-value = 1\n+value = 2",
+                content="value = 2\n",
+                start_line=1,
+                end_line=1,
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+    prompt = build_review_prompt(context)
+
+    assert "Remediation-authored context:" in prompt
+    assert "Summary: Add a null guard before dereferencing the service result." in prompt
+    assert "Issue key: AX123" in prompt
+    assert "Validation: All validation commands passed." in prompt
 
 
 def test_load_prompt_template_rejects_unknown_template_name() -> None:

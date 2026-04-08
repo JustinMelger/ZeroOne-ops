@@ -48,6 +48,23 @@ class ReviewFileContext(BaseModel):
     renamed_file: bool = False
 
 
+class RemediationReviewContext(BaseModel):
+    """Represent remediation-authored MR metadata when present."""
+
+    summary: str | None = None
+    source: str | None = None
+    item_reference_label: str | None = None
+    item_reference: str | None = None
+    rule_id: str | None = None
+    severity: str | None = None
+    remediation_type: str | None = None
+    file_path: str | None = None
+    line: int | None = None
+    message: str | None = None
+    validation_summary: str | None = None
+    notes: str | None = None
+
+
 class MergeRequestReviewContext(BaseModel):
     """Represent deterministic review context for one merge request."""
 
@@ -60,6 +77,7 @@ class MergeRequestReviewContext(BaseModel):
     head_sha: str
     draft: bool = False
     author_username: str | None = None
+    remediation_context: RemediationReviewContext | None = None
     changed_files: list[ReviewFileContext] = Field(default_factory=list)
 
 

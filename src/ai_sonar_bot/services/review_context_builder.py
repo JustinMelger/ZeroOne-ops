@@ -10,6 +10,7 @@ from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.review import (
     MergeRequestReviewCandidate,
     MergeRequestReviewContext,
+    RemediationReviewContext,
     ReviewFileContext,
 )
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
@@ -19,6 +20,8 @@ from ai_sonar_bot.services.context_builder import (
 )
 
 HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+SECTION_HEADER_PATTERN = re.compile(r"^## (?P<title>.+)$", re.MULTILINE)
+TARGET_BULLET_PATTERN = re.compile(r"^- (?P<label>[^:]+): (?P<value>.+)$")
 
 
 @dataclass(frozen=True)
@@ -131,6 +134,9 @@ class ReviewContextBuilder:
                 head_sha=detailed_merge_request.head_sha,
                 draft=detailed_merge_request.draft,
                 author_username=detailed_merge_request.author_username,
+                remediation_context=_parse_remediation_context(
+                    detailed_merge_request.description
+                ),
                 changed_files=changed_files,
             ),
             message="",
@@ -141,6 +147,120 @@ class ReviewContextBuilder:
         if not self.config.review.supported_paths:
             return True
         return any(file_path.startswith(prefix) for prefix in self.config.review.supported_paths)
+
+
+def _parse_remediation_context(description: str | None) -> RemediationReviewContext | None:
+    """Parse bot-authored remediation metadata from an MR description when present."""
+    if not description:
+        return None
+
+    sections = _parse_markdown_sections(description)
+    target_section = sections.get("Remediation Target")
+    if target_section is None:
+        return None
+
+    summary = _normalize_section_text(sections.get("Summary"))
+    validation_summary = _parse_single_bullet_or_text(sections.get("Validation"))
+    notes = _parse_single_bullet_or_text(sections.get("Notes"))
+
+    context = RemediationReviewContext(
+        summary=summary,
+        validation_summary=validation_summary,
+        notes=notes,
+    )
+    for raw_line in target_section.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        match = TARGET_BULLET_PATTERN.match(line)
+        if match is None:
+            continue
+        label = match.group("label").strip()
+        value = _strip_markdown_code(match.group("value").strip())
+        if label == "Source":
+            context.source = value
+        elif label == "Rule":
+            context.rule_id = value
+        elif label == "Severity":
+            context.severity = value
+        elif label == "Type":
+            context.remediation_type = value
+        elif label == "File":
+            context.file_path = value
+        elif label == "Line":
+            context.line = _parse_optional_line(value)
+        elif label == "Message":
+            context.message = value
+        elif context.item_reference is None:
+            context.item_reference_label = label
+            context.item_reference = value
+
+    if all(
+        value is None
+        for value in (
+            context.summary,
+            context.source,
+            context.item_reference,
+            context.rule_id,
+            context.severity,
+            context.remediation_type,
+            context.file_path,
+            context.line,
+            context.message,
+            context.validation_summary,
+            context.notes,
+        )
+    ):
+        return None
+    return context
+
+
+def _parse_markdown_sections(text: str) -> dict[str, str]:
+    """Split a markdown document into second-level heading sections."""
+    matches = list(SECTION_HEADER_PATTERN.finditer(text))
+    if not matches:
+        return {}
+    sections: dict[str, str] = {}
+    for index, match in enumerate(matches):
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        sections[match.group("title").strip()] = text[start:end].strip()
+    return sections
+
+
+def _normalize_section_text(text: str | None) -> str | None:
+    """Collapse a markdown section into one normalized line when present."""
+    if text is None:
+        return None
+    normalized = " ".join(line.strip() for line in text.splitlines() if line.strip())
+    return normalized or None
+
+
+def _parse_single_bullet_or_text(text: str | None) -> str | None:
+    """Normalize one short bullet-style section."""
+    normalized = _normalize_section_text(text)
+    if normalized is None:
+        return None
+    if normalized.startswith("- "):
+        return normalized[2:].strip() or None
+    return normalized
+
+
+def _strip_markdown_code(value: str) -> str:
+    """Strip simple markdown code fences from scalar values."""
+    if value.startswith("`") and value.endswith("`") and len(value) >= 2:
+        return value[1:-1]
+    return value
+
+
+def _parse_optional_line(value: str) -> int | None:
+    """Parse one optional integer line value from MR metadata."""
+    if value.lower() == "n/a":
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
 
 
 def _changed_line_window(diff: str | None, line_count: int) -> tuple[int, int]:

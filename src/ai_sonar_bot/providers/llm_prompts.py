@@ -10,7 +10,7 @@ from ai_sonar_bot.models.remediation import (
     RemediationExecutionTarget,
     remediation_profile_for,
 )
-from ai_sonar_bot.models.review import MergeRequestReviewContext
+from ai_sonar_bot.models.review import MergeRequestReviewContext, RemediationReviewContext
 
 
 class LLMPromptError(RuntimeError):
@@ -94,7 +94,37 @@ def build_review_prompt(context: MergeRequestReviewContext) -> str:
         source_branch=context.source_branch,
         target_branch=context.target_branch,
         head_sha=context.head_sha,
+        remediation_context=_format_remediation_review_context(context.remediation_context),
         changed_files=changed_files,
+    )
+
+
+def _format_remediation_review_context(
+    context: RemediationReviewContext | None,
+) -> str:
+    """Render remediation-authored MR context for the review prompt."""
+    if context is None:
+        return "(none)"
+
+    item_reference = (
+        f"{context.item_reference_label or 'Item reference'}: {context.item_reference}"
+        if context.item_reference
+        else "Item reference: (none)"
+    )
+    return "\n".join(
+        [
+            f"Summary: {context.summary or '(none)'}",
+            f"Source: {context.source or '(none)'}",
+            item_reference,
+            f"Rule: {context.rule_id or '(none)'}",
+            f"Severity: {context.severity or '(none)'}",
+            f"Type: {context.remediation_type or '(none)'}",
+            f"File: {context.file_path or '(none)'}",
+            f"Line: {context.line if context.line is not None else '(none)'}",
+            f"Message: {context.message or '(none)'}",
+            f"Validation: {context.validation_summary or '(none)'}",
+            f"Notes: {context.notes or '(none)'}",
+        ]
     )
 
 

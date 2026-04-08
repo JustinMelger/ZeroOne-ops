@@ -6,6 +6,13 @@ This roadmap translates the functional and technical design into an implementati
 
 It is intentionally short and execution-focused. The goal is to make the next steps obvious and keep scope controlled while the bot is being built.
 
+Working rule:
+
+- after each meaningful implementation round, pause for a short cleanup review
+  before starting the next feature slice
+- use that review to check workflow boundaries, growing files/services, test
+  gaps, and any documentation drift created by the last round
+
 ## Current Status
 
 Completed:
@@ -242,7 +249,7 @@ Goal:
 
 Status:
 
-- [ ] teach the review workflow to use remediation-authored MR context when it
+- [x] teach the review workflow to use remediation-authored MR context when it
       is available, while degrading gracefully for normal human-authored merge
       requests
 - [ ] suppress speculative or weak findings more aggressively so the bot

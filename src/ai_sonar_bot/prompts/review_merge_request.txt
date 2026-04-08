@@ -12,5 +12,8 @@ Source branch: {source_branch}
 Target branch: {target_branch}
 Head SHA: {head_sha}
 
+Remediation-authored context:
+{remediation_context}
+
 Changed files:
 {changed_files}
