@@ -212,17 +212,16 @@ Goal:
 
 Status:
 
-- [ ] extract the dashboard reconciliation workflow from `runner.py` into a
+- [x] extract the dashboard reconciliation workflow from `runner.py` into a
       dedicated runner service
-- [ ] extract the dashboard remediation workflow from `runner.py` into a
+- [x] extract the dashboard remediation workflow from `runner.py` into a
       dedicated runner service
-- [ ] extract the review workflow from `runner.py` into a dedicated runner
+- [x] extract the review workflow from `runner.py` into a dedicated runner
       service
-- [ ] decide whether the deprecated direct Sonar remediation path should stay
-      as a temporary wrapper or move into its own runner service as well
-- [ ] keep `runner.py` as a thin delegation layer that builds shared
+- [x] remove the deprecated direct Sonar remediation path after extraction
+- [x] keep `runner.py` as a thin delegation layer that builds shared
       dependencies and dispatches to workflow runners
-- [ ] add regression coverage proving the refactor preserves current CLI-facing
+- [x] add regression coverage proving the refactor preserves current CLI-facing
       summaries and failure behavior
 
 Done when:

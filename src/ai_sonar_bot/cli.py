@@ -13,7 +13,6 @@ from ai_sonar_bot.runner import (
     dashboard_reconcile,
     dashboard_remediate,
     review,
-    run,
     sync_dashboard_sonar,
 )
 
@@ -24,10 +23,10 @@ app.add_typer(review_app, name="review")
 app.add_typer(dashboard_app, name="dashboard")
 
 
-def _echo_summary(*, dry_run: bool, review_mode: bool = False) -> None:
-    """Run one workflow and print the CLI-facing summary."""
+def _echo_review_summary(*, dry_run: bool) -> None:
+    """Run the review workflow and print the CLI-facing summary."""
     configure_logging()
-    summary = review(dry_run=dry_run) if review_mode else run(dry_run=dry_run)
+    summary = review(dry_run=dry_run)
     typer.echo(f"run_id={summary.run_id}")
     typer.echo(f"status={summary.status.value}")
     if summary.issue_key is not None:
@@ -69,27 +68,11 @@ def root_command(
     ctx: Context,
     dry_run: bool = typer.Option(False, "--dry-run", help="Run without changing repository state."),
 ) -> None:
-    """Run the default SonarQube remediation workflow.
-
-    Args:
-        ctx: Typer invocation context.
-        dry_run: Whether to execute without publishing changes.
-    """
+    """Show help when no subcommand is provided."""
+    del dry_run
     if ctx.invoked_subcommand is not None:
         return
-    _echo_summary(dry_run=dry_run)
-
-
-@app.command("run")
-def run_command(
-    dry_run: bool = typer.Option(False, "--dry-run", help="Run without changing repository state."),
-) -> None:
-    """Run the default SonarQube remediation workflow explicitly.
-
-    Args:
-        dry_run: Whether to execute without publishing changes.
-    """
-    _echo_summary(dry_run=dry_run)
+    typer.echo(ctx.get_help())
 
 
 @review_app.callback(invoke_without_command=True)
@@ -100,7 +83,7 @@ def review_command(
     """Run the merge-request review workflow."""
     if ctx.invoked_subcommand is not None:
         return
-    _echo_summary(dry_run=dry_run, review_mode=True)
+    _echo_review_summary(dry_run=dry_run)
 
 
 @dashboard_app.command("sonar")

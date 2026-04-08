@@ -17,8 +17,6 @@ Initial constraints:
 - dashboard issue remains the remote control plane
 - remediation stays limited to the current safe single-file structured-edit
   model
-- direct Sonar intake may remain available only as a temporary fallback before
-  the dashboard-backed path is fully trusted
 
 ## 2. Technical Objectives
 
@@ -130,8 +128,6 @@ Responsibilities:
 
 - expose a dashboard-backed remediation command
 - keep existing review commands intact
-- treat the old direct Sonar remediation command as a temporary fallback rather
-  than a long-term parallel remediation path
 
 Suggested commands:
 
@@ -154,8 +150,8 @@ Responsibilities:
   remediation pipeline
 - build the final run summary
 
-The runner may still reuse the current single-file remediation engine during
-migration, but the long-term direction should be:
+The runner reuses the current single-file remediation engine, but the
+execution contract should remain remediation-native:
 
 - normalize source-specific inputs into a remediation-native execution model,
 - avoid rebuilding fake `SonarIssue` values just to enter the execution path,
@@ -246,9 +242,8 @@ toward remediation-native inputs.
 
 Recommended direction:
 
-- adapt the legacy direct Sonar path into `RemediationWorkItem`,
-- update analysis, prompting, and execution services to consume the
-  remediation-native model,
+- keep analysis, prompting, and execution services on the remediation-native
+  model,
 - treat Sonar-specific prompt shaping as one producer strategy rather than the
   global workflow contract.
 
@@ -369,10 +364,6 @@ Stable dashboard item IDs should be the primary dedup key.
 
 For v1, local state and run summaries should persist the dashboard item ID
 directly rather than trying to derive a second dedup identity from source data.
-
-During migration, selection should also respect path ownership rules so direct
-Sonar remediation and dashboard-backed remediation do not both act on the same
-underlying issue at the same time.
 
 ## 9. Lifecycle Updates
 
@@ -509,16 +500,7 @@ Scheduling guidance:
 
 ## 10. Migration Strategy
 
-The rollout should be dashboard-first before live launch:
-
-1. keep the old direct Sonar remediation path only as a temporary fallback
-2. validate dashboard-backed remediation live on the same narrow issue class
-3. compare summaries, failures, and merge request quality
-4. fix rollout issues in the dashboard-backed path directly
-5. deprecate and later remove direct Sonar remediation intake
-
-This avoids building permanent coexistence machinery for a path that may be
-retired before the platform is live.
+The rollout should stay dashboard-first before live launch.
 
 For the first version, ownership should stay simple:
 
@@ -526,8 +508,7 @@ For the first version, ownership should stay simple:
 - Sonar dashboard sync owns Sonar-derived discovery freshness,
 - a later reconciliation workflow owns passive convergence for merged, closed,
   or stale remote states,
-- the old direct Sonar remediation path should not be treated as a second
-  long-term authoritative controller.
+- remediation should not depend on a separate direct Sonar execution path.
 
 Sonar dashboard sync should keep its ownership equally narrow:
 
@@ -560,8 +541,6 @@ Add runner-level coverage for:
 - failed remediation moves item to `failed`
 - rejected remediation moves item to `rejected`
 - stale `in_progress` handling follows the documented recovery rule
-- migration-mode dedup prevents duplicate work across direct Sonar and
-  dashboard-backed remediation
 
 Add reconciliation coverage for:
 
@@ -580,7 +559,6 @@ regression tests just like the existing Sonar and review workflows.
 - dashboard items may be malformed or manually edited
 - stale dashboard state may cause confusing transitions if lifecycle updates are
   not atomic enough
-- direct Sonar and dashboard-backed remediation can diverge during migration
 - the current single-file remediation engine limits the first supported item
   classes intentionally
 

@@ -36,7 +36,8 @@ Implemented today:
 
 ```bash
 uv sync
-uv run ai-sonar-bot --dry-run
+uv run ai-sonar-bot dashboard sonar --dry-run
+uv run ai-sonar-bot dashboard remediate --dry-run
 uv run ai-sonar-bot review --dry-run
 ```
 
@@ -75,8 +76,9 @@ For v1 safety, the bot only accepts structured edits that touch exactly one file
 ## Commands
 
 ```bash
-uv run ai-sonar-bot
-uv run ai-sonar-bot --dry-run
+uv run ai-sonar-bot dashboard sonar --dry-run
+uv run ai-sonar-bot dashboard remediate --dry-run
+uv run ai-sonar-bot dashboard reconcile --dry-run
 uv run ai-sonar-bot review --dry-run
 uv run pytest
 PYTHONPATH=src uv run lint-imports
@@ -180,14 +182,12 @@ An example GitLab pipeline is provided in [.gitlab-ci.example.yml](.gitlab-ci.ex
 
 `GITLAB_PROJECT_ID` is optional in GitLab CI because the bot falls back to `CI_PROJECT_ID`.
 
-The example now includes five jobs:
+The example now includes four jobs:
 
-- `ai_sonar_bot`
-  - the main Sonar remediation workflow on the default branch
 - `ai_sonar_bot_dashboard`
   - discovery-only Sonar dashboard sync on the default branch
 - `ai_sonar_bot_dashboard_remediate`
-  - dashboard-backed remediation on the default branch during migration
+  - dashboard-backed remediation on the default branch
 - `ai_sonar_bot_dashboard_reconcile`
   - scheduled dashboard reconciliation for `mr_opened` items after merge
     request state changes
@@ -201,12 +201,10 @@ as if `sh` were a CLI subcommand.
 
 Recommended GitLab CI setup:
 
-- keep the bot job restricted to the default branch
-- keep dashboard sync as a separate job from Sonar remediation
-- keep dashboard-backed remediation as a separate job from both direct Sonar remediation and dashboard sync during migration
+- keep dashboard sync as a separate job from active remediation
+- keep dashboard-backed remediation as a separate job from dashboard sync
 - keep dashboard reconciliation as a separate job from active remediation so it
   only owns post-merge-request lifecycle convergence
-- trigger `ai_sonar_bot` from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT=true`
 - trigger dashboard sync from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT_DASHBOARD=true`
 - trigger dashboard-backed remediation from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT_DASHBOARD_REMEDIATE=true`
 - trigger dashboard reconciliation from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT_DASHBOARD_RECONCILE=true`
@@ -220,23 +218,20 @@ Recommended GitLab CI setup:
 - keep `review.skip_draft_merge_requests` enabled
 - set `review.publish_no_findings_note` to `false` if you want lower cost and less MR noise
 
-The Sonar remediation job in the example uses a `resource_group` so two mutation jobs do not try to change the same repository checkout at once. The dashboard sync job stays separate because it is discovery, not remediation. The dashboard remediation and dashboard reconciliation jobs each use their own `resource_group` so operators can roll them out deliberately without mixing active remediation and post-MR lifecycle convergence. The review job is read-mostly and publishes only merge request notes, so it uses a separate `resource_group`.
+The dashboard sync job stays separate because it is discovery, not remediation. The dashboard remediation and dashboard reconciliation jobs each use their own `resource_group` so operators can roll them out deliberately without mixing active remediation and post-MR lifecycle convergence. The review job is read-mostly and publishes only merge request notes, so it uses a separate `resource_group`.
 
 Recommended first rollout order:
 
-- run `ai_sonar_bot` manually once on the default branch
-- rerun `ai_sonar_bot` once immediately and confirm duplicate-MR handling is clean
 - run `ai_sonar_bot_dashboard` manually once and confirm eligible Sonar items appear in the dashboard without duplication
 - run `ai-sonar-bot dashboard remediate --dry-run` locally to inspect one supported dashboard item without changing lifecycle state
-- run one live `dashboard remediate` CI job only after direct Sonar remediation, dashboard sync, and dry-run inspection all behave as expected
+- run one live `dashboard remediate` CI job after dashboard sync and dry-run inspection both behave as expected
 - run `ai-sonar-bot dashboard reconcile --dry-run` locally to inspect one `mr_opened` reconciliation decision without changing lifecycle state
 - run one live `dashboard reconcile` CI job after a remediation MR is merged or closed
 - run `ai_sonar_bot_review` manually on one small merge request pipeline
 - enable schedules only after the manual smoke runs for remediation, dashboard sync, dashboard-backed remediation, reconciliation, and review all behave as expected
 
-Migration model during dashboard rollout:
+Dashboard rollout model:
 
-- keep direct Sonar remediation only as a temporary fallback while dashboard-backed remediation is stabilizing
 - keep Sonar dashboard sync as the discovery producer for Sonar-derived dashboard items
 - treat live `dashboard remediate` as CI-only in the first implementation; use `dashboard remediate --dry-run` locally
 - treat live `dashboard reconcile` as CI-only in the first implementation; use `dashboard reconcile --dry-run` locally
