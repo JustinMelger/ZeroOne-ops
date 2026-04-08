@@ -11,6 +11,7 @@ from ai_sonar_bot.models.review import (
     MergeRequestReviewCandidate,
     MergeRequestReviewContext,
     RemediationReviewContext,
+    RepositoryGuidanceContext,
     ReviewFileContext,
 )
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
@@ -22,6 +23,18 @@ from ai_sonar_bot.services.context_builder import (
 HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 SECTION_HEADER_PATTERN = re.compile(r"^## (?P<title>.+)$", re.MULTILINE)
 TARGET_BULLET_PATTERN = re.compile(r"^- (?P<label>[^:]+): (?P<value>.+)$")
+GUIDANCE_HEADING_PATTERN = re.compile(r"^(#+)\s+.+$")
+GUIDANCE_BULLET_PATTERN = re.compile(r"^([-*]|\d+\.)\s+.+$")
+GUIDANCE_PATHS = (
+    "AGENT.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "docs/engineering-standards.md",
+)
+GUIDANCE_GLOBS = ("docs/technical-design*.md",)
+MAX_GUIDANCE_FILES = 4
+MAX_GUIDANCE_LINES = 16
+MAX_GUIDANCE_CHARS = 1_200
 
 
 @dataclass(frozen=True)
@@ -137,6 +150,7 @@ class ReviewContextBuilder:
                 remediation_context=_parse_remediation_context(
                     detailed_merge_request.description
                 ),
+                repository_guidance=self._load_repository_guidance(),
                 changed_files=changed_files,
             ),
             message="",
@@ -144,9 +158,36 @@ class ReviewContextBuilder:
 
     def _is_supported_path(self, file_path: str) -> bool:
         """Return whether a changed path is in scope for review."""
+        if any(file_path.startswith(prefix) for prefix in self.config.review.ignored_paths):
+            return False
         if not self.config.review.supported_paths:
             return True
         return any(file_path.startswith(prefix) for prefix in self.config.review.supported_paths)
+
+    def _load_repository_guidance(self) -> list[RepositoryGuidanceContext]:
+        """Load a few bounded repository guidance excerpts when available."""
+        guidance_paths: list[Path] = []
+        for relative_path in GUIDANCE_PATHS:
+            target = self.repo_root / relative_path
+            if target.exists() and target.is_file():
+                guidance_paths.append(target)
+        for pattern in GUIDANCE_GLOBS:
+            for target in sorted(self.repo_root.glob(pattern)):
+                if target.is_file() and target not in guidance_paths:
+                    guidance_paths.append(target)
+
+        guidance_entries: list[RepositoryGuidanceContext] = []
+        for target in guidance_paths[:MAX_GUIDANCE_FILES]:
+            summary = _extract_guidance_summary(target)
+            if summary is None:
+                continue
+            guidance_entries.append(
+                RepositoryGuidanceContext(
+                    file_path=target.relative_to(self.repo_root).as_posix(),
+                    summary=summary,
+                )
+            )
+        return guidance_entries
 
 
 def _parse_remediation_context(description: str | None) -> RemediationReviewContext | None:
@@ -285,3 +326,34 @@ def _changed_line_window(diff: str | None, line_count: int) -> tuple[int, int]:
     if start_line is None or end_line is None:
         return 1, line_count
     return start_line, min(end_line, line_count)
+
+
+def _extract_guidance_summary(path: Path) -> str | None:
+    """Return one bounded excerpt from a repository guidance file."""
+    text = path.read_text(encoding="utf-8")
+    if not text.strip():
+        return None
+
+    collected: list[str] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if not (
+            GUIDANCE_HEADING_PATTERN.match(line)
+            or GUIDANCE_BULLET_PATTERN.match(line)
+            or len(collected) < 3
+        ):
+            continue
+        collected.append(line)
+        summary = "\n".join(collected)
+        if len(collected) >= MAX_GUIDANCE_LINES or len(summary) >= MAX_GUIDANCE_CHARS:
+            break
+
+    if not collected:
+        return None
+
+    summary = "\n".join(collected)
+    if len(summary) > MAX_GUIDANCE_CHARS:
+        return f"{summary[: MAX_GUIDANCE_CHARS - 3].rstrip()}..."
+    return summary

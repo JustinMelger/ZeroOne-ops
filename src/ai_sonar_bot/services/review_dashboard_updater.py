@@ -41,6 +41,13 @@ class ReviewDashboardUpdater:
                 "Bot assessment was insufficient for a trustworthy review decision. "
                 f"{review_result.summary}"
             )
+        if review_result.review_confidence is not None:
+            confidence_summary = f" Review confidence: {review_result.review_confidence:.2f}."
+            if review_result.review_confidence_reason:
+                confidence_summary = (
+                    f"{confidence_summary} Reason: {review_result.review_confidence_reason}"
+                )
+            summary = f"{summary}{confidence_summary}"
         item = DashboardItem(
             id=f"mr-review:{merge_request.iid}:{merge_request.head_sha}",
             source="pull_request_review",

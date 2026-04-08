@@ -63,6 +63,7 @@ class ReviewPublisher:
                     "## AI Review Summary",
                     "",
                     "No actionable findings in this review pass.",
+                    *_render_confidence_lines(review_result),
                     "",
                     "Scope:",
                     f"- Reviewed merge request: `!{context.mr_iid}`",
@@ -78,6 +79,7 @@ class ReviewPublisher:
                     "Bot assessment was insufficient for a trustworthy review decision.",
                     "",
                     review_result.summary,
+                    *_render_confidence_lines(review_result),
                     "",
                     "What this means:",
                     (
@@ -110,6 +112,7 @@ class ReviewPublisher:
                 "## AI Review Summary",
                 "",
                 review_result.summary,
+                *_render_confidence_lines(review_result),
                 "",
                 *finding_lines,
                 "",
@@ -119,3 +122,17 @@ class ReviewPublisher:
                 f"- Files reviewed: {len(context.changed_files)}",
             ]
         )
+
+
+def _render_confidence_lines(review_result: ReviewResult) -> list[str]:
+    """Render advisory confidence lines when present."""
+    if review_result.review_confidence is None:
+        return []
+    lines = [
+        "",
+        "Confidence:",
+        f"- Review confidence: {review_result.review_confidence:.2f}",
+    ]
+    if review_result.review_confidence_reason:
+        lines.append(f"- Reason: {review_result.review_confidence_reason}")
+    return lines

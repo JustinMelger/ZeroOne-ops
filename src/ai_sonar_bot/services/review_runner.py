@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from ai_sonar_bot.models.config import AppConfig
+from ai_sonar_bot.models.review import ReviewResult
 from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunRecord
 from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
@@ -129,31 +130,45 @@ class ReviewRunner:
         note_url: str | None = None
         dashboard_warning: str | None = None
         if not active_dry_run:
-            publish_result = ReviewPublisher(self.review_client).publish(
-                project_id=project_id,
-                merge_request_iid=context_result.context.mr_iid,
-                context=context_result.context,
-                review_result=analysis_result.review_result,
-            )
-            if publish_result.error_message is not None:
-                return self.review_state_service.fail_review(
-                    record=record,
-                    error_message=f"[{self.config.execution_mode}] {publish_result.error_message}",
-                    failure=FailureDetails(
-                        stage=FailureStage.REVIEW_PUBLISH,
-                        message=publish_result.error_message,
-                    ),
+            if self._should_publish_note(analysis_result.review_result):
+                publish_result = ReviewPublisher(self.review_client).publish(
+                    project_id=project_id,
+                    merge_request_iid=context_result.context.mr_iid,
+                    context=context_result.context,
+                    review_result=analysis_result.review_result,
                 )
-            if publish_result.note is not None:
-                note_url = publish_result.note.web_url
+                if publish_result.error_message is not None:
+                    return self.review_state_service.fail_review(
+                        record=record,
+                        error_message=(
+                            f"[{self.config.execution_mode}] "
+                            f"{publish_result.error_message}"
+                        ),
+                        failure=FailureDetails(
+                            stage=FailureStage.REVIEW_PUBLISH,
+                            message=publish_result.error_message,
+                        ),
+                    )
+                if publish_result.note is not None:
+                    note_url = publish_result.note.web_url
+                    LOGGER.info(
+                        "review note published",
+                        extra={
+                            "run_id": run_id,
+                            "mr_iid": context_result.context.mr_iid,
+                            "head_sha": context_result.context.head_sha,
+                            "note_id": publish_result.note.id,
+                            "note_url": publish_result.note.web_url,
+                        },
+                    )
+            else:
                 LOGGER.info(
-                    "review note published",
+                    "review note publication skipped by config",
                     extra={
                         "run_id": run_id,
                         "mr_iid": context_result.context.mr_iid,
                         "head_sha": context_result.context.head_sha,
-                        "note_id": publish_result.note.id,
-                        "note_url": publish_result.note.web_url,
+                        "classification": analysis_result.review_result.classification,
                     },
                 )
 
@@ -211,3 +226,9 @@ class ReviewRunner:
             ),
             state_path=summary.state_path,
         )
+
+    def _should_publish_note(self, review_result: ReviewResult) -> bool:
+        """Return whether one review result should produce an MR note."""
+        if review_result.classification == "no_findings":
+            return self.config.review.publish_no_findings_note
+        return True

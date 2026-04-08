@@ -265,12 +265,15 @@ Status:
 - [x] validate structured review findings more aggressively after generation so
       evidence stays tied to reviewed files and weak unsupported findings are
       downgraded or rejected safely
-- [ ] add advisory `review_confidence` and `review_confidence_reason` so the
+- [x] add advisory `review_confidence` and `review_confidence_reason` so the
       review bot exposes a clear operator trust signal without becoming a gate
 - [x] make manual-review-only outcomes clearer so operators can distinguish
       insufficient context from low-value findings
-- [ ] add repo-level controls for review noise such as path filtering,
+- [x] add repo-level controls for review noise such as path filtering,
       changed-file limits, and note verbosity
+- [x] teach the review bot to discover bounded repository guidance such as
+      `AGENT.md`, engineering standards, and relevant technical design docs in
+      the repository it is reviewing
 - [ ] capture human feedback and convert incorrect or noisy review comments
       into targeted regression tests
 

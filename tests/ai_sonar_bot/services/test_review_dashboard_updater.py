@@ -40,6 +40,8 @@ def test_update_writes_one_review_status_dashboard_item() -> None:
         review_result=ReviewResult(
             classification="findings_present",
             summary="One medium-risk finding.",
+            review_confidence=0.78,
+            review_confidence_reason="The finding is grounded in a narrow changed diff.",
             findings=[],
         ),
     )
@@ -52,6 +54,7 @@ def test_update_writes_one_review_status_dashboard_item() -> None:
     assert item.source == "pull_request_review"
     assert item.type == "review_status"
     assert item.review_status == "findings_present"
+    assert "Review confidence: 0.78." in item.summary
 
 
 def test_update_returns_error_message_when_dashboard_write_fails() -> None:
@@ -86,6 +89,8 @@ def test_update_uses_clear_summary_for_manual_review_only() -> None:
         review_result=ReviewResult(
             classification="manual_review_only",
             summary="The available context was insufficient.",
+            review_confidence=0.31,
+            review_confidence_reason="The diff is too broad for a reliable review judgment.",
             findings=[],
         ),
     )
@@ -94,3 +99,4 @@ def test_update_uses_clear_summary_for_manual_review_only() -> None:
     item = dashboard_service.items[0]
     assert item.review_status == "manual_review_only"
     assert "Bot assessment was insufficient for a trustworthy review decision." in item.summary
+    assert "Review confidence: 0.31." in item.summary

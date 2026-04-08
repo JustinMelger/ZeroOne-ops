@@ -215,6 +215,8 @@ Recommended GitLab CI setup:
 - set a fixed git author and committer identity in the job
 - rewrite the `origin` remote in CI to use `GITLAB_TOKEN` for authenticated pushes
 - keep review scope narrow with a low `review.max_changed_files`
+- set `review.ignored_paths` for generated or low-value areas such as `src/generated/`
+- keep `review.max_findings_per_review` low so the bot surfaces only the highest-signal issues
 - keep `review.skip_draft_merge_requests` enabled
 - set `review.publish_no_findings_note` to `false` if you want lower cost and less MR noise
 

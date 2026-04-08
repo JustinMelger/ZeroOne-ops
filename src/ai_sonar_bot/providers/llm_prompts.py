@@ -106,6 +106,7 @@ def build_review_prompt(context: MergeRequestReviewContext) -> str:
         target_branch=context.target_branch,
         head_sha=context.head_sha,
         remediation_context=_format_remediation_review_context(context.remediation_context),
+        repository_guidance=_format_repository_guidance(context),
         changed_files=changed_files,
     )
 
@@ -139,6 +140,22 @@ def _format_remediation_review_context(
                 f"Notes: {context.notes or '(none)'}",
             ]
         ),
+    )
+
+
+def _format_repository_guidance(context: MergeRequestReviewContext) -> str:
+    """Render bounded repository guidance for the review prompt."""
+    if not context.repository_guidance:
+        return "(none)"
+    return "\n\n".join(
+        "\n".join(
+            [
+                f"<<BEGIN REPOSITORY GUIDANCE {guidance.file_path}>>",
+                guidance.summary,
+                f"<<END REPOSITORY GUIDANCE {guidance.file_path}>>",
+            ]
+        )
+        for guidance in context.repository_guidance
     )
 
 

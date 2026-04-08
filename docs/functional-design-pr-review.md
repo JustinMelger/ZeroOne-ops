@@ -114,6 +114,8 @@ Responsible for:
 Responsible for:
 
 - loading changed files from the local checkout,
+- discovering bounded repository guidance from files such as `AGENT.md`,
+  engineering standards, and relevant technical design docs when present,
 - collecting diff hunks and nearby source context,
 - preparing structured review input for the LLM.
 

@@ -64,6 +64,11 @@ _ACTIONABLE_FOLLOW_UP_MARKERS = frozenset(
         "cover",
     }
 )
+_SEVERITY_RANK = {
+    "high": 0,
+    "medium": 1,
+    "low": 2,
+}
 
 
 @dataclass(frozen=True)
@@ -98,7 +103,11 @@ class ReviewAnalysisService:
                 message=f"Structured merge request review failed: {error}",
             )
 
-        review_result = _validated_review_result(context=context, review_result=review_result)
+        review_result = _validated_review_result(
+            context=context,
+            review_result=review_result,
+            max_findings=self.config.review.max_findings_per_review,
+        )
 
         return ReviewAnalysisResult(
             review_result=review_result,
@@ -120,6 +129,7 @@ def _validated_review_result(
     *,
     context: MergeRequestReviewContext,
     review_result: ReviewResult,
+    max_findings: int,
 ) -> ReviewResult:
     """Drop review findings that are not grounded in the reviewed context."""
     if review_result.classification != "findings_present":
@@ -134,10 +144,21 @@ def _validated_review_result(
         if _is_grounded_finding(finding=finding, reviewed_files=reviewed_files)
     ]
     if validated_findings:
+        ranked_findings = sorted(
+            validated_findings,
+            key=lambda finding: (
+                _SEVERITY_RANK[finding.severity],
+                finding.file_path,
+                finding.title,
+            ),
+        )
+        limited_findings = ranked_findings[:max_findings]
         return ReviewResult(
             classification="findings_present",
             summary=review_result.summary,
-            findings=validated_findings,
+            review_confidence=review_result.review_confidence,
+            review_confidence_reason=review_result.review_confidence_reason,
+            findings=limited_findings,
         )
     return ReviewResult(
         classification="no_findings",

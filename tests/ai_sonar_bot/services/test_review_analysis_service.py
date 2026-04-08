@@ -27,6 +27,19 @@ def build_config() -> AppConfig:
     )
 
 
+def build_config_with_max_findings(max_findings_per_review: int) -> AppConfig:
+    return AppConfig(
+        base_branch="main",
+        supported_severities=["LOW"],
+        supported_issue_types=["CODE_SMELL"],
+        validation_commands=[],
+        analysis=AnalysisConfig(),
+        approval=ApprovalConfig(),
+        review=ReviewConfig(max_findings_per_review=max_findings_per_review),
+        gitlab=GitLabConfig(target_branch="main"),
+    )
+
+
 def build_context() -> MergeRequestReviewContext:
     return MergeRequestReviewContext(
         mr_iid=17,
@@ -240,3 +253,49 @@ def test_analyze_keeps_findings_with_grounded_evidence(monkeypatch) -> None:
     assert result.review_result is not None
     assert result.review_result.classification == "findings_present"
     assert len(result.review_result.findings) == 1
+
+
+def test_analyze_limits_findings_to_configured_max(monkeypatch) -> None:
+    service = ReviewAnalysisService(build_config_with_max_findings(1))
+    monkeypatch.setattr(
+        service,
+        "_build_llm_client",
+        lambda: FakeReviewLLMClient(
+            ReviewResult(
+                classification="findings_present",
+                summary="Two findings.",
+                findings=[
+                    ReviewFinding(
+                        severity="low",
+                        file_path="src/service.py",
+                        title="Missing assertion update",
+                        evidence="The diff changes `value = 1` to `value = 2` in src/service.py.",
+                        explanation=(
+                            "The reviewed diff updates src/service.py without updating "
+                            "the narrow assertion path that depends on the old value."
+                        ),
+                        suggested_follow_up="Update the related assertion.",
+                    ),
+                    ReviewFinding(
+                        severity="high",
+                        file_path="src/service.py",
+                        title="Missing test coverage",
+                        evidence="The diff changes `value = 1` to `value = 2` in src/service.py.",
+                        explanation=(
+                            "The diff changes behavior in src/service.py without any "
+                            "matching regression test update."
+                        ),
+                        suggested_follow_up="Add a regression test.",
+                    ),
+                ],
+            )
+        ),
+    )
+
+    result = service.analyze(build_context())
+
+    assert result.review_result is not None
+    assert result.review_result.classification == "findings_present"
+    assert len(result.review_result.findings) == 1
+    assert result.review_result.findings[0].severity == "high"
+    assert result.review_result.findings[0].title == "Missing test coverage"

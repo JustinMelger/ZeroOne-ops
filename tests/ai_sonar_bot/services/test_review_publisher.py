@@ -58,6 +58,8 @@ def test_render_note_formats_findings_present() -> None:
         review_result=ReviewResult(
             classification="findings_present",
             summary="One medium-risk finding.",
+            review_confidence=0.82,
+            review_confidence_reason="The diff is small and the evidence is specific.",
             findings=[
                 ReviewFinding(
                     severity="medium",
@@ -76,6 +78,8 @@ def test_render_note_formats_findings_present() -> None:
 
     assert "## AI Review Summary" in body
     assert "One medium-risk finding." in body
+    assert "Review confidence: 0.82" in body
+    assert "Reason: The diff is small and the evidence is specific." in body
     assert "1. [medium] Missing test coverage (`src/service.py`)" in body
     assert (
         "Evidence: The diff changes `value = 1` to `value = 2` "
@@ -94,11 +98,14 @@ def test_render_note_formats_no_findings() -> None:
         review_result=ReviewResult(
             classification="no_findings",
             summary="No findings.",
+            review_confidence=0.91,
+            review_confidence_reason="The reviewed change is narrow and well supported.",
             findings=[],
         ),
     )
 
     assert "No actionable findings in this review pass." in body
+    assert "Review confidence: 0.91" in body
     assert "- Reviewed merge request: `!17`" in body
     assert "- Files reviewed: 1" in body
     assert "Notes:" not in body
@@ -112,11 +119,16 @@ def test_render_note_formats_manual_review_only() -> None:
         review_result=ReviewResult(
             classification="manual_review_only",
             summary="The diff is too broad to assess reliably in this pass.",
+            review_confidence=0.34,
+            review_confidence_reason=(
+                "The available context is too broad for a reliable review pass."
+            ),
             findings=[],
         ),
     )
 
     assert "Bot assessment was insufficient for a trustworthy review decision." in body
+    assert "Review confidence: 0.34" in body
     assert "The diff is too broad to assess reliably in this pass." in body
     assert "This is not an actionable finding by itself." in body
     assert "- Reviewed merge request: `!17`" in body
@@ -133,6 +145,8 @@ def test_publish_sends_rendered_note_body() -> None:
         review_result=ReviewResult(
             classification="findings_present",
             summary="One medium-risk finding.",
+            review_confidence=0.82,
+            review_confidence_reason="The diff is small and the evidence is specific.",
             findings=[
                 ReviewFinding(
                     severity="medium",

@@ -24,6 +24,8 @@ def build_review_result() -> ReviewResult:
     return ReviewResult(
         classification="findings_present",
         summary="One finding.",
+        review_confidence=0.76,
+        review_confidence_reason="The finding is grounded in the reviewed diff.",
         findings=[],
     )
 

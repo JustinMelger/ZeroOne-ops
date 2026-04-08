@@ -65,6 +65,13 @@ class RemediationReviewContext(BaseModel):
     notes: str | None = None
 
 
+class RepositoryGuidanceContext(BaseModel):
+    """Represent one bounded repository guidance excerpt for review."""
+
+    file_path: str
+    summary: str
+
+
 class MergeRequestReviewContext(BaseModel):
     """Represent deterministic review context for one merge request."""
 
@@ -78,6 +85,7 @@ class MergeRequestReviewContext(BaseModel):
     draft: bool = False
     author_username: str | None = None
     remediation_context: RemediationReviewContext | None = None
+    repository_guidance: list[RepositoryGuidanceContext] = Field(default_factory=list)
     changed_files: list[ReviewFileContext] = Field(default_factory=list)
 
 
@@ -97,4 +105,6 @@ class ReviewResult(BaseModel):
 
     classification: Literal["no_findings", "findings_present", "manual_review_only"]
     summary: str
+    review_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    review_confidence_reason: str | None = None
     findings: list[ReviewFinding] = Field(default_factory=list)
