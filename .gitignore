@@ -20,3 +20,4 @@ build/
 .ai-sonar-bot-state.json
 artifacts/
 future_plans.md
+detailed_roadmap.md

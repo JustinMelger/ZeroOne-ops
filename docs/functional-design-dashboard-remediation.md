@@ -259,6 +259,49 @@ The first implementation should define what happens when a run marks an item
 `in_progress` and then does not finish cleanly because the job is canceled, the
 runner crashes, or the process loses network access mid-flight.
 
+## 12.2 Merge Request Reconciliation
+
+Before product demonstration, the dashboard workflow should also define how
+items leave `mr_opened` after the merge request state changes outside the
+active remediation run.
+
+This should be a separate scheduled reconciliation workflow rather than an
+extension of the remediation bot itself.
+
+Recommended ownership split:
+
+- the remediation workflow owns active-run transitions only,
+- the reconciliation workflow owns later merge-request convergence,
+- the stale `in_progress` recovery rule remains owned by remediation intake and
+  should not be duplicated by reconciliation.
+
+Recommended reconciliation behavior:
+
+- when the linked merge request is merged, move `mr_opened -> done`
+- when the linked merge request is closed without merge and the item still
+  represents valid open work, move `mr_opened -> open`
+- when the linked merge request is closed without merge and the remediation is
+  no longer needed, move `mr_opened -> done`
+- when merge-request metadata is missing, inaccessible, or no longer matches
+  stored branch and commit traceability well enough to make a safe decision,
+  move `mr_opened -> failed` with an explicit operator-facing reason
+
+The reconciliation workflow should be conservative. It should prefer explicit
+failure or reopen behavior over silently dropping item history.
+
+The first version should operate on:
+
+- items currently in `mr_opened`
+- one dashboard issue at a time
+- scheduled or manually triggered CI runs
+
+The first version should not own:
+
+- item selection for remediation
+- patch generation or validation
+- active-run `in_progress` recovery
+- broad dashboard cleanup outside merge-request convergence
+
 At minimum, operators should be able to tell:
 
 - whether the item is still actively being processed,
@@ -345,6 +388,33 @@ Operators should be able to correlate one remediation attempt across:
 - branch name,
 - commit SHA,
 - merge request URL.
+
+## 18. Advisory Remediation Confidence
+
+The remediation workflow may later expose an advisory confidence signal to help
+operators understand how likely the bot thinks it can produce a safe and
+bounded fix for the selected item.
+
+This signal should remain advisory in the first version:
+
+- it should not auto-merge changes,
+- it should not replace human review,
+- it should not automatically close dashboard items on its own.
+
+The score should be accompanied by a short machine-generated reason so
+operators can understand why the score was low or high instead of seeing an
+unexplained number.
+
+Recommended initial behavior:
+
+- use a simple normalized score range such as `0.0` to `1.0`,
+- store the score and reason on the dashboard item or associated workflow
+  artifacts,
+- surface the score for prioritization and operator awareness before using it
+  as any stronger policy input.
+
+Review-specific confidence should be defined in the pull-request review bot
+functional design rather than here.
 
 Those traceability fields should remain stable across normal success, failure,
 and retry paths so the dashboard can act as a real operational control plane
