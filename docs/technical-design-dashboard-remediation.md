@@ -252,6 +252,14 @@ Recommended direction:
 - treat Sonar-specific prompt shaping as one producer strategy rather than the
   global workflow contract.
 
+The first producer-neutral execution pass should stay conservative:
+
+- honor `constraints` during prompt and edit generation,
+- keep repository validation commands sourced from repository config rather
+  than per-item metadata,
+- leave `expected_change`, `acceptance_criteria`, and `source_payload` as
+  descriptive metadata until their runtime semantics are designed explicitly.
+
 ## 7. Data Model
 
 ### 7.1 `DashboardItem`
@@ -280,6 +288,14 @@ Additional fields used when present:
 - `constraints`
 - `acceptance_criteria`
 
+For v1 execution behavior, these fields should not all be treated equally:
+
+- `constraints` should be honored as a real execution input because it provides
+  a bounded producer-neutral way to shape prompt and edit policy.
+- `validation_commands`, `expected_change`, and `acceptance_criteria` should
+  remain pass-through metadata until a later producer-expansion phase defines
+  how they are enforced consistently.
+
 ### 7.2 `RemediationWorkItem`
 
 Suggested provider-neutral execution model:
@@ -302,6 +318,14 @@ Optional execution metadata can continue to carry:
 - `expected_change`
 - `constraints`
 - `acceptance_criteria`
+
+The v1 runtime contract should use:
+
+- `constraints` as an actual execution input
+- `validation_commands`, `expected_change`, and `acceptance_criteria` as
+  pass-through metadata only
+- `source_payload` as an opaque extension field rather than a generic runtime
+  policy input
 
 This model allows remediation execution to stay independent from whether the
 item came from Sonar, pipeline discovery, or another producer.

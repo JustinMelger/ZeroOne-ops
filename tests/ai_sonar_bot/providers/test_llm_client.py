@@ -109,6 +109,7 @@ def test_build_analysis_prompt_uses_prompt_template() -> None:
         issue_type="CODE_SMELL",
         component="project:src/service.py",
         project="project",
+        constraints="Keep the fix local to this function.",
     )
     context = IssueContext(
         issue_key="AX1",
@@ -127,6 +128,7 @@ def test_build_analysis_prompt_uses_prompt_template() -> None:
     prompt = _build_analysis_prompt(issue, context)
 
     assert "Issue key: AX1" in prompt
+    assert "Constraints: Keep the fix local to this function." in prompt
     assert "This workflow only supports low-risk single-file fixes." in prompt
     assert "Code snippet:\ndef bad_name():\n    return 1\n" in prompt
 
@@ -145,6 +147,7 @@ def test_build_structured_edit_prompt_uses_prompt_template() -> None:
         issue_type="CODE_SMELL",
         component="project:src/service.py",
         project="project",
+        constraints="Keep the fix local to this function.",
     )
     context = IssueContext(
         issue_key="AX1",
@@ -163,6 +166,7 @@ def test_build_structured_edit_prompt_uses_prompt_template() -> None:
     prompt = _build_structured_edit_prompt(issue, context)
 
     assert "Generate a minimal exact text edit" in prompt
+    assert "Constraints: Keep the fix local to this function." in prompt
     assert "Return exactly one edit for one repository-relative file." in prompt
     assert "File path: src/service.py" in prompt
 
@@ -197,6 +201,7 @@ def test_build_analysis_prompt_uses_generic_profile_for_unknown_source() -> None
     assert "Analyze the following remediation item" in prompt
     assert "Source: Remediation" in prompt
     assert "Item reference: job-1" in prompt
+    assert "Constraints: (none)" in prompt
 
 
 def test_build_review_prompt_uses_prompt_template() -> None:

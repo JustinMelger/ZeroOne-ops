@@ -174,6 +174,11 @@ And, when relevant for code remediation:
 - `constraints`
 - `acceptance_criteria`
 
+For the first dashboard-backed remediation version, only `constraints` should
+be treated as a producer-neutral execution input. The other optional fields can
+be preserved on the item as metadata, but they should not yet change runtime
+behavior until their enforcement semantics are defined more clearly.
+
 The remediation workflow should reject items that are:
 
 - structurally incomplete,
