@@ -12,6 +12,7 @@ from pathlib import Path
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.state import (
     AppState,
+    DashboardItemState,
     FailureDetails,
     IssueState,
     RunRecord,
@@ -31,6 +32,11 @@ class RunSummary:
     status: RunStatus
     message: str
     state_path: Path
+    issue_key: str | None = None
+    dashboard_item_id: str | None = None
+    branch_name: str | None = None
+    commit_sha: str | None = None
+    mr_url: str | None = None
 
 
 class RunStateService:
@@ -84,6 +90,146 @@ class RunStateService:
             ),
         )
         return attempt_count
+
+    def mark_dashboard_selected(self, *, record: RunRecord, dashboard_item_id: str) -> None:
+        """Mark one dashboard item as selected for remediation."""
+        record.status = RunStatus.SELECTED
+        record.dashboard_item_id = dashboard_item_id
+        record.updated_at = utc_now()
+        self.state.active_dashboard_item_id = dashboard_item_id
+        self.state.dashboard_items[dashboard_item_id] = DashboardItemState(
+            status=RunStatus.SELECTED.value,
+            last_run_id=record.run_id,
+        )
+
+    def mark_dashboard_mr_created(
+        self,
+        *,
+        record: RunRecord,
+        dashboard_item_id: str,
+        branch_name: str | None,
+        mr_url: str,
+    ) -> None:
+        """Persist a created or reused merge request for one dashboard item."""
+        record.status = RunStatus.MR_CREATED
+        record.dashboard_item_id = dashboard_item_id
+        record.branch_name = branch_name
+        record.mr_url = mr_url
+        record.updated_at = utc_now()
+        self.state.dashboard_items[dashboard_item_id] = DashboardItemState(
+            status=RunStatus.MR_CREATED.value,
+            last_run_id=record.run_id,
+            branch_name=branch_name,
+            mr_url=mr_url,
+        )
+
+    def mark_dashboard_done(
+        self,
+        *,
+        record: RunRecord,
+        dashboard_item_id: str,
+        branch_name: str | None = None,
+        commit_sha: str | None = None,
+        mr_url: str | None = None,
+    ) -> None:
+        """Persist one dashboard item as no longer requiring remediation."""
+        record.dashboard_item_id = dashboard_item_id
+        record.branch_name = branch_name
+        record.commit_sha = commit_sha
+        record.mr_url = mr_url
+        record.updated_at = utc_now()
+        self.state.active_dashboard_item_id = None
+        self.state.dashboard_items[dashboard_item_id] = DashboardItemState(
+            status="done",
+            last_run_id=record.run_id,
+            branch_name=branch_name,
+            commit_sha=commit_sha,
+            mr_url=mr_url,
+        )
+
+    def fail_dashboard_item(
+        self,
+        *,
+        record: RunRecord,
+        dashboard_item_id: str,
+        error_message: str,
+        failure: FailureDetails,
+    ) -> RunSummary:
+        """Persist a failed dashboard remediation run and return the summary."""
+        record.status = RunStatus.FAILED
+        record.dashboard_item_id = dashboard_item_id
+        record.error_message = error_message
+        record.failure = failure
+        record.updated_at = utc_now()
+        self.state.active_dashboard_item_id = None
+        self.state.dashboard_items[dashboard_item_id] = DashboardItemState(
+            status=RunStatus.FAILED.value,
+            last_run_id=record.run_id,
+            branch_name=record.branch_name,
+            commit_sha=record.commit_sha,
+            mr_url=record.mr_url,
+            last_error=error_message,
+        )
+        self.state_store.save(self.state)
+        return self.build_summary(
+            run_id=record.run_id,
+            status=record.status,
+            message=error_message,
+            dashboard_item_id=dashboard_item_id,
+            branch_name=record.branch_name,
+            commit_sha=record.commit_sha,
+            mr_url=record.mr_url,
+        )
+
+    def fail_run(
+        self,
+        *,
+        record: RunRecord,
+        error_message: str,
+        failure: FailureDetails,
+    ) -> RunSummary:
+        """Persist a failed run that is not tied to a selected item."""
+        record.status = RunStatus.FAILED
+        record.error_message = error_message
+        record.failure = failure
+        record.updated_at = utc_now()
+        self.state_store.save(self.state)
+        return self.build_summary(
+            run_id=record.run_id,
+            status=record.status,
+            message=error_message,
+        )
+
+    def reject_dashboard_item(
+        self,
+        *,
+        record: RunRecord,
+        dashboard_item_id: str,
+        branch_name: str | None,
+        message: str,
+    ) -> RunSummary:
+        """Persist a rejected dashboard remediation run and return the summary."""
+        record.status = RunStatus.REJECTED
+        record.dashboard_item_id = dashboard_item_id
+        record.branch_name = branch_name
+        record.updated_at = utc_now()
+        self.state.active_dashboard_item_id = None
+        self.state.dashboard_items[dashboard_item_id] = DashboardItemState(
+            status=RunStatus.REJECTED.value,
+            last_run_id=record.run_id,
+            branch_name=branch_name,
+            last_error=message,
+        )
+        self.state_store.save(self.state)
+        return self.build_summary(
+            run_id=record.run_id,
+            status=record.status,
+            message=message,
+            dashboard_item_id=dashboard_item_id,
+            branch_name=record.branch_name,
+            commit_sha=record.commit_sha,
+            mr_url=record.mr_url,
+        )
 
     def mark_fix_generated(
         self,
@@ -239,6 +385,7 @@ class RunStateService:
 
     def finish_success(self, *, record: RunRecord) -> None:
         """Persist a successful in-progress run state."""
+        self.state.active_dashboard_item_id = None
         self.state_store.save(self.state)
 
     def build_summary(
@@ -247,6 +394,10 @@ class RunStateService:
         run_id: str,
         status: RunStatus,
         message: str,
+        issue_key: str | None = None,
+        dashboard_item_id: str | None = None,
+        branch_name: str | None = None,
+        commit_sha: str | None = None,
         mr_url: str | None = None,
         mr_action: str | None = None,
     ) -> RunSummary:
@@ -262,4 +413,9 @@ class RunStateService:
             status=status,
             message=summary,
             state_path=self.config.state.path,
+            issue_key=issue_key,
+            dashboard_item_id=dashboard_item_id,
+            branch_name=branch_name,
+            commit_sha=commit_sha,
+            mr_url=mr_url,
         )

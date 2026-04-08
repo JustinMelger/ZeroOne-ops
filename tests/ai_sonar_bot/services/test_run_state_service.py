@@ -138,3 +138,143 @@ def test_reject_issue_persists_rejected_status(tmp_path: Path) -> None:
     assert summary.status == RunStatus.REJECTED
     assert loaded.issues["ISSUE-1"].status == "rejected"
     assert loaded.issues["ISSUE-1"].branch_name == "ai-sonar/fix"
+
+
+def test_mark_dashboard_selected_updates_dashboard_item_state(tmp_path: Path) -> None:
+    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    config = build_config(state_path)
+    store = StateStore(
+        state_path,
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key="project-key",
+    )
+    service = RunStateService(config=config, state_store=store, state=build_state())
+
+    record = service.start_run("run-1")
+    service.mark_dashboard_selected(record=record, dashboard_item_id="sonar:1")
+    service.finish_success(record=record)
+
+    loaded = store.load()
+    assert record.dashboard_item_id == "sonar:1"
+    assert loaded.dashboard_items["sonar:1"].status == "selected"
+    assert loaded.dashboard_items["sonar:1"].last_run_id == "run-1"
+
+
+def test_mark_dashboard_mr_created_persists_dashboard_item_state(tmp_path: Path) -> None:
+    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    config = build_config(state_path)
+    store = StateStore(
+        state_path,
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key="project-key",
+    )
+    service = RunStateService(config=config, state_store=store, state=build_state())
+
+    record = service.start_run("run-1")
+    service.mark_dashboard_mr_created(
+        record=record,
+        dashboard_item_id="sonar:1",
+        branch_name="ai-sonar/ax123/service",
+        mr_url="https://gitlab.example.com/group/project/-/merge_requests/1",
+    )
+    service.finish_success(record=record)
+
+    loaded = store.load()
+    assert loaded.dashboard_items["sonar:1"].status == "mr_created"
+    assert loaded.dashboard_items["sonar:1"].branch_name == "ai-sonar/ax123/service"
+    assert (
+        loaded.dashboard_items["sonar:1"].mr_url
+        == "https://gitlab.example.com/group/project/-/merge_requests/1"
+    )
+
+
+def test_mark_dashboard_done_persists_completed_dashboard_item_state(tmp_path: Path) -> None:
+    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    config = build_config(state_path)
+    store = StateStore(
+        state_path,
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key="project-key",
+    )
+    service = RunStateService(config=config, state_store=store, state=build_state())
+
+    record = service.start_run("run-1")
+    service.mark_dashboard_done(
+        record=record,
+        dashboard_item_id="sonar:1",
+        branch_name="ai-sonar/ax123/service",
+        commit_sha="abc123",
+        mr_url="https://gitlab.example.com/group/project/-/merge_requests/1",
+    )
+    service.finish_success(record=record)
+
+    loaded = store.load()
+    assert loaded.active_dashboard_item_id is None
+    assert loaded.dashboard_items["sonar:1"].status == "done"
+    assert loaded.dashboard_items["sonar:1"].branch_name == "ai-sonar/ax123/service"
+    assert loaded.dashboard_items["sonar:1"].commit_sha == "abc123"
+    assert (
+        loaded.dashboard_items["sonar:1"].mr_url
+        == "https://gitlab.example.com/group/project/-/merge_requests/1"
+    )
+
+
+def test_fail_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -> None:
+    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    config = build_config(state_path)
+    store = StateStore(
+        state_path,
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key="project-key",
+    )
+    service = RunStateService(config=config, state_store=store, state=build_state())
+
+    record = service.start_run("run-1")
+    record.branch_name = "ai-sonar/ax123/service"
+    record.commit_sha = "abc123"
+    record.mr_url = "https://gitlab.example.com/group/project/-/merge_requests/1"
+    summary = service.fail_dashboard_item(
+        record=record,
+        dashboard_item_id="sonar:1",
+        error_message="Validation failed.",
+        failure=FailureDetails(
+            stage=FailureStage.VALIDATION,
+            message="Validation failed.",
+        ),
+    )
+
+    assert summary.dashboard_item_id == "sonar:1"
+    assert summary.branch_name == "ai-sonar/ax123/service"
+    assert summary.commit_sha == "abc123"
+    assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
+
+
+def test_reject_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -> None:
+    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    config = build_config(state_path)
+    store = StateStore(
+        state_path,
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key="project-key",
+    )
+    service = RunStateService(config=config, state_store=store, state=build_state())
+
+    record = service.start_run("run-1")
+    record.commit_sha = "abc123"
+    record.mr_url = "https://gitlab.example.com/group/project/-/merge_requests/1"
+    summary = service.reject_dashboard_item(
+        record=record,
+        dashboard_item_id="sonar:1",
+        branch_name="ai-sonar/ax123/service",
+        message="Local approval rejected the proposed change.",
+    )
+
+    assert summary.dashboard_item_id == "sonar:1"
+    assert summary.branch_name == "ai-sonar/ax123/service"
+    assert summary.commit_sha == "abc123"
+    assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"

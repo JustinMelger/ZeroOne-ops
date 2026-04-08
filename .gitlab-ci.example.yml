@@ -72,6 +72,35 @@ ai_sonar_bot_dashboard:
   script:
     - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard sonar
 
+# Dashboard-backed remediation workflow.
+# Keep this separate from both direct Sonar remediation and discovery while the
+# dashboard-backed path is being rolled out and compared.
+ai_sonar_bot_dashboard_remediate:
+  extends: .ai_sonar_bot_base
+  stage: ai-fix
+  resource_group: ai-sonar-bot-dashboard-remediate
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_DASHBOARD_REMEDIATE == "true"'
+      when: manual
+    - when: never
+  variables:
+    GIT_AUTHOR_NAME: "AI Sonar Bot"
+    GIT_AUTHOR_EMAIL: "ai-sonar-bot@example.com"
+    GIT_COMMITTER_NAME: "AI Sonar Bot"
+    GIT_COMMITTER_EMAIL: "ai-sonar-bot@example.com"
+    # Define these as protected CI/CD variables:
+    # GITLAB_TOKEN
+    # OPENAI_API_KEY
+  before_script:
+    - git config user.name "$GIT_AUTHOR_NAME"
+    - git config user.email "$GIT_AUTHOR_EMAIL"
+    - >
+      git remote set-url origin
+      "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+  script:
+    - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard-remediate
+
 # Merge request review workflow.
 # Prefer the merge_request_event manual trigger for the first smoke test so the
 # bot reviews only the current merge request through CI_MERGE_REQUEST_IID.

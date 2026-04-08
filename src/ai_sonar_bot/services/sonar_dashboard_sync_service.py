@@ -8,7 +8,7 @@ from ai_sonar_bot.models.dashboard import DashboardDocument, DashboardItem
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.services.dashboard_service import DashboardService
 
-_ACTIVE_SONAR_STATUSES = frozenset({"open", "in_progress", "mr_opened"})
+_DISCOVERY_OWNED_SONAR_STATUSES = frozenset({"open"})
 
 
 @dataclass(frozen=True)
@@ -55,12 +55,12 @@ class SonarDashboardSyncService:
             for issue in issues
         ]
         for item in existing_items.values():
-            if (
-                item.source == "sonarqube"
-                and item.id not in current_issue_ids
-                and item.status in _ACTIVE_SONAR_STATUSES
-            ):
+            if item.source != "sonarqube" or item.id in current_issue_ids:
+                continue
+            if item.status in _DISCOVERY_OWNED_SONAR_STATUSES:
                 items.append(item.model_copy(update={"status": "done"}))
+                continue
+            items.append(item)
         return items
 
     def _normalize_issue(
