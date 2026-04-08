@@ -101,6 +101,25 @@ ai_sonar_bot_dashboard_remediate:
   script:
     - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard remediate
 
+# Dashboard reconciliation workflow.
+# Run this after dashboard-backed remediation so merged or closed merge
+# requests can move dashboard items out of mr_opened.
+ai_sonar_bot_dashboard_reconcile:
+  extends: .ai_sonar_bot_base
+  stage: ai-fix
+  resource_group: ai-sonar-bot-dashboard-reconcile
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_DASHBOARD_RECONCILE == "true"'
+      when: manual
+    - when: never
+  variables:
+    # Define these as protected CI/CD variables:
+    # GITLAB_TOKEN
+    # OPENAI_API_KEY
+  script:
+    - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard reconcile
+
 # Merge request review workflow.
 # Prefer the merge_request_event manual trigger for the first smoke test so the
 # bot reviews only the current merge request through CI_MERGE_REQUEST_IID.

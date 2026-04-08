@@ -40,6 +40,13 @@ The repository also contains a GitLab-first pull request review v1 workflow:
 - no code modification in the review workflow
 - draft merge requests skipped by default
 
+The dashboard workflow also includes scheduled reconciliation:
+
+- one `mr_opened` dashboard item per run
+- GitLab merge request state lookup using stored MR traceability
+- deterministic transitions to `done`, `open`, or `failed`
+- CI-only live execution, with local inspection limited to `--dry-run`
+
 ## Required CI Variables
 
 Define these variables in the target GitLab project or group:
@@ -154,6 +161,9 @@ Current job roles:
   - discovery-only dashboard sync for eligible Sonar findings
 - `ai_sonar_bot_dashboard_remediate`
   - dashboard-backed remediation while the dashboard path is being rolled out
+- `ai_sonar_bot_dashboard_reconcile`
+  - scheduled dashboard reconciliation for `mr_opened` items after merge
+    request state changes
 - `ai_sonar_bot_review`
   - merge request review note publication with no code changes
 
@@ -163,6 +173,8 @@ Recommended settings:
 - trigger from a schedule or explicit manual run
 - keep dashboard sync as a separate job from Sonar remediation
 - keep dashboard-backed remediation as a separate job from both direct Sonar remediation and dashboard sync during migration
+- keep dashboard reconciliation as a separate job from active remediation so it
+  only owns post-merge-request lifecycle convergence
 - use `resource_group` so only one bot job runs at a time
 - override the job image `entrypoint` to `[""]`
 - use `GIT_DEPTH=0`
@@ -187,16 +199,38 @@ Recommended first rollout order:
 3. manually run `ai_sonar_bot_dashboard` once to confirm dashboard discovery is healthy
 4. inspect one supported dashboard item locally with `ai-sonar-bot dashboard remediate --dry-run`
 5. manually run one live dashboard remediation CI job
-6. manually run `ai_sonar_bot_review` on one small merge request pipeline
-7. enable schedules only after all workflows behave as expected
+6. manually run `ai_sonar_bot_dashboard_reconcile` once after a remediation MR
+   is merged or closed
+7. manually run `ai_sonar_bot_review` on one small merge request pipeline
+8. enable schedules only after all workflows behave as expected
 
 Migration model during rollout:
 
 - keep direct Sonar remediation only as a temporary fallback while dashboard-backed remediation is stabilizing
 - keep Sonar dashboard sync as a separate discovery producer for Sonar-derived dashboard items
-- compare dashboard-backed remediation outcomes against the direct Sonar path before retiring the old runner
 - keep live `dashboard remediate` CI-only in the first version; local use should stay `--dry-run`
+- keep live `dashboard reconcile` CI-only in the first version; local use should stay `--dry-run`
 - let Sonar dashboard sync clean up only stale untouched `open` Sonar items; once remediation has touched an item, preserve the dashboard lifecycle history
+
+## Expected Reconciliation Workflow Behavior
+
+In normal `ci` mode, one reconciliation run should do the following:
+
+1. load the dashboard
+2. select one `mr_opened` item with stored MR URL, branch name, and commit SHA
+3. fetch the current merge request state from GitLab
+4. decide one lifecycle outcome:
+   - `done` when the MR was merged
+   - `open` when the MR was closed without merge and the work still remains
+   - `done` when the MR was closed without merge and the dashboard shows the
+     Sonar issue is no longer active
+   - `failed` when MR metadata is missing, inaccessible, or no longer matches
+     stored traceability
+5. update the dashboard item while preserving remediation metadata
+6. persist the reconciliation outcome in local state
+
+If no reconciliation-ready item remains, the run should exit cleanly with
+`no_issue`.
 
 ## Common Outcomes
 
