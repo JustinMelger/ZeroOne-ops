@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.12.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.12.0...ai-sonar-bot-v0.12.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* mark manual on dashboard as rejected ([cb7db3c](https://github.com/JustinMelger/ai-sonar-bot/commit/cb7db3cf753d6c38d90f9e1ab82cd3ef9bdd1118))
+
+
+### Documentation
+
+* design and runbook ([5556e44](https://github.com/JustinMelger/ai-sonar-bot/commit/5556e44c47051279fb9bc6ce9833fa801304724f))
+
 ## [0.12.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.11.2...ai-sonar-bot-v0.12.0) (2026-04-08)
 
 
