@@ -755,8 +755,7 @@ def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:
             run_id=record.run_id,
             status=record.status,
             message=(
-                f"Dry-run would reconcile dashboard item {selected_item.id}: "
-                f"{decision.message}"
+                f"Dry-run would reconcile dashboard item {selected_item.id}: {decision.message}"
             ),
             dashboard_item_id=selected_item.id,
             branch_name=selected_item.branch_name,

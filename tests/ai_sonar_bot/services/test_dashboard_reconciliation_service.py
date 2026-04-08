@@ -59,9 +59,7 @@ class FailingReviewClient:
 
 def test_merge_request_iid_from_url_extracts_iid() -> None:
     assert (
-        merge_request_iid_from_url(
-            "https://gitlab.example.com/group/project/-/merge_requests/7"
-        )
+        merge_request_iid_from_url("https://gitlab.example.com/group/project/-/merge_requests/7")
         == 7
     )
 

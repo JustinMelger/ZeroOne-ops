@@ -70,12 +70,9 @@ _DEFAULT_PROFILE = RemediationProducerProfile(
     source_display_name="Remediation",
     target_display_name="remediation item",
     item_reference_label="Item reference",
-    analysis_system_prompt=(
-        "You analyze remediation items and return strictly structured JSON."
-    ),
+    analysis_system_prompt=("You analyze remediation items and return strictly structured JSON."),
     structured_edit_system_prompt=(
-        "You propose exact file edits for remediation items and return strictly "
-        "structured JSON."
+        "You propose exact file edits for remediation items and return strictly structured JSON."
     ),
     mr_section_title="Remediation Target",
     diff_note="- Diff was rendered by the bot from a structured edit proposal.",
@@ -86,12 +83,9 @@ _SONARQUBE_PROFILE = RemediationProducerProfile(
     source_display_name="SonarQube",
     target_display_name="SonarQube issue",
     item_reference_label="Issue key",
-    analysis_system_prompt=(
-        "You analyze SonarQube issues and return strictly structured JSON."
-    ),
+    analysis_system_prompt=("You analyze SonarQube issues and return strictly structured JSON."),
     structured_edit_system_prompt=(
-        "You propose exact file edits for SonarQube issues and return strictly "
-        "structured JSON."
+        "You propose exact file edits for SonarQube issues and return strictly structured JSON."
     ),
     mr_section_title="Remediation Target",
     diff_note="- Diff was rendered by the bot from a structured edit proposal.",

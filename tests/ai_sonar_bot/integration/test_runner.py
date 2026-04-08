@@ -234,6 +234,7 @@ def test_dashboard_reconcile_dry_run_selects_mr_opened_item(
             },
         )(),
     )
+
     def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
         del project_id
         return type(
@@ -359,6 +360,7 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
             },
         )(),
     )
+
     def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
         del project_id
         return type(
@@ -469,6 +471,7 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
             },
         )(),
     )
+
     def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
         del project_id
         return type(
@@ -579,6 +582,7 @@ def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
             },
         )(),
     )
+
     def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
         del project_id
         return type(
