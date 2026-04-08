@@ -9,7 +9,10 @@ from dataclasses import dataclass
 
 from ai_sonar_bot.models.analysis import ValidationResult
 from ai_sonar_bot.models.config import AppConfig
-from ai_sonar_bot.models.remediation import RemediationExecutionTarget
+from ai_sonar_bot.models.remediation import (
+    RemediationExecutionTarget,
+    remediation_profile_for,
+)
 from ai_sonar_bot.providers.gitlab_client import GitLabClient, GitLabClientError
 from ai_sonar_bot.services.branch_manager import BranchManager, BranchManagerError
 from ai_sonar_bot.services.mr_service import MergeRequestService
@@ -97,6 +100,7 @@ class PublishService:
         change_summary: str,
     ) -> str:
         """Build a deterministic merge request description."""
+        profile = remediation_profile_for(selected_issue)
         issue_line = str(selected_issue.line) if selected_issue.line is not None else "n/a"
         validation_summary = (
             validation_result.summary
@@ -108,9 +112,9 @@ class PublishService:
                 "## Summary",
                 change_summary,
                 "",
-                "## Remediation Target",
-                f"- Source: `{selected_issue.source_type}`",
-                f"- Item reference: `{selected_issue.source_ref}`",
+                f"## {profile.mr_section_title}",
+                f"- Source: `{profile.source_display_name}`",
+                f"- {profile.item_reference_label}: `{selected_issue.source_ref}`",
                 f"- Rule: `{selected_issue.rule_id or 'unknown'}`",
                 f"- Severity: `{selected_issue.severity or 'unknown'}`",
                 f"- Type: `{selected_issue.issue_type or selected_issue.source_type}`",
@@ -122,6 +126,6 @@ class PublishService:
                 f"- {validation_summary}",
                 "",
                 "## Notes",
-                "- Diff was rendered by the bot from a structured edit proposal.",
+                profile.diff_note,
             ]
         )

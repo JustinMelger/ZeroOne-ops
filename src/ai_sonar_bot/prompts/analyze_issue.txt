@@ -1,8 +1,9 @@
-Analyze the following SonarQube issue and return structured JSON.
+Analyze the following {target_display_name} and return structured JSON.
 
 This workflow only supports low-risk single-file fixes. Prefer a manual classification when the change appears to need broader semantic context, symbol-wide renaming, coordinated edits, or behavior changes.
 
-Issue key: {issue_key}
+Source: {source_display_name}
+{item_reference_label}: {issue_key}
 Rule: {rule}
 Severity: {severity}
 Type: {issue_type}

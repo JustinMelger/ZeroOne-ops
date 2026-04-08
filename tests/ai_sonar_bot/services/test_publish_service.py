@@ -60,8 +60,8 @@ def test_publish_service_builds_deterministic_description() -> None:
             "summary",
             "",
             "## Remediation Target",
-            "- Source: `sonarqube`",
-            "- Item reference: `FIXTURE-1`",
+            "- Source: `SonarQube`",
+            "- Issue key: `FIXTURE-1`",
             "- Rule: `python:S2259`",
             "- Severity: `MAJOR`",
             "- Type: `BUG`",
@@ -76,3 +76,29 @@ def test_publish_service_builds_deterministic_description() -> None:
             "- Diff was rendered by the bot from a structured edit proposal.",
         ]
     )
+
+
+def test_publish_service_uses_generic_profile_for_unknown_source() -> None:
+    service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
+
+    description = service.build_mr_description(
+        selected_issue=RemediationExecutionTarget(
+            item_id="pipeline:1",
+            source_type="pipeline_failure",
+            source_ref="job-1",
+            title="pytest failed in src/service.py",
+            status="open",
+            message="Test suite is failing.",
+            file_path="src/service.py",
+        ),
+        validation_result=ValidationResult(
+            passed=True,
+            results=[],
+            summary="All validation commands passed.",
+        ),
+        change_summary="summary",
+    )
+
+    assert "## Remediation Target" in description
+    assert "- Source: `Remediation`" in description
+    assert "- Item reference: `job-1`" in description

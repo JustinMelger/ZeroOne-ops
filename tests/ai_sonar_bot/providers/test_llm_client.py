@@ -167,6 +167,38 @@ def test_build_structured_edit_prompt_uses_prompt_template() -> None:
     assert "File path: src/service.py" in prompt
 
 
+def test_build_analysis_prompt_uses_generic_profile_for_unknown_source() -> None:
+    issue = RemediationExecutionTarget(
+        item_id="pipeline:1",
+        source_type="pipeline_failure",
+        source_ref="job-1",
+        title="pytest failed in src/service.py",
+        status="open",
+        message="Test suite is failing.",
+        file_path="src/service.py",
+        severity="HIGH",
+    )
+    context = IssueContext(
+        issue_key="job-1",
+        file_path="src/service.py",
+        line=8,
+        file_size_bytes=128,
+        snippet=CodeContextSnippet(
+            start_line=4,
+            end_line=12,
+            content="def test_it():\n    assert False\n",
+        ),
+        full_file_included=False,
+        truncated=True,
+    )
+
+    prompt = _build_analysis_prompt(issue, context)
+
+    assert "Analyze the following remediation item" in prompt
+    assert "Source: Remediation" in prompt
+    assert "Item reference: job-1" in prompt
+
+
 def test_build_review_prompt_uses_prompt_template() -> None:
     context = MergeRequestReviewContext(
         mr_iid=17,

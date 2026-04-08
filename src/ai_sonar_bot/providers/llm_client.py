@@ -21,7 +21,10 @@ from ai_sonar_bot.models.analysis import (
     StructuredEditProposal,
 )
 from ai_sonar_bot.models.config import OpenAIConnectionConfig
-from ai_sonar_bot.models.remediation import RemediationExecutionTarget
+from ai_sonar_bot.models.remediation import (
+    RemediationExecutionTarget,
+    remediation_profile_for,
+)
 from ai_sonar_bot.models.review import MergeRequestReviewContext, ReviewResult
 from ai_sonar_bot.utils.files import ensure_parent
 
@@ -122,15 +125,14 @@ class OpenAILLMClient(LLMClient):
             LLMClientError: If the API call fails or returns an invalid payload.
         """
         input_text = _build_analysis_prompt(issue, context)
+        profile = remediation_profile_for(issue)
         try:
             response = self.client.responses.parse(
                 model=self.config.model,
                 input=[
                     {
                         "role": "system",
-                        "content": (
-                            "You analyze SonarQube issues and return strictly structured JSON."
-                        ),
+                        "content": profile.analysis_system_prompt,
                     },
                     {"role": "user", "content": input_text},
                 ],
@@ -168,16 +170,14 @@ class OpenAILLMClient(LLMClient):
             LLMClientError: If the API call fails or returns invalid output.
         """
         input_text = _build_structured_edit_prompt(issue, context)
+        profile = remediation_profile_for(issue)
         try:
             response = self.client.responses.parse(
                 model=self.config.model,
                 input=[
                     {
                         "role": "system",
-                        "content": (
-                            "You propose exact file edits for SonarQube issues and return "
-                            "strictly structured JSON."
-                        ),
+                        "content": profile.structured_edit_system_prompt,
                     },
                     {"role": "user", "content": input_text},
                 ],
@@ -433,8 +433,12 @@ def _build_analysis_prompt(issue: RemediationExecutionTarget, context: IssueCont
     Returns:
         Prompt text for structured issue analysis.
     """
+    profile = remediation_profile_for(issue)
     return _render_prompt_template(
         "analyze_issue.txt",
+        target_display_name=profile.target_display_name,
+        source_display_name=profile.source_display_name,
+        item_reference_label=profile.item_reference_label,
         issue_key=issue.source_ref,
         rule=issue.rule_id or "unknown",
         severity=issue.severity,
@@ -460,8 +464,12 @@ def _build_structured_edit_prompt(issue: RemediationExecutionTarget, context: Is
     Returns:
         Prompt text for structured edit generation.
     """
+    profile = remediation_profile_for(issue)
     return _render_prompt_template(
         "generate_structured_edit.txt",
+        target_display_name=profile.target_display_name,
+        source_display_name=profile.source_display_name,
+        item_reference_label=profile.item_reference_label,
         issue_key=issue.source_ref,
         rule=issue.rule_id or "unknown",
         severity=issue.severity,
