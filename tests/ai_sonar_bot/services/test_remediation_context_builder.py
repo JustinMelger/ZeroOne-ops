@@ -42,7 +42,7 @@ def test_build_returns_context_for_normalized_work_item(tmp_path: Path) -> None:
     context = builder.build(build_work_item())
 
     assert context is not None
-    assert context.issue_key == "sonar:1"
+    assert context.issue_key == "AX123"
     assert context.file_path == "src/service.py"
     assert "   2: b = 2" in context.snippet.content
 

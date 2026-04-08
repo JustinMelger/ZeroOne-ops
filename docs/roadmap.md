@@ -677,7 +677,7 @@ Status:
       lifecycle states
 - [x] move the dashboard remediation execution core from fabricated
       `SonarIssue` inputs to a remediation-native execution contract
-- [ ] adapt the legacy direct Sonar remediation path into
+- [x] adapt the legacy direct Sonar remediation path into
       `RemediationWorkItem` so both paths converge on the same execution model
 - [ ] treat Sonar-specific prompting and execution policy as one producer
       profile instead of the default runtime contract

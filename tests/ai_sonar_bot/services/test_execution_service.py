@@ -340,3 +340,34 @@ def test_execute_returns_rejected_when_local_approval_declines(
     assert result.status_message == "Local approval rejected the proposed change."
     assert result.commit_sha is None
     assert target_file.read_text(encoding="utf-8") == "value = 1\n"
+
+
+def test_execute_returns_rejected_when_analysis_requires_manual_review(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = ExecutionService(tmp_path, build_config(execution_mode="ci"))
+
+    monkeypatch.setattr(service.branch_manager, "ensure_ready", fake_noop)
+    monkeypatch.setattr(service.branch_manager, "build_branch_name", fake_branch_name)
+    monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
+
+    def fake_analyze_issue(
+        *, selected_issue: RemediationExecutionTarget, dry_run: bool
+    ) -> AnalysisResult:
+        del selected_issue, dry_run
+        return AnalysisResult(
+            summary="Patch generation skipped because manual review is required.",
+            patch=None,
+            patch_applied=False,
+            validation_passed=False,
+        )
+
+    monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analyze_issue)
+
+    result = service.execute(selected_issue=build_issue(), dry_run=False)
+
+    assert result.failure is None
+    assert result.final_status == "rejected"
+    assert result.status_message == "Patch generation skipped because manual review is required."
+    assert result.commit_sha is None

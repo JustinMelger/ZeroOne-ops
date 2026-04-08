@@ -23,7 +23,7 @@ from ai_sonar_bot.services.mr_intake import MergeRequestIntakeService
 from ai_sonar_bot.services.remediation_context_builder import RemediationContextBuilder
 from ai_sonar_bot.services.remediation_execution_adapter import (
     remediation_work_item_to_execution_target,
-    sonar_issue_to_execution_target,
+    sonar_issue_to_work_item,
 )
 from ai_sonar_bot.services.review_analysis_service import ReviewAnalysisService
 from ai_sonar_bot.services.review_context_builder import ReviewContextBuilder
@@ -142,9 +142,10 @@ def run(*, dry_run: bool = False) -> RunSummary:
         record=record,
         issue_key=intake_result.selected_issue.key,
     )
+    work_item = sonar_issue_to_work_item(intake_result.selected_issue)
 
     execution_result = ExecutionService(repo_root=repo_root, config=config).execute(
-        selected_issue=sonar_issue_to_execution_target(intake_result.selected_issue),
+        selected_issue=remediation_work_item_to_execution_target(work_item),
         dry_run=active_dry_run,
     )
 
@@ -191,9 +192,9 @@ def run(*, dry_run: bool = False) -> RunSummary:
 
     run_state_service.finish_success(record=record)
     message = (
-        f"Selected SonarQube issue {intake_result.selected_issue.key} in "
-        f"{intake_result.selected_issue.file_path} "
-        f"({intake_result.selected_issue.rule}, {intake_result.selected_issue.severity}). "
+        f"Selected SonarQube issue {work_item.source_ref} in "
+        f"{work_item.file_path} "
+        f"({work_item.rule_id}, {work_item.severity}). "
         f"{execution_result.status_message}"
     )
     return run_state_service.build_summary(

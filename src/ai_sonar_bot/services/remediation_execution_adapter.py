@@ -29,10 +29,10 @@ def remediation_work_item_to_execution_target(
     )
 
 
-def sonar_issue_to_execution_target(issue: SonarIssue) -> RemediationExecutionTarget:
-    """Adapt one SonarQube issue into the shared execution target shape."""
-    return RemediationExecutionTarget(
-        item_id=issue.key,
+def sonar_issue_to_work_item(issue: SonarIssue) -> RemediationWorkItem:
+    """Adapt one SonarQube issue into the shared remediation work-item shape."""
+    return RemediationWorkItem(
+        dashboard_item_id=f"sonar:{issue.key}",
         source_type="sonarqube",
         source_ref=issue.key,
         title=f"{issue.rule} in {issue.file_path}",
@@ -42,10 +42,10 @@ def sonar_issue_to_execution_target(issue: SonarIssue) -> RemediationExecutionTa
         line=issue.line,
         rule_id=issue.rule,
         severity=issue.severity,
-        issue_type=issue.type,
-        component=issue.component,
-        project=issue.project,
         source_payload={
+            "issue_type": issue.type,
+            "component": issue.component,
+            "project": issue.project,
             "effort": issue.effort,
             "tags": issue.tags,
             "impacts": [impact.model_dump(mode="json") for impact in issue.impacts],
@@ -53,4 +53,16 @@ def sonar_issue_to_execution_target(issue: SonarIssue) -> RemediationExecutionTa
                 issue.creation_date.isoformat() if issue.creation_date is not None else None
             ),
         },
+    )
+
+
+def sonar_issue_to_execution_target(issue: SonarIssue) -> RemediationExecutionTarget:
+    """Adapt one SonarQube issue into the shared execution target shape."""
+    work_item = sonar_issue_to_work_item(issue)
+    return remediation_work_item_to_execution_target(work_item).model_copy(
+        update={
+            "issue_type": issue.type,
+            "component": issue.component,
+            "project": issue.project,
+        }
     )
