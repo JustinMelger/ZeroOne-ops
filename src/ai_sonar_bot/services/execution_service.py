@@ -159,6 +159,13 @@ class ExecutionService:
                 failure=analysis_result.failure,
                 branch_name=branch_name,
             )
+        if analysis_result.patch is None and analysis_result.validation_passed is False:
+            return ExecutionResult(
+                analysis_result=analysis_result,
+                status_message=analysis_result.summary,
+                branch_name=branch_name,
+                final_status=RunStatus.REJECTED,
+            )
         if dry_run or not self._should_commit(analysis_result):
             return ExecutionResult(
                 analysis_result=analysis_result,
