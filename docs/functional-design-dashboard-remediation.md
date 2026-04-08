@@ -277,31 +277,31 @@ inspection and merge-request review as the main oversight mechanism.
 
 ## 14. Migration Model
 
-Dashboard-backed remediation should be introduced gradually:
+Dashboard-backed remediation should become the primary remediation workflow
+before live rollout.
 
-1. keep direct Sonar remediation available during migration,
-2. add dashboard-backed remediation for the same narrow Sonar-derived item
-   class,
-3. compare outcomes and operational friction,
-4. make dashboard-first remediation the default once behavior is stable.
+Recommended rollout:
 
-This avoids forcing the core remediation path to depend on the dashboard before
-its state transitions and retention rules are mature enough.
+1. keep direct Sonar remediation available only as a temporary fallback while
+   dashboard-backed remediation is being validated,
+2. run dashboard-backed remediation live in a controlled way on the same narrow
+   Sonar-derived item class,
+3. fix rollout issues in the dashboard-backed path directly instead of building
+   long-lived coexistence machinery,
+4. deprecate direct Sonar remediation once dashboard-backed remediation is
+   operationally trustworthy.
 
-During migration, the platform should also define which path owns a given item.
+This keeps the platform focused on the workflow it actually intends to run,
+instead of over-investing in parallel behavior before first launch.
 
-The migration model should make it clear:
+The first version should therefore keep ownership simple:
 
-- when direct Sonar remediation is allowed to work on an issue,
-- when dashboard-backed remediation is allowed to work on the corresponding
-  dashboard item,
-- how duplicate work is prevented while both paths remain available.
-
-The first version should keep that ownership rule simple:
-
-- remediation owns active execution transitions while the run is in progress,
+- the dashboard-backed remediation workflow owns active execution transitions,
+- Sonar dashboard sync remains the discovery producer for Sonar-derived items,
 - later convergence of dashboard state with merged or closed merge requests is a
-  separate reconciliation concern.
+  separate reconciliation concern,
+- the old direct Sonar remediation path is a temporary safety valve, not a
+  long-term second controller.
 
 ## 15. Success Criteria
 

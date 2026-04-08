@@ -645,16 +645,17 @@ Done when:
       code changes
 - the new runner path reuses the proven single-file remediation engine instead
       of duplicating it
-- direct Sonar remediation remains available as a fallback during migration
+- the old direct Sonar remediation path is clearly treated as deprecated
+      fallback behavior rather than a long-term parallel workflow
 
 ### Remediation Phase 5: Migration Hardening And Rollout
 
 Goal:
 
-- prove that dashboard-backed remediation is safe enough to run alongside the
-      direct Sonar path
-- document and test the migration model before making dashboard-first the
-      default
+- prove that dashboard-backed remediation is safe enough to become the primary
+      remediation workflow before live rollout
+- document and test the deprecation path for the old direct Sonar remediation
+      runner
 
 Status:
 
@@ -664,18 +665,16 @@ Status:
 - [x] add integration or smoke coverage for the documented stale `in_progress`
       recovery rule
 - [x] document a smoke-test recipe for one real dashboard remediation run
-- [x] document the migration model that keeps direct Sonar remediation available
-      until dashboard-backed remediation is stable
+- [x] document the rollout model that keeps direct Sonar remediation only as a
+      temporary fallback until dashboard-backed remediation is stable
 - [x] document that Sonar dashboard sync remains the active discovery producer
-      for Sonar-derived dashboard items while direct Sonar remediation is phased
-      out
+      for Sonar-derived dashboard items while the old direct Sonar remediation
+      path is being deprecated
 - [x] review and update the existing Sonar dashboard sync behavior, tests, and
       operator guidance where needed so it remains a reliable producer for the
       dashboard-backed remediation flow, including keeping cleanup limited to
       stale untouched `open` Sonar items instead of rewriting remediation-owned
       lifecycle states
-- [ ] add cross-path dedup so direct Sonar remediation skips issues already
-      owned by dashboard-backed remediation while both paths remain available
 - [ ] move the dashboard remediation execution core from fabricated
       `SonarIssue` inputs to a remediation-native execution contract
 - [ ] adapt the legacy direct Sonar remediation path into
@@ -702,14 +701,12 @@ Done when:
       in predictable states
 - stale `in_progress` recovery and dashboard write-conflict behavior are proven
       in real workflow tests or smoke runs
-- operators have a documented rollout path for comparing direct Sonar
-      remediation against dashboard-backed remediation
-- direct Sonar remediation does not select issues already owned by
-      dashboard-backed remediation during the migration window
+- operators have a documented rollout path for validating dashboard-backed
+      remediation before retiring the old direct Sonar runner
 - dashboard-backed remediation execution no longer depends on rebuilding fake
       Sonar issues for supported dashboard items
 - direct Sonar and dashboard-backed remediation share the same
-      remediation-native execution contract during migration
+      remediation-native execution contract during the deprecation window
 - the roadmap and operator story stay clear that Sonar dashboard sync continues
       to own discovery for Sonar-derived items even after direct Sonar
       remediation is retired
