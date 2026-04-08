@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.13.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.12.1...ai-sonar-bot-v0.13.0) (2026-04-08)
+
+
+### Features
+
+* **dashboard:** add reconciliation workflow ([cb3430a](https://github.com/JustinMelger/ai-sonar-bot/commit/cb3430a6d0ab22a1bf2308953a46de6c767b413d))
+
+
+### Documentation
+
+* **reconciliation:** document dashboard reconcile workflow ([4c27229](https://github.com/JustinMelger/ai-sonar-bot/commit/4c27229bc9cdb096a46d17461588291cf282c0ab))
+* **roadmap:** refocus roadmap on cleanup and review improvements ([e82e1b2](https://github.com/JustinMelger/ai-sonar-bot/commit/e82e1b2e39dd165c22e5d4eaa1e1f16ee75138b4))
+
 ## [0.12.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.12.0...ai-sonar-bot-v0.12.1) (2026-04-08)
 
 
