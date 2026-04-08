@@ -201,7 +201,7 @@ Done when:
 - the review note format is stable and readable
 - another engineer can run and validate the review bot from docs alone
 
-### Next Phase: Runner Cleanup
+### Completed: Runner Cleanup
 
 Goal:
 

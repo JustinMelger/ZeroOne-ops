@@ -7,8 +7,6 @@ an LLM provider.
 from __future__ import annotations
 
 import json
-from functools import cache
-from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -21,25 +19,24 @@ from ai_sonar_bot.models.analysis import (
     StructuredEditProposal,
 )
 from ai_sonar_bot.models.config import OpenAIConnectionConfig
-from ai_sonar_bot.models.remediation import (
-    RemediationExecutionTarget,
-    remediation_profile_for,
-)
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget, remediation_profile_for
 from ai_sonar_bot.models.review import MergeRequestReviewContext, ReviewResult
+from ai_sonar_bot.providers.llm_fixtures import (
+    LLMFixtureError,
+    load_analysis_fixture,
+    load_review_fixture,
+    load_structured_edit_fixture,
+)
+from ai_sonar_bot.providers.llm_prompts import (
+    build_analysis_prompt,
+    build_review_prompt,
+    build_structured_edit_prompt,
+)
 from ai_sonar_bot.utils.files import ensure_parent
 
 
 class LLMClientError(RuntimeError):
     """Raised when LLM analysis or patch generation fails."""
-
-
-_PROMPT_TEMPLATE_NAMES = frozenset(
-    {
-        "analyze_issue.txt",
-        "generate_structured_edit.txt",
-        "review_merge_request.txt",
-    }
-)
 
 
 class LLMClient:
@@ -124,7 +121,7 @@ class OpenAILLMClient(LLMClient):
         Raises:
             LLMClientError: If the API call fails or returns an invalid payload.
         """
-        input_text = _build_analysis_prompt(issue, context)
+        input_text = build_analysis_prompt(issue, context)
         profile = remediation_profile_for(issue)
         try:
             response = self.client.responses.parse(
@@ -169,7 +166,7 @@ class OpenAILLMClient(LLMClient):
         Raises:
             LLMClientError: If the API call fails or returns invalid output.
         """
-        input_text = _build_structured_edit_prompt(issue, context)
+        input_text = build_structured_edit_prompt(issue, context)
         profile = remediation_profile_for(issue)
         try:
             response = self.client.responses.parse(
@@ -192,7 +189,7 @@ class OpenAILLMClient(LLMClient):
 
     def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
         """Review a merge request with OpenAI."""
-        input_text = _build_review_prompt(context)
+        input_text = build_review_prompt(context)
         try:
             response = self.client.responses.parse(
                 model=self.config.model,
@@ -256,7 +253,10 @@ class FixtureLLMClient(LLMClient):
             Structured issue analysis from the fixture.
         """
         del issue, context
-        return load_analysis_fixture(self.analysis_fixture_path)
+        try:
+            return load_analysis_fixture(self.analysis_fixture_path)
+        except LLMFixtureError as error:
+            raise LLMClientError(str(error)) from error
 
     def generate_structured_edit(
         self,
@@ -275,91 +275,20 @@ class FixtureLLMClient(LLMClient):
         del issue, context
         if self.structured_edit_fixture_path is None:
             raise LLMClientError("LLM structured edit fixture path is not configured.")
-        return load_structured_edit_fixture(self.structured_edit_fixture_path)
+        try:
+            return load_structured_edit_fixture(self.structured_edit_fixture_path)
+        except LLMFixtureError as error:
+            raise LLMClientError(str(error)) from error
 
     def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
         """Load a fixture-based review result."""
         del context
         if self.review_fixture_path is None:
             raise LLMClientError("LLM review fixture path is not configured.")
-        return load_review_fixture(self.review_fixture_path)
-
-
-def load_analysis_fixture(path: Path) -> IssueAnalysis:
-    """Load an issue analysis result from a JSON fixture.
-
-    Args:
-        path: Path to the analysis fixture.
-
-    Returns:
-        Structured issue analysis.
-
-    Raises:
-        LLMClientError: If the fixture file is missing or invalid.
-    """
-    if not path.exists():
-        raise LLMClientError(f"LLM analysis fixture file not found: {path}")
-
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
-        raise LLMClientError(f"LLM analysis fixture file is invalid JSON: {path}") from error
-
-    if not isinstance(payload, dict):
-        raise LLMClientError("Unexpected LLM analysis fixture payload.")
-
-    try:
-        return IssueAnalysis.model_validate(payload)
-    except Exception as error:
-        raise LLMClientError("Invalid LLM analysis fixture structure.") from error
-
-
-def load_structured_edit_fixture(path: Path) -> StructuredEditProposal:
-    """Load a structured edit proposal result from a JSON fixture.
-
-    Args:
-        path: Path to the structured edit fixture.
-
-    Returns:
-        Structured edit proposal.
-
-    Raises:
-        LLMClientError: If the fixture file is missing or invalid.
-    """
-    if not path.exists():
-        raise LLMClientError(f"LLM structured edit fixture file not found: {path}")
-
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
-        raise LLMClientError(f"LLM structured edit fixture file is invalid JSON: {path}") from error
-
-    if not isinstance(payload, dict):
-        raise LLMClientError("Unexpected LLM structured edit fixture payload.")
-
-    try:
-        return StructuredEditProposal.model_validate(payload)
-    except Exception as error:
-        raise LLMClientError("Invalid LLM structured edit fixture structure.") from error
-
-
-def load_review_fixture(path: Path) -> ReviewResult:
-    """Load a structured review result from a JSON fixture."""
-    if not path.exists():
-        raise LLMClientError(f"LLM review fixture file not found: {path}")
-
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
-        raise LLMClientError(f"LLM review fixture file is invalid JSON: {path}") from error
-
-    if not isinstance(payload, dict):
-        raise LLMClientError("Unexpected LLM review fixture payload.")
-
-    try:
-        return ReviewResult.model_validate(payload)
-    except Exception as error:
-        raise LLMClientError("Invalid LLM review fixture structure.") from error
+        try:
+            return load_review_fixture(self.review_fixture_path)
+        except LLMFixtureError as error:
+            raise LLMClientError(str(error)) from error
 
 
 def _write_solution_file(
@@ -421,116 +350,3 @@ def _load_existing_solution(path: Path) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {}
     return payload if isinstance(payload, dict) else {}
-
-
-def _build_analysis_prompt(issue: RemediationExecutionTarget, context: IssueContext) -> str:
-    """Build the analysis prompt for OpenAI.
-
-    Args:
-        issue: Remediation target to analyze.
-        context: Focused code context.
-
-    Returns:
-        Prompt text for structured issue analysis.
-    """
-    profile = remediation_profile_for(issue)
-    return _render_prompt_template(
-        "analyze_issue.txt",
-        target_display_name=profile.target_display_name,
-        source_display_name=profile.source_display_name,
-        item_reference_label=profile.item_reference_label,
-        issue_key=issue.source_ref,
-        rule=issue.rule_id or "unknown",
-        severity=issue.severity,
-        issue_type=issue.issue_type or issue.source_type,
-        message=issue.message,
-        file_path=context.file_path,
-        issue_line=context.line,
-        constraints=issue.constraints or "(none)",
-        snippet_start_line=context.snippet.start_line,
-        snippet_end_line=context.snippet.end_line,
-        full_file_included=context.full_file_included,
-        context_truncated=context.truncated,
-        code_snippet=context.snippet.content,
-    )
-
-
-def _build_structured_edit_prompt(issue: RemediationExecutionTarget, context: IssueContext) -> str:
-    """Build the structured-edit prompt for OpenAI.
-
-    Args:
-        issue: Remediation target to fix.
-        context: Focused code context.
-
-    Returns:
-        Prompt text for structured edit generation.
-    """
-    profile = remediation_profile_for(issue)
-    return _render_prompt_template(
-        "generate_structured_edit.txt",
-        target_display_name=profile.target_display_name,
-        source_display_name=profile.source_display_name,
-        item_reference_label=profile.item_reference_label,
-        issue_key=issue.source_ref,
-        rule=issue.rule_id or "unknown",
-        severity=issue.severity,
-        issue_type=issue.issue_type or issue.source_type,
-        message=issue.message,
-        file_path=context.file_path,
-        issue_line=context.line,
-        constraints=issue.constraints or "(none)",
-        snippet_start_line=context.snippet.start_line,
-        snippet_end_line=context.snippet.end_line,
-        code_snippet=context.snippet.content,
-    )
-
-
-def _build_review_prompt(context: MergeRequestReviewContext) -> str:
-    """Build the review prompt for OpenAI."""
-    changed_files = "\n\n".join(
-        (
-            f"File: {changed_file.file_path}\n"
-            f"Diff:\n{changed_file.diff or '(diff unavailable)'}\n"
-            f"Context lines {changed_file.start_line}-{changed_file.end_line}:\n"
-            f"{changed_file.content}"
-        )
-        for changed_file in context.changed_files
-    )
-    return _render_prompt_template(
-        "review_merge_request.txt",
-        mr_iid=context.mr_iid,
-        title=context.title,
-        description=context.description or "(none)",
-        source_branch=context.source_branch,
-        target_branch=context.target_branch,
-        head_sha=context.head_sha,
-        changed_files=changed_files,
-    )
-
-
-def _render_prompt_template(name: str, **values: object) -> str:
-    """Load and render one prompt template safely."""
-    template = _load_prompt_template(name)
-    try:
-        return template.format(**values)
-    except KeyError as error:
-        missing_key = error.args[0]
-        raise LLMClientError(
-            f"Prompt template could not be rendered because `{missing_key}` is missing: {name}"
-        ) from error
-    except ValueError as error:
-        raise LLMClientError(
-            f"Prompt template is invalid and could not be rendered: {name}"
-        ) from error
-
-
-@cache
-def _load_prompt_template(name: str) -> str:
-    """Load a prompt template from the prompts directory."""
-    if name not in _PROMPT_TEMPLATE_NAMES:
-        raise LLMClientError(f"Unsupported prompt template requested: {name}")
-    try:
-        prompts_dir = resources.files("ai_sonar_bot").joinpath("prompts")
-        return prompts_dir.joinpath(name).read_text(encoding="utf-8")
-    except (ModuleNotFoundError, FileNotFoundError, OSError) as error:
-        raise LLMClientError(f"Prompt template file could not be read: {name}") from error
