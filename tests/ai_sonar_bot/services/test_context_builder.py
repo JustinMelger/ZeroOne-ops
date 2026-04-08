@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
-from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.services.context_builder import ContextBuilder
 
 
@@ -30,17 +30,20 @@ def test_build_returns_full_file_when_under_size_limit(tmp_path: Path) -> None:
     builder = ContextBuilder(tmp_path, build_config())
 
     context = builder.build(
-        SonarIssue(
-            key="AX1",
-            rule="python:S2259",
-            severity="MAJOR",
-            type="BUG",
+        RemediationExecutionTarget(
+            item_id="AX1",
+            source_type="sonarqube",
+            source_ref="AX1",
+            title="python:S2259 in src/service.py",
             status="OPEN",
             message="Issue",
-            component="sample-project:src/service.py",
-            project="sample-project",
             file_path="src/service.py",
             line=2,
+            rule_id="python:S2259",
+            severity="MAJOR",
+            issue_type="BUG",
+            component="sample-project:src/service.py",
+            project="sample-project",
         )
     )
 
@@ -60,17 +63,20 @@ def test_build_returns_focused_window_when_file_is_over_limit(tmp_path: Path) ->
     builder = ContextBuilder(tmp_path, build_config(max_file_bytes=1))
 
     context = builder.build(
-        SonarIssue(
-            key="AX2",
-            rule="python:S2259",
-            severity="MAJOR",
-            type="BUG",
+        RemediationExecutionTarget(
+            item_id="AX2",
+            source_type="sonarqube",
+            source_ref="AX2",
+            title="python:S2259 in src/service.py",
             status="OPEN",
             message="Issue",
-            component="sample-project:src/service.py",
-            project="sample-project",
             file_path="src/service.py",
             line=3,
+            rule_id="python:S2259",
+            severity="MAJOR",
+            issue_type="BUG",
+            component="sample-project:src/service.py",
+            project="sample-project",
         )
     )
 
@@ -87,17 +93,20 @@ def test_build_returns_none_when_file_is_missing(tmp_path: Path) -> None:
     builder = ContextBuilder(tmp_path, build_config())
 
     context = builder.build(
-        SonarIssue(
-            key="AX3",
-            rule="python:S2259",
-            severity="MAJOR",
-            type="BUG",
+        RemediationExecutionTarget(
+            item_id="AX3",
+            source_type="sonarqube",
+            source_ref="AX3",
+            title="python:S2259 in src/missing.py",
             status="OPEN",
             message="Issue",
-            component="sample-project:src/missing.py",
-            project="sample-project",
             file_path="src/missing.py",
             line=1,
+            rule_id="python:S2259",
+            severity="MAJOR",
+            issue_type="BUG",
+            component="sample-project:src/missing.py",
+            project="sample-project",
         )
     )
 

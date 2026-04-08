@@ -1,8 +1,8 @@
 from pathlib import Path
 
 from ai_sonar_bot.models.analysis import CodeContextSnippet, IssueContext
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.models.review import MergeRequestReviewContext, ReviewFileContext, ReviewResult
-from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.providers.llm_client import (
     _build_analysis_prompt,
     _build_review_prompt,
@@ -96,16 +96,20 @@ def test_load_review_fixture_returns_review_result(tmp_path: Path) -> None:
 
 
 def test_build_analysis_prompt_uses_prompt_template() -> None:
-    issue = SonarIssue(
-        key="AX1",
-        rule="python:S100",
-        severity="MAJOR",
-        type="CODE_SMELL",
+    issue = RemediationExecutionTarget(
+        item_id="AX1",
+        source_type="sonarqube",
+        source_ref="AX1",
+        title="python:S100 in src/service.py",
         status="OPEN",
         message="Rename this function.",
+        file_path="src/service.py",
+        rule_id="python:S100",
+        severity="MAJOR",
+        issue_type="CODE_SMELL",
         component="project:src/service.py",
         project="project",
-        file_path="src/service.py",
+        constraints="Keep the fix local to this function.",
     )
     context = IssueContext(
         issue_key="AX1",
@@ -124,21 +128,26 @@ def test_build_analysis_prompt_uses_prompt_template() -> None:
     prompt = _build_analysis_prompt(issue, context)
 
     assert "Issue key: AX1" in prompt
+    assert "Constraints: Keep the fix local to this function." in prompt
     assert "This workflow only supports low-risk single-file fixes." in prompt
     assert "Code snippet:\ndef bad_name():\n    return 1\n" in prompt
 
 
 def test_build_structured_edit_prompt_uses_prompt_template() -> None:
-    issue = SonarIssue(
-        key="AX1",
-        rule="python:S100",
-        severity="MAJOR",
-        type="CODE_SMELL",
+    issue = RemediationExecutionTarget(
+        item_id="AX1",
+        source_type="sonarqube",
+        source_ref="AX1",
+        title="python:S100 in src/service.py",
         status="OPEN",
         message="Rename this function.",
+        file_path="src/service.py",
+        rule_id="python:S100",
+        severity="MAJOR",
+        issue_type="CODE_SMELL",
         component="project:src/service.py",
         project="project",
-        file_path="src/service.py",
+        constraints="Keep the fix local to this function.",
     )
     context = IssueContext(
         issue_key="AX1",
@@ -157,8 +166,42 @@ def test_build_structured_edit_prompt_uses_prompt_template() -> None:
     prompt = _build_structured_edit_prompt(issue, context)
 
     assert "Generate a minimal exact text edit" in prompt
+    assert "Constraints: Keep the fix local to this function." in prompt
     assert "Return exactly one edit for one repository-relative file." in prompt
     assert "File path: src/service.py" in prompt
+
+
+def test_build_analysis_prompt_uses_generic_profile_for_unknown_source() -> None:
+    issue = RemediationExecutionTarget(
+        item_id="pipeline:1",
+        source_type="pipeline_failure",
+        source_ref="job-1",
+        title="pytest failed in src/service.py",
+        status="open",
+        message="Test suite is failing.",
+        file_path="src/service.py",
+        severity="HIGH",
+    )
+    context = IssueContext(
+        issue_key="job-1",
+        file_path="src/service.py",
+        line=8,
+        file_size_bytes=128,
+        snippet=CodeContextSnippet(
+            start_line=4,
+            end_line=12,
+            content="def test_it():\n    assert False\n",
+        ),
+        full_file_included=False,
+        truncated=True,
+    )
+
+    prompt = _build_analysis_prompt(issue, context)
+
+    assert "Analyze the following remediation item" in prompt
+    assert "Source: Remediation" in prompt
+    assert "Item reference: job-1" in prompt
+    assert "Constraints: (none)" in prompt
 
 
 def test_build_review_prompt_uses_prompt_template() -> None:

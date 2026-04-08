@@ -99,7 +99,7 @@ ai_sonar_bot_dashboard_remediate:
       git remote set-url origin
       "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
   script:
-    - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard-remediate
+    - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard remediate
 
 # Merge request review workflow.
 # Prefer the merge_request_event manual trigger for the first smoke test so the

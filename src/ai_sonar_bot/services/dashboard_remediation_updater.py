@@ -128,59 +128,83 @@ class DashboardRemediationUpdater:
         log_excerpt: str | None = None,
     ) -> DashboardRemediationUpdateResult:
         """Load, update, and persist one dashboard item."""
-        try:
-            document = self.dashboard_service.load_or_create(project_id=project_id)
-            current_item = self._require_item(document, dashboard_item_id)
-            if self._is_idempotent_update(
-                current_item=current_item,
-                status=status,
-                run_id=run_id,
-                branch_name=branch_name,
-                merge_request_url=merge_request_url,
-                merge_request_iid=merge_request_iid,
-                commit_sha=commit_sha,
-                log_excerpt=log_excerpt,
-            ):
-                return DashboardRemediationUpdateResult(
-                    dashboard_issue_url=document.issue_url,
-                    updated_item=current_item,
+        last_error: Exception | None = None
+        for _attempt in range(2):
+            try:
+                document = self.dashboard_service.load_or_create(project_id=project_id)
+                current_item = self._require_item(document, dashboard_item_id)
+                if self._is_idempotent_update(
+                    current_item=current_item,
+                    status=status,
+                    run_id=run_id,
+                    branch_name=branch_name,
+                    merge_request_url=merge_request_url,
+                    merge_request_iid=merge_request_iid,
+                    commit_sha=commit_sha,
+                    log_excerpt=log_excerpt,
+                ):
+                    return DashboardRemediationUpdateResult(
+                        dashboard_issue_url=document.issue_url,
+                        updated_item=current_item,
+                    )
+                updated_item = self._build_updated_item(
+                    current_item=current_item,
+                    status=status,
+                    run_id=run_id,
+                    branch_name=branch_name,
+                    merge_request_url=merge_request_url,
+                    merge_request_iid=merge_request_iid,
+                    commit_sha=commit_sha,
+                    log_excerpt=log_excerpt,
                 )
-            updated_item = current_item.model_copy(
-                update={
-                    "status": status,
-                    "last_run_id": run_id,
-                    "status_updated_at": datetime.now(UTC),
-                    "branch_name": (
-                        branch_name if branch_name is not None else current_item.branch_name
-                    ),
-                    "merge_request_url": (
-                        merge_request_url
-                        if merge_request_url is not None
-                        else current_item.merge_request_url
-                    ),
-                    "merge_request_iid": (
-                        merge_request_iid
-                        if merge_request_iid is not None
-                        else current_item.merge_request_iid
-                    ),
-                    "commit_sha": commit_sha if commit_sha is not None else current_item.commit_sha,
-                    "log_excerpt": (
-                        log_excerpt if log_excerpt is not None else current_item.log_excerpt
-                    ),
-                }
-            )
-            updated_document = self.dashboard_service.upsert_items(
-                project_id=project_id,
-                items=[updated_item],
-            )
-        except Exception as error:  # pragma: no cover - defensive orchestration guard
+                updated_document = self.dashboard_service.upsert_items(
+                    project_id=project_id,
+                    items=[updated_item],
+                )
+            except Exception as error:  # pragma: no cover - defensive orchestration guard
+                last_error = error
+                continue
+            persisted_item = updated_document.items_by_id().get(dashboard_item_id, updated_item)
             return DashboardRemediationUpdateResult(
-                error_message=f"Dashboard remediation update failed: {error}",
+                dashboard_issue_url=updated_document.issue_url,
+                updated_item=persisted_item,
             )
-        persisted_item = updated_document.items_by_id().get(dashboard_item_id, updated_item)
         return DashboardRemediationUpdateResult(
-            dashboard_issue_url=updated_document.issue_url,
-            updated_item=persisted_item,
+            error_message=f"Dashboard remediation update failed: {last_error}",
+        )
+
+    def _build_updated_item(
+        self,
+        *,
+        current_item: DashboardItem,
+        status: str,
+        run_id: str,
+        branch_name: str | None,
+        merge_request_url: str | None,
+        merge_request_iid: int | None,
+        commit_sha: str | None,
+        log_excerpt: str | None,
+    ) -> DashboardItem:
+        """Return one lifecycle-updated dashboard item."""
+        return current_item.model_copy(
+            update={
+                "status": status,
+                "last_run_id": run_id,
+                "status_updated_at": datetime.now(UTC),
+                "branch_name": branch_name if branch_name is not None else current_item.branch_name,
+                "merge_request_url": (
+                    merge_request_url
+                    if merge_request_url is not None
+                    else current_item.merge_request_url
+                ),
+                "merge_request_iid": (
+                    merge_request_iid
+                    if merge_request_iid is not None
+                    else current_item.merge_request_iid
+                ),
+                "commit_sha": commit_sha if commit_sha is not None else current_item.commit_sha,
+                "log_excerpt": log_excerpt if log_excerpt is not None else current_item.log_excerpt,
+            }
         )
 
     def _is_idempotent_update(

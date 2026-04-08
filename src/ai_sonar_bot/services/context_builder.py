@@ -10,11 +10,11 @@ from pathlib import Path
 
 from ai_sonar_bot.models.analysis import CodeContextSnippet, IssueContext
 from ai_sonar_bot.models.config import AppConfig
-from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 
 
 class ContextBuilder:
-    """Build prompt context for a SonarQube issue.
+    """Build prompt context for one execution target.
 
     Args:
         repo_root: Repository root path.
@@ -31,11 +31,11 @@ class ContextBuilder:
         self.repo_root = repo_root
         self.config = config
 
-    def build(self, issue: SonarIssue) -> IssueContext | None:
-        """Build code context for an issue.
+    def build(self, target: RemediationExecutionTarget) -> IssueContext | None:
+        """Build code context for one execution target.
 
         Args:
-            issue: SonarQube issue to analyze.
+            target: Remediation target to analyze.
 
         Returns:
             Structured source context for the issue, or ``None`` if the file is
@@ -44,9 +44,9 @@ class ContextBuilder:
         return build_issue_context(
             repo_root=self.repo_root,
             config=self.config,
-            issue_key=issue.key,
-            file_path=issue.file_path,
-            issue_line=issue.line,
+            issue_key=target.source_ref,
+            file_path=target.file_path,
+            issue_line=target.line,
         )
 
 

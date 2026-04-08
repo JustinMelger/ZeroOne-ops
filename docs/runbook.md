@@ -185,17 +185,17 @@ Recommended first rollout order:
 1. manually run `ai_sonar_bot` once on the default branch
 2. rerun `ai_sonar_bot` once immediately to confirm duplicate-MR handling
 3. manually run `ai_sonar_bot_dashboard` once to confirm dashboard discovery is healthy
-4. inspect one supported dashboard item locally with `ai-sonar-bot dashboard-remediate --dry-run`
+4. inspect one supported dashboard item locally with `ai-sonar-bot dashboard remediate --dry-run`
 5. manually run one live dashboard remediation CI job
 6. manually run `ai_sonar_bot_review` on one small merge request pipeline
 7. enable schedules only after all workflows behave as expected
 
 Migration model during rollout:
 
-- keep direct Sonar remediation available while dashboard-backed remediation is stabilizing
+- keep direct Sonar remediation only as a temporary fallback while dashboard-backed remediation is stabilizing
 - keep Sonar dashboard sync as a separate discovery producer for Sonar-derived dashboard items
-- compare dashboard-backed remediation outcomes against the direct Sonar path before making dashboard-first remediation the default
-- keep live `dashboard-remediate` CI-only in the first version; local use should stay `--dry-run`
+- compare dashboard-backed remediation outcomes against the direct Sonar path before retiring the old runner
+- keep live `dashboard remediate` CI-only in the first version; local use should stay `--dry-run`
 - let Sonar dashboard sync clean up only stale untouched `open` Sonar items; once remediation has touched an item, preserve the dashboard lifecycle history
 
 ## Common Outcomes
@@ -547,8 +547,8 @@ Do not move to unattended review runs yet if you see:
 Use this quick check after the remediation workflow is already healthy.
 
 For dashboard-backed remediation itself, keep the first rollout boundary simple:
-use `ai-sonar-bot dashboard-remediate --dry-run` for local inspection and use
-live `ai-sonar-bot dashboard-remediate` only from CI jobs.
+use `ai-sonar-bot dashboard remediate --dry-run` for local inspection and use
+live `ai-sonar-bot dashboard remediate` only from CI jobs.
 
 ### Preconditions
 
@@ -604,7 +604,7 @@ Start with one dashboard item that:
 
 ### Steps
 
-1. run `ai-sonar-bot dashboard-remediate --dry-run` locally
+1. run `ai-sonar-bot dashboard remediate --dry-run` locally
 2. confirm the output reports one selected dashboard item and no lifecycle mutation
 3. trigger one live dashboard remediation CI job manually on the default branch
 4. watch the logs for:
@@ -656,5 +656,5 @@ Before calling the target repository setup stable, confirm:
 - the GitLab token can both push and create merge requests
 - operators know where to inspect failures and how to rerun safely
 - the smoke test and immediate rerun both behave as expected
-- direct Sonar remediation remains available until dashboard-backed remediation has matched its outcomes on the supported issue class
+- direct Sonar remediation is treated as a temporary fallback until dashboard-backed remediation has matched its outcomes on the supported issue class
 - Sonar dashboard sync remains the discovery/update mechanism for Sonar-derived dashboard items and does not replace later merge-request reconciliation

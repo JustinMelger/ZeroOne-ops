@@ -2,7 +2,7 @@ from pathlib import Path
 
 from ai_sonar_bot.models.analysis import CodeContextSnippet, IssueContext, PatchProposal
 from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
-from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.services.fix_generator import FixGenerator
 from ai_sonar_bot.services.patch_applier import PatchApplier, PatchApplyError
 from ai_sonar_bot.services.patch_execution_service import PatchExecutionService
@@ -27,18 +27,21 @@ def build_config() -> AppConfig:
     )
 
 
-def build_issue() -> SonarIssue:
-    return SonarIssue(
-        key="AX1",
-        rule="python:S1125",
-        severity="LOW",
-        type="BUG",
+def build_issue() -> RemediationExecutionTarget:
+    return RemediationExecutionTarget(
+        item_id="AX1",
+        source_type="sonarqube",
+        source_ref="AX1",
+        title="python:S1125 in src/service.py",
         status="OPEN",
         message="Issue",
-        component="component",
-        project="project",
         file_path="src/service.py",
         line=1,
+        rule_id="python:S1125",
+        severity="LOW",
+        issue_type="BUG",
+        component="component",
+        project="project",
     )
 
 

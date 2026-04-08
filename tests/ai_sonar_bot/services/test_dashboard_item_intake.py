@@ -212,6 +212,7 @@ def test_select_item_recovers_stale_in_progress_item_before_selection(tmp_path: 
     assert result.selected_item is not None
     assert result.selected_item.id == "sonar:1"
     assert result.selected_item.status == "open"
+    assert result.recovered_stale_item_ids == ("sonar:1",)
     assert dashboard_service.upserted_items[0].status == "open"
     assert "stale in_progress recovery" in (dashboard_service.upserted_items[0].log_excerpt or "")
 

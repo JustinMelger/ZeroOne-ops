@@ -16,7 +16,7 @@ from ai_sonar_bot.models.analysis import (
     ValidationResult,
 )
 from ai_sonar_bot.models.config import AppConfig
-from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.models.state import FailureDetails, FailureStage
 from ai_sonar_bot.providers.llm_client import (
     FixtureLLMClient,
@@ -85,11 +85,16 @@ class AnalysisService:
             workspace_snapshot_service=self.workspace_snapshot_service,
         )
 
-    def analyze_issue(self, *, selected_issue: SonarIssue, dry_run: bool) -> AnalysisResult:
-        """Analyze a selected issue.
+    def analyze_issue(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        dry_run: bool,
+    ) -> AnalysisResult:
+        """Analyze a selected execution target.
 
         Args:
-            selected_issue: Selected SonarQube issue.
+            selected_issue: Selected remediation execution target.
             dry_run: Whether the current run is in dry-run mode.
 
         Returns:
@@ -107,11 +112,11 @@ class AnalysisService:
     def analyze_issue_with_context(
         self,
         *,
-        selected_issue: SonarIssue,
+        selected_issue: RemediationExecutionTarget,
         context: IssueContext,
         dry_run: bool,
     ) -> AnalysisResult:
-        """Analyze a selected issue with prebuilt source context."""
+        """Analyze a selected execution target with prebuilt source context."""
         llm_client = self._build_llm_client()
         if llm_client is None:
             return AnalysisResult(
@@ -126,7 +131,7 @@ class AnalysisService:
             llm_client.solution_output_path if isinstance(llm_client, OpenAILLMClient) else None
         )
         analysis = fix_generator.analyze(selected_issue, context)
-        artifact_service.write_analysis(issue_key=selected_issue.key, analysis=analysis)
+        artifact_service.write_analysis(issue_key=selected_issue.source_ref, analysis=analysis)
         summary = (
             f"Analysis classification: {analysis.classification.value}. "
             f"Strategy: {analysis.proposed_strategy}"
@@ -135,7 +140,7 @@ class AnalysisService:
         if relative_artifact_path is not None:
             summary = f"{summary}. Solution file: {relative_artifact_path}"
         if analysis.classification == AnalysisClassification.MANUAL:
-            artifact_service.write_manual_rejection(issue_key=selected_issue.key)
+            artifact_service.write_manual_rejection(issue_key=selected_issue.source_ref)
             return AnalysisResult(
                 summary=f"{summary}. Patch generation skipped because manual review is required.",
                 validation_passed=False,
@@ -165,7 +170,7 @@ class AnalysisService:
                     message=f"Structured edit generation failed: {error}",
                 ),
             )
-        artifact_service.write_patch(issue_key=selected_issue.key, patch=patch)
+        artifact_service.write_patch(issue_key=selected_issue.source_ref, patch=patch)
         summary = (
             f"{summary}. Proposed files: {', '.join(patch.files_touched)}. "
             f"MR title: {patch.mr_title}. "
@@ -225,7 +230,7 @@ class AnalysisService:
         self,
         *,
         fix_generator: FixGenerator,
-        selected_issue: SonarIssue,
+        selected_issue: RemediationExecutionTarget,
         context: IssueContext,
         artifact_service: SolutionArtifactService,
     ) -> PatchProposal:
@@ -242,7 +247,7 @@ class AnalysisService:
         """
         structured_edit = fix_generator.generate_structured_edit(selected_issue, context)
         artifact_service.write_structured_edit(
-            issue_key=selected_issue.key,
+            issue_key=selected_issue.source_ref,
             structured_edit=structured_edit,
         )
         target_files = {edit.file_path for edit in structured_edit.edits}

@@ -221,17 +221,17 @@ Recommended first rollout order:
 - run `ai_sonar_bot` manually once on the default branch
 - rerun `ai_sonar_bot` once immediately and confirm duplicate-MR handling is clean
 - run `ai_sonar_bot_dashboard` manually once and confirm eligible Sonar items appear in the dashboard without duplication
-- run `ai-sonar-bot dashboard-remediate --dry-run` locally to inspect one supported dashboard item without changing lifecycle state
-- run one live `dashboard-remediate` CI job only after direct Sonar remediation, dashboard sync, and dry-run inspection all behave as expected
+- run `ai-sonar-bot dashboard remediate --dry-run` locally to inspect one supported dashboard item without changing lifecycle state
+- run one live `dashboard remediate` CI job only after direct Sonar remediation, dashboard sync, and dry-run inspection all behave as expected
 - run `ai_sonar_bot_review` manually on one small merge request pipeline
 - enable schedules only after the manual smoke runs for remediation, dashboard sync, dashboard-backed remediation, and review all behave as expected
 
 Migration model during dashboard rollout:
 
-- keep direct Sonar remediation available while dashboard-backed remediation is stabilizing
+- keep direct Sonar remediation only as a temporary fallback while dashboard-backed remediation is stabilizing
 - keep Sonar dashboard sync as the discovery producer for Sonar-derived dashboard items
-- treat live `dashboard-remediate` as CI-only in the first implementation; use `dashboard-remediate --dry-run` locally
-- compare dashboard-backed remediation outcomes against the direct Sonar path before making dashboard-first remediation the default
+- treat live `dashboard remediate` as CI-only in the first implementation; use `dashboard remediate --dry-run` locally
+- compare dashboard-backed remediation outcomes against the direct Sonar path before retiring the old runner
 - let Sonar sync clean up only stale untouched `open` Sonar items; once remediation has touched an item, preserve its dashboard lifecycle history
 
 ## Execution Modes

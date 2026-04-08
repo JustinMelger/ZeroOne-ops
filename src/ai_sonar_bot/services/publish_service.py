@@ -9,7 +9,10 @@ from dataclasses import dataclass
 
 from ai_sonar_bot.models.analysis import ValidationResult
 from ai_sonar_bot.models.config import AppConfig
-from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.remediation import (
+    RemediationExecutionTarget,
+    remediation_profile_for,
+)
 from ai_sonar_bot.providers.gitlab_client import GitLabClient, GitLabClientError
 from ai_sonar_bot.services.branch_manager import BranchManager, BranchManagerError
 from ai_sonar_bot.services.mr_service import MergeRequestService
@@ -47,7 +50,7 @@ class PublishService:
     def publish(
         self,
         *,
-        selected_issue: SonarIssue,
+        selected_issue: RemediationExecutionTarget,
         validation_result: ValidationResult | None,
         branch_name: str,
         mr_title: str,
@@ -92,11 +95,12 @@ class PublishService:
     def build_mr_description(
         self,
         *,
-        selected_issue: SonarIssue,
+        selected_issue: RemediationExecutionTarget,
         validation_result: ValidationResult | None,
         change_summary: str,
     ) -> str:
         """Build a deterministic merge request description."""
+        profile = remediation_profile_for(selected_issue)
         issue_line = str(selected_issue.line) if selected_issue.line is not None else "n/a"
         validation_summary = (
             validation_result.summary
@@ -108,11 +112,12 @@ class PublishService:
                 "## Summary",
                 change_summary,
                 "",
-                "## SonarQube",
-                f"- Issue key: `{selected_issue.key}`",
-                f"- Rule: `{selected_issue.rule}`",
-                f"- Severity: `{selected_issue.severity}`",
-                f"- Type: `{selected_issue.type}`",
+                f"## {profile.mr_section_title}",
+                f"- Source: `{profile.source_display_name}`",
+                f"- {profile.item_reference_label}: `{selected_issue.source_ref}`",
+                f"- Rule: `{selected_issue.rule_id or 'unknown'}`",
+                f"- Severity: `{selected_issue.severity or 'unknown'}`",
+                f"- Type: `{selected_issue.issue_type or selected_issue.source_type}`",
                 f"- File: `{selected_issue.file_path}`",
                 f"- Line: `{issue_line}`",
                 f"- Message: {selected_issue.message}",
@@ -121,6 +126,6 @@ class PublishService:
                 f"- {validation_summary}",
                 "",
                 "## Notes",
-                "- Diff was rendered by the bot from a structured edit proposal.",
+                profile.diff_note,
             ]
         )

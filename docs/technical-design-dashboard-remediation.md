@@ -17,7 +17,8 @@ Initial constraints:
 - dashboard issue remains the remote control plane
 - remediation stays limited to the current safe single-file structured-edit
   model
-- direct Sonar intake can remain available during migration
+- direct Sonar intake may remain available only as a temporary fallback before
+  the dashboard-backed path is fully trusted
 
 ## 2. Technical Objectives
 
@@ -128,18 +129,20 @@ flowchart TD
 Responsibilities:
 
 - expose a dashboard-backed remediation command
-- keep existing Sonar and review commands intact during migration
+- keep existing review commands intact
+- treat the old direct Sonar remediation command as a temporary fallback rather
+  than a long-term parallel remediation path
 
 Suggested commands:
 
-- `ai-sonar-bot dashboard-remediate`
-- `ai-sonar-bot dashboard-remediate --dry-run`
+- `ai-sonar-bot dashboard remediate`
+- `ai-sonar-bot dashboard remediate --dry-run`
 
-The first implementation should use `dashboard-remediate` as the explicit
+The first implementation should use `dashboard remediate` as the explicit
 workflow entrypoint. Dashboard-backed remediation should stay a separate
 workflow, not a hidden flag on the old Sonar path. Live remediation should stay
 CI-only in the first implementation; local operator use is limited to
-`dashboard-remediate --dry-run` so the dashboard lifecycle does not need a
+`dashboard remediate --dry-run` so the dashboard lifecycle does not need a
 separate local-success state yet.
 
 ### 6.2 `runner.py`
@@ -237,7 +240,7 @@ The dashboard-backed remediation flow should continue reusing:
 The new path should change intake and lifecycle management, not the proven
 single-file remediation engine.
 
-However, the migration should not stop at intake. To support future producers
+However, the transition should not stop at intake. To support future producers
 cleanly, the execution core should gradually move from Sonar-native types
 toward remediation-native inputs.
 
@@ -248,6 +251,14 @@ Recommended direction:
   remediation-native model,
 - treat Sonar-specific prompt shaping as one producer strategy rather than the
   global workflow contract.
+
+The first producer-neutral execution pass should stay conservative:
+
+- honor `constraints` during prompt and edit generation,
+- keep repository validation commands sourced from repository config rather
+  than per-item metadata,
+- leave `expected_change`, `acceptance_criteria`, and `source_payload` as
+  descriptive metadata until their runtime semantics are designed explicitly.
 
 ## 7. Data Model
 
@@ -277,6 +288,14 @@ Additional fields used when present:
 - `constraints`
 - `acceptance_criteria`
 
+For v1 execution behavior, these fields should not all be treated equally:
+
+- `constraints` should be honored as a real execution input because it provides
+  a bounded producer-neutral way to shape prompt and edit policy.
+- `validation_commands`, `expected_change`, and `acceptance_criteria` should
+  remain pass-through metadata until a later producer-expansion phase defines
+  how they are enforced consistently.
+
 ### 7.2 `RemediationWorkItem`
 
 Suggested provider-neutral execution model:
@@ -299,6 +318,14 @@ Optional execution metadata can continue to carry:
 - `expected_change`
 - `constraints`
 - `acceptance_criteria`
+
+The v1 runtime contract should use:
+
+- `constraints` as an actual execution input
+- `validation_commands`, `expected_change`, and `acceptance_criteria` as
+  pass-through metadata only
+- `source_payload` as an opaque extension field rather than a generic runtime
+  policy input
 
 This model allows remediation execution to stay independent from whether the
 item came from Sonar, pipeline discovery, or another producer.
@@ -417,26 +444,25 @@ buffer for interrupted jobs and operator investigation, not a review window.
 
 ## 10. Migration Strategy
 
-The migration should be staged:
+The rollout should be dashboard-first before live launch:
 
-1. keep direct Sonar remediation available
-2. add dashboard-backed remediation for the same narrow issue class
+1. keep the old direct Sonar remediation path only as a temporary fallback
+2. validate dashboard-backed remediation live on the same narrow issue class
 3. compare summaries, failures, and merge request quality
-4. make dashboard-backed remediation the default
-5. eventually reduce or remove direct Sonar remediation intake
+4. fix rollout issues in the dashboard-backed path directly
+5. deprecate and later remove direct Sonar remediation intake
 
-This avoids turning the dashboard into a hard dependency before the lifecycle
-and retention behavior are proven in practice.
+This avoids building permanent coexistence machinery for a path that may be
+retired before the platform is live.
 
-The migration path should also define one ownership rule for overlapping work so
-the platform knows whether the direct Sonar path or the dashboard-backed path
-is authoritative for a given issue during rollout.
+For the first version, ownership should stay simple:
 
-For the first version, that ownership rule should stay simple:
-
-- the remediation workflow owns state only during active execution,
+- the dashboard-backed remediation workflow owns active execution state,
+- Sonar dashboard sync owns Sonar-derived discovery freshness,
 - a later reconciliation workflow owns passive convergence for merged, closed,
-  or stale remote states.
+  or stale remote states,
+- the old direct Sonar remediation path should not be treated as a second
+  long-term authoritative controller.
 
 Sonar dashboard sync should keep its ownership equally narrow:
 

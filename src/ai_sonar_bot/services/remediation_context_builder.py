@@ -23,7 +23,7 @@ class RemediationContextBuilder:
         return build_issue_context(
             repo_root=self.repo_root,
             config=self.config,
-            issue_key=work_item.dashboard_item_id,
+            issue_key=work_item.source_ref,
             file_path=work_item.file_path,
             issue_line=work_item.line,
         )

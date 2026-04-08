@@ -84,6 +84,23 @@ class FakeDashboardService:
         return self.document
 
 
+class ConflictDashboardService(FakeDashboardService):
+    def __init__(self, document: DashboardDocument, *, failures_before_success: int) -> None:
+        super().__init__(document)
+        self.failures_before_success = failures_before_success
+        self.load_calls = 0
+
+    def load_or_create(self, *, project_id: str) -> DashboardDocument:
+        self.load_calls += 1
+        return super().load_or_create(project_id=project_id)
+
+    def upsert_items(self, *, project_id: str, items: list[DashboardItem]) -> DashboardDocument:
+        if self.failures_before_success > 0:
+            self.failures_before_success -= 1
+            raise RuntimeError("write conflict")
+        return super().upsert_items(project_id=project_id, items=items)
+
+
 def build_document(*, items: list[DashboardItem]) -> DashboardDocument:
     sections = empty_sections()
     sections[0] = DashboardSection(
@@ -255,3 +272,43 @@ def test_update_returns_error_when_dashboard_item_is_missing() -> None:
         result.error_message
         == "Dashboard remediation update failed: Dashboard item not found: missing"
     )
+
+
+def test_update_retries_once_after_conflict_and_succeeds() -> None:
+    dashboard_service = ConflictDashboardService(
+        build_document(items=[build_item()]),
+        failures_before_success=1,
+    )
+    updater = DashboardRemediationUpdater(dashboard_service)
+
+    result = updater.mark_in_progress(
+        project_id="123",
+        dashboard_item_id="sonar:1",
+        run_id="run-1",
+    )
+
+    assert result.error_message is None
+    assert result.updated_item is not None
+    assert result.updated_item.status == "in_progress"
+    assert dashboard_service.upsert_calls == 1
+    assert dashboard_service.load_calls == 2
+
+
+def test_update_fails_safe_after_second_conflict() -> None:
+    dashboard_service = ConflictDashboardService(
+        build_document(items=[build_item()]),
+        failures_before_success=2,
+    )
+    updater = DashboardRemediationUpdater(dashboard_service)
+
+    result = updater.mark_in_progress(
+        project_id="123",
+        dashboard_item_id="sonar:1",
+        run_id="run-1",
+    )
+
+    assert result.dashboard_issue_url is None
+    assert result.updated_item is None
+    assert result.error_message == "Dashboard remediation update failed: write conflict"
+    assert dashboard_service.upsert_calls == 0
+    assert dashboard_service.load_calls == 2

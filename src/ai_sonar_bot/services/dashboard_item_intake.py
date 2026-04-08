@@ -40,6 +40,7 @@ class DashboardItemIntakeResult:
     item_count: int
     message: str
     document: DashboardDocument
+    recovered_stale_item_ids: tuple[str, ...] = ()
 
 
 class DashboardItemIntakeService:
@@ -69,7 +70,7 @@ class DashboardItemIntakeService:
     ) -> DashboardItemIntakeResult:
         """Load the dashboard and return the next eligible remediation item."""
         document = self.dashboard_service.load_or_create(project_id=project_id)
-        document = self._recover_stale_in_progress_items(
+        document, recovered_stale_item_ids = self._recover_stale_in_progress_items(
             document=document,
             project_id=project_id,
         )
@@ -98,12 +99,14 @@ class DashboardItemIntakeService:
                     skip_reason_counts=skip_reason_counts,
                 ),
                 document=document,
+                recovered_stale_item_ids=recovered_stale_item_ids,
             )
         return DashboardItemIntakeResult(
             selected_item=selected_item,
             item_count=len(items),
             message="",
             document=document,
+            recovered_stale_item_ids=recovered_stale_item_ids,
         )
 
     def _skip_reason_counts(
@@ -209,7 +212,7 @@ class DashboardItemIntakeService:
         *,
         document: DashboardDocument,
         project_id: str,
-    ) -> DashboardDocument:
+    ) -> tuple[DashboardDocument, tuple[str, ...]]:
         """Reopen stale in-progress items before selection."""
         recovered_items = [
             self._recover_stale_item(item)
@@ -217,11 +220,12 @@ class DashboardItemIntakeService:
             if self._is_stale_in_progress_item(item)
         ]
         if not recovered_items:
-            return document
-        return self.dashboard_service.upsert_items(
+            return document, ()
+        updated_document = self.dashboard_service.upsert_items(
             project_id=project_id,
             items=recovered_items,
         )
+        return updated_document, tuple(item.id for item in recovered_items)
 
     def _recover_stale_item(self, item: DashboardItem) -> DashboardItem:
         """Return the recovered version of one stale in-progress item."""
