@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.12.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.11.2...ai-sonar-bot-v0.12.0) (2026-04-08)
+
+
+### Features
+
+* add foundation remediation model ([676daf3](https://github.com/JustinMelger/ai-sonar-bot/commit/676daf3eccf4934d27e58194440e7610f308ebf6))
+* add hard failure stage in runner ([2b6fbc1](https://github.com/JustinMelger/ai-sonar-bot/commit/2b6fbc106bfc81c4911e0b1f21e3adea53b071f1))
+* dashboard normalisation for remediation ([90cb173](https://github.com/JustinMelger/ai-sonar-bot/commit/90cb173fde947dc09d66134bab2c366c54e65dc5))
+* dedicated lifecylce updated ([ddbb3fc](https://github.com/JustinMelger/ai-sonar-bot/commit/ddbb3fc7f1c7e6f29cd9f5bb1ad4baca1f20324b))
+* idempotent lifecycle writes for reruns ([e899468](https://github.com/JustinMelger/ai-sonar-bot/commit/e8994683393212e807032df6b10bcacf7ef211a9))
+* tracebility dashboard state explicit ([be7514d](https://github.com/JustinMelger/ai-sonar-bot/commit/be7514ddb18bc3b737dc5d8f91c154a8d0a389ec))
+* use stable dashboard items, add stale rule ([8dd14c1](https://github.com/JustinMelger/ai-sonar-bot/commit/8dd14c1379a58e4052df7518c38f26e10a313cc5))
+
+
+### Bug Fixes
+
+* dashboard sync only removes open not in sq ([94ad173](https://github.com/JustinMelger/ai-sonar-bot/commit/94ad1732f49bd776c12044b7a04e441086543e43))
+
+
+### Documentation
+
+* design remedy_bot ([70f0918](https://github.com/JustinMelger/ai-sonar-bot/commit/70f09187bff88f1d8f637e14ea921127af8ac322))
+* update tech + functional docs dashboard remediation ([dcf19d4](https://github.com/JustinMelger/ai-sonar-bot/commit/dcf19d4a8c8abc0c95d26e189c7face795448eb4))
+* updatedocs for new implementation ([a56a8c3](https://github.com/JustinMelger/ai-sonar-bot/commit/a56a8c3ef4c8566ac59afd527a2da000c2a8153a))
+
 ## [0.11.2](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.11.1...ai-sonar-bot-v0.11.2) (2026-04-06)
 
 
