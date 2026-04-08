@@ -274,6 +274,21 @@ prefer findings that explicitly compare:
 - stated remediation constraints versus the produced diff,
 - stated validation evidence versus remaining review risk.
 
+The review workflow should also expose an advisory confidence signal so
+operators can quickly judge how strongly the bot trusts its own review pass.
+
+Recommended first fields:
+
+- `review_confidence`
+- `review_confidence_reason`
+
+For the first implementation:
+
+- the score should stay advisory only,
+- the score should not auto-approve, auto-merge, or suppress findings by
+  itself,
+- a short reason should always accompany the score when it is present.
+
 ### 10.6 Review Note Publishing
 
 When findings exist, the bot must publish one deterministic merge request note

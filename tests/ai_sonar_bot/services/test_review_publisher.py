@@ -63,6 +63,10 @@ def test_render_note_formats_findings_present() -> None:
                     severity="medium",
                     file_path="src/service.py",
                     title="Missing test coverage",
+                    evidence=(
+                        "The diff changes `value = 1` to `value = 2` "
+                        "without any test updates."
+                    ),
                     explanation="The change alters branch behavior without test updates.",
                     suggested_follow_up="Add a regression test for the changed branch.",
                 )
@@ -73,6 +77,10 @@ def test_render_note_formats_findings_present() -> None:
     assert "## AI Review Summary" in body
     assert "One medium-risk finding." in body
     assert "1. [medium] Missing test coverage (`src/service.py`)" in body
+    assert (
+        "Evidence: The diff changes `value = 1` to `value = 2` "
+        "without any test updates."
+    ) in body
     assert "- Reviewed merge request: `!17`" in body
     assert "- Reviewed commit SHA: `abc123`" in body
     assert "- Files reviewed: 1" in body
@@ -96,6 +104,24 @@ def test_render_note_formats_no_findings() -> None:
     assert "Notes:" not in body
 
 
+def test_render_note_formats_manual_review_only() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_note(
+        context=build_context(),
+        review_result=ReviewResult(
+            classification="manual_review_only",
+            summary="The diff is too broad to assess reliably in this pass.",
+            findings=[],
+        ),
+    )
+
+    assert "Bot assessment was insufficient for a trustworthy review decision." in body
+    assert "The diff is too broad to assess reliably in this pass." in body
+    assert "This is not an actionable finding by itself." in body
+    assert "- Reviewed merge request: `!17`" in body
+
+
 def test_publish_sends_rendered_note_body() -> None:
     review_client = FakeGitLabReviewClient()
     publisher = ReviewPublisher(review_client)
@@ -112,6 +138,10 @@ def test_publish_sends_rendered_note_body() -> None:
                     severity="medium",
                     file_path="src/service.py",
                     title="Missing test coverage",
+                    evidence=(
+                        "The diff changes `value = 1` to `value = 2` "
+                        "without any test updates."
+                    ),
                     explanation="The change alters branch behavior without test updates.",
                     suggested_follow_up="Add a regression test for the changed branch.",
                 )

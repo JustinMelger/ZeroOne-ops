@@ -74,3 +74,23 @@ def test_update_returns_error_message_when_dashboard_write_fails() -> None:
 
     assert result.dashboard_issue_url is None
     assert result.error_message == "Dashboard mirror failed: boom"
+
+
+def test_update_uses_clear_summary_for_manual_review_only() -> None:
+    dashboard_service = FakeDashboardService()
+    updater = ReviewDashboardUpdater(dashboard_service)
+
+    result = updater.update(
+        project_id="123",
+        merge_request=build_merge_request(),
+        review_result=ReviewResult(
+            classification="manual_review_only",
+            summary="The available context was insufficient.",
+            findings=[],
+        ),
+    )
+
+    assert result.error_message is None
+    item = dashboard_service.items[0]
+    assert item.review_status == "manual_review_only"
+    assert "Bot assessment was insufficient for a trustworthy review decision." in item.summary

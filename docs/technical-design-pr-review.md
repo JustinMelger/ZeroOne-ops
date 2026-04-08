@@ -407,8 +407,8 @@ On failure, the bot must:
 
 ## 12. Advisory Review Confidence
 
-The review workflow should leave room for an advisory confidence signal without
-making it part of the first review control plane.
+The review workflow should emit an advisory confidence signal as part of the
+review trust-building phase, while keeping it out of runtime control policy.
 
 Recommended first fields:
 

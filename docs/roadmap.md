@@ -252,11 +252,22 @@ Status:
 - [x] teach the review workflow to use remediation-authored MR context when it
       is available, while degrading gracefully for normal human-authored merge
       requests
-- [ ] suppress speculative or weak findings more aggressively so the bot
+- [x] suppress speculative or weak findings more aggressively so the bot
       prefers no-findings over noisy low-confidence review output
-- [ ] strengthen finding formatting so each review comment ties the risk to
+- [x] strengthen finding formatting so each review comment ties the risk to
       concrete diff evidence or nearby source context
-- [ ] make manual-review-only outcomes clearer so operators can distinguish
+- [x] harden the review prompt against input poisoning by treating MR titles,
+      descriptions, remediation context, diffs, and code snippets as untrusted
+      data rather than instructions
+- [x] delimit untrusted MR text, remediation metadata, diffs, and source
+      context more explicitly in the review prompt so the model sees them as
+      artifacts instead of executable guidance
+- [x] validate structured review findings more aggressively after generation so
+      evidence stays tied to reviewed files and weak unsupported findings are
+      downgraded or rejected safely
+- [ ] add advisory `review_confidence` and `review_confidence_reason` so the
+      review bot exposes a clear operator trust signal without becoming a gate
+- [x] make manual-review-only outcomes clearer so operators can distinguish
       insufficient context from low-value findings
 - [ ] add repo-level controls for review noise such as path filtering,
       changed-file limits, and note verbosity

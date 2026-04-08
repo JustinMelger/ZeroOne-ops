@@ -2481,6 +2481,10 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
                             severity="medium",
                             file_path="src/service.py",
                             title="Missing test coverage",
+                            evidence=(
+                                "The diff changes `value = 1` to `value = 2` "
+                                "without any test updates."
+                            ),
                             explanation="The change alters behavior without test updates.",
                             suggested_follow_up="Add a regression test.",
                         )

@@ -87,6 +87,7 @@ class ReviewFinding(BaseModel):
     severity: Literal["high", "medium", "low"]
     file_path: str
     title: str
+    evidence: str
     explanation: str
     suggested_follow_up: str
 
