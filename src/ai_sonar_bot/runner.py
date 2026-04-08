@@ -15,17 +15,13 @@ from ai_sonar_bot.models.state import (
     FailureStage,
     RunRecord,
     RunStatus,
-    utc_now,
 )
 from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
 from ai_sonar_bot.services.dashboard_item_intake import DashboardItemIntakeService
 from ai_sonar_bot.services.dashboard_item_normalizer import DashboardItemNormalizer
-from ai_sonar_bot.services.dashboard_reconciliation_intake import (
-    DashboardReconciliationIntakeService,
-)
-from ai_sonar_bot.services.dashboard_reconciliation_service import (
-    DashboardReconciliationService,
+from ai_sonar_bot.services.dashboard_reconciliation_runner import (
+    DashboardReconciliationRunner,
 )
 from ai_sonar_bot.services.dashboard_remediation_updater import DashboardRemediationUpdater
 from ai_sonar_bot.services.dashboard_service import DashboardService
@@ -710,149 +706,17 @@ def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:
     run_id = _build_run_id()
     record = run_state_service.start_run(run_id)
     active_dry_run = dry_run or config.dry_run
-    if not active_dry_run and config.execution_mode != "ci":
-        message = (
-            "Dashboard reconciliation live execution is only supported in CI mode. "
-            "Use --dry-run locally."
-        )
-        return run_state_service.fail_run(
-            record=record,
-            error_message=message,
-            failure=FailureDetails(
-                stage=FailureStage.ISSUE_INTAKE,
-                message=message,
-            ),
-        )
-
     gitlab_config = load_gitlab_connection_config()
-    dashboard_service = DashboardService(GitLabDashboardClient(gitlab_config))
-    review_client = GitLabReviewClient(gitlab_config)
-    intake_result = DashboardReconciliationIntakeService(
-        dashboard_service=dashboard_service,
-    ).select_item(project_id=gitlab_config.project_id)
-    if intake_result.selected_item is None:
-        return run_state_service.finish_no_issue(
-            record=record,
-            message=intake_result.message,
-            issue_count=intake_result.item_count,
-        )
-
-    selected_item = intake_result.selected_item
-    decision = DashboardReconciliationService(review_client).decide(
+    return DashboardReconciliationRunner(
+        dashboard_service=DashboardService(GitLabDashboardClient(gitlab_config)),
+        review_client=GitLabReviewClient(gitlab_config),
+        run_state_service=run_state_service,
+    ).run(
         project_id=gitlab_config.project_id,
-        item=selected_item,
-    )
-    record.dashboard_item_id = selected_item.id
-    record.branch_name = selected_item.branch_name
-    record.commit_sha = selected_item.commit_sha
-    record.mr_url = selected_item.merge_request_url
-    record.updated_at = utc_now()
-
-    if active_dry_run:
-        record.status = RunStatus.SELECTED
-        state_store.save(state)
-        return run_state_service.build_summary(
-            run_id=record.run_id,
-            status=record.status,
-            message=(
-                f"Dry-run would reconcile dashboard item {selected_item.id}: {decision.message}"
-            ),
-            dashboard_item_id=selected_item.id,
-            branch_name=selected_item.branch_name,
-            commit_sha=selected_item.commit_sha,
-            mr_url=selected_item.merge_request_url,
-        )
-
-    if decision.action == "noop":
-        record.status = RunStatus.NO_ISSUE
-        state_store.save(state)
-        return run_state_service.build_summary(
-            run_id=record.run_id,
-            status=record.status,
-            message=decision.message,
-            dashboard_item_id=selected_item.id,
-            branch_name=selected_item.branch_name,
-            commit_sha=selected_item.commit_sha,
-            mr_url=selected_item.merge_request_url,
-        )
-
-    updater = DashboardRemediationUpdater(dashboard_service)
-    if decision.action == "done":
-        update_result = updater.mark_done(
-            project_id=gitlab_config.project_id,
-            dashboard_item_id=selected_item.id,
-            run_id=run_id,
-            summary=decision.message,
-        )
-        if update_result.error_message is not None:
-            return _fail_dashboard_update(
-                run_state_service=run_state_service,
-                record=record,
-                dashboard_item_id=selected_item.id,
-                workflow_message=decision.message,
-                dashboard_error_message=update_result.error_message,
-            )
-        run_state_service.mark_dashboard_done(
-            record=record,
-            dashboard_item_id=selected_item.id,
-            branch_name=selected_item.branch_name,
-            commit_sha=selected_item.commit_sha,
-            mr_url=selected_item.merge_request_url,
-        )
-        record.status = RunStatus.RECONCILED
-        run_state_service.finish_success(record=record)
-        return run_state_service.build_summary(
-            run_id=record.run_id,
-            status=record.status,
-            message=decision.message,
-            dashboard_item_id=selected_item.id,
-            branch_name=selected_item.branch_name,
-            commit_sha=selected_item.commit_sha,
-            mr_url=selected_item.merge_request_url,
-        )
-
-    if decision.action == "open":
-        update_result = updater.mark_open(
-            project_id=gitlab_config.project_id,
-            dashboard_item_id=selected_item.id,
-            run_id=run_id,
-            summary=decision.message,
-        )
-        if update_result.error_message is not None:
-            return _fail_dashboard_update(
-                run_state_service=run_state_service,
-                record=record,
-                dashboard_item_id=selected_item.id,
-                workflow_message=decision.message,
-                dashboard_error_message=update_result.error_message,
-            )
-        run_state_service.mark_dashboard_reopened(
-            record=record,
-            dashboard_item_id=selected_item.id,
-            branch_name=selected_item.branch_name,
-            commit_sha=selected_item.commit_sha,
-            mr_url=selected_item.merge_request_url,
-        )
-        record.status = RunStatus.RECONCILED
-        run_state_service.finish_success(record=record)
-        return run_state_service.build_summary(
-            run_id=record.run_id,
-            status=record.status,
-            message=decision.message,
-            dashboard_item_id=selected_item.id,
-            branch_name=selected_item.branch_name,
-            commit_sha=selected_item.commit_sha,
-            mr_url=selected_item.merge_request_url,
-        )
-
-    return run_state_service.fail_dashboard_item(
         record=record,
-        dashboard_item_id=selected_item.id,
-        error_message=decision.message,
-        failure=FailureDetails(
-            stage=FailureStage.RECONCILIATION,
-            message=decision.message,
-        ),
+        run_id=run_id,
+        active_dry_run=active_dry_run,
+        execution_mode=config.execution_mode,
     )
 
 
