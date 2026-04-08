@@ -2,7 +2,7 @@ from pathlib import Path
 
 from ai_sonar_bot.models.analysis import PatchProposal, ValidationResult
 from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
-from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.services.analysis_service import AnalysisResult
 from ai_sonar_bot.services.execution_service import ExecutionService
 from ai_sonar_bot.services.publish_service import PublishResult
@@ -22,18 +22,21 @@ def build_config(*, execution_mode: str = "local") -> AppConfig:
     )
 
 
-def build_issue() -> SonarIssue:
-    return SonarIssue(
-        key="FIXTURE-1",
-        rule="python:S2259",
-        severity="MAJOR",
-        type="BUG",
+def build_issue() -> RemediationExecutionTarget:
+    return RemediationExecutionTarget(
+        item_id="FIXTURE-1",
+        source_type="sonarqube",
+        source_ref="FIXTURE-1",
+        title="python:S2259 in src/service.py",
         status="OPEN",
         message="Fixture issue",
-        component="sample-project:src/service.py",
-        project="sample-project",
         file_path="src/service.py",
         line=1,
+        rule_id="python:S2259",
+        severity="MAJOR",
+        issue_type="BUG",
+        component="sample-project:src/service.py",
+        project="sample-project",
     )
 
 
@@ -61,7 +64,11 @@ def fake_noop() -> None:
     return None
 
 
-def fake_analysis_result(*, selected_issue: SonarIssue, dry_run: bool) -> AnalysisResult:
+def fake_analysis_result(
+    *,
+    selected_issue: RemediationExecutionTarget,
+    dry_run: bool,
+) -> AnalysisResult:
     del selected_issue, dry_run
     return AnalysisResult(
         summary="Patch applied locally in run. All validation commands passed.",
@@ -101,7 +108,9 @@ def fake_find_open_none(self, project_id, source_branch, target_branch):
 def test_execute_returns_analysis_summary_in_dry_run(tmp_path: Path, monkeypatch) -> None:
     service = ExecutionService(tmp_path, build_config())
 
-    def fake_analyze_issue(*, selected_issue: SonarIssue, dry_run: bool) -> AnalysisResult:
+    def fake_analyze_issue(
+        *, selected_issue: RemediationExecutionTarget, dry_run: bool
+    ) -> AnalysisResult:
         del selected_issue
         assert dry_run is True
         return AnalysisResult(summary="Analysis ready.")
@@ -127,7 +136,9 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
     monkeypatch.setattr(service.branch_manager, "build_branch_name", fake_branch_name)
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
 
-    def fake_analyze_issue(*, selected_issue: SonarIssue, dry_run: bool) -> AnalysisResult:
+    def fake_analyze_issue(
+        *, selected_issue: RemediationExecutionTarget, dry_run: bool
+    ) -> AnalysisResult:
         del selected_issue, dry_run
         return AnalysisResult(
             summary="Patch applied locally in run. All validation commands passed.",
@@ -262,8 +273,9 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
             "## Summary",
             "summary",
             "",
-            "## SonarQube",
-            "- Issue key: `FIXTURE-1`",
+            "## Remediation Target",
+            "- Source: `sonarqube`",
+            "- Item reference: `FIXTURE-1`",
             "- Rule: `python:S2259`",
             "- Severity: `MAJOR`",
             "- Type: `BUG`",
@@ -294,7 +306,9 @@ def test_execute_returns_rejected_when_local_approval_declines(
     monkeypatch.setattr(service.branch_manager, "build_branch_name", fake_branch_name)
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
 
-    def fake_analyze_issue(*, selected_issue: SonarIssue, dry_run: bool) -> AnalysisResult:
+    def fake_analyze_issue(
+        *, selected_issue: RemediationExecutionTarget, dry_run: bool
+    ) -> AnalysisResult:
         del selected_issue, dry_run
         return AnalysisResult(
             summary="Patch applied locally in run. All validation commands passed.",

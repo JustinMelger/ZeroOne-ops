@@ -21,8 +21,8 @@ from ai_sonar_bot.models.analysis import (
     StructuredEditProposal,
 )
 from ai_sonar_bot.models.config import OpenAIConnectionConfig
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.models.review import MergeRequestReviewContext, ReviewResult
-from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.utils.files import ensure_parent
 
 
@@ -42,8 +42,12 @@ _PROMPT_TEMPLATE_NAMES = frozenset(
 class LLMClient:
     """Placeholder LLM client for the initial scaffold."""
 
-    def analyze_issue(self, issue: SonarIssue, context: IssueContext) -> IssueAnalysis:
-        """Analyze a SonarQube issue.
+    def analyze_issue(
+        self,
+        issue: RemediationExecutionTarget,
+        context: IssueContext,
+    ) -> IssueAnalysis:
+        """Analyze one remediation target.
 
         Args:
             issue: Issue to analyze.
@@ -56,7 +60,7 @@ class LLMClient:
 
     def generate_structured_edit(
         self,
-        issue: SonarIssue,
+        issue: RemediationExecutionTarget,
         context: IssueContext,
     ) -> StructuredEditProposal:
         """Generate a narrow structured edit proposal.
@@ -100,8 +104,12 @@ class OpenAILLMClient(LLMClient):
         self.solution_output_path = solution_output_path
         self.client = OpenAI(api_key=config.api_key, base_url=config.base_url)
 
-    def analyze_issue(self, issue: SonarIssue, context: IssueContext) -> IssueAnalysis:
-        """Analyze a SonarQube issue with OpenAI.
+    def analyze_issue(
+        self,
+        issue: RemediationExecutionTarget,
+        context: IssueContext,
+    ) -> IssueAnalysis:
+        """Analyze one remediation target with OpenAI.
 
         Args:
             issue: Issue to analyze.
@@ -137,14 +145,14 @@ class OpenAILLMClient(LLMClient):
         if self.solution_output_path is not None:
             _write_solution_file(
                 self.solution_output_path,
-                issue_key=issue.key,
+                issue_key=issue.source_ref,
                 analysis=analysis,
             )
         return analysis
 
     def generate_structured_edit(
         self,
-        issue: SonarIssue,
+        issue: RemediationExecutionTarget,
         context: IssueContext,
     ) -> StructuredEditProposal:
         """Generate a structured edit proposal with OpenAI.
@@ -233,7 +241,11 @@ class FixtureLLMClient(LLMClient):
         self.structured_edit_fixture_path = structured_edit_fixture_path
         self.review_fixture_path = review_fixture_path
 
-    def analyze_issue(self, issue: SonarIssue, context: IssueContext) -> IssueAnalysis:
+    def analyze_issue(
+        self,
+        issue: RemediationExecutionTarget,
+        context: IssueContext,
+    ) -> IssueAnalysis:
         """Load a fixture-based issue analysis result.
 
         Args:
@@ -248,7 +260,7 @@ class FixtureLLMClient(LLMClient):
 
     def generate_structured_edit(
         self,
-        issue: SonarIssue,
+        issue: RemediationExecutionTarget,
         context: IssueContext,
     ) -> StructuredEditProposal:
         """Load a fixture-based structured edit result.
@@ -411,11 +423,11 @@ def _load_existing_solution(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
-def _build_analysis_prompt(issue: SonarIssue, context: IssueContext) -> str:
+def _build_analysis_prompt(issue: RemediationExecutionTarget, context: IssueContext) -> str:
     """Build the analysis prompt for OpenAI.
 
     Args:
-        issue: SonarQube issue to analyze.
+        issue: Remediation target to analyze.
         context: Focused code context.
 
     Returns:
@@ -423,10 +435,10 @@ def _build_analysis_prompt(issue: SonarIssue, context: IssueContext) -> str:
     """
     return _render_prompt_template(
         "analyze_issue.txt",
-        issue_key=issue.key,
-        rule=issue.rule,
+        issue_key=issue.source_ref,
+        rule=issue.rule_id or "unknown",
         severity=issue.severity,
-        issue_type=issue.type,
+        issue_type=issue.issue_type or issue.source_type,
         message=issue.message,
         file_path=context.file_path,
         issue_line=context.line,
@@ -438,11 +450,11 @@ def _build_analysis_prompt(issue: SonarIssue, context: IssueContext) -> str:
     )
 
 
-def _build_structured_edit_prompt(issue: SonarIssue, context: IssueContext) -> str:
+def _build_structured_edit_prompt(issue: RemediationExecutionTarget, context: IssueContext) -> str:
     """Build the structured-edit prompt for OpenAI.
 
     Args:
-        issue: SonarQube issue to fix.
+        issue: Remediation target to fix.
         context: Focused code context.
 
     Returns:
@@ -450,10 +462,10 @@ def _build_structured_edit_prompt(issue: SonarIssue, context: IssueContext) -> s
     """
     return _render_prompt_template(
         "generate_structured_edit.txt",
-        issue_key=issue.key,
-        rule=issue.rule,
+        issue_key=issue.source_ref,
+        rule=issue.rule_id or "unknown",
         severity=issue.severity,
-        issue_type=issue.type,
+        issue_type=issue.issue_type or issue.source_type,
         message=issue.message,
         file_path=context.file_path,
         issue_line=context.line,

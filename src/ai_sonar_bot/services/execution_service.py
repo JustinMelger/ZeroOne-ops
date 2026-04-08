@@ -10,7 +10,7 @@ from pathlib import Path
 
 from ai_sonar_bot.models.analysis import IssueContext, ValidationResult
 from ai_sonar_bot.models.config import AppConfig
-from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunStatus
 from ai_sonar_bot.services.analysis_service import AnalysisResult, AnalysisService
 from ai_sonar_bot.services.approval import ApprovalService
@@ -57,11 +57,16 @@ class ExecutionService:
         self.workspace_snapshot_service = WorkspaceSnapshotService(repo_root)
         self.publish_service = PublishService(config=config, branch_manager=self.branch_manager)
 
-    def execute(self, *, selected_issue: SonarIssue, dry_run: bool) -> ExecutionResult:
-        """Run the execution flow for a selected issue.
+    def execute(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        dry_run: bool,
+    ) -> ExecutionResult:
+        """Run the execution flow for a selected execution target.
 
         Args:
-            selected_issue: Selected SonarQube issue.
+            selected_issue: Selected remediation execution target.
             dry_run: Whether to run in dry-run mode.
 
         Returns:
@@ -73,7 +78,7 @@ class ExecutionService:
                 self.branch_manager.ensure_ready()
                 branch_name = self.branch_manager.build_branch_name(
                     branch_prefix=self.config.branch_prefix,
-                    issue_key=selected_issue.key,
+                    issue_key=selected_issue.source_ref,
                     file_path=selected_issue.file_path,
                 )
                 self.branch_manager.create_branch(branch_name)
@@ -101,18 +106,18 @@ class ExecutionService:
     def execute_with_context(
         self,
         *,
-        selected_issue: SonarIssue,
+        selected_issue: RemediationExecutionTarget,
         context: IssueContext,
         dry_run: bool,
     ) -> ExecutionResult:
-        """Run the execution flow for a selected issue with prebuilt context."""
+        """Run the execution flow for one execution target with prebuilt context."""
         branch_name: str | None = None
         if not dry_run:
             try:
                 self.branch_manager.ensure_ready()
                 branch_name = self.branch_manager.build_branch_name(
                     branch_prefix=self.config.branch_prefix,
-                    issue_key=selected_issue.key,
+                    issue_key=selected_issue.source_ref,
                     file_path=selected_issue.file_path,
                 )
                 self.branch_manager.create_branch(branch_name)
@@ -141,7 +146,7 @@ class ExecutionService:
     def _continue_execution(
         self,
         *,
-        selected_issue: SonarIssue,
+        selected_issue: RemediationExecutionTarget,
         analysis_result: AnalysisResult,
         dry_run: bool,
         branch_name: str | None,
@@ -260,7 +265,7 @@ class ExecutionService:
     def _publish_branch_and_create_mr(
         self,
         *,
-        selected_issue: SonarIssue,
+        selected_issue: RemediationExecutionTarget,
         validation_result: ValidationResult | None,
         branch_name: str,
         mr_title: str,

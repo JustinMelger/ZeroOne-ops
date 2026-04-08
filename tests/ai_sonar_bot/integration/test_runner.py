@@ -479,6 +479,10 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
 
     assert summary.status.value == "mr_created"
     assert summary.dashboard_item_id == "sonar:AX123"
+    assert (
+        "Recovered stale in_progress dashboard item before remediation: sonar:AX123."
+        in summary.message
+    )
     assert updated_statuses == ["open", "in_progress", "mr_opened"]
     assert recovery_logs
     assert "stale in_progress recovery" in recovery_logs[0]

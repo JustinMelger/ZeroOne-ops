@@ -675,7 +675,7 @@ Status:
       dashboard-backed remediation flow, including keeping cleanup limited to
       stale untouched `open` Sonar items instead of rewriting remediation-owned
       lifecycle states
-- [ ] move the dashboard remediation execution core from fabricated
+- [x] move the dashboard remediation execution core from fabricated
       `SonarIssue` inputs to a remediation-native execution contract
 - [ ] adapt the legacy direct Sonar remediation path into
       `RemediationWorkItem` so both paths converge on the same execution model
@@ -686,9 +686,9 @@ Status:
       pass-through metadata only
 - [ ] compare dashboard-backed remediation outcomes against the existing direct
       Sonar path before making dashboard-first remediation the default
-- [ ] define and validate how dashboard write conflicts or stale remote state
+- [x] define and validate how dashboard write conflicts or stale remote state
       are retried or failed safely during rollout
-- [ ] surface stale `in_progress` recovery clearly in the final run summary as
+- [x] surface stale `in_progress` recovery clearly in the final run summary as
       well as in the dashboard item log
 - [ ] design a later scheduled reconciliation workflow for merged or closed
       merge requests after the core remediation path is stable

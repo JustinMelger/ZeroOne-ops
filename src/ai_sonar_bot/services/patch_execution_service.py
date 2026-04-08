@@ -15,7 +15,7 @@ from ai_sonar_bot.models.analysis import (
     ValidationResult,
 )
 from ai_sonar_bot.models.config import AppConfig
-from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.models.state import FailureDetails, FailureStage
 from ai_sonar_bot.providers.llm_client import LLMClientError
 from ai_sonar_bot.services.edit_renderer import EditRenderError
@@ -69,7 +69,7 @@ class PatchExecutionService:
         patch: PatchProposal,
         summary: str,
         fix_generator: FixGenerator,
-        selected_issue: SonarIssue,
+        selected_issue: RemediationExecutionTarget,
         context: IssueContext,
         patch_factory: Callable[..., PatchProposal],
     ) -> PatchExecutionResult:

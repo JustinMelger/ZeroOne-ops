@@ -14,7 +14,7 @@ from ai_sonar_bot.models.config import (
     ApprovalConfig,
     GitLabConfig,
 )
-from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.services.analysis_service import AnalysisService
 from ai_sonar_bot.services.patch_applier import PatchApplyError
 
@@ -50,18 +50,21 @@ def build_config(
     )
 
 
-def build_issue() -> SonarIssue:
-    return SonarIssue(
-        key="FIXTURE-1",
-        rule="python:S2259",
-        severity="MAJOR",
-        type="BUG",
+def build_issue() -> RemediationExecutionTarget:
+    return RemediationExecutionTarget(
+        item_id="FIXTURE-1",
+        source_type="sonarqube",
+        source_ref="FIXTURE-1",
+        title="python:S2259 in src/service.py",
         status="OPEN",
         message="Fixture issue",
-        component="sample-project:src/service.py",
-        project="sample-project",
         file_path="src/service.py",
         line=1,
+        rule_id="python:S2259",
+        severity="MAJOR",
+        issue_type="BUG",
+        component="sample-project:src/service.py",
+        project="sample-project",
     )
 
 
@@ -356,7 +359,7 @@ def test_analyze_issue_skips_solution_artifact_in_ci_mode(tmp_path: Path, monkey
     monkeypatch.setattr(
         "ai_sonar_bot.providers.llm_client.OpenAILLMClient.analyze_issue",
         lambda self, issue, context: IssueAnalysis(
-            issue_key=issue.key,
+            issue_key=issue.source_ref,
             classification=AnalysisClassification.AUTO_FIXABLE,
             summary="summary",
             risk_notes=[],
@@ -367,7 +370,7 @@ def test_analyze_issue_skips_solution_artifact_in_ci_mode(tmp_path: Path, monkey
     monkeypatch.setattr(
         "ai_sonar_bot.providers.llm_client.OpenAILLMClient.generate_structured_edit",
         lambda self, issue, context: StructuredEditProposal(
-            issue_key=issue.key,
+            issue_key=issue.source_ref,
             edits=[
                 TextEdit(
                     file_path=context.file_path,
@@ -411,7 +414,7 @@ def test_analyze_issue_retries_validation_with_regenerated_structured_edit(
         def __init__(self) -> None:
             self.edit_calls = 0
 
-        def analyze_issue(self, issue: SonarIssue, context) -> IssueAnalysis:
+        def analyze_issue(self, issue: RemediationExecutionTarget, context) -> IssueAnalysis:
             del issue, context
             return IssueAnalysis(
                 issue_key="FIXTURE-1",
@@ -424,7 +427,7 @@ def test_analyze_issue_retries_validation_with_regenerated_structured_edit(
 
         def generate_structured_edit(
             self,
-            issue: SonarIssue,
+            issue: RemediationExecutionTarget,
             context,
         ) -> StructuredEditProposal:
             del issue, context
@@ -485,7 +488,7 @@ def test_analyze_issue_prefers_bot_rendered_diff_from_structured_edit(
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
 
     class StructuredEditLLMClient:
-        def analyze_issue(self, issue: SonarIssue, context) -> IssueAnalysis:
+        def analyze_issue(self, issue: RemediationExecutionTarget, context) -> IssueAnalysis:
             del issue, context
             return IssueAnalysis(
                 issue_key="FIXTURE-1",
@@ -498,7 +501,7 @@ def test_analyze_issue_prefers_bot_rendered_diff_from_structured_edit(
 
         def generate_structured_edit(
             self,
-            issue: SonarIssue,
+            issue: RemediationExecutionTarget,
             context,
         ) -> StructuredEditProposal:
             del issue, context
@@ -559,7 +562,7 @@ def test_analyze_issue_rejects_unrenderable_structured_edit_without_raw_diff_fal
     )
 
     class AmbiguousStructuredEditLLMClient:
-        def analyze_issue(self, issue: SonarIssue, context) -> IssueAnalysis:
+        def analyze_issue(self, issue: RemediationExecutionTarget, context) -> IssueAnalysis:
             del issue, context
             return IssueAnalysis(
                 issue_key="FIXTURE-1",
@@ -572,7 +575,7 @@ def test_analyze_issue_rejects_unrenderable_structured_edit_without_raw_diff_fal
 
         def generate_structured_edit(
             self,
-            issue: SonarIssue,
+            issue: RemediationExecutionTarget,
             context,
         ) -> StructuredEditProposal:
             del issue, context
@@ -629,7 +632,7 @@ def test_analyze_issue_rejects_multi_file_structured_edit_for_v1(
     (tmp_path / "src" / "other.py").write_text("other = 1\n", encoding="utf-8")
 
     class MultiFileStructuredEditLLMClient:
-        def analyze_issue(self, issue: SonarIssue, context) -> IssueAnalysis:
+        def analyze_issue(self, issue: RemediationExecutionTarget, context) -> IssueAnalysis:
             del issue, context
             return IssueAnalysis(
                 issue_key="FIXTURE-1",
@@ -642,7 +645,7 @@ def test_analyze_issue_rejects_multi_file_structured_edit_for_v1(
 
         def generate_structured_edit(
             self,
-            issue: SonarIssue,
+            issue: RemediationExecutionTarget,
             context,
         ) -> StructuredEditProposal:
             del issue, context

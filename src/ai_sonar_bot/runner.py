@@ -15,15 +15,16 @@ from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
 from ai_sonar_bot.services.dashboard_item_intake import DashboardItemIntakeService
 from ai_sonar_bot.services.dashboard_item_normalizer import DashboardItemNormalizer
-from ai_sonar_bot.services.dashboard_remediation_adapter import (
-    remediation_work_item_to_sonar_issue,
-)
 from ai_sonar_bot.services.dashboard_remediation_updater import DashboardRemediationUpdater
 from ai_sonar_bot.services.dashboard_service import DashboardService
 from ai_sonar_bot.services.execution_service import ExecutionService
 from ai_sonar_bot.services.issue_intake import IssueIntakeService
 from ai_sonar_bot.services.mr_intake import MergeRequestIntakeService
 from ai_sonar_bot.services.remediation_context_builder import RemediationContextBuilder
+from ai_sonar_bot.services.remediation_execution_adapter import (
+    remediation_work_item_to_execution_target,
+    sonar_issue_to_execution_target,
+)
 from ai_sonar_bot.services.review_analysis_service import ReviewAnalysisService
 from ai_sonar_bot.services.review_context_builder import ReviewContextBuilder
 from ai_sonar_bot.services.review_dashboard_updater import ReviewDashboardUpdater
@@ -76,6 +77,27 @@ def _fail_dashboard_update(
     )
 
 
+def _with_dashboard_recovery_note(
+    message: str,
+    *,
+    recovered_stale_item_ids: tuple[str, ...],
+) -> str:
+    """Append one stale-recovery note to a dashboard remediation summary."""
+    if not recovered_stale_item_ids:
+        return message
+    if len(recovered_stale_item_ids) == 1:
+        recovery_note = (
+            "Recovered stale in_progress dashboard item before remediation: "
+            f"{recovered_stale_item_ids[0]}."
+        )
+    else:
+        recovery_note = (
+            "Recovered stale in_progress dashboard items before remediation: "
+            f"{', '.join(recovered_stale_item_ids)}."
+        )
+    return f"{message} {recovery_note}"
+
+
 def run(*, dry_run: bool = False) -> RunSummary:
     """Run the bot.
 
@@ -122,7 +144,7 @@ def run(*, dry_run: bool = False) -> RunSummary:
     )
 
     execution_result = ExecutionService(repo_root=repo_root, config=config).execute(
-        selected_issue=intake_result.selected_issue,
+        selected_issue=sonar_issue_to_execution_target(intake_result.selected_issue),
         dry_run=active_dry_run,
     )
 
@@ -402,10 +424,14 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
         project_id=gitlab_config.project_id,
         state=state,
     )
+    recovered_stale_item_ids = getattr(intake_result, "recovered_stale_item_ids", ())
     if intake_result.selected_item is None:
         return run_state_service.finish_no_issue(
             record=record,
-            message=intake_result.message,
+            message=_with_dashboard_recovery_note(
+                intake_result.message,
+                recovered_stale_item_ids=recovered_stale_item_ids,
+            ),
             issue_count=intake_result.item_count,
         )
 
@@ -428,7 +454,10 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
             record=record,
             dashboard_item_id=intake_result.selected_item.id,
             branch_name=None,
-            message=normalization_result.message,
+            message=_with_dashboard_recovery_note(
+                normalization_result.message,
+                recovered_stale_item_ids=recovered_stale_item_ids,
+            ),
         )
     work_item = normalization_result.work_item
     context = RemediationContextBuilder(repo_root, config).build(work_item)
@@ -444,7 +473,10 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
         return run_state_service.fail_dashboard_item(
             record=record,
             dashboard_item_id=work_item.dashboard_item_id,
-            error_message=message,
+            error_message=_with_dashboard_recovery_note(
+                message,
+                recovered_stale_item_ids=recovered_stale_item_ids,
+            ),
             failure=FailureDetails(
                 stage=FailureStage.ISSUE_INTAKE,
                 message=message,
@@ -469,7 +501,7 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
                 dashboard_error_message=in_progress_result.error_message,
             )
 
-    selected_issue = remediation_work_item_to_sonar_issue(work_item)
+    selected_issue = remediation_work_item_to_execution_target(work_item)
     execution_result = ExecutionService(repo_root=repo_root, config=config).execute_with_context(
         selected_issue=selected_issue,
         context=context,
@@ -491,13 +523,19 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
                     run_state_service=run_state_service,
                     record=record,
                     dashboard_item_id=work_item.dashboard_item_id,
-                    workflow_message=execution_result.failure.message,
+                    workflow_message=_with_dashboard_recovery_note(
+                        execution_result.failure.message,
+                        recovered_stale_item_ids=recovered_stale_item_ids,
+                    ),
                     dashboard_error_message=failed_update.error_message,
                 )
         return run_state_service.fail_dashboard_item(
             record=record,
             dashboard_item_id=work_item.dashboard_item_id,
-            error_message=execution_result.failure.message,
+            error_message=_with_dashboard_recovery_note(
+                execution_result.failure.message,
+                recovered_stale_item_ids=recovered_stale_item_ids,
+            ),
             failure=execution_result.failure,
         )
     if (
@@ -516,14 +554,20 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
                     run_state_service=run_state_service,
                     record=record,
                     dashboard_item_id=work_item.dashboard_item_id,
-                    workflow_message=execution_result.status_message,
+                    workflow_message=_with_dashboard_recovery_note(
+                        execution_result.status_message,
+                        recovered_stale_item_ids=recovered_stale_item_ids,
+                    ),
                     dashboard_error_message=rejected_update.error_message,
                 )
         return run_state_service.reject_dashboard_item(
             record=record,
             dashboard_item_id=work_item.dashboard_item_id,
             branch_name=execution_result.branch_name,
-            message=execution_result.status_message,
+            message=_with_dashboard_recovery_note(
+                execution_result.status_message,
+                recovered_stale_item_ids=recovered_stale_item_ids,
+            ),
         )
 
     if (
@@ -545,9 +589,10 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
                 run_state_service=run_state_service,
                 record=record,
                 dashboard_item_id=work_item.dashboard_item_id,
-                workflow_message=(
+                workflow_message=_with_dashboard_recovery_note(
                     "Remediation succeeded and created a merge request, but the dashboard "
-                    "state could not be updated."
+                    "state could not be updated.",
+                    recovered_stale_item_ids=recovered_stale_item_ids,
                 ),
                 dashboard_error_message=mr_opened_update.error_message,
             )
@@ -564,10 +609,13 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
     return run_state_service.build_summary(
         run_id=record.run_id,
         status=record.status,
-        message=(
-            f"Selected dashboard item {work_item.dashboard_item_id} in "
-            f"{work_item.file_path} ({work_item.rule_id}, {work_item.severity}). "
-            f"{execution_result.status_message}"
+        message=_with_dashboard_recovery_note(
+            (
+                f"Selected dashboard item {work_item.dashboard_item_id} in "
+                f"{work_item.file_path} ({work_item.rule_id}, {work_item.severity}). "
+                f"{execution_result.status_message}"
+            ),
+            recovered_stale_item_ids=recovered_stale_item_ids,
         ),
         dashboard_item_id=work_item.dashboard_item_id,
         branch_name=record.branch_name,

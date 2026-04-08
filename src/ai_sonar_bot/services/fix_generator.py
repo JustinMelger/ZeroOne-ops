@@ -7,7 +7,7 @@ provider.
 from __future__ import annotations
 
 from ai_sonar_bot.models.analysis import IssueAnalysis, IssueContext, StructuredEditProposal
-from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.providers.llm_client import LLMClient
 
 
@@ -26,30 +26,30 @@ class FixGenerator:
         """
         self.llm_client = llm_client
 
-    def analyze(self, issue: SonarIssue, context: IssueContext) -> IssueAnalysis:
+    def analyze(self, target: RemediationExecutionTarget, context: IssueContext) -> IssueAnalysis:
         """Analyze an issue.
 
         Args:
-            issue: SonarQube issue to analyze.
+            target: Remediation target to analyze.
             context: Repository context for the issue.
 
         Returns:
             Structured issue analysis.
         """
-        return self.llm_client.analyze_issue(issue, context)
+        return self.llm_client.analyze_issue(target, context)
 
     def generate_structured_edit(
         self,
-        issue: SonarIssue,
+        target: RemediationExecutionTarget,
         context: IssueContext,
     ) -> StructuredEditProposal:
         """Generate a structured edit proposal.
 
         Args:
-            issue: SonarQube issue to fix.
+            target: Remediation target to fix.
             context: Repository context for the issue.
 
         Returns:
             Structured edit proposal for bot-rendered diffs.
         """
-        return self.llm_client.generate_structured_edit(issue, context)
+        return self.llm_client.generate_structured_edit(target, context)

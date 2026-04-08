@@ -1,6 +1,6 @@
 from ai_sonar_bot.models.analysis import ValidationResult
 from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
-from ai_sonar_bot.models.sonar import SonarIssue
+from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.services.publish_service import PublishService
 
 
@@ -17,18 +17,21 @@ def build_config() -> AppConfig:
     )
 
 
-def build_issue() -> SonarIssue:
-    return SonarIssue(
-        key="FIXTURE-1",
-        rule="python:S2259",
-        severity="MAJOR",
-        type="BUG",
+def build_issue() -> RemediationExecutionTarget:
+    return RemediationExecutionTarget(
+        item_id="FIXTURE-1",
+        source_type="sonarqube",
+        source_ref="FIXTURE-1",
+        title="python:S2259 in src/service.py",
         status="OPEN",
         message="Fixture issue",
-        component="sample-project:src/service.py",
-        project="sample-project",
         file_path="src/service.py",
         line=1,
+        rule_id="python:S2259",
+        severity="MAJOR",
+        issue_type="BUG",
+        component="sample-project:src/service.py",
+        project="sample-project",
     )
 
 
@@ -56,8 +59,9 @@ def test_publish_service_builds_deterministic_description() -> None:
             "## Summary",
             "summary",
             "",
-            "## SonarQube",
-            "- Issue key: `FIXTURE-1`",
+            "## Remediation Target",
+            "- Source: `sonarqube`",
+            "- Item reference: `FIXTURE-1`",
             "- Rule: `python:S2259`",
             "- Severity: `MAJOR`",
             "- Type: `BUG`",
