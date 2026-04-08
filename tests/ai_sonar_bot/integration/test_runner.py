@@ -33,7 +33,8 @@ from ai_sonar_bot.models.state import (
     MergeRequestReviewState,
     RepositoryState,
 )
-from ai_sonar_bot.runner import dashboard_remediate, review, run
+from ai_sonar_bot.providers.gitlab_client import GitLabClientError
+from ai_sonar_bot.runner import dashboard_reconcile, dashboard_remediate, review, run
 from ai_sonar_bot.services.analysis_service import AnalysisResult
 from ai_sonar_bot.services.branch_manager import BranchManagerError
 from ai_sonar_bot.services.review_publisher import ReviewPublishResult
@@ -129,6 +130,679 @@ def test_dashboard_remediate_dry_run_returns_no_issue_summary(tmp_path: Path, mo
 
     assert summary.status.value == "no_issue"
     assert "No remediation-ready dashboard item found." in summary.message
+
+
+def test_dashboard_reconcile_dry_run_returns_no_issue_summary(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        lambda self, project_id: type(
+            "DashboardReconciliationIntakeResult",
+            (),
+            {
+                "selected_item": None,
+                "item_count": 0,
+                "message": "No reconciliation-ready dashboard item found.",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )(),
+    )
+    summary = dashboard_reconcile(dry_run=True)
+
+    assert summary.status.value == "no_issue"
+    assert "No reconciliation-ready dashboard item found." in summary.message
+
+
+def test_dashboard_reconcile_dry_run_selects_mr_opened_item(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    selected_item = DashboardItem(
+        id="sonar:AX123",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="mr_opened",
+        title="python:S1125 in src/service.py",
+        summary="Replace boolean equality with direct truthiness.",
+        priority="low",
+        source_reference="AX123",
+        file="src/service.py",
+        line=42,
+        rule="python:S1125",
+        severity="LOW",
+        branch_name="ai-sonar/AX123/service",
+        commit_sha="abc123",
+        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        lambda self, project_id: type(
+            "DashboardReconciliationIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )(),
+    )
+    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+        del project_id
+        return type(
+            "GitLabMergeRequestState",
+            (),
+            {
+                "iid": merge_request_iid,
+                "web_url": selected_item.merge_request_url,
+                "source_branch": selected_item.branch_name,
+                "head_sha": selected_item.commit_sha,
+                "state": "merged",
+            },
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+    )
+
+    summary = dashboard_reconcile(dry_run=True)
+    state = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+
+    assert summary.status.value == "selected"
+    assert summary.dashboard_item_id == "sonar:AX123"
+    assert summary.branch_name == "ai-sonar/AX123/service"
+    assert summary.commit_sha == "abc123"
+    assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/7"
+    assert "Dry-run would reconcile dashboard item sonar:AX123" in summary.message
+    assert state.runs[-1].dashboard_item_id == "sonar:AX123"
+
+
+def test_dashboard_reconcile_live_run_requires_ci_mode(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "local",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    summary = dashboard_reconcile(dry_run=False)
+
+    assert summary.status.value == "failed"
+    assert "only supported in CI mode" in summary.message
+
+
+def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    selected_item = DashboardItem(
+        id="sonar:AX123",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="mr_opened",
+        title="python:S1125 in src/service.py",
+        summary="Replace boolean equality with direct truthiness.",
+        priority="low",
+        source_reference="AX123",
+        file="src/service.py",
+        line=42,
+        rule="python:S1125",
+        severity="LOW",
+        branch_name="ai-sonar/AX123/service",
+        commit_sha="abc123",
+        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        lambda self, project_id: type(
+            "DashboardReconciliationIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )(),
+    )
+    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+        del project_id
+        return type(
+            "GitLabMergeRequestState",
+            (),
+            {
+                "iid": merge_request_iid,
+                "web_url": selected_item.merge_request_url,
+                "source_branch": selected_item.branch_name,
+                "head_sha": selected_item.commit_sha,
+                "state": "merged",
+            },
+        )()
+
+    def fake_mark_done(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        summary: str | None = None,
+    ):  # noqa: ANN202
+        del self, project_id, dashboard_item_id, run_id, summary
+        return type(
+            "DashboardRemediationUpdateResult",
+            (),
+            {"error_message": None, "updated_item": selected_item, "dashboard_issue_url": None},
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
+        fake_mark_done,
+    )
+
+    summary = dashboard_reconcile(dry_run=False)
+    state = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+
+    assert summary.status.value == "reconciled"
+    assert "was merged" in summary.message
+    assert state.dashboard_items["sonar:AX123"].status == "done"
+
+
+def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    selected_item = DashboardItem(
+        id="sonar:AX123",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="mr_opened",
+        title="python:S1125 in src/service.py",
+        summary="Replace boolean equality with direct truthiness.",
+        priority="low",
+        source_reference="AX123",
+        file="src/service.py",
+        line=42,
+        rule="python:S1125",
+        severity="LOW",
+        branch_name="ai-sonar/AX123/service",
+        commit_sha="abc123",
+        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        lambda self, project_id: type(
+            "DashboardReconciliationIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )(),
+    )
+    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+        del project_id
+        return type(
+            "GitLabMergeRequestState",
+            (),
+            {
+                "iid": merge_request_iid,
+                "web_url": selected_item.merge_request_url,
+                "source_branch": selected_item.branch_name,
+                "head_sha": selected_item.commit_sha,
+                "state": "closed",
+            },
+        )()
+
+    def fake_mark_open(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        summary: str | None = None,
+    ):  # noqa: ANN202
+        del self, project_id, dashboard_item_id, run_id, summary
+        return type(
+            "DashboardRemediationUpdateResult",
+            (),
+            {"error_message": None, "updated_item": selected_item, "dashboard_issue_url": None},
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_open",
+        fake_mark_open,
+    )
+
+    summary = dashboard_reconcile(dry_run=False)
+    state = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+
+    assert summary.status.value == "reconciled"
+    assert "closed without merge" in summary.message
+    assert state.dashboard_items["sonar:AX123"].status == "open"
+
+
+def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    selected_item = DashboardItem(
+        id="sonar:AX123",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="mr_opened",
+        title="python:S1125 in src/service.py",
+        summary="Replace boolean equality with direct truthiness.",
+        priority="low",
+        source_reference="AX123",
+        file="src/service.py",
+        line=42,
+        rule="python:S1125",
+        severity="LOW",
+        branch_name="ai-sonar/AX123/service",
+        commit_sha="abc123",
+        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        lambda self, project_id: type(
+            "DashboardReconciliationIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )(),
+    )
+    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+        del project_id
+        return type(
+            "GitLabMergeRequestState",
+            (),
+            {
+                "iid": merge_request_iid,
+                "web_url": selected_item.merge_request_url,
+                "source_branch": "other-branch",
+                "head_sha": "different",
+                "state": "closed",
+            },
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+    )
+
+    summary = dashboard_reconcile(dry_run=False)
+    state = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+
+    assert summary.status.value == "failed"
+    assert "no longer matches" in summary.message
+    assert state.dashboard_items["sonar:AX123"].status == "failed"
+
+
+def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    selected_item = DashboardItem(
+        id="sonar:AX123",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="mr_opened",
+        title="python:S1125 in src/service.py",
+        summary="Replace boolean equality with direct truthiness.",
+        priority="low",
+        source_reference="AX123",
+        file="src/service.py",
+        line=42,
+        rule="python:S1125",
+        severity="LOW",
+        branch_name="ai-sonar/AX123/service",
+        commit_sha="abc123",
+        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        upstream_active=False,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        lambda self, project_id: type(
+            "DashboardReconciliationIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )(),
+    )
+
+    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+        del project_id
+        return type(
+            "GitLabMergeRequestState",
+            (),
+            {
+                "iid": merge_request_iid,
+                "web_url": selected_item.merge_request_url,
+                "source_branch": selected_item.branch_name,
+                "head_sha": selected_item.commit_sha,
+                "state": "closed",
+            },
+        )()
+
+    def fake_mark_done(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        summary: str | None = None,
+    ):  # noqa: ANN202
+        del self, project_id, dashboard_item_id, run_id, summary
+        return type(
+            "DashboardRemediationUpdateResult",
+            (),
+            {"error_message": None, "updated_item": selected_item, "dashboard_issue_url": None},
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
+        fake_mark_done,
+    )
+
+    summary = dashboard_reconcile(dry_run=False)
+    state = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+
+    assert summary.status.value == "reconciled"
+    assert "no longer active" in summary.message
+    assert state.dashboard_items["sonar:AX123"].status == "done"
+
+
+def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessible(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    selected_item = DashboardItem(
+        id="sonar:AX123",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="mr_opened",
+        title="python:S1125 in src/service.py",
+        summary="Replace boolean equality with direct truthiness.",
+        priority="low",
+        source_reference="AX123",
+        file="src/service.py",
+        line=42,
+        rule="python:S1125",
+        severity="LOW",
+        branch_name="ai-sonar/AX123/service",
+        commit_sha="abc123",
+        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        lambda self, project_id: type(
+            "DashboardReconciliationIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )(),
+    )
+
+    def failing_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+        del project_id, merge_request_iid
+        raise GitLabClientError("GitLab returned 404")
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        lambda self, **kwargs: failing_get_merge_request_state(**kwargs),
+    )
+
+    summary = dashboard_reconcile(dry_run=False)
+    state = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+
+    assert summary.status.value == "failed"
+    assert "metadata is inaccessible" in summary.message
+    assert state.dashboard_items["sonar:AX123"].status == "failed"
 
 
 def test_dashboard_remediate_live_run_requires_ci_mode(tmp_path: Path, monkeypatch) -> None:

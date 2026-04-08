@@ -8,7 +8,7 @@ from urllib.parse import quote_plus
 import httpx
 
 from ai_sonar_bot.models.config import GitLabConnectionConfig
-from ai_sonar_bot.models.gitlab import MergeRequestNote
+from ai_sonar_bot.models.gitlab import GitLabMergeRequestState, MergeRequestNote
 from ai_sonar_bot.models.review import MergeRequestChangedFile, MergeRequestReviewCandidate
 from ai_sonar_bot.providers.gitlab_client import GitLabClientError, _parse_json_response
 
@@ -56,6 +56,22 @@ class GitLabReviewClient:
         if not isinstance(payload, dict):
             raise GitLabClientError("Unexpected GitLab merge request detail payload.")
         return _normalize_review_candidate(payload)
+
+    def get_merge_request_state(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+    ) -> GitLabMergeRequestState:
+        """Fetch one merge request state for reconciliation."""
+        encoded_project_id = quote_plus(project_id)
+        response = self._http_client.get(
+            f"/api/v4/projects/{encoded_project_id}/merge_requests/{merge_request_iid}"
+        )
+        payload = _parse_json_response(response)
+        if not isinstance(payload, dict):
+            raise GitLabClientError("Unexpected GitLab merge request state payload.")
+        return _normalize_merge_request_state(payload)
 
     def create_merge_request_note(
         self,
@@ -165,3 +181,25 @@ def _normalize_merge_request_note(payload: dict[str, Any]) -> MergeRequestNote:
     if web_url is not None and not isinstance(web_url, str):
         raise GitLabClientError("Unexpected GitLab merge request note structure.")
     return MergeRequestNote(id=note_id, web_url=web_url)
+
+
+def _normalize_merge_request_state(payload: dict[str, Any]) -> GitLabMergeRequestState:
+    """Normalize a GitLab merge request payload for reconciliation."""
+    iid = payload.get("iid")
+    web_url = payload.get("web_url")
+    source_branch = payload.get("source_branch")
+    head_sha = payload.get("sha")
+    state = payload.get("state")
+    if not isinstance(iid, int):
+        raise GitLabClientError("Unexpected GitLab merge request state structure.")
+    if not isinstance(web_url, str) or not isinstance(source_branch, str):
+        raise GitLabClientError("Unexpected GitLab merge request state structure.")
+    if not isinstance(head_sha, str) or not isinstance(state, str):
+        raise GitLabClientError("Unexpected GitLab merge request state structure.")
+    return GitLabMergeRequestState(
+        iid=iid,
+        web_url=web_url,
+        source_branch=source_branch,
+        head_sha=head_sha,
+        state=state,
+    )

@@ -243,3 +243,38 @@ def test_select_item_reports_skip_reasons_when_no_dashboard_item_is_eligible(
     assert "2 dashboard items" in result.message
     assert "unsupported status" in result.message
     assert "skipped dashboard remediation item during intake" in caplog.text
+
+
+def test_select_item_allows_reopened_item_with_cleared_merge_request_linkage(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    service = DashboardItemIntakeService(
+        repo_root=tmp_path,
+        config=build_config(),
+        dashboard_service=FakeDashboardService(
+            build_document(
+                items=[
+                    build_item(item_id="sonar:1").model_copy(
+                        update={
+                            "branch_name": "ai-sonar/issue-1/service",
+                            "commit_sha": "abc123",
+                            "merge_request_url": None,
+                            "merge_request_iid": None,
+                        }
+                    )
+                ]
+            )
+        ),
+        merge_request_service=FakeMergeRequestService(set()),
+    )
+
+    result = service.select_item(project_id="123", state=build_state())
+
+    assert result.selected_item is not None
+    assert result.selected_item.id == "sonar:1"

@@ -58,6 +58,7 @@ def test_sync_normalizes_sonar_issues_into_dashboard_items() -> None:
     assert dashboard_service.items[0].id == "sonar:AX123"
     assert dashboard_service.items[0].source == "sonarqube"
     assert dashboard_service.items[0].status == "open"
+    assert dashboard_service.items[0].upstream_active is True
     assert dashboard_service.items[0].rule == "python:S1125"
 
 
@@ -155,6 +156,7 @@ def test_sync_marks_missing_active_sonar_items_done() -> None:
 
     assert dashboard_service.items[0].id == "sonar:STALE"
     assert dashboard_service.items[0].status == "done"
+    assert dashboard_service.items[0].upstream_active is False
 
 
 def test_sync_preserves_missing_sonar_items_once_remediation_has_started() -> None:
@@ -224,5 +226,7 @@ def test_sync_preserves_missing_sonar_items_once_remediation_has_started() -> No
     items_by_id = {item.id: item for item in dashboard_service.items}
     assert items_by_id["sonar:INPROGRESS"].status == "in_progress"
     assert items_by_id["sonar:INPROGRESS"].last_run_id == "run-1"
+    assert items_by_id["sonar:INPROGRESS"].upstream_active is False
     assert items_by_id["sonar:MROPENED"].status == "mr_opened"
     assert items_by_id["sonar:MROPENED"].merge_request_url is not None
+    assert items_by_id["sonar:MROPENED"].upstream_active is False

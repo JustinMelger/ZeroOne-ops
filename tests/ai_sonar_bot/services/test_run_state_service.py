@@ -222,6 +222,34 @@ def test_mark_dashboard_done_persists_completed_dashboard_item_state(tmp_path: P
     )
 
 
+def test_mark_dashboard_reopened_persists_open_dashboard_item_state(tmp_path: Path) -> None:
+    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    config = build_config(state_path)
+    store = StateStore(
+        state_path,
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key="project-key",
+    )
+    service = RunStateService(config=config, state_store=store, state=build_state())
+
+    record = service.start_run("run-1")
+    service.mark_dashboard_reopened(
+        record=record,
+        dashboard_item_id="sonar:1",
+        branch_name="ai-sonar/ax123/service",
+        commit_sha="abc123",
+        mr_url="https://gitlab.example.com/group/project/-/merge_requests/1",
+    )
+    service.finish_success(record=record)
+
+    loaded = store.load()
+    assert loaded.active_dashboard_item_id is None
+    assert loaded.dashboard_items["sonar:1"].status == "open"
+    assert loaded.dashboard_items["sonar:1"].branch_name == "ai-sonar/ax123/service"
+    assert loaded.dashboard_items["sonar:1"].commit_sha == "abc123"
+
+
 def test_fail_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -> None:
     state_path = tmp_path / ".ai-sonar-bot-state.json"
     config = build_config(state_path)

@@ -114,6 +114,24 @@ class DashboardRemediationUpdater:
             log_excerpt=summary,
         )
 
+    def mark_open(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        summary: str | None = None,
+    ) -> DashboardRemediationUpdateResult:
+        """Reopen one dashboard item."""
+        return self._update_item(
+            project_id=project_id,
+            dashboard_item_id=dashboard_item_id,
+            status="open",
+            run_id=run_id,
+            log_excerpt=summary,
+            clear_merge_request_traceability=True,
+        )
+
     def _update_item(
         self,
         *,
@@ -126,6 +144,7 @@ class DashboardRemediationUpdater:
         merge_request_iid: int | None = None,
         commit_sha: str | None = None,
         log_excerpt: str | None = None,
+        clear_merge_request_traceability: bool = False,
     ) -> DashboardRemediationUpdateResult:
         """Load, update, and persist one dashboard item."""
         last_error: Exception | None = None
@@ -142,6 +161,7 @@ class DashboardRemediationUpdater:
                     merge_request_iid=merge_request_iid,
                     commit_sha=commit_sha,
                     log_excerpt=log_excerpt,
+                    clear_merge_request_traceability=clear_merge_request_traceability,
                 ):
                     return DashboardRemediationUpdateResult(
                         dashboard_issue_url=document.issue_url,
@@ -156,6 +176,7 @@ class DashboardRemediationUpdater:
                     merge_request_iid=merge_request_iid,
                     commit_sha=commit_sha,
                     log_excerpt=log_excerpt,
+                    clear_merge_request_traceability=clear_merge_request_traceability,
                 )
                 updated_document = self.dashboard_service.upsert_items(
                     project_id=project_id,
@@ -184,6 +205,7 @@ class DashboardRemediationUpdater:
         merge_request_iid: int | None,
         commit_sha: str | None,
         log_excerpt: str | None,
+        clear_merge_request_traceability: bool,
     ) -> DashboardItem:
         """Return one lifecycle-updated dashboard item."""
         return current_item.model_copy(
@@ -193,14 +215,22 @@ class DashboardRemediationUpdater:
                 "status_updated_at": datetime.now(UTC),
                 "branch_name": branch_name if branch_name is not None else current_item.branch_name,
                 "merge_request_url": (
-                    merge_request_url
-                    if merge_request_url is not None
-                    else current_item.merge_request_url
+                    None
+                    if clear_merge_request_traceability
+                    else (
+                        merge_request_url
+                        if merge_request_url is not None
+                        else current_item.merge_request_url
+                    )
                 ),
                 "merge_request_iid": (
-                    merge_request_iid
-                    if merge_request_iid is not None
-                    else current_item.merge_request_iid
+                    None
+                    if clear_merge_request_traceability
+                    else (
+                        merge_request_iid
+                        if merge_request_iid is not None
+                        else current_item.merge_request_iid
+                    )
                 ),
                 "commit_sha": commit_sha if commit_sha is not None else current_item.commit_sha,
                 "log_excerpt": log_excerpt if log_excerpt is not None else current_item.log_excerpt,
@@ -218,6 +248,7 @@ class DashboardRemediationUpdater:
         merge_request_iid: int | None,
         commit_sha: str | None,
         log_excerpt: str | None,
+        clear_merge_request_traceability: bool,
     ) -> bool:
         """Return whether one lifecycle update would be a no-op replay."""
         return (
@@ -228,6 +259,13 @@ class DashboardRemediationUpdater:
             and (merge_request_iid is None or current_item.merge_request_iid == merge_request_iid)
             and (commit_sha is None or current_item.commit_sha == commit_sha)
             and (log_excerpt is None or current_item.log_excerpt == log_excerpt)
+            and (
+                not clear_merge_request_traceability
+                or (
+                    current_item.merge_request_url is None
+                    and current_item.merge_request_iid is None
+                )
+            )
         )
 
     def _require_item(self, document: DashboardDocument, dashboard_item_id: str) -> DashboardItem:

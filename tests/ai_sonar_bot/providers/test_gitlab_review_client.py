@@ -148,3 +148,34 @@ def test_create_merge_request_note_allows_missing_web_url() -> None:
 
     assert note.id == 56
     assert note.web_url is None
+
+
+def test_get_merge_request_state_normalizes_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/projects/123/merge_requests/17"
+        assert request.method == "GET"
+        return httpx.Response(
+            200,
+            json={
+                "iid": 17,
+                "web_url": "https://gitlab.example.com/group/project/-/merge_requests/17",
+                "source_branch": "feature/review",
+                "sha": "abc123",
+                "state": "merged",
+            },
+        )
+
+    client = GitLabReviewClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    merge_request = client.get_merge_request_state(project_id="123", merge_request_iid=17)
+
+    assert merge_request.iid == 17
+    assert merge_request.source_branch == "feature/review"
+    assert merge_request.head_sha == "abc123"
+    assert merge_request.state == "merged"
