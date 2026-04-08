@@ -76,11 +76,15 @@ The review bot runs as a synchronous pipeline in v1:
 3. Fetch open merge requests.
 4. Use `MergeRequestSelector` to choose one reviewable MR.
 5. Fetch MR metadata, changed files, and diff.
-6. Use `ReviewContextBuilder` to load local source context for changed files.
-7. Use `ReviewAnalysisService` to request structured findings from the LLM.
-8. Use `ReviewPublisher` to render a deterministic review note.
-9. Publish the note to GitLab.
-10. Persist reviewed SHA and outcome in state.
+6. Parse remediation-authored MR context when present and keep it available as
+   structured review input.
+7. Use `ReviewContextBuilder` to load local source context for changed files.
+8. Combine MR metadata, optional remediation context, diff data, and local
+   code context into the review payload.
+9. Use `ReviewAnalysisService` to request structured findings from the LLM.
+10. Use `ReviewPublisher` to render a deterministic review note.
+11. Publish the note to GitLab.
+12. Persist reviewed SHA and outcome in state.
 
 ### 5.2 Execution Diagram
 
@@ -175,10 +179,15 @@ Responsibilities:
 
 Responsibilities:
 
+- parse remediation-authored MR description metadata when present,
 - load changed files from the local repository,
 - join diff hunks with nearby source context,
 - limit changed-file count and per-file context size,
 - prepare a stable structured review payload.
+
+The builder should prefer remediation-authored MR context when present, but it
+must remain fully functional for normal human-authored merge requests that do
+not contain that metadata.
 
 ### 6.9 `services/review_analysis_service.py`
 
@@ -188,6 +197,16 @@ Responsibilities:
 - request structured review findings,
 - reject malformed or oversized findings,
 - classify the review result as findings, no findings, or insufficient context.
+
+When remediation-authored context is present, the analysis layer should use it
+to compare:
+
+- intended fix versus actual diff behavior,
+- recorded remediation constraints versus the produced implementation,
+- available validation evidence versus remaining review risk.
+
+This additional context should improve finding quality without making the
+review workflow dependent on remediation-specific merge requests.
 
 ### 6.10 `services/review_publisher.py`
 
@@ -386,7 +405,37 @@ On failure, the bot must:
 - avoid publishing partial or malformed notes,
 - exit with a clear summary.
 
-## 12. Testing Strategy
+## 12. Advisory Review Confidence
+
+The review workflow should leave room for an advisory confidence signal without
+making it part of the first review control plane.
+
+Recommended first fields:
+
+- `review_confidence: float | None`
+- `review_confidence_reason: str | None`
+
+Recommended semantics:
+
+- `review_confidence` reflects how likely the review workflow thinks the
+  produced implementation is correct and low risk after inspecting the merge
+  request diff and review context
+
+For the first implementation, these values should be treated as advisory
+metadata only:
+
+- do not use them as automatic merge or approval gates,
+- do not treat them as calibrated probabilities until enough real history
+  exists,
+- require a short reason string whenever a score is recorded.
+
+Storage and presentation guidance:
+
+- use a normalized `0.0` to `1.0` range,
+- surface the value in review-facing artifacts, summaries, or notes before
+  making it part of runtime policy.
+
+## 13. Testing Strategy
 
 V1 should include:
 
@@ -398,7 +447,7 @@ V1 should include:
   - unchanged SHA skip
   - findings-present and no-findings cases
 
-## 13. Future Extensions
+## 14. Future Extensions
 
 Post-v1 candidates:
 

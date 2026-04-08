@@ -228,6 +228,83 @@ def test_mark_done_moves_item_to_completed_and_preserves_traceability() -> None:
     assert result.updated_item.log_excerpt == "Issue no longer needs remediation."
 
 
+def test_mark_open_reopens_item_and_clears_merge_request_linkage() -> None:
+    dashboard_service = FakeDashboardService(
+        build_document(
+            items=[
+                build_item(status="mr_opened").model_copy(
+                    update={
+                        "branch_name": "ai-sonar/ax123/service",
+                        "merge_request_url": (
+                            "https://gitlab.example.com/group/project/-/merge_requests/1"
+                        ),
+                        "commit_sha": "abc123",
+                    }
+                )
+            ]
+        )
+    )
+    updater = DashboardRemediationUpdater(dashboard_service)
+
+    result = updater.mark_open(
+        project_id="123",
+        dashboard_item_id="sonar:1",
+        run_id="run-4",
+        summary="Merge request was closed without merge.",
+    )
+
+    assert result.error_message is None
+    assert result.updated_item is not None
+    assert result.updated_item.status == "open"
+    assert result.updated_item.last_run_id == "run-4"
+    assert result.updated_item.branch_name == "ai-sonar/ax123/service"
+    assert result.updated_item.merge_request_url is None
+    assert result.updated_item.merge_request_iid is None
+    assert result.updated_item.commit_sha == "abc123"
+    assert result.updated_item.log_excerpt == "Merge request was closed without merge."
+
+
+def test_reconciliation_updates_preserve_existing_remediation_metadata() -> None:
+    dashboard_service = FakeDashboardService(
+        build_document(
+            items=[
+                build_item(status="mr_opened").model_copy(
+                    update={
+                        "branch_name": "ai-sonar/ax123/service",
+                        "merge_request_url": (
+                            "https://gitlab.example.com/group/project/-/merge_requests/1"
+                        ),
+                        "merge_request_iid": 1,
+                        "commit_sha": "abc123",
+                        "validation_commands": ["uv run pytest", "uv run mypy src"],
+                        "constraints": "Single-file only. No public API changes.",
+                        "expected_change": "Simplify boolean comparison.",
+                        "acceptance_criteria": ["Tests still pass."],
+                        "upstream_active": False,
+                    }
+                )
+            ]
+        )
+    )
+    updater = DashboardRemediationUpdater(dashboard_service)
+
+    result = updater.mark_open(
+        project_id="123",
+        dashboard_item_id="sonar:1",
+        run_id="run-5",
+        summary="Merge request was closed without merge.",
+    )
+
+    assert result.error_message is None
+    assert result.updated_item is not None
+    assert result.updated_item.status == "open"
+    assert result.updated_item.validation_commands == ["uv run pytest", "uv run mypy src"]
+    assert result.updated_item.constraints == "Single-file only. No public API changes."
+    assert result.updated_item.expected_change == "Simplify boolean comparison."
+    assert result.updated_item.acceptance_criteria == ["Tests still pass."]
+    assert result.updated_item.upstream_active is False
+
+
 def test_replayed_transition_for_same_run_is_idempotent() -> None:
     existing_item = build_item(status="mr_opened").model_copy(
         update={

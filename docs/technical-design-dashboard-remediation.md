@@ -442,6 +442,71 @@ moves to `mr_opened`.
 The 24-hour window is therefore a conservative stale-run recovery
 buffer for interrupted jobs and operator investigation, not a review window.
 
+### 9.6 Scheduled Merge-Request Reconciliation
+
+The dashboard lifecycle should be closed by a separate scheduled reconciliation
+workflow before product demonstration.
+
+This workflow should remain distinct from the active remediation runner:
+
+- remediation owns `open -> in_progress -> mr_opened|failed|rejected`
+- reconciliation owns later `mr_opened` convergence once merge-request state
+  changes externally
+- stale `in_progress` recovery remains owned by remediation intake and should
+  not be duplicated here
+
+Recommended entrypoint:
+
+- `ai-sonar-bot dashboard reconcile`
+- optionally `ai-sonar-bot dashboard reconcile --dry-run` for operator review
+
+Recommended runtime shape:
+
+1. Load dashboard state.
+2. Select items currently in `mr_opened`.
+3. For each item, inspect the linked merge request using stored URL, IID, or
+   branch metadata.
+4. Compare remote merge-request state with stored dashboard traceability.
+5. Apply one deterministic lifecycle update.
+6. Return a reconciliation summary.
+
+Recommended transition rules:
+
+- merge request merged:
+  move `mr_opened -> done`
+- merge request closed without merge and remediation is still required:
+  move `mr_opened -> open`
+- merge request closed without merge and remediation is no longer required:
+  move `mr_opened -> done`
+- merge request metadata missing, inaccessible, or inconsistent with stored
+  branch/commit traceability:
+  move `mr_opened -> failed`
+
+For the first version, “still required” should be evaluated conservatively using
+current dashboard state and stored traceability:
+
+- if the dashboard item still exists and still represents the same remediation
+  candidate, reopen it
+- if upstream discovery or dashboard state already indicates the issue no longer
+  requires remediation, mark it done
+- if the workflow cannot determine ownership safely, mark it failed with an
+  operator-visible reason instead of guessing
+
+Traceability requirements for reconciliation:
+
+- use the stored dashboard item ID as the primary identity
+- use merge-request URL, branch name, and commit SHA as supporting
+  traceability fields
+- preserve existing remediation metadata while updating only lifecycle fields
+  and reconciliation notes
+
+Scheduling guidance:
+
+- run as a scheduled CI job and allow manual triggering for operator recovery
+- keep the first version CI-only, like live remediation
+- process one dashboard issue per run and prefer deterministic summaries over
+  background polling
+
 ## 10. Migration Strategy
 
 The rollout should be dashboard-first before live launch:
@@ -498,6 +563,13 @@ Add runner-level coverage for:
 - migration-mode dedup prevents duplicate work across direct Sonar and
   dashboard-backed remediation
 
+Add reconciliation coverage for:
+
+- `mr_opened -> done` on merge
+- `mr_opened -> open` on close without merge when work remains valid
+- `mr_opened -> failed` on missing or inconsistent merge-request traceability
+- dry-run reconciliation summaries
+
 ### 11.3 Regression Tests
 
 As real dashboard-backed remediation failures appear, convert them into
@@ -546,6 +618,47 @@ later convergence logic should remain a separate scheduled maintenance path.
 
 The implementation should keep these identifiers available across logs,
 summaries, and dashboard lifecycle updates:
+
+## 15. Advisory Confidence Signals
+
+The remediation workflow should leave room for an advisory confidence signal
+without making it part of the first remediation or reconciliation control
+plane.
+
+Recommended first fields:
+
+- `remediation_confidence: float | None`
+- `remediation_confidence_reason: str | None`
+
+Recommended semantics:
+
+- `remediation_confidence` reflects how likely the remediation workflow thinks
+  it can produce a correct, bounded change for the selected work item
+
+For the first implementation, these values should be treated as advisory
+metadata only:
+
+- do not use them as automatic merge or approval gates,
+- do not let them close or reopen dashboard items by themselves,
+- do not treat them as calibrated probabilities until enough real history
+  exists.
+
+Storage and presentation guidance:
+
+- use a normalized `0.0` to `1.0` range for both scores,
+- require a short reason string whenever a score is recorded,
+- surface the values in dashboard-facing metadata, summaries, or later review
+  artifacts before making them part of runtime policy.
+
+Implementation guidance:
+
+- remediation can emit confidence after analysis or after structured edit
+  generation, but before publish remains the safer first boundary,
+- if confidence is added later, store it in a way that preserves the existing
+  lifecycle model instead of creating a second implicit state machine.
+
+Review-specific confidence should be defined in the pull-request review bot
+technical design rather than in the remediation workflow design.
 
 - dashboard item ID,
 - run ID,

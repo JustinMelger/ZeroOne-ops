@@ -58,9 +58,9 @@ class SonarDashboardSyncService:
             if item.source != "sonarqube" or item.id in current_issue_ids:
                 continue
             if item.status in _DISCOVERY_OWNED_SONAR_STATUSES:
-                items.append(item.model_copy(update={"status": "done"}))
+                items.append(item.model_copy(update={"status": "done", "upstream_active": False}))
                 continue
-            items.append(item)
+            items.append(item.model_copy(update={"upstream_active": False}))
         return items
 
     def _normalize_issue(
@@ -89,6 +89,7 @@ class SonarDashboardSyncService:
             commit_sha=existing.commit_sha if existing is not None else None,
             merge_request_iid=existing.merge_request_iid if existing is not None else None,
             merge_request_url=existing.merge_request_url if existing is not None else None,
+            upstream_active=True,
             log_excerpt=existing.log_excerpt if existing is not None else None,
         )
 

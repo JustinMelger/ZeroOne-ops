@@ -17,6 +17,16 @@ class MergeRequestInfo(BaseModel):
     title: str
 
 
+class GitLabMergeRequestState(BaseModel):
+    """Represent the reconciliation-relevant state of one GitLab merge request."""
+
+    iid: int
+    web_url: str
+    source_branch: str
+    head_sha: str
+    state: str
+
+
 class MergeRequestNote(BaseModel):
     """Represent a published GitLab merge request note."""
 

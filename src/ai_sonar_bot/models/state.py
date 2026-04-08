@@ -35,6 +35,7 @@ class RunStatus(StrEnum):
     MR_CREATED = "mr_created"
     REVIEWED = "reviewed"
     SYNCED = "synced"
+    RECONCILED = "reconciled"
     MANUAL = "manual"
     FAILED = "failed"
 
@@ -55,6 +56,7 @@ class FailureStage(StrEnum):
     REVIEW_CONTEXT = "review_context"
     REVIEW_ANALYSIS = "review_analysis"
     REVIEW_PUBLISH = "review_publish"
+    RECONCILIATION = "reconciliation"
 
 
 class FailureDetails(BaseModel):

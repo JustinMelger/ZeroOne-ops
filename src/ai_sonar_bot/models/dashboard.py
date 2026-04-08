@@ -77,6 +77,7 @@ class DashboardItem(BaseModel):
     commit_sha: str | None = None
     merge_request_iid: int | None = None
     merge_request_url: str | None = None
+    upstream_active: bool | None = None
     reviewed_head_sha: str | None = None
     review_status: str | None = None
     log_excerpt: str | None = None

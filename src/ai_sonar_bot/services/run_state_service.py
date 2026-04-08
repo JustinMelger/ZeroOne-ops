@@ -147,6 +147,30 @@ class RunStateService:
             mr_url=mr_url,
         )
 
+    def mark_dashboard_reopened(
+        self,
+        *,
+        record: RunRecord,
+        dashboard_item_id: str,
+        branch_name: str | None = None,
+        commit_sha: str | None = None,
+        mr_url: str | None = None,
+    ) -> None:
+        """Persist one dashboard item as reopened for future remediation."""
+        record.dashboard_item_id = dashboard_item_id
+        record.branch_name = branch_name
+        record.commit_sha = commit_sha
+        record.mr_url = mr_url
+        record.updated_at = utc_now()
+        self.state.active_dashboard_item_id = None
+        self.state.dashboard_items[dashboard_item_id] = DashboardItemState(
+            status="open",
+            last_run_id=record.run_id,
+            branch_name=branch_name,
+            commit_sha=commit_sha,
+            mr_url=mr_url,
+        )
+
     def fail_dashboard_item(
         self,
         *,

@@ -223,11 +223,26 @@ Selection priority:
 For the selected merge request, the bot must build a review payload containing:
 
 - merge request metadata,
+- remediation-authored merge request context when present,
 - changed files,
 - diff hunks,
 - nearby source context,
 - repository review constraints,
 - instructions to focus on correctness and risk.
+
+When the merge request was created by the remediation workflow, the review bot
+should use the remediation-authored context to understand:
+
+- why the change was proposed,
+- which issue or dashboard item it targets,
+- which constraints shaped the fix,
+- which validation signals were already recorded.
+
+That richer context should help the review bot compare intended fix behavior to
+the actual implementation instead of reviewing the diff in a vacuum.
+
+The review workflow must still degrade gracefully for normal human-authored
+merge requests that do not include remediation metadata.
 
 The LLM review output should classify the MR as:
 
@@ -251,6 +266,13 @@ The v1 output should prioritize:
 - behavior regressions
 - missing tests
 - unsafe assumptions
+
+When remediation-authored merge request context is available, the bot should
+prefer findings that explicitly compare:
+
+- intended change versus actual implementation,
+- stated remediation constraints versus the produced diff,
+- stated validation evidence versus remaining review risk.
 
 ### 10.6 Review Note Publishing
 
@@ -281,6 +303,29 @@ review response, it must:
 - record the failure in state,
 - avoid publishing partial or malformed output,
 - exit cleanly with a summary.
+
+### 10.9 Advisory Review Confidence
+
+The review workflow may later expose an advisory confidence signal to help
+operators understand how likely the review bot thinks the produced
+implementation is correct, complete, and low risk.
+
+This signal should remain advisory in the first version:
+
+- it should not approve or merge a merge request automatically,
+- it should not replace human code review,
+- it should not be treated as a hidden blocking gate.
+
+The score should be accompanied by a short machine-generated reason so
+operators can understand why the score was low or high instead of seeing an
+unexplained number.
+
+Recommended initial behavior:
+
+- use a simple normalized score range such as `0.0` to `1.0`,
+- store the score and reason on review-facing workflow artifacts,
+- surface the score for operator awareness before using it as any stronger
+  policy input.
 
 ## 11. Success Criteria
 
