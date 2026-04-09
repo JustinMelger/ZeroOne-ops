@@ -1,5 +1,9 @@
 # Changelog
 
+Note: public-facing product language is gradually shifting toward `AI Code Ops`
+while the repository, package, image, and CLI still use the compatibility name
+`ai-sonar-bot`.
+
 ## [0.11.2](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.11.1...ai-sonar-bot-v0.11.2) (2026-04-06)
 
 
