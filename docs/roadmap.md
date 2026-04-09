@@ -253,7 +253,7 @@ Done when:
 - the next review-bot improvements can land without making workflow boundaries
       harder to maintain
 
-### Following Phase: Review Bot Improvements
+### Completed Build: Review Bot Improvements
 
 Goal:
 
@@ -288,8 +288,6 @@ Status:
 - [x] teach the review bot to discover bounded repository guidance such as
       `AGENT.md`, engineering standards, and relevant technical design docs in
       the repository it is reviewing
-- [ ] capture human feedback and convert incorrect or noisy review comments
-      into targeted regression tests
 
 Done when:
 
@@ -297,9 +295,38 @@ Done when:
       request workflows
 - remediation-authored merge requests get richer review quality without making
       review dependent on bot-authored changes
-- new review noise or quality issues are routinely turned into regression tests
 
-### Interim Phase: Hardening, CI/CD, And Light Rebranding
+### Current Phase: Review Bot Live Testing
+
+Goal:
+
+- run the review bot in real merge request workflows for a sustained period
+- capture missed findings, noisy findings, and operator friction before opening
+  another review feature phase
+
+Status:
+
+- [ ] collect real review examples where the bot was too conservative or too
+      noisy
+- [x] tighten the review prompt so deterministic runtime errors, invalid
+      operations, and harmful debug code are treated as actionable even when
+      they are subtle
+- [ ] convert incorrect, noisy, or missed review outcomes into targeted
+      regression tests
+- [ ] decide from live feedback whether the current no-findings bias should be
+      relaxed so grounded medium-confidence findings can still be reported
+- [ ] document any recurring review patterns that should become prompt,
+      validation, or ranking follow-up work after the live-testing period
+
+Done when:
+
+- the team has a representative set of live review outcomes to evaluate
+- the first batch of real review misses and false positives has been turned
+      into regression coverage
+- the next review iteration is driven by observed behavior rather than
+      speculative tuning
+
+### Interim Phase: Pre-Release Candidate Hardening
 
 Goal:
 
