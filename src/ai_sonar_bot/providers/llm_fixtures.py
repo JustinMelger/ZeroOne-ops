@@ -48,9 +48,7 @@ def _load_fixture_payload(path: Path, *, fixture_kind: str) -> dict[str, object]
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
-        raise LLMFixtureError(
-            f"LLM {fixture_kind} fixture file is invalid JSON: {path}"
-        ) from error
+        raise LLMFixtureError(f"LLM {fixture_kind} fixture file is invalid JSON: {path}") from error
 
     if not isinstance(payload, dict):
         raise LLMFixtureError(f"Unexpected LLM {fixture_kind} fixture payload.")

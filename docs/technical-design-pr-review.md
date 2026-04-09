@@ -79,12 +79,14 @@ The review bot runs as a synchronous pipeline in v1:
 6. Parse remediation-authored MR context when present and keep it available as
    structured review input.
 7. Use `ReviewContextBuilder` to load local source context for changed files.
-8. Combine MR metadata, optional remediation context, diff data, and local
-   code context into the review payload.
-9. Use `ReviewAnalysisService` to request structured findings from the LLM.
-10. Use `ReviewPublisher` to render a deterministic review note.
-11. Publish the note to GitLab.
-12. Persist reviewed SHA and outcome in state.
+8. Discover a few bounded repository guidance excerpts such as `AGENT.md`,
+   engineering standards, and relevant technical design docs when present.
+9. Combine MR metadata, optional remediation context, repository guidance,
+   diff data, and local code context into the review payload.
+10. Use `ReviewAnalysisService` to request structured findings from the LLM.
+11. Use `ReviewPublisher` to render a deterministic review note.
+12. Publish the note to GitLab.
+13. Persist reviewed SHA and outcome in state.
 
 ### 5.2 Execution Diagram
 
@@ -181,6 +183,9 @@ Responsibilities:
 
 - parse remediation-authored MR description metadata when present,
 - load changed files from the local repository,
+- discover a bounded set of repository guidance excerpts from known files such
+  as `AGENT.md`, `CONTRIBUTING.md`, `README.md`, and relevant technical design
+  docs,
 - join diff hunks with nearby source context,
 - limit changed-file count and per-file context size,
 - prepare a stable structured review payload.
@@ -188,6 +193,13 @@ Responsibilities:
 The builder should prefer remediation-authored MR context when present, but it
 must remain fully functional for normal human-authored merge requests that do
 not contain that metadata.
+
+Repository guidance should stay bounded and deterministic:
+
+- only known guidance file locations should be considered in v1,
+- only a short excerpt from each file should be included,
+- the guidance should act as repository-specific standards rather than as an
+  override for the core review rules.
 
 ### 6.9 `services/review_analysis_service.py`
 
@@ -268,10 +280,12 @@ Example review-specific config shape:
   "execution_mode": "ci",
   "review": {
     "max_changed_files": 10,
+    "max_findings_per_review": 3,
     "max_context_lines_before": 30,
     "max_context_lines_after": 30,
     "publish_no_findings_note": true,
     "supported_paths": ["src/", "app/"],
+    "ignored_paths": ["src/generated/"],
     "skip_draft_merge_requests": true
   },
   "gitlab": {
@@ -283,6 +297,17 @@ Example review-specific config shape:
   }
 }
 ```
+
+Recommended repo-level review noise controls:
+
+- `supported_paths`: limit review to relevant source areas
+- `ignored_paths`: exclude generated, vendored, or otherwise noisy paths even
+  when they sit under a supported prefix
+- `max_changed_files`: cap review breadth per merge request
+- `max_findings_per_review`: cap the number of published findings so the bot
+  surfaces the highest-signal issues first
+- `publish_no_findings_note`: control whether no-findings runs publish a merge
+  request note at all
 
 ## 8. Data Model Design
 
@@ -407,8 +432,8 @@ On failure, the bot must:
 
 ## 12. Advisory Review Confidence
 
-The review workflow should leave room for an advisory confidence signal without
-making it part of the first review control plane.
+The review workflow should emit an advisory confidence signal as part of the
+review trust-building phase, while keeping it out of runtime control policy.
 
 Recommended first fields:
 

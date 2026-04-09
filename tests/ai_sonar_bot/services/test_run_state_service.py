@@ -152,8 +152,8 @@ def test_mark_dashboard_selected_updates_dashboard_item_state(tmp_path: Path) ->
     service = RunStateService(config=config, state_store=store, state=build_state())
 
     record = service.start_run("run-1")
-    service.mark_dashboard_selected(record=record, dashboard_item_id="sonar:1")
-    service.finish_success(record=record)
+    service.dashboard.mark_selected(record=record, dashboard_item_id="sonar:1")
+    service.dashboard.finish_success()
 
     loaded = store.load()
     assert record.dashboard_item_id == "sonar:1"
@@ -173,13 +173,13 @@ def test_mark_dashboard_mr_created_persists_dashboard_item_state(tmp_path: Path)
     service = RunStateService(config=config, state_store=store, state=build_state())
 
     record = service.start_run("run-1")
-    service.mark_dashboard_mr_created(
+    service.dashboard.mark_mr_created(
         record=record,
         dashboard_item_id="sonar:1",
         branch_name="ai-sonar/ax123/service",
         mr_url="https://gitlab.example.com/group/project/-/merge_requests/1",
     )
-    service.finish_success(record=record)
+    service.dashboard.finish_success()
 
     loaded = store.load()
     assert loaded.dashboard_items["sonar:1"].status == "mr_created"
@@ -202,14 +202,14 @@ def test_mark_dashboard_done_persists_completed_dashboard_item_state(tmp_path: P
     service = RunStateService(config=config, state_store=store, state=build_state())
 
     record = service.start_run("run-1")
-    service.mark_dashboard_done(
+    service.dashboard.mark_done(
         record=record,
         dashboard_item_id="sonar:1",
         branch_name="ai-sonar/ax123/service",
         commit_sha="abc123",
         mr_url="https://gitlab.example.com/group/project/-/merge_requests/1",
     )
-    service.finish_success(record=record)
+    service.dashboard.finish_success()
 
     loaded = store.load()
     assert loaded.active_dashboard_item_id is None
@@ -234,14 +234,14 @@ def test_mark_dashboard_reopened_persists_open_dashboard_item_state(tmp_path: Pa
     service = RunStateService(config=config, state_store=store, state=build_state())
 
     record = service.start_run("run-1")
-    service.mark_dashboard_reopened(
+    service.dashboard.mark_reopened(
         record=record,
         dashboard_item_id="sonar:1",
         branch_name="ai-sonar/ax123/service",
         commit_sha="abc123",
         mr_url="https://gitlab.example.com/group/project/-/merge_requests/1",
     )
-    service.finish_success(record=record)
+    service.dashboard.finish_success()
 
     loaded = store.load()
     assert loaded.active_dashboard_item_id is None
@@ -265,7 +265,7 @@ def test_fail_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -
     record.branch_name = "ai-sonar/ax123/service"
     record.commit_sha = "abc123"
     record.mr_url = "https://gitlab.example.com/group/project/-/merge_requests/1"
-    summary = service.fail_dashboard_item(
+    summary = service.dashboard.fail_item(
         record=record,
         dashboard_item_id="sonar:1",
         error_message="Validation failed.",
@@ -295,7 +295,7 @@ def test_reject_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path)
     record = service.start_run("run-1")
     record.commit_sha = "abc123"
     record.mr_url = "https://gitlab.example.com/group/project/-/merge_requests/1"
-    summary = service.reject_dashboard_item(
+    summary = service.dashboard.reject_item(
         record=record,
         dashboard_item_id="sonar:1",
         branch_name="ai-sonar/ax123/service",

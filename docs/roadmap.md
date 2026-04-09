@@ -1,10 +1,31 @@
-# AI Sonar Bot Roadmap
+# AI Code Ops Roadmap
 
 ## Purpose
 
-This roadmap translates the functional and technical design into an implementation sequence for v1.
+This roadmap translates the current functional and technical design into an
+implementation sequence for v1 of the broader AI Code Ops platform.
+
+The repository and runtime still use the compatibility name `ai-sonar-bot`,
+but the roadmap now reflects a product scope that includes review,
+dashboard-backed remediation, and reconciliation rather than only SonarQube
+automation.
 
 It is intentionally short and execution-focused. The goal is to make the next steps obvious and keep scope controlled while the bot is being built.
+
+Working rule:
+
+- after each meaningful implementation round, pause for a short cleanup review
+  before starting the next feature slice
+- use that review to check workflow boundaries, growing files/services, test
+  gaps, and any documentation drift created by the last round
+
+Next sequencing note:
+
+- after the current feature-building phase, shift into a dedicated hardening
+  and testing phase before starting any new operator-experience or onboarding
+  work
+- once the workflows are stable under real usage, treat ease of operation as
+  the next product phase
 
 ## Current Status
 
@@ -242,17 +263,31 @@ Goal:
 
 Status:
 
-- [ ] teach the review workflow to use remediation-authored MR context when it
+- [x] teach the review workflow to use remediation-authored MR context when it
       is available, while degrading gracefully for normal human-authored merge
       requests
-- [ ] suppress speculative or weak findings more aggressively so the bot
+- [x] suppress speculative or weak findings more aggressively so the bot
       prefers no-findings over noisy low-confidence review output
-- [ ] strengthen finding formatting so each review comment ties the risk to
+- [x] strengthen finding formatting so each review comment ties the risk to
       concrete diff evidence or nearby source context
-- [ ] make manual-review-only outcomes clearer so operators can distinguish
+- [x] harden the review prompt against input poisoning by treating MR titles,
+      descriptions, remediation context, diffs, and code snippets as untrusted
+      data rather than instructions
+- [x] delimit untrusted MR text, remediation metadata, diffs, and source
+      context more explicitly in the review prompt so the model sees them as
+      artifacts instead of executable guidance
+- [x] validate structured review findings more aggressively after generation so
+      evidence stays tied to reviewed files and weak unsupported findings are
+      downgraded or rejected safely
+- [x] add advisory `review_confidence` and `review_confidence_reason` so the
+      review bot exposes a clear operator trust signal without becoming a gate
+- [x] make manual-review-only outcomes clearer so operators can distinguish
       insufficient context from low-value findings
-- [ ] add repo-level controls for review noise such as path filtering,
+- [x] add repo-level controls for review noise such as path filtering,
       changed-file limits, and note verbosity
+- [x] teach the review bot to discover bounded repository guidance such as
+      `AGENT.md`, engineering standards, and relevant technical design docs in
+      the repository it is reviewing
 - [ ] capture human feedback and convert incorrect or noisy review comments
       into targeted regression tests
 
@@ -263,6 +298,58 @@ Done when:
 - remediation-authored merge requests get richer review quality without making
       review dependent on bot-authored changes
 - new review noise or quality issues are routinely turned into regression tests
+
+### Interim Phase: Hardening, CI/CD, And Light Rebranding
+
+Goal:
+
+- keep progress moving while feature testing is underway without opening new
+  large workflow scope
+- strengthen rollout safety and operator confidence around the existing
+  workflows
+- explore light branding polish without committing to a full rename
+
+Status:
+
+- [ ] harden CI/CD behavior around schedules, failure visibility, and operator
+      guidance where testing reveals rough edges
+- [ ] review GitLab job defaults, resource groups, and dry-run/live boundaries
+      for the shipped workflows
+- [ ] tighten auth and secret-handling documentation where operator setup is
+      still easy to misconfigure
+- [ ] add a conservative Renovate setup for dependency management so CI and
+      dependency drift stay under control during the hardening period
+- [ ] evaluate and add a conservative open-source SAST layer, likely Semgrep
+      CE, so CI catches basic security issues without creating high-noise
+      gating
+- [ ] add a prerelease or release-candidate image publish path so CLI, CI, and
+      dashboard changes can be tested before a stable release
+- [ ] add a lightweight prerelease image smoke test so the published container
+      is validated with a small real command surface before broader rollout
+- [ ] do a secret and logging safety review so auth setup, remote rewriting,
+      and failure paths do not leak sensitive data
+- [ ] add a small release checklist covering image publish, CI setup, auth
+      readiness, smoke-test status, and known rollout issues
+- [ ] do a small branding pass for future `ZeroOne Ops` direction where it adds
+      clarity, without renaming the repository, package, CLI, or workflow
+      commands yet
+
+Done when:
+
+- CI/CD guidance feels stable enough for repeated operator use during the
+      hardening period
+- dependency updates are easier to review and less likely to pile up while the
+      workflows are being stabilized
+- basic security scanning is present in CI with acceptable signal-to-noise
+      before any stronger enforcement is considered
+- operators have a safe way to test near-production image changes before stable
+      release tags are cut
+- the release path has a lightweight repeatable checklist and smoke test rather
+      than relying only on ad hoc confidence
+- any rollout friction found during testing has a clear documented home and,
+      where needed, a small fix
+- branding exploration stays intentionally light and does not distract from
+      hardening feedback
 
 ## Completed Build: Dashboard And Remediation
 

@@ -114,6 +114,8 @@ Responsible for:
 Responsible for:
 
 - loading changed files from the local checkout,
+- discovering bounded repository guidance from files such as `AGENT.md`,
+  engineering standards, and relevant technical design docs when present,
 - collecting diff hunks and nearby source context,
 - preparing structured review input for the LLM.
 
@@ -273,6 +275,21 @@ prefer findings that explicitly compare:
 - intended change versus actual implementation,
 - stated remediation constraints versus the produced diff,
 - stated validation evidence versus remaining review risk.
+
+The review workflow should also expose an advisory confidence signal so
+operators can quickly judge how strongly the bot trusts its own review pass.
+
+Recommended first fields:
+
+- `review_confidence`
+- `review_confidence_reason`
+
+For the first implementation:
+
+- the score should stay advisory only,
+- the score should not auto-approve, auto-merge, or suppress findings by
+  itself,
+- a short reason should always accompany the score when it is present.
 
 ### 10.6 Review Note Publishing
 

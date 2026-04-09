@@ -10,7 +10,7 @@ from ai_sonar_bot.models.remediation import (
     RemediationExecutionTarget,
     remediation_profile_for,
 )
-from ai_sonar_bot.models.review import MergeRequestReviewContext
+from ai_sonar_bot.models.review import MergeRequestReviewContext, RemediationReviewContext
 
 
 class LLMPromptError(RuntimeError):
@@ -79,10 +79,18 @@ def build_review_prompt(context: MergeRequestReviewContext) -> str:
     """Build the review prompt for one merge request."""
     changed_files = "\n\n".join(
         (
-            f"File: {changed_file.file_path}\n"
-            f"Diff:\n{changed_file.diff or '(diff unavailable)'}\n"
-            f"Context lines {changed_file.start_line}-{changed_file.end_line}:\n"
-            f"{changed_file.content}"
+            _format_untrusted_block(
+                label=f"Changed file: {changed_file.file_path}",
+                content="\n".join(
+                    [
+                        f"Diff:\n{changed_file.diff or '(diff unavailable)'}",
+                        (
+                            f"Context lines {changed_file.start_line}-"
+                            f"{changed_file.end_line}:\n{changed_file.content}"
+                        ),
+                    ]
+                ),
+            )
         )
         for changed_file in context.changed_files
     )
@@ -90,11 +98,75 @@ def build_review_prompt(context: MergeRequestReviewContext) -> str:
         "review_merge_request.txt",
         mr_iid=context.mr_iid,
         title=context.title,
-        description=context.description or "(none)",
+        description=_format_untrusted_block(
+            label="Merge request description",
+            content=context.description or "(none)",
+        ),
         source_branch=context.source_branch,
         target_branch=context.target_branch,
         head_sha=context.head_sha,
+        remediation_context=_format_remediation_review_context(context.remediation_context),
+        repository_guidance=_format_repository_guidance(context),
         changed_files=changed_files,
+    )
+
+
+def _format_remediation_review_context(
+    context: RemediationReviewContext | None,
+) -> str:
+    """Render remediation-authored MR context for the review prompt."""
+    if context is None:
+        return "(none)"
+
+    item_reference = (
+        f"{context.item_reference_label or 'Item reference'}: {context.item_reference}"
+        if context.item_reference
+        else "Item reference: (none)"
+    )
+    return _format_untrusted_block(
+        label="Remediation-authored context",
+        content="\n".join(
+            [
+                f"Summary: {context.summary or '(none)'}",
+                f"Source: {context.source or '(none)'}",
+                item_reference,
+                f"Rule: {context.rule_id or '(none)'}",
+                f"Severity: {context.severity or '(none)'}",
+                f"Type: {context.remediation_type or '(none)'}",
+                f"File: {context.file_path or '(none)'}",
+                f"Line: {context.line if context.line is not None else '(none)'}",
+                f"Message: {context.message or '(none)'}",
+                f"Validation: {context.validation_summary or '(none)'}",
+                f"Notes: {context.notes or '(none)'}",
+            ]
+        ),
+    )
+
+
+def _format_repository_guidance(context: MergeRequestReviewContext) -> str:
+    """Render bounded repository guidance for the review prompt."""
+    if not context.repository_guidance:
+        return "(none)"
+    return "\n\n".join(
+        "\n".join(
+            [
+                f"<<BEGIN REPOSITORY GUIDANCE {guidance.file_path}>>",
+                guidance.summary,
+                f"<<END REPOSITORY GUIDANCE {guidance.file_path}>>",
+            ]
+        )
+        for guidance in context.repository_guidance
+    )
+
+
+def _format_untrusted_block(*, label: str, content: str) -> str:
+    """Render one explicitly untrusted prompt block."""
+    return "\n".join(
+        [
+            f"<<BEGIN UNTRUSTED {label}>>",
+            content,
+            f"<<END UNTRUSTED {label}>>",
+        ]
     )
 
 

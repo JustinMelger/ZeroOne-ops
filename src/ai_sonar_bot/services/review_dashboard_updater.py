@@ -35,13 +35,26 @@ class ReviewDashboardUpdater:
         review_result: ReviewResult,
     ) -> ReviewDashboardUpdateResult:
         """Upsert one review-status item into the dashboard."""
+        summary = review_result.summary
+        if review_result.classification == "manual_review_only":
+            summary = (
+                "Bot assessment was insufficient for a trustworthy review decision. "
+                f"{review_result.summary}"
+            )
+        if review_result.review_confidence is not None:
+            confidence_summary = f" Review confidence: {review_result.review_confidence:.2f}."
+            if review_result.review_confidence_reason:
+                confidence_summary = (
+                    f"{confidence_summary} Reason: {review_result.review_confidence_reason}"
+                )
+            summary = f"{summary}{confidence_summary}"
         item = DashboardItem(
             id=f"mr-review:{merge_request.iid}:{merge_request.head_sha}",
             source="pull_request_review",
             type="review_status",
             status="done",
             title=f"Review status for !{merge_request.iid}",
-            summary=review_result.summary,
+            summary=summary,
             priority="low",
             source_reference=merge_request.web_url,
             merge_request_iid=merge_request.iid,

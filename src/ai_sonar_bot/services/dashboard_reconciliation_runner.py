@@ -118,7 +118,7 @@ class DashboardReconciliationRunner:
                     workflow_message=decision.message,
                     dashboard_error_message=update_result.error_message,
                 )
-            self.run_state_service.mark_dashboard_done(
+            self.run_state_service.dashboard.mark_done(
                 record=record,
                 dashboard_item_id=selected_item.id,
                 branch_name=selected_item.branch_name,
@@ -126,7 +126,7 @@ class DashboardReconciliationRunner:
                 mr_url=selected_item.merge_request_url,
             )
             record.status = RunStatus.RECONCILED
-            self.run_state_service.finish_success(record=record)
+            self.run_state_service.dashboard.finish_success()
             return self.run_state_service.build_summary(
                 run_id=record.run_id,
                 status=record.status,
@@ -151,7 +151,7 @@ class DashboardReconciliationRunner:
                     workflow_message=decision.message,
                     dashboard_error_message=update_result.error_message,
                 )
-            self.run_state_service.mark_dashboard_reopened(
+            self.run_state_service.dashboard.mark_reopened(
                 record=record,
                 dashboard_item_id=selected_item.id,
                 branch_name=selected_item.branch_name,
@@ -159,7 +159,7 @@ class DashboardReconciliationRunner:
                 mr_url=selected_item.merge_request_url,
             )
             record.status = RunStatus.RECONCILED
-            self.run_state_service.finish_success(record=record)
+            self.run_state_service.dashboard.finish_success()
             return self.run_state_service.build_summary(
                 run_id=record.run_id,
                 status=record.status,
@@ -170,7 +170,7 @@ class DashboardReconciliationRunner:
                 mr_url=selected_item.merge_request_url,
             )
 
-        return self.run_state_service.fail_dashboard_item(
+        return self.run_state_service.dashboard.fail_item(
             record=record,
             dashboard_item_id=selected_item.id,
             error_message=decision.message,
@@ -190,7 +190,7 @@ class DashboardReconciliationRunner:
     ) -> RunSummary:
         """Return a failed run summary when a dashboard lifecycle write fails."""
         message = f"{workflow_message} Dashboard lifecycle update failed: {dashboard_error_message}"
-        return self.run_state_service.fail_dashboard_item(
+        return self.run_state_service.dashboard.fail_item(
             record=record,
             dashboard_item_id=dashboard_item_id,
             error_message=message,

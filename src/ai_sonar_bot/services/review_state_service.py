@@ -101,9 +101,10 @@ class ReviewStateService:
                 note_url=note_url,
             )
         self.state_store.save(self.state)
+        summary_clause = _review_classification_summary(review_result)
         base_message = (
             f"Reviewed merge request !{merge_request.iid} at {merge_request.head_sha}. "
-            f"Classification: {review_result.classification}. {review_result.summary}"
+            f"Classification: {review_result.classification}. {summary_clause}"
         )
         if dry_run:
             base_message = f"{base_message} Dry-run skipped note publication."
@@ -115,3 +116,13 @@ class ReviewStateService:
             message=base_message,
             state_path=self.state_store.path,
         )
+
+
+def _review_classification_summary(review_result: ReviewResult) -> str:
+    """Return one operator-facing review outcome summary."""
+    if review_result.classification == "manual_review_only":
+        return (
+            "Bot assessment was insufficient for a trustworthy review decision. "
+            f"{review_result.summary}"
+        )
+    return review_result.summary

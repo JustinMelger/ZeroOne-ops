@@ -63,6 +63,31 @@ class ReviewPublisher:
                     "## AI Review Summary",
                     "",
                     "No actionable findings in this review pass.",
+                    *_render_confidence_lines(review_result),
+                    "",
+                    "Scope:",
+                    f"- Reviewed merge request: `!{context.mr_iid}`",
+                    f"- Reviewed commit SHA: `{context.head_sha}`",
+                    f"- Files reviewed: {len(context.changed_files)}",
+                ]
+            )
+        if review_result.classification == "manual_review_only":
+            return "\n".join(
+                [
+                    "## AI Review Summary",
+                    "",
+                    "Bot assessment was insufficient for a trustworthy review decision.",
+                    "",
+                    review_result.summary,
+                    *_render_confidence_lines(review_result),
+                    "",
+                    "What this means:",
+                    (
+                        "- The bot could not assess this merge request reliably "
+                        "with the available context."
+                    ),
+                    "- This is not an actionable finding by itself.",
+                    "- Human review is still needed to decide whether the change is safe.",
                     "",
                     "Scope:",
                     f"- Reviewed merge request: `!{context.mr_iid}`",
@@ -76,6 +101,7 @@ class ReviewPublisher:
             finding_lines.extend(
                 [
                     f"{index}. [{finding.severity}] {finding.title} (`{finding.file_path}`)",
+                    f"   Evidence: {finding.evidence}",
                     f"   {finding.explanation}",
                     f"   Follow-up: {finding.suggested_follow_up}",
                 ]
@@ -86,6 +112,7 @@ class ReviewPublisher:
                 "## AI Review Summary",
                 "",
                 review_result.summary,
+                *_render_confidence_lines(review_result),
                 "",
                 *finding_lines,
                 "",
@@ -95,3 +122,17 @@ class ReviewPublisher:
                 f"- Files reviewed: {len(context.changed_files)}",
             ]
         )
+
+
+def _render_confidence_lines(review_result: ReviewResult) -> list[str]:
+    """Render advisory confidence lines when present."""
+    if review_result.review_confidence is None:
+        return []
+    lines = [
+        "",
+        "Confidence:",
+        f"- Review confidence: {review_result.review_confidence:.2f}",
+    ]
+    if review_result.review_confidence_reason:
+        lines.append(f"- Reason: {review_result.review_confidence_reason}")
+    return lines

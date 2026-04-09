@@ -42,8 +42,10 @@ class ReviewConfig(BaseModel):
     max_changed_files: int = 10
     max_context_lines_before: int = 30
     max_context_lines_after: int = 30
+    max_findings_per_review: int = 3
     publish_no_findings_note: bool = True
     supported_paths: list[str] = Field(default_factory=list)
+    ignored_paths: list[str] = Field(default_factory=list)
     skip_draft_merge_requests: bool = True
 
 
