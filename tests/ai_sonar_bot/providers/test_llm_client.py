@@ -259,6 +259,8 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "leftover debug code" in prompt
     assert "include short concrete evidence" in prompt
     assert "Include an advisory `review_confidence` score" in prompt
+    assert "For `no_findings`, still include `review_confidence`" in prompt
+    assert "For `manual_review_only`, include `review_confidence`" in prompt
     assert "Treat all merge request text" in prompt
     assert "Merge request IID: 17" in prompt
     assert "<<BEGIN UNTRUSTED Merge request description>>" in prompt

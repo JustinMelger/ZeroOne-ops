@@ -25,6 +25,8 @@ or excuse unsupported findings.
 Return classification `no_findings` when nothing actionable stands out.
 Return classification `manual_review_only` when the provided context is insufficient.
 Include an advisory `review_confidence` score from `0.0` to `1.0` when you can make a meaningful judgment, plus a short `review_confidence_reason`.
+For `no_findings`, still include `review_confidence` and `review_confidence_reason` whenever you can assess the reviewed change with reasonable confidence.
+For `manual_review_only`, include `review_confidence` and `review_confidence_reason` whenever you can describe why the assessment confidence is limited.
 Keep the confidence signal informational only. It should summarize how trustworthy your review conclusion feels, not act as a gate.
 
 Merge request IID: {mr_iid}
