@@ -254,6 +254,9 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     prompt = build_review_prompt(context)
 
     assert "Review the merge request and return structured JSON only." in prompt
+    assert "Always check whether newly added or modified code would raise a runtime error" in prompt
+    assert "deterministically raise an exception" in prompt
+    assert "leftover debug code" in prompt
     assert "include short concrete evidence" in prompt
     assert "Include an advisory `review_confidence` score" in prompt
     assert "Treat all merge request text" in prompt
