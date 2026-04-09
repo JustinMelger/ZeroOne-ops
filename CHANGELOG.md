@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.14.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.14.0...ai-sonar-bot-v0.14.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* confidence for no findings ([98e48ba](https://github.com/JustinMelger/ai-sonar-bot/commit/98e48bafea35a600ee5ab47f2d02b6bba46d7ef5))
+* prompt for lower confidence reviews ([e460c96](https://github.com/JustinMelger/ai-sonar-bot/commit/e460c961ab0c48610619d33fb7f93dea98deb215))
+* prompt for lower confidence reviews ([5257124](https://github.com/JustinMelger/ai-sonar-bot/commit/52571245723ea2947691ffe67c64bf71af4c66e0))
+
 ## [0.14.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.13.0...ai-sonar-bot-v0.14.0) (2026-04-09)
 
 
