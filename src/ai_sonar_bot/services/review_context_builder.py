@@ -147,9 +147,7 @@ class ReviewContextBuilder:
                 head_sha=detailed_merge_request.head_sha,
                 draft=detailed_merge_request.draft,
                 author_username=detailed_merge_request.author_username,
-                remediation_context=_parse_remediation_context(
-                    detailed_merge_request.description
-                ),
+                remediation_context=_parse_remediation_context(detailed_merge_request.description),
                 repository_guidance=self._load_repository_guidance(),
                 changed_files=changed_files,
             ),

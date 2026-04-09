@@ -66,8 +66,7 @@ def test_render_note_formats_findings_present() -> None:
                     file_path="src/service.py",
                     title="Missing test coverage",
                     evidence=(
-                        "The diff changes `value = 1` to `value = 2` "
-                        "without any test updates."
+                        "The diff changes `value = 1` to `value = 2` without any test updates."
                     ),
                     explanation="The change alters branch behavior without test updates.",
                     suggested_follow_up="Add a regression test for the changed branch.",
@@ -82,8 +81,7 @@ def test_render_note_formats_findings_present() -> None:
     assert "Reason: The diff is small and the evidence is specific." in body
     assert "1. [medium] Missing test coverage (`src/service.py`)" in body
     assert (
-        "Evidence: The diff changes `value = 1` to `value = 2` "
-        "without any test updates."
+        "Evidence: The diff changes `value = 1` to `value = 2` without any test updates."
     ) in body
     assert "- Reviewed merge request: `!17`" in body
     assert "- Reviewed commit SHA: `abc123`" in body
@@ -153,8 +151,7 @@ def test_publish_sends_rendered_note_body() -> None:
                     file_path="src/service.py",
                     title="Missing test coverage",
                     evidence=(
-                        "The diff changes `value = 1` to `value = 2` "
-                        "without any test updates."
+                        "The diff changes `value = 1` to `value = 2` without any test updates."
                     ),
                     explanation="The change alters branch behavior without test updates.",
                     suggested_follow_up="Add a regression test for the changed branch.",

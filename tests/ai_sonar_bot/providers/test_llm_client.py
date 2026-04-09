@@ -95,14 +95,8 @@ def test_load_review_fixture_returns_review_result(tmp_path: Path) -> None:
                     '      "evidence": "The diff changes `value = 1` to `value = 2` '
                     'without matching test updates.",'
                 ),
-                (
-                    '      "explanation": "The change alters branch behavior '
-                    'without test updates.",'
-                ),
-                (
-                    '      "suggested_follow_up": "Add a regression test for '
-                    'the changed branch."'
-                ),
+                ('      "explanation": "The change alters branch behavior without test updates.",'),
+                ('      "suggested_follow_up": "Add a regression test for the changed branch."'),
                 "    }",
                 "  ]",
                 "}",

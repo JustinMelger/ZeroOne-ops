@@ -141,8 +141,7 @@ class ReviewRunner:
                     return self.review_state_service.fail_review(
                         record=record,
                         error_message=(
-                            f"[{self.config.execution_mode}] "
-                            f"{publish_result.error_message}"
+                            f"[{self.config.execution_mode}] {publish_result.error_message}"
                         ),
                         failure=FailureDetails(
                             stage=FailureStage.REVIEW_PUBLISH,
