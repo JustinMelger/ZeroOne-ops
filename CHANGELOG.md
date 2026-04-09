@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.2](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.14.1...ai-sonar-bot-v0.14.2) (2026-04-09)
+
+
+### Bug Fixes
+
+* prompt wording for review bot ([9923036](https://github.com/JustinMelger/ai-sonar-bot/commit/9923036401c64792628aecd2f476370b6a1cd5d9))
+* prompt wording for review bot ([e52852f](https://github.com/JustinMelger/ai-sonar-bot/commit/e52852fbaedebf0c7f5fac64bf8322a56c027af9))
+
 ## [0.14.1](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.14.0...ai-sonar-bot-v0.14.1) (2026-04-09)
 
 
