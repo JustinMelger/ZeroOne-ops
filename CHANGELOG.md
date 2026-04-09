@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.14.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.13.0...ai-sonar-bot-v0.14.0) (2026-04-09)
+
+
+### Features
+
+* add context remedy issue in context bot ([d572a3e](https://github.com/JustinMelger/ai-sonar-bot/commit/d572a3e27ff7e21931150ada6ef3d8c77be89cac))
+* improve review bot prompts and feedback ([7d0f21d](https://github.com/JustinMelger/ai-sonar-bot/commit/7d0f21de77792d3dd407464cec7d33c8488920a3))
+* repo controls, agent guidance, ranking limit ([82de629](https://github.com/JustinMelger/ai-sonar-bot/commit/82de629e85982fa2a670ff9a6e1493a135b4eaf4))
+
+
+### Documentation
+
+* rename to docs ([e68bcc6](https://github.com/JustinMelger/ai-sonar-bot/commit/e68bcc6a1bbb9d971fd994c0a6c0e7c7e4184338))
+* update roadmap and add hardening phase ([b66cae7](https://github.com/JustinMelger/ai-sonar-bot/commit/b66cae79b1e11c22d2268503f2cfce48ebcbd995))
+
 ## [0.13.0](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.12.1...ai-sonar-bot-v0.13.0) (2026-04-08)
 
 
