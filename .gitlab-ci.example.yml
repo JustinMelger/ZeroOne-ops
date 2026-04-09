@@ -18,38 +18,6 @@ stages:
     # GITLAB_TOKEN
     # OPENAI_API_KEY
 
-# Main remediation workflow.
-# Trigger this from a schedule on the default branch, then use the manual rule
-# for the first smoke test and immediate rerun checks.
-ai_sonar_bot:
-  extends: .ai_sonar_bot_base
-  stage: ai-fix
-  resource_group: ai-sonar-bot
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT == "true"'
-      when: manual
-    - when: never
-  variables:
-    GIT_AUTHOR_NAME: "AI Sonar Bot"
-    GIT_AUTHOR_EMAIL: "ai-sonar-bot@example.com"
-    GIT_COMMITTER_NAME: "AI Sonar Bot"
-    GIT_COMMITTER_EMAIL: "ai-sonar-bot@example.com"
-    # Define these as protected CI/CD variables:
-    # SONARQUBE_URL
-    # SONARQUBE_TOKEN
-    # SONARQUBE_PROJECT_KEY
-    # GITLAB_TOKEN
-    # OPENAI_API_KEY
-  before_script:
-    - git config user.name "$GIT_AUTHOR_NAME"
-    - git config user.email "$GIT_AUTHOR_EMAIL"
-    - >
-      git remote set-url origin
-      "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-  script:
-    - uv run --project /opt/ai-sonar-bot ai-sonar-bot
-
 # Discovery-only dashboard sync.
 # Keep this separate from remediation so operators can validate dashboard state
 # without also mutating the repository.
@@ -68,17 +36,18 @@ ai_sonar_bot_dashboard:
     # SONARQUBE_TOKEN
     # SONARQUBE_PROJECT_KEY
     # GITLAB_TOKEN
-    # OPENAI_API_KEY
   script:
     - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard sonar
 
 # Dashboard-backed remediation workflow.
-# Keep this separate from both direct Sonar remediation and discovery while the
-# dashboard-backed path is being rolled out and compared.
+# Keep this separate from discovery, but run it after dashboard sync in the
+# same pipeline so remediation acts on freshly refreshed dashboard state.
 ai_sonar_bot_dashboard_remediate:
   extends: .ai_sonar_bot_base
   stage: ai-fix
   resource_group: ai-sonar-bot-dashboard-remediate
+  needs:
+    - ai_sonar_bot_dashboard
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_DASHBOARD_REMEDIATE == "true"'
@@ -102,8 +71,8 @@ ai_sonar_bot_dashboard_remediate:
     - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard remediate
 
 # Dashboard reconciliation workflow.
-# Run this after dashboard-backed remediation so merged or closed merge
-# requests can move dashboard items out of mr_opened.
+# Keep this as a separate later lifecycle job rather than chaining it directly
+# after remediation in the same pipeline.
 ai_sonar_bot_dashboard_reconcile:
   extends: .ai_sonar_bot_base
   stage: ai-fix
@@ -116,7 +85,6 @@ ai_sonar_bot_dashboard_reconcile:
   variables:
     # Define these as protected CI/CD variables:
     # GITLAB_TOKEN
-    # OPENAI_API_KEY
   script:
     - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard reconcile
 

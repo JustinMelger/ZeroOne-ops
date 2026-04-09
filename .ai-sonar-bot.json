@@ -30,10 +30,12 @@
   },
   "review": {
     "max_changed_files": 5,
+    "max_findings_per_review": 3,
     "max_context_lines_before": 30,
     "max_context_lines_after": 30,
     "publish_no_findings_note": false,
     "supported_paths": ["src/", "app/"],
+    "ignored_paths": ["src/generated/"],
     "skip_draft_merge_requests": true
   },
   "gitlab": {

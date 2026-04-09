@@ -1,0 +1,198 @@
+"""Prompt rendering helpers for LLM-backed workflows."""
+
+from __future__ import annotations
+
+from functools import cache
+from importlib import resources
+
+from ai_sonar_bot.models.analysis import IssueContext
+from ai_sonar_bot.models.remediation import (
+    RemediationExecutionTarget,
+    remediation_profile_for,
+)
+from ai_sonar_bot.models.review import MergeRequestReviewContext, RemediationReviewContext
+
+
+class LLMPromptError(RuntimeError):
+    """Raised when an LLM prompt cannot be loaded or rendered."""
+
+
+_PROMPT_TEMPLATE_NAMES = frozenset(
+    {
+        "analyze_issue.txt",
+        "generate_structured_edit.txt",
+        "review_merge_request.txt",
+    }
+)
+
+
+def build_analysis_prompt(issue: RemediationExecutionTarget, context: IssueContext) -> str:
+    """Build the analysis prompt for one remediation target."""
+    profile = remediation_profile_for(issue)
+    return render_prompt_template(
+        "analyze_issue.txt",
+        target_display_name=profile.target_display_name,
+        source_display_name=profile.source_display_name,
+        item_reference_label=profile.item_reference_label,
+        issue_key=issue.source_ref,
+        rule=issue.rule_id or "unknown",
+        severity=issue.severity,
+        issue_type=issue.issue_type or issue.source_type,
+        message=issue.message,
+        file_path=context.file_path,
+        issue_line=context.line,
+        constraints=issue.constraints or "(none)",
+        snippet_start_line=context.snippet.start_line,
+        snippet_end_line=context.snippet.end_line,
+        full_file_included=context.full_file_included,
+        context_truncated=context.truncated,
+        code_snippet=context.snippet.content,
+    )
+
+
+def build_structured_edit_prompt(
+    issue: RemediationExecutionTarget,
+    context: IssueContext,
+) -> str:
+    """Build the structured-edit prompt for one remediation target."""
+    profile = remediation_profile_for(issue)
+    return render_prompt_template(
+        "generate_structured_edit.txt",
+        target_display_name=profile.target_display_name,
+        source_display_name=profile.source_display_name,
+        item_reference_label=profile.item_reference_label,
+        issue_key=issue.source_ref,
+        rule=issue.rule_id or "unknown",
+        severity=issue.severity,
+        issue_type=issue.issue_type or issue.source_type,
+        message=issue.message,
+        file_path=context.file_path,
+        issue_line=context.line,
+        constraints=issue.constraints or "(none)",
+        snippet_start_line=context.snippet.start_line,
+        snippet_end_line=context.snippet.end_line,
+        code_snippet=context.snippet.content,
+    )
+
+
+def build_review_prompt(context: MergeRequestReviewContext) -> str:
+    """Build the review prompt for one merge request."""
+    changed_files = "\n\n".join(
+        (
+            _format_untrusted_block(
+                label=f"Changed file: {changed_file.file_path}",
+                content="\n".join(
+                    [
+                        f"Diff:\n{changed_file.diff or '(diff unavailable)'}",
+                        (
+                            f"Context lines {changed_file.start_line}-"
+                            f"{changed_file.end_line}:\n{changed_file.content}"
+                        ),
+                    ]
+                ),
+            )
+        )
+        for changed_file in context.changed_files
+    )
+    return render_prompt_template(
+        "review_merge_request.txt",
+        mr_iid=context.mr_iid,
+        title=context.title,
+        description=_format_untrusted_block(
+            label="Merge request description",
+            content=context.description or "(none)",
+        ),
+        source_branch=context.source_branch,
+        target_branch=context.target_branch,
+        head_sha=context.head_sha,
+        remediation_context=_format_remediation_review_context(context.remediation_context),
+        repository_guidance=_format_repository_guidance(context),
+        changed_files=changed_files,
+    )
+
+
+def _format_remediation_review_context(
+    context: RemediationReviewContext | None,
+) -> str:
+    """Render remediation-authored MR context for the review prompt."""
+    if context is None:
+        return "(none)"
+
+    item_reference = (
+        f"{context.item_reference_label or 'Item reference'}: {context.item_reference}"
+        if context.item_reference
+        else "Item reference: (none)"
+    )
+    return _format_untrusted_block(
+        label="Remediation-authored context",
+        content="\n".join(
+            [
+                f"Summary: {context.summary or '(none)'}",
+                f"Source: {context.source or '(none)'}",
+                item_reference,
+                f"Rule: {context.rule_id or '(none)'}",
+                f"Severity: {context.severity or '(none)'}",
+                f"Type: {context.remediation_type or '(none)'}",
+                f"File: {context.file_path or '(none)'}",
+                f"Line: {context.line if context.line is not None else '(none)'}",
+                f"Message: {context.message or '(none)'}",
+                f"Validation: {context.validation_summary or '(none)'}",
+                f"Notes: {context.notes or '(none)'}",
+            ]
+        ),
+    )
+
+
+def _format_repository_guidance(context: MergeRequestReviewContext) -> str:
+    """Render bounded repository guidance for the review prompt."""
+    if not context.repository_guidance:
+        return "(none)"
+    return "\n\n".join(
+        "\n".join(
+            [
+                f"<<BEGIN REPOSITORY GUIDANCE {guidance.file_path}>>",
+                guidance.summary,
+                f"<<END REPOSITORY GUIDANCE {guidance.file_path}>>",
+            ]
+        )
+        for guidance in context.repository_guidance
+    )
+
+
+def _format_untrusted_block(*, label: str, content: str) -> str:
+    """Render one explicitly untrusted prompt block."""
+    return "\n".join(
+        [
+            f"<<BEGIN UNTRUSTED {label}>>",
+            content,
+            f"<<END UNTRUSTED {label}>>",
+        ]
+    )
+
+
+def render_prompt_template(name: str, **values: object) -> str:
+    """Load and render one prompt template safely."""
+    template = load_prompt_template(name)
+    try:
+        return template.format(**values)
+    except KeyError as error:
+        missing_key = error.args[0]
+        raise LLMPromptError(
+            f"Prompt template could not be rendered because `{missing_key}` is missing: {name}"
+        ) from error
+    except ValueError as error:
+        raise LLMPromptError(
+            f"Prompt template is invalid and could not be rendered: {name}"
+        ) from error
+
+
+@cache
+def load_prompt_template(name: str) -> str:
+    """Load a prompt template from the prompts directory."""
+    if name not in _PROMPT_TEMPLATE_NAMES:
+        raise LLMPromptError(f"Unsupported prompt template requested: {name}")
+    try:
+        prompts_dir = resources.files("ai_sonar_bot").joinpath("prompts")
+        return prompts_dir.joinpath(name).read_text(encoding="utf-8")
+    except (ModuleNotFoundError, FileNotFoundError, OSError) as error:
+        raise LLMPromptError(f"Prompt template file could not be read: {name}") from error

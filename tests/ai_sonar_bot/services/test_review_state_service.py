@@ -24,6 +24,8 @@ def build_review_result() -> ReviewResult:
     return ReviewResult(
         classification="findings_present",
         summary="One finding.",
+        review_confidence=0.76,
+        review_confidence_reason="The finding is grounded in the reviewed diff.",
         findings=[],
     )
 
@@ -77,3 +79,30 @@ def test_mark_reviewed_dry_run_does_not_persist_review_revision(tmp_path) -> Non
     assert summary.status == RunStatus.REVIEWED
     loaded = store.load()
     assert loaded.reviews == {}
+
+
+def test_mark_reviewed_manual_review_only_uses_clear_summary_language(tmp_path) -> None:
+    store = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    )
+    service = ReviewStateService(state_store=store, state=build_state())
+    record = service.start_run("run-1")
+
+    summary = service.mark_reviewed(
+        record=record,
+        merge_request=build_merge_request(),
+        review_result=ReviewResult(
+            classification="manual_review_only",
+            summary="The available context was insufficient.",
+            findings=[],
+        ),
+        note_url=None,
+        dry_run=True,
+    )
+
+    assert summary.status == RunStatus.REVIEWED
+    assert "Bot assessment was insufficient for a trustworthy review decision." in summary.message
+    assert "The available context was insufficient." in summary.message

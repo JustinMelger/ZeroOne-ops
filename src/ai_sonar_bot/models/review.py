@@ -48,6 +48,30 @@ class ReviewFileContext(BaseModel):
     renamed_file: bool = False
 
 
+class RemediationReviewContext(BaseModel):
+    """Represent remediation-authored MR metadata when present."""
+
+    summary: str | None = None
+    source: str | None = None
+    item_reference_label: str | None = None
+    item_reference: str | None = None
+    rule_id: str | None = None
+    severity: str | None = None
+    remediation_type: str | None = None
+    file_path: str | None = None
+    line: int | None = None
+    message: str | None = None
+    validation_summary: str | None = None
+    notes: str | None = None
+
+
+class RepositoryGuidanceContext(BaseModel):
+    """Represent one bounded repository guidance excerpt for review."""
+
+    file_path: str
+    summary: str
+
+
 class MergeRequestReviewContext(BaseModel):
     """Represent deterministic review context for one merge request."""
 
@@ -60,6 +84,8 @@ class MergeRequestReviewContext(BaseModel):
     head_sha: str
     draft: bool = False
     author_username: str | None = None
+    remediation_context: RemediationReviewContext | None = None
+    repository_guidance: list[RepositoryGuidanceContext] = Field(default_factory=list)
     changed_files: list[ReviewFileContext] = Field(default_factory=list)
 
 
@@ -69,6 +95,7 @@ class ReviewFinding(BaseModel):
     severity: Literal["high", "medium", "low"]
     file_path: str
     title: str
+    evidence: str
     explanation: str
     suggested_follow_up: str
 
@@ -78,4 +105,6 @@ class ReviewResult(BaseModel):
 
     classification: Literal["no_findings", "findings_present", "manual_review_only"]
     summary: str
+    review_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    review_confidence_reason: str | None = None
     findings: list[ReviewFinding] = Field(default_factory=list)

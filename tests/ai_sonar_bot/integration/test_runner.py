@@ -1,15 +1,10 @@
-import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from ai_sonar_bot.models.analysis import (
-    AnalysisClassification,
     CodeContextSnippet,
-    IssueAnalysis,
     IssueContext,
     PatchProposal,
-    StructuredEditProposal,
-    TextEdit,
     ValidationResult,
 )
 from ai_sonar_bot.models.dashboard import (
@@ -26,7 +21,6 @@ from ai_sonar_bot.models.review import (
     ReviewFinding,
     ReviewResult,
 )
-from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import (
     AppState,
     FailureStage,
@@ -34,7 +28,7 @@ from ai_sonar_bot.models.state import (
     RepositoryState,
 )
 from ai_sonar_bot.providers.gitlab_client import GitLabClientError
-from ai_sonar_bot.runner import dashboard_reconcile, dashboard_remediate, review, run
+from ai_sonar_bot.runner import dashboard_reconcile, dashboard_remediate, review
 from ai_sonar_bot.services.analysis_service import AnalysisResult
 from ai_sonar_bot.services.branch_manager import BranchManagerError
 from ai_sonar_bot.services.review_publisher import ReviewPublishResult
@@ -56,35 +50,6 @@ def build_dashboard_document(*, items: list[DashboardItem]) -> DashboardDocument
         title="AI Code Ops Dashboard",
         sections=sections,
     )
-
-
-def test_run_dry_run_creates_summary(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
-    monkeypatch.delenv("SONARQUBE_URL", raising=False)
-    monkeypatch.delenv("SONARQUBE_TOKEN", raising=False)
-    monkeypatch.delenv("SONARQUBE_PROJECT_KEY", raising=False)
-    (tmp_path / ".ai-sonar-bot.json").write_text(
-        """
-        {
-          "base_branch": "main",
-          "supported_severities": ["MAJOR"],
-          "supported_issue_types": ["BUG"],
-          "supported_rules": ["python:S2259"],
-          "validation_commands": [],
-          "gitlab": {
-            "target_branch": "main",
-            "labels": []
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    summary = run(dry_run=True)
-
-    assert summary.status.value == "no_issue"
-    assert "SonarQube credentials not configured" in summary.message
 
 
 def test_dashboard_remediate_dry_run_returns_no_issue_summary(tmp_path: Path, monkeypatch) -> None:
@@ -2516,6 +2481,10 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
                             severity="medium",
                             file_path="src/service.py",
                             title="Missing test coverage",
+                            evidence=(
+                                "The diff changes `value = 1` to `value = 2` "
+                                "without any test updates."
+                            ),
                             explanation="The change alters behavior without test updates.",
                             suggested_follow_up="Add a regression test.",
                         )
@@ -2692,6 +2661,131 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     assert "Dashboard mirror failed: boom" in summary.message
 
 
+def test_review_non_dry_run_skips_no_findings_note_when_configured(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "review": {
+            "publish_no_findings_note": false
+          },
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    merge_request = MergeRequestReviewCandidate(
+        iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        changes=[],
+    )
+    review_context = MergeRequestReviewContext(
+        mr_iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                diff="@@ -1,1 +1,1 @@",
+                start_line=1,
+                end_line=1,
+                content="   1: value = 1",
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.mr_intake.MergeRequestIntakeService.select_merge_request",
+        lambda self, state: type(
+            "Result",
+            (),
+            {
+                "selected_merge_request": merge_request,
+                "merge_request_count": 1,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
+        lambda self, merge_request, project_id: type(
+            "ContextResult",
+            (),
+            {
+                "context": review_context,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
+        lambda self, context: type(
+            "AnalysisResult",
+            (),
+            {
+                "review_result": ReviewResult(
+                    classification="no_findings",
+                    summary="No findings.",
+                    findings=[],
+                ),
+                "message": "Review classification: no_findings. Summary: No findings.",
+            },
+        )(),
+    )
+
+    def fail_publish(self, project_id, merge_request_iid, context, review_result):  # noqa: ANN001, ANN202
+        raise AssertionError("No-findings note should not be published when disabled.")
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_publisher.ReviewPublisher.publish",
+        fail_publish,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_dashboard_updater.ReviewDashboardUpdater.update",
+        lambda self, project_id, merge_request, review_result: type(
+            "DashboardResult",
+            (),
+            {
+                "dashboard_issue_url": None,
+                "error_message": None,
+            },
+        )(),
+    )
+
+    summary = review(dry_run=False)
+
+    assert summary.status.value == "reviewed"
+    assert "Reviewed merge request !17 at abc123." in summary.message
+    assert "Review note:" not in summary.message
+
+
 def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
@@ -2747,1049 +2841,3 @@ def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeyp
 
     assert summary.status.value == "no_issue"
     assert "already reviewed for their current head SHA" in summary.message
-
-
-def test_run_selects_issue_with_existing_local_file(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
-    monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
-    monkeypatch.setenv("SONARQUBE_TOKEN", "token")
-    monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
-
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "service.py").write_text("value = None\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
-        """
-        {
-          "base_branch": "main",
-          "supported_severities": ["MAJOR"],
-          "supported_issue_types": ["BUG"],
-          "supported_rules": ["python:S2259"],
-          "validation_commands": [],
-          "gitlab": {
-            "target_branch": "main",
-            "labels": []
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    def fake_search_open_issues(self) -> list[SonarIssue]:
-        del self
-        return [
-            SonarIssue(
-                key="AX12345",
-                rule="python:S2259",
-                severity="MAJOR",
-                type="BUG",
-                status="OPEN",
-                message="Add a null check.",
-                component="sample-project:src/service.py",
-                project="sample-project",
-                file_path="src/service.py",
-                line=1,
-            )
-        ]
-
-    monkeypatch.setattr(
-        "ai_sonar_bot.providers.sonar_client.SonarClient.search_open_issues",
-        fake_search_open_issues,
-    )
-
-    summary = run(dry_run=True)
-
-    assert summary.status.value == "selected"
-    assert "AX12345" in summary.message
-    assert "src/service.py" in summary.message
-
-
-def test_run_dry_run_uses_fixture_when_configured(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
-    fixture_dir = tmp_path / "fixtures" / "sonar"
-    fixture_dir.mkdir(parents=True)
-    llm_fixture_dir = tmp_path / "fixtures" / "llm"
-    llm_fixture_dir.mkdir(parents=True)
-    (fixture_dir / "issues.json").write_text(
-        """
-        {
-          "issues": [
-            {
-              "key": "FIXTURE-1",
-              "rule": "python:S2259",
-              "severity": "MAJOR",
-              "type": "BUG",
-              "status": "OPEN",
-              "message": "Fixture issue",
-              "component": "sample-project:src/service.py",
-              "project": "sample-project",
-              "line": 1
-            }
-          ]
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-    (llm_fixture_dir / "analysis.json").write_text(
-        """
-        {
-          "issue_key": "FIXTURE-1",
-          "classification": "auto_fixable",
-          "summary": "Fixture analysis summary",
-          "risk_notes": [],
-          "target_files": ["src/service.py"],
-          "proposed_strategy": "Add the minimal fix."
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-    (llm_fixture_dir / "edit.json").write_text(
-        """
-        {
-          "issue_key": "FIXTURE-1",
-          "edits": [
-            {
-              "file_path": "src/service.py",
-              "search_text": "value = 1",
-              "replace_text": "value = 2",
-              "line_hint": 1
-            }
-          ],
-          "commit_message": "fix(sonar): patch service [FIXTURE-1]",
-          "mr_title": "fix: patch service",
-          "mr_description": "summary"
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-    (tmp_path / ".ai-sonar-bot.json").write_text(
-        """
-        {
-          "base_branch": "main",
-          "mock_llm_analysis_path": "fixtures/llm/analysis.json",
-          "mock_llm_edit_path": "fixtures/llm/edit.json",
-          "mock_sonar_issues_path": "fixtures/sonar/issues.json",
-          "supported_severities": ["MAJOR"],
-          "supported_issue_types": ["BUG"],
-          "supported_rules": ["python:S2259"],
-          "validation_commands": [],
-          "gitlab": {
-            "target_branch": "main",
-            "labels": []
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    summary = run(dry_run=True)
-
-    assert summary.status.value == "selected"
-    assert "FIXTURE-1" in summary.message
-    assert "Analysis classification: auto_fixable" in summary.message
-    assert "Proposed files: src/service.py" in summary.message
-    assert "MR title: fix: patch service" in summary.message
-
-
-def test_run_dry_run_can_apply_patch_when_enabled(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
-    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
-    fixture_dir = tmp_path / "fixtures" / "sonar"
-    fixture_dir.mkdir(parents=True)
-    llm_fixture_dir = tmp_path / "fixtures" / "llm"
-    llm_fixture_dir.mkdir(parents=True)
-    (fixture_dir / "issues.json").write_text(
-        """
-        {
-          "issues": [
-            {
-              "key": "FIXTURE-2",
-              "rule": "python:S2259",
-              "severity": "MAJOR",
-              "type": "BUG",
-              "status": "OPEN",
-              "message": "Fixture issue",
-              "component": "sample-project:src/service.py",
-              "project": "sample-project",
-              "line": 1
-            }
-          ]
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-    (llm_fixture_dir / "analysis.json").write_text(
-        """
-        {
-          "issue_key": "FIXTURE-2",
-          "classification": "auto_fixable",
-          "summary": "Fixture analysis summary",
-          "risk_notes": [],
-          "target_files": ["src/service.py"],
-          "proposed_strategy": "Apply the minimal fix."
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-    (llm_fixture_dir / "edit.json").write_text(
-        (
-            "{\n"
-            '  "issue_key": "FIXTURE-2",\n'
-            '  "edits": [\n'
-            "    {\n"
-            '      "file_path": "src/service.py",\n'
-            '      "search_text": "value = 1",\n'
-            '      "replace_text": "value = 2",\n'
-            '      "line_hint": 1\n'
-            "    }\n"
-            "  ],\n"
-            '  "commit_message": "fix(sonar): patch service [FIXTURE-2]",\n'
-            '  "mr_title": "fix: patch service",\n'
-            '  "mr_description": "summary"\n'
-            "}"
-        ),
-        encoding="utf-8",
-    )
-    (tmp_path / ".ai-sonar-bot.json").write_text(
-        """
-        {
-          "base_branch": "main",
-          "apply_patch_in_dry_run": true,
-          "mock_llm_analysis_path": "fixtures/llm/analysis.json",
-          "mock_llm_edit_path": "fixtures/llm/edit.json",
-          "mock_sonar_issues_path": "fixtures/sonar/issues.json",
-          "supported_severities": ["MAJOR"],
-          "supported_issue_types": ["BUG"],
-          "supported_rules": ["python:S2259"],
-          "validation_commands": [],
-          "gitlab": {
-            "target_branch": "main",
-            "labels": []
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    summary = run(dry_run=True)
-
-    assert summary.status.value == "selected"
-    assert "Patch applied locally in dry-run" in summary.message
-    assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 2\n"
-
-
-def test_run_dry_run_can_apply_bot_rendered_diff_from_structured_edit(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
-    monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
-    monkeypatch.setenv("SONARQUBE_TOKEN", "token")
-    monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_MODEL", raising=False)
-    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
-    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
-        """
-        {
-          "base_branch": "main",
-          "apply_patch_in_dry_run": true,
-          "supported_severities": ["MAJOR"],
-          "supported_issue_types": ["BUG"],
-          "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
-          "gitlab": {
-            "target_branch": "main",
-            "labels": []
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    def fake_search_open_issues(self) -> list[SonarIssue]:
-        del self
-        return [
-            SonarIssue(
-                key="STRUCTURED-1",
-                rule="python:S1125",
-                severity="MAJOR",
-                type="BUG",
-                status="OPEN",
-                message="Simplify boolean comparison.",
-                component="sample-project:src/service.py",
-                project="sample-project",
-                file_path="src/service.py",
-                line=1,
-            )
-        ]
-
-    class StructuredEditLLMClient:
-        def analyze_issue(self, issue: SonarIssue, context) -> IssueAnalysis:
-            del issue, context
-            return IssueAnalysis(
-                issue_key="STRUCTURED-1",
-                classification=AnalysisClassification.AUTO_FIXABLE,
-                summary="Fixture analysis summary",
-                risk_notes=[],
-                target_files=["src/service.py"],
-                proposed_strategy="Apply the minimal fix.",
-            )
-
-        def generate_structured_edit(
-            self,
-            issue: SonarIssue,
-            context,
-        ) -> StructuredEditProposal:
-            del issue, context
-            return StructuredEditProposal(
-                issue_key="STRUCTURED-1",
-                edits=[
-                    TextEdit(
-                        file_path="src/service.py",
-                        search_text="value = 1",
-                        replace_text="value = 2",
-                        line_hint=1,
-                    )
-                ],
-                commit_message="fix(sonar): patch service [STRUCTURED-1]",
-                mr_title="fix: patch service",
-                mr_description="summary",
-            )
-
-    monkeypatch.setattr(
-        "ai_sonar_bot.providers.sonar_client.SonarClient.search_open_issues",
-        fake_search_open_issues,
-    )
-    monkeypatch.setattr(
-        "ai_sonar_bot.services.analysis_service.AnalysisService._build_llm_client",
-        lambda self: StructuredEditLLMClient(),
-    )
-
-    summary = run(dry_run=True)
-
-    assert summary.status.value == "selected"
-    assert "Diff rendered by bot from structured edit proposal." in summary.message
-    assert "Patch applied locally in dry-run" in summary.message
-    assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 2\n"
-
-
-def test_run_non_dry_run_creates_branch_and_local_commit(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
-    monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
-    monkeypatch.setenv("SONARQUBE_TOKEN", "token")
-    monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
-    monkeypatch.setattr("builtins.input", lambda prompt: "y")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_MODEL", raising=False)
-    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
-    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
-    subprocess.run(
-        ["git", "config", "user.name", "AI Sonar Bot"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.email", "ai-sonar-bot@example.com"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    (tmp_path / "src").mkdir()
-    tracked = tmp_path / "src" / "service.py"
-    tracked.write_text("value = 1\n", encoding="utf-8")
-    subprocess.run(
-        ["git", "add", "src/service.py"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "chore: initial"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    llm_fixture_dir = tmp_path / "fixtures" / "llm"
-    llm_fixture_dir.mkdir(parents=True)
-    (llm_fixture_dir / "analysis.json").write_text(
-        """
-        {
-          "issue_key": "FIXTURE-3",
-          "classification": "auto_fixable",
-          "summary": "Fixture analysis summary",
-          "risk_notes": [],
-          "target_files": ["src/service.py"],
-          "proposed_strategy": "Apply the minimal fix."
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-    (llm_fixture_dir / "edit.json").write_text(
-        (
-            "{\n"
-            '  "issue_key": "FIXTURE-3",\n'
-            '  "edits": [\n'
-            "    {\n"
-            '      "file_path": "src/service.py",\n'
-            '      "search_text": "value = 1",\n'
-            '      "replace_text": "value = 2",\n'
-            '      "line_hint": 1\n'
-            "    }\n"
-            "  ],\n"
-            '  "commit_message": "fix(sonar): patch service [FIXTURE-3]",\n'
-            '  "mr_title": "fix: patch service",\n'
-            '  "mr_description": "summary"\n'
-            "}"
-        ),
-        encoding="utf-8",
-    )
-    (tmp_path / ".ai-sonar-bot.json").write_text(
-        """
-            {
-              "execution_mode": "local",
-              "base_branch": "main",
-              "branch_prefix": "ai-sonar",
-              "mock_llm_analysis_path": "fixtures/llm/analysis.json",
-              "mock_llm_edit_path": "fixtures/llm/edit.json",
-              "supported_severities": ["MAJOR"],
-              "supported_issue_types": ["BUG"],
-              "supported_rules": ["python:S2259"],
-              "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
-          "gitlab": {
-            "target_branch": "main",
-            "labels": []
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    def fake_search_open_issues(self) -> list[SonarIssue]:
-        del self
-        return [
-            SonarIssue(
-                key="FIXTURE-3",
-                rule="python:S2259",
-                severity="MAJOR",
-                type="BUG",
-                status="OPEN",
-                message="Fixture issue",
-                component="sample-project:src/service.py",
-                project="sample-project",
-                file_path="src/service.py",
-                line=1,
-            )
-        ]
-
-    monkeypatch.setattr(
-        "ai_sonar_bot.providers.sonar_client.SonarClient.search_open_issues",
-        fake_search_open_issues,
-    )
-    subprocess.run(
-        ["git", "add", ".ai-sonar-bot.json", "fixtures"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "chore: add bot fixtures"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-    summary = run(dry_run=False)
-
-    assert summary.status.value == "fix_generated"
-    assert "All validation commands passed." in summary.message
-    current_branch = subprocess.run(
-        ["git", "branch", "--show-current"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    assert current_branch == "ai-sonar/fixture-3/service"
-    assert tracked.read_text(encoding="utf-8") == "value = 2\n"
-
-
-def test_run_local_mode_rejects_when_approval_declines(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
-    monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
-    monkeypatch.setenv("SONARQUBE_TOKEN", "token")
-    monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
-    monkeypatch.setattr("builtins.input", lambda prompt: "n")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_MODEL", raising=False)
-    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
-    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
-    subprocess.run(
-        ["git", "config", "user.name", "AI Sonar Bot"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.email", "ai-sonar-bot@example.com"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    (tmp_path / "src").mkdir()
-    tracked = tmp_path / "src" / "service.py"
-    tracked.write_text("value = 1\n", encoding="utf-8")
-    subprocess.run(
-        ["git", "add", "src/service.py"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "chore: initial"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    llm_fixture_dir = tmp_path / "fixtures" / "llm"
-    llm_fixture_dir.mkdir(parents=True)
-    (llm_fixture_dir / "analysis.json").write_text(
-        """
-        {
-          "issue_key": "FIXTURE-6",
-          "classification": "auto_fixable",
-          "summary": "Fixture analysis summary",
-          "risk_notes": [],
-          "target_files": ["src/service.py"],
-          "proposed_strategy": "Apply the minimal fix."
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-    (llm_fixture_dir / "edit.json").write_text(
-        (
-            "{\n"
-            '  "issue_key": "FIXTURE-6",\n'
-            '  "edits": [\n'
-            "    {\n"
-            '      "file_path": "src/service.py",\n'
-            '      "search_text": "value = 1",\n'
-            '      "replace_text": "value = 2",\n'
-            '      "line_hint": 1\n'
-            "    }\n"
-            "  ],\n"
-            '  "commit_message": "fix(sonar): patch service [FIXTURE-6]",\n'
-            '  "mr_title": "fix: patch service",\n'
-            '  "mr_description": "summary"\n'
-            "}"
-        ),
-        encoding="utf-8",
-    )
-    (tmp_path / ".ai-sonar-bot.json").write_text(
-        """
-        {
-          "execution_mode": "local",
-          "base_branch": "main",
-          "branch_prefix": "ai-sonar",
-          "mock_llm_analysis_path": "fixtures/llm/analysis.json",
-          "mock_llm_edit_path": "fixtures/llm/edit.json",
-          "supported_severities": ["MAJOR"],
-          "supported_issue_types": ["BUG"],
-          "supported_rules": ["python:S2259"],
-          "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
-          "gitlab": {
-            "target_branch": "main",
-            "labels": ["ai-sonar-bot"]
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    def fake_search_open_issues(self) -> list[SonarIssue]:
-        del self
-        return [
-            SonarIssue(
-                key="FIXTURE-6",
-                rule="python:S2259",
-                severity="MAJOR",
-                type="BUG",
-                status="OPEN",
-                message="Fixture issue",
-                component="sample-project:src/service.py",
-                project="sample-project",
-                file_path="src/service.py",
-                line=1,
-            )
-        ]
-
-    monkeypatch.setattr(
-        "ai_sonar_bot.providers.sonar_client.SonarClient.search_open_issues",
-        fake_search_open_issues,
-    )
-    subprocess.run(
-        ["git", "add", ".ai-sonar-bot.json", "fixtures"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "chore: add bot fixtures"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-    summary = run(dry_run=False)
-
-    assert summary.status.value == "rejected"
-    assert "Local approval rejected the proposed change." in summary.message
-    assert tracked.read_text(encoding="utf-8") == "value = 1\n"
-
-
-def test_run_ci_mode_pushes_branch_and_creates_merge_request(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
-    monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
-    monkeypatch.setenv("SONARQUBE_TOKEN", "token")
-    monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
-    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
-    monkeypatch.setenv("GITLAB_TOKEN", "token")
-    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_MODEL", raising=False)
-    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
-    remote_repo = tmp_path.parent / "remote.git"
-    subprocess.run(
-        ["git", "init", "--bare", str(remote_repo)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
-    subprocess.run(
-        ["git", "remote", "add", "origin", str(remote_repo)],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "AI Sonar Bot"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.email", "ai-sonar-bot@example.com"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    (tmp_path / "src").mkdir()
-    tracked = tmp_path / "src" / "service.py"
-    tracked.write_text("value = 1\n", encoding="utf-8")
-    subprocess.run(
-        ["git", "add", "src/service.py"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "chore: initial"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        [
-            "git",
-            "push",
-            "-u",
-            "origin",
-            subprocess.run(
-                ["git", "branch", "--show-current"],
-                cwd=tmp_path,
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.strip(),
-        ],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    llm_fixture_dir = tmp_path / "fixtures" / "llm"
-    llm_fixture_dir.mkdir(parents=True)
-    (llm_fixture_dir / "analysis.json").write_text(
-        """
-        {
-          "issue_key": "FIXTURE-4",
-          "classification": "auto_fixable",
-          "summary": "Fixture analysis summary",
-          "risk_notes": [],
-          "target_files": ["src/service.py"],
-          "proposed_strategy": "Apply the minimal fix."
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-    (llm_fixture_dir / "edit.json").write_text(
-        (
-            "{\n"
-            '  "issue_key": "FIXTURE-4",\n'
-            '  "edits": [\n'
-            "    {\n"
-            '      "file_path": "src/service.py",\n'
-            '      "search_text": "value = 1",\n'
-            '      "replace_text": "value = 2",\n'
-            '      "line_hint": 1\n'
-            "    }\n"
-            "  ],\n"
-            '  "commit_message": "fix(sonar): patch service [FIXTURE-4]",\n'
-            '  "mr_title": "fix: patch service",\n'
-            '  "mr_description": "summary"\n'
-            "}"
-        ),
-        encoding="utf-8",
-    )
-    (tmp_path / ".ai-sonar-bot.json").write_text(
-        """
-        {
-          "execution_mode": "ci",
-          "base_branch": "main",
-          "branch_prefix": "ai-sonar",
-          "mock_llm_analysis_path": "fixtures/llm/analysis.json",
-          "mock_llm_edit_path": "fixtures/llm/edit.json",
-          "supported_severities": ["MAJOR"],
-          "supported_issue_types": ["BUG"],
-          "supported_rules": ["python:S2259"],
-          "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
-          "gitlab": {
-            "target_branch": "main",
-            "labels": ["ai-sonar-bot"]
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    def fake_search_open_issues(self) -> list[SonarIssue]:
-        del self
-        return [
-            SonarIssue(
-                key="FIXTURE-4",
-                rule="python:S2259",
-                severity="MAJOR",
-                type="BUG",
-                status="OPEN",
-                message="Fixture issue",
-                component="sample-project:src/service.py",
-                project="sample-project",
-                file_path="src/service.py",
-                line=1,
-            )
-        ]
-
-    monkeypatch.setattr(
-        "ai_sonar_bot.providers.sonar_client.SonarClient.search_open_issues",
-        fake_search_open_issues,
-    )
-
-    def fake_find_open(
-        self,
-        project_id: str,
-        source_branch: str,
-        target_branch: str,
-    ):
-        del self, project_id, source_branch, target_branch
-        return None
-
-    def fake_create(
-        self,
-        project_id: str,
-        source_branch: str,
-        target_branch: str,
-        title: str,
-        description: str,
-        labels: list[str],
-    ):
-        del self, project_id, source_branch, target_branch, title, description, labels
-        from ai_sonar_bot.models.gitlab import MergeRequestInfo
-
-        return MergeRequestInfo(
-            iid=9,
-            web_url="https://gitlab.example.com/group/project/-/merge_requests/9",
-            title="fix: patch service",
-        )
-
-    monkeypatch.setattr(
-        "ai_sonar_bot.services.mr_service.MergeRequestService.find_open",
-        fake_find_open,
-    )
-    monkeypatch.setattr(
-        "ai_sonar_bot.services.mr_service.MergeRequestService.create",
-        fake_create,
-    )
-
-    subprocess.run(
-        ["git", "add", ".ai-sonar-bot.json", "fixtures"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "chore: add bot fixtures"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-    summary = run(dry_run=False)
-
-    assert summary.status.value == "mr_created"
-    assert "Merge request created:" in summary.message
-    assert "https://gitlab.example.com/group/project/-/merge_requests/9" in summary.message
-
-
-def test_run_ci_mode_reuses_existing_merge_request(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
-    monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
-    monkeypatch.setenv("SONARQUBE_TOKEN", "token")
-    monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
-    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
-    monkeypatch.setenv("GITLAB_TOKEN", "token")
-    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_MODEL", raising=False)
-    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
-    remote_repo = tmp_path.parent / "remote-reuse.git"
-    subprocess.run(
-        ["git", "init", "--bare", str(remote_repo)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
-    subprocess.run(
-        ["git", "remote", "add", "origin", str(remote_repo)],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "AI Sonar Bot"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.email", "ai-sonar-bot@example.com"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    (tmp_path / "src").mkdir()
-    tracked = tmp_path / "src" / "service.py"
-    tracked.write_text("value = 1\n", encoding="utf-8")
-    subprocess.run(
-        ["git", "add", "src/service.py"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "chore: initial"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        [
-            "git",
-            "push",
-            "-u",
-            "origin",
-            subprocess.run(
-                ["git", "branch", "--show-current"],
-                cwd=tmp_path,
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.strip(),
-        ],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    llm_fixture_dir = tmp_path / "fixtures" / "llm"
-    llm_fixture_dir.mkdir(parents=True)
-    (llm_fixture_dir / "analysis.json").write_text(
-        """
-        {
-          "issue_key": "FIXTURE-5",
-          "classification": "auto_fixable",
-          "summary": "Fixture analysis summary",
-          "risk_notes": [],
-          "target_files": ["src/service.py"],
-          "proposed_strategy": "Apply the minimal fix."
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-    (llm_fixture_dir / "edit.json").write_text(
-        (
-            "{\n"
-            '  "issue_key": "FIXTURE-5",\n'
-            '  "edits": [\n'
-            "    {\n"
-            '      "file_path": "src/service.py",\n'
-            '      "search_text": "value = 1",\n'
-            '      "replace_text": "value = 2",\n'
-            '      "line_hint": 1\n'
-            "    }\n"
-            "  ],\n"
-            '  "commit_message": "fix(sonar): patch service [FIXTURE-5]",\n'
-            '  "mr_title": "fix: patch service",\n'
-            '  "mr_description": "summary"\n'
-            "}"
-        ),
-        encoding="utf-8",
-    )
-    (tmp_path / ".ai-sonar-bot.json").write_text(
-        """
-        {
-          "execution_mode": "ci",
-          "base_branch": "main",
-          "branch_prefix": "ai-sonar",
-          "mock_llm_analysis_path": "fixtures/llm/analysis.json",
-          "mock_llm_edit_path": "fixtures/llm/edit.json",
-          "supported_severities": ["MAJOR"],
-          "supported_issue_types": ["BUG"],
-          "supported_rules": ["python:S2259"],
-          "validation_commands": ["test \\"$(cat src/service.py)\\" = \\"value = 2\\""],
-          "gitlab": {
-            "target_branch": "main",
-            "labels": ["ai-sonar-bot"]
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    def fake_search_open_issues(self) -> list[SonarIssue]:
-        del self
-        return [
-            SonarIssue(
-                key="FIXTURE-5",
-                rule="python:S2259",
-                severity="MAJOR",
-                type="BUG",
-                status="OPEN",
-                message="Fixture issue",
-                component="sample-project:src/service.py",
-                project="sample-project",
-                file_path="src/service.py",
-                line=1,
-            )
-        ]
-
-    monkeypatch.setattr(
-        "ai_sonar_bot.providers.sonar_client.SonarClient.search_open_issues",
-        fake_search_open_issues,
-    )
-
-    def fake_find_open(
-        self,
-        project_id: str,
-        source_branch: str,
-        target_branch: str,
-    ):
-        del self, project_id, source_branch, target_branch
-        from ai_sonar_bot.models.gitlab import MergeRequestInfo
-
-        return MergeRequestInfo(
-            iid=11,
-            web_url="https://gitlab.example.com/group/project/-/merge_requests/11",
-            title="fix: patch service",
-        )
-
-    def fail_create(
-        self,
-        project_id: str,
-        source_branch: str,
-        target_branch: str,
-        title: str,
-        description: str,
-        labels: list[str],
-    ):
-        del self, project_id, source_branch, target_branch, title, description, labels
-        raise AssertionError("create should not be called when an open merge request exists")
-
-    monkeypatch.setattr(
-        "ai_sonar_bot.services.mr_service.MergeRequestService.find_open",
-        fake_find_open,
-    )
-    monkeypatch.setattr(
-        "ai_sonar_bot.services.mr_service.MergeRequestService.create",
-        fail_create,
-    )
-
-    subprocess.run(
-        ["git", "add", ".ai-sonar-bot.json", "fixtures"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "chore: add bot fixtures"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-    summary = run(dry_run=False)
-
-    assert summary.status.value == "no_issue"
-    assert "No eligible SonarQube issue found in 1 open issues." in summary.message
-    assert "Skipped 1 with an open merge request." in summary.message

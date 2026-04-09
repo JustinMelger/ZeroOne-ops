@@ -1,7 +1,11 @@
-# AI Sonar Bot
+# AI Code Ops
 
-AI Sonar Bot is a Python CLI that fetches open SonarQube issues, analyzes one issue, prepares a fix, validates the change, and creates a GitLab merge request for human review.
-The same image and CLI also contain a GitLab merge request review workflow.
+AI Code Ops is a GitLab-first automation platform for dashboard-backed
+remediation, merge request review, and lifecycle reconciliation.
+
+The current repository, package, image, and CLI still use the technical
+compatibility name `ai-sonar-bot`, but the product direction is no longer just
+Sonar-focused.
 
 ## Status
 
@@ -16,6 +20,8 @@ This repository currently contains:
 Implemented today:
 
 - SonarQube issue intake and selection
+- dashboard-backed remediation and reconciliation workflows
+- GitLab merge request review workflow
 - focused code context building
 - fixture-backed and OpenAI-backed analysis
 - patch generation, application, validation, and single retry
@@ -36,7 +42,8 @@ Implemented today:
 
 ```bash
 uv sync
-uv run ai-sonar-bot --dry-run
+uv run ai-sonar-bot dashboard sonar --dry-run
+uv run ai-sonar-bot dashboard remediate --dry-run
 uv run ai-sonar-bot review --dry-run
 ```
 
@@ -75,8 +82,9 @@ For v1 safety, the bot only accepts structured edits that touch exactly one file
 ## Commands
 
 ```bash
-uv run ai-sonar-bot
-uv run ai-sonar-bot --dry-run
+uv run ai-sonar-bot dashboard sonar --dry-run
+uv run ai-sonar-bot dashboard remediate --dry-run
+uv run ai-sonar-bot dashboard reconcile --dry-run
 uv run ai-sonar-bot review --dry-run
 uv run pytest
 PYTHONPATH=src uv run lint-imports
@@ -168,26 +176,36 @@ After a release tag exists, users can pull a specific version with:
 docker pull ghcr.io/<owner>/ai-sonar-bot:0.2.0
 ```
 
-An example GitLab pipeline is provided in [.gitlab-ci.example.yml](.gitlab-ci.example.yml). In a target repository, copy that file to `.gitlab-ci.yml` and set these CI variables:
+An example GitLab pipeline is provided in [.gitlab-ci.example.yml](.gitlab-ci.example.yml). In a target repository, copy that file to `.gitlab-ci.yml` and set these CI variables by workflow:
 
-- `SONARQUBE_URL`
-- `SONARQUBE_TOKEN`
-- `SONARQUBE_PROJECT_KEY`
-- `GITLAB_URL`
-- `GITLAB_TOKEN`
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL`
+- for `ai_sonar_bot_dashboard`
+  - `SONARQUBE_URL`
+  - `SONARQUBE_TOKEN`
+  - `SONARQUBE_PROJECT_KEY`
+  - `GITLAB_URL`
+  - `GITLAB_TOKEN`
+- for `ai_sonar_bot_dashboard_remediate`
+  - `GITLAB_URL`
+  - `GITLAB_TOKEN`
+  - `OPENAI_API_KEY`
+  - `OPENAI_MODEL`
+- for `ai_sonar_bot_dashboard_reconcile`
+  - `GITLAB_URL`
+  - `GITLAB_TOKEN`
+- for `ai_sonar_bot_review`
+  - `GITLAB_URL`
+  - `GITLAB_TOKEN`
+  - `OPENAI_API_KEY`
+  - `OPENAI_MODEL`
 
 `GITLAB_PROJECT_ID` is optional in GitLab CI because the bot falls back to `CI_PROJECT_ID`.
 
-The example now includes five jobs:
+The example now includes four jobs:
 
-- `ai_sonar_bot`
-  - the main Sonar remediation workflow on the default branch
 - `ai_sonar_bot_dashboard`
   - discovery-only Sonar dashboard sync on the default branch
 - `ai_sonar_bot_dashboard_remediate`
-  - dashboard-backed remediation on the default branch during migration
+  - dashboard-backed remediation on the default branch
 - `ai_sonar_bot_dashboard_reconcile`
   - scheduled dashboard reconciliation for `mr_opened` items after merge
     request state changes
@@ -201,42 +219,52 @@ as if `sh` were a CLI subcommand.
 
 Recommended GitLab CI setup:
 
-- keep the bot job restricted to the default branch
-- keep dashboard sync as a separate job from Sonar remediation
-- keep dashboard-backed remediation as a separate job from both direct Sonar remediation and dashboard sync during migration
+- keep dashboard sync as a separate job from active remediation
+- keep dashboard-backed remediation as a separate job from dashboard sync, but
+  make it run after dashboard sync in the same pipeline with `needs:` or
+  explicit stage ordering
 - keep dashboard reconciliation as a separate job from active remediation so it
   only owns post-merge-request lifecycle convergence
-- trigger `ai_sonar_bot` from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT=true`
 - trigger dashboard sync from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT_DASHBOARD=true`
 - trigger dashboard-backed remediation from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT_DASHBOARD_REMEDIATE=true`
 - trigger dashboard reconciliation from a pipeline schedule, or manually with `RUN_AI_SONAR_BOT_DASHBOARD_RECONCILE=true`
 - trigger `ai_sonar_bot_review` from merge request pipelines, or manually with `RUN_AI_SONAR_BOT_REVIEW=true`
-- store `SONARQUBE_TOKEN`, `GITLAB_TOKEN`, and `OPENAI_API_KEY` as protected CI variables
+- store only the secrets each job actually needs as protected CI variables
 - use a token that is allowed to push branches and create merge requests
 - keep `GIT_DEPTH=0` so branch and push behavior is predictable
 - set a fixed git author and committer identity in the job
 - rewrite the `origin` remote in CI to use `GITLAB_TOKEN` for authenticated pushes
 - keep review scope narrow with a low `review.max_changed_files`
+- set `review.ignored_paths` for generated or low-value areas such as `src/generated/`
+- keep `review.max_findings_per_review` low so the bot surfaces only the highest-signal issues
 - keep `review.skip_draft_merge_requests` enabled
 - set `review.publish_no_findings_note` to `false` if you want lower cost and less MR noise
 
-The Sonar remediation job in the example uses a `resource_group` so two mutation jobs do not try to change the same repository checkout at once. The dashboard sync job stays separate because it is discovery, not remediation. The dashboard remediation and dashboard reconciliation jobs each use their own `resource_group` so operators can roll them out deliberately without mixing active remediation and post-MR lifecycle convergence. The review job is read-mostly and publishes only merge request notes, so it uses a separate `resource_group`.
+The dashboard sync job stays separate because it is discovery, not remediation.
+The cleanest operating model is:
+
+- `dashboard sync` then `dashboard remediate` as one ordered CI flow
+- `dashboard reconcile` as a separate scheduled or manual lifecycle job later
+
+The dashboard remediation and dashboard reconciliation jobs each use their own
+`resource_group` so operators can roll them out deliberately without mixing
+active remediation and post-MR lifecycle convergence. The review job is
+read-mostly and publishes only merge request notes, so it uses a separate
+`resource_group`.
 
 Recommended first rollout order:
 
-- run `ai_sonar_bot` manually once on the default branch
-- rerun `ai_sonar_bot` once immediately and confirm duplicate-MR handling is clean
 - run `ai_sonar_bot_dashboard` manually once and confirm eligible Sonar items appear in the dashboard without duplication
 - run `ai-sonar-bot dashboard remediate --dry-run` locally to inspect one supported dashboard item without changing lifecycle state
-- run one live `dashboard remediate` CI job only after direct Sonar remediation, dashboard sync, and dry-run inspection all behave as expected
+- run one live CI pipeline where `dashboard remediate` follows `dashboard sync`
+  after dashboard sync and dry-run inspection both behave as expected
 - run `ai-sonar-bot dashboard reconcile --dry-run` locally to inspect one `mr_opened` reconciliation decision without changing lifecycle state
 - run one live `dashboard reconcile` CI job after a remediation MR is merged or closed
 - run `ai_sonar_bot_review` manually on one small merge request pipeline
 - enable schedules only after the manual smoke runs for remediation, dashboard sync, dashboard-backed remediation, reconciliation, and review all behave as expected
 
-Migration model during dashboard rollout:
+Dashboard rollout model:
 
-- keep direct Sonar remediation only as a temporary fallback while dashboard-backed remediation is stabilizing
 - keep Sonar dashboard sync as the discovery producer for Sonar-derived dashboard items
 - treat live `dashboard remediate` as CI-only in the first implementation; use `dashboard remediate --dry-run` locally
 - treat live `dashboard reconcile` as CI-only in the first implementation; use `dashboard reconcile --dry-run` locally

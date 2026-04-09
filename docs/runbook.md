@@ -1,7 +1,12 @@
-## Operator Runbook
+## AI Code Ops Operator Runbook
 
-This runbook describes how to operate AI Sonar Bot in GitLab CI for the
-current SonarQube-first v1 scope.
+This runbook describes how to operate the current AI Code Ops workflows in
+GitLab CI.
+
+The repository, image, package, and CLI still use the compatibility name
+`ai-sonar-bot`, but the current operating model already includes merge request
+review, dashboard-backed remediation, and reconciliation in addition to
+SonarQube discovery.
 
 ## Purpose
 
@@ -49,15 +54,28 @@ The dashboard workflow also includes scheduled reconciliation:
 
 ## Required CI Variables
 
-Define these variables in the target GitLab project or group:
+Define these variables in the target GitLab project or group according to the
+workflow you want to run:
 
-- `SONARQUBE_URL`
-- `SONARQUBE_TOKEN`
-- `SONARQUBE_PROJECT_KEY`
-- `GITLAB_URL`
-- `GITLAB_TOKEN`
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL`
+- `ai_sonar_bot_dashboard`
+  - `SONARQUBE_URL`
+  - `SONARQUBE_TOKEN`
+  - `SONARQUBE_PROJECT_KEY`
+  - `GITLAB_URL`
+  - `GITLAB_TOKEN`
+- `ai_sonar_bot_dashboard_remediate`
+  - `GITLAB_URL`
+  - `GITLAB_TOKEN`
+  - `OPENAI_API_KEY`
+  - `OPENAI_MODEL`
+- `ai_sonar_bot_dashboard_reconcile`
+  - `GITLAB_URL`
+  - `GITLAB_TOKEN`
+- `ai_sonar_bot_review`
+  - `GITLAB_URL`
+  - `GITLAB_TOKEN`
+  - `OPENAI_API_KEY`
+  - `OPENAI_MODEL`
 
 Optional variables:
 
@@ -80,6 +98,7 @@ Optional variables:
 - push branches to the target repository
 - create merge requests
 - read open merge requests for duplicate detection
+- read and update the dashboard issue used by dashboard-backed workflows
 
 In practice, this means the token should have:
 
@@ -155,12 +174,10 @@ Use the example pipeline from [.gitlab-ci.example.yml](../.gitlab-ci.example.yml
 
 Current job roles:
 
-- `ai_sonar_bot`
-  - the main repository-mutating Sonar remediation workflow
 - `ai_sonar_bot_dashboard`
   - discovery-only dashboard sync for eligible Sonar findings
 - `ai_sonar_bot_dashboard_remediate`
-  - dashboard-backed remediation while the dashboard path is being rolled out
+  - dashboard-backed remediation
 - `ai_sonar_bot_dashboard_reconcile`
   - scheduled dashboard reconciliation for `mr_opened` items after merge
     request state changes
@@ -171,11 +188,14 @@ Recommended settings:
 
 - run only on the default branch
 - trigger from a schedule or explicit manual run
-- keep dashboard sync as a separate job from Sonar remediation
-- keep dashboard-backed remediation as a separate job from both direct Sonar remediation and dashboard sync during migration
+- keep dashboard sync as a separate job from active remediation
+- keep dashboard-backed remediation as a separate job from dashboard sync, but
+  run it after dashboard sync in the same pipeline with `needs:` or explicit
+  stage ordering
 - keep dashboard reconciliation as a separate job from active remediation so it
   only owns post-merge-request lifecycle convergence
-- use `resource_group` so only one bot job runs at a time
+- use `resource_group` per workflow so overlapping runs of the same workflow do
+  not collide
 - override the job image `entrypoint` to `[""]`
 - use `GIT_DEPTH=0`
 - set a fixed git author/committer identity
@@ -189,25 +209,29 @@ For a lower-cost review setup:
 - keep the review job manual on merge request pipelines
 - rely on `CI_MERGE_REQUEST_IID` so the bot reviews only the current merge request
 - set `review.max_changed_files` conservatively, for example `5`
+- set `review.ignored_paths` for generated or otherwise low-value areas
+- keep `review.max_findings_per_review` low so only the highest-signal findings are published
 - keep `review.skip_draft_merge_requests` enabled
 - set `review.publish_no_findings_note` to `false` if you want less MR noise and lower cost
 
 Recommended first rollout order:
 
-1. manually run `ai_sonar_bot` once on the default branch
-2. rerun `ai_sonar_bot` once immediately to confirm duplicate-MR handling
-3. manually run `ai_sonar_bot_dashboard` once to confirm dashboard discovery is healthy
-4. inspect one supported dashboard item locally with `ai-sonar-bot dashboard remediate --dry-run`
-5. manually run one live dashboard remediation CI job
-6. manually run `ai_sonar_bot_dashboard_reconcile` once after a remediation MR
+1. manually run `ai_sonar_bot_dashboard` once to confirm dashboard discovery is healthy
+2. inspect one supported dashboard item locally with `ai-sonar-bot dashboard remediate --dry-run`
+3. manually run one live CI pipeline where `ai_sonar_bot_dashboard_remediate`
+   follows `ai_sonar_bot_dashboard`
+4. manually run `ai_sonar_bot_dashboard_reconcile` once after a remediation MR
    is merged or closed
-7. manually run `ai_sonar_bot_review` on one small merge request pipeline
-8. enable schedules only after all workflows behave as expected
+5. manually run `ai_sonar_bot_review` on one small merge request pipeline
+6. enable schedules only after all workflows behave as expected
 
-Migration model during rollout:
+Dashboard rollout model:
 
-- keep direct Sonar remediation only as a temporary fallback while dashboard-backed remediation is stabilizing
 - keep Sonar dashboard sync as a separate discovery producer for Sonar-derived dashboard items
+- treat `dashboard sync` then `dashboard remediate` as the normal ordered CI
+  flow for active remediation work
+- keep `dashboard reconcile` as a separate later lifecycle job rather than
+  chaining it directly after remediation
 - keep live `dashboard remediate` CI-only in the first version; local use should stay `--dry-run`
 - keep live `dashboard reconcile` CI-only in the first version; local use should stay `--dry-run`
 - let Sonar dashboard sync clean up only stale untouched `open` Sonar items; once remediation has touched an item, preserve the dashboard lifecycle history
@@ -618,7 +642,6 @@ repository.
 Make sure the target repository has:
 
 - the `ai_sonar_bot_dashboard` discovery job already behaving as expected
-- the `ai_sonar_bot` remediation workflow already behaving as expected on the same repository
 - one supported Sonar-derived dashboard item in `open`
 - required GitLab and OpenAI CI variables set:
   - `GITLAB_URL`
@@ -632,7 +655,7 @@ Make sure the target repository has:
 Start with one dashboard item that:
 
 - was produced by Sonar dashboard sync
-- maps to the same narrow single-file code-smell path already supported by direct Sonar remediation
+- maps to the current narrow single-file code-smell remediation path
 - points to a file that exists on the default branch
 - is easy for a human to inspect afterward
 
@@ -653,7 +676,7 @@ Start with one dashboard item that:
    - moved out of `open`
    - appears in the merge-request section with branch, MR URL, and commit traceability
 7. open the merge request
-8. verify the merge request description and diff quality still match the direct Sonar workflow expectations:
+8. verify the merge request description and diff quality still match the documented remediation expectations:
    - one-file diff
    - issue traceability
    - validation summary
@@ -667,7 +690,7 @@ Start with one dashboard item that:
 - one live run moves the item through `in_progress` and `mr_opened`
 - the dashboard item keeps visible traceability fields for run, branch, commit, and merge request
 - an immediate rerun skips the open merge request cleanly instead of creating duplicate work
-- the resulting merge request is materially comparable to the direct Sonar remediation path
+- the resulting merge request remains traceable and easy for humans to review
 
 ### Failure Signals That Should Block Rollout
 
@@ -677,7 +700,7 @@ Do not move to scheduled dashboard remediation yet if you see:
 - stale `in_progress` items that are never reopened
 - dashboard remediation succeeding locally but leaving the dashboard lifecycle stale
 - Sonar dashboard sync clearing items that are already `in_progress` or `mr_opened`
-- merge requests whose quality or traceability are noticeably worse than the direct Sonar remediation path
+- merge requests with poor traceability or unexpectedly weak diff quality
 
 ## Pre-Release Checklist
 
@@ -690,5 +713,4 @@ Before calling the target repository setup stable, confirm:
 - the GitLab token can both push and create merge requests
 - operators know where to inspect failures and how to rerun safely
 - the smoke test and immediate rerun both behave as expected
-- direct Sonar remediation is treated as a temporary fallback until dashboard-backed remediation has matched its outcomes on the supported issue class
 - Sonar dashboard sync remains the discovery/update mechanism for Sonar-derived dashboard items and does not replace later merge-request reconciliation

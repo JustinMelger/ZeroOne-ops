@@ -326,21 +326,7 @@ inspection and merge-request review as the main oversight mechanism.
 ## 14. Migration Model
 
 Dashboard-backed remediation should become the primary remediation workflow
-before live rollout.
-
-Recommended rollout:
-
-1. keep direct Sonar remediation available only as a temporary fallback while
-   dashboard-backed remediation is being validated,
-2. run dashboard-backed remediation live in a controlled way on the same narrow
-   Sonar-derived item class,
-3. fix rollout issues in the dashboard-backed path directly instead of building
-   long-lived coexistence machinery,
-4. deprecate direct Sonar remediation once dashboard-backed remediation is
-   operationally trustworthy.
-
-This keeps the platform focused on the workflow it actually intends to run,
-instead of over-investing in parallel behavior before first launch.
+before live rollout and now stands as the only active remediation path.
 
 The first version should therefore keep ownership simple:
 
@@ -348,8 +334,7 @@ The first version should therefore keep ownership simple:
 - Sonar dashboard sync remains the discovery producer for Sonar-derived items,
 - later convergence of dashboard state with merged or closed merge requests is a
   separate reconciliation concern,
-- the old direct Sonar remediation path is a temporary safety valve, not a
-  long-term second controller.
+- remediation no longer depends on a separate direct Sonar execution path.
 
 ## 15. Success Criteria
 

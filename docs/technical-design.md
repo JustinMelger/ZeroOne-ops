@@ -168,13 +168,13 @@ Responsibilities:
 
 Suggested commands:
 
-- `ai-sonar-bot run`
-- `ai-sonar-bot run --dry-run`
-- `ai-sonar-bot run --issue-key <key>`
-- `ai-sonar-bot run --mode ci`
-- `ai-sonar-bot approve --run-id <id>` for a future non-interactive workflow
+- `ai-sonar-bot dashboard sonar`
+- `ai-sonar-bot dashboard remediate`
+- `ai-sonar-bot dashboard reconcile`
+- `ai-sonar-bot review`
 
-For v1, only `run` is required.
+For the current CLI, workflow entrypoints live under explicit dashboard and
+review subcommands.
 
 ### 6.2 `runner.py`
 
