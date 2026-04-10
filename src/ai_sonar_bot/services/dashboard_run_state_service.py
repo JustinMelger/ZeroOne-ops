@@ -109,6 +109,32 @@ class DashboardRunStateService:
             mr_url=mr_url,
         )
 
+    def mark_failed(
+        self,
+        *,
+        record: RunRecord,
+        dashboard_item_id: str,
+        error_message: str,
+        branch_name: str | None = None,
+        commit_sha: str | None = None,
+        mr_url: str | None = None,
+    ) -> None:
+        """Persist one dashboard item as failed without aborting the whole run."""
+        record.dashboard_item_id = dashboard_item_id
+        record.branch_name = branch_name
+        record.commit_sha = commit_sha
+        record.mr_url = mr_url
+        record.updated_at = utc_now()
+        self.state.active_dashboard_item_id = None
+        self.state.dashboard_items[dashboard_item_id] = DashboardItemState(
+            status=RunStatus.FAILED.value,
+            last_run_id=record.run_id,
+            branch_name=branch_name,
+            commit_sha=commit_sha,
+            mr_url=mr_url,
+            last_error=error_message,
+        )
+
     def fail_item(
         self,
         *,

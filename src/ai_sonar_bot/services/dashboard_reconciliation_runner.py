@@ -145,6 +145,7 @@ class DashboardReconciliationRunner:
         reconciled_count = 0
         reopened_count = 0
         done_count = 0
+        failed_count = 0
         decision_parts: list[str] = []
 
         for item in selected_items:
@@ -210,15 +211,29 @@ class DashboardReconciliationRunner:
                 reopened_count += 1
                 continue
 
-            return self.run_state_service.dashboard.fail_item(
+            update_result = updater.mark_failed(
+                project_id=project_id,
+                dashboard_item_id=item.id,
+                run_id=run_id,
+                error_message=decision.message,
+            )
+            if update_result.error_message is not None:
+                return self._fail_dashboard_update(
+                    record=record,
+                    dashboard_item_id=item.id,
+                    workflow_message=decision.message,
+                    dashboard_error_message=update_result.error_message,
+                )
+            self.run_state_service.dashboard.mark_failed(
                 record=record,
                 dashboard_item_id=item.id,
                 error_message=decision.message,
-                failure=FailureDetails(
-                    stage=FailureStage.RECONCILIATION,
-                    message=decision.message,
-                ),
+                branch_name=item.branch_name,
+                commit_sha=item.commit_sha,
+                mr_url=item.merge_request_url,
             )
+            reconciled_count += 1
+            failed_count += 1
 
         if reconciled_count == 0:
             record.status = RunStatus.NO_ISSUE
@@ -233,6 +248,7 @@ class DashboardReconciliationRunner:
                 reconciled_count=reconciled_count,
                 done_count=done_count,
                 reopened_count=reopened_count,
+                failed_count=failed_count,
                 noop_count=noop_count,
                 decision_parts=decision_parts,
             ),
@@ -249,13 +265,15 @@ class DashboardReconciliationRunner:
         reconciled_count: int,
         done_count: int,
         reopened_count: int,
+        failed_count: int,
         noop_count: int,
         decision_parts: list[str],
     ) -> str:
         """Build one reconciliation summary for a live batch."""
         outcome = (
             f"Reconciliation checked {selected_count} dashboard items: "
-            f"{done_count} marked done, {reopened_count} reopened, {noop_count} still open."
+            f"{done_count} marked done, {reopened_count} reopened, "
+            f"{failed_count} marked failed, {noop_count} still open."
         )
         if reconciled_count == 0:
             outcome = (
