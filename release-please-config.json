@@ -3,7 +3,7 @@
   "packages": {
     ".": {
       "release-type": "python",
-      "package-name": "ai-sonar-bot",
+      "package-name": "ai-code-ops",
       "include-v-in-tag": true
     }
   }

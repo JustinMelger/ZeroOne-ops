@@ -4,7 +4,7 @@ stages:
 
 .ai_sonar_bot_base:
   image:
-    name: ghcr.io/justinmelger/ai-sonar-bot:latest
+    name: ghcr.io/justinmelger/ai-code-ops:latest
     entrypoint: [""]
   interruptible: false
   variables:
