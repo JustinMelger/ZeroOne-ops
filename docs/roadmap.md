@@ -344,7 +344,7 @@ Status:
       for the shipped workflows
 - [ ] tighten auth and secret-handling documentation where operator setup is
       still easy to misconfigure
-- [ ] add a conservative Renovate setup for dependency management so CI and
+- [x] add a conservative Renovate setup for dependency management so CI and
       dependency drift stay under control during the hardening period
 - [ ] evaluate and add a conservative open-source SAST layer, likely Semgrep
       CE, so CI catches basic security issues without creating high-noise
