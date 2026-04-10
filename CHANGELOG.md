@@ -5,6 +5,30 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.15.0](https://github.com/JustinMelger/ai-code-ops/compare/ai-sonar-bot-v0.14.2...ai-sonar-bot-v0.15.0) (2026-04-10)
+
+
+### Features
+
+* add renovate ([0642e12](https://github.com/JustinMelger/ai-code-ops/commit/0642e12776da32607bbfea12331fa31abacce25a))
+* add renovate ([a12253c](https://github.com/JustinMelger/ai-code-ops/commit/a12253c08254464bad75187316e0892caef46415))
+* reconcilation multipe items ([483c6b2](https://github.com/JustinMelger/ai-code-ops/commit/483c6b25aeb5d6cf3d1f9b5b373d960143b19274))
+* reconciliation multiple items ([1a415a0](https://github.com/JustinMelger/ai-code-ops/commit/1a415a07f827e74161eab7f5f0c19029a47c8f7a))
+
+
+### Bug Fixes
+
+* prompt behavioral change review ([1a415a0](https://github.com/JustinMelger/ai-code-ops/commit/1a415a07f827e74161eab7f5f0c19029a47c8f7a))
+* renovate repo ([df0fa28](https://github.com/JustinMelger/ai-code-ops/commit/df0fa2892fb005abcd230cda982b568cdb460857))
+* renovate repo ([aa204d4](https://github.com/JustinMelger/ai-code-ops/commit/aa204d4b8ca2d1aa757243ca9d75b9d59752ad2e))
+* repo reno ([d03a907](https://github.com/JustinMelger/ai-code-ops/commit/d03a9071516427d2da29e38d96aeb44490833de4))
+* repo reno ([c76e313](https://github.com/JustinMelger/ai-code-ops/commit/c76e3137461ba6dafad14d5be948fd3c5ada2a0a))
+
+
+### Documentation
+
+* mark renovate as done ([1a415a0](https://github.com/JustinMelger/ai-code-ops/commit/1a415a07f827e74161eab7f5f0c19029a47c8f7a))
+* mark renovate as done ([b9c0501](https://github.com/JustinMelger/ai-code-ops/commit/b9c0501b4f234a8ccded4933f039d2c693f94389))
 
 ## [0.14.2](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.14.1...ai-sonar-bot-v0.14.2) (2026-04-09)
 
