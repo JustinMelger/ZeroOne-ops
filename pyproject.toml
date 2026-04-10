@@ -3,7 +3,7 @@ name = "ai-sonar-bot"
 version = "0.14.2"
 description = "AI bot that creates GitLab merge requests from SonarQube issues."
 readme = "README.md"
-requires-python = ">=3.13,<3.14"
+requires-python = "==3.13.*"
 dependencies = [
   "httpx>=0.28.1",
   "openai>=1.99.0",
