@@ -128,7 +128,7 @@ A containerized runtime is included in [Dockerfile](Dockerfile). It installs `uv
 Build the image:
 
 ```bash
-docker build -t ai-sonar-bot:latest .
+docker build -t ai-code-ops:latest .
 ```
 
 Run it against a checked-out repository:
@@ -137,7 +137,7 @@ Run it against a checked-out repository:
 docker run --rm \
   -v "$(pwd):/workspace" \
   --env-file .env \
-  ai-sonar-bot:latest
+  ai-code-ops:latest
 ```
 
 The image keeps the installed bot in `/opt/ai-sonar-bot` and uses `/workspace` as the repository root, so mounting another repository does not hide the bot's virtual environment.
@@ -155,12 +155,12 @@ How it works:
 
 - merge Conventional Commit messages into `main`
 - `release-please` opens or updates a release PR
-- when that PR is merged, `release-please` creates a Git tag like `ai-sonar-bot-v0.3.0`
+- when that PR is merged, `release-please` creates a Git tag like `ai-code-ops-v0.3.0`
 - the created GitHub release or version tag triggers the image publish workflow
 - the publish workflow normalizes that tag to semver for GHCR
 - GHCR receives tags like `0.3.0`, `0.3`, `0`, and `latest`
 
-If a release already exists and you need to retry publication, the image workflow also supports manual `workflow_dispatch` runs from the GitHub Actions UI. Provide the release tag, for example `ai-sonar-bot-v0.3.0`, so the workflow can publish the correct semver image tags.
+If a release already exists and you need to retry publication, the image workflow also supports manual `workflow_dispatch` runs from the GitHub Actions UI. Provide the release tag, for example `ai-code-ops-v0.3.0`, so the workflow can publish the correct semver image tags.
 
 The release workflow uses `secrets.RELEASE_PLEASE_TOKEN` instead of the default `GITHUB_TOKEN`. This is intentional: tags and releases created by the default `GITHUB_TOKEN` do not trigger downstream workflows reliably, so the image publish workflow would not run.
 
@@ -173,7 +173,7 @@ Recommended GitHub setup:
 After a release tag exists, users can pull a specific version with:
 
 ```bash
-docker pull ghcr.io/<owner>/ai-sonar-bot:0.2.0
+docker pull ghcr.io/<owner>/ai-code-ops:0.2.0
 ```
 
 An example GitLab pipeline is provided in [.gitlab-ci.example.yml](.gitlab-ci.example.yml). In a target repository, copy that file to `.gitlab-ci.yml` and set these CI variables by workflow:
