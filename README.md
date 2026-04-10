@@ -1,7 +1,10 @@
 # ZeroOne Ops
 
-ZeroOne Ops is a GitLab-first automation platform for dashboard-backed
-remediation, merge request review, and lifecycle reconciliation.
+Automate the path from finding to fix.
+
+ZeroOne Ops is a GitLab-first automation platform that uses AI agents for
+dashboard-backed remediation, merge request review, and lifecycle
+reconciliation.
 
 Naming note:
 
