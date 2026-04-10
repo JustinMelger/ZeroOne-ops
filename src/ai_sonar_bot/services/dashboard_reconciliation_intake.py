@@ -18,12 +18,19 @@ _SKIP_REASON_MESSAGES = {
 
 @dataclass(frozen=True)
 class DashboardReconciliationIntakeResult:
-    """Capture the result of selecting one dashboard reconciliation item."""
+    """Capture the result of selecting reconciliation-ready dashboard items."""
 
-    selected_item: DashboardItem | None
+    selected_items: list[DashboardItem]
     item_count: int
     message: str
     document: DashboardDocument
+
+    @property
+    def selected_item(self) -> DashboardItem | None:
+        """Return the first selected item for backward-compatible callers."""
+        if not self.selected_items:
+            return None
+        return self.selected_items[0]
 
 
 class DashboardReconciliationIntakeService:
@@ -37,10 +44,10 @@ class DashboardReconciliationIntakeService:
         """Load the dashboard and return the next eligible reconciliation item."""
         document = self.dashboard_service.load_or_create(project_id=project_id)
         items = [item for section in document.sections for item in section.items]
-        selected_item = self._select_item(items)
-        if selected_item is None:
+        selected_items = self._select_items(items)
+        if not selected_items:
             return DashboardReconciliationIntakeResult(
-                selected_item=None,
+                selected_items=[],
                 item_count=len(items),
                 message=self._build_no_item_message(
                     dashboard_issue_url=document.issue_url,
@@ -50,18 +57,15 @@ class DashboardReconciliationIntakeService:
                 document=document,
             )
         return DashboardReconciliationIntakeResult(
-            selected_item=selected_item,
+            selected_items=selected_items,
             item_count=len(items),
             message="",
             document=document,
         )
 
-    def _select_item(self, items: list[DashboardItem]) -> DashboardItem | None:
-        """Return the first dashboard item that survives reconciliation checks."""
-        for item in items:
-            if self._skip_reason(item) is None:
-                return item
-        return None
+    def _select_items(self, items: list[DashboardItem]) -> list[DashboardItem]:
+        """Return dashboard items that survive reconciliation checks."""
+        return [item for item in items if self._skip_reason(item) is None]
 
     def _skip_reason_counts(self, items: list[DashboardItem]) -> Counter[str]:
         """Return skip-reason counts for the current dashboard item candidates."""

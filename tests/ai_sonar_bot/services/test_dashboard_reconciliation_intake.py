@@ -61,10 +61,10 @@ class FakeDashboardService:
         return self.document
 
 
-def test_select_item_returns_first_reconciliation_ready_dashboard_item() -> None:
+def test_select_item_returns_reconciliation_ready_dashboard_items() -> None:
     service = DashboardReconciliationIntakeService(
         dashboard_service=FakeDashboardService(
-            build_document(items=[build_item(item_id="sonar:1")])
+            build_document(items=[build_item(item_id="sonar:1"), build_item(item_id="sonar:2")])
         )
     )
 
@@ -72,7 +72,8 @@ def test_select_item_returns_first_reconciliation_ready_dashboard_item() -> None
 
     assert result.selected_item is not None
     assert result.selected_item.id == "sonar:1"
-    assert result.item_count == 1
+    assert [item.id for item in result.selected_items] == ["sonar:1", "sonar:2"]
+    assert result.item_count == 2
     assert result.message == ""
 
 
@@ -93,6 +94,7 @@ def test_select_item_skips_items_without_required_traceability() -> None:
 
     assert result.selected_item is not None
     assert result.selected_item.id == "sonar:3"
+    assert [item.id for item in result.selected_items] == ["sonar:3"]
 
 
 def test_select_item_reports_skip_reasons_when_no_item_is_eligible() -> None:
