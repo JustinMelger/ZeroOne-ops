@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to publish, for example v0.2.0"
+        description: "Release tag to publish, for example zeroone-ops-v0.2.0"
         required: false
         type: string
   release:
@@ -15,10 +15,11 @@ on:
       - "v*.*.*"
       - "ai-sonar-bot-v*.*.*"
       - "ai-code-ops-v*.*.*"
+      - "zeroone-ops-v*.*.*"
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/zeroone-ops
 
 jobs:
   publish:
@@ -40,8 +41,9 @@ jobs:
           else
             raw_tag="${{ github.ref_name }}"
           fi
-          semver_tag="${raw_tag#ai-sonar-bot-}"
+          semver_tag="${raw_tag#zeroone-ops-}"
           semver_tag="${semver_tag#ai-code-ops-}"
+          semver_tag="${semver_tag#ai-sonar-bot-}"
           echo "raw_tag=${raw_tag}" >> "$GITHUB_OUTPUT"
           echo "semver_tag=${semver_tag}" >> "$GITHUB_OUTPUT"
 
@@ -73,13 +75,13 @@ jobs:
         with:
           context: .
           load: true
-          tags: ai-code-ops:smoke
+          tags: zeroone-ops:smoke
 
       - name: Smoke test container CLI
         run: |
-          docker run --rm ai-code-ops:smoke --help
-          docker run --rm ai-code-ops:smoke review --help
-          docker run --rm ai-code-ops:smoke dashboard --help
+          docker run --rm zeroone-ops:smoke --help
+          docker run --rm zeroone-ops:smoke review --help
+          docker run --rm zeroone-ops:smoke dashboard --help
 
       - name: Build and push Docker image
         id: push

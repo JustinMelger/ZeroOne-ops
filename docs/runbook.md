@@ -1,12 +1,17 @@
-## AI Code Ops Operator Runbook
+## ZeroOne Ops Operator Runbook
 
-This runbook describes how to operate the current AI Code Ops workflows in
+This runbook describes how to operate the current ZeroOne Ops workflows in
 GitLab CI.
 
-The repository, image, package, and CLI still use the compatibility name
-`ai-sonar-bot`, but the current operating model already includes merge request
-review, dashboard-backed remediation, and reconciliation in addition to
-SonarQube discovery.
+Naming note:
+
+- product brand: `ZeroOne Ops`
+- technical release and image slug: `zeroone-ops`
+- temporary runtime compatibility name: `ai-sonar-bot`
+
+The repository runtime still uses the compatibility name `ai-sonar-bot` in the
+CLI, package path, config filename, and some filesystem paths while the
+rebrand is rolled out in phases.
 
 ## Purpose
 
@@ -456,6 +461,7 @@ new repository.
 Make sure the target repository has:
 
 - a valid `.gitlab-ci.yml` based on [.gitlab-ci.example.yml](../.gitlab-ci.example.yml)
+- the published bot image reference updated to the current technical slug, such as `ghcr.io/<owner>/zeroone-ops:latest`
 - a repository-specific `.ai-sonar-bot.json`
 - required CI variables set
 - at least one open SonarQube issue that is:
@@ -476,7 +482,7 @@ Do not use a rename issue or a fix that obviously needs multiple files.
 
 ### Steps
 
-1. confirm the target repository pipeline can pull the bot image successfully
+1. confirm the target repository pipeline can pull the `zeroone-ops` bot image successfully
 2. confirm the bot job has access to:
    - SonarQube
    - OpenAI
@@ -563,7 +569,7 @@ Start with one merge request that:
 
 ### Steps
 
-1. confirm the repository pipeline can pull the bot image successfully
+1. confirm the repository pipeline can pull the `zeroone-ops` bot image successfully
 2. confirm the review job has access to:
    - GitLab merge request APIs
    - OpenAI

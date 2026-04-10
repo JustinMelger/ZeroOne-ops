@@ -1,11 +1,17 @@
-# AI Code Ops
+# ZeroOne Ops
 
-AI Code Ops is a GitLab-first automation platform for dashboard-backed
+ZeroOne Ops is a GitLab-first automation platform for dashboard-backed
 remediation, merge request review, and lifecycle reconciliation.
 
-The current repository, package, image, and CLI still use the technical
-compatibility name `ai-sonar-bot`, but the product direction is no longer just
-Sonar-focused.
+Naming note:
+
+- product brand: `ZeroOne Ops`
+- technical release and image slug: `zeroone-ops`
+- temporary runtime compatibility name: `ai-sonar-bot`
+
+The current runtime still uses the compatibility name `ai-sonar-bot` for the
+CLI, package path, config filename, and some filesystem paths while the
+rebrand is rolled out in phases.
 
 ## Status
 
@@ -128,7 +134,7 @@ A containerized runtime is included in [Dockerfile](Dockerfile). It installs `uv
 Build the image:
 
 ```bash
-docker build -t ai-code-ops:latest .
+docker build -t zeroone-ops:latest .
 ```
 
 Run it against a checked-out repository:
@@ -137,7 +143,7 @@ Run it against a checked-out repository:
 docker run --rm \
   -v "$(pwd):/workspace" \
   --env-file .env \
-  ai-code-ops:latest
+  zeroone-ops:latest
 ```
 
 The image keeps the installed bot in `/opt/ai-sonar-bot` and uses `/workspace` as the repository root, so mounting another repository does not hide the bot's virtual environment.
@@ -155,12 +161,12 @@ How it works:
 
 - merge Conventional Commit messages into `main`
 - `release-please` opens or updates a release PR
-- when that PR is merged, `release-please` creates a Git tag like `ai-code-ops-v0.3.0`
+- when that PR is merged, `release-please` creates a Git tag like `zeroone-ops-v0.3.0`
 - the created GitHub release or version tag triggers the image publish workflow
 - the publish workflow normalizes that tag to semver for GHCR
 - GHCR receives tags like `0.3.0`, `0.3`, `0`, and `latest`
 
-If a release already exists and you need to retry publication, the image workflow also supports manual `workflow_dispatch` runs from the GitHub Actions UI. Provide the release tag, for example `ai-code-ops-v0.3.0`, so the workflow can publish the correct semver image tags.
+If a release already exists and you need to retry publication, the image workflow also supports manual `workflow_dispatch` runs from the GitHub Actions UI. Provide the release tag, for example `zeroone-ops-v0.3.0`, so the workflow can publish the correct semver image tags.
 
 The release workflow uses `secrets.RELEASE_PLEASE_TOKEN` instead of the default `GITHUB_TOKEN`. This is intentional: tags and releases created by the default `GITHUB_TOKEN` do not trigger downstream workflows reliably, so the image publish workflow would not run.
 
@@ -173,7 +179,7 @@ Recommended GitHub setup:
 After a release tag exists, users can pull a specific version with:
 
 ```bash
-docker pull ghcr.io/<owner>/ai-code-ops:0.2.0
+docker pull ghcr.io/<owner>/zeroone-ops:0.2.0
 ```
 
 An example GitLab pipeline is provided in [.gitlab-ci.example.yml](.gitlab-ci.example.yml). In a target repository, copy that file to `.gitlab-ci.yml` and set these CI variables by workflow:

@@ -1,5 +1,11 @@
 # Changelog
 
+Naming note:
+
+- current product brand: `ZeroOne Ops`
+- current technical release slug: `zeroone-ops`
+- historical entries below still reference older repository and tag names where they were originally published
+
 ## [0.14.2](https://github.com/JustinMelger/ai-sonar-bot/compare/ai-sonar-bot-v0.14.1...ai-sonar-bot-v0.14.2) (2026-04-09)
 
 

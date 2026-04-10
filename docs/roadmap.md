@@ -1,9 +1,9 @@
-# AI Code Ops Roadmap
+# ZeroOne Ops Roadmap
 
 ## Purpose
 
 This roadmap translates the current functional and technical design into an
-implementation sequence for v1 of the broader AI Code Ops platform.
+implementation sequence for v1 of the broader ZeroOne Ops platform.
 
 The repository and runtime still use the compatibility name `ai-sonar-bot`,
 but the roadmap now reflects a product scope that includes review,
@@ -334,7 +334,8 @@ Goal:
   large workflow scope
 - strengthen rollout safety and operator confidence around the existing
   workflows
-- explore light branding polish without committing to a full rename
+- prepare the release, image, and docs surface for the `ZeroOne Ops` rebrand
+  without destabilizing runtime compatibility during the testing week
 
 Status:
 
@@ -346,20 +347,16 @@ Status:
       still easy to misconfigure
 - [x] add a conservative Renovate setup for dependency management so CI and
       dependency drift stay under control during the hardening period
-- [ ] evaluate and add a conservative open-source SAST layer, likely Semgrep
-      CE, so CI catches basic security issues without creating high-noise
-      gating
+- [ ] evaluate and add a conservative security scanning layer that matches the
+      selected tool direction without creating high-noise gating
 - [ ] add a prerelease or release-candidate image publish path so CLI, CI, and
       dashboard changes can be tested before a stable release
-- [ ] add a lightweight prerelease image smoke test so the published container
+- [x] add a lightweight prerelease image smoke test so the published container
       is validated with a small real command surface before broader rollout
 - [ ] do a secret and logging safety review so auth setup, remote rewriting,
       and failure paths do not leak sensitive data
 - [ ] add a small release checklist covering image publish, CI setup, auth
       readiness, smoke-test status, and known rollout issues
-- [ ] do a small branding pass for future `ZeroOne Ops` direction where it adds
-      clarity, without renaming the repository, package, CLI, or workflow
-      commands yet
 
 Done when:
 
@@ -375,8 +372,77 @@ Done when:
       than relying only on ad hoc confidence
 - any rollout friction found during testing has a clear documented home and,
       where needed, a small fix
-- branding exploration stays intentionally light and does not distract from
-      hardening feedback
+
+### Rebrand Phases
+
+Goal:
+
+- move the product toward `ZeroOne Ops` with one deliberate naming plan instead
+  of a series of partial renames
+- update outward-facing identity first while keeping runtime compatibility
+  stable during the current testing period
+
+#### Phase 1: Brand Decision
+
+Status:
+
+- [x] confirm `ZeroOne Ops` as the product name
+- [x] confirm `zeroone-ops` as the technical slug for release and packaging
+- [x] define `ai-sonar-bot` as the temporary runtime compatibility name for the
+      CLI, package path, config filename, and filesystem paths until a later
+      dedicated runtime rename phase
+
+#### Phase 2: Publish And Release Rebrand
+
+Status:
+
+- [x] update release tags, release-please naming, and published image naming to
+      `zeroone-ops`
+- [x] keep legacy release tag handling long enough to avoid breaking current
+      manual release flows
+- [x] update publish workflow docs and retry instructions to the new release
+      slug
+
+#### Phase 3: Docs And Product Surface
+
+Status:
+
+- [x] rebrand README, roadmap, changelog framing, and runbook headings to
+      `ZeroOne Ops`
+- [x] add one short transition note that explains brand name versus temporary
+      compatibility names
+- [x] update operator-facing examples that should show the new image and release
+      names
+
+#### Phase 4: Operator Surface
+
+Status:
+
+- [x] update GitLab CI example image references and onboarding instructions to
+      the new published image name
+- [x] review release instructions, smoke-test guidance, and workflow setup docs
+      for old-name drift
+- [x] keep runtime commands stable where changing them would add operator risk
+      during testing
+
+#### Phase 5: Runtime Rename (Later)
+
+Status:
+
+- [ ] decide after the testing week whether to rename the CLI command, Python
+      package path, config filename, env vars, `/opt/ai-sonar-bot`, and GitLab
+      job identifiers
+- [ ] if a runtime rename happens, support both old and new config naming
+      temporarily and document the deprecation path
+
+Done when:
+
+- the project has one clear brand and one clear technical slug
+- release, image, and docs surfaces consistently use the new name
+- compatibility names are temporary, documented, and not mistaken for the
+      preferred public identity
+- runtime rename work, if still desired, has a dedicated later phase rather
+      than being mixed into the current hardening work
 
 ## Completed Build: Dashboard And Remediation
 
