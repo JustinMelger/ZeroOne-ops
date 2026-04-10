@@ -3,7 +3,7 @@
   "packages": {
     ".": {
       "release-type": "python",
-      "package-name": "ai-code-ops",
+      "package-name": "zeroone-ops",
       "include-v-in-tag": true
     }
   }
