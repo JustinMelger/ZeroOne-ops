@@ -890,9 +890,28 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
         del project_id, merge_request_iid
         raise GitLabClientError("GitLab returned 404")
 
+    def fake_mark_failed(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        error_message: str,
+    ):  # noqa: ANN202
+        del self, project_id, dashboard_item_id, run_id, error_message
+        return type(
+            "DashboardRemediationUpdateResult",
+            (),
+            {"error_message": None, "updated_item": selected_item, "dashboard_issue_url": None},
+        )()
+
     monkeypatch.setattr(
         "ai_sonar_bot.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
         lambda self, **kwargs: failing_get_merge_request_state(**kwargs),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
+        fake_mark_failed,
     )
 
     summary = dashboard_reconcile(dry_run=False)
@@ -903,9 +922,163 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
         sonarqube_project_key=None,
     ).load()
 
-    assert summary.status.value == "failed"
+    assert summary.status.value == "reconciled"
+    assert "1 marked failed" in summary.message
     assert "metadata is inaccessible" in summary.message
     assert state.dashboard_items["sonar:AX123"].status == "failed"
+
+
+def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_batch(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    broken_item = DashboardItem(
+        id="sonar:BROKEN",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="mr_opened",
+        title="python:S1125 in src/broken.py",
+        summary="Broken MR traceability.",
+        priority="low",
+        source_reference="BROKEN",
+        file="src/broken.py",
+        line=10,
+        rule="python:S1125",
+        severity="LOW",
+        branch_name="ai-sonar/BROKEN/service",
+        commit_sha="broken123",
+        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+    )
+    merged_item = DashboardItem(
+        id="sonar:MERGED",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="mr_opened",
+        title="python:S1125 in src/merged.py",
+        summary="Merged MR should still reconcile.",
+        priority="low",
+        source_reference="MERGED",
+        file="src/merged.py",
+        line=42,
+        rule="python:S1125",
+        severity="LOW",
+        branch_name="ai-sonar/MERGED/service",
+        commit_sha="merged123",
+        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/8",
+        upstream_active=False,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        lambda self, project_id: type(
+            "DashboardReconciliationIntakeResult",
+            (),
+            {
+                "selected_items": [broken_item, merged_item],
+                "item_count": 2,
+                "message": "",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="ZeroOne Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )(),
+    )
+
+    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+        del project_id
+        if merge_request_iid == 7:
+            raise GitLabClientError("GitLab returned 404")
+        return type(
+            "GitLabMergeRequestState",
+            (),
+            {
+                "iid": merge_request_iid,
+                "web_url": merged_item.merge_request_url,
+                "source_branch": merged_item.branch_name,
+                "head_sha": merged_item.commit_sha,
+                "state": "merged",
+            },
+        )()
+
+    def fake_mark_failed(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        error_message: str,
+    ):  # noqa: ANN202
+        del self, project_id, dashboard_item_id, run_id, error_message
+        updated_item = broken_item.model_copy(update={"status": "failed"})
+        return type(
+            "DashboardRemediationUpdateResult",
+            (),
+            {"error_message": None, "updated_item": updated_item, "dashboard_issue_url": None},
+        )()
+
+    def fake_mark_done(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        summary: str | None = None,
+    ):  # noqa: ANN202
+        del self, project_id, dashboard_item_id, run_id, summary
+        updated_item = merged_item.model_copy(update={"status": "done"})
+        return type(
+            "DashboardRemediationUpdateResult",
+            (),
+            {"error_message": None, "updated_item": updated_item, "dashboard_issue_url": None},
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
+        fake_mark_failed,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
+        fake_mark_done,
+    )
+
+    summary = dashboard_reconcile(dry_run=False)
+    state = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+
+    assert summary.status.value == "reconciled"
+    assert "1 marked done, 0 reopened, 1 marked failed, 0 still open" in summary.message
+    assert state.dashboard_items["sonar:BROKEN"].status == "failed"
+    assert state.dashboard_items["sonar:MERGED"].status == "done"
 
 
 def test_dashboard_remediate_live_run_requires_ci_mode(tmp_path: Path, monkeypatch) -> None:
