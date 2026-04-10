@@ -1,0 +1,50 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "timezone": "Europe/Amsterdam",
+  "schedule": [
+    "before 6am on Monday"
+  ],
+  "minimumReleaseAge": "14 days",
+  "rangeStrategy": "bump",
+  "dependencyDashboard": true,
+  "separateMajorMinor": false,
+  "prConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "matchManagers": [
+        "pep621",
+        "uv"
+      ],
+      "matchUpdateTypes": [
+        "patch",
+        "minor"
+      ],
+      "groupName": "python dependencies"
+    },
+    {
+      "matchManagers": [
+        "pep621",
+        "uv"
+      ],
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "groupName": "python dev dependencies"
+    },
+    {
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "labels": [
+        "dependencies",
+        "major-update"
+      ]
+    }
+  ]
+}
