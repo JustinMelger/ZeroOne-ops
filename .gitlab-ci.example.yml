@@ -14,7 +14,7 @@ stages:
     GIT_DEPTH: "0"
     GITLAB_URL: "https://${CI_SERVER_HOST}"
     OPENAI_MODEL: "gpt-5.4-mini"
-    # Define these as protected CI/CD variables:
+    # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
     # OPENAI_API_KEY
 
@@ -24,14 +24,14 @@ stages:
 ai_sonar_bot_dashboard:
   extends: .ai_sonar_bot_base
   stage: ai-fix
-  resource_group: ai-sonar-bot-dashboard
+  resource_group: zeroone-ops-dashboard
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_DASHBOARD == "true"'
       when: manual
     - when: never
   variables:
-    # Define these as protected CI/CD variables:
+    # Define these as masked and protected CI/CD variables where applicable:
     # SONARQUBE_URL
     # SONARQUBE_TOKEN
     # SONARQUBE_PROJECT_KEY
@@ -41,13 +41,15 @@ ai_sonar_bot_dashboard:
 
 # Dashboard-backed remediation workflow.
 # Keep this separate from discovery, but run it after dashboard sync in the
-# same pipeline so remediation acts on freshly refreshed dashboard state.
+# same pipeline when both jobs are enabled so remediation acts on freshly
+# refreshed dashboard state.
 ai_sonar_bot_dashboard_remediate:
   extends: .ai_sonar_bot_base
   stage: ai-fix
-  resource_group: ai-sonar-bot-dashboard-remediate
+  resource_group: zeroone-ops-dashboard-remediate
   needs:
-    - ai_sonar_bot_dashboard
+    - job: ai_sonar_bot_dashboard
+      optional: true
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_DASHBOARD_REMEDIATE == "true"'
@@ -58,12 +60,13 @@ ai_sonar_bot_dashboard_remediate:
     GIT_AUTHOR_EMAIL: "ai-sonar-bot@example.com"
     GIT_COMMITTER_NAME: "AI Sonar Bot"
     GIT_COMMITTER_EMAIL: "ai-sonar-bot@example.com"
-    # Define these as protected CI/CD variables:
+    # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
     # OPENAI_API_KEY
   before_script:
     - git config user.name "$GIT_AUTHOR_NAME"
     - git config user.email "$GIT_AUTHOR_EMAIL"
+    - set +x
     - >
       git remote set-url origin
       "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
@@ -76,14 +79,14 @@ ai_sonar_bot_dashboard_remediate:
 ai_sonar_bot_dashboard_reconcile:
   extends: .ai_sonar_bot_base
   stage: ai-fix
-  resource_group: ai-sonar-bot-dashboard-reconcile
+  resource_group: zeroone-ops-dashboard-reconcile
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_DASHBOARD_RECONCILE == "true"'
       when: manual
     - when: never
   variables:
-    # Define these as protected CI/CD variables:
+    # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
   script:
     - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard reconcile
@@ -94,9 +97,10 @@ ai_sonar_bot_dashboard_reconcile:
 ai_sonar_bot_review:
   extends: .ai_sonar_bot_base
   stage: ai-review
-  resource_group: ai-sonar-bot-review
+  resource_group: zeroone-ops-review
   rules:
     - if: '$CI_MERGE_REQUEST_IID && $CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_REVIEW == "true"'
       when: manual
     - when: never

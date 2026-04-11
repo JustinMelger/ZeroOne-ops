@@ -95,17 +95,21 @@ When reviewing changes in this repository:
 
 ## Required Verification
 
-After every repository change, run the required checks before considering the
-task complete:
+After every repository code change, run the required checks before considering
+the task complete:
 
 ```bash
 uv run ruff check .
 just architecture
 uv run mypy src
+uv run bandit -q -r src
 uv run pytest
 ```
 
-Do not treat the task as complete until these checks pass, or you have
+For docs-only or example-config-only changes, use judgment and report which
+checks were intentionally skipped.
+
+Do not treat the task as complete until the required checks pass, or you have
 explicitly reported which check could not be run and why.
 
 If you are changing workflow docs or CI behavior, also update the relevant

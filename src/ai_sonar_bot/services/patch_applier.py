@@ -7,7 +7,9 @@ repository.
 from __future__ import annotations
 
 import re
-import subprocess
+
+# Bandit: this service intentionally uses subprocess for trusted git CLI patch operations.
+import subprocess  # nosec B404
 import tempfile
 from pathlib import Path, PurePosixPath
 
@@ -91,7 +93,8 @@ class PatchApplier:
         Raises:
             PatchApplyError: If the repository check fails.
         """
-        completed = subprocess.run(
+        # Repository checks intentionally invoke the trusted local git CLI with explicit argv.
+        completed = subprocess.run(  # nosec B603 B607
             ["git", "rev-parse", "--is-inside-work-tree"],
             cwd=self.repo_root,
             check=False,
@@ -121,7 +124,9 @@ class PatchApplier:
             temp_path = Path(handle.name)
 
         try:
-            completed = subprocess.run(
+            # Patch application intentionally invokes the trusted
+            # local git CLI on a local temp diff.
+            completed = subprocess.run(  # nosec B603 B607
                 ["git", "apply", "--reject", "--whitespace=nowarn", str(temp_path)],
                 cwd=self.repo_root,
                 check=False,

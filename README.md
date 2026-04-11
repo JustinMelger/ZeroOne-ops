@@ -93,6 +93,22 @@ export OPENAI_MODEL=gpt-4.1-mini
 For v1 safety, remediation only accepts structured edits that touch exactly one
 file.
 
+## Credentials And Secrets
+
+For local testing, the most common environment variables are:
+
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `GITLAB_URL`
+- `GITLAB_TOKEN`
+- `SONARQUBE_URL`
+- `SONARQUBE_TOKEN`
+- `SONARQUBE_PROJECT_KEY`
+
+Store CI secrets as masked and protected variables, and avoid shell tracing
+around authenticated git remote rewrites. Use the runbook for workflow-by-
+workflow token requirements and permission guidance.
+
 ## Container And Releases
 
 Build the local image:
@@ -115,8 +131,10 @@ as the repository root, so mounting another repository does not hide the bot's
 virtual environment.
 
 GitHub release automation uses `release-please` plus the publish workflow.
-Stable release tags now follow the `zeroone-ops-vX.Y.Z` pattern, while the
-publish workflow still accepts older tag prefixes during transition.
+Stable release tags now follow the `zeroone-ops-vX.Y.Z` pattern.
+Prerelease tags can use `zeroone-ops-vX.Y.Z-rc.N`; those publish explicit
+prerelease image tags without updating `latest`, while the workflow still
+accepts older tag prefixes during transition.
 
 Pull a published image with:
 

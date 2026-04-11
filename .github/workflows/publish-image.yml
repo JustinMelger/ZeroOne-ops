@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to publish, for example zeroone-ops-v0.2.0"
+        description: "Release tag to publish, for example zeroone-ops-v0.2.0 or zeroone-ops-v0.2.0-rc.1"
         required: false
         type: string
   release:
@@ -13,9 +13,13 @@ on:
   push:
     tags:
       - "v*.*.*"
+      - "v*.*.*-rc.*"
       - "ai-sonar-bot-v*.*.*"
+      - "ai-sonar-bot-v*.*.*-rc.*"
       - "ai-code-ops-v*.*.*"
+      - "ai-code-ops-v*.*.*-rc.*"
       - "zeroone-ops-v*.*.*"
+      - "zeroone-ops-v*.*.*-rc.*"
 
 env:
   REGISTRY: ghcr.io
@@ -44,8 +48,13 @@ jobs:
           semver_tag="${raw_tag#zeroone-ops-}"
           semver_tag="${semver_tag#ai-code-ops-}"
           semver_tag="${semver_tag#ai-sonar-bot-}"
+          prerelease="false"
+          if [[ "$semver_tag" == *-rc.* ]]; then
+            prerelease="true"
+          fi
           echo "raw_tag=${raw_tag}" >> "$GITHUB_OUTPUT"
           echo "semver_tag=${semver_tag}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
 
       - name: Check out repository
         uses: actions/checkout@v5
@@ -59,8 +68,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
+      - name: Extract stable Docker metadata
+        id: meta_stable
+        if: ${{ steps.ref.outputs.prerelease != 'true' }}
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
@@ -69,6 +79,16 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.ref.outputs.semver_tag }}
             type=semver,pattern={{major}},value=${{ steps.ref.outputs.semver_tag }}
             type=raw,value=latest
+
+      - name: Extract prerelease Docker metadata
+        id: meta_prerelease
+        if: ${{ steps.ref.outputs.prerelease == 'true' }}
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.ref.outputs.semver_tag }}
+            type=raw,value=rc
 
       - name: Build smoke-test image
         uses: docker/build-push-action@v6
@@ -89,8 +109,8 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.ref.outputs.prerelease == 'true' && steps.meta_prerelease.outputs.tags || steps.meta_stable.outputs.tags }}
+          labels: ${{ steps.ref.outputs.prerelease == 'true' && steps.meta_prerelease.outputs.labels || steps.meta_stable.outputs.labels }}
 
       - name: Generate build provenance
         if: ${{ github.event.repository.private == false }}

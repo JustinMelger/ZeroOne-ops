@@ -110,13 +110,53 @@ In practice, this means the token should have:
 - API access for merge request operations
 - repository write access for branch pushes
 
+Store CI secrets such as `GITLAB_TOKEN`, `SONARQUBE_TOKEN`, and
+`OPENAI_API_KEY` as masked and protected variables. When CI rewrites the git
+remote for authenticated pushes, avoid enabling shell tracing around that step.
+
 `OPENAI_API_KEY` must be valid for the configured `OPENAI_MODEL`.
+
+For GitHub-hosted release and dependency workflows:
+
+- `RELEASE_PLEASE_TOKEN` must be available to the release workflow when using
+  release-please automation
+- `RENOVATE_TOKEN` must be available to the Renovate workflow
+- prefer repository or organization secrets rather than hard-coded workflow
+  values
 
 For pull request review, `GITLAB_TOKEN` must also be able to:
 
 - list open merge requests
 - read merge request changes
 - create merge request notes
+
+## Release Checklist
+
+Use this lightweight checklist before cutting a stable release tag.
+
+1. confirm the working tree is ready and the intended version/tag is clear
+2. confirm CI quality checks are green:
+   - `uv run ruff check .`
+   - `just architecture`
+   - `uv run mypy src`
+   - `uv run bandit -q -r src`
+   - `uv run pytest`
+3. confirm required release and runtime secrets are configured:
+   - `RELEASE_PLEASE_TOKEN` for GitHub release automation if used
+   - `OPENAI_API_KEY` where live review or remediation flows will run
+   - `GITLAB_TOKEN` for GitLab-backed live workflows
+4. if the change is significant, publish and test a prerelease tag first, for
+   example `zeroone-ops-vX.Y.Z-rc.N`
+5. confirm the publish-image workflow smoke test passes for the container:
+   - `--help`
+   - `review --help`
+   - `dashboard --help`
+6. confirm README, runbook, and example CI docs still match the current release
+   and image naming
+7. record any known rollout caveats before cutting the stable tag
+
+A stable release is ready when the checklist is complete and there are no known
+blocking rollout issues.
 
 ## Expected Pipeline Behavior
 

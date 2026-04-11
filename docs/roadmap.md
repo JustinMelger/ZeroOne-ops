@@ -341,21 +341,20 @@ Status:
 
 - [ ] harden CI/CD behavior around schedules, failure visibility, and operator
       guidance where testing reveals rough edges
-- [ ] review GitLab job defaults, resource groups, and dry-run/live boundaries
+- [x] review GitLab job defaults, resource groups, and dry-run/live boundaries
       for the shipped workflows
-- [ ] tighten auth and secret-handling documentation where operator setup is
+- [x] tighten auth and secret-handling documentation where operator setup is
       still easy to misconfigure
 - [x] add a conservative Renovate setup for dependency management so CI and
       dependency drift stay under control during the hardening period
-- [ ] evaluate and add a conservative security scanning layer that matches the
-      selected tool direction without creating high-noise gating
-- [ ] add a prerelease or release-candidate image publish path so CLI, CI, and
+- [x] add a conservative security scanning layer with `pip-audit` and
+      `Bandit`, keeping the current rollout advisory and low-noise
+- [x] add a prerelease or release-candidate image publish path so CLI, CI, and
       dashboard changes can be tested before a stable release
 - [x] add a lightweight prerelease image smoke test so the published container
       is validated with a small real command surface before broader rollout
-- [ ] do a secret and logging safety review so auth setup, remote rewriting,
-      and failure paths do not leak sensitive data
-- [ ] add a small release checklist covering image publish, CI setup, auth
+- [x] complete a secret and logging safety audit
+- [x] add a small release checklist covering image publish, CI setup, auth
       readiness, smoke-test status, and known rollout issues
 
 Done when:

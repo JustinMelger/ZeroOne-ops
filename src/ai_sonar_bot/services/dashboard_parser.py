@@ -101,8 +101,16 @@ class DashboardParser:
         lines = [line.strip() for line in stripped.splitlines() if line.strip()]
         if len(lines) < 2:
             return False
-        if lines[0] != "| ID | Source | Type | File | Rule | Status | Priority |":
-            return False
-        if lines[1] != "|---|---|---|---|---|---|---|":
+        supported_headers = {
+            (
+                "| ID | Source | Type | File | Rule | Status | Priority |",
+                "|---|---|---|---|---|---|---|",
+            ),
+            (
+                "| ID | Source | Type | File | Rule | Status | Priority | Note |",
+                "|---|---|---|---|---|---|---|---|",
+            ),
+        }
+        if (lines[0], lines[1]) not in supported_headers:
             return False
         return all(line.startswith("| ") and line.endswith(" |") for line in lines[2:])

@@ -37,8 +37,8 @@ class DashboardRenderer:
     def _render_summary_table(self, items: list[DashboardItem]) -> list[str]:
         """Render one human-readable summary table for section items."""
         lines = [
-            "| ID | Source | Type | File | Rule | Status | Priority |",
-            "|---|---|---|---|---|---|---|",
+            "| ID | Source | Type | File | Rule | Status | Priority | Note |",
+            "|---|---|---|---|---|---|---|---|",
         ]
         for item in items:
             lines.append(
@@ -49,9 +49,20 @@ class DashboardRenderer:
                 f"`{item.file or '-'}` | "
                 f"`{item.rule or '-'}` | "
                 f"`{item.status}` | "
-                f"`{item.priority}` |"
+                f"`{item.priority}` | "
+                f"{self._render_summary_note(item)} |"
             )
         return lines
+
+    def _render_summary_note(self, item: DashboardItem) -> str:
+        """Render one compact operator note for the summary table."""
+        note = item.log_excerpt if item.status in {"failed", "rejected", "done"} else None
+        if not note:
+            return "-"
+        compact_note = " ".join(note.split())
+        if len(compact_note) > 72:
+            compact_note = compact_note[:69].rstrip() + "..."
+        return compact_note.replace("|", "/")
 
     def _render_item(self, item: DashboardItem) -> list[str]:
         payload = item.model_dump(mode="json", exclude_none=True)
