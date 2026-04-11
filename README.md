@@ -115,8 +115,10 @@ as the repository root, so mounting another repository does not hide the bot's
 virtual environment.
 
 GitHub release automation uses `release-please` plus the publish workflow.
-Stable release tags now follow the `zeroone-ops-vX.Y.Z` pattern, while the
-publish workflow still accepts older tag prefixes during transition.
+Stable release tags now follow the `zeroone-ops-vX.Y.Z` pattern.
+Prerelease tags can use `zeroone-ops-vX.Y.Z-rc.N`; those publish explicit
+prerelease image tags without updating `latest`, while the workflow still
+accepts older tag prefixes during transition.
 
 Pull a published image with:
 
