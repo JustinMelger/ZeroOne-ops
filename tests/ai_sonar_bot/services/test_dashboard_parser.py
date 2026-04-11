@@ -167,9 +167,7 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
                 items=[
                     build_item(item_id="sonar:failed", status="failed").model_copy(
                         update={
-                            "log_excerpt": (
-                                "Merge request metadata is inaccessible from GitLab."
-                            )
+                            "log_excerpt": ("Merge request metadata is inaccessible from GitLab.")
                         }
                     )
                 ],
@@ -179,7 +177,6 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
 
     assert "| ID | Source | Type | File | Rule | Status | Priority | Note |" in body
     assert "Merge request metadata is inaccessible from GitLab." in body
-
 
 
 def test_parse_rejects_free_form_content_in_managed_section() -> None:
