@@ -5,6 +5,29 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.17.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.16.0...zeroone-ops-v0.17.0) (2026-04-11)
+
+
+### Features
+
+* add note to failure dashboard with reason ([9560756](https://github.com/JustinMelger/ZeroOne-ops/commit/956075605c20e64522ade6ecc7f08c40f0a789a9))
+* add rc image tag ([9440fd3](https://github.com/JustinMelger/ZeroOne-ops/commit/9440fd3bda1011961e738b3b1dec6ef8a3f1315b))
+
+
+### Bug Fixes
+
+* add bandit + fix warnings ([8edaf04](https://github.com/JustinMelger/ZeroOne-ops/commit/8edaf04c1cf0e9876d2ba50c9bec3c5cde7f47a3))
+
+
+### Documentation
+
+* feedback desing ([4dcf108](https://github.com/JustinMelger/ZeroOne-ops/commit/4dcf108d065fa3128c2a6d3a0ec4e97003634050))
+* migrate ([6d29823](https://github.com/JustinMelger/ZeroOne-ops/commit/6d298230cf2ab8978947865df08cbf6655eed1a2))
+* rm temp files migration ([03e87b1](https://github.com/JustinMelger/ZeroOne-ops/commit/03e87b1fbc2998c04dda8aa01413a3b09009b592))
+* temp ([5017976](https://github.com/JustinMelger/ZeroOne-ops/commit/5017976fd022c6b1588f6c0df90ec2ff92465f82))
+* tighten runbook + example ([381c6f3](https://github.com/JustinMelger/ZeroOne-ops/commit/381c6f3ae7028fddef6651d8b6763dc828f39bf1))
+* upate gitlab runbook + examll ([bea22e0](https://github.com/JustinMelger/ZeroOne-ops/commit/bea22e00de2e0cf1d62068926bc58cd57a01d895))
+
 ## [0.16.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.15.0...zeroone-ops-v0.16.0) (2026-04-10)
 
 
