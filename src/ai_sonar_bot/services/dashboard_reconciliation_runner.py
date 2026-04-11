@@ -147,6 +147,7 @@ class DashboardReconciliationRunner:
         done_count = 0
         failed_count = 0
         decision_parts: list[str] = []
+        failed_parts: list[str] = []
 
         for item in selected_items:
             decision = decision_service.decide(project_id=project_id, item=item)
@@ -232,6 +233,7 @@ class DashboardReconciliationRunner:
                 commit_sha=item.commit_sha,
                 mr_url=item.merge_request_url,
             )
+            failed_parts.append(f"{item.id} ({decision.message})")
             reconciled_count += 1
             failed_count += 1
 
@@ -251,6 +253,7 @@ class DashboardReconciliationRunner:
                 failed_count=failed_count,
                 noop_count=noop_count,
                 decision_parts=decision_parts,
+                failed_parts=failed_parts,
             ),
             dashboard_item_id=record.dashboard_item_id,
             branch_name=record.branch_name,
@@ -268,6 +271,7 @@ class DashboardReconciliationRunner:
         failed_count: int,
         noop_count: int,
         decision_parts: list[str],
+        failed_parts: list[str],
     ) -> str:
         """Build one reconciliation summary for a live batch."""
         outcome = (
@@ -280,7 +284,10 @@ class DashboardReconciliationRunner:
                 f"Reconciliation checked {selected_count} dashboard items and found "
                 f"{noop_count} still-open merge requests."
             )
-        return f"{outcome} " + "; ".join(decision_parts)
+        message = f"{outcome} " + "; ".join(decision_parts)
+        if failed_parts:
+            message += " Failed items: " + "; ".join(failed_parts)
+        return message
 
     def _fail_dashboard_update(
         self,

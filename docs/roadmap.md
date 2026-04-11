@@ -341,7 +341,7 @@ Status:
 
 - [ ] harden CI/CD behavior around schedules, failure visibility, and operator
       guidance where testing reveals rough edges
-- [ ] review GitLab job defaults, resource groups, and dry-run/live boundaries
+- [x] review GitLab job defaults, resource groups, and dry-run/live boundaries
       for the shipped workflows
 - [x] tighten auth and secret-handling documentation where operator setup is
       still easy to misconfigure

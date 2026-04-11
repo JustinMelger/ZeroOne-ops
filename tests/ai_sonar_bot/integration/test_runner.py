@@ -925,6 +925,7 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
     assert summary.status.value == "reconciled"
     assert "1 marked failed" in summary.message
     assert "metadata is inaccessible" in summary.message
+    assert "Failed items: sonar:AX123" in summary.message
     assert state.dashboard_items["sonar:AX123"].status == "failed"
 
 
@@ -1077,6 +1078,7 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
 
     assert summary.status.value == "reconciled"
     assert "1 marked done, 0 reopened, 1 marked failed, 0 still open" in summary.message
+    assert "Failed items: sonar:BROKEN" in summary.message
     assert state.dashboard_items["sonar:BROKEN"].status == "failed"
     assert state.dashboard_items["sonar:MERGED"].status == "done"
 

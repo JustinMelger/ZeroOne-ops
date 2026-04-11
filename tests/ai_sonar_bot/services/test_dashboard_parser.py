@@ -139,7 +139,7 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
         ],
     )
 
-    assert "| ID | Source | Type | File | Rule | Status | Priority |" in body
+    assert "| ID | Source | Type | File | Rule | Status | Priority | Note |" in body
     expected_row = (
         "| `sonar:1` | sonarqube | code_smell_fix | "
         "`src/service.py` | `python:S1125` | `open` | `low` |"
@@ -147,6 +147,39 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     assert expected_row in body
     assert "<details>" in body
     assert "<summary><code>sonar:1</code> details</summary>" in body
+
+
+def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Dashboard",
+        sections=[
+            DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(
+                key="recent_failures",
+                title="Recent Failures",
+                items=[
+                    build_item(item_id="sonar:failed", status="failed").model_copy(
+                        update={
+                            "log_excerpt": (
+                                "Merge request metadata is inaccessible from GitLab."
+                            )
+                        }
+                    )
+                ],
+            ),
+        ],
+    )
+
+    assert "| ID | Source | Type | File | Rule | Status | Priority | Note |" in body
+    assert "Merge request metadata is inaccessible from GitLab." in body
+
 
 
 def test_parse_rejects_free_form_content_in_managed_section() -> None:
@@ -204,7 +237,7 @@ def test_parse_accepts_summary_table_followed_by_multiple_item_blocks() -> None:
 
 | ID | Source | Type | File | Rule | Status | Priority |
 |---|---|---|---|---|---|---|
-| `sonar:1` | sonarqube | code_smell_fix | `src/service.py` | `python:S1125` | `open` | `low` |
+| `sonar:1` | sonarqube | code_smell_fix | `src/service.py` | `python:S1125` | `open` | `low` | - |
 | `sonar:2` | sonarqube | code_smell_fix | `src/other.py` | `python:S1481` | `open` | `medium` |
 
 <details>
