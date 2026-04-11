@@ -18,6 +18,7 @@ build/
 *.pyd
 .env
 .ai-sonar-bot-state.json
+.cov*
 artifacts/
 future_plans.md
 detailed_roadmap.md
