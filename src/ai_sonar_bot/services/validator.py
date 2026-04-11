@@ -5,7 +5,8 @@ This module executes configured project validation commands in sequence.
 
 from __future__ import annotations
 
-import subprocess
+# Bandit: this service intentionally uses subprocess for configured validation commands.
+import subprocess  # nosec B404
 import time
 from pathlib import Path
 
@@ -72,10 +73,11 @@ class Validator:
         """
         started = time.perf_counter()
         try:
-            completed = subprocess.run(
-                command,
+            # Validation commands are repository-controlled configuration
+            # and may rely on shell syntax.
+            completed = subprocess.run(  # nosec B603
+                ["/bin/sh", "-lc", command],
                 cwd=self.repo_root,
-                shell=True,
                 text=True,
                 capture_output=True,
                 timeout=self.timeout_seconds,

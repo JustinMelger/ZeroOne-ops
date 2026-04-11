@@ -5,7 +5,8 @@ This module owns the local git workflow used before publish.
 
 from __future__ import annotations
 
-import subprocess
+# Bandit: this service intentionally uses subprocess for trusted git CLI operations.
+import subprocess  # nosec B404
 from pathlib import Path
 
 from ai_sonar_bot.utils.git import build_issue_branch_name
@@ -126,7 +127,8 @@ class BranchManager:
         Raises:
             BranchManagerError: If the git command fails.
         """
-        completed = subprocess.run(
+        # Git operations intentionally invoke the trusted local git CLI with explicit argv.
+        completed = subprocess.run(  # nosec B603 B607
             ["git", *args],
             cwd=self.repo_root,
             text=True,

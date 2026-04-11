@@ -15,6 +15,7 @@ typecheck:
 
 security:
     uv run pip-audit
+    uv run bandit -r src
 
 test:
     uv run pytest

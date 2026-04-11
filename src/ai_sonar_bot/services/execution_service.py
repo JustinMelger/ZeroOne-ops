@@ -173,7 +173,16 @@ class ExecutionService:
                 branch_name=branch_name,
             )
         patch = analysis_result.patch
-        assert patch is not None
+        if patch is None:
+            return ExecutionResult(
+                analysis_result=analysis_result,
+                status_message="Execution could not continue because no patch was produced.",
+                failure=FailureDetails(
+                    stage=FailureStage.ANALYSIS,
+                    message="Execution could not continue because no patch was produced.",
+                ),
+                branch_name=branch_name,
+            )
         if self.config.requires_local_approval():
             validation_result = analysis_result.validation_result
             if validation_result is None:
