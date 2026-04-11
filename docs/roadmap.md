@@ -476,6 +476,9 @@ Post-v1 ideas and expansion tracks now live in
 
 That includes:
 
+- dashboard-centered review feedback and retry-state design
+  - [functional-design-dashboard-review-feedback.md](functional-design-dashboard-review-feedback.md)
+  - [technical-design-dashboard-review-feedback.md](technical-design-dashboard-review-feedback.md)
 - GitLab dashboard issue support
 - symbol-safe rename handling
 - complex single-file refactors

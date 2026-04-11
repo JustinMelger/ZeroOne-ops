@@ -79,6 +79,19 @@ Do not introduce imports that violate those boundaries.
 - Use integration tests for runner and provider wiring.
 - Add regression coverage for bug fixes when practical.
 
+## Workflow Boundary Review
+
+After each workflow-affecting implementation slice, do a short boundary review
+before considering the work complete.
+
+Check that:
+
+- workflow ownership still matches the current design docs
+- remediation, review, reconciliation, and dashboard state did not silently
+  take over each other's responsibilities
+- operator-facing surfaces and machine-facing state are still clearly separated
+- any real boundary change is reflected in the relevant design and runbook docs
+
 ## Review Expectations
 
 When reviewing changes in this repository:
