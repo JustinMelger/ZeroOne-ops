@@ -110,6 +110,10 @@ In practice, this means the token should have:
 - API access for merge request operations
 - repository write access for branch pushes
 
+Store CI secrets such as `GITLAB_TOKEN`, `SONARQUBE_TOKEN`, and
+`OPENAI_API_KEY` as masked and protected variables. When CI rewrites the git
+remote for authenticated pushes, avoid enabling shell tracing around that step.
+
 `OPENAI_API_KEY` must be valid for the configured `OPENAI_MODEL`.
 
 For pull request review, `GITLAB_TOKEN` must also be able to:

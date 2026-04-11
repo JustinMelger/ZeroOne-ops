@@ -14,7 +14,7 @@ stages:
     GIT_DEPTH: "0"
     GITLAB_URL: "https://${CI_SERVER_HOST}"
     OPENAI_MODEL: "gpt-5.4-mini"
-    # Define these as protected CI/CD variables:
+    # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
     # OPENAI_API_KEY
 
@@ -31,7 +31,7 @@ ai_sonar_bot_dashboard:
       when: manual
     - when: never
   variables:
-    # Define these as protected CI/CD variables:
+    # Define these as masked and protected CI/CD variables where applicable:
     # SONARQUBE_URL
     # SONARQUBE_TOKEN
     # SONARQUBE_PROJECT_KEY
@@ -58,12 +58,13 @@ ai_sonar_bot_dashboard_remediate:
     GIT_AUTHOR_EMAIL: "ai-sonar-bot@example.com"
     GIT_COMMITTER_NAME: "AI Sonar Bot"
     GIT_COMMITTER_EMAIL: "ai-sonar-bot@example.com"
-    # Define these as protected CI/CD variables:
+    # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
     # OPENAI_API_KEY
   before_script:
     - git config user.name "$GIT_AUTHOR_NAME"
     - git config user.email "$GIT_AUTHOR_EMAIL"
+    - set +x
     - >
       git remote set-url origin
       "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
@@ -83,7 +84,7 @@ ai_sonar_bot_dashboard_reconcile:
       when: manual
     - when: never
   variables:
-    # Define these as protected CI/CD variables:
+    # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
   script:
     - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard reconcile
