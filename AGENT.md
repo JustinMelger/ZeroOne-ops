@@ -79,6 +79,19 @@ Do not introduce imports that violate those boundaries.
 - Use integration tests for runner and provider wiring.
 - Add regression coverage for bug fixes when practical.
 
+## Workflow Boundary Review
+
+After each workflow-affecting implementation slice, do a short boundary review
+before considering the work complete.
+
+Check that:
+
+- workflow ownership still matches the current design docs
+- remediation, review, reconciliation, and dashboard state did not silently
+  take over each other's responsibilities
+- operator-facing surfaces and machine-facing state are still clearly separated
+- any real boundary change is reflected in the relevant design and runbook docs
+
 ## Review Expectations
 
 When reviewing changes in this repository:
@@ -95,17 +108,21 @@ When reviewing changes in this repository:
 
 ## Required Verification
 
-After every repository change, run the required checks before considering the
-task complete:
+After every repository code change, run the required checks before considering
+the task complete:
 
 ```bash
 uv run ruff check .
 just architecture
 uv run mypy src
+uv run bandit -q -r src
 uv run pytest
 ```
 
-Do not treat the task as complete until these checks pass, or you have
+For docs-only or example-config-only changes, use judgment and report which
+checks were intentionally skipped.
+
+Do not treat the task as complete until the required checks pass, or you have
 explicitly reported which check could not be run and why.
 
 If you are changing workflow docs or CI behavior, also update the relevant
