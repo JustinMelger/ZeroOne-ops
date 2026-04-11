@@ -24,7 +24,7 @@ stages:
 ai_sonar_bot_dashboard:
   extends: .ai_sonar_bot_base
   stage: ai-fix
-  resource_group: ai-sonar-bot-dashboard
+  resource_group: zeroone-ops-dashboard
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_DASHBOARD == "true"'
@@ -41,13 +41,15 @@ ai_sonar_bot_dashboard:
 
 # Dashboard-backed remediation workflow.
 # Keep this separate from discovery, but run it after dashboard sync in the
-# same pipeline so remediation acts on freshly refreshed dashboard state.
+# same pipeline when both jobs are enabled so remediation acts on freshly
+# refreshed dashboard state.
 ai_sonar_bot_dashboard_remediate:
   extends: .ai_sonar_bot_base
   stage: ai-fix
-  resource_group: ai-sonar-bot-dashboard-remediate
+  resource_group: zeroone-ops-dashboard-remediate
   needs:
-    - ai_sonar_bot_dashboard
+    - job: ai_sonar_bot_dashboard
+      optional: true
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_DASHBOARD_REMEDIATE == "true"'
@@ -77,7 +79,7 @@ ai_sonar_bot_dashboard_remediate:
 ai_sonar_bot_dashboard_reconcile:
   extends: .ai_sonar_bot_base
   stage: ai-fix
-  resource_group: ai-sonar-bot-dashboard-reconcile
+  resource_group: zeroone-ops-dashboard-reconcile
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_DASHBOARD_RECONCILE == "true"'
@@ -95,9 +97,10 @@ ai_sonar_bot_dashboard_reconcile:
 ai_sonar_bot_review:
   extends: .ai_sonar_bot_base
   stage: ai-review
-  resource_group: ai-sonar-bot-review
+  resource_group: zeroone-ops-review
   rules:
     - if: '$CI_MERGE_REQUEST_IID && $CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_AI_SONAR_BOT_REVIEW == "true"'
       when: manual
     - when: never

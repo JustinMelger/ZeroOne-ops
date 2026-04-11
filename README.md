@@ -93,6 +93,22 @@ export OPENAI_MODEL=gpt-4.1-mini
 For v1 safety, remediation only accepts structured edits that touch exactly one
 file.
 
+## Credentials And Secrets
+
+For local testing, the most common environment variables are:
+
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `GITLAB_URL`
+- `GITLAB_TOKEN`
+- `SONARQUBE_URL`
+- `SONARQUBE_TOKEN`
+- `SONARQUBE_PROJECT_KEY`
+
+Store CI secrets as masked and protected variables, and avoid shell tracing
+around authenticated git remote rewrites. Use the runbook for workflow-by-
+workflow token requirements and permission guidance.
+
 ## Container And Releases
 
 Build the local image:
