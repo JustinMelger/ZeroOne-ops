@@ -5,6 +5,24 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.18.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.17.0...zeroone-ops-v0.18.0) (2026-04-12)
+
+
+### Features
+
+* add bounded review metadato on dashboard, link review back to item if from dashboard ([233c1dc](https://github.com/JustinMelger/ZeroOne-ops/commit/233c1dc0f2643f940ef7867485a3395bc029f022))
+* reconcilation-derived retry eligiblity ([b654bef](https://github.com/JustinMelger/ZeroOne-ops/commit/b654bef82d1a291bc6da3d471030191bdf6c8aab))
+* retry aware remediation consumption ([79e81d5](https://github.com/JustinMelger/ZeroOne-ops/commit/79e81d5d5857de7dbb2d2727924b1cf90f9539c2))
+* visualize linked review on dashboard ([4819db3](https://github.com/JustinMelger/ZeroOne-ops/commit/4819db3a57093417baef470aafcd2c9937ed78cd))
+
+
+### Documentation
+
+* add implementation phases for loop ([6f811c2](https://github.com/JustinMelger/ZeroOne-ops/commit/6f811c29dfe385a7b690e9cc36a522e7e2a5c19a))
+* complete roadmap for review loop ([4629f04](https://github.com/JustinMelger/ZeroOne-ops/commit/4629f049d075f6bfb3725910a3e6d56389957ae7))
+* roadmap cleanp, add tracks for ongoing testing ([d52d588](https://github.com/JustinMelger/ZeroOne-ops/commit/d52d5880385859aa8432693f221244ab365e4abf))
+* update docs + example files ([2a051d1](https://github.com/JustinMelger/ZeroOne-ops/commit/2a051d1fec5ffbce82b3a70d2a6c4b09aca60cc0))
+
 ## [0.17.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.16.0...zeroone-ops-v0.17.0) (2026-04-11)
 
 
