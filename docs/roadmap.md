@@ -311,12 +311,12 @@ Goal:
 
 Status:
 
-- [ ] preserve review metadata when reconciliation marks items `done`,
+- [x] preserve review metadata when reconciliation marks items `done`,
       reopens them, or moves them to `failed`
-- [ ] add `retry_count`, `retry_eligible`, and `retry_block_reason`
-- [ ] derive retry eligibility in reconciliation instead of in the review
+- [x] add `retry_count`, `retry_eligible`, and `retry_block_reason`
+- [x] derive retry eligibility in reconciliation instead of in the review
       workflow
-- [ ] keep the first retry model conservative with a default limit of `1`,
+- [x] keep the first retry model conservative with a default limit of `1`,
       configurable in JSON
 
 Done when:
@@ -337,10 +337,10 @@ Goal:
 
 Status:
 
-- [ ] extend remediation context building with bounded prior review feedback
-- [ ] increment retry counters only when a real retry starts
-- [ ] block retries cleanly when traceability or review signal is too weak
-- [ ] add regression coverage for one bounded retry path
+- [x] extend remediation context building with bounded prior review feedback
+- [x] increment retry counters only when a real retry starts
+- [x] block retries cleanly when traceability or review signal is too weak
+- [x] add regression coverage for one bounded retry path
 
 Done when:
 
