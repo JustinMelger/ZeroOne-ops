@@ -98,7 +98,10 @@ ai-sonar-bot/
   tests/
     unit/
     integration/
-  .env.example
+  examples/
+    .env.example
+    .gitlab-ci.example.yml
+    .ai-sonar-bot.json
   pyproject.toml
   uv.lock
   README.md
@@ -399,7 +402,7 @@ Optional:
 
 ## 7.3 Runtime Config File
 
-Example `.ai-sonar-bot.json`:
+Example `examples/.ai-sonar-bot.json`:
 
 ```json
 {

@@ -136,6 +136,38 @@ def test_mark_in_progress_stamps_run_metadata_and_preserves_existing_fields() ->
     assert result.updated_item.constraints == "Single-file only."
 
 
+def test_mark_in_progress_can_consume_retry_fields() -> None:
+    dashboard_service = FakeDashboardService(
+        build_document(
+            items=[
+                build_item().model_copy(
+                    update={
+                        "retry_count": 0,
+                        "retry_eligible": True,
+                        "retry_block_reason": "Old block reason",
+                    }
+                )
+            ]
+        )
+    )
+    updater = DashboardRemediationUpdater(dashboard_service)
+
+    result = updater.mark_in_progress(
+        project_id="123",
+        dashboard_item_id="sonar:1",
+        run_id="run-1",
+        retry_count=1,
+        retry_eligible=False,
+        retry_block_reason=None,
+    )
+
+    assert result.error_message is None
+    assert result.updated_item is not None
+    assert result.updated_item.retry_count == 1
+    assert result.updated_item.retry_eligible is False
+    assert result.updated_item.retry_block_reason is None
+
+
 def test_mark_mr_opened_writes_traceability_fields() -> None:
     dashboard_service = FakeDashboardService(
         build_document(

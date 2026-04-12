@@ -85,3 +85,22 @@ def test_skip_reason_reports_missing_local_file(tmp_path: Path) -> None:
     reason = selector.skip_reason(build_item(item_id="sonar:1"), build_state())
 
     assert reason == "missing_local_file"
+
+
+def test_skip_reason_reports_retry_blocked_for_reviewed_item(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    selector = DashboardItemSelector(repo_root=tmp_path)
+
+    reason = selector.skip_reason(
+        build_item(item_id="sonar:1").model_copy(
+            update={
+                "review_status": "manual_review_only",
+                "retry_eligible": False,
+                "retry_block_reason": "Latest review outcome requires manual review.",
+            }
+        ),
+        build_state(),
+    )
+
+    assert reason == "retry_blocked"

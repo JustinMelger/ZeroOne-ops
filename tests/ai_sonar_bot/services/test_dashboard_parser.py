@@ -179,6 +179,103 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
     assert "Merge request metadata is inaccessible from GitLab." in body
 
 
+def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Dashboard",
+        sections=[
+            DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(
+                key="merge_requests_opened",
+                title="Merge Requests Opened",
+                items=[
+                    build_item(item_id="sonar:reviewed", status="mr_opened").model_copy(
+                        update={
+                            "merge_request_iid": 17,
+                            "merge_request_url": (
+                                "https://gitlab.example.com/group/project/-/merge_requests/17"
+                            ),
+                            "review_status": "findings_present",
+                            "review_findings_count": 2,
+                            "reviewed_head_sha": "abc123def456",
+                            "retry_eligible": True,
+                            "review_feedback_summary": ("Ordering changed in a shared code path."),
+                        }
+                    )
+                ],
+            ),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    assert "review: findings_present" in body
+    assert "findings: 2" in body
+    assert "sha: abc123de" in body
+    assert "retry: eligible" in body
+    assert "Ordering changed in a shared code path." in body
+
+
+def test_parse_round_trips_dashboard_item_review_metadata() -> None:
+    renderer = DashboardRenderer()
+    parser = DashboardParser()
+    body = renderer.render(
+        title="AI Code Ops Dashboard",
+        sections=[
+            DashboardSection(
+                key="merge_requests_opened",
+                title="Merge Requests Opened",
+                items=[
+                    build_item(item_id="sonar:1", status="mr_opened").model_copy(
+                        update={
+                            "merge_request_iid": 17,
+                            "merge_request_url": (
+                                "https://gitlab.example.com/group/project/-/merge_requests/17"
+                            ),
+                            "review_status": "findings_present",
+                            "review_findings_count": 1,
+                            "reviewed_head_sha": "abc123",
+                            "review_feedback_summary": "Concrete ordering regression found.",
+                            "review_feedback_updated_at": datetime(2026, 4, 12, 10, 0, tzinfo=UTC),
+                            "review_confidence": 0.82,
+                            "review_confidence_reason": (
+                                "The changed diff directly alters output ordering."
+                            ),
+                        }
+                    )
+                ],
+            ),
+            DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Dashboard",
+        body=body,
+    )
+
+    item = document.items_by_id()["sonar:1"]
+    assert item.review_status == "findings_present"
+    assert item.review_findings_count == 1
+    assert item.reviewed_head_sha == "abc123"
+    assert item.review_feedback_summary == "Concrete ordering regression found."
+    assert item.review_feedback_updated_at == datetime(2026, 4, 12, 10, 0, tzinfo=UTC)
+    assert item.review_confidence == 0.82
+    assert item.review_confidence_reason == "The changed diff directly alters output ordering."
+
+
 def test_parse_rejects_free_form_content_in_managed_section() -> None:
     parser = DashboardParser()
     body = """# AI Code Ops Dashboard

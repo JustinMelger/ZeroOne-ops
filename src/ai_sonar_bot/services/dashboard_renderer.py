@@ -56,12 +56,35 @@ class DashboardRenderer:
 
     def _render_summary_note(self, item: DashboardItem) -> str:
         """Render one compact operator note for the summary table."""
-        note = item.log_excerpt if item.status in {"failed", "rejected", "done"} else None
+        note = self._render_review_note(item)
+        if note is None:
+            note = item.log_excerpt if item.status in {"failed", "rejected", "done"} else None
         if not note:
             return "-"
+        return self._compact_note(note)
+
+    def _render_review_note(self, item: DashboardItem) -> str | None:
+        """Render one compact review-state note when review metadata exists."""
+        if item.review_status is None:
+            return None
+        parts = [f"review: {item.review_status}"]
+        if item.review_findings_count is not None:
+            parts.append(f"findings: {item.review_findings_count}")
+        if item.reviewed_head_sha:
+            parts.append(f"sha: {item.reviewed_head_sha[:8]}")
+        if item.retry_eligible is True:
+            parts.append("retry: eligible")
+        elif item.retry_block_reason:
+            parts.append(f"retry: blocked ({item.retry_block_reason})")
+        if item.review_feedback_summary:
+            parts.append(item.review_feedback_summary)
+        return "; ".join(parts)
+
+    def _compact_note(self, note: str) -> str:
+        """Normalize and bound one summary-note string."""
         compact_note = " ".join(note.split())
-        if len(compact_note) > 72:
-            compact_note = compact_note[:69].rstrip() + "..."
+        if len(compact_note) > 96:
+            compact_note = compact_note[:93].rstrip() + "..."
         return compact_note.replace("|", "/")
 
     def _render_item(self, item: DashboardItem) -> list[str]:

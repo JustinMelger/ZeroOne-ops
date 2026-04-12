@@ -53,6 +53,18 @@ class CodeContextSnippet(BaseModel):
     content: str
 
 
+class PriorReviewFeedback(BaseModel):
+    """Represent bounded prior review feedback for a remediation retry."""
+
+    review_status: str
+    review_findings_count: int | None = None
+    review_feedback_summary: str | None = None
+    review_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    review_confidence_reason: str | None = None
+    reviewed_head_sha: str | None = None
+    retry_count: int | None = None
+
+
 class IssueContext(BaseModel):
     """Represent structured source context for a selected issue.
 
@@ -73,6 +85,7 @@ class IssueContext(BaseModel):
     snippet: CodeContextSnippet
     full_file_included: bool
     truncated: bool
+    prior_review_feedback: PriorReviewFeedback | None = None
 
 
 class PatchProposal(BaseModel):

@@ -127,6 +127,9 @@ class DashboardRemediationRunner:
             )
 
         live_dashboard_updates = not active_dry_run and self.config.execution_mode == "ci"
+        retry_count = intake_result.selected_item.retry_count or 0
+        if intake_result.selected_item.retry_eligible:
+            retry_count += 1
         if live_dashboard_updates:
             in_progress_result = DashboardRemediationUpdater(
                 self.dashboard_service
@@ -134,6 +137,9 @@ class DashboardRemediationRunner:
                 project_id=project_id,
                 dashboard_item_id=work_item.dashboard_item_id,
                 run_id=run_id,
+                retry_count=retry_count,
+                retry_eligible=False,
+                retry_block_reason=None,
             )
             if in_progress_result.error_message is not None:
                 return self._fail_dashboard_update(
@@ -163,6 +169,7 @@ class DashboardRemediationRunner:
                     dashboard_item_id=work_item.dashboard_item_id,
                     run_id=run_id,
                     error_message=execution_result.failure.message,
+                    retry_count=retry_count,
                 )
                 if failed_update.error_message is not None:
                     return self._fail_dashboard_update(
@@ -228,6 +235,9 @@ class DashboardRemediationRunner:
                 branch_name=execution_result.branch_name or "",
                 merge_request_url=execution_result.mr_url,
                 commit_sha=execution_result.commit_sha,
+                retry_count=retry_count,
+                retry_eligible=False,
+                retry_block_reason=None,
             )
             if mr_opened_update.error_message is not None:
                 return self._fail_dashboard_update(

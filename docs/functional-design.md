@@ -441,7 +441,10 @@ ai-sonar-bot/
     git_provider/
     state/
   tests/
-  .env.example
+  examples/
+    .env.example
+    .gitlab-ci.example.yml
+    .ai-sonar-bot.json
   README.md
 ```
 

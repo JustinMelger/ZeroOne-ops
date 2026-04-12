@@ -46,6 +46,7 @@ def build_analysis_prompt(issue: RemediationExecutionTarget, context: IssueConte
         snippet_end_line=context.snippet.end_line,
         full_file_included=context.full_file_included,
         context_truncated=context.truncated,
+        prior_review_feedback=_format_prior_review_feedback(context),
         code_snippet=context.snippet.content,
     )
 
@@ -71,7 +72,37 @@ def build_structured_edit_prompt(
         constraints=issue.constraints or "(none)",
         snippet_start_line=context.snippet.start_line,
         snippet_end_line=context.snippet.end_line,
+        prior_review_feedback=_format_prior_review_feedback(context),
         code_snippet=context.snippet.content,
+    )
+
+
+def _format_prior_review_feedback(context: IssueContext) -> str:
+    """Render bounded prior review feedback for retry-aware remediation prompts."""
+    if context.prior_review_feedback is None:
+        return "(none)"
+    feedback = context.prior_review_feedback
+    return "\n".join(
+        [
+            f"Review status: {feedback.review_status}",
+            "Findings count: "
+            + (
+                str(feedback.review_findings_count)
+                if feedback.review_findings_count is not None
+                else "(none)"
+            ),
+            f"Reviewed SHA: {feedback.reviewed_head_sha or '(none)'}",
+            "Retry count already consumed: "
+            + (str(feedback.retry_count) if feedback.retry_count is not None else "0"),
+            f"Feedback summary: {feedback.review_feedback_summary or '(none)'}",
+            "Review confidence: "
+            + (
+                str(feedback.review_confidence)
+                if feedback.review_confidence is not None
+                else "(none)"
+            ),
+            f"Review confidence reason: {feedback.review_confidence_reason or '(none)'}",
+        ]
     )
 
 
