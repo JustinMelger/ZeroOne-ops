@@ -19,42 +19,35 @@ Working rule:
 - use that review to check workflow boundaries, growing files/services, test
   gaps, and any documentation drift created by the last round
 
-Next sequencing note:
+Current execution model:
 
-- after the current feature-building phase, shift into a dedicated hardening
-  and testing phase before starting any new operator-experience or onboarding
-  work
-- once the workflows are stable under real usage, treat ease of operation as
-  the next product phase
+- the project is now in an ongoing testing window with two parallel tracks:
+  review bot live testing and rollout/CI hardening
+- keep feature expansion constrained while those tracks absorb real usage
+  feedback
+- once the workflows are stable under repeated operator use, treat ease of
+  operation and dashboard-centered review feedback as the next product phase
 
 ## Current Status
 
-Completed:
+Current focus:
 
-- [x] functional design
-- [x] technical design
-- [x] Python project scaffold with `uv`
-- [x] local quality tooling with `ruff`, `mypy`, `pytest`, and `pytest-cov`
-- [x] architecture boundary checks with `import-linter`
-- [x] GitHub Actions quality workflow
-- [x] local `just` commands
-- [x] SonarQube client implementation
-- [x] automatic `.env` loading
-- [x] service-level refactor for issue intake and analysis orchestration
-- [x] runner refactor into execution and run-state services
-- [x] issue selection wired into the runner
-- [x] code context analysis
-- [x] LLM integration
-- [x] patch application
-- [x] git branch and commit automation
-- [x] GitLab merge request creation
-- [x] CI execution mode
+- ongoing track 1: review bot live testing
+- ongoing track 2: rollout and CI hardening during testing
+- next follow-up phase after the testing window: dashboard-centered review
+  feedback and retry-state work
 
-Still open:
+Finished foundation:
 
-- [x] richer failure logging in state and logs
+- core functional and technical design
+- local quality tooling, architecture checks, and GitHub Actions quality
+  workflow
+- remediation execution stack: intake, analysis, patching, git automation,
+  merge request creation, CI mode, and richer failure logging
+- runner and service refactors that moved workflow orchestration into clearer
+  dedicated homes
 
-## Completed Milestones
+## Finished Phases
 
 ### Sonar Remediation V1
 
@@ -72,231 +65,44 @@ Completed summary:
 
 Completed summary:
 
-- GitLab merge request intake, dedup by MR IID and head SHA, and bounded diff
-  context building
-- structured review analysis with deterministic review note publishing
-- shared CLI/state integration, rollout docs, and smoke-test guidance
+- merge request intake, selection, dedup, and bounded diff/context building
+- structured review analysis with deterministic note publishing and persisted
+  review state
+- CLI and shared-image integration, operator docs, and smoke-test guidance
 - baseline hardening for no-findings, findings-present, and unchanged-SHA skip
 
-## Next Selected Build: PR Review Bot V1
-
-This is the next active implementation track after the SonarQube remediation
-v1. It follows:
+Design references:
 
 - [functional-design-pr-review.md](docs/functional-design-pr-review.md)
 - [technical-design-pr-review.md](docs/technical-design-pr-review.md)
 
-### Review Phase 1: Merge Request Intake
+### Runner Cleanup
 
-Goal:
+Completed summary:
 
-- fetch open GitLab merge requests
-- normalize merge request metadata
-- support selecting one MR per run
+- `runner.py` reduced to a thin composition and delegation layer
+- remediation, reconciliation, and review orchestration moved into dedicated
+  runner services
+- regression coverage preserved CLI-facing summaries and failure behavior while
+  tightening workflow boundaries
 
-Status:
+### Review Bot Improvements
 
-- [x] add review-specific models for merge request metadata and changed files
-- [x] add a GitLab review client for open merge request listing and detail retrieval
-- [x] add `MergeRequestIntake` with typed no-work summaries
+Completed summary:
 
-Done when:
+- review prompt and validation hardened against speculative findings,
+  unsupported evidence, and untrusted MR input
+- advisory confidence, manual-review-only clarity, and repo-level noise
+  controls added
+- remediation-authored MR context and bounded repository guidance discovery now
+  improve review quality without coupling review to bot-authored changes
 
-- the bot can fetch open merge requests from GitLab
-- merge request payloads are normalized consistently
-- a dry-run can report real merge request counts
+## Current Testing Tracks
 
-### Review Phase 2: Review Selection and Dedup
+The project is now in a sustained testing and hardening window with two
+parallel tracks rather than one linear implementation phase.
 
-Goal:
-
-- choose one reviewable merge request per run
-- avoid duplicate reviews for the same MR revision
-
-Status:
-
-- [x] add `MergeRequestSelector`
-- [x] store and compare dedup keys based on MR IID and head SHA
-- [x] skip unchanged merge requests cleanly and move to the next eligible MR
-
-Done when:
-
-- the bot reviews at most one MR per run
-- unchanged MR revisions are skipped without publishing duplicate notes
-- run summaries explain why an MR was skipped
-
-### Review Phase 3: Diff and Context Building
-
-Goal:
-
-- collect merge request diff data
-- map changed files to the local repository
-- build stable review context for the LLM
-
-Status:
-
-- [x] add `ReviewContextBuilder`
-- [x] load changed files and surrounding source context
-- [x] cap changed-file count and per-file context size for v1
-
-Done when:
-
-- the bot can build deterministic review context from one MR
-- oversized or unsupported MRs are rejected cleanly
-- changed-file context is stable enough for prompt construction
-
-### Review Phase 4: Structured Review Analysis
-
-Goal:
-
-- request structured findings from the LLM
-- distinguish no-findings from findings-present and insufficient-context cases
-
-Status:
-
-- [x] add review-specific finding/result models
-- [x] add `ReviewAnalysisService`
-- [x] validate LLM output shape before publishing
-
-Done when:
-
-- the LLM returns structured review results
-- malformed or oversized review outputs are rejected
-- the bot can classify review results deterministically
-
-### Review Phase 5: Review Note Publishing
-
-Goal:
-
-- publish one deterministic merge request note
-- keep output readable and non-spammy
-
-Status:
-
-- [x] add `ReviewPublisher`
-- [x] render one deterministic summary note template
-- [x] support both findings-present and no-findings note shapes
-
-Done when:
-
-- the bot can publish one MR note through GitLab
-- findings are formatted consistently
-- no-findings output is distinguishable from failure to review
-
-### Review Phase 6: Review State and Runner Integration
-
-Goal:
-
-- persist review outcomes
-- wire the review workflow into the shared CLI and state system
-
-Status:
-
-- [x] add review state records keyed by MR IID and head SHA
-- [x] add a review runner path and CLI subcommand
-- [x] keep the review workflow in the shared image with separate commands
-
-Done when:
-
-- review outcomes are persisted in state
-- the CLI can run the review workflow explicitly
-- the shared image can execute either Sonar remediation or PR review
-
-### Review Phase 7: Hardening
-
-Goal:
-
-- make the review bot usable in real GitLab workflows
-- keep reviews useful and low-noise
-
-Status:
-
-- [x] add tests for no-findings and findings-present review paths
-- [x] add integration coverage for unchanged-SHA skip
-- [x] document operator usage and rollout expectations
-- [x] add a smoke-test recipe for one real merge request review run
-
-Done when:
-
-- the bot avoids duplicate notes for unchanged MR revisions
-- the review note format is stable and readable
-- another engineer can run and validate the review bot from docs alone
-
-### Completed: Runner Cleanup
-
-Goal:
-
-- shrink `runner.py` back into a thin composition layer before adding more
-  workflow complexity
-- move workflow-specific orchestration into dedicated runner services with
-  clearer ownership boundaries
-
-Status:
-
-- [x] extract the dashboard reconciliation workflow from `runner.py` into a
-      dedicated runner service
-- [x] extract the dashboard remediation workflow from `runner.py` into a
-      dedicated runner service
-- [x] extract the review workflow from `runner.py` into a dedicated runner
-      service
-- [x] remove the deprecated direct Sonar remediation path after extraction
-- [x] keep `runner.py` as a thin delegation layer that builds shared
-      dependencies and dispatches to workflow runners
-- [x] add regression coverage proving the refactor preserves current CLI-facing
-      summaries and failure behavior
-
-Done when:
-
-- `runner.py` is primarily a composition root instead of a multi-workflow
-      orchestration file
-- each workflow has a clearer dedicated home for its orchestration logic
-- the next review-bot improvements can land without making workflow boundaries
-      harder to maintain
-
-### Completed Build: Review Bot Improvements
-
-Goal:
-
-- improve operator trust in the review bot before widening its role in the
-      platform
-- make review output more useful, evidence-backed, and lower-noise
-
-Status:
-
-- [x] teach the review workflow to use remediation-authored MR context when it
-      is available, while degrading gracefully for normal human-authored merge
-      requests
-- [x] suppress speculative or weak findings more aggressively so the bot
-      prefers no-findings over noisy low-confidence review output
-- [x] strengthen finding formatting so each review comment ties the risk to
-      concrete diff evidence or nearby source context
-- [x] harden the review prompt against input poisoning by treating MR titles,
-      descriptions, remediation context, diffs, and code snippets as untrusted
-      data rather than instructions
-- [x] delimit untrusted MR text, remediation metadata, diffs, and source
-      context more explicitly in the review prompt so the model sees them as
-      artifacts instead of executable guidance
-- [x] validate structured review findings more aggressively after generation so
-      evidence stays tied to reviewed files and weak unsupported findings are
-      downgraded or rejected safely
-- [x] add advisory `review_confidence` and `review_confidence_reason` so the
-      review bot exposes a clear operator trust signal without becoming a gate
-- [x] make manual-review-only outcomes clearer so operators can distinguish
-      insufficient context from low-value findings
-- [x] add repo-level controls for review noise such as path filtering,
-      changed-file limits, and note verbosity
-- [x] teach the review bot to discover bounded repository guidance such as
-      `AGENT.md`, engineering standards, and relevant technical design docs in
-      the repository it is reviewing
-
-Done when:
-
-- review notes feel conservative, evidence-backed, and useful in real merge
-      request workflows
-- remediation-authored merge requests get richer review quality without making
-      review dependent on bot-authored changes
-
-### Current Phase: Review Bot Live Testing
+### Track 1: Review Bot Live Testing
 
 Goal:
 
@@ -326,7 +132,7 @@ Done when:
 - the next review iteration is driven by observed behavior rather than
       speculative tuning
 
-### Interim Phase: Pre-Release Candidate Hardening
+### Track 2: Pre-Release Candidate Hardening During Testing
 
 Goal:
 
@@ -372,7 +178,7 @@ Done when:
 - any rollout friction found during testing has a clear documented home and,
       where needed, a small fix
 
-### Rebrand Phases
+## Rebrand Status
 
 Goal:
 
@@ -381,58 +187,22 @@ Goal:
 - update outward-facing identity first while keeping runtime compatibility
   stable during the current testing period
 
-#### Phase 1: Brand Decision
+Completed:
 
-Status:
+- `ZeroOne Ops` adopted as the product name and `zeroone-ops` as the technical
+  release and packaging slug
+- publish, release, docs, and operator-facing surfaces moved to the new public
+  name
+- temporary runtime compatibility names retained where changing them would add
+  testing risk
 
-- [x] confirm `ZeroOne Ops` as the product name
-- [x] confirm `zeroone-ops` as the technical slug for release and packaging
-- [x] define `ai-sonar-bot` as the temporary runtime compatibility name for the
-      CLI, package path, config filename, and filesystem paths until a later
-      dedicated runtime rename phase
+Later:
 
-#### Phase 2: Publish And Release Rebrand
-
-Status:
-
-- [x] update release tags, release-please naming, and published image naming to
-      `zeroone-ops`
-- [x] keep legacy release tag handling long enough to avoid breaking current
-      manual release flows
-- [x] update publish workflow docs and retry instructions to the new release
-      slug
-
-#### Phase 3: Docs And Product Surface
-
-Status:
-
-- [x] rebrand README, roadmap, changelog framing, and runbook headings to
-      `ZeroOne Ops`
-- [x] add one short transition note that explains brand name versus temporary
-      compatibility names
-- [x] update operator-facing examples that should show the new image and release
-      names
-
-#### Phase 4: Operator Surface
-
-Status:
-
-- [x] update GitLab CI example image references and onboarding instructions to
-      the new published image name
-- [x] review release instructions, smoke-test guidance, and workflow setup docs
-      for old-name drift
-- [x] keep runtime commands stable where changing them would add operator risk
-      during testing
-
-#### Phase 5: Runtime Rename (Later)
-
-Status:
-
-- [ ] decide after the testing week whether to rename the CLI command, Python
-      package path, config filename, env vars, `/opt/ai-sonar-bot`, and GitLab
-      job identifiers
-- [ ] if a runtime rename happens, support both old and new config naming
-      temporarily and document the deprecation path
+- decide after the testing window whether to rename the CLI command, Python
+  package path, config filename, env vars, `/opt/ai-sonar-bot`, and GitLab job
+  identifiers
+- if a runtime rename happens, support both old and new config naming
+  temporarily and document the deprecation path
 
 Done when:
 
