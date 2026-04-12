@@ -53,3 +53,36 @@ def test_build_returns_none_when_work_item_file_is_missing(tmp_path: Path) -> No
     context = builder.build(build_work_item(file_path="src/missing.py"))
 
     assert context is None
+
+
+def test_build_attaches_prior_review_feedback_for_retry_eligible_item(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("a = 1\nb = 2\nc = 3\n", encoding="utf-8")
+    builder = RemediationContextBuilder(tmp_path, build_config())
+
+    context = builder.build(
+        build_work_item().model_copy(
+            update={
+                "source_payload": {
+                    "retry_eligible": True,
+                    "review_status": "findings_present",
+                    "review_findings_count": 2,
+                    "review_feedback_summary": "Ordering changed in a shared path.",
+                    "review_confidence": 0.82,
+                    "review_confidence_reason": "The diff directly changes output ordering.",
+                    "reviewed_head_sha": "abc123",
+                    "retry_count": 1,
+                }
+            }
+        )
+    )
+
+    assert context is not None
+    assert context.prior_review_feedback is not None
+    assert context.prior_review_feedback.review_status == "findings_present"
+    assert context.prior_review_feedback.review_findings_count == 2
+    assert (
+        context.prior_review_feedback.review_feedback_summary
+        == "Ordering changed in a shared path."
+    )
+    assert context.prior_review_feedback.retry_count == 1
