@@ -200,9 +200,7 @@ def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table()
                             "review_status": "findings_present",
                             "review_findings_count": 2,
                             "reviewed_head_sha": "abc123def456",
-                            "review_feedback_summary": (
-                                "Ordering changed in a shared code path."
-                            ),
+                            "review_feedback_summary": ("Ordering changed in a shared code path."),
                         }
                     )
                 ],
@@ -240,9 +238,7 @@ def test_parse_round_trips_dashboard_item_review_metadata() -> None:
                             "review_findings_count": 1,
                             "reviewed_head_sha": "abc123",
                             "review_feedback_summary": "Concrete ordering regression found.",
-                            "review_feedback_updated_at": datetime(
-                                2026, 4, 12, 10, 0, tzinfo=UTC
-                            ),
+                            "review_feedback_updated_at": datetime(2026, 4, 12, 10, 0, tzinfo=UTC),
                             "review_confidence": 0.82,
                             "review_confidence_reason": (
                                 "The changed diff directly alters output ordering."
@@ -275,10 +271,7 @@ def test_parse_round_trips_dashboard_item_review_metadata() -> None:
     assert item.review_feedback_summary == "Concrete ordering regression found."
     assert item.review_feedback_updated_at == datetime(2026, 4, 12, 10, 0, tzinfo=UTC)
     assert item.review_confidence == 0.82
-    assert (
-        item.review_confidence_reason
-        == "The changed diff directly alters output ordering."
-    )
+    assert item.review_confidence_reason == "The changed diff directly alters output ordering."
 
 
 def test_parse_rejects_free_form_content_in_managed_section() -> None:

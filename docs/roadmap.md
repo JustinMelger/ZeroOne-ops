@@ -290,10 +290,10 @@ Goal:
 
 Status:
 
-- [ ] render compact review state on remediation items
-- [ ] show findings count, review status, reviewed SHA, and short summary or
+- [x] render compact review state on remediation items
+- [x] show findings count, review status, reviewed SHA, and short summary or
       block reason
-- [ ] add renderer and parser coverage for the new fields
+- [x] add renderer and parser coverage for the new fields
 
 Done when:
 
