@@ -185,6 +185,7 @@ def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:
     active_dry_run = dry_run or config.dry_run
     gitlab_config = load_gitlab_connection_config()
     return DashboardReconciliationRunner(
+        config=config,
         dashboard_service=DashboardService(GitLabDashboardClient(gitlab_config)),
         review_client=GitLabReviewClient(gitlab_config),
         run_state_service=run_state_service,

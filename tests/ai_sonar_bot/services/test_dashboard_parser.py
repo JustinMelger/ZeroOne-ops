@@ -200,6 +200,7 @@ def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table()
                             "review_status": "findings_present",
                             "review_findings_count": 2,
                             "reviewed_head_sha": "abc123def456",
+                            "retry_eligible": True,
                             "review_feedback_summary": ("Ordering changed in a shared code path."),
                         }
                     )
@@ -215,6 +216,7 @@ def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table()
     assert "review: findings_present" in body
     assert "findings: 2" in body
     assert "sha: abc123de" in body
+    assert "retry: eligible" in body
     assert "Ordering changed in a shared code path." in body
 
 

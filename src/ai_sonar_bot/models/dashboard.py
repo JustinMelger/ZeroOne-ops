@@ -85,6 +85,9 @@ class DashboardItem(BaseModel):
     review_feedback_updated_at: datetime | None = None
     review_confidence: float | None = None
     review_confidence_reason: str | None = None
+    retry_count: int | None = None
+    retry_eligible: bool | None = None
+    retry_block_reason: str | None = None
     log_excerpt: str | None = None
 
 

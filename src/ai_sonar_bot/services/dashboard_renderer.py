@@ -72,6 +72,10 @@ class DashboardRenderer:
             parts.append(f"findings: {item.review_findings_count}")
         if item.reviewed_head_sha:
             parts.append(f"sha: {item.reviewed_head_sha[:8]}")
+        if item.retry_eligible is True:
+            parts.append("retry: eligible")
+        elif item.retry_block_reason:
+            parts.append(f"retry: blocked ({item.retry_block_reason})")
         if item.review_feedback_summary:
             parts.append(item.review_feedback_summary)
         return "; ".join(parts)

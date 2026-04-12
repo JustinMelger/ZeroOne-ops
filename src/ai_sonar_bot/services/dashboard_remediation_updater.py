@@ -70,6 +70,9 @@ class DashboardRemediationUpdater:
         dashboard_item_id: str,
         run_id: str,
         error_message: str,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ) -> DashboardRemediationUpdateResult:
         """Mark one dashboard item as failed."""
         return self._update_item(
@@ -78,6 +81,9 @@ class DashboardRemediationUpdater:
             status="failed",
             run_id=run_id,
             log_excerpt=error_message,
+            retry_count=retry_count,
+            retry_eligible=retry_eligible,
+            retry_block_reason=retry_block_reason,
         )
 
     def mark_rejected(
@@ -104,6 +110,9 @@ class DashboardRemediationUpdater:
         dashboard_item_id: str,
         run_id: str,
         summary: str | None = None,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ) -> DashboardRemediationUpdateResult:
         """Mark one dashboard item done."""
         return self._update_item(
@@ -112,6 +121,9 @@ class DashboardRemediationUpdater:
             status="done",
             run_id=run_id,
             log_excerpt=summary,
+            retry_count=retry_count,
+            retry_eligible=retry_eligible,
+            retry_block_reason=retry_block_reason,
         )
 
     def mark_open(
@@ -121,6 +133,9 @@ class DashboardRemediationUpdater:
         dashboard_item_id: str,
         run_id: str,
         summary: str | None = None,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ) -> DashboardRemediationUpdateResult:
         """Reopen one dashboard item."""
         return self._update_item(
@@ -130,6 +145,9 @@ class DashboardRemediationUpdater:
             run_id=run_id,
             log_excerpt=summary,
             clear_merge_request_traceability=True,
+            retry_count=retry_count,
+            retry_eligible=retry_eligible,
+            retry_block_reason=retry_block_reason,
         )
 
     def _update_item(
@@ -145,6 +163,9 @@ class DashboardRemediationUpdater:
         commit_sha: str | None = None,
         log_excerpt: str | None = None,
         clear_merge_request_traceability: bool = False,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ) -> DashboardRemediationUpdateResult:
         """Load, update, and persist one dashboard item."""
         last_error: Exception | None = None
@@ -162,6 +183,9 @@ class DashboardRemediationUpdater:
                     commit_sha=commit_sha,
                     log_excerpt=log_excerpt,
                     clear_merge_request_traceability=clear_merge_request_traceability,
+                    retry_count=retry_count,
+                    retry_eligible=retry_eligible,
+                    retry_block_reason=retry_block_reason,
                 ):
                     return DashboardRemediationUpdateResult(
                         dashboard_issue_url=document.issue_url,
@@ -177,6 +201,9 @@ class DashboardRemediationUpdater:
                     commit_sha=commit_sha,
                     log_excerpt=log_excerpt,
                     clear_merge_request_traceability=clear_merge_request_traceability,
+                    retry_count=retry_count,
+                    retry_eligible=retry_eligible,
+                    retry_block_reason=retry_block_reason,
                 )
                 updated_document = self.dashboard_service.upsert_items(
                     project_id=project_id,
@@ -206,6 +233,9 @@ class DashboardRemediationUpdater:
         commit_sha: str | None,
         log_excerpt: str | None,
         clear_merge_request_traceability: bool,
+        retry_count: int | None,
+        retry_eligible: bool | None,
+        retry_block_reason: str | None,
     ) -> DashboardItem:
         """Return one lifecycle-updated dashboard item."""
         return current_item.model_copy(
@@ -234,6 +264,15 @@ class DashboardRemediationUpdater:
                 ),
                 "commit_sha": commit_sha if commit_sha is not None else current_item.commit_sha,
                 "log_excerpt": log_excerpt if log_excerpt is not None else current_item.log_excerpt,
+                "retry_count": retry_count if retry_count is not None else current_item.retry_count,
+                "retry_eligible": (
+                    retry_eligible if retry_eligible is not None else current_item.retry_eligible
+                ),
+                "retry_block_reason": (
+                    retry_block_reason
+                    if retry_block_reason is not None
+                    else current_item.retry_block_reason
+                ),
             }
         )
 
@@ -249,6 +288,9 @@ class DashboardRemediationUpdater:
         commit_sha: str | None,
         log_excerpt: str | None,
         clear_merge_request_traceability: bool,
+        retry_count: int | None,
+        retry_eligible: bool | None,
+        retry_block_reason: str | None,
     ) -> bool:
         """Return whether one lifecycle update would be a no-op replay."""
         return (
@@ -259,6 +301,11 @@ class DashboardRemediationUpdater:
             and (merge_request_iid is None or current_item.merge_request_iid == merge_request_iid)
             and (commit_sha is None or current_item.commit_sha == commit_sha)
             and (log_excerpt is None or current_item.log_excerpt == log_excerpt)
+            and (retry_count is None or current_item.retry_count == retry_count)
+            and (retry_eligible is None or current_item.retry_eligible == retry_eligible)
+            and (
+                retry_block_reason is None or current_item.retry_block_reason == retry_block_reason
+            )
             and (
                 not clear_merge_request_traceability
                 or (

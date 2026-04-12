@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.dashboard import DashboardItem
 from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunRecord, RunStatus, utc_now
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
@@ -22,11 +23,13 @@ class DashboardReconciliationRunner:
     def __init__(
         self,
         *,
+        config: AppConfig,
         dashboard_service: DashboardService,
         review_client: GitLabReviewClient,
         run_state_service: RunStateService,
     ) -> None:
         """Initialize the reconciliation workflow runner."""
+        self.config = config
         self.dashboard_service = dashboard_service
         self.review_client = review_client
         self.run_state_service = run_state_service
@@ -139,7 +142,10 @@ class DashboardReconciliationRunner:
         selected_items: list[DashboardItem],
     ) -> RunSummary:
         """Run reconciliation for the selected dashboard items."""
-        decision_service = DashboardReconciliationService(self.review_client)
+        decision_service = DashboardReconciliationService(
+            self.review_client,
+            max_review_feedback_retries=self.config.review.max_review_feedback_retries,
+        )
         updater = DashboardRemediationUpdater(self.dashboard_service)
         noop_count = 0
         reconciled_count = 0
@@ -168,6 +174,9 @@ class DashboardReconciliationRunner:
                     dashboard_item_id=item.id,
                     run_id=run_id,
                     summary=decision.message,
+                    retry_count=item.retry_count or 0,
+                    retry_eligible=decision.retry_eligible,
+                    retry_block_reason=decision.retry_block_reason,
                 )
                 if update_result.error_message is not None:
                     return self._fail_dashboard_update(
@@ -193,6 +202,9 @@ class DashboardReconciliationRunner:
                     dashboard_item_id=item.id,
                     run_id=run_id,
                     summary=decision.message,
+                    retry_count=item.retry_count or 0,
+                    retry_eligible=decision.retry_eligible,
+                    retry_block_reason=decision.retry_block_reason,
                 )
                 if update_result.error_message is not None:
                     return self._fail_dashboard_update(
@@ -217,6 +229,9 @@ class DashboardReconciliationRunner:
                 dashboard_item_id=item.id,
                 run_id=run_id,
                 error_message=decision.message,
+                retry_count=item.retry_count or 0,
+                retry_eligible=decision.retry_eligible,
+                retry_block_reason=decision.retry_block_reason,
             )
             if update_result.error_message is not None:
                 return self._fail_dashboard_update(

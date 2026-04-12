@@ -347,8 +347,20 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
         dashboard_item_id: str,
         run_id: str,
         summary: str | None = None,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ):  # noqa: ANN202
-        del self, project_id, dashboard_item_id, run_id, summary
+        del (
+            self,
+            project_id,
+            dashboard_item_id,
+            run_id,
+            summary,
+            retry_count,
+            retry_eligible,
+            retry_block_reason,
+        )
         return type(
             "DashboardRemediationUpdateResult",
             (),
@@ -478,8 +490,20 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
         dashboard_item_id: str,
         run_id: str,
         summary: str | None = None,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ):  # noqa: ANN202
-        del self, project_id, dashboard_item_id, run_id, summary
+        del (
+            self,
+            project_id,
+            dashboard_item_id,
+            run_id,
+            summary,
+            retry_count,
+            retry_eligible,
+            retry_block_reason,
+        )
         return type(
             "DashboardRemediationUpdateResult",
             (),
@@ -592,8 +616,20 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
         dashboard_item_id: str,
         run_id: str,
         summary: str | None = None,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ):  # noqa: ANN202
-        del self, project_id, dashboard_item_id, run_id, summary
+        del (
+            self,
+            project_id,
+            dashboard_item_id,
+            run_id,
+            summary,
+            retry_count,
+            retry_eligible,
+            retry_block_reason,
+        )
         return type(
             "DashboardRemediationUpdateResult",
             (),
@@ -620,6 +656,265 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
     assert summary.status.value == "reconciled"
     assert "closed without merge" in summary.message
     assert state.dashboard_items["sonar:AX123"].status == "open"
+
+
+def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    selected_item = DashboardItem(
+        id="sonar:AX123",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="mr_opened",
+        title="python:S1125 in src/service.py",
+        summary="Replace boolean equality with direct truthiness.",
+        priority="low",
+        source_reference="AX123",
+        file="src/service.py",
+        line=42,
+        rule="python:S1125",
+        severity="LOW",
+        branch_name="ai-sonar/AX123/service",
+        commit_sha="abc123",
+        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        review_status="findings_present",
+        review_findings_count=1,
+        review_feedback_summary="Ordering changed in a shared path.",
+        retry_count=0,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        lambda self, project_id: type(
+            "DashboardReconciliationIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )(),
+    )
+
+    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+        del project_id
+        return type(
+            "GitLabMergeRequestState",
+            (),
+            {
+                "iid": merge_request_iid,
+                "web_url": selected_item.merge_request_url,
+                "source_branch": selected_item.branch_name,
+                "head_sha": selected_item.commit_sha,
+                "state": "closed",
+            },
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+    )
+    recorded_updates: list[tuple[int | None, bool | None, str | None]] = []
+
+    def fake_mark_open(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        summary: str | None = None,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
+    ):  # noqa: ANN202
+        del self, project_id, dashboard_item_id, run_id, summary
+        recorded_updates.append((retry_count, retry_eligible, retry_block_reason))
+        updated_item = selected_item.model_copy(
+            update={
+                "status": "open",
+                "retry_count": retry_count,
+                "retry_eligible": retry_eligible,
+                "retry_block_reason": retry_block_reason,
+            }
+        )
+        return type(
+            "DashboardRemediationUpdateResult",
+            (),
+            {"error_message": None, "updated_item": updated_item, "dashboard_issue_url": None},
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_open",
+        fake_mark_open,
+    )
+
+    summary = dashboard_reconcile(dry_run=False)
+    state = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+
+    assert summary.status.value == "reconciled"
+    assert "review-guided retry eligibility" in summary.message
+    assert state.dashboard_items["sonar:AX123"].status == "open"
+    assert recorded_updates == [(0, True, None)]
+
+
+def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    selected_item = DashboardItem(
+        id="sonar:AX123",
+        source="sonarqube",
+        type="code_smell_fix",
+        status="mr_opened",
+        title="python:S1125 in src/service.py",
+        summary="Replace boolean equality with direct truthiness.",
+        priority="low",
+        source_reference="AX123",
+        file="src/service.py",
+        line=42,
+        rule="python:S1125",
+        severity="LOW",
+        branch_name="ai-sonar/AX123/service",
+        commit_sha="abc123",
+        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        review_status="manual_review_only",
+        review_feedback_summary="The change needs broader human context.",
+        retry_count=0,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        lambda self, project_id: type(
+            "DashboardReconciliationIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+                "document": DashboardDocument(
+                    issue_id=10,
+                    issue_iid=11,
+                    issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                    title="AI Code Ops Dashboard",
+                    sections=empty_sections(),
+                ),
+            },
+        )(),
+    )
+
+    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+        del project_id
+        return type(
+            "GitLabMergeRequestState",
+            (),
+            {
+                "iid": merge_request_iid,
+                "web_url": selected_item.merge_request_url,
+                "source_branch": selected_item.branch_name,
+                "head_sha": selected_item.commit_sha,
+                "state": "closed",
+            },
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+    )
+    recorded_updates: list[tuple[int | None, bool | None, str | None]] = []
+
+    def fake_mark_failed(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        error_message: str,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
+    ):  # noqa: ANN202
+        del self, project_id, dashboard_item_id, run_id, error_message
+        recorded_updates.append((retry_count, retry_eligible, retry_block_reason))
+        updated_item = selected_item.model_copy(
+            update={
+                "status": "failed",
+                "retry_count": retry_count,
+                "retry_eligible": retry_eligible,
+                "retry_block_reason": retry_block_reason,
+            }
+        )
+        return type(
+            "DashboardRemediationUpdateResult",
+            (),
+            {"error_message": None, "updated_item": updated_item, "dashboard_issue_url": None},
+        )()
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
+        fake_mark_failed,
+    )
+
+    summary = dashboard_reconcile(dry_run=False)
+    state = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+
+    assert summary.status.value == "reconciled"
+    assert "retry is blocked" in summary.message
+    assert state.dashboard_items["sonar:AX123"].status == "failed"
+    assert recorded_updates == [(0, False, "Latest review outcome requires manual review.")]
 
 
 def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
@@ -796,8 +1091,20 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
         dashboard_item_id: str,
         run_id: str,
         summary: str | None = None,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ):  # noqa: ANN202
-        del self, project_id, dashboard_item_id, run_id, summary
+        del (
+            self,
+            project_id,
+            dashboard_item_id,
+            run_id,
+            summary,
+            retry_count,
+            retry_eligible,
+            retry_block_reason,
+        )
         return type(
             "DashboardRemediationUpdateResult",
             (),
@@ -897,8 +1204,20 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
         dashboard_item_id: str,
         run_id: str,
         error_message: str,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ):  # noqa: ANN202
-        del self, project_id, dashboard_item_id, run_id, error_message
+        del (
+            self,
+            project_id,
+            dashboard_item_id,
+            run_id,
+            error_message,
+            retry_count,
+            retry_eligible,
+            retry_block_reason,
+        )
         return type(
             "DashboardRemediationUpdateResult",
             (),
@@ -1030,8 +1349,20 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         dashboard_item_id: str,
         run_id: str,
         error_message: str,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ):  # noqa: ANN202
-        del self, project_id, dashboard_item_id, run_id, error_message
+        del (
+            self,
+            project_id,
+            dashboard_item_id,
+            run_id,
+            error_message,
+            retry_count,
+            retry_eligible,
+            retry_block_reason,
+        )
         updated_item = broken_item.model_copy(update={"status": "failed"})
         return type(
             "DashboardRemediationUpdateResult",
@@ -1046,8 +1377,20 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         dashboard_item_id: str,
         run_id: str,
         summary: str | None = None,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ):  # noqa: ANN202
-        del self, project_id, dashboard_item_id, run_id, summary
+        del (
+            self,
+            project_id,
+            dashboard_item_id,
+            run_id,
+            summary,
+            retry_count,
+            retry_eligible,
+            retry_block_reason,
+        )
         updated_item = merged_item.model_copy(update={"status": "done"})
         return type(
             "DashboardRemediationUpdateResult",
