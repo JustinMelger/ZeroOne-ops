@@ -62,21 +62,21 @@ The dashboard workflow also includes scheduled reconciliation:
 Define these variables in the target GitLab project or group according to the
 workflow you want to run:
 
-- `ai_sonar_bot_dashboard`
+- `zeroone_ops_dashboard`
   - `SONARQUBE_URL`
   - `SONARQUBE_TOKEN`
   - `SONARQUBE_PROJECT_KEY`
   - `GITLAB_URL`
   - `GITLAB_TOKEN`
-- `ai_sonar_bot_dashboard_remediate`
+- `zeroone_ops_dashboard_remediate`
   - `GITLAB_URL`
   - `GITLAB_TOKEN`
   - `OPENAI_API_KEY`
   - `OPENAI_MODEL`
-- `ai_sonar_bot_dashboard_reconcile`
+- `zeroone_ops_dashboard_reconcile`
   - `GITLAB_URL`
   - `GITLAB_TOKEN`
-- `ai_sonar_bot_review`
+- `zeroone_ops_review`
   - `GITLAB_URL`
   - `GITLAB_TOKEN`
   - `OPENAI_API_KEY`
@@ -201,7 +201,8 @@ If no reviewable merge request remains, the run should exit cleanly with `no_iss
 The merge request should contain:
 
 - one issue per branch
-- labels from `.ai-sonar-bot.json`
+- labels from `examples/.ai-sonar-bot.json` or the repository-specific runtime
+  config derived from it
 - a deterministic description template with:
   - issue key
   - rule
@@ -215,18 +216,19 @@ The merge request should contain:
 
 ## Recommended GitLab CI Setup
 
-Use the example pipeline from [.gitlab-ci.example.yml](../.gitlab-ci.example.yml).
+Use the example pipeline from
+[examples/.gitlab-ci.example.yml](../examples/.gitlab-ci.example.yml).
 
 Current job roles:
 
-- `ai_sonar_bot_dashboard`
+- `zeroone_ops_dashboard`
   - discovery-only dashboard sync for eligible Sonar findings
-- `ai_sonar_bot_dashboard_remediate`
+- `zeroone_ops_dashboard_remediate`
   - dashboard-backed remediation
-- `ai_sonar_bot_dashboard_reconcile`
+- `zeroone_ops_dashboard_reconcile`
   - scheduled dashboard reconciliation for `mr_opened` items after merge
     request state changes
-- `ai_sonar_bot_review`
+- `zeroone_ops_review`
   - merge request review note publication with no code changes
 
 Recommended settings:
@@ -261,13 +263,13 @@ For a lower-cost review setup:
 
 Recommended first rollout order:
 
-1. manually run `ai_sonar_bot_dashboard` once to confirm dashboard discovery is healthy
+1. manually run `zeroone_ops_dashboard` once to confirm dashboard discovery is healthy
 2. inspect one supported dashboard item locally with `ai-sonar-bot dashboard remediate --dry-run`
-3. manually run one live CI pipeline where `ai_sonar_bot_dashboard_remediate`
-   follows `ai_sonar_bot_dashboard`
-4. manually run `ai_sonar_bot_dashboard_reconcile` once after a remediation MR
+3. manually run one live CI pipeline where `zeroone_ops_dashboard_remediate`
+   follows `zeroone_ops_dashboard`
+4. manually run `zeroone_ops_dashboard_reconcile` once after a remediation MR
    is merged or closed
-5. manually run `ai_sonar_bot_review` on one small merge request pipeline
+5. manually run `zeroone_ops_review` on one small merge request pipeline
 6. enable schedules only after all workflows behave as expected
 
 Dashboard rollout model:
@@ -410,7 +412,8 @@ Checks:
 
 - inspect the failed command in the logs
 - inspect whether the selected issue was actually low-risk enough for the current eligibility policy
-- confirm the validation commands in `.ai-sonar-bot.json` are correct for the target repo
+- confirm the validation commands in the repository-specific `.ai-sonar-bot.json`
+  are correct for the target repo
 
 ### Branch Push Failure
 
@@ -500,9 +503,12 @@ new repository.
 
 Make sure the target repository has:
 
-- a valid `.gitlab-ci.yml` based on [.gitlab-ci.example.yml](../.gitlab-ci.example.yml)
-- the published bot image reference updated to the current technical slug, such as `ghcr.io/<owner>/zeroone-ops:latest`
-- a repository-specific `.ai-sonar-bot.json`
+- a valid `.gitlab-ci.yml` based on
+  [examples/.gitlab-ci.example.yml](../examples/.gitlab-ci.example.yml)
+- the published bot image reference updated to the current technical slug, such
+  as `ghcr.io/<owner>/zeroone-ops:latest`
+- a repository-specific `.ai-sonar-bot.json`, often copied from
+  [examples/.ai-sonar-bot.json](../examples/.ai-sonar-bot.json)
 - required CI variables set
 - at least one open SonarQube issue that is:
   - low severity in the maintainability model
@@ -658,13 +664,13 @@ live `ai-sonar-bot dashboard remediate` only from CI jobs.
 
 Make sure the target repository has:
 
-- the `ai_sonar_bot_dashboard` job from the example pipeline
+- the `zeroone_ops_dashboard` job from the example pipeline
 - the same SonarQube and GitLab CI variables used by remediation
 - at least one eligible SonarQube finding that should appear in the dashboard
 
 ### Steps
 
-1. trigger `ai_sonar_bot_dashboard` manually on the default branch
+1. trigger `zeroone_ops_dashboard` manually on the default branch
 2. watch the logs for the eligible issue count and dashboard sync summary
 3. open the dashboard issue in GitLab
 4. confirm the synced Sonar item appears once in the expected section
@@ -687,7 +693,7 @@ repository.
 
 Make sure the target repository has:
 
-- the `ai_sonar_bot_dashboard` discovery job already behaving as expected
+- the `zeroone_ops_dashboard` discovery job already behaving as expected
 - one supported Sonar-derived dashboard item in `open`
 - required GitLab and OpenAI CI variables set:
   - `GITLAB_URL`

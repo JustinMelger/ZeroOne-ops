@@ -81,7 +81,13 @@ Included fixtures:
 - [fixtures/llm/edit.json](fixtures/llm/edit.json)
 - [samples/auto_fixable_example.py](samples/auto_fixable_example.py)
 
-The default config file is [.ai-sonar-bot.json](.ai-sonar-bot.json).
+The repository's current default config file is
+[.ai-sonar-bot.json](.ai-sonar-bot.json).
+Copyable operator examples now live in [examples/](examples/), including:
+
+- [examples/.ai-sonar-bot.json](examples/.ai-sonar-bot.json)
+- [examples/.env.example](examples/.env.example)
+- [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml)
 
 To test the real OpenAI path instead of local fixtures:
 
@@ -143,8 +149,8 @@ docker pull ghcr.io/<owner>/zeroone-ops:0.2.0
 ```
 
 A GitLab CI example is provided in
-[.gitlab-ci.example.yml](.gitlab-ci.example.yml). It uses the published
-`zeroone-ops` image while keeping the current runtime command names.
+[examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml). It uses the
+published `zeroone-ops` image while keeping the current runtime command names.
 
 ## Execution Modes
 
