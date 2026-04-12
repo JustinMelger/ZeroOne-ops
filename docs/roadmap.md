@@ -266,11 +266,11 @@ Goal:
 
 Status:
 
-- [ ] extend the dashboard item model with the first bounded review metadata
+- [x] extend the dashboard item model with the first bounded review metadata
       fields
-- [ ] teach the review dashboard updater to enrich linked remediation items
-- [ ] keep fallback behavior for human-authored MRs with no remediation item
-- [ ] add tests for deterministic MR-to-dashboard linking
+- [x] teach the review dashboard updater to enrich linked remediation items
+- [x] keep fallback behavior for human-authored MRs with no remediation item
+- [x] add tests for deterministic MR-to-dashboard linking
 
 Done when:
 
