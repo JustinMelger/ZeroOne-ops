@@ -239,6 +239,116 @@ phases.
   and review workflows
 - security tooling is introduced gradually enough to keep CI signal usable
 
+## Next Follow-Up Phase
+
+### Dashboard Review Feedback And Retry-State
+
+Goal:
+
+- make the dashboard the canonical machine-readable record for remediation
+  review outcomes
+- keep MR notes as the operator-facing review surface
+- prepare a conservative retry loop without introducing an unbounded cycle
+
+Design references:
+
+- [functional-design-dashboard-review-feedback.md](functional-design-dashboard-review-feedback.md)
+- [technical-design-dashboard-review-feedback.md](technical-design-dashboard-review-feedback.md)
+
+#### Phase 1: Dashboard Review State Linkage
+
+Goal:
+
+- link reviewed remediation MRs back to their remediation dashboard items
+- attach lightweight structured review metadata to the remediation item
+- keep standalone `review_status` items only as fallback for non-remediation
+  reviews
+
+Status:
+
+- [ ] extend the dashboard item model with the first bounded review metadata
+      fields
+- [ ] teach the review dashboard updater to enrich linked remediation items
+- [ ] keep fallback behavior for human-authored MRs with no remediation item
+- [ ] add tests for deterministic MR-to-dashboard linking
+
+Done when:
+
+- a reviewed remediation MR updates the linked remediation item with
+  structured review state
+- fallback review mirroring still works for non-remediation MRs
+- link failures are explicit and test-covered
+
+#### Phase 2: Dashboard Rendering And Operator Visibility
+
+Goal:
+
+- make linked review state visible on remediation items without relying on raw
+  JSON details
+- improve operator visibility into whether a remediation MR was reviewed and
+  what happened
+
+Status:
+
+- [ ] render compact review state on remediation items
+- [ ] show findings count, review status, reviewed SHA, and short summary or
+      block reason
+- [ ] add renderer and parser coverage for the new fields
+
+Done when:
+
+- operators can answer review-state questions directly from the dashboard
+- failed or reopened remediation items visibly preserve their linked review
+  context
+
+#### Phase 3: Reconciliation-Derived Retry Eligibility
+
+Goal:
+
+- let reconciliation preserve review state across lifecycle transitions
+- derive bounded retry eligibility from structured review outcome, traceability,
+  and retry limits
+
+Status:
+
+- [ ] preserve review metadata when reconciliation marks items `done`,
+      reopens them, or moves them to `failed`
+- [ ] add `retry_count`, `retry_eligible`, and `retry_block_reason`
+- [ ] derive retry eligibility in reconciliation instead of in the review
+      workflow
+- [ ] keep the first retry model conservative with a default limit of `1`,
+      configurable in JSON
+
+Done when:
+
+- reopened or failed remediation items retain their linked review state
+- retry eligibility is visible, bounded, and test-covered
+- reconciliation owns retry eligibility decisions without taking over review
+  judgment or remediation execution
+
+#### Phase 4: Retry-Aware Remediation Consumption
+
+Goal:
+
+- allow a later remediation attempt to consume bounded prior review feedback as
+  structured machine context
+- keep retry execution in remediation while preserving the ownership
+  boundaries
+
+Status:
+
+- [ ] extend remediation context building with bounded prior review feedback
+- [ ] increment retry counters only when a real retry starts
+- [ ] block retries cleanly when traceability or review signal is too weak
+- [ ] add regression coverage for one bounded retry path
+
+Done when:
+
+- a retrying remediation attempt can use prior structured review context
+  without relying on raw MR note prose
+- retry counts stay bounded and operator-auditable
+- the first retry loop is conservative, deterministic, and easy to explain
+
 ## Beyond V1
 
 Post-v1 ideas and expansion tracks now live in
