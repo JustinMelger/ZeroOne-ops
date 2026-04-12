@@ -80,6 +80,11 @@ class DashboardItem(BaseModel):
     upstream_active: bool | None = None
     reviewed_head_sha: str | None = None
     review_status: str | None = None
+    review_findings_count: int | None = None
+    review_feedback_summary: str | None = None
+    review_feedback_updated_at: datetime | None = None
+    review_confidence: float | None = None
+    review_confidence_reason: str | None = None
     log_excerpt: str | None = None
 
 
