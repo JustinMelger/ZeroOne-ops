@@ -31,6 +31,9 @@ class DashboardRemediationUpdater:
         project_id: str,
         dashboard_item_id: str,
         run_id: str,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ) -> DashboardRemediationUpdateResult:
         """Mark one dashboard item in progress."""
         return self._update_item(
@@ -38,6 +41,9 @@ class DashboardRemediationUpdater:
             dashboard_item_id=dashboard_item_id,
             status="in_progress",
             run_id=run_id,
+            retry_count=retry_count,
+            retry_eligible=retry_eligible,
+            retry_block_reason=retry_block_reason,
         )
 
     def mark_mr_opened(
@@ -50,6 +56,9 @@ class DashboardRemediationUpdater:
         merge_request_url: str,
         commit_sha: str,
         merge_request_iid: int | None = None,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
     ) -> DashboardRemediationUpdateResult:
         """Mark one dashboard item as having an open merge request."""
         return self._update_item(
@@ -61,6 +70,9 @@ class DashboardRemediationUpdater:
             merge_request_url=merge_request_url,
             merge_request_iid=merge_request_iid,
             commit_sha=commit_sha,
+            retry_count=retry_count,
+            retry_eligible=retry_eligible,
+            retry_block_reason=retry_block_reason,
         )
 
     def mark_failed(
@@ -269,9 +281,13 @@ class DashboardRemediationUpdater:
                     retry_eligible if retry_eligible is not None else current_item.retry_eligible
                 ),
                 "retry_block_reason": (
-                    retry_block_reason
-                    if retry_block_reason is not None
-                    else current_item.retry_block_reason
+                    None
+                    if retry_eligible is not None and retry_block_reason is None
+                    else (
+                        retry_block_reason
+                        if retry_block_reason is not None
+                        else current_item.retry_block_reason
+                    )
                 ),
             }
         )
@@ -304,7 +320,13 @@ class DashboardRemediationUpdater:
             and (retry_count is None or current_item.retry_count == retry_count)
             and (retry_eligible is None or current_item.retry_eligible == retry_eligible)
             and (
-                retry_block_reason is None or current_item.retry_block_reason == retry_block_reason
+                (
+                    retry_eligible is not None
+                    and retry_block_reason is None
+                    and current_item.retry_block_reason is None
+                )
+                or retry_block_reason is None
+                or current_item.retry_block_reason == retry_block_reason
             )
             and (
                 not clear_merge_request_traceability

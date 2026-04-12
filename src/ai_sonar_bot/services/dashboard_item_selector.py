@@ -36,6 +36,12 @@ class DashboardItemSelector:
             return "unsupported_source"
         if item.file is None:
             return "missing_file_path"
+        if (
+            item.review_status is not None
+            and item.retry_eligible is False
+            and item.retry_block_reason
+        ):
+            return "retry_blocked"
         if not (self.repo_root / item.file).exists():
             return "missing_local_file"
         if state.active_dashboard_item_id == item.id:

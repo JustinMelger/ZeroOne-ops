@@ -13,6 +13,8 @@ Issue line: {issue_line}
 Constraints: {constraints}
 Snippet start line: {snippet_start_line}
 Snippet end line: {snippet_end_line}
+Prior review feedback:
+{prior_review_feedback}
 
 Requirements:
 - Return exactly one edit for one repository-relative file.

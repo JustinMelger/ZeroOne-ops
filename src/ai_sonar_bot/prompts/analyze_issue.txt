@@ -15,6 +15,8 @@ Snippet start line: {snippet_start_line}
 Snippet end line: {snippet_end_line}
 Full file included: {full_file_included}
 Context truncated: {context_truncated}
+Prior review feedback:
+{prior_review_feedback}
 
 Code snippet:
 {code_snippet}
