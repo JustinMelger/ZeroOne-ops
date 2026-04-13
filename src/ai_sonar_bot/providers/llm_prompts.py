@@ -10,7 +10,11 @@ from ai_sonar_bot.models.remediation import (
     RemediationExecutionTarget,
     remediation_profile_for,
 )
-from ai_sonar_bot.models.review import MergeRequestReviewContext, RemediationReviewContext
+from ai_sonar_bot.models.review import (
+    MergeRequestReviewContext,
+    PriorReviewContext,
+    RemediationReviewContext,
+)
 
 
 class LLMPromptError(RuntimeError):
@@ -137,6 +141,7 @@ def build_review_prompt(context: MergeRequestReviewContext) -> str:
         target_branch=context.target_branch,
         head_sha=context.head_sha,
         remediation_context=_format_remediation_review_context(context.remediation_context),
+        prior_review_context=_format_prior_review_context(context.prior_review_context),
         repository_guidance=_format_repository_guidance(context),
         changed_files=changed_files,
     )
@@ -188,6 +193,38 @@ def _format_repository_guidance(context: MergeRequestReviewContext) -> str:
         )
         for guidance in context.repository_guidance
     )
+
+
+def _format_prior_review_context(context: PriorReviewContext | None) -> str:
+    """Render bounded prior review memory for repeated review passes."""
+    if context is None or not context.passes:
+        return "(none)"
+    blocks: list[str] = []
+    for index, prior_pass in enumerate(context.passes, start=1):
+        findings = (
+            "\n".join(
+                f"- {finding.summary} ({finding.severity or 'unknown'})"
+                for finding in prior_pass.findings
+            )
+            if prior_pass.findings
+            else "- (none)"
+        )
+        blocks.append(
+            _format_untrusted_block(
+                label=f"Prior review pass {index}",
+                content="\n".join(
+                    [
+                        f"Reviewed SHA: {prior_pass.reviewed_head_sha}",
+                        f"Classification: {prior_pass.classification}",
+                        f"Findings count: {prior_pass.findings_count}",
+                        f"Summary: {prior_pass.summary or '(none)'}",
+                        f"Note URL: {prior_pass.note_url or '(none)'}",
+                        f"Findings:\n{findings}",
+                    ]
+                ),
+            )
+        )
+    return "\n\n".join(blocks)
 
 
 def _format_untrusted_block(*, label: str, content: str) -> str:

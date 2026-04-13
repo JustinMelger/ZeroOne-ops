@@ -141,6 +141,10 @@ def test_analyze_drops_findings_for_unreviewed_files(monkeypatch) -> None:
             ReviewResult(
                 classification="findings_present",
                 summary="One finding.",
+                review_confidence=0.41,
+                review_confidence_reason=(
+                    "The issue depends on context that may not be fully visible in the diff."
+                ),
                 findings=[
                     ReviewFinding(
                         severity="medium",
@@ -160,6 +164,10 @@ def test_analyze_drops_findings_for_unreviewed_files(monkeypatch) -> None:
     assert result.review_result is not None
     assert result.review_result.classification == "no_findings"
     assert result.review_result.summary == "No actionable findings after review validation."
+    assert result.review_result.review_confidence == 0.41
+    assert result.review_result.review_confidence_reason == (
+        "The issue depends on context that may not be fully visible in the diff."
+    )
 
 
 def test_analyze_drops_findings_with_generic_evidence(monkeypatch) -> None:

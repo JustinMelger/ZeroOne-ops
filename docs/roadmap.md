@@ -162,6 +162,8 @@ Status:
 - [x] complete a secret and logging safety audit
 - [x] add a small release checklist covering image publish, CI setup, auth
       readiness, smoke-test status, and known rollout issues
+- [x] consolidate operator-facing example files into a dedicated `examples/`
+      layout so setup templates are easier to discover and copy safely
 
 Done when:
 
@@ -239,115 +241,128 @@ phases.
   and review workflows
 - security tooling is introduced gradually enough to keep CI signal usable
 
-## Next Follow-Up Phase
+## Completed Follow-Up Phase
 
 ### Dashboard Review Feedback And Retry-State
 
-Goal:
+Completed summary:
 
-- make the dashboard the canonical machine-readable record for remediation
-  review outcomes
-- keep MR notes as the operator-facing review surface
-- prepare a conservative retry loop without introducing an unbounded cycle
+- linked remediation MR reviews back onto their remediation dashboard items
+- surfaced compact review state and retry state directly in the dashboard
+- made reconciliation the owner of bounded retry eligibility decisions
+- let remediation consume bounded prior review feedback without collapsing
+  review, reconciliation, and remediation responsibilities together
 
 Design references:
 
 - [functional-design-dashboard-review-feedback.md](functional-design-dashboard-review-feedback.md)
 - [technical-design-dashboard-review-feedback.md](technical-design-dashboard-review-feedback.md)
 
-#### Phase 1: Dashboard Review State Linkage
+## Next Review Follow-Up Phase
+
+### Incremental PR Review Memory
 
 Goal:
 
-- link reviewed remediation MRs back to their remediation dashboard items
-- attach lightweight structured review metadata to the remediation item
-- keep standalone `review_status` items only as fallback for non-remediation
-  reviews
+- make repeated reviews on the same merge request feel incremental rather than
+  stateless
+- reduce repeated comments after new commits while keeping the current diff and
+  code as the primary evidence surface
 
-Status:
+Design references:
 
-- [x] extend the dashboard item model with the first bounded review metadata
-      fields
-- [x] teach the review dashboard updater to enrich linked remediation items
-- [x] keep fallback behavior for human-authored MRs with no remediation item
-- [x] add tests for deterministic MR-to-dashboard linking
+- [functional-design-pr-review-memory.md](functional-design-pr-review-memory.md)
+- [technical-design-pr-review-memory.md](technical-design-pr-review-memory.md)
 
-Done when:
-
-- a reviewed remediation MR updates the linked remediation item with
-  structured review state
-- fallback review mirroring still works for non-remediation MRs
-- link failures are explicit and test-covered
-
-#### Phase 2: Dashboard Rendering And Operator Visibility
+#### Phase 1: Persist Bounded Prior Review Passes
 
 Goal:
 
-- make linked review state visible on remediation items without relying on raw
-  JSON details
-- improve operator visibility into whether a remediation MR was reviewed and
-  what happened
+- extend review state so repeated reviews can reuse compact structured prior
+  bot review history
 
 Status:
 
-- [x] render compact review state on remediation items
-- [x] show findings count, review status, reviewed SHA, and short summary or
-      block reason
-- [x] add renderer and parser coverage for the new fields
+- [x] persist bounded prior review passes keyed by MR IID and reviewed SHA
+- [x] store prior review classification, findings count, short summary, and
+      bounded normalized findings
+- [x] bound stored history by `review.max_prior_review_passes`
+- [x] add regression coverage for state persistence and trimming
 
 Done when:
 
-- operators can answer review-state questions directly from the dashboard
-- failed or reopened remediation items visibly preserve their linked review
+- review state stores enough structured history for later review passes
+- history stays bounded and deterministic
+- the first storage path does not depend on parsing rendered GitLab notes
+
+#### Phase 2: Load Prior Review Context Into Analysis
+
+Goal:
+
+- load compact prior review memory for the same MR and include it in the next
+  review analysis prompt
+
+Status:
+
+- [x] load prior bot-authored review history for the current MR from persisted
+      state
+- [x] inject bounded prior review context into prompt construction
+- [x] keep `review.max_prior_review_passes` configurable with a conservative
+      default of `2`
+- [x] add prompt and service coverage for no-history and repeated-review cases
+
+Done when:
+
+- repeated reviews on the same MR receive bounded prior review memory as prompt
   context
+- current diff and code remain the primary evidence surface
+- history loading stays same-MR-only and bot-authored-only
 
-#### Phase 3: Reconciliation-Derived Retry Eligibility
-
-Goal:
-
-- let reconciliation preserve review state across lifecycle transitions
-- derive bounded retry eligibility from structured review outcome, traceability,
-  and retry limits
-
-Status:
-
-- [x] preserve review metadata when reconciliation marks items `done`,
-      reopens them, or moves them to `failed`
-- [x] add `retry_count`, `retry_eligible`, and `retry_block_reason`
-- [x] derive retry eligibility in reconciliation instead of in the review
-      workflow
-- [x] keep the first retry model conservative with a default limit of `1`,
-      configurable in JSON
-
-Done when:
-
-- reopened or failed remediation items retain their linked review state
-- retry eligibility is visible, bounded, and test-covered
-- reconciliation owns retry eligibility decisions without taking over review
-  judgment or remediation execution
-
-#### Phase 4: Retry-Aware Remediation Consumption
+#### Phase 3: Incremental Review Output Framing
 
 Goal:
 
-- allow a later remediation attempt to consume bounded prior review feedback as
-  structured machine context
-- keep retry execution in remediation while preserving the ownership
-  boundaries
+- make repeated bot reviews feel like follow-up passes instead of fresh
+  discoveries
 
 Status:
 
-- [x] extend remediation context building with bounded prior review feedback
-- [x] increment retry counters only when a real retry starts
-- [x] block retries cleanly when traceability or review signal is too weak
-- [x] add regression coverage for one bounded retry path
+- [x] add light follow-up framing for unresolved earlier findings
+- [x] allow concise "no new actionable findings since the last reviewed SHA"
+      language when appropriate
+- [x] avoid repeating unchanged earlier findings as if they were newly
+      discovered
+- [x] add regression coverage for repeated-finding and no-new-finding phrasing
 
 Done when:
 
-- a retrying remediation attempt can use prior structured review context
-  without relying on raw MR note prose
-- retry counts stay bounded and operator-auditable
-- the first retry loop is conservative, deterministic, and easy to explain
+- repeated reviews read like incremental follow-up notes
+- unresolved earlier findings are framed as follow-up context rather than fresh
+  discoveries
+- output stays concise and trust-building instead of turning into history recap
+
+#### Phase 4: Live Testing And Feedback Tightening
+
+Goal:
+
+- validate the first review-memory behavior against real merge request updates
+  before adding more policy or feedback mechanisms
+
+Status:
+
+- [ ] collect repeated-review examples where new commits previously caused bot
+      repetition
+- [ ] compare repeated-review notes before and after prior-review memory
+- [ ] refine lightweight follow-up phrasing only from real examples
+- [ ] decide whether any later operator feedback loop is needed beyond bounded
+      same-MR memory
+
+Done when:
+
+- repeated-review noise is lower on real merge requests with new commits
+- the bot clearly distinguishes new findings from unresolved earlier ones
+- follow-up phrasing feels natural enough in real review notes without opening
+  a larger redesign
 
 ## Beyond V1
 
@@ -359,6 +374,9 @@ That includes:
 - dashboard-centered review feedback and retry-state design
   - [functional-design-dashboard-review-feedback.md](functional-design-dashboard-review-feedback.md)
   - [technical-design-dashboard-review-feedback.md](technical-design-dashboard-review-feedback.md)
+- incremental PR review memory design
+  - [functional-design-pr-review-memory.md](functional-design-pr-review-memory.md)
+  - [technical-design-pr-review-memory.md](technical-design-pr-review-memory.md)
 - GitLab dashboard issue support
 - symbol-safe rename handling
 - complex single-file refactors

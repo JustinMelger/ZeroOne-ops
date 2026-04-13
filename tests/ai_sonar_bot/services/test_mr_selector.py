@@ -27,7 +27,7 @@ def test_select_skips_already_reviewed_revision_and_moves_to_next() -> None:
         MergeRequestReviewState(
             mr_iid=17,
             head_sha="abc123",
-            status="published",
+            status="findings_present",
             last_run_id="run-1",
         )
     )
@@ -47,7 +47,7 @@ def test_skip_reason_returns_already_reviewed_revision() -> None:
         MergeRequestReviewState(
             mr_iid=17,
             head_sha="abc123",
-            status="published",
+            status="findings_present",
             last_run_id="run-1",
         )
     )

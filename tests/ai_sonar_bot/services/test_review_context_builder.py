@@ -298,6 +298,30 @@ def test_build_keeps_working_for_normal_merge_requests_without_metadata(tmp_path
     assert result.context.remediation_context is None
 
 
+def test_build_does_not_set_prior_review_context_by_default(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text("value = 2\n", encoding="utf-8")
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -1,1 +1,1 @@\n-value = 1\n+value = 2\n",
+            )
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(),
+        review_client=FakeGitLabReviewClient(merge_request),
+    ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    assert result.context.prior_review_context is None
+
+
 def test_build_loads_bounded_repository_guidance(tmp_path: Path) -> None:
     source_dir = tmp_path / "src"
     source_dir.mkdir()

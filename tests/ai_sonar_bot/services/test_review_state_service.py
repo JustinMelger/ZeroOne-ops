@@ -1,4 +1,9 @@
-from ai_sonar_bot.models.review import MergeRequestReviewCandidate, ReviewResult
+from ai_sonar_bot.models.review import (
+    MergeRequestReviewCandidate,
+    PriorReviewContext,
+    ReviewFinding,
+    ReviewResult,
+)
 from ai_sonar_bot.models.state import AppState, RepositoryState, RunStatus
 from ai_sonar_bot.services.review_state_service import ReviewStateService
 from ai_sonar_bot.services.state_store import StateStore
@@ -26,7 +31,16 @@ def build_review_result() -> ReviewResult:
         summary="One finding.",
         review_confidence=0.76,
         review_confidence_reason="The finding is grounded in the reviewed diff.",
-        findings=[],
+        findings=[
+            ReviewFinding(
+                severity="medium",
+                file_path="src/service.py",
+                title="Ordering regression",
+                evidence="The diff removes explicit sorting before output.",
+                explanation="This changes output semantics for callers.",
+                suggested_follow_up="Restore deterministic ordering or document the change.",
+            )
+        ],
     )
 
 
@@ -51,6 +65,10 @@ def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
     assert summary.status == RunStatus.REVIEWED
     loaded = store.load()
     assert loaded.reviews["17:abc123"].status == "findings_present"
+    assert loaded.reviews["17:abc123"].findings_count == 1
+    assert loaded.reviews["17:abc123"].summary == "One finding."
+    assert loaded.reviews["17:abc123"].findings[0].summary == "src/service.py: Ordering regression"
+    assert loaded.reviews["17:abc123"].findings[0].severity == "medium"
     assert loaded.reviews["17:abc123"].note_url is not None
 
 
@@ -106,3 +124,73 @@ def test_mark_reviewed_manual_review_only_uses_clear_summary_language(tmp_path) 
     assert summary.status == RunStatus.REVIEWED
     assert "Bot assessment was insufficient for a trustworthy review decision." in summary.message
     assert "The available context was insufficient." in summary.message
+
+
+def test_mark_reviewed_trims_prior_review_history_per_merge_request(tmp_path) -> None:
+    store = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    )
+    state = build_state()
+    service = ReviewStateService(
+        state_store=store,
+        state=state,
+        max_prior_review_passes=2,
+    )
+
+    for run_id, head_sha in (("run-1", "sha-1"), ("run-2", "sha-2"), ("run-3", "sha-3")):
+        record = service.start_run(run_id)
+        service.mark_reviewed(
+            record=record,
+            merge_request=build_merge_request().model_copy(update={"head_sha": head_sha}),
+            review_result=build_review_result(),
+            note_url=None,
+            dry_run=False,
+        )
+
+    loaded = store.load()
+    assert "17:sha-1" not in loaded.reviews
+    assert "17:sha-2" in loaded.reviews
+    assert "17:sha-3" in loaded.reviews
+
+
+def test_load_prior_review_context_returns_recent_passes_for_same_mr(tmp_path) -> None:
+    store = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    )
+    state = build_state()
+    service = ReviewStateService(
+        state_store=store,
+        state=state,
+        max_prior_review_passes=2,
+    )
+
+    for run_id, head_sha in (("run-1", "sha-1"), ("run-2", "sha-2"), ("run-3", "sha-3")):
+        record = service.start_run(run_id)
+        service.mark_reviewed(
+            record=record,
+            merge_request=build_merge_request().model_copy(update={"head_sha": head_sha}),
+            review_result=build_review_result(),
+            note_url=f"https://gitlab.example.com/note/{run_id}",
+            dry_run=False,
+        )
+
+    prior_review_context = service.load_prior_review_context(
+        mr_iid=17,
+        current_head_sha="sha-3",
+    )
+
+    assert isinstance(prior_review_context, PriorReviewContext)
+    assert prior_review_context.merge_request_iid == 17
+    assert [review_pass.reviewed_head_sha for review_pass in prior_review_context.passes] == [
+        "sha-2",
+    ]
+    assert prior_review_context.passes[0].classification == "findings_present"
+    assert (
+        prior_review_context.passes[0].findings[0].summary == "src/service.py: Ordering regression"
+    )

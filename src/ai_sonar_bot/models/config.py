@@ -43,6 +43,7 @@ class ReviewConfig(BaseModel):
     max_context_lines_before: int = 30
     max_context_lines_after: int = 30
     max_findings_per_review: int = 3
+    max_prior_review_passes: int = 2
     max_review_feedback_retries: int = 1
     publish_no_findings_note: bool = True
     supported_paths: list[str] = Field(default_factory=list)

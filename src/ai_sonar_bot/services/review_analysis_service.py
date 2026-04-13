@@ -163,6 +163,8 @@ def _validated_review_result(
     return ReviewResult(
         classification="no_findings",
         summary="No actionable findings after review validation.",
+        review_confidence=review_result.review_confidence,
+        review_confidence_reason=review_result.review_confidence_reason,
         findings=[],
     )
 

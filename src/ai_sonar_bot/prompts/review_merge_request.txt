@@ -91,6 +91,9 @@ Head SHA: {head_sha}
 Remediation-authored context:
 {remediation_context}
 
+Prior review context:
+{prior_review_context}
+
 Repository guidance:
 {repository_guidance}
 

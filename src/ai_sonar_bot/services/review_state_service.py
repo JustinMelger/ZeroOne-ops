@@ -4,11 +4,18 @@ from __future__ import annotations
 
 import logging
 
-from ai_sonar_bot.models.review import MergeRequestReviewCandidate, ReviewResult
+from ai_sonar_bot.models.review import (
+    MergeRequestReviewCandidate,
+    PriorReviewContext,
+    PriorReviewFinding,
+    PriorReviewPass,
+    ReviewResult,
+)
 from ai_sonar_bot.models.state import (
     AppState,
     FailureDetails,
     MergeRequestReviewState,
+    PriorReviewFindingState,
     RunRecord,
     RunStatus,
     utc_now,
@@ -23,10 +30,17 @@ LOGGER = logging.getLogger(__name__)
 class ReviewStateService:
     """Persist review run lifecycle and reviewed revision state."""
 
-    def __init__(self, state_store: StateStore, state: AppState) -> None:
+    def __init__(
+        self,
+        state_store: StateStore,
+        state: AppState,
+        *,
+        max_prior_review_passes: int = 2,
+    ) -> None:
         """Initialize the review state service."""
         self.state_store = state_store
         self.state = state
+        self.max_prior_review_passes = max_prior_review_passes
 
     def start_run(self, run_id: str) -> RunRecord:
         """Append and return a new started run record."""
@@ -98,8 +112,12 @@ class ReviewStateService:
                 head_sha=merge_request.head_sha,
                 status=review_result.classification,
                 last_run_id=record.run_id,
+                findings_count=len(review_result.findings),
+                summary=review_result.summary,
+                findings=_build_prior_review_findings(review_result),
                 note_url=note_url,
             )
+            self._trim_prior_reviews_for_merge_request(merge_request.iid)
         self.state_store.save(self.state)
         summary_clause = _review_classification_summary(review_result)
         base_message = (
@@ -116,6 +134,83 @@ class ReviewStateService:
             message=base_message,
             state_path=self.state_store.path,
         )
+
+    def _trim_prior_reviews_for_merge_request(self, mr_iid: int) -> None:
+        """Keep only the most recent bounded review passes for one MR."""
+        if self.max_prior_review_passes <= 0:
+            review_keys_to_remove = [
+                key for key, value in self.state.reviews.items() if value.mr_iid == mr_iid
+            ]
+            for key in review_keys_to_remove:
+                self.state.reviews.pop(key, None)
+            return
+
+        matching_reviews = [
+            (key, value) for key, value in self.state.reviews.items() if value.mr_iid == mr_iid
+        ]
+        if len(matching_reviews) <= self.max_prior_review_passes:
+            return
+
+        matching_reviews.sort(
+            key=lambda pair: (pair[1].updated_at, pair[1].head_sha),
+            reverse=True,
+        )
+        for key, _value in matching_reviews[self.max_prior_review_passes :]:
+            self.state.reviews.pop(key, None)
+
+    def load_prior_review_context(
+        self,
+        *,
+        mr_iid: int,
+        current_head_sha: str,
+    ) -> PriorReviewContext | None:
+        """Return bounded persisted prior review context for one MR."""
+        matching_reviews = [
+            review_state
+            for review_state in self.state.reviews.values()
+            if review_state.mr_iid == mr_iid and review_state.head_sha != current_head_sha
+        ]
+        if not matching_reviews:
+            return None
+        matching_reviews.sort(
+            key=lambda review_state: (review_state.updated_at, review_state.head_sha),
+            reverse=True,
+        )
+        return PriorReviewContext(
+            merge_request_iid=mr_iid,
+            passes=[
+                PriorReviewPass(
+                    reviewed_head_sha=review_state.head_sha,
+                    classification=review_state.status,
+                    findings_count=review_state.findings_count,
+                    summary=review_state.summary,
+                    note_url=review_state.note_url,
+                    findings=[
+                        PriorReviewFinding(
+                            summary=finding.summary,
+                            severity=finding.severity,
+                        )
+                        for finding in review_state.findings
+                    ],
+                )
+                for review_state in matching_reviews[: self.max_prior_review_passes]
+            ],
+        )
+
+
+def _build_prior_review_findings(
+    review_result: ReviewResult,
+) -> list[PriorReviewFindingState]:
+    """Normalize bounded persisted prior-review finding summaries."""
+    normalized_findings: list[PriorReviewFindingState] = []
+    for finding in review_result.findings:
+        normalized_findings.append(
+            PriorReviewFindingState(
+                summary=f"{finding.file_path}: {finding.title}",
+                severity=finding.severity,
+            )
+        )
+    return normalized_findings
 
 
 def _review_classification_summary(review_result: ReviewResult) -> str:

@@ -72,6 +72,31 @@ class RepositoryGuidanceContext(BaseModel):
     summary: str
 
 
+class PriorReviewFinding(BaseModel):
+    """Represent one bounded prior-review finding summary."""
+
+    summary: str
+    severity: str | None = None
+
+
+class PriorReviewPass(BaseModel):
+    """Represent one bounded prior review pass on the same merge request."""
+
+    reviewed_head_sha: str
+    classification: Literal["no_findings", "findings_present", "manual_review_only"]
+    findings_count: int
+    summary: str | None = None
+    note_url: str | None = None
+    findings: list[PriorReviewFinding] = Field(default_factory=list)
+
+
+class PriorReviewContext(BaseModel):
+    """Represent bounded prior review history for the same merge request."""
+
+    merge_request_iid: int
+    passes: list[PriorReviewPass] = Field(default_factory=list)
+
+
 class MergeRequestReviewContext(BaseModel):
     """Represent deterministic review context for one merge request."""
 
@@ -85,6 +110,7 @@ class MergeRequestReviewContext(BaseModel):
     draft: bool = False
     author_username: str | None = None
     remediation_context: RemediationReviewContext | None = None
+    prior_review_context: PriorReviewContext | None = None
     repository_guidance: list[RepositoryGuidanceContext] = Field(default_factory=list)
     changed_files: list[ReviewFileContext] = Field(default_factory=list)
 

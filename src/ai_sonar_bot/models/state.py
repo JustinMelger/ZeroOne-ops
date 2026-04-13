@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -136,13 +137,23 @@ class IssueState(BaseModel):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class PriorReviewFindingState(BaseModel):
+    """Represent one bounded persisted prior-review finding summary."""
+
+    summary: str
+    severity: str | None = None
+
+
 class MergeRequestReviewState(BaseModel):
     """Represent the latest known review state for one MR revision."""
 
     mr_iid: int
     head_sha: str
-    status: str
+    status: Literal["no_findings", "findings_present", "manual_review_only"]
     last_run_id: str
+    findings_count: int = 0
+    summary: str | None = None
+    findings: list[PriorReviewFindingState] = Field(default_factory=list)
     note_url: str | None = None
     updated_at: datetime = Field(default_factory=utc_now)
 
