@@ -283,11 +283,11 @@ Goal:
 
 Status:
 
-- [ ] persist bounded prior review passes keyed by MR IID and reviewed SHA
-- [ ] store prior review classification, findings count, short summary, and
+- [x] persist bounded prior review passes keyed by MR IID and reviewed SHA
+- [x] store prior review classification, findings count, short summary, and
       bounded normalized findings
-- [ ] bound stored history by `review.max_prior_review_passes`
-- [ ] add regression coverage for state persistence and trimming
+- [x] bound stored history by `review.max_prior_review_passes`
+- [x] add regression coverage for state persistence and trimming
 
 Done when:
 

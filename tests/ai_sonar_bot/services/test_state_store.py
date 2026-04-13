@@ -7,6 +7,7 @@ from ai_sonar_bot.models.state import (
     FailureStage,
     IssueState,
     MergeRequestReviewState,
+    PriorReviewFindingState,
     RepositoryState,
     RunRecord,
     RunStatus,
@@ -65,6 +66,14 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
         head_sha="abc123",
         status="published",
         last_run_id="run-2",
+        findings_count=1,
+        summary="One finding.",
+        findings=[
+            PriorReviewFindingState(
+                summary="src/service.py: Ordering regression",
+                severity="medium",
+            )
+        ],
         note_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_5",
     )
     store.save(initial)
@@ -96,6 +105,10 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
     assert loaded.reviews["17:abc123"].head_sha == "abc123"
     assert loaded.reviews["17:abc123"].status == "published"
     assert loaded.reviews["17:abc123"].last_run_id == "run-2"
+    assert loaded.reviews["17:abc123"].findings_count == 1
+    assert loaded.reviews["17:abc123"].summary == "One finding."
+    assert loaded.reviews["17:abc123"].findings[0].summary == "src/service.py: Ordering regression"
+    assert loaded.reviews["17:abc123"].findings[0].severity == "medium"
     assert (
         loaded.reviews["17:abc123"].note_url
         == "https://gitlab.example.com/group/project/-/merge_requests/17#note_5"

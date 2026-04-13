@@ -60,7 +60,11 @@ def review(*, dry_run: bool = False) -> RunSummary:
         sonarqube_project_key=_sonarqube_key_from_env(),
     )
     state = state_store.load()
-    review_state_service = ReviewStateService(state_store=state_store, state=state)
+    review_state_service = ReviewStateService(
+        state_store=state_store,
+        state=state,
+        max_prior_review_passes=config.review.max_prior_review_passes,
+    )
 
     run_id = _build_run_id()
     record = review_state_service.start_run(run_id)
