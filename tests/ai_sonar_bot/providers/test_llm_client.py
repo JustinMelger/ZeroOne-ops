@@ -4,6 +4,9 @@ from ai_sonar_bot.models.analysis import CodeContextSnippet, IssueContext, Prior
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.models.review import (
     MergeRequestReviewContext,
+    PriorReviewContext,
+    PriorReviewFinding,
+    PriorReviewPass,
     RemediationReviewContext,
     RepositoryGuidanceContext,
     ReviewFileContext,
@@ -422,6 +425,57 @@ def test_build_review_prompt_includes_remediation_context_when_present() -> None
     assert "Summary: Add a null guard before dereferencing the service result." in prompt
     assert "Issue key: AX123" in prompt
     assert "Validation: All validation commands passed." in prompt
+
+
+def test_build_review_prompt_includes_prior_review_context_when_present() -> None:
+    context = MergeRequestReviewContext(
+        mr_iid=17,
+        title="feat: add safety check",
+        description="Adds validation.",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="def456",
+        prior_review_context=PriorReviewContext(
+            merge_request_iid=17,
+            passes=[
+                PriorReviewPass(
+                    reviewed_head_sha="abc123",
+                    classification="findings_present",
+                    findings_count=1,
+                    summary="One earlier concern still needs attention.",
+                    note_url="https://gitlab.example.com/note/55",
+                    findings=[
+                        PriorReviewFinding(
+                            summary="src/service.py: Ordering regression",
+                            severity="medium",
+                        )
+                    ],
+                )
+            ],
+        ),
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                diff="@@ -1 +1 @@\n-value = 1\n+value = 2",
+                content="value = 2\n",
+                start_line=1,
+                end_line=1,
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+    prompt = build_review_prompt(context)
+
+    assert "Prior review context:" in prompt
+    assert "<<BEGIN UNTRUSTED Prior review pass 1>>" in prompt
+    assert "Reviewed SHA: abc123" in prompt
+    assert "Classification: findings_present" in prompt
+    assert "Findings count: 1" in prompt
+    assert "Summary: One earlier concern still needs attention." in prompt
+    assert "- src/service.py: Ordering regression (medium)" in prompt
 
 
 def test_load_prompt_template_rejects_unknown_template_name() -> None:

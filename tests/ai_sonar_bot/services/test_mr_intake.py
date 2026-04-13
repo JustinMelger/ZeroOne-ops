@@ -106,7 +106,7 @@ def test_select_merge_request_skips_already_reviewed_revision(monkeypatch) -> No
         MergeRequestReviewState(
             mr_iid=17,
             head_sha="sha-17",
-            status="published",
+            status="findings_present",
             last_run_id="run-1",
         )
     )
@@ -130,7 +130,7 @@ def test_select_merge_request_reports_when_all_open_mrs_are_already_reviewed(
         MergeRequestReviewState(
             mr_iid=17,
             head_sha="sha-17",
-            status="published",
+            status="findings_present",
             last_run_id="run-1",
         )
     )

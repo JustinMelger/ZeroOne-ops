@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import logging
 
-from ai_sonar_bot.models.review import MergeRequestReviewCandidate, ReviewResult
+from ai_sonar_bot.models.review import (
+    MergeRequestReviewCandidate,
+    PriorReviewContext,
+    PriorReviewFinding,
+    PriorReviewPass,
+    ReviewResult,
+)
 from ai_sonar_bot.models.state import (
     AppState,
     FailureDetails,
@@ -151,6 +157,45 @@ class ReviewStateService:
         )
         for key, _value in matching_reviews[self.max_prior_review_passes :]:
             self.state.reviews.pop(key, None)
+
+    def load_prior_review_context(
+        self,
+        *,
+        mr_iid: int,
+        current_head_sha: str,
+    ) -> PriorReviewContext | None:
+        """Return bounded persisted prior review context for one MR."""
+        matching_reviews = [
+            review_state
+            for review_state in self.state.reviews.values()
+            if review_state.mr_iid == mr_iid and review_state.head_sha != current_head_sha
+        ]
+        if not matching_reviews:
+            return None
+        matching_reviews.sort(
+            key=lambda review_state: (review_state.updated_at, review_state.head_sha),
+            reverse=True,
+        )
+        return PriorReviewContext(
+            merge_request_iid=mr_iid,
+            passes=[
+                PriorReviewPass(
+                    reviewed_head_sha=review_state.head_sha,
+                    classification=review_state.status,
+                    findings_count=review_state.findings_count,
+                    summary=review_state.summary,
+                    note_url=review_state.note_url,
+                    findings=[
+                        PriorReviewFinding(
+                            summary=finding.summary,
+                            severity=finding.severity,
+                        )
+                        for finding in review_state.findings
+                    ],
+                )
+                for review_state in matching_reviews[: self.max_prior_review_passes]
+            ],
+        )
 
 
 def _build_prior_review_findings(

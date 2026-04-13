@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -148,7 +149,7 @@ class MergeRequestReviewState(BaseModel):
 
     mr_iid: int
     head_sha: str
-    status: str
+    status: Literal["no_findings", "findings_present", "manual_review_only"]
     last_run_id: str
     findings_count: int = 0
     summary: str | None = None

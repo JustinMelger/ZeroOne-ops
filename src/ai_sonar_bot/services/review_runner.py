@@ -88,24 +88,47 @@ class ReviewRunner:
                     message=context_result.message,
                 ),
             )
+        prior_review_context = self.review_state_service.load_prior_review_context(
+            mr_iid=intake_result.selected_merge_request.iid,
+            current_head_sha=intake_result.selected_merge_request.head_sha,
+        )
+        if prior_review_context is not None:
+            context_result = context_result.__class__(
+                context=context_result.context.model_copy(
+                    update={"prior_review_context": prior_review_context}
+                ),
+                message=context_result.message,
+            )
+        context = context_result.context
+        if context is None:  # pragma: no cover - defensive guard after enrichment
+            return self.review_state_service.fail_review(
+                record=record,
+                error_message=(
+                    f"[{self.config.execution_mode}] Could not build review context."
+                ),
+                failure=FailureDetails(
+                    stage=FailureStage.REVIEW_CONTEXT,
+                    message="Could not build review context.",
+                ),
+            )
 
-        changed_file_count = len(context_result.context.changed_files)
+        changed_file_count = len(context.changed_files)
         total_context_lines = sum(
             changed_file.end_line - changed_file.start_line + 1
-            for changed_file in context_result.context.changed_files
+            for changed_file in context.changed_files
         )
         LOGGER.info(
             "review context built",
             extra={
                 "run_id": run_id,
-                "mr_iid": context_result.context.mr_iid,
-                "head_sha": context_result.context.head_sha,
+                "mr_iid": context.mr_iid,
+                "head_sha": context.head_sha,
                 "changed_file_count": changed_file_count,
                 "context_line_count": total_context_lines,
             },
         )
 
-        analysis_result = ReviewAnalysisService(self.config).analyze(context_result.context)
+        analysis_result = ReviewAnalysisService(self.config).analyze(context)
         if analysis_result.review_result is None:
             return self.review_state_service.fail_review(
                 record=record,
@@ -120,8 +143,8 @@ class ReviewRunner:
             "review analysis completed",
             extra={
                 "run_id": run_id,
-                "mr_iid": context_result.context.mr_iid,
-                "head_sha": context_result.context.head_sha,
+                "mr_iid": context.mr_iid,
+                "head_sha": context.head_sha,
                 "classification": analysis_result.review_result.classification,
                 "finding_count": len(analysis_result.review_result.findings),
             },
@@ -133,8 +156,8 @@ class ReviewRunner:
             if self._should_publish_note(analysis_result.review_result):
                 publish_result = ReviewPublisher(self.review_client).publish(
                     project_id=project_id,
-                    merge_request_iid=context_result.context.mr_iid,
-                    context=context_result.context,
+                    merge_request_iid=context.mr_iid,
+                    context=context,
                     review_result=analysis_result.review_result,
                 )
                 if publish_result.error_message is not None:
@@ -154,8 +177,8 @@ class ReviewRunner:
                         "review note published",
                         extra={
                             "run_id": run_id,
-                            "mr_iid": context_result.context.mr_iid,
-                            "head_sha": context_result.context.head_sha,
+                            "mr_iid": context.mr_iid,
+                            "head_sha": context.head_sha,
                             "note_id": publish_result.note.id,
                             "note_url": publish_result.note.web_url,
                         },
@@ -165,8 +188,8 @@ class ReviewRunner:
                     "review note publication skipped by config",
                     extra={
                         "run_id": run_id,
-                        "mr_iid": context_result.context.mr_iid,
-                        "head_sha": context_result.context.head_sha,
+                        "mr_iid": context.mr_iid,
+                        "head_sha": context.head_sha,
                         "classification": analysis_result.review_result.classification,
                     },
                 )
@@ -184,8 +207,8 @@ class ReviewRunner:
                     "review dashboard mirrored",
                     extra={
                         "run_id": run_id,
-                        "mr_iid": context_result.context.mr_iid,
-                        "head_sha": context_result.context.head_sha,
+                        "mr_iid": context.mr_iid,
+                        "head_sha": context.head_sha,
                         "dashboard_issue_url": dashboard_update.dashboard_issue_url,
                     },
                 )
@@ -194,8 +217,8 @@ class ReviewRunner:
                     "review dashboard mirror warning",
                     extra={
                         "run_id": run_id,
-                        "mr_iid": context_result.context.mr_iid,
-                        "head_sha": context_result.context.head_sha,
+                        "mr_iid": context.mr_iid,
+                        "head_sha": context.head_sha,
                     },
                 )
         else:
@@ -203,8 +226,8 @@ class ReviewRunner:
                 "review dry-run skipped publication",
                 extra={
                     "run_id": run_id,
-                    "mr_iid": context_result.context.mr_iid,
-                    "head_sha": context_result.context.head_sha,
+                    "mr_iid": context.mr_iid,
+                    "head_sha": context.head_sha,
                 },
             )
 

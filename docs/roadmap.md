@@ -304,12 +304,12 @@ Goal:
 
 Status:
 
-- [ ] load prior bot-authored review history for the current MR from persisted
+- [x] load prior bot-authored review history for the current MR from persisted
       state
-- [ ] inject bounded prior review context into prompt construction
-- [ ] keep `review.max_prior_review_passes` configurable with a conservative
+- [x] inject bounded prior review context into prompt construction
+- [x] keep `review.max_prior_review_passes` configurable with a conservative
       default of `2`
-- [ ] add prompt and service coverage for no-history and repeated-review cases
+- [x] add prompt and service coverage for no-history and repeated-review cases
 
 Done when:
 
