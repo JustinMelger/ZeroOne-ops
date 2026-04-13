@@ -89,6 +89,10 @@ Copyable operator examples now live in [examples/](examples/), including:
 - [examples/.env.example](examples/.env.example)
 - [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml)
 
+Use the root [.ai-sonar-bot.json](.ai-sonar-bot.json) as the repository's live
+runtime config, and use the files in [examples/](examples/) as copyable
+templates when wiring the bot into another repository.
+
 To test the real OpenAI path instead of local fixtures:
 
 ```bash
