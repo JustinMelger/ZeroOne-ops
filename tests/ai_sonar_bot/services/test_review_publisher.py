@@ -1,6 +1,8 @@
 from ai_sonar_bot.models.gitlab import MergeRequestNote
 from ai_sonar_bot.models.review import (
     MergeRequestReviewContext,
+    PriorReviewContext,
+    PriorReviewPass,
     ReviewFileContext,
     ReviewFinding,
     ReviewResult,
@@ -28,6 +30,25 @@ def build_context() -> MergeRequestReviewContext:
                 truncated=False,
             )
         ],
+    )
+
+
+def build_follow_up_context() -> MergeRequestReviewContext:
+    return build_context().model_copy(
+        update={
+            "head_sha": "def456",
+            "prior_review_context": PriorReviewContext(
+                merge_request_iid=17,
+                passes=[
+                    PriorReviewPass(
+                        reviewed_head_sha="abc123",
+                        classification="findings_present",
+                        findings_count=1,
+                        summary="One earlier concern still needs attention.",
+                    )
+                ],
+            ),
+        }
     )
 
 
@@ -109,6 +130,22 @@ def test_render_note_formats_no_findings() -> None:
     assert "Notes:" not in body
 
 
+def test_render_note_uses_follow_up_language_for_no_findings_when_prior_review_exists() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_note(
+        context=build_follow_up_context(),
+        review_result=ReviewResult(
+            classification="no_findings",
+            summary="No findings.",
+            findings=[],
+        ),
+    )
+
+    assert "No new actionable findings since the last reviewed SHA." in body
+    assert "Follow-up review after the earlier bot pass on `abc123`." in body
+
+
 def test_render_note_formats_manual_review_only() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
@@ -130,6 +167,33 @@ def test_render_note_formats_manual_review_only() -> None:
     assert "The diff is too broad to assess reliably in this pass." in body
     assert "This is not an actionable finding by itself." in body
     assert "- Reviewed merge request: `!17`" in body
+
+
+def test_render_note_uses_follow_up_language_for_repeated_findings() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_note(
+        context=build_follow_up_context(),
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One medium-risk finding.",
+            findings=[
+                ReviewFinding(
+                    severity="medium",
+                    file_path="src/service.py",
+                    title="Missing test coverage",
+                    evidence=(
+                        "The diff changes `value = 1` to `value = 2` without any test updates."
+                    ),
+                    explanation="The change alters branch behavior without test updates.",
+                    suggested_follow_up="Add a regression test for the changed branch.",
+                )
+            ],
+        ),
+    )
+
+    assert "Follow-up review after the earlier bot pass on `abc123`." in body
+    assert "Previously reported concerns may still be relevant" in body
 
 
 def test_publish_sends_rendered_note_body() -> None:

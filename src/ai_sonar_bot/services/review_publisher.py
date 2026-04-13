@@ -58,11 +58,17 @@ class ReviewPublisher:
     ) -> str:
         """Render one deterministic review note body."""
         if review_result.classification == "no_findings":
+            summary_line = (
+                "No new actionable findings since the last reviewed SHA."
+                if _is_follow_up_review(context)
+                else "No actionable findings in this review pass."
+            )
             return "\n".join(
                 [
                     "## AI Review Summary",
                     "",
-                    "No actionable findings in this review pass.",
+                    summary_line,
+                    *_render_follow_up_lines(context, review_result),
                     *_render_confidence_lines(review_result),
                     "",
                     "Scope:",
@@ -77,6 +83,7 @@ class ReviewPublisher:
                     "## AI Review Summary",
                     "",
                     "Bot assessment was insufficient for a trustworthy review decision.",
+                    *_render_follow_up_lines(context, review_result),
                     "",
                     review_result.summary,
                     *_render_confidence_lines(review_result),
@@ -111,6 +118,7 @@ class ReviewPublisher:
             [
                 "## AI Review Summary",
                 "",
+                *_render_follow_up_lines(context, review_result),
                 review_result.summary,
                 *_render_confidence_lines(review_result),
                 "",
@@ -136,3 +144,34 @@ def _render_confidence_lines(review_result: ReviewResult) -> list[str]:
     if review_result.review_confidence_reason:
         lines.append(f"- Reason: {review_result.review_confidence_reason}")
     return lines
+
+
+def _render_follow_up_lines(
+    context: MergeRequestReviewContext,
+    review_result: ReviewResult,
+) -> list[str]:
+    """Render light follow-up framing for repeated reviews on the same MR."""
+    prior_review_context = context.prior_review_context
+    if not prior_review_context or not prior_review_context.passes:
+        return []
+    latest_prior_pass = prior_review_context.passes[0]
+    lines = [
+        (
+            f"Follow-up review after the earlier bot pass on "
+            f"`{latest_prior_pass.reviewed_head_sha}`."
+        )
+    ]
+    if (
+        review_result.classification == "findings_present"
+        and latest_prior_pass.classification == "findings_present"
+    ):
+        lines.append(
+            "Previously reported concerns may still be relevant; findings below "
+            "focus on the current pass."
+        )
+    return [*lines, ""]
+
+
+def _is_follow_up_review(context: MergeRequestReviewContext) -> bool:
+    """Return whether the current review has bounded prior review context."""
+    return bool(context.prior_review_context and context.prior_review_context.passes)

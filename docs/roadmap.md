@@ -327,12 +327,12 @@ Goal:
 
 Status:
 
-- [ ] add light follow-up framing for unresolved earlier findings
-- [ ] allow concise "no new actionable findings since the last reviewed SHA"
+- [x] add light follow-up framing for unresolved earlier findings
+- [x] allow concise "no new actionable findings since the last reviewed SHA"
       language when appropriate
-- [ ] avoid repeating unchanged earlier findings as if they were newly
+- [x] avoid repeating unchanged earlier findings as if they were newly
       discovered
-- [ ] add regression coverage for repeated-finding and no-new-finding phrasing
+- [x] add regression coverage for repeated-finding and no-new-finding phrasing
 
 Done when:
 
