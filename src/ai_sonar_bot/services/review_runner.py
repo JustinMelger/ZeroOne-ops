@@ -103,9 +103,7 @@ class ReviewRunner:
         if context is None:  # pragma: no cover - defensive guard after enrichment
             return self.review_state_service.fail_review(
                 record=record,
-                error_message=(
-                    f"[{self.config.execution_mode}] Could not build review context."
-                ),
+                error_message=(f"[{self.config.execution_mode}] Could not build review context."),
                 failure=FailureDetails(
                     stage=FailureStage.REVIEW_CONTEXT,
                     message="Could not build review context.",

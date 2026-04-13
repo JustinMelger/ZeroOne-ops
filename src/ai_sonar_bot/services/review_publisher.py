@@ -156,10 +156,7 @@ def _render_follow_up_lines(
         return []
     latest_prior_pass = prior_review_context.passes[0]
     lines = [
-        (
-            f"Follow-up review after the earlier bot pass on "
-            f"`{latest_prior_pass.reviewed_head_sha}`."
-        )
+        (f"Follow-up review after the earlier bot pass on `{latest_prior_pass.reviewed_head_sha}`.")
     ]
     if (
         review_result.classification == "findings_present"

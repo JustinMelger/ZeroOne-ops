@@ -192,6 +192,5 @@ def test_load_prior_review_context_returns_recent_passes_for_same_mr(tmp_path) -
     ]
     assert prior_review_context.passes[0].classification == "findings_present"
     assert (
-        prior_review_context.passes[0].findings[0].summary
-        == "src/service.py: Ordering regression"
+        prior_review_context.passes[0].findings[0].summary == "src/service.py: Ordering regression"
     )
