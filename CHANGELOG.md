@@ -5,6 +5,25 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.19.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.18.0...zeroone-ops-v0.19.0) (2026-04-13)
+
+
+### Features
+
+* incremental review output framing ([44ef085](https://github.com/JustinMelger/ZeroOne-ops/commit/44ef08598e008abbcb173c0fc6fe833c95192b93))
+* Load prior review context into analysis ([0713464](https://github.com/JustinMelger/ZeroOne-ops/commit/07134644fc09e8044177cd62ca62cf2e6a03ee09))
+* persist bounded prior review pass review bot ([2fe31d3](https://github.com/JustinMelger/ZeroOne-ops/commit/2fe31d379d660946e1b6679a64d9e722f5843230))
+
+
+### Bug Fixes
+
+* add confidence review when no findings ([3b7ac38](https://github.com/JustinMelger/ZeroOne-ops/commit/3b7ac38d11ea02d0fcfa46982fa18650e601414b))
+
+
+### Documentation
+
+* design memory + planning ([e304a01](https://github.com/JustinMelger/ZeroOne-ops/commit/e304a019c3e43641ee047558399705ca548583da))
+
 ## [0.18.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.17.0...zeroone-ops-v0.18.0) (2026-04-12)
 
 
