@@ -509,12 +509,12 @@ Goal:
 
 Status:
 
-- [ ] extend prior review loading to carry stored identity into the review
+- [x] extend prior review loading to carry stored identity into the review
       workflow
-- [ ] preserve backward compatibility for older entries that do not have
+- [x] preserve backward compatibility for older entries that do not have
       identity
-- [ ] avoid migration or backfill requirements for the first rollout
-- [ ] add regression coverage for mixed old/new persisted review history
+- [x] avoid migration or backfill requirements for the first rollout
+- [x] add regression coverage for mixed old/new persisted review history
 
 Done when:
 

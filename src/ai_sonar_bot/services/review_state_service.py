@@ -189,6 +189,7 @@ class ReviewStateService:
                     note_url=review_state.note_url,
                     findings=[
                         PriorReviewFinding(
+                            identity=finding.identity,
                             summary=finding.summary,
                             severity=finding.severity,
                         )

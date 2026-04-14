@@ -4,7 +4,13 @@ from ai_sonar_bot.models.review import (
     ReviewFinding,
     ReviewResult,
 )
-from ai_sonar_bot.models.state import AppState, RepositoryState, RunStatus
+from ai_sonar_bot.models.state import (
+    AppState,
+    MergeRequestReviewState,
+    PriorReviewFindingState,
+    RepositoryState,
+    RunStatus,
+)
 from ai_sonar_bot.services.review_state_service import ReviewStateService
 from ai_sonar_bot.services.state_store import StateStore
 
@@ -196,6 +202,10 @@ def test_load_prior_review_context_returns_recent_passes_for_same_mr(tmp_path) -
     ]
     assert prior_review_context.passes[0].classification == "findings_present"
     assert (
+        prior_review_context.passes[0].findings[0].identity
+        == "src/service.py::order-regress"
+    )
+    assert (
         prior_review_context.passes[0].findings[0].summary == "src/service.py: Ordering regression"
     )
 
@@ -253,3 +263,51 @@ def test_mark_reviewed_persists_canonical_identity_with_human_summary(tmp_path) 
     assert loaded.reviews["17:abc123"].findings[1].summary == (
         "src/service.py: Missing test coverage"
     )
+
+
+def test_load_prior_review_context_preserves_mixed_new_and_legacy_finding_state(tmp_path) -> None:
+    store = StateStore(
+        tmp_path / ".ai-sonar-bot-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    )
+    state = build_state()
+    state.reviews["17:sha-2"] = MergeRequestReviewState(
+        mr_iid=17,
+        head_sha="sha-2",
+        status="findings_present",
+        last_run_id="run-2",
+        findings_count=2,
+        summary="Two findings.",
+        findings=[
+            PriorReviewFindingState(
+                identity="src/service.py::order-regress",
+                summary="src/service.py: Ordering regression",
+                severity="medium",
+            ),
+            PriorReviewFindingState(
+                summary="Legacy helper concern",
+                severity="low",
+            ),
+        ],
+    )
+    service = ReviewStateService(
+        state_store=store,
+        state=state,
+        max_prior_review_passes=2,
+    )
+
+    prior_review_context = service.load_prior_review_context(
+        mr_iid=17,
+        current_head_sha="sha-3",
+    )
+
+    assert isinstance(prior_review_context, PriorReviewContext)
+    assert prior_review_context.passes[0].findings[0].identity == "src/service.py::order-regress"
+    assert (
+        prior_review_context.passes[0].findings[0].summary
+        == "src/service.py: Ordering regression"
+    )
+    assert prior_review_context.passes[0].findings[1].identity is None
+    assert prior_review_context.passes[0].findings[1].summary == "Legacy helper concern"
