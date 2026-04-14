@@ -2,12 +2,16 @@ from ai_sonar_bot.models.gitlab import MergeRequestNote
 from ai_sonar_bot.models.review import (
     MergeRequestReviewContext,
     PriorReviewContext,
+    PriorReviewFinding,
     PriorReviewPass,
     ReviewFileContext,
     ReviewFinding,
     ReviewResult,
 )
-from ai_sonar_bot.services.review_publisher import ReviewPublisher
+from ai_sonar_bot.services.review_publisher import (
+    ReviewPublisher,
+    _reconcile_follow_up_review,
+)
 
 
 def build_context() -> MergeRequestReviewContext:
@@ -45,6 +49,12 @@ def build_follow_up_context() -> MergeRequestReviewContext:
                         classification="findings_present",
                         findings_count=1,
                         summary="One earlier concern still needs attention.",
+                        findings=[
+                            PriorReviewFinding(
+                                summary="src/service.py: Missing test coverage",
+                                severity="medium",
+                            )
+                        ],
                     )
                 ],
             ),
@@ -194,6 +204,81 @@ def test_render_note_uses_follow_up_language_for_repeated_findings() -> None:
 
     assert "Follow-up review after the earlier bot pass on `abc123`." in body
     assert "Previously reported concerns may still be relevant" in body
+
+
+def test_reconcile_follow_up_review_marks_repeated_findings_as_still_unresolved() -> None:
+    reconciliation = _reconcile_follow_up_review(
+        context=build_follow_up_context(),
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One medium-risk finding.",
+            findings=[
+                ReviewFinding(
+                    severity="medium",
+                    file_path="src/service.py",
+                    title="Missing test coverage",
+                    evidence="The diff changes `value = 1` to `value = 2`.",
+                    explanation="The change alters branch behavior without test updates.",
+                    suggested_follow_up="Add a regression test for the changed branch.",
+                )
+            ],
+        ),
+    )
+
+    assert reconciliation is not None
+    assert reconciliation.prior_reviewed_head_sha == "abc123"
+    assert [item.summary for item in reconciliation.still_unresolved] == [
+        "src/service.py: Missing test coverage"
+    ]
+    assert reconciliation.appears_resolved == []
+    assert reconciliation.new_findings == []
+
+
+def test_reconcile_follow_up_review_marks_missing_prior_finding_as_resolved() -> None:
+    reconciliation = _reconcile_follow_up_review(
+        context=build_follow_up_context(),
+        review_result=ReviewResult(
+            classification="no_findings",
+            summary="No findings.",
+            findings=[],
+        ),
+    )
+
+    assert reconciliation is not None
+    assert reconciliation.still_unresolved == []
+    assert [item.summary for item in reconciliation.appears_resolved] == [
+        "src/service.py: Missing test coverage"
+    ]
+    assert reconciliation.new_findings == []
+
+
+def test_reconcile_follow_up_review_marks_different_current_finding_as_new() -> None:
+    reconciliation = _reconcile_follow_up_review(
+        context=build_follow_up_context(),
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One medium-risk finding.",
+            findings=[
+                ReviewFinding(
+                    severity="medium",
+                    file_path="src/service.py",
+                    title="Missing null guard",
+                    evidence="The diff removes the `if value is None` guard.",
+                    explanation="The change can now dereference a nullable value.",
+                    suggested_follow_up="Restore the null guard or add validation.",
+                )
+            ],
+        ),
+    )
+
+    assert reconciliation is not None
+    assert reconciliation.still_unresolved == []
+    assert [item.summary for item in reconciliation.appears_resolved] == [
+        "src/service.py: Missing test coverage"
+    ]
+    assert [item.summary for item in reconciliation.new_findings] == [
+        "src/service.py: Missing null guard"
+    ]
 
 
 def test_publish_sends_rendered_note_body() -> None:

@@ -389,10 +389,10 @@ Goal:
 
 Status:
 
-- [ ] compare only against the latest prior review pass for the same MR
-- [ ] match findings conservatively using file path, title, and normalized summary
-- [ ] classify matches as `still_unresolved`, `appears_resolved`, or `new`
-- [ ] add regression coverage for repeated, resolved, and new-finding cases
+- [x] compare only against the latest prior review pass for the same MR
+- [x] match findings conservatively using file path, title, and normalized summary
+- [x] classify matches as `still_unresolved`, `appears_resolved`, or `new`
+- [x] add regression coverage for repeated, resolved, and new-finding cases
 
 Done when:
 
