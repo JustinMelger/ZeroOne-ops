@@ -5,6 +5,15 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.19.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.19.0...zeroone-ops-v0.19.1) (2026-04-14)
+
+
+### Bug Fixes
+
+* **review:** inspect helper context before raising shared-code findings ([6b43f84](https://github.com/JustinMelger/ZeroOne-ops/commit/6b43f84f1af85e90f404264af7597c61213be292))
+* **review:** inspect helper context before raising shared-code findings ([b134c98](https://github.com/JustinMelger/ZeroOne-ops/commit/b134c981174fd819ff4269baa9065364cbafe264))
+* **review:** require prior-reviw reconciliation in MR review ([4953223](https://github.com/JustinMelger/ZeroOne-ops/commit/49532238d5623131367881e9499eeda4aa90714d))
+
 ## [0.19.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.18.0...zeroone-ops-v0.19.0) (2026-04-13)
 
 
