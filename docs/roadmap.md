@@ -273,6 +273,8 @@ Design references:
 
 - [functional-design-pr-review-memory.md](functional-design-pr-review-memory.md)
 - [technical-design-pr-review-memory.md](technical-design-pr-review-memory.md)
+- [functional-design-pr-review-followup-reconciliation.md](functional-design-pr-review-followup-reconciliation.md)
+- [technical-design-pr-review-followup-reconciliation.md](technical-design-pr-review-followup-reconciliation.md)
 
 #### Phase 1: Persist Bounded Prior Review Passes
 
@@ -363,6 +365,106 @@ Done when:
 - the bot clearly distinguishes new findings from unresolved earlier ones
 - follow-up phrasing feels natural enough in real review notes without opening
   a larger redesign
+
+### Follow-Up Review Outcome Reconciliation
+
+Goal:
+
+- make repeated reviews explicitly acknowledge whether earlier concerns still
+  appear unresolved, now appear resolved, or have been replaced by different
+  new concerns
+- make repeated MR reviews feel more like a conversation than a stateless rerun
+
+Design references:
+
+- [functional-design-pr-review-followup-reconciliation.md](functional-design-pr-review-followup-reconciliation.md)
+- [technical-design-pr-review-followup-reconciliation.md](technical-design-pr-review-followup-reconciliation.md)
+
+#### Phase 1: Conservative Finding Matching
+
+Goal:
+
+- derive a bounded internal comparison between the latest prior review pass and
+  the current findings
+
+Status:
+
+- [x] compare only against the latest prior review pass for the same MR
+- [x] match findings conservatively using file path, title, and normalized summary
+- [x] classify matches as `still_unresolved`, `appears_resolved`, or `new`
+- [x] add regression coverage for repeated, resolved, and new-finding cases
+
+Done when:
+
+- the review workflow can derive a compact follow-up comparison result without
+  adding a large new schema
+- matching stays conservative and deterministic
+
+#### Phase 2: Conversational Follow-Up Wording
+
+Goal:
+
+- make repeated review notes acknowledge progress or non-progress more clearly
+
+Status:
+
+- [x] render `still unresolved` wording for repeated matched findings
+- [x] render `appears resolved` wording when prior findings disappear and the
+      visible code supports that conclusion
+- [x] render a short mixed follow-up line when an earlier concern appears
+      resolved but a different new concern now appears
+- [x] mention resolved earlier findings in both `no_findings` and mixed
+      new-finding follow-ups when that improves continuity
+
+Done when:
+
+- repeated reviews clearly distinguish unresolved, resolved, and new concerns
+- note wording feels more like a continued thread than a fresh review each time
+
+#### Phase 3: Ambiguity And Trust Guardrails
+
+Goal:
+
+- keep the new follow-up continuity helpful without overclaiming resolution
+
+Status:
+
+- [x] fall back to neutral follow-up wording when finding matching is weak
+- [x] use explicit `unable to verify` wording when current code does not
+      reliably support a resolved conclusion
+- [x] avoid strong resolved wording when the visible code remains ambiguous
+- [x] add regression coverage for ambiguous follow-up cases
+
+Done when:
+
+- the bot does not overstate that a prior issue is fixed when the current code
+  does not support that claim
+- follow-up notes stay trust-building in ambiguous cases
+
+#### Phase 4: Live Testing And Wording Tightening
+
+Goal:
+
+- validate the conversational follow-up behavior on real merge-request review
+  threads
+
+Status:
+
+- [ ] collect real sequences with first finding, repeated finding, and resolved
+      finding outcomes
+- [ ] compare whether operators perceive the new follow-up notes as more
+      conversational and trustworthy
+- [ ] tighten wording only from real examples, not theoretical cases
+- [ ] decide whether a later explicit finding fingerprint or richer relationship
+      schema is actually needed
+
+Done when:
+
+- repeated review threads feel more conversational in live use
+- resolved earlier concerns are acknowledged clearly enough to improve operator
+  trust
+- the current simple matching approach is either proven sufficient or clearly
+  bounded for a later follow-up
 
 ## Beyond V1
 

@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 
 from ai_sonar_bot.models.gitlab import MergeRequestNote
-from ai_sonar_bot.models.review import MergeRequestReviewContext, ReviewResult
+from ai_sonar_bot.models.review import (
+    MergeRequestReviewContext,
+    ReviewFinding,
+    ReviewResult,
+)
 from ai_sonar_bot.providers.gitlab_client import GitLabClientError
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
 
@@ -17,6 +22,26 @@ class ReviewPublishResult:
     note: MergeRequestNote | None
     body: str
     error_message: str | None = None
+
+
+@dataclass(frozen=True)
+class FollowUpFindingStatus:
+    """Represent one bounded follow-up comparison outcome."""
+
+    summary: str
+    file_path: str | None
+    status: str
+
+
+@dataclass(frozen=True)
+class FollowUpReviewReconciliation:
+    """Represent a conservative comparison against the latest prior pass."""
+
+    prior_reviewed_head_sha: str
+    still_unresolved: list[FollowUpFindingStatus] = field(default_factory=list)
+    appears_resolved: list[FollowUpFindingStatus] = field(default_factory=list)
+    new_findings: list[FollowUpFindingStatus] = field(default_factory=list)
+    unable_to_verify_resolution: bool = False
 
 
 class ReviewPublisher:
@@ -151,24 +176,207 @@ def _render_follow_up_lines(
     review_result: ReviewResult,
 ) -> list[str]:
     """Render light follow-up framing for repeated reviews on the same MR."""
-    prior_review_context = context.prior_review_context
-    if not prior_review_context or not prior_review_context.passes:
+    reconciliation = _reconcile_follow_up_review(
+        context=context,
+        review_result=review_result,
+    )
+    if reconciliation is None:
         return []
-    latest_prior_pass = prior_review_context.passes[0]
     lines = [
-        (f"Follow-up review after the earlier bot pass on `{latest_prior_pass.reviewed_head_sha}`.")
-    ]
-    if (
-        review_result.classification == "findings_present"
-        and latest_prior_pass.classification == "findings_present"
-    ):
-        lines.append(
-            "Previously reported concerns may still be relevant; findings below "
-            "focus on the current pass."
+        (
+            f"Follow-up review after the earlier bot pass on "
+            f"`{reconciliation.prior_reviewed_head_sha}`."
         )
+    ]
+    lines.extend(_render_reconciliation_summary_lines(reconciliation, review_result))
     return [*lines, ""]
 
 
 def _is_follow_up_review(context: MergeRequestReviewContext) -> bool:
     """Return whether the current review has bounded prior review context."""
     return bool(context.prior_review_context and context.prior_review_context.passes)
+
+
+def _reconcile_follow_up_review(
+    *,
+    context: MergeRequestReviewContext,
+    review_result: ReviewResult,
+) -> FollowUpReviewReconciliation | None:
+    """Compare the current review result to the latest prior pass only."""
+    prior_review_context = context.prior_review_context
+    if not prior_review_context or not prior_review_context.passes:
+        return None
+
+    latest_prior_pass = prior_review_context.passes[0]
+    unparsed_prior_finding_count = 0
+    prior_findings_by_key = {
+        _prior_finding_key(summary): FollowUpFindingStatus(
+            summary=summary,
+            file_path=_prior_finding_path(summary),
+            status="appears_resolved",
+        )
+        for summary in [finding.summary for finding in latest_prior_pass.findings]
+        if _prior_finding_key(summary) is not None
+    }
+    unparsed_prior_finding_count = len(latest_prior_pass.findings) - len(prior_findings_by_key)
+
+    still_unresolved: list[FollowUpFindingStatus] = []
+    new_findings: list[FollowUpFindingStatus] = []
+
+    for finding in review_result.findings:
+        finding_summary = f"{finding.file_path}: {finding.title}"
+        finding_key = _current_finding_key(finding)
+        finding_status = FollowUpFindingStatus(
+            summary=finding_summary,
+            file_path=finding.file_path,
+            status="new",
+        )
+        if finding_key in prior_findings_by_key:
+            still_unresolved.append(
+                FollowUpFindingStatus(
+                    summary=finding_summary,
+                    file_path=finding.file_path,
+                    status="still_unresolved",
+                )
+            )
+            prior_findings_by_key.pop(finding_key, None)
+        else:
+            new_findings.append(finding_status)
+
+    appears_resolved = list(prior_findings_by_key.values())
+    return FollowUpReviewReconciliation(
+        prior_reviewed_head_sha=latest_prior_pass.reviewed_head_sha,
+        still_unresolved=still_unresolved,
+        appears_resolved=appears_resolved,
+        new_findings=new_findings,
+        unable_to_verify_resolution=(
+            latest_prior_pass.classification == "findings_present"
+            and unparsed_prior_finding_count > 0
+            and not still_unresolved
+        ),
+    )
+
+
+def _current_finding_key(finding: ReviewFinding) -> tuple[str, str, str]:
+    """Build a conservative key for one current finding."""
+    summary = f"{finding.file_path}: {finding.title}"
+    return (
+        finding.file_path.strip().lower(),
+        finding.title.strip().lower(),
+        _normalize_finding_text(summary),
+    )
+
+
+def _prior_finding_key(summary: str) -> tuple[str, str, str] | None:
+    """Build a conservative key for one persisted prior finding summary."""
+    parsed = _split_prior_summary(summary)
+    if parsed is None:
+        return None
+    file_path, title = parsed
+    return (
+        file_path.strip().lower(),
+        title.strip().lower(),
+        _normalize_finding_text(summary),
+    )
+
+
+def _prior_finding_path(summary: str) -> str | None:
+    """Return the file path from a persisted prior finding summary when available."""
+    parsed = _split_prior_summary(summary)
+    if parsed is None:
+        return None
+    return parsed[0]
+
+
+def _split_prior_summary(summary: str) -> tuple[str, str] | None:
+    """Split a persisted prior summary like `path: title` conservatively."""
+    if ":" not in summary:
+        return None
+    file_path, title = summary.split(":", 1)
+    if not file_path.strip() or not title.strip():
+        return None
+    return file_path.strip(), title.strip()
+
+
+def _normalize_finding_text(text: str) -> str:
+    """Normalize bounded finding text for conservative exact matching."""
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def _render_reconciliation_summary_lines(
+    reconciliation: FollowUpReviewReconciliation,
+    review_result: ReviewResult,
+) -> list[str]:
+    """Render concise conversational summary lines for repeated review passes."""
+    lines: list[str] = []
+
+    if review_result.classification == "no_findings" and reconciliation.unable_to_verify_resolution:
+        lines.append(
+            "The current pass could not verify conclusively whether the earlier "
+            "concern is fully resolved."
+        )
+        return lines
+
+    if review_result.classification == "no_findings" and reconciliation.appears_resolved:
+        lines.append(
+            "The earlier concern about "
+            f"{_humanize_finding_summary(reconciliation.appears_resolved[0].summary)} "
+            "no longer appears present."
+        )
+        return lines
+
+    if review_result.classification == "findings_present" and reconciliation.still_unresolved:
+        lines.append(
+            "The earlier concern about "
+            f"{_humanize_finding_summary(reconciliation.still_unresolved[0].summary)} "
+            "still appears unresolved."
+        )
+        if reconciliation.appears_resolved and reconciliation.new_findings:
+            lines.append(
+                "The earlier concern about "
+                f"{_humanize_finding_summary(reconciliation.appears_resolved[0].summary)} "
+                "no longer appears present, but a new issue now appears around "
+                f"{_humanize_finding_summary(reconciliation.new_findings[0].summary)}."
+            )
+        elif reconciliation.new_findings:
+            lines.append(
+                "A new issue in this pass appears around "
+                f"{_humanize_finding_summary(reconciliation.new_findings[0].summary)}."
+            )
+        return lines
+
+    if review_result.classification == "findings_present" and reconciliation.appears_resolved:
+        if reconciliation.new_findings:
+            lines.append(
+                "The earlier concern about "
+                f"{_humanize_finding_summary(reconciliation.appears_resolved[0].summary)} "
+                "no longer appears present, but a new issue now appears around "
+                f"{_humanize_finding_summary(reconciliation.new_findings[0].summary)}."
+            )
+        return lines
+
+    if (
+        review_result.classification == "findings_present"
+        and reconciliation.unable_to_verify_resolution
+    ):
+        lines.append(
+            "The current pass could not verify conclusively whether the earlier "
+            "concern is fully resolved."
+        )
+        if reconciliation.new_findings:
+            lines.append(
+                "A new issue in this pass appears around "
+                f"{_humanize_finding_summary(reconciliation.new_findings[0].summary)}."
+            )
+        return lines
+
+    return lines
+
+
+def _humanize_finding_summary(summary: str) -> str:
+    """Return a short operator-facing phrase for a normalized finding summary."""
+    parsed = _split_prior_summary(summary)
+    if parsed is None:
+        return f"`{summary}`"
+    _file_path, title = parsed
+    return f"`{title}`"
