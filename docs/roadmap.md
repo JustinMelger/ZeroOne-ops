@@ -429,11 +429,11 @@ Goal:
 
 Status:
 
-- [ ] fall back to neutral follow-up wording when finding matching is weak
-- [ ] use explicit `unable to verify` wording when current code does not
+- [x] fall back to neutral follow-up wording when finding matching is weak
+- [x] use explicit `unable to verify` wording when current code does not
       reliably support a resolved conclusion
-- [ ] avoid strong resolved wording when the visible code remains ambiguous
-- [ ] add regression coverage for ambiguous follow-up cases
+- [x] avoid strong resolved wording when the visible code remains ambiguous
+- [x] add regression coverage for ambiguous follow-up cases
 
 Done when:
 

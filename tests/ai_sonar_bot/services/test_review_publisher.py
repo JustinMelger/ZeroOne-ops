@@ -62,6 +62,31 @@ def build_follow_up_context() -> MergeRequestReviewContext:
     )
 
 
+def build_ambiguous_follow_up_context() -> MergeRequestReviewContext:
+    return build_context().model_copy(
+        update={
+            "head_sha": "def456",
+            "prior_review_context": PriorReviewContext(
+                merge_request_iid=17,
+                passes=[
+                    PriorReviewPass(
+                        reviewed_head_sha="abc123",
+                        classification="findings_present",
+                        findings_count=1,
+                        summary="One earlier concern still needs attention.",
+                        findings=[
+                            PriorReviewFinding(
+                                summary="Earlier concern around helper behavior",
+                                severity="medium",
+                            )
+                        ],
+                    )
+                ],
+            ),
+        }
+    )
+
+
 class FakeGitLabReviewClient:
     def __init__(self) -> None:
         self.published_body: str | None = None
@@ -235,6 +260,54 @@ def test_render_note_mentions_resolved_and_new_concern_in_same_follow_up_pass() 
     )
 
 
+def test_render_note_uses_unable_to_verify_language_for_ambiguous_resolved_follow_up() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_note(
+        context=build_ambiguous_follow_up_context(),
+        review_result=ReviewResult(
+            classification="no_findings",
+            summary="No findings.",
+            findings=[],
+        ),
+    )
+
+    assert "Follow-up review after the earlier bot pass on `abc123`." in body
+    assert (
+        "The current pass could not verify conclusively whether the earlier concern "
+        "is fully resolved." in body
+    )
+
+
+def test_render_note_uses_unable_to_verify_language_for_ambiguous_mixed_follow_up() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_note(
+        context=build_ambiguous_follow_up_context(),
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One medium-risk finding.",
+            findings=[
+                ReviewFinding(
+                    severity="medium",
+                    file_path="src/service.py",
+                    title="Missing null guard",
+                    evidence="The diff removes the `if value is None` guard.",
+                    explanation="The change can now dereference a nullable value.",
+                    suggested_follow_up="Restore the null guard or add validation.",
+                )
+            ],
+        ),
+    )
+
+    assert "Follow-up review after the earlier bot pass on `abc123`." in body
+    assert (
+        "The current pass could not verify conclusively whether the earlier concern "
+        "is fully resolved." in body
+    )
+    assert "A new issue in this pass appears around `Missing null guard`." in body
+
+
 def test_reconcile_follow_up_review_marks_repeated_findings_as_still_unresolved() -> None:
     reconciliation = _reconcile_follow_up_review(
         context=build_follow_up_context(),
@@ -308,6 +381,23 @@ def test_reconcile_follow_up_review_marks_different_current_finding_as_new() -> 
     assert [item.summary for item in reconciliation.new_findings] == [
         "src/service.py: Missing null guard"
     ]
+
+
+def test_reconcile_follow_up_review_marks_unstructured_prior_finding_as_ambiguous() -> None:
+    reconciliation = _reconcile_follow_up_review(
+        context=build_ambiguous_follow_up_context(),
+        review_result=ReviewResult(
+            classification="no_findings",
+            summary="No findings.",
+            findings=[],
+        ),
+    )
+
+    assert reconciliation is not None
+    assert reconciliation.still_unresolved == []
+    assert reconciliation.appears_resolved == []
+    assert reconciliation.new_findings == []
+    assert reconciliation.unable_to_verify_resolution is True
 
 
 def test_publish_sends_rendered_note_body() -> None:

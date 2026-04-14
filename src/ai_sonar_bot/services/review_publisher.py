@@ -41,6 +41,7 @@ class FollowUpReviewReconciliation:
     still_unresolved: list[FollowUpFindingStatus] = field(default_factory=list)
     appears_resolved: list[FollowUpFindingStatus] = field(default_factory=list)
     new_findings: list[FollowUpFindingStatus] = field(default_factory=list)
+    unable_to_verify_resolution: bool = False
 
 
 class ReviewPublisher:
@@ -207,6 +208,7 @@ def _reconcile_follow_up_review(
         return None
 
     latest_prior_pass = prior_review_context.passes[0]
+    unparsed_prior_finding_count = 0
     prior_findings_by_key = {
         _prior_finding_key(summary): FollowUpFindingStatus(
             summary=summary,
@@ -216,6 +218,7 @@ def _reconcile_follow_up_review(
         for summary in [finding.summary for finding in latest_prior_pass.findings]
         if _prior_finding_key(summary) is not None
     }
+    unparsed_prior_finding_count = len(latest_prior_pass.findings) - len(prior_findings_by_key)
 
     still_unresolved: list[FollowUpFindingStatus] = []
     new_findings: list[FollowUpFindingStatus] = []
@@ -246,6 +249,11 @@ def _reconcile_follow_up_review(
         still_unresolved=still_unresolved,
         appears_resolved=appears_resolved,
         new_findings=new_findings,
+        unable_to_verify_resolution=(
+            latest_prior_pass.classification == "findings_present"
+            and unparsed_prior_finding_count > 0
+            and not still_unresolved
+        ),
     )
 
 
@@ -310,6 +318,13 @@ def _render_reconciliation_summary_lines(
         )
         return lines
 
+    if review_result.classification == "no_findings" and reconciliation.unable_to_verify_resolution:
+        lines.append(
+            "The current pass could not verify conclusively whether the earlier "
+            "concern is fully resolved."
+        )
+        return lines
+
     if review_result.classification == "findings_present" and reconciliation.still_unresolved:
         lines.append(
             "The earlier concern about "
@@ -336,6 +351,21 @@ def _render_reconciliation_summary_lines(
                 "The earlier concern about "
                 f"{_humanize_finding_summary(reconciliation.appears_resolved[0].summary)} "
                 "no longer appears present, but a new issue now appears around "
+                f"{_humanize_finding_summary(reconciliation.new_findings[0].summary)}."
+            )
+        return lines
+
+    if (
+        review_result.classification == "findings_present"
+        and reconciliation.unable_to_verify_resolution
+    ):
+        lines.append(
+            "The current pass could not verify conclusively whether the earlier "
+            "concern is fully resolved."
+        )
+        if reconciliation.new_findings:
+            lines.append(
+                "A new issue in this pass appears around "
                 f"{_humanize_finding_summary(reconciliation.new_findings[0].summary)}."
             )
         return lines
