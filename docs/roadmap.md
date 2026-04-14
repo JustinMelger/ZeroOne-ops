@@ -275,6 +275,8 @@ Design references:
 - [technical-design-pr-review-memory.md](technical-design-pr-review-memory.md)
 - [functional-design-pr-review-followup-reconciliation.md](functional-design-pr-review-followup-reconciliation.md)
 - [technical-design-pr-review-followup-reconciliation.md](technical-design-pr-review-followup-reconciliation.md)
+- [functional-design-pr-review-stable-finding-identity.md](functional-design-pr-review-stable-finding-identity.md)
+- [technical-design-pr-review-stable-finding-identity.md](technical-design-pr-review-stable-finding-identity.md)
 
 #### Phase 1: Persist Bounded Prior Review Passes
 
@@ -465,6 +467,100 @@ Done when:
   trust
 - the current simple matching approach is either proven sufficient or clearly
   bounded for a later follow-up
+
+### Stable Finding Identity For Follow-Up Matching
+
+Goal:
+
+- move repeated-review reconciliation onto a more stable machine-facing finding
+  identity
+- reduce dependence on human title wording for follow-up matching
+- preserve conversational MR notes while making matching more deterministic
+
+Design references:
+
+- [functional-design-pr-review-stable-finding-identity.md](functional-design-pr-review-stable-finding-identity.md)
+- [technical-design-pr-review-stable-finding-identity.md](technical-design-pr-review-stable-finding-identity.md)
+
+#### Phase 1: Persist Canonical Finding Identity
+
+Goal:
+
+- extend persisted prior review finding state with a canonical machine identity
+
+Status:
+
+- [ ] add optional stored `identity` field for persisted prior review findings
+- [ ] derive the identity in application code from normalized file path and
+      normalized issue subject
+- [ ] keep the first identity shape as one canonical stored string
+- [ ] preserve current human-facing summary storage alongside the new identity
+
+Done when:
+
+- new persisted review findings store both machine identity and human summary
+- the first identity shape is deterministic, conservative, and test-covered
+
+#### Phase 2: Load Identity Into Prior Review Context
+
+Goal:
+
+- make stable finding identity available during repeated-review reconciliation
+
+Status:
+
+- [ ] extend prior review loading to carry stored identity into the review
+      workflow
+- [ ] preserve backward compatibility for older entries that do not have
+      identity
+- [ ] avoid migration or backfill requirements for the first rollout
+- [ ] add regression coverage for mixed old/new persisted review history
+
+Done when:
+
+- repeated-review context can use stable identity when it exists
+- older persisted entries still load safely through legacy state handling
+
+#### Phase 3: Prefer Identity-First Reconciliation
+
+Goal:
+
+- make follow-up matching depend primarily on stored machine identity instead
+  of title drift
+
+Status:
+
+- [ ] update follow-up reconciliation to match exact identity first
+- [ ] reserve legacy summary/title fallback for older entries without identity
+- [ ] keep ambiguity guardrails and conservative trust wording intact
+- [ ] add regression coverage for wording-drift cases that should now reconcile
+      through stable identity
+
+Done when:
+
+- same-issue follow-up matching is driven primarily by stored identity
+- title-overlap heuristics are no longer the main path for new persisted entries
+
+#### Phase 4: Live Testing And Collision Review
+
+Goal:
+
+- validate that the first identity shape is stable enough in real repeated
+  review threads without collapsing unrelated same-file findings together
+
+Status:
+
+- [ ] collect live examples where stable identity improves continuity
+- [ ] watch for same-file collision cases or over-broad identity matches
+- [ ] refine normalization only from real examples
+- [ ] decide whether the first identity shape is sufficient or needs a later
+      narrower subject model
+
+Done when:
+
+- repeated-review matching is more reliable in live usage
+- no meaningful collision pattern is observed, or a bounded next refinement is
+      clearly identified
 
 ## Beyond V1
 
