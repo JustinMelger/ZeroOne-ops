@@ -140,6 +140,7 @@ class IssueState(BaseModel):
 class PriorReviewFindingState(BaseModel):
     """Represent one bounded persisted prior-review finding summary."""
 
+    identity: str | None = None
     summary: str
     severity: str | None = None
 

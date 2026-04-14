@@ -51,6 +51,7 @@ def build_follow_up_context() -> MergeRequestReviewContext:
                         summary="One earlier concern still needs attention.",
                         findings=[
                             PriorReviewFinding(
+                                identity="src/service.py::coverage-miss-test",
                                 summary="src/service.py: Missing test coverage",
                                 severity="medium",
                             )
@@ -101,6 +102,7 @@ def build_mixed_ambiguity_follow_up_context() -> MergeRequestReviewContext:
                         summary="Two earlier concerns still need attention.",
                         findings=[
                             PriorReviewFinding(
+                                identity="src/service.py::coverage-miss-test",
                                 summary="src/service.py: Missing test coverage",
                                 severity="medium",
                             ),
@@ -130,6 +132,10 @@ def build_variant_title_follow_up_context() -> MergeRequestReviewContext:
                         summary="Two earlier concerns still need attention.",
                         findings=[
                             PriorReviewFinding(
+                                identity=(
+                                    "bnl_app/functions/vehicle_articles_functions.py::"
+                                    "cylinder-except-fail-helper-lookup-unconditional"
+                                ),
                                 summary=(
                                     "bnl_app/functions/vehicle_articles_functions.py: "
                                     "Unconditional exception breaks cylinder lookup helper"
@@ -137,6 +143,10 @@ def build_variant_title_follow_up_context() -> MergeRequestReviewContext:
                                 severity="high",
                             ),
                             PriorReviewFinding(
+                                identity=(
+                                    "bnl_app/functions/vehicle_functions.py::"
+                                    "detail-except-fail-lookup-unconditional-vehicle"
+                                ),
                                 summary=(
                                     "bnl_app/functions/vehicle_functions.py: "
                                     "Unconditional exception breaks vehicle detail retrieval"
@@ -456,6 +466,9 @@ def test_reconcile_follow_up_review_marks_repeated_findings_as_still_unresolved(
     assert [item.summary for item in reconciliation.still_unresolved] == [
         "src/service.py: Missing test coverage"
     ]
+    assert [item.identity for item in reconciliation.still_unresolved] == [
+        "src/service.py::coverage-miss-test"
+    ]
     assert reconciliation.appears_resolved == []
     assert reconciliation.new_findings == []
 
@@ -474,6 +487,9 @@ def test_reconcile_follow_up_review_marks_missing_prior_finding_as_resolved() ->
     assert reconciliation.still_unresolved == []
     assert [item.summary for item in reconciliation.appears_resolved] == [
         "src/service.py: Missing test coverage"
+    ]
+    assert [item.identity for item in reconciliation.appears_resolved] == [
+        "src/service.py::coverage-miss-test"
     ]
     assert reconciliation.new_findings == []
 
@@ -504,6 +520,94 @@ def test_reconcile_follow_up_review_marks_different_current_finding_as_new() -> 
     ]
     assert [item.summary for item in reconciliation.new_findings] == [
         "src/service.py: Missing null guard"
+    ]
+
+
+def test_reconcile_follow_up_review_prefers_identity_for_wording_drift() -> None:
+    reconciliation = _reconcile_follow_up_review(
+        context=build_variant_title_follow_up_context(),
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One high-risk finding.",
+            findings=[
+                ReviewFinding(
+                    severity="high",
+                    file_path="bnl_app/functions/vehicle_functions.py",
+                    title="Unconditional exception makes vehicle detail lookup always fail",
+                    evidence="The patch inserts `raise ValueError` at the top of the helper.",
+                    explanation="The helper raises before any existing lookup logic can run.",
+                    suggested_follow_up=(
+                        "Remove the debug raise or gate it behind a test-only path."
+                    ),
+                )
+            ],
+        ),
+    )
+
+    assert reconciliation is not None
+    assert [item.summary for item in reconciliation.still_unresolved] == [
+        "bnl_app/functions/vehicle_functions.py: "
+        "Unconditional exception breaks vehicle detail retrieval"
+    ]
+    assert [item.identity for item in reconciliation.still_unresolved] == [
+        "bnl_app/functions/vehicle_functions.py::detail-except-fail-lookup-unconditional-vehicle"
+    ]
+    assert [item.summary for item in reconciliation.appears_resolved] == [
+        "bnl_app/functions/vehicle_articles_functions.py: "
+        "Unconditional exception breaks cylinder lookup helper"
+    ]
+
+
+def test_reconcile_follow_up_review_keeps_legacy_fallback_without_identity() -> None:
+    legacy_context = build_variant_title_follow_up_context().model_copy(
+        update={
+            "prior_review_context": PriorReviewContext(
+                merge_request_iid=17,
+                passes=[
+                    PriorReviewPass(
+                        reviewed_head_sha="def456",
+                        classification="findings_present",
+                        findings_count=1,
+                        summary="One earlier concern still needs attention.",
+                        findings=[
+                            PriorReviewFinding(
+                                summary=(
+                                    "bnl_app/functions/vehicle_functions.py: "
+                                    "Unconditional exception breaks vehicle detail retrieval"
+                                ),
+                                severity="high",
+                            )
+                        ],
+                    )
+                ],
+            )
+        }
+    )
+
+    reconciliation = _reconcile_follow_up_review(
+        context=legacy_context,
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One high-risk finding.",
+            findings=[
+                ReviewFinding(
+                    severity="high",
+                    file_path="bnl_app/functions/vehicle_functions.py",
+                    title="Unconditional exception makes vehicle detail lookup always fail",
+                    evidence="The patch inserts `raise ValueError` at the top of the helper.",
+                    explanation="The helper raises before any existing lookup logic can run.",
+                    suggested_follow_up=(
+                        "Remove the debug raise or gate it behind a test-only path."
+                    ),
+                )
+            ],
+        ),
+    )
+
+    assert reconciliation is not None
+    assert [item.summary for item in reconciliation.still_unresolved] == [
+        "bnl_app/functions/vehicle_functions.py: "
+        "Unconditional exception breaks vehicle detail retrieval"
     ]
 
 
