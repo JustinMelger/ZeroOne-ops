@@ -550,8 +550,7 @@ def test_reconcile_follow_up_review_prefers_identity_for_wording_drift() -> None
         "Unconditional exception breaks vehicle detail retrieval"
     ]
     assert [item.identity for item in reconciliation.still_unresolved] == [
-        "bnl_app/functions/vehicle_functions.py::"
-        "detail-except-fail-lookup-unconditional-vehicle"
+        "bnl_app/functions/vehicle_functions.py::detail-except-fail-lookup-unconditional-vehicle"
     ]
     assert [item.summary for item in reconciliation.appears_resolved] == [
         "bnl_app/functions/vehicle_articles_functions.py: "

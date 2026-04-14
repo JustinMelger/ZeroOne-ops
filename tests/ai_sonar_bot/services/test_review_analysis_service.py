@@ -75,7 +75,7 @@ def build_debug_context() -> MergeRequestReviewContext:
         changed_files=[
             ReviewFileContext(
                 file_path="src/service.py",
-                diff='@@ -1,1 +1,2 @@\n+print(x)\n return True\n',
+                diff="@@ -1,1 +1,2 @@\n+print(x)\n return True\n",
                 start_line=1,
                 end_line=2,
                 content="   1: print(x)\n   2: return True",
@@ -308,8 +308,7 @@ def test_analyze_keeps_deterministic_debug_code_finding_when_wording_paraphrases
                         file_path="src/service.py",
                         title="Undefined debug print causes NameError",
                         evidence=(
-                            "The diff adds an undefined variable being printed in "
-                            "src/service.py."
+                            "The diff adds an undefined variable being printed in src/service.py."
                         ),
                         explanation=(
                             "This deterministically raises NameError during normal "

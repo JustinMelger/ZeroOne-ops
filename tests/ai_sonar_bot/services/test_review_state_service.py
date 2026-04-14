@@ -73,10 +73,7 @@ def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
     assert loaded.reviews["17:abc123"].status == "findings_present"
     assert loaded.reviews["17:abc123"].findings_count == 1
     assert loaded.reviews["17:abc123"].summary == "One finding."
-    assert (
-        loaded.reviews["17:abc123"].findings[0].identity
-        == "src/service.py::order-regress"
-    )
+    assert loaded.reviews["17:abc123"].findings[0].identity == "src/service.py::order-regress"
     assert loaded.reviews["17:abc123"].findings[0].summary == "src/service.py: Ordering regression"
     assert loaded.reviews["17:abc123"].findings[0].severity == "medium"
     assert loaded.reviews["17:abc123"].note_url is not None
@@ -201,10 +198,7 @@ def test_load_prior_review_context_returns_recent_passes_for_same_mr(tmp_path) -
         "sha-2",
     ]
     assert prior_review_context.passes[0].classification == "findings_present"
-    assert (
-        prior_review_context.passes[0].findings[0].identity
-        == "src/service.py::order-regress"
-    )
+    assert prior_review_context.passes[0].findings[0].identity == "src/service.py::order-regress"
     assert (
         prior_review_context.passes[0].findings[0].summary == "src/service.py: Ordering regression"
     )
@@ -306,8 +300,7 @@ def test_load_prior_review_context_preserves_mixed_new_and_legacy_finding_state(
     assert isinstance(prior_review_context, PriorReviewContext)
     assert prior_review_context.passes[0].findings[0].identity == "src/service.py::order-regress"
     assert (
-        prior_review_context.passes[0].findings[0].summary
-        == "src/service.py: Ordering regression"
+        prior_review_context.passes[0].findings[0].summary == "src/service.py: Ordering regression"
     )
     assert prior_review_context.passes[0].findings[1].identity is None
     assert prior_review_context.passes[0].findings[1].summary == "Legacy helper concern"
