@@ -310,18 +310,18 @@ def _render_reconciliation_summary_lines(
     """Render concise conversational summary lines for repeated review passes."""
     lines: list[str] = []
 
+    if review_result.classification == "no_findings" and reconciliation.unable_to_verify_resolution:
+        lines.append(
+            "The current pass could not verify conclusively whether the earlier "
+            "concern is fully resolved."
+        )
+        return lines
+
     if review_result.classification == "no_findings" and reconciliation.appears_resolved:
         lines.append(
             "The earlier concern about "
             f"{_humanize_finding_summary(reconciliation.appears_resolved[0].summary)} "
             "no longer appears present."
-        )
-        return lines
-
-    if review_result.classification == "no_findings" and reconciliation.unable_to_verify_resolution:
-        lines.append(
-            "The current pass could not verify conclusively whether the earlier "
-            "concern is fully resolved."
         )
         return lines
 

@@ -87,6 +87,35 @@ def build_ambiguous_follow_up_context() -> MergeRequestReviewContext:
     )
 
 
+def build_mixed_ambiguity_follow_up_context() -> MergeRequestReviewContext:
+    return build_context().model_copy(
+        update={
+            "head_sha": "def456",
+            "prior_review_context": PriorReviewContext(
+                merge_request_iid=17,
+                passes=[
+                    PriorReviewPass(
+                        reviewed_head_sha="abc123",
+                        classification="findings_present",
+                        findings_count=2,
+                        summary="Two earlier concerns still need attention.",
+                        findings=[
+                            PriorReviewFinding(
+                                summary="src/service.py: Missing test coverage",
+                                severity="medium",
+                            ),
+                            PriorReviewFinding(
+                                summary="Earlier concern around helper behavior",
+                                severity="medium",
+                            ),
+                        ],
+                    )
+                ],
+            ),
+        }
+    )
+
+
 class FakeGitLabReviewClient:
     def __init__(self) -> None:
         self.published_body: str | None = None
@@ -277,6 +306,26 @@ def test_render_note_uses_unable_to_verify_language_for_ambiguous_resolved_follo
         "The current pass could not verify conclusively whether the earlier concern "
         "is fully resolved." in body
     )
+
+
+def test_render_note_prefers_unable_to_verify_over_resolved_when_prior_state_is_mixed() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_note(
+        context=build_mixed_ambiguity_follow_up_context(),
+        review_result=ReviewResult(
+            classification="no_findings",
+            summary="No findings.",
+            findings=[],
+        ),
+    )
+
+    assert "Follow-up review after the earlier bot pass on `abc123`." in body
+    assert (
+        "The current pass could not verify conclusively whether the earlier concern "
+        "is fully resolved." in body
+    )
+    assert "no longer appears present" not in body
 
 
 def test_render_note_uses_unable_to_verify_language_for_ambiguous_mixed_follow_up() -> None:
