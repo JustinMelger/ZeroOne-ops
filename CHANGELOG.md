@@ -5,6 +5,25 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.20.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.19.1...zeroone-ops-v0.20.0) (2026-04-14)
+
+
+### Features
+
+* amiguity + trust guardrails ([2e317d7](https://github.com/JustinMelger/ZeroOne-ops/commit/2e317d72973f68c0fecce858cc22477e3226da2f))
+* conservative finding match ([b9678c5](https://github.com/JustinMelger/ZeroOne-ops/commit/b9678c5796671844c7ce3ebadbdd779d1065d6d2))
+* conversational follup up review ([e825e3c](https://github.com/JustinMelger/ZeroOne-ops/commit/e825e3c9abfac8bc00ae9d3c930de551d013f764))
+
+
+### Bug Fixes
+
+* unable to verify when partial resolved ([fd41b9a](https://github.com/JustinMelger/ZeroOne-ops/commit/fd41b9a521e90ee2bfe194844d98bea98f74bb81))
+
+
+### Documentation
+
+* design review reconciliaton ([32e77bf](https://github.com/JustinMelger/ZeroOne-ops/commit/32e77bffd4d1bcb81254c7ba4f947f21fcf2d969))
+
 ## [0.19.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.19.0...zeroone-ops-v0.19.1) (2026-04-14)
 
 
