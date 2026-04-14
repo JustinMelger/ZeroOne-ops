@@ -5,6 +5,19 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.21.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.20.1...zeroone-ops-v0.21.0) (2026-04-14)
+
+
+### Features
+
+* load identity into prior review context ([a8fcbff](https://github.com/JustinMelger/ZeroOne-ops/commit/a8fcbffecf409c86ec79cb519e02e5cc5946fc03))
+* prefer id-first reconcilation ([1ca7dfc](https://github.com/JustinMelger/ZeroOne-ops/commit/1ca7dfccda0d61d613c5ccb59115f731d73173b7))
+
+
+### Documentation
+
+* design better matching titles ([ec4abfa](https://github.com/JustinMelger/ZeroOne-ops/commit/ec4abfa6fff54bb608495c99b4f974fda12e6407))
+
 ## [0.20.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.20.0...zeroone-ops-v0.20.1) (2026-04-14)
 
 
