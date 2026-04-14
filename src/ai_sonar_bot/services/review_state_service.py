@@ -28,6 +28,23 @@ from ai_sonar_bot.services.state_store import StateStore
 
 LOGGER = logging.getLogger(__name__)
 
+_IDENTITY_STOP_TOKENS = frozenset({"always", "make"})
+_IDENTITY_TOKEN_ALIASES = {
+    "breaks": "fail",
+    "break": "fail",
+    "broken": "fail",
+    "fails": "fail",
+    "failing": "fail",
+    "failure": "fail",
+    "fail": "fail",
+    "makes": "make",
+    "make": "make",
+    "lookup": "lookup",
+    "retrieval": "lookup",
+    "retrieve": "lookup",
+    "details": "detail",
+}
+
 
 class ReviewStateService:
     """Persist review run lifecycle and reviewed revision state."""
@@ -226,14 +243,17 @@ def _build_prior_review_finding_identity(finding: ReviewFinding) -> str:
 
 def _normalize_finding_subject(title: str) -> str:
     """Normalize a finding title into a conservative subject key."""
-    subject_tokens: list[str] = []
+    subject_tokens: set[str] = set()
     for token in re.findall(r"[a-z0-9_]+", title.lower()):
         normalized_token = _normalize_subject_token(token)
+        normalized_token = _IDENTITY_TOKEN_ALIASES.get(normalized_token, normalized_token)
+        if normalized_token in _IDENTITY_STOP_TOKENS:
+            continue
         if len(normalized_token) >= 4:
-            subject_tokens.append(normalized_token)
+            subject_tokens.add(normalized_token)
     if not subject_tokens:
         return "unknown"
-    return "-".join(subject_tokens)
+    return "-".join(sorted(subject_tokens))
 
 
 def _normalize_subject_token(token: str) -> str:

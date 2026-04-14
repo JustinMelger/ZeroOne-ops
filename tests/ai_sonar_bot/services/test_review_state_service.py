@@ -251,14 +251,14 @@ def test_mark_reviewed_persists_canonical_identity_with_human_summary(tmp_path) 
 
     loaded = store.load()
     assert loaded.reviews["17:abc123"].findings[0].identity == (
-        "bnl_app/functions/vehicle_functions.py::unconditional-except-breaks-vehicle-detail-retrieval"
+        "bnl_app/functions/vehicle_functions.py::detail-except-fail-lookup-unconditional-vehicle"
     )
     assert loaded.reviews["17:abc123"].findings[0].summary == (
         "bnl_app/functions/vehicle_functions.py: "
         "Unconditional exception breaks vehicle detail retrieval"
     )
     assert loaded.reviews["17:abc123"].findings[1].identity == (
-        "src/service.py::miss-test-coverage"
+        "src/service.py::coverage-miss-test"
     )
     assert loaded.reviews["17:abc123"].findings[1].summary == (
         "src/service.py: Missing test coverage"

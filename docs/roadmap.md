@@ -530,10 +530,10 @@ Goal:
 
 Status:
 
-- [ ] update follow-up reconciliation to match exact identity first
-- [ ] reserve legacy summary/title fallback for older entries without identity
-- [ ] keep ambiguity guardrails and conservative trust wording intact
-- [ ] add regression coverage for wording-drift cases that should now reconcile
+- [x] update follow-up reconciliation to match exact identity first
+- [x] reserve legacy summary/title fallback for older entries without identity
+- [x] keep ambiguity guardrails and conservative trust wording intact
+- [x] add regression coverage for wording-drift cases that should now reconcile
       through stable identity
 
 Done when:

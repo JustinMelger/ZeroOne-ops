@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from ai_sonar_bot.models.gitlab import MergeRequestNote
 from ai_sonar_bot.models.review import (
     MergeRequestReviewContext,
+    PriorReviewFinding,
     ReviewFinding,
     ReviewResult,
 )
@@ -16,6 +17,22 @@ from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
 
 _MIN_SHARED_TITLE_TOKENS = 2
 _MIN_TITLE_TOKEN_OVERLAP = 0.6
+_IDENTITY_STOP_TOKENS = frozenset({"always", "make"})
+_IDENTITY_TOKEN_ALIASES = {
+    "breaks": "fail",
+    "break": "fail",
+    "broken": "fail",
+    "fails": "fail",
+    "failing": "fail",
+    "failure": "fail",
+    "fail": "fail",
+    "makes": "make",
+    "make": "make",
+    "lookup": "lookup",
+    "retrieval": "lookup",
+    "retrieve": "lookup",
+    "details": "detail",
+}
 
 
 @dataclass(frozen=True)
@@ -31,6 +48,7 @@ class ReviewPublishResult:
 class FollowUpFindingStatus:
     """Represent one bounded follow-up comparison outcome."""
 
+    identity: str | None
     summary: str
     file_path: str | None
     status: str
@@ -212,39 +230,37 @@ def _reconcile_follow_up_review(
 
     latest_prior_pass = prior_review_context.passes[0]
     unparsed_prior_finding_count = 0
-    prior_findings = [
-        FollowUpFindingStatus(
-            summary=finding.summary,
-            file_path=_prior_finding_path(finding.summary),
-            status="appears_resolved",
-        )
-        for finding in latest_prior_pass.findings
-        if _prior_finding_key(finding.summary) is not None
-    ]
+    prior_findings: list[FollowUpFindingStatus] = []
+    for prior_finding in latest_prior_pass.findings:
+        follow_up_finding = _to_follow_up_finding_status(prior_finding)
+        if follow_up_finding is not None:
+            prior_findings.append(follow_up_finding)
     unparsed_prior_finding_count = len(latest_prior_pass.findings) - len(prior_findings)
 
     still_unresolved: list[FollowUpFindingStatus] = []
     new_findings: list[FollowUpFindingStatus] = []
 
-    for finding in review_result.findings:
-        finding_summary = f"{finding.file_path}: {finding.title}"
-        finding_key = _current_finding_key(finding)
+    for current_finding in review_result.findings:
+        finding_summary = f"{current_finding.file_path}: {current_finding.title}"
+        finding_key = _current_finding_key(current_finding)
         finding_status = FollowUpFindingStatus(
+            identity=_current_finding_identity(current_finding),
             summary=finding_summary,
-            file_path=finding.file_path,
+            file_path=current_finding.file_path,
             status="new",
         )
-        # Prefer an exact persisted match first, then allow a conservative
-        # same-file title-overlap fallback so small wording drift still keeps
-        # the follow-up note conversational.
+        # Prefer exact machine identity for new persisted entries. Only fall back
+        # to legacy summary/title matching when older review state has no identity.
         matched_prior_finding = _match_prior_finding(
-            current_finding=finding,
+            current_finding=current_finding,
+            current_identity=_current_finding_identity(current_finding),
             current_key=finding_key,
             prior_findings=prior_findings,
         )
         if matched_prior_finding is not None:
             still_unresolved.append(
                 FollowUpFindingStatus(
+                    identity=matched_prior_finding.identity,
                     summary=matched_prior_finding.summary,
                     file_path=matched_prior_finding.file_path,
                     status="still_unresolved",
@@ -276,6 +292,13 @@ def _current_finding_key(finding: ReviewFinding) -> tuple[str, str, str]:
         finding.title.strip().lower(),
         _normalize_finding_text(summary),
     )
+
+
+def _current_finding_identity(finding: ReviewFinding) -> str:
+    """Build the canonical machine-facing identity for one current finding."""
+    normalized_path = re.sub(r"\s+", "", finding.file_path.strip().lower())
+    normalized_subject = _normalize_identity_subject(finding.title)
+    return f"{normalized_path}::{normalized_subject}"
 
 
 def _prior_finding_key(summary: str) -> tuple[str, str, str] | None:
@@ -402,15 +425,28 @@ def _humanize_finding_summary(summary: str) -> str:
 def _match_prior_finding(
     *,
     current_finding: ReviewFinding,
+    current_identity: str,
     current_key: tuple[str, str, str],
     prior_findings: list[FollowUpFindingStatus],
 ) -> FollowUpFindingStatus | None:
     """Match one current finding to one prior finding conservatively."""
+    identity_match = next(
+        (
+            prior_finding
+            for prior_finding in prior_findings
+            if prior_finding.identity is not None and prior_finding.identity == current_identity
+        ),
+        None,
+    )
+    if identity_match is not None:
+        return identity_match
+
     exact_match = next(
         (
             prior_finding
             for prior_finding in prior_findings
-            if _prior_finding_key(prior_finding.summary) == current_key
+            if prior_finding.identity is None
+            and _prior_finding_key(prior_finding.summary) == current_key
         ),
         None,
     )
@@ -420,6 +456,8 @@ def _match_prior_finding(
     current_path = current_finding.file_path.strip().lower()
     current_title = current_finding.title
     for prior_finding in prior_findings:
+        if prior_finding.identity is not None:
+            continue
         parsed_prior_summary = _split_prior_summary(prior_finding.summary)
         if parsed_prior_summary is None:
             continue
@@ -465,3 +503,38 @@ def _normalize_title_token(token: str) -> str:
     if token.endswith("ion") and len(token) > 5:
         return token[:-3]
     return token
+
+
+def _normalize_identity_subject(title: str) -> str:
+    """Normalize a title into a stable conservative identity subject."""
+    subject_tokens: set[str] = set()
+    for token in re.findall(r"[a-z0-9_]+", title.lower()):
+        normalized_token = _normalize_title_token(token)
+        normalized_token = _IDENTITY_TOKEN_ALIASES.get(normalized_token, normalized_token)
+        if normalized_token in _IDENTITY_STOP_TOKENS:
+            continue
+        if len(normalized_token) >= 4:
+            subject_tokens.add(normalized_token)
+    if not subject_tokens:
+        return "unknown"
+    return "-".join(sorted(subject_tokens))
+
+
+def _to_follow_up_finding_status(finding: PriorReviewFinding) -> FollowUpFindingStatus | None:
+    """Convert one prior finding into reconciliation state when it is parseable."""
+    if finding.identity is not None:
+        parsed_summary = _split_prior_summary(finding.summary)
+        return FollowUpFindingStatus(
+            identity=finding.identity,
+            summary=finding.summary,
+            file_path=parsed_summary[0] if parsed_summary is not None else None,
+            status="appears_resolved",
+        )
+    if _prior_finding_key(finding.summary) is None:
+        return None
+    return FollowUpFindingStatus(
+        identity=None,
+        summary=finding.summary,
+        file_path=_prior_finding_path(finding.summary),
+        status="appears_resolved",
+    )
