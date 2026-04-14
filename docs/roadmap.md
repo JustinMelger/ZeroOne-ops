@@ -490,11 +490,11 @@ Goal:
 
 Status:
 
-- [ ] add optional stored `identity` field for persisted prior review findings
-- [ ] derive the identity in application code from normalized file path and
+- [x] add optional stored `identity` field for persisted prior review findings
+- [x] derive the identity in application code from normalized file path and
       normalized issue subject
-- [ ] keep the first identity shape as one canonical stored string
-- [ ] preserve current human-facing summary storage alongside the new identity
+- [x] keep the first identity shape as one canonical stored string
+- [x] preserve current human-facing summary storage alongside the new identity
 
 Done when:
 
