@@ -116,6 +116,41 @@ def build_mixed_ambiguity_follow_up_context() -> MergeRequestReviewContext:
     )
 
 
+def build_variant_title_follow_up_context() -> MergeRequestReviewContext:
+    return build_context().model_copy(
+        update={
+            "head_sha": "ghi789",
+            "prior_review_context": PriorReviewContext(
+                merge_request_iid=17,
+                passes=[
+                    PriorReviewPass(
+                        reviewed_head_sha="def456",
+                        classification="findings_present",
+                        findings_count=2,
+                        summary="Two earlier concerns still need attention.",
+                        findings=[
+                            PriorReviewFinding(
+                                summary=(
+                                    "bnl_app/functions/vehicle_articles_functions.py: "
+                                    "Unconditional exception breaks cylinder lookup helper"
+                                ),
+                                severity="high",
+                            ),
+                            PriorReviewFinding(
+                                summary=(
+                                    "bnl_app/functions/vehicle_functions.py: "
+                                    "Unconditional exception breaks vehicle detail retrieval"
+                                ),
+                                severity="high",
+                            ),
+                        ],
+                    )
+                ],
+            ),
+        }
+    )
+
+
 class FakeGitLabReviewClient:
     def __init__(self) -> None:
         self.published_body: str | None = None
@@ -286,6 +321,46 @@ def test_render_note_mentions_resolved_and_new_concern_in_same_follow_up_pass() 
     assert (
         "The earlier concern about `Missing test coverage` no longer appears present, "
         "but a new issue now appears around `Missing null guard`." in body
+    )
+
+
+def test_render_note_handles_same_follow_up_finding_when_title_wording_drifts() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_note(
+        context=build_variant_title_follow_up_context(),
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One high-risk finding.",
+            findings=[
+                ReviewFinding(
+                    severity="high",
+                    file_path="bnl_app/functions/vehicle_functions.py",
+                    title="Unconditional exception makes vehicle detail lookup always fail",
+                    evidence=(
+                        "The patch inserts `raise ValueError` at the top of "
+                        "`get_vehicle_details_short(...)`."
+                    ),
+                    explanation=(
+                        "The function now raises before any existing vehicle detail "
+                        "lookup logic can execute."
+                    ),
+                    suggested_follow_up=(
+                        "Remove the debug raise or gate it behind a test-only path."
+                    ),
+                )
+            ],
+        ),
+    )
+
+    assert "Follow-up review after the earlier bot pass on `def456`." in body
+    assert (
+        "The earlier concern about `Unconditional exception breaks vehicle detail retrieval` "
+        "still appears unresolved." in body
+    )
+    assert (
+        "The earlier concern about `Unconditional exception breaks cylinder lookup helper` "
+        "no longer appears present." in body
     )
 
 

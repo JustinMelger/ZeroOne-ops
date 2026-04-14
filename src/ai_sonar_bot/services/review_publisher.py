@@ -14,6 +14,9 @@ from ai_sonar_bot.models.review import (
 from ai_sonar_bot.providers.gitlab_client import GitLabClientError
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
 
+_MIN_SHARED_TITLE_TOKENS = 2
+_MIN_TITLE_TOKEN_OVERLAP = 0.6
+
 
 @dataclass(frozen=True)
 class ReviewPublishResult:
@@ -209,16 +212,16 @@ def _reconcile_follow_up_review(
 
     latest_prior_pass = prior_review_context.passes[0]
     unparsed_prior_finding_count = 0
-    prior_findings_by_key = {
-        _prior_finding_key(summary): FollowUpFindingStatus(
-            summary=summary,
-            file_path=_prior_finding_path(summary),
+    prior_findings = [
+        FollowUpFindingStatus(
+            summary=finding.summary,
+            file_path=_prior_finding_path(finding.summary),
             status="appears_resolved",
         )
-        for summary in [finding.summary for finding in latest_prior_pass.findings]
-        if _prior_finding_key(summary) is not None
-    }
-    unparsed_prior_finding_count = len(latest_prior_pass.findings) - len(prior_findings_by_key)
+        for finding in latest_prior_pass.findings
+        if _prior_finding_key(finding.summary) is not None
+    ]
+    unparsed_prior_finding_count = len(latest_prior_pass.findings) - len(prior_findings)
 
     still_unresolved: list[FollowUpFindingStatus] = []
     new_findings: list[FollowUpFindingStatus] = []
@@ -231,19 +234,27 @@ def _reconcile_follow_up_review(
             file_path=finding.file_path,
             status="new",
         )
-        if finding_key in prior_findings_by_key:
+        # Prefer an exact persisted match first, then allow a conservative
+        # same-file title-overlap fallback so small wording drift still keeps
+        # the follow-up note conversational.
+        matched_prior_finding = _match_prior_finding(
+            current_finding=finding,
+            current_key=finding_key,
+            prior_findings=prior_findings,
+        )
+        if matched_prior_finding is not None:
             still_unresolved.append(
                 FollowUpFindingStatus(
-                    summary=finding_summary,
-                    file_path=finding.file_path,
+                    summary=matched_prior_finding.summary,
+                    file_path=matched_prior_finding.file_path,
                     status="still_unresolved",
                 )
             )
-            prior_findings_by_key.pop(finding_key, None)
+            prior_findings.remove(matched_prior_finding)
         else:
             new_findings.append(finding_status)
 
-    appears_resolved = list(prior_findings_by_key.values())
+    appears_resolved = list(prior_findings)
     return FollowUpReviewReconciliation(
         prior_reviewed_head_sha=latest_prior_pass.reviewed_head_sha,
         still_unresolved=still_unresolved,
@@ -338,6 +349,12 @@ def _render_reconciliation_summary_lines(
                 "no longer appears present, but a new issue now appears around "
                 f"{_humanize_finding_summary(reconciliation.new_findings[0].summary)}."
             )
+        elif reconciliation.appears_resolved:
+            lines.append(
+                "The earlier concern about "
+                f"{_humanize_finding_summary(reconciliation.appears_resolved[0].summary)} "
+                "no longer appears present."
+            )
         elif reconciliation.new_findings:
             lines.append(
                 "A new issue in this pass appears around "
@@ -378,5 +395,73 @@ def _humanize_finding_summary(summary: str) -> str:
     parsed = _split_prior_summary(summary)
     if parsed is None:
         return f"`{summary}`"
-    _file_path, title = parsed
+    _, title = parsed
     return f"`{title}`"
+
+
+def _match_prior_finding(
+    *,
+    current_finding: ReviewFinding,
+    current_key: tuple[str, str, str],
+    prior_findings: list[FollowUpFindingStatus],
+) -> FollowUpFindingStatus | None:
+    """Match one current finding to one prior finding conservatively."""
+    exact_match = next(
+        (
+            prior_finding
+            for prior_finding in prior_findings
+            if _prior_finding_key(prior_finding.summary) == current_key
+        ),
+        None,
+    )
+    if exact_match is not None:
+        return exact_match
+
+    current_path = current_finding.file_path.strip().lower()
+    current_title = current_finding.title
+    for prior_finding in prior_findings:
+        parsed_prior_summary = _split_prior_summary(prior_finding.summary)
+        if parsed_prior_summary is None:
+            continue
+        prior_path, prior_title = parsed_prior_summary
+        if prior_path.strip().lower() != current_path:
+            continue
+        if _titles_look_like_same_finding(current_title, prior_title):
+            return prior_finding
+    return None
+
+
+def _titles_look_like_same_finding(current_title: str, prior_title: str) -> bool:
+    """Return whether two titles likely describe the same finding in the same file."""
+    current_tokens = _title_tokens(current_title)
+    prior_tokens = _title_tokens(prior_title)
+    if not current_tokens or not prior_tokens:
+        return False
+
+    shared_tokens = current_tokens & prior_tokens
+    if len(shared_tokens) < _MIN_SHARED_TITLE_TOKENS:
+        return False
+
+    smaller_token_count = min(len(current_tokens), len(prior_tokens))
+    return len(shared_tokens) / smaller_token_count >= _MIN_TITLE_TOKEN_OVERLAP
+
+
+def _title_tokens(title: str) -> set[str]:
+    """Extract lightly normalized title tokens for conservative fuzzy matching."""
+    tokens: set[str] = set()
+    for token in re.findall(r"[a-z0-9_]+", title.lower()):
+        normalized = _normalize_title_token(token)
+        if len(normalized) >= 4:
+            tokens.add(normalized)
+    return tokens
+
+
+def _normalize_title_token(token: str) -> str:
+    """Lightly normalize title tokens so small wording drift still matches."""
+    if token.endswith("ing") and len(token) > 5:
+        return token[:-3]
+    if token.endswith("ed") and len(token) > 4:
+        return token[:-2]
+    if token.endswith("ion") and len(token) > 5:
+        return token[:-3]
+    return token
