@@ -33,6 +33,8 @@ Before reporting a finding that depends on a helper, imported function, shared u
 
 If broader inspected code weakens or contradicts the concern, revise the finding, reduce severity, or suppress it.
 
+Before producing findings, review `prior_review_context`, identify any prior findings relevant to the changed files or logic, and determine whether they still appear present, resolved, or contradicted by the current code.
+
 For every finding, include short concrete evidence referencing the diff. Quote or summarize the specific changed behavior instead of writing a generic concern.
 
 Do not report findings when the concern is only hypothetical, weakly supported, or lacks concrete evidence in the diff.

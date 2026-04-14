@@ -355,6 +355,7 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "Do not treat a change as safe only because the diff is small or localized" in prompt
     assert "call-site diff alone" in prompt
     assert "revise the finding, reduce severity, or suppress it" in prompt
+    assert "determine whether they still appear present, resolved, or contradicted" in prompt
     assert "include short concrete evidence referencing the diff" in prompt
     assert "Do not repeat a prior finding from `prior_review_context`" in prompt
     assert "still unresolved from an earlier review" in prompt
