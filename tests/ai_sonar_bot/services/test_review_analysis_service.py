@@ -63,6 +63,29 @@ def build_context() -> MergeRequestReviewContext:
     )
 
 
+def build_debug_context() -> MergeRequestReviewContext:
+    return MergeRequestReviewContext(
+        mr_iid=18,
+        title="feat: debug output",
+        description="summary",
+        source_branch="feature/debug",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/18",
+        head_sha="def456",
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                diff='@@ -1,1 +1,2 @@\n+print(x)\n return True\n',
+                start_line=1,
+                end_line=2,
+                content="   1: print(x)\n   2: return True",
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+
 class FakeReviewLLMClient:
     def __init__(self, review_result: ReviewResult) -> None:
         self.review_result = review_result
@@ -261,6 +284,50 @@ def test_analyze_keeps_findings_with_grounded_evidence(monkeypatch) -> None:
     assert result.review_result is not None
     assert result.review_result.classification == "findings_present"
     assert len(result.review_result.findings) == 1
+
+
+def test_analyze_keeps_deterministic_debug_code_finding_when_wording_paraphrases_diff(
+    monkeypatch,
+) -> None:
+    service = ReviewAnalysisService(build_config())
+    monkeypatch.setattr(
+        service,
+        "_build_llm_client",
+        lambda: FakeReviewLLMClient(
+            ReviewResult(
+                classification="findings_present",
+                summary="One high-risk finding.",
+                review_confidence=0.99,
+                review_confidence_reason=(
+                    "The diff clearly shows an undefined variable being printed in a "
+                    "production function, which deterministically raises NameError."
+                ),
+                findings=[
+                    ReviewFinding(
+                        severity="high",
+                        file_path="src/service.py",
+                        title="Undefined debug print causes NameError",
+                        evidence=(
+                            "The diff adds an undefined variable being printed in "
+                            "src/service.py."
+                        ),
+                        explanation=(
+                            "This deterministically raises NameError during normal "
+                            "execution because `x` is not defined."
+                        ),
+                        suggested_follow_up="Remove the debug print or define the variable.",
+                    )
+                ],
+            )
+        ),
+    )
+
+    result = service.analyze(build_debug_context())
+
+    assert result.review_result is not None
+    assert result.review_result.classification == "findings_present"
+    assert len(result.review_result.findings) == 1
+    assert result.review_result.findings[0].title == "Undefined debug print causes NameError"
 
 
 def test_analyze_limits_findings_to_configured_max(monkeypatch) -> None:

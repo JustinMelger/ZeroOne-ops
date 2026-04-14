@@ -52,6 +52,11 @@ _LOW_SIGNAL_EXPLANATION_MARKERS = frozenset(
 _ACTIONABLE_FOLLOW_UP_MARKERS = frozenset(
     {
         "add",
+        "define",
+        "delete",
+        "remove",
+        "rename",
+        "replace",
         "restore",
         "guard",
         "handle",
@@ -200,15 +205,19 @@ def _is_grounded_finding(
         evidence_matches_reviewed_text = True
     else:
         evidence_matches_reviewed_text = False
-    evidence_tokens = [
-        token
-        for token in re.findall(r"[a-z0-9_./:=`-]{4,}", normalized_evidence)
-        if token not in {"this", "that", "with", "from", "into", "without"}
-    ]
-    if not evidence_tokens and not evidence_matches_reviewed_text:
+    grounding_text = " ".join(
+        [
+            finding.title,
+            finding.evidence,
+            finding.explanation,
+        ]
+    )
+    reviewed_tokens = _grounding_tokens(reviewed_text)
+    grounding_tokens = _grounding_tokens(grounding_text)
+    if not grounding_tokens and not evidence_matches_reviewed_text:
         return False
     if not evidence_matches_reviewed_text and not any(
-        token in reviewed_text for token in evidence_tokens
+        token in reviewed_tokens for token in grounding_tokens
     ):
         return False
     if _is_speculative_or_low_signal(finding):
@@ -233,3 +242,24 @@ def _is_speculative_or_low_signal(finding: ReviewFinding) -> bool:
     if not any(marker in follow_up for marker in _ACTIONABLE_FOLLOW_UP_MARKERS):
         return True
     return False
+
+
+def _grounding_tokens(text: str) -> set[str]:
+    """Extract lightly normalized tokens for grounding checks."""
+    tokens: set[str] = set()
+    for token in re.findall(r"[a-z0-9_./:=`-]{4,}", text.lower()):
+        if token in {"this", "that", "with", "from", "into", "without"}:
+            continue
+        normalized = _normalize_grounding_token(token)
+        if len(normalized) >= 4:
+            tokens.add(normalized)
+    return tokens
+
+
+def _normalize_grounding_token(token: str) -> str:
+    """Lightly normalize tokens so close paraphrases still match code-backed text."""
+    if token.endswith("ing") and len(token) > 5:
+        return token[:-3]
+    if token.endswith("ed") and len(token) > 4:
+        return token[:-2]
+    return token
