@@ -154,6 +154,7 @@ def test_render_note_uses_follow_up_language_for_no_findings_when_prior_review_e
 
     assert "No new actionable findings since the last reviewed SHA." in body
     assert "Follow-up review after the earlier bot pass on `abc123`." in body
+    assert "The earlier concern about `Missing test coverage` no longer appears present." in body
 
 
 def test_render_note_formats_manual_review_only() -> None:
@@ -203,7 +204,35 @@ def test_render_note_uses_follow_up_language_for_repeated_findings() -> None:
     )
 
     assert "Follow-up review after the earlier bot pass on `abc123`." in body
-    assert "Previously reported concerns may still be relevant" in body
+    assert "The earlier concern about `Missing test coverage` still appears unresolved." in body
+
+
+def test_render_note_mentions_resolved_and_new_concern_in_same_follow_up_pass() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_note(
+        context=build_follow_up_context(),
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One medium-risk finding.",
+            findings=[
+                ReviewFinding(
+                    severity="medium",
+                    file_path="src/service.py",
+                    title="Missing null guard",
+                    evidence="The diff removes the `if value is None` guard.",
+                    explanation="The change can now dereference a nullable value.",
+                    suggested_follow_up="Restore the null guard or add validation.",
+                )
+            ],
+        ),
+    )
+
+    assert "Follow-up review after the earlier bot pass on `abc123`." in body
+    assert (
+        "The earlier concern about `Missing test coverage` no longer appears present, "
+        "but a new issue now appears around `Missing null guard`." in body
+    )
 
 
 def test_reconcile_follow_up_review_marks_repeated_findings_as_still_unresolved() -> None:

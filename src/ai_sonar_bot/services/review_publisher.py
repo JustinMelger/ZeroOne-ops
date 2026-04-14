@@ -187,11 +187,7 @@ def _render_follow_up_lines(
             f"`{reconciliation.prior_reviewed_head_sha}`."
         )
     ]
-    if review_result.classification == "findings_present" and reconciliation.still_unresolved:
-        lines.append(
-            "Previously reported concerns may still be relevant; findings below "
-            "focus on the current pass."
-        )
+    lines.extend(_render_reconciliation_summary_lines(reconciliation, review_result))
     return [*lines, ""]
 
 
@@ -297,3 +293,60 @@ def _split_prior_summary(summary: str) -> tuple[str, str] | None:
 def _normalize_finding_text(text: str) -> str:
     """Normalize bounded finding text for conservative exact matching."""
     return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def _render_reconciliation_summary_lines(
+    reconciliation: FollowUpReviewReconciliation,
+    review_result: ReviewResult,
+) -> list[str]:
+    """Render concise conversational summary lines for repeated review passes."""
+    lines: list[str] = []
+
+    if review_result.classification == "no_findings" and reconciliation.appears_resolved:
+        lines.append(
+            "The earlier concern about "
+            f"{_humanize_finding_summary(reconciliation.appears_resolved[0].summary)} "
+            "no longer appears present."
+        )
+        return lines
+
+    if review_result.classification == "findings_present" and reconciliation.still_unresolved:
+        lines.append(
+            "The earlier concern about "
+            f"{_humanize_finding_summary(reconciliation.still_unresolved[0].summary)} "
+            "still appears unresolved."
+        )
+        if reconciliation.appears_resolved and reconciliation.new_findings:
+            lines.append(
+                "The earlier concern about "
+                f"{_humanize_finding_summary(reconciliation.appears_resolved[0].summary)} "
+                "no longer appears present, but a new issue now appears around "
+                f"{_humanize_finding_summary(reconciliation.new_findings[0].summary)}."
+            )
+        elif reconciliation.new_findings:
+            lines.append(
+                "A new issue in this pass appears around "
+                f"{_humanize_finding_summary(reconciliation.new_findings[0].summary)}."
+            )
+        return lines
+
+    if review_result.classification == "findings_present" and reconciliation.appears_resolved:
+        if reconciliation.new_findings:
+            lines.append(
+                "The earlier concern about "
+                f"{_humanize_finding_summary(reconciliation.appears_resolved[0].summary)} "
+                "no longer appears present, but a new issue now appears around "
+                f"{_humanize_finding_summary(reconciliation.new_findings[0].summary)}."
+            )
+        return lines
+
+    return lines
+
+
+def _humanize_finding_summary(summary: str) -> str:
+    """Return a short operator-facing phrase for a normalized finding summary."""
+    parsed = _split_prior_summary(summary)
+    if parsed is None:
+        return f"`{summary}`"
+    _file_path, title = parsed
+    return f"`{title}`"

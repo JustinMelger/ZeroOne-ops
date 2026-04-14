@@ -408,12 +408,12 @@ Goal:
 
 Status:
 
-- [ ] render `still unresolved` wording for repeated matched findings
-- [ ] render `appears resolved` wording when prior findings disappear and the
+- [x] render `still unresolved` wording for repeated matched findings
+- [x] render `appears resolved` wording when prior findings disappear and the
       visible code supports that conclusion
-- [ ] render a short mixed follow-up line when an earlier concern appears
+- [x] render a short mixed follow-up line when an earlier concern appears
       resolved but a different new concern now appears
-- [ ] mention resolved earlier findings in both `no_findings` and mixed
+- [x] mention resolved earlier findings in both `no_findings` and mixed
       new-finding follow-ups when that improves continuity
 
 Done when:
