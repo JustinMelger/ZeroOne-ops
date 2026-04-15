@@ -348,7 +348,16 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "ordering, filtering, grouping, selection, and data transformation" in prompt
     assert "Always report deterministic runtime errors." in prompt
     assert "correctness cannot be inferred from visible code" in prompt
+    assert "Treat visible request/schema validation as authoritative" in prompt
+    assert "Do NOT raise findings based on `None`, missing, or invalid-input paths" in prompt
+    assert "redundant guards or misleading dead checks" in prompt
+    assert "degrades gracefully, falls back, or skips optional behavior" in prompt
+    assert "distinguish that from a hard end-to-end failure" in prompt
+    assert "preserve a usable fallback result" in prompt
     assert "visible code does not support treating them as behavior-preserving" in prompt
+    assert "response shape, payload location, or return wiring" in prompt
+    assert "distinguish between an inconsistent contract and a confirmed breakage" in prompt
+    assert "one visible consumer is compatible" in prompt
     assert "do NOT infer issues from the call site alone" in prompt
     assert "review `prior_review_context`" in prompt
     assert "determine if they are still present, resolved, or contradicted" in prompt
@@ -363,6 +372,9 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "4. Key reasoning" in prompt
     assert "CLASSIFICATION" in prompt
     assert "Do NOT convert uncertainty into findings." in prompt
+    assert "do NOT describe still-open concerns, hidden issues, or unresolved risks" in prompt
+    assert "visible code does not justify an actionable finding" in prompt
+    assert "if a concern is strong enough to describe as a real unresolved issue" in prompt
     assert "CONFIDENCE" in prompt
     assert "review_confidence_reason" in prompt
     assert "intent is unclear" in prompt
@@ -376,6 +388,43 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "<<BEGIN REPOSITORY GUIDANCE AGENT.md>>" in prompt
     assert "Remediation-authored context:\n(none)" in prompt
     assert "<<BEGIN UNTRUSTED Changed file: src/service.py>>" in prompt
+
+
+def test_build_review_prompt_includes_preloaded_input_context_guardrail() -> None:
+    context = MergeRequestReviewContext(
+        mr_iid=370,
+        title="refactor: preload vehicle menu ids",
+        description="Reuse precomputed menu ids through manufacturer-order helpers.",
+        source_branch="feature/preloaded-ids",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/370",
+        head_sha="fe019f12",
+        changed_files=[
+            ReviewFileContext(
+                file_path="core/functions/vehicle_articles_functions.py",
+                diff=(
+                    "@@ -1,3 +1,6 @@\n"
+                    "-unique_ids = await get_all_unique_ids_vehicle_menu(customer_id, erp_system)\n"
+                    "+unique_ids = unique_ids_vehicle_menu\n"
+                    "+if unique_ids is None:\n"
+                    "+    unique_ids = await get_all_unique_ids_vehicle_menu("
+                    "customer_id, erp_system)\n"
+                ),
+                content="unique_ids = unique_ids_vehicle_menu\n",
+                start_line=1,
+                end_line=4,
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+    prompt = build_review_prompt(context)
+
+    assert "preloaded or precomputed inputs" in prompt
+    assert "do NOT report a context-mismatch finding unless the visible code shows" in prompt
+    assert "same request context" in prompt
+    assert "generic misuse scenario" in prompt
 
 
 def test_build_review_prompt_includes_remediation_context_when_present() -> None:
