@@ -348,6 +348,17 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "ordering, filtering, grouping, selection, and data transformation" in prompt
     assert "Always report deterministic runtime errors." in prompt
     assert "correctness cannot be inferred from visible code" in prompt
+    assert "make the narrowest claim the visible code supports" in prompt
+    assert (
+        "prefer inconsistency, downstream risk, or `manual_review_only` over confirmed breakage"
+        in prompt
+    )
+    assert "do NOT escalate hypothetical misuse or missing-context uncertainty" in prompt
+    assert "only describe a regression or breakage when the visible code proves it" in prompt
+    assert "When the visible code suggests a possible issue but does not prove it:" in prompt
+    assert "do NOT present the issue as confirmed" in prompt
+    assert "explain briefly which missing context prevents confirmation" in prompt
+    assert "a narrower risk statement, or `no_findings`" in prompt
     assert "Treat visible request/schema validation as authoritative" in prompt
     assert "Do NOT raise findings based on `None`, missing, or invalid-input paths" in prompt
     assert "redundant guards or misleading dead checks" in prompt
