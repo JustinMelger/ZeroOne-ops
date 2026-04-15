@@ -42,6 +42,17 @@ When uncertain:
 - return `no_findings` if uncertainty is limited
 - use `manual_review_only` if correctness depends on missing context
 
+Treat visible request/schema validation as authoritative for supported input
+shape. Do NOT raise findings based on `None`, missing, or invalid-input paths
+when the reviewed request model or route contract already forbids those inputs.
+In those cases, you may note redundant guards or misleading dead checks only if
+they materially affect readability or maintainability, not as a runtime bug.
+
+When a new branch degrades gracefully, falls back, or skips optional behavior:
+- distinguish that from a hard end-to-end failure
+- report a hard failure only when the visible caller path does not recover, continue, or preserve a usable fallback result
+- if the visible code falls back but becomes brittle, incomplete, or silently disables behavior, describe that narrower risk instead of claiming the whole lookup or request path fails
+
 ----------------------------------------------------------------
 BEHAVIORAL CHANGES
 ----------------------------------------------------------------
@@ -51,6 +62,11 @@ Treat changes to ordering, filtering, grouping, selection, or data transformatio
 - downstream systems
 
 Report such changes when they can concretely affect user-visible behavior, API output, or downstream systems and the visible code does not support treating them as behavior-preserving.
+
+When a change alters response shape, payload location, or return wiring:
+- distinguish between an inconsistent contract and a confirmed breakage
+- report confirmed breakage only when visible consumer code shows the new shape is not read correctly
+- if one visible consumer is compatible but other consumers may still depend on the old shape, describe that as an inconsistency or downstream risk rather than a definite break
 
 ----------------------------------------------------------------
 HELPER / SHARED CODE
@@ -64,6 +80,12 @@ If implementation is missing and correctness cannot be determined:
 
 If inspected code contradicts the concern:
 - revise or suppress the finding
+
+When a helper starts accepting preloaded or precomputed inputs:
+- do NOT report a context-mismatch finding unless the visible code shows the supplied value comes from a different request context, stale source, or contradictory parameters
+- if the reviewed producer path derives the preloaded value from the same request context, treat that as behavior-preserving unless the code shows concrete contradictory evidence
+- do NOT turn a generic misuse scenario into a finding without evidence that this merge request introduces that misuse
+
 
 ----------------------------------------------------------------
 PRIOR REVIEW CONTEXT
@@ -102,6 +124,11 @@ CLASSIFICATION
 - `manual_review_only`: insufficient context or unclear intent
 
 Do NOT convert uncertainty into findings.
+
+For `no_findings`:
+- do NOT describe still-open concerns, hidden issues, or unresolved risks
+- if uncertainty remains but no concrete bug is visible, explain that the visible code does not justify an actionable finding
+- if a concern is strong enough to describe as a real unresolved issue, do NOT use `no_findings`
 
 ----------------------------------------------------------------
 CONFIDENCE
