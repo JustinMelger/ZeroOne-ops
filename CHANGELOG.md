@@ -5,6 +5,14 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.21.3](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.21.2...zeroone-ops-v0.21.3) (2026-04-15)
+
+
+### Bug Fixes
+
+* review take in account contract inheritance in no context ([b30f569](https://github.com/JustinMelger/ZeroOne-ops/commit/b30f5693e15df0d0e0f6a7a31f6479b141419cf3))
+* review take in account contract inheritance in no context ([1fd757a](https://github.com/JustinMelger/ZeroOne-ops/commit/1fd757abee9c8ae945b30512a21965842497da89))
+
 ## [0.21.2](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.21.1...zeroone-ops-v0.21.2) (2026-04-15)
 
 
