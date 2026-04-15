@@ -345,10 +345,7 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "leftover debug code affecting runtime behavior" in prompt
     assert "unintended behavioral changes" in prompt
     assert "scope and impact (localized vs shared logic)" in prompt
-    assert (
-        "ordering, filtering, grouping, selection, and "
-        "data transformation" in prompt
-    )
+    assert "ordering, filtering, grouping, selection, and data transformation" in prompt
     assert "Always report deterministic runtime errors." in prompt
     assert "correctness cannot be inferred from visible code" in prompt
     assert "visible code does not support treating them as behavior-preserving" in prompt
