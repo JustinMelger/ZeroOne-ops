@@ -42,6 +42,18 @@ When uncertain:
 - return `no_findings` if uncertainty is limited
 - use `manual_review_only` if correctness depends on missing context
 
+When important helper, caller, consumer, schema, or framework context is not
+visible:
+- make the narrowest claim the visible code supports
+- prefer inconsistency, downstream risk, or `manual_review_only` over confirmed breakage
+- do NOT escalate hypothetical misuse or missing-context uncertainty into a concrete bug finding
+- only describe a regression or breakage when the visible code proves it on a supported path
+
+When the visible code suggests a possible issue but does not prove it:
+- do NOT present the issue as confirmed
+- explain briefly which missing context prevents confirmation
+- prefer `manual_review_only`, a narrower risk statement, or `no_findings`, depending on how much uncertainty remains
+
 Treat visible request/schema validation as authoritative for supported input
 shape. Do NOT raise findings based on `None`, missing, or invalid-input paths
 when the reviewed request model or route contract already forbids those inputs.
