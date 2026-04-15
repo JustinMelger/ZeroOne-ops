@@ -361,6 +361,9 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "a narrower risk statement, or `no_findings`" in prompt
     assert "Treat visible request/schema validation as authoritative" in prompt
     assert "Do NOT raise findings based on `None`, missing, or invalid-input paths" in prompt
+    assert "schemas that extend a visible base class" in prompt
+    assert "treat inherited fields as part of the active contract" in prompt
+    assert "field was removed unless" in prompt
     assert "redundant guards or misleading dead checks" in prompt
     assert "degrades gracefully, falls back, or skips optional behavior" in prompt
     assert "distinguish that from a hard end-to-end failure" in prompt

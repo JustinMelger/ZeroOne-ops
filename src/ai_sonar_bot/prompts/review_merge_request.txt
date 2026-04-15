@@ -59,6 +59,10 @@ shape. Do NOT raise findings based on `None`, missing, or invalid-input paths
 when the reviewed request model or route contract already forbids those inputs.
 In those cases, you may note redundant guards or misleading dead checks only if
 they materially affect readability or maintainability, not as a runtime bug.
+When reviewing request or response schemas that extend a visible base class,
+treat inherited fields as part of the active contract. Do NOT claim that a
+field was removed unless the visible class hierarchy shows it is absent from
+both the subclass and the relevant base-model contract.
 
 When a new branch degrades gracefully, falls back, or skips optional behavior:
 - distinguish that from a hard end-to-end failure
