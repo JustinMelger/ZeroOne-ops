@@ -363,6 +363,12 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "alias to one concrete scalar value" in prompt
     assert "evaluate the contract using that visible resolved value" in prompt
     assert "mapping or container as the active runtime contract" in prompt
+    assert (
+        "if the visible code does not show how a config-derived value resolves "
+        "at runtime" in prompt
+    )
+    assert "do NOT assume the runtime shape" in prompt
+    assert "explain the missing resolution context" in prompt
     assert "makes an implicit default, fallback, or sentinel-driven path" in prompt
     assert "explicit:" in prompt
     assert "clarification or contract hardening rather than breakage" in prompt
@@ -388,6 +394,11 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "Each finding must:" in prompt
     assert "include concrete evidence from the diff or inspected code" in prompt
     assert "reference specific changed behavior" in prompt
+    assert "use only the shortest explanation needed to justify the finding" in prompt
+    assert (
+        "do NOT repeat the same fact across summary, evidence, explanation, "
+        "and follow-up" in prompt
+    )
     assert "SUMMARY" in prompt
     assert "1. What changed" in prompt
     assert "2. Overall assessment" in prompt
@@ -404,6 +415,7 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "FINAL DISCIPLINE" in prompt
     assert "Prefer `manual_review_only` when judgment is unreliable" in prompt
     assert "Limit findings to the most important issues (<=5)" in prompt
+    assert "Keep findings concise and avoid restating the same point" in prompt
     assert "CONTEXT" in prompt
     assert "Merge request IID: 17" in prompt
     assert "<<BEGIN UNTRUSTED Merge request description>>" in prompt
