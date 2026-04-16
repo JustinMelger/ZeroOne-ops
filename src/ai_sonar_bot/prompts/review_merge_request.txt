@@ -58,6 +58,7 @@ When code in the review context binds a runtime constant, config value, or
 alias to one concrete scalar value for this deployment:
 - evaluate the contract using that visible resolved value
 - do NOT treat the source mapping or container as the active runtime contract when the visible code shows a selected scalar instead
+- if the visible code does not show how a config-derived value resolves at runtime, do NOT assume the runtime shape; explain the missing resolution context and prefer `manual_review_only`, a narrower risk statement, or suppression over a concrete bug claim
 
 When a refactor makes an implicit default, fallback, or sentinel-driven path
 explicit:
@@ -137,6 +138,8 @@ EVIDENCE
 Each finding must:
 - include concrete evidence from the diff or inspected code
 - reference specific changed behavior
+- stay concise: use only the shortest explanation needed to justify the finding
+- do NOT repeat the same fact across summary, evidence, explanation, and follow-up when one clear statement is enough
 
 ----------------------------------------------------------------
 SUMMARY
@@ -179,6 +182,7 @@ FINAL DISCIPLINE
 - Prefer `manual_review_only` when judgment is unreliable
 - Do NOT speculate
 - Limit findings to the most important issues (<=5)
+- Keep findings concise and avoid restating the same point in multiple sections
 
 ----------------------------------------------------------------
 CONTEXT
