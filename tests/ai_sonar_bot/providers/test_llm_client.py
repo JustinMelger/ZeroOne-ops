@@ -364,8 +364,7 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "evaluate the contract using that visible resolved value" in prompt
     assert "mapping or container as the active runtime contract" in prompt
     assert (
-        "if the visible code does not show how a config-derived value resolves "
-        "at runtime" in prompt
+        "if the visible code does not show how a config-derived value resolves at runtime" in prompt
     )
     assert "do NOT assume the runtime shape" in prompt
     assert "explain the missing resolution context" in prompt
@@ -396,8 +395,7 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "reference specific changed behavior" in prompt
     assert "use only the shortest explanation needed to justify the finding" in prompt
     assert (
-        "do NOT repeat the same fact across summary, evidence, explanation, "
-        "and follow-up" in prompt
+        "do NOT repeat the same fact across summary, evidence, explanation, and follow-up" in prompt
     )
     assert "SUMMARY" in prompt
     assert "1. What changed" in prompt
