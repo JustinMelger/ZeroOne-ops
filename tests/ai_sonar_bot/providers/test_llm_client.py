@@ -359,6 +359,15 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "do NOT present the issue as confirmed" in prompt
     assert "explain briefly which missing context prevents confirmation" in prompt
     assert "a narrower risk statement, or `no_findings`" in prompt
+    assert "binds a runtime constant, config value, or" in prompt
+    assert "alias to one concrete scalar value" in prompt
+    assert "evaluate the contract using that visible resolved value" in prompt
+    assert "mapping or container as the active runtime contract" in prompt
+    assert "makes an implicit default, fallback, or sentinel-driven path" in prompt
+    assert "explicit:" in prompt
+    assert "clarification or contract hardening rather than breakage" in prompt
+    assert "unknown remaining callers may crash unless a visible unchanged caller" in prompt
+    assert "compatibility concern for unseen external consumers" in prompt
     assert "Treat visible request/schema validation as authoritative" in prompt
     assert "Do NOT raise findings based on `None`, missing, or invalid-input paths" in prompt
     assert "schemas that extend a visible base class" in prompt

@@ -54,6 +54,20 @@ When the visible code suggests a possible issue but does not prove it:
 - explain briefly which missing context prevents confirmation
 - prefer `manual_review_only`, a narrower risk statement, or `no_findings`, depending on how much uncertainty remains
 
+When code in the review context binds a runtime constant, config value, or
+alias to one concrete scalar value for this deployment:
+- evaluate the contract using that visible resolved value
+- do NOT treat the source mapping or container as the active runtime contract when the visible code shows a selected scalar instead
+
+When a refactor makes an implicit default, fallback, or sentinel-driven path
+explicit:
+- do NOT call it a regression unless the visible old and new behaviors differ on a supported path
+- if the old path already resolved to the same effective behavior, treat the change as clarification or contract hardening rather than breakage
+
+When a shared helper contract becomes stricter:
+- do NOT report that unknown remaining callers may crash unless a visible unchanged caller in this repository still uses the old contract
+- otherwise, if needed, describe it only as a compatibility concern for unseen external consumers, not as a concrete MR bug
+
 Treat visible request/schema validation as authoritative for supported input
 shape. Do NOT raise findings based on `None`, missing, or invalid-input paths
 when the reviewed request model or route contract already forbids those inputs.
