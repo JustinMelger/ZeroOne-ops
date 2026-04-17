@@ -145,15 +145,17 @@ Use this lightweight checklist before cutting a stable release tag.
    - `RELEASE_PLEASE_TOKEN` for GitHub release automation if used
    - `OPENAI_API_KEY` where live review or remediation flows will run
    - `GITLAB_TOKEN` for GitLab-backed live workflows
-4. if the change is significant, publish and test a prerelease tag first, for
+4. when using release-please, prefer squash merge with a conventional PR title
+   so the commit that lands on `main` stays parseable for release automation
+5. if the change is significant, publish and test a prerelease tag first, for
    example `zeroone-ops-vX.Y.Z-rc.N`
-5. confirm the publish-image workflow smoke test passes for the container:
+6. confirm the publish-image workflow smoke test passes for the container:
    - `--help`
    - `review --help`
    - `dashboard --help`
-6. confirm README, runbook, and example CI docs still match the current release
+7. confirm README, runbook, and example CI docs still match the current release
    and image naming
-7. record any known rollout caveats before cutting the stable tag
+8. record any known rollout caveats before cutting the stable tag
 
 A stable release is ready when the checklist is complete and there are no known
 blocking rollout issues.
