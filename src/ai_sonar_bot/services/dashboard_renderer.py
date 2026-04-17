@@ -13,14 +13,14 @@ class DashboardRenderer:
     def render(self, *, title: str, sections: list[DashboardSection]) -> str:
         """Render one dashboard body."""
         lines = [
-            f"# {title}",
-            "",
             "Machine-managed dashboard for AI Code Ops work items.",
             "",
         ]
         workflow_items = self._workflow_items(sections)
         for section in sections:
-            lines.extend(self._render_section(section, workflow_items=workflow_items))
+            rendered = self._render_section(section, workflow_items=workflow_items)
+            if rendered:
+                lines.extend(rendered)
         return "\n".join(lines).rstrip() + "\n"
 
     def _render_section(
@@ -29,6 +29,18 @@ class DashboardRenderer:
         *,
         workflow_items: list[DashboardItem],
     ) -> list[str]:
+        if (
+            section.key
+            in {
+                "in_progress",
+                "merge_requests_opened",
+                "completed",
+                "rejected_or_ignored",
+                "recent_failures",
+            }
+            and workflow_items
+        ):
+            return []
         lines = [f"## {section.title}", ""]
         if section.key == "open_candidates":
             if not workflow_items:
@@ -39,15 +51,6 @@ class DashboardRenderer:
             for item in workflow_items:
                 lines.extend(self._render_item(item))
                 lines.append("")
-            return lines
-        if section.key in {
-            "in_progress",
-            "merge_requests_opened",
-            "completed",
-            "rejected_or_ignored",
-            "recent_failures",
-        }:
-            lines.extend(["No items.", ""])
             return lines
         if not section.items:
             lines.extend(["No items.", ""])

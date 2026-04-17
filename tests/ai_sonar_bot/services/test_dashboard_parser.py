@@ -187,7 +187,7 @@ def test_rendered_review_section_uses_specialized_review_summary_layout() -> Non
     assert "### Needs Attention" in body
     assert "| MR | Outcome | Findings | Priority | Summary |" in body
     assert "[!363](https://gitlab.example.com/group/project/-/merge_requests/363)" in body
-    assert "Findings present" in body
+    assert "⚠️ Findings present" in body
     assert "License logic change with visible redirect impact." in body
     assert "### All Reviews" in body
     assert "| MR | Outcome | Findings | Priority | Summary | Reviewed SHA |" in body
@@ -269,8 +269,34 @@ def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() ->
     assert "`sonar:open` (src/service.py)" in body
     assert "`sonar:progress` (src/service.py)" in body
     assert "[!42](https://gitlab.example.com/group/project/-/merge_requests/42)" in body
-    assert "## In Progress\n\nNo items." in body
-    assert "## Merge Requests Opened\n\nNo items." in body
+
+
+def test_render_hides_legacy_empty_workflow_sections_when_combined_view_is_present() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Dashboard",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[build_item(item_id="sonar:open", status="open")],
+            ),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    assert "## Open Candidates" in body
+    assert "## In Progress" not in body
+    assert "## Merge Requests Opened" not in body
+    assert "## Completed" not in body
+    assert "## Rejected Or Ignored" not in body
+    assert "## Recent Failures" not in body
 
 
 def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table() -> None:
@@ -423,10 +449,25 @@ def test_parse_accepts_summary_table_followed_by_multiple_item_blocks() -> None:
 
 ## Open Candidates
 
-| ID | Source | Type | File | Rule | Status | Priority |
-|---|---|---|---|---|---|---|
-| `sonar:1` | sonarqube | code_smell_fix | `src/service.py` | `python:S1125` | `open` | `low` | - |
-| `sonar:2` | sonarqube | code_smell_fix | `src/other.py` | `python:S1481` | `open` | `medium` |
+### Overview
+
+| Open | In progress | MR opened | Failed | Done |
+|---|---|---|---|---|
+| 2 | 0 | 0 | 0 | 0 |
+
+### Needs Attention
+
+| Item | Status | Priority | Summary |
+|---|---|---|---|
+| `sonar:1` (src/service.py) | Open | Low | Simplify boolean equality check. |
+| `sonar:2` (src/other.py) | Open | Medium | Delete the unused local variable. |
+
+### All Workflow Items
+
+| Item | Status | Priority | Summary |
+|---|---|---|---|
+| `sonar:1` (src/service.py) | Open | Low | Simplify boolean equality check. |
+| `sonar:2` (src/other.py) | Open | Medium | Delete the unused local variable. |
 
 <details>
 <summary><code>sonar:1</code> details</summary>
@@ -667,7 +708,7 @@ def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:
 
     assert "### Needs Attention" in body
     assert "No items." in body
-    assert "| !42 | No findings | 0 | Low | No findings. | `abc123` |" in body
+    assert "| !42 | ✅ No findings | 0 | 🟢 Low | No findings. | `abc123` |" in body
     assert '"review_status": "no_findings"' in body
     assert '"file":' not in body
     assert '"rule":' not in body
