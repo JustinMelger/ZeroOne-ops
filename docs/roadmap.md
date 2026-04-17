@@ -114,6 +114,8 @@ Status:
 
 - [ ] collect real review examples where the bot was too conservative or too
       noisy
+- [x] document the current trust-first judgment strategy so prompt tuning and
+      later context-expansion work use the same policy baseline
 - [x] tighten the review prompt so deterministic runtime errors, invalid
       operations, and harmful debug code are treated as actionable even when
       they are subtle
@@ -131,6 +133,10 @@ Done when:
       into regression coverage
 - the next review iteration is driven by observed behavior rather than
       speculative tuning
+
+Reference:
+
+- [review-bot-judgment-strategy.md](docs/review-bot-judgment-strategy.md)
 
 ### Track 2: Pre-Release Candidate Hardening During Testing
 
@@ -277,6 +283,8 @@ Design references:
 - [technical-design-pr-review-followup-reconciliation.md](technical-design-pr-review-followup-reconciliation.md)
 - [functional-design-pr-review-stable-finding-identity.md](functional-design-pr-review-stable-finding-identity.md)
 - [technical-design-pr-review-stable-finding-identity.md](technical-design-pr-review-stable-finding-identity.md)
+- [functional-design-pr-review-structured-reconciliation.md](functional-design-pr-review-structured-reconciliation.md)
+- [technical-design-pr-review-structured-reconciliation.md](technical-design-pr-review-structured-reconciliation.md)
 
 #### Phase 1: Persist Bounded Prior Review Passes
 
@@ -562,6 +570,101 @@ Done when:
 - no meaningful collision pattern is observed, or a bounded next refinement is
       clearly identified
 
+## Next Review Context Phase: Helper-Following Review Context
+
+Design references:
+
+- [functional-design-pr-review-helper-following-context.md](functional-design-pr-review-helper-following-context.md)
+- [technical-design-pr-review-helper-following-context.md](technical-design-pr-review-helper-following-context.md)
+
+### Phase 1: Config And Review Models
+
+Goal:
+
+- add the bounded helper-following flags and budgets to review configuration
+- introduce a small structured helper-context model that can travel in the
+  review packet without disturbing the existing changed-file context
+
+Status:
+
+- [ ] add helper-following enable/logging flags and review budgets to
+      `ReviewConfig`
+- [ ] add a bounded helper-context model to the review workflow models
+- [ ] keep all new fields additive and backward compatible
+
+Done when:
+
+- review configuration can enable/disable helper-following explicitly
+- helper-following budgets are represented in typed config
+- review models can carry supplemental helper snippets separately from the main
+      changed-file snippet
+
+### Phase 2: Same-File Helper Extraction
+
+Goal:
+
+- implement the first bounded helper-following slice for Python same-file
+  direct functions only
+
+Status:
+
+- [ ] detect the enclosing changed Python function when one can be identified
+- [ ] extract direct same-file helper calls conservatively from that function
+- [ ] resolve only one clear same-file local definition per helper symbol
+- [ ] skip ambiguous or unsupported cases safely
+
+Done when:
+
+- the builder can follow same-file direct helper functions for Python changes
+- helper resolution stays bounded and deterministic
+- ambiguous symbols are skipped instead of guessed
+
+### Phase 3: Prompt Packet Integration And Diagnostics
+
+Goal:
+
+- include bounded helper snippets in the review packet and expose rollout
+  diagnostics without operator-surface noise
+
+Status:
+
+- [ ] render helper snippets as a separate supporting context block in the
+      review packet
+- [ ] keep helper ordering deterministic
+- [ ] respect supported/ignored path controls while resolving helpers
+- [ ] add config-controlled helper-following diagnostics for rollout support
+
+Done when:
+
+- helper context is visible to the review prompt as separate supporting
+      context
+- helper inclusion remains within configured budgets
+- helper-following can be debugged during rollout without polluting MR notes
+
+### Phase 4: Testing And Tightening
+
+Goal:
+
+- validate that helper-following reduces call-site-only false positives without
+  turning into prompt bloat
+
+Status:
+
+- [ ] add coverage for same-file helper inclusion, deterministic ordering, and
+      budget limits
+- [ ] add coverage for skip reasons such as ambiguous symbols, parse failure,
+      and unsupported shapes
+- [ ] run the feature in live review testing and collect before/after examples
+- [ ] decide whether imported-helper following is justified as a later slice
+
+Done when:
+
+- helper-following is covered by deterministic tests
+- live review examples show better use of nearby helper truth
+- the team has enough evidence to decide whether same-file-only is sufficient
+      for the next phase
+      or whether imported-helper support is worth the added complexity
+
 ## Beyond V1
 
 Post-v1 ideas and expansion tracks now live in
@@ -575,6 +678,12 @@ That includes:
 - incremental PR review memory design
   - [functional-design-pr-review-memory.md](functional-design-pr-review-memory.md)
   - [technical-design-pr-review-memory.md](technical-design-pr-review-memory.md)
+- function-aware review context design
+  - [functional-design-pr-review-function-aware-context.md](functional-design-pr-review-function-aware-context.md)
+  - [technical-design-pr-review-function-aware-context.md](technical-design-pr-review-function-aware-context.md)
+- helper-following review context design
+  - [functional-design-pr-review-helper-following-context.md](functional-design-pr-review-helper-following-context.md)
+  - [technical-design-pr-review-helper-following-context.md](technical-design-pr-review-helper-following-context.md)
 - GitLab dashboard issue support
 - symbol-safe rename handling
 - complex single-file refactors
