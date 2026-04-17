@@ -139,14 +139,59 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
         ],
     )
 
-    assert "| ID | Source | Type | File | Rule | Status | Priority | Note |" in body
-    expected_row = (
-        "| `sonar:1` | sonarqube | code_smell_fix | "
-        "`src/service.py` | `python:S1125` | `open` | `low` |"
-    )
-    assert expected_row in body
+    assert "### Overview" in body
+    assert "| Open | In progress | MR opened | Failed | Done |" in body
+    assert "| 1 | 0 | 0 | 0 | 0 |" in body
+    assert "### Needs Attention" in body
+    assert "| Item | Status | Priority | Summary |" in body
+    assert "`sonar:1` (src/service.py)" in body
+    assert "Open" in body
+    assert "Low" in body
     assert "<details>" in body
     assert "<summary><code>sonar:1</code> details</summary>" in body
+
+
+def test_rendered_review_section_uses_specialized_review_summary_layout() -> None:
+    renderer = DashboardRenderer()
+    review_item = DashboardItem(
+        id="mr-review:363:abc123def456",
+        source="pull_request_review",
+        type="review_status",
+        status="done",
+        title="Review status for !363",
+        summary="Global search now delegates license plate lookups differently.",
+        priority="high",
+        source_reference="https://gitlab.example.com/group/project/-/merge_requests/363",
+        merge_request_iid=363,
+        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/363",
+        reviewed_head_sha="abc123def456",
+        review_status="findings_present",
+        review_findings_count=3,
+        review_feedback_summary="License logic change with visible redirect impact.",
+    )
+
+    body = renderer.render(
+        title="AI Code Ops Dashboard",
+        sections=[
+            DashboardSection(
+                key="merge_request_reviews",
+                title="Merge Request Reviews",
+                items=[review_item],
+            )
+        ],
+    )
+
+    assert "### Overview" in body
+    assert "| Reviews | Needs attention | Findings total | High priority |" in body
+    assert "| 1 | 1 | 3 | 1 |" in body
+    assert "### Needs Attention" in body
+    assert "| MR | Outcome | Findings | Priority | Summary |" in body
+    assert "[!363](https://gitlab.example.com/group/project/-/merge_requests/363)" in body
+    assert "Findings present" in body
+    assert "License logic change with visible redirect impact." in body
+    assert "### All Reviews" in body
+    assert "| MR | Outcome | Findings | Priority | Summary | Reviewed SHA |" in body
+    assert "`abc123de`" in body
 
 
 def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> None:
@@ -175,8 +220,57 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
         ],
     )
 
-    assert "| ID | Source | Type | File | Rule | Status | Priority | Note |" in body
+    assert "| Item | Status | Priority | Summary |" in body
     assert "Merge request metadata is inaccessible from GitLab." in body
+
+
+def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Dashboard",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[build_item(item_id="sonar:open", status="open")],
+            ),
+            DashboardSection(
+                key="in_progress",
+                title="In Progress",
+                items=[build_item(item_id="sonar:progress", status="in_progress")],
+            ),
+            DashboardSection(
+                key="merge_requests_opened",
+                title="Merge Requests Opened",
+                items=[
+                    build_item(item_id="sonar:mr", status="mr_opened").model_copy(
+                        update={
+                            "merge_request_iid": 42,
+                            "merge_request_url": (
+                                "https://gitlab.example.com/group/project/-/merge_requests/42"
+                            ),
+                        }
+                    )
+                ],
+            ),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    assert "### Overview" in body
+    assert "| Open | In progress | MR opened | Failed | Done |" in body
+    assert "| 1 | 1 | 1 | 0 | 0 |" in body
+    assert "### Needs Attention" in body
+    assert "### All Workflow Items" in body
+    assert "`sonar:open` (src/service.py)" in body
+    assert "`sonar:progress` (src/service.py)" in body
+    assert "[!42](https://gitlab.example.com/group/project/-/merge_requests/42)" in body
+    assert "## In Progress\n\nNo items." in body
+    assert "## Merge Requests Opened\n\nNo items." in body
 
 
 def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table() -> None:
@@ -555,6 +649,7 @@ def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:
         summary="No findings.",
         priority="low",
         source_reference="mr-42",
+        merge_request_iid=42,
         review_status="no_findings",
         reviewed_head_sha="abc123",
     )
@@ -570,11 +665,55 @@ def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:
         ],
     )
 
-    expected_row = (
-        "| `mr-review:42:abc123` | pull_request_review | review_status | "
-        "`-` | `-` | `done` | `low` |"
-    )
-    assert expected_row in body
+    assert "### Needs Attention" in body
+    assert "No items." in body
+    assert "| !42 | No findings | 0 | Low | No findings. | `abc123` |" in body
     assert '"review_status": "no_findings"' in body
     assert '"file":' not in body
     assert '"rule":' not in body
+
+
+def test_parse_round_trips_workflow_items_from_combined_workflow_section() -> None:
+    renderer = DashboardRenderer()
+    parser = DashboardParser()
+    body = renderer.render(
+        title="AI Code Ops Dashboard",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[build_item(item_id="sonar:open", status="open")],
+            ),
+            DashboardSection(
+                key="in_progress",
+                title="In Progress",
+                items=[build_item(item_id="sonar:progress", status="in_progress")],
+            ),
+            DashboardSection(
+                key="merge_requests_opened",
+                title="Merge Requests Opened",
+                items=[build_item(item_id="sonar:mr", status="mr_opened")],
+            ),
+            DashboardSection(
+                key="completed",
+                title="Completed",
+                items=[build_item(item_id="sonar:done", status="done")],
+            ),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Dashboard",
+        body=body,
+    )
+
+    assert [item.id for item in document.sections[0].items] == ["sonar:open"]
+    assert [item.id for item in document.sections[1].items] == ["sonar:progress"]
+    assert [item.id for item in document.sections[2].items] == ["sonar:mr"]
+    assert [item.id for item in document.sections[3].items] == ["sonar:done"]
