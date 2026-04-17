@@ -5,6 +5,22 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.22.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.21.5...zeroone-ops-v0.22.0) (2026-04-17)
+
+
+### Features
+
+* config and review models ([0d49331](https://github.com/JustinMelger/ZeroOne-ops/commit/0d49331363923d5e9081e0a0fd1288aedf514955))
+* prompt packet integration and ordering weight context ([152ffe2](https://github.com/JustinMelger/ZeroOne-ops/commit/152ffe2aeeca7b13ace46942d962379ef33b76ac))
+* same-file helper extraction ([d2b67fe](https://github.com/JustinMelger/ZeroOne-ops/commit/d2b67fe5f9ebfa8e3f384612f4f5208f865212bc))
+
+
+### Documentation
+
+* new designs context aware ([2e7f55a](https://github.com/JustinMelger/ZeroOne-ops/commit/2e7f55a40ab3432289a34c37688fc26c90ec6b36))
+* tighten roadmap ([363c6c1](https://github.com/JustinMelger/ZeroOne-ops/commit/363c6c1ab27fc55c86b8c507d2f229687579baa4))
+* update roadmap ([9c9bdc8](https://github.com/JustinMelger/ZeroOne-ops/commit/9c9bdc8ef4e10df5fcad2878714ad33b34424afb))
+
 ## [0.21.5](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.21.4...zeroone-ops-v0.21.5) (2026-04-16)
 
 
