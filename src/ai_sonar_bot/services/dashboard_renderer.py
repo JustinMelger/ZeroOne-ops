@@ -285,12 +285,15 @@ class DashboardRenderer:
             "manual_review_only": "Manual review only",
         }
         if item.review_status is not None:
-            return mapping.get(item.review_status, item.review_status.replace("_", " "))
-        return item.status.replace("_", " ").title()
+            label = mapping.get(item.review_status, item.review_status.replace("_", " "))
+            return f"{self._review_outcome_marker(item.review_status)} {label}"
+        label = item.status.replace("_", " ").title()
+        return f"{self._status_marker(item.status)} {label}"
 
     def _render_priority(self, item: DashboardItem) -> str:
         """Render one human-readable priority label."""
-        return item.priority.replace("_", " ").title()
+        label = item.priority.replace("_", " ").title()
+        return f"{self._priority_marker(item.priority)} {label}"
 
     def _render_review_summary(self, item: DashboardItem) -> str:
         """Render one compact human-facing summary for merge request reviews."""
@@ -313,7 +316,7 @@ class DashboardRenderer:
 
     def _render_workflow_status(self, item: DashboardItem) -> str:
         """Render one human-readable workflow status label."""
-        return item.status.replace("_", " ").title()
+        return f"{self._status_marker(item.status)} {item.status.replace('_', ' ').title()}"
 
     def _render_workflow_summary(self, item: DashboardItem) -> str:
         """Render one compact workflow summary."""
@@ -330,6 +333,37 @@ class DashboardRenderer:
     def _needs_attention(self, item: DashboardItem) -> bool:
         """Return whether one review item should appear in the attention queue."""
         return item.review_status in {"findings_present", "manual_review_only"}
+
+    def _status_marker(self, status: str) -> str:
+        """Return one lightweight marker for a workflow status."""
+        markers = {
+            "open": "🔵",
+            "in_progress": "🟠",
+            "mr_opened": "📦",
+            "failed": "🔴",
+            "done": "✅",
+            "rejected": "⚪",
+            "ignored": "⚪",
+        }
+        return markers.get(status, "•")
+
+    def _review_outcome_marker(self, outcome: str) -> str:
+        """Return one lightweight marker for a review outcome."""
+        markers = {
+            "findings_present": "⚠️",
+            "manual_review_only": "👀",
+            "no_findings": "✅",
+        }
+        return markers.get(outcome, "•")
+
+    def _priority_marker(self, priority: str) -> str:
+        """Return one lightweight marker for a priority."""
+        markers = {
+            "high": "🔴",
+            "medium": "🟡",
+            "low": "🟢",
+        }
+        return markers.get(priority, "•")
 
     def _render_item(self, item: DashboardItem) -> list[str]:
         payload = item.model_dump(mode="json", exclude_none=True)
