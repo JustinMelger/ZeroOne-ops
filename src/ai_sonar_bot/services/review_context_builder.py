@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,6 +38,7 @@ GUIDANCE_GLOBS = ("docs/technical-design*.md",)
 MAX_GUIDANCE_FILES = 4
 MAX_GUIDANCE_LINES = 16
 MAX_GUIDANCE_CHARS = 1_200
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -128,6 +130,7 @@ class ReviewContextBuilder:
                 changed_start=changed_start,
                 changed_end=changed_end,
                 enable_helper_following=self.config.review.enable_helper_following,
+                log_helper_following=self.config.review.log_helper_following,
                 max_followed_helpers_per_function=(
                     self.config.review.max_followed_helpers_per_function
                 ),
@@ -385,18 +388,34 @@ def _build_same_file_helper_context(
     changed_start: int,
     changed_end: int,
     enable_helper_following: bool,
+    log_helper_following: bool,
     max_followed_helpers_per_function: int,
     max_followed_helper_lines: int,
 ) -> tuple[list[ReviewHelperContext], int]:
     """Return bounded same-file helper context for one changed Python file."""
     if not enable_helper_following or max_followed_helpers_per_function <= 0:
+        _log_helper_following(
+            enabled=log_helper_following,
+            message="Helper-following skipped for %s: disabled by config or zero budget.",
+            args=(file_path,),
+        )
         return [], 0
     if max_followed_helper_lines <= 0 or not file_path.endswith(".py"):
+        _log_helper_following(
+            enabled=log_helper_following,
+            message="Helper-following skipped for %s: non-Python file or no helper line budget.",
+            args=(file_path,),
+        )
         return [], 0
 
     try:
         tree = ast.parse(raw_content)
     except SyntaxError:
+        _log_helper_following(
+            enabled=log_helper_following,
+            message="Helper-following skipped for %s: parse_failed.",
+            args=(file_path,),
+        )
         return [], 0
 
     changed_function = _find_enclosing_python_function(
@@ -405,6 +424,11 @@ def _build_same_file_helper_context(
         changed_end=changed_end,
     )
     if changed_function is None:
+        _log_helper_following(
+            enabled=log_helper_following,
+            message="Helper-following skipped for %s: no enclosing changed function.",
+            args=(file_path,),
+        )
         return [], 0
 
     available_helpers = _module_level_python_functions(tree)
@@ -446,6 +470,11 @@ def _build_same_file_helper_context(
         )
         consumed_lines += helper_line_count
 
+    _log_helper_following(
+        enabled=log_helper_following,
+        message="Helper-following for %s included %s helper snippets using %s lines.",
+        args=(file_path, len(helper_context), consumed_lines),
+    )
     return helper_context, consumed_lines
 
 
@@ -507,3 +536,10 @@ def _collect_direct_same_file_calls(
     collector = _DirectCallCollector(function_node)
     collector.visit(function_node)
     return [symbol for _, symbol in sorted(collector.calls, key=lambda item: item[0])]
+
+
+def _log_helper_following(*, enabled: bool, message: str, args: tuple[object, ...]) -> None:
+    """Emit one helper-following debug message when diagnostics are enabled."""
+    if not enabled:
+        return
+    LOGGER.info(message, *args)

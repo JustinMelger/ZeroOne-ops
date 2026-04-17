@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from ai_sonar_bot.models.config import (
@@ -22,6 +23,7 @@ def build_config(
     supported_paths: list[str] | None = None,
     ignored_paths: list[str] | None = None,
     enable_helper_following: bool = True,
+    log_helper_following: bool = False,
     max_followed_helpers_per_function: int = 3,
     max_followed_helper_lines: int = 120,
     max_followed_helper_lines_per_review: int = 240,
@@ -38,6 +40,7 @@ def build_config(
             max_context_lines_before=1,
             max_context_lines_after=1,
             enable_helper_following=enable_helper_following,
+            log_helper_following=log_helper_following,
             max_followed_helpers_per_function=max_followed_helpers_per_function,
             max_followed_helper_lines=max_followed_helper_lines,
             max_followed_helper_lines_per_review=max_followed_helper_lines_per_review,
@@ -523,3 +526,57 @@ def test_build_limits_same_file_helper_context_by_budget(tmp_path: Path) -> None
 
     assert result.context is not None
     assert result.context.changed_files[0].helper_context == []
+
+
+def test_build_logs_helper_following_when_enabled(tmp_path: Path, caplog) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text(
+        "\n".join(
+            [
+                "def helper():",
+                "    return 1",
+                "",
+                "def service():",
+                "    return helper()",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -4,1 +4,1 @@\n-    return 0\n+    return helper()\n",
+            )
+        ]
+    )
+
+    with caplog.at_level(logging.INFO):
+        result = ReviewContextBuilder(
+            repo_root=tmp_path,
+            config=build_config(),
+            review_client=FakeGitLabReviewClient(merge_request),
+        ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    assert (
+        "Helper-following for src/service.py included 1 helper snippets using 2 lines."
+        not in caplog.text
+    )
+
+    caplog.clear()
+    with caplog.at_level(logging.INFO):
+        result = ReviewContextBuilder(
+            repo_root=tmp_path,
+            config=build_config(log_helper_following=True),
+            review_client=FakeGitLabReviewClient(merge_request),
+        ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    assert (
+        "Helper-following for src/service.py included 1 helper snippets using 2 lines."
+        in caplog.text
+    )
