@@ -114,8 +114,7 @@ def _format_prior_review_feedback(context: IssueContext) -> str:
 def build_review_prompt(context: MergeRequestReviewContext) -> str:
     """Build the review prompt for one merge request."""
     changed_files = "\n\n".join(
-        _format_changed_file_context(changed_file)
-        for changed_file in context.changed_files
+        _format_changed_file_context(changed_file) for changed_file in context.changed_files
     )
     return render_prompt_template(
         "review_merge_request.txt",
