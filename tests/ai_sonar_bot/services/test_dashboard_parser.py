@@ -151,6 +151,41 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     assert "<summary><code>sonar:1</code> details</summary>" in body
 
 
+def test_rendered_dashboard_body_keeps_new_workflow_layout_when_empty() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Dashboard",
+        sections=[
+            DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(
+                key="merge_requests_opened",
+                title="Merge Requests Opened",
+                items=[],
+            ),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(
+                key="rejected_or_ignored",
+                title="Rejected Or Ignored",
+                items=[],
+            ),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    assert "## Open Candidates" in body
+    assert "### Overview" in body
+    assert "| Open | In progress | MR opened | Failed | Done |" in body
+    assert "| 0 | 0 | 0 | 0 | 0 |" in body
+    assert "### Needs Attention" in body
+    assert "### All Workflow Items" in body
+    assert "## In Progress" not in body
+    assert "## Merge Requests Opened" not in body
+    assert "## Completed" not in body
+
+
 def test_rendered_review_section_uses_specialized_review_summary_layout() -> None:
     renderer = DashboardRenderer()
     review_item = DashboardItem(

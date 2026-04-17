@@ -74,6 +74,8 @@ class DashboardParser:
             return []
         matches = list(_ITEM_BLOCK_PATTERN.finditer(content))
         if not matches:
+            if self._is_supported_summary_content(section_key, content):
+                return []
             raise DashboardParseError("Dashboard section did not contain parseable item blocks.")
         parsed: list[DashboardItem] = []
         normalized_blocks: list[str] = []
