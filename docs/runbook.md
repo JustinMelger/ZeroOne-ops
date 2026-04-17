@@ -507,14 +507,50 @@ Make sure the target repository has:
   [examples/.gitlab-ci.example.yml](../examples/.gitlab-ci.example.yml)
 - the published bot image reference updated to the current technical slug, such
   as `ghcr.io/<owner>/zeroone-ops:latest`
-- a repository-specific `.ai-sonar-bot.json`, often copied from
-  [examples/.ai-sonar-bot.json](../examples/.ai-sonar-bot.json)
+- a repository-specific `.ai-sonar-bot.json`, often copied from either:
+  - [examples/.ai-sonar-bot.minimal.json](../examples/.ai-sonar-bot.minimal.json)
+  - [examples/.ai-sonar-bot.json](../examples/.ai-sonar-bot.json)
 - required CI variables set
 - at least one open SonarQube issue that is:
   - low severity in the maintainability model
   - in a file that exists in the repository
   - within the current v1 rule allowlist
   - expected to require only one-file structured edits
+
+### JSON Config Quick Guide
+
+The repository-level `.ai-sonar-bot.json` has a small required core.
+
+Required JSON fields:
+
+- `base_branch`
+- `gitlab.target_branch`
+
+Everything else in the JSON config is optional and falls back to application
+defaults unless your repository needs custom behavior.
+
+This means:
+
+- use the minimal example when you only need a working starting point
+- use the fuller example when you want to pin validation commands, review
+  limits, labels, or other repo-specific behavior explicitly
+- credentials such as GitLab, SonarQube, and OpenAI tokens are still provided
+  through environment variables or CI variables, not through this JSON file
+
+Minimal valid example:
+
+```json
+{
+  "base_branch": "main",
+  "gitlab": {
+    "target_branch": "main"
+  }
+}
+```
+
+Fuller example:
+
+- [examples/.ai-sonar-bot.json](../examples/.ai-sonar-bot.json)
 
 ### Recommended First Test
 

@@ -37,6 +37,8 @@ Current focus:
 - next planned review-context phase after the current testing window:
   function-aware review context, subject to results from live helper-following
   testing
+- separate post-testing operator track: dashboard readability and workflow
+  cleanup for remediation/reconciliation use
 
 Finished foundation:
 
@@ -115,6 +117,10 @@ Status:
 
 - [ ] collect real review examples where the bot was too conservative or too
       noisy
+- [ ] collect operator feedback on note clarity, trust, and actionability in
+      day-to-day review use
+- [ ] clarify operator-facing JSON expectations where it is currently unclear
+      which fields are required versus optional
 - [x] document the current trust-first judgment strategy so prompt tuning and
       later context-expansion work use the same policy baseline
 - [x] tighten the review prompt so deterministic runtime errors, invalid
@@ -126,12 +132,16 @@ Status:
       relaxed so grounded medium-confidence findings can still be reported
 - [ ] document any recurring review patterns that should become prompt,
       validation, or ranking follow-up work after the live-testing period
+- [ ] document recurring operator friction in triaging, interpreting, and
+      acting on review output
 
 Done when:
 
 - the team has a representative set of live review outcomes to evaluate
 - the first batch of real review misses and false positives has been turned
       into regression coverage
+- operator-facing trust and usability feedback has been collected alongside
+      raw review-quality feedback
 - the next review iteration is driven by observed behavior rather than
       speculative tuning
 
@@ -210,6 +220,9 @@ Later:
 - decide after the testing window whether to rename the CLI command, Python
   package path, config filename, env vars, `/opt/ai-sonar-bot`, and GitLab job
   identifiers
+- prioritize the repository config filename in that decision, because
+  `.ai-sonar-bot.json` is still operator-facing and now reads as a misleading
+  legacy name
 - if a runtime rename happens, support both old and new config naming
   temporarily and document the deprecation path
 
@@ -234,6 +247,40 @@ Completed summary:
   execution, lifecycle updates, and CI-only rollout hardening
 - scheduled reconciliation that closes the lifecycle loop for `mr_opened`
   items based on merge-request outcomes while preserving remediation metadata
+
+## Next Operator Workflow Phase
+
+### Dashboard Readability And Workflow Cleanup
+
+Goal:
+
+- improve the operator experience for remediation and reconciliation workflows
+  now that the core bot behavior is proving useful in the test repository
+- make the dashboard and linked MR surfaces easier to scan quickly without
+  reopening workflow logic
+
+Likely direction:
+
+- simplify dashboard status presentation so operators do not need to scan
+  multiple separate status tables for the same workflow
+- evaluate moving toward one overview table with a clear `status` column unless
+  a separate section is truly needed for operator action
+- tighten MR/dashboard information hierarchy so the most important state,
+  outcome, and next-action signals are easier to find
+
+Start after:
+
+- the current review-bot testing window has produced enough confidence that the
+  main remaining friction is operator-surface readability rather than workflow
+  correctness
+
+Done when:
+
+- operators can scan remediation and reconciliation state quickly in one pass
+- dashboard layout reflects real operator workflow better than the current
+  status-silo presentation
+- any small MR/dashboard presentation cleanup stays scoped and does not reopen
+  the core remediation/reconciliation logic
 
 ## Ongoing Operations
 
