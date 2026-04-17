@@ -628,11 +628,11 @@ Goal:
 
 Status:
 
-- [ ] render helper snippets as a separate supporting context block in the
+- [x] render helper snippets as a separate supporting context block in the
       review packet
-- [ ] keep helper ordering deterministic
-- [ ] respect supported/ignored path controls while resolving helpers
-- [ ] add config-controlled helper-following diagnostics for rollout support
+- [x] keep helper ordering deterministic
+- [x] respect supported/ignored path controls while resolving helpers
+- [x] add config-controlled helper-following diagnostics for rollout support
 
 Done when:
 
