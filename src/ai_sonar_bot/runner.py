@@ -42,6 +42,7 @@ def _build_run_id() -> str:
     timestamp = utc_now().strftime("%Y%m%dT%H%M%SZ")
     return f"{timestamp}-{secrets.token_hex(4)}"
 
+
 def review(*, dry_run: bool = False) -> RunSummary:
     """Run the merge-request review workflow."""
     config = load_config()
