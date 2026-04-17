@@ -377,9 +377,15 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     )
     assert "do NOT assume the runtime shape" in prompt
     assert "explain the missing resolution context" in prompt
+    assert "tests consistently use the value like a scalar" in prompt
+    assert "back off rather than invent a mapping-shaped runtime bug" in prompt
     assert "makes an implicit default, fallback, or sentinel-driven path" in prompt
     assert "explicit:" in prompt
     assert "clarification or contract hardening rather than breakage" in prompt
+    assert "dead fallback logic, unreachable cleanup, or redundant" in prompt
+    assert "you may describe that as cleanup or dead code" in prompt
+    assert "do NOT escalate it into a runtime regression" in prompt
+    assert "supported execution path whose behavior is now broken or materially changed" in prompt
     assert "unknown remaining callers may crash unless a visible unchanged caller" in prompt
     assert "compatibility concern for unseen external consumers" in prompt
     assert "Treat visible request/schema validation as authoritative" in prompt
