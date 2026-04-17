@@ -105,3 +105,37 @@ def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatc
     config = load_config()
 
     assert config.write_solution_artifacts_in_ci is True
+
+
+def test_settings_load_helper_following_review_config(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "review": {
+            "enable_helper_following": false,
+            "log_helper_following": true,
+            "helper_follow_depth": 1,
+            "max_followed_helpers_per_function": 2,
+            "max_followed_helper_lines": 80,
+            "max_followed_helper_lines_per_review": 160
+          },
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.review.enable_helper_following is False
+    assert config.review.log_helper_following is True
+    assert config.review.helper_follow_depth == 1
+    assert config.review.max_followed_helpers_per_function == 2
+    assert config.review.max_followed_helper_lines == 80
+    assert config.review.max_followed_helper_lines_per_review == 160

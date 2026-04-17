@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from ai_sonar_bot.models.config import (
@@ -10,6 +11,8 @@ from ai_sonar_bot.models.config import (
 from ai_sonar_bot.models.review import (
     MergeRequestChangedFile,
     MergeRequestReviewCandidate,
+    ReviewFileContext,
+    ReviewHelperContext,
 )
 from ai_sonar_bot.services.review_context_builder import ReviewContextBuilder
 
@@ -19,6 +22,11 @@ def build_config(
     max_changed_files: int = 10,
     supported_paths: list[str] | None = None,
     ignored_paths: list[str] | None = None,
+    enable_helper_following: bool = True,
+    log_helper_following: bool = False,
+    max_followed_helpers_per_function: int = 3,
+    max_followed_helper_lines: int = 120,
+    max_followed_helper_lines_per_review: int = 240,
 ) -> AppConfig:
     return AppConfig(
         base_branch="main",
@@ -31,6 +39,11 @@ def build_config(
             max_changed_files=max_changed_files,
             max_context_lines_before=1,
             max_context_lines_after=1,
+            enable_helper_following=enable_helper_following,
+            log_helper_following=log_helper_following,
+            max_followed_helpers_per_function=max_followed_helpers_per_function,
+            max_followed_helper_lines=max_followed_helper_lines,
+            max_followed_helper_lines_per_review=max_followed_helper_lines_per_review,
             supported_paths=supported_paths or [],
             ignored_paths=ignored_paths or [],
         ),
@@ -322,6 +335,30 @@ def test_build_does_not_set_prior_review_context_by_default(tmp_path: Path) -> N
     assert result.context.prior_review_context is None
 
 
+def test_review_file_context_can_carry_supplemental_helper_context() -> None:
+    context = ReviewFileContext(
+        file_path="src/service.py",
+        diff="@@ -1,1 +1,1 @@",
+        start_line=1,
+        end_line=3,
+        content="   1: def service():\n   2:     return helper()\n   3:\n",
+        full_file_included=False,
+        truncated=True,
+        helper_context=[
+            ReviewHelperContext(
+                file_path="src/service.py",
+                symbol="helper",
+                start_line=5,
+                end_line=6,
+                content="   5: def helper():\n   6:     return 1\n",
+            )
+        ],
+    )
+
+    assert context.helper_context[0].symbol == "helper"
+    assert context.helper_context[0].file_path == "src/service.py"
+
+
 def test_build_loads_bounded_repository_guidance(tmp_path: Path) -> None:
     source_dir = tmp_path / "src"
     source_dir.mkdir()
@@ -377,3 +414,169 @@ def test_build_loads_bounded_repository_guidance(tmp_path: Path) -> None:
     ]
     assert "Prefer regression tests" in result.context.repository_guidance[0].summary
     assert "Prefer no findings" in result.context.repository_guidance[1].summary
+
+
+def test_build_includes_same_file_direct_helper_context_for_python_changes(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text(
+        "\n".join(
+            [
+                "def helper():",
+                "    return 1",
+                "",
+                "def service():",
+                "    return helper()",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -4,1 +4,1 @@\n-    return 0\n+    return helper()\n",
+            )
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(),
+        review_client=FakeGitLabReviewClient(merge_request),
+    ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    helper_context = result.context.changed_files[0].helper_context
+    assert len(helper_context) == 1
+    assert helper_context[0].symbol == "helper"
+    assert "def helper" in helper_context[0].content
+
+
+def test_build_skips_helper_context_when_disabled(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text(
+        "\n".join(
+            [
+                "def helper():",
+                "    return 1",
+                "",
+                "def service():",
+                "    return helper()",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -4,1 +4,1 @@\n-    return 0\n+    return helper()\n",
+            )
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(enable_helper_following=False),
+        review_client=FakeGitLabReviewClient(merge_request),
+    ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    assert result.context.changed_files[0].helper_context == []
+
+
+def test_build_limits_same_file_helper_context_by_budget(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text(
+        "\n".join(
+            [
+                "def helper():",
+                "    value = 1",
+                "    return value",
+                "",
+                "def service():",
+                "    return helper()",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -5,1 +5,1 @@\n-    return 0\n+    return helper()\n",
+            )
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(max_followed_helper_lines=2),
+        review_client=FakeGitLabReviewClient(merge_request),
+    ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    assert result.context.changed_files[0].helper_context == []
+
+
+def test_build_logs_helper_following_when_enabled(tmp_path: Path, caplog) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text(
+        "\n".join(
+            [
+                "def helper():",
+                "    return 1",
+                "",
+                "def service():",
+                "    return helper()",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -4,1 +4,1 @@\n-    return 0\n+    return helper()\n",
+            )
+        ]
+    )
+
+    with caplog.at_level(logging.INFO):
+        result = ReviewContextBuilder(
+            repo_root=tmp_path,
+            config=build_config(),
+            review_client=FakeGitLabReviewClient(merge_request),
+        ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    assert (
+        "Helper-following for src/service.py included 1 helper snippets using 2 lines."
+        not in caplog.text
+    )
+
+    caplog.clear()
+    with caplog.at_level(logging.INFO):
+        result = ReviewContextBuilder(
+            repo_root=tmp_path,
+            config=build_config(log_helper_following=True),
+            review_client=FakeGitLabReviewClient(merge_request),
+        ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    assert (
+        "Helper-following for src/service.py included 1 helper snippets using 2 lines."
+        in caplog.text
+    )

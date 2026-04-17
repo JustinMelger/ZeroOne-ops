@@ -46,6 +46,17 @@ class ReviewFileContext(BaseModel):
     new_file: bool = False
     deleted_file: bool = False
     renamed_file: bool = False
+    helper_context: list[ReviewHelperContext] = Field(default_factory=list)
+
+
+class ReviewHelperContext(BaseModel):
+    """Represent one bounded supplemental helper snippet for review."""
+
+    file_path: str
+    symbol: str
+    start_line: int
+    end_line: int
+    content: str
 
 
 class RemediationReviewContext(BaseModel):

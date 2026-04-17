@@ -14,6 +14,7 @@ from ai_sonar_bot.models.review import (
     MergeRequestReviewContext,
     PriorReviewContext,
     RemediationReviewContext,
+    ReviewFileContext,
 )
 
 
@@ -113,21 +114,7 @@ def _format_prior_review_feedback(context: IssueContext) -> str:
 def build_review_prompt(context: MergeRequestReviewContext) -> str:
     """Build the review prompt for one merge request."""
     changed_files = "\n\n".join(
-        (
-            _format_untrusted_block(
-                label=f"Changed file: {changed_file.file_path}",
-                content="\n".join(
-                    [
-                        f"Diff:\n{changed_file.diff or '(diff unavailable)'}",
-                        (
-                            f"Context lines {changed_file.start_line}-"
-                            f"{changed_file.end_line}:\n{changed_file.content}"
-                        ),
-                    ]
-                ),
-            )
-        )
-        for changed_file in context.changed_files
+        _format_changed_file_context(changed_file) for changed_file in context.changed_files
     )
     return render_prompt_template(
         "review_merge_request.txt",
@@ -144,6 +131,37 @@ def build_review_prompt(context: MergeRequestReviewContext) -> str:
         prior_review_context=_format_prior_review_context(context.prior_review_context),
         repository_guidance=_format_repository_guidance(context),
         changed_files=changed_files,
+    )
+
+
+def _format_changed_file_context(changed_file: ReviewFileContext) -> str:
+    """Render one changed file plus any supporting helper context."""
+    content_parts = [
+        f"Diff:\n{changed_file.diff or '(diff unavailable)'}",
+        (
+            f"Context lines {changed_file.start_line}-"
+            f"{changed_file.end_line}:\n{changed_file.content}"
+        ),
+    ]
+    if changed_file.helper_context:
+        helper_blocks = "\n\n".join(
+            _format_untrusted_block(
+                label=f"Supporting helper: {helper.symbol}",
+                content="\n".join(
+                    [
+                        f"File: {helper.file_path}",
+                        f"Lines: {helper.start_line}-{helper.end_line}",
+                        f"Code:\n{helper.content}",
+                    ]
+                ),
+            )
+            for helper in changed_file.helper_context
+        )
+        content_parts.append(f"Supporting helper context:\n{helper_blocks}")
+
+    return _format_untrusted_block(
+        label=f"Changed file: {changed_file.file_path}",
+        content="\n".join(content_parts),
     )
 
 

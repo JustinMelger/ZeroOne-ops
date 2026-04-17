@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from ai_sonar_bot.models.analysis import CodeContextSnippet, IssueContext, PriorReviewFeedback
+from ai_sonar_bot.models.analysis import (
+    CodeContextSnippet,
+    IssueContext,
+    PriorReviewFeedback,
+)
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.models.review import (
     MergeRequestReviewContext,
@@ -10,6 +14,7 @@ from ai_sonar_bot.models.review import (
     RemediationReviewContext,
     RepositoryGuidanceContext,
     ReviewFileContext,
+    ReviewHelperContext,
     ReviewResult,
 )
 from ai_sonar_bot.providers.llm_fixtures import (
@@ -346,6 +351,10 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "unintended behavioral changes" in prompt
     assert "scope and impact (localized vs shared logic)" in prompt
     assert "ordering, filtering, grouping, selection, and data transformation" in prompt
+    assert "Evidence priority:" in prompt
+    assert "changed code and its immediate local context as the primary evidence" in prompt
+    assert "supporting helper context to confirm, weaken, or refine conclusions" in prompt
+    assert "merge request description as background only" in prompt
     assert "Always report deterministic runtime errors." in prompt
     assert "correctness cannot be inferred from visible code" in prompt
     assert "make the narrowest claim the visible code supports" in prompt
@@ -458,6 +467,46 @@ def test_build_review_prompt_includes_preloaded_input_context_guardrail() -> Non
     assert "do NOT report a context-mismatch finding unless the visible code shows" in prompt
     assert "same request context" in prompt
     assert "generic misuse scenario" in prompt
+
+
+def test_build_review_prompt_renders_supporting_helper_context() -> None:
+    context = MergeRequestReviewContext(
+        mr_iid=18,
+        title="refactor: use helper",
+        description="Adds helper usage.",
+        source_branch="feature/helper",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/18",
+        head_sha="def456",
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                diff="@@ -1 +1 @@\n-return 1\n+return helper()\n",
+                content="   1: def service():\n   2:     return helper()\n",
+                start_line=1,
+                end_line=2,
+                full_file_included=False,
+                truncated=True,
+                helper_context=[
+                    ReviewHelperContext(
+                        file_path="src/service.py",
+                        symbol="helper",
+                        start_line=4,
+                        end_line=5,
+                        content="   4: def helper():\n   5:     return 1\n",
+                    )
+                ],
+            )
+        ],
+    )
+
+    prompt = build_review_prompt(context)
+
+    assert "Supporting helper context:" in prompt
+    assert "<<BEGIN UNTRUSTED Supporting helper: helper>>" in prompt
+    assert "File: src/service.py" in prompt
+    assert "Lines: 4-5" in prompt
+    assert "def helper" in prompt
 
 
 def test_build_review_prompt_includes_remediation_context_when_present() -> None:

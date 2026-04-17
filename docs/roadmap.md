@@ -34,8 +34,9 @@ Current focus:
 
 - ongoing track 1: review bot live testing
 - ongoing track 2: rollout and CI hardening during testing
-- next follow-up phase after the testing window: dashboard-centered review
-  feedback and retry-state work
+- next planned review-context phase after the current testing window:
+  function-aware review context, subject to results from live helper-following
+  testing
 
 Finished foundation:
 
@@ -114,6 +115,8 @@ Status:
 
 - [ ] collect real review examples where the bot was too conservative or too
       noisy
+- [x] document the current trust-first judgment strategy so prompt tuning and
+      later context-expansion work use the same policy baseline
 - [x] tighten the review prompt so deterministic runtime errors, invalid
       operations, and harmful debug code are treated as actionable even when
       they are subtle
@@ -131,6 +134,10 @@ Done when:
       into regression coverage
 - the next review iteration is driven by observed behavior rather than
       speculative tuning
+
+Reference:
+
+- [review-bot-judgment-strategy.md](docs/review-bot-judgment-strategy.md)
 
 ### Track 2: Pre-Release Candidate Hardening During Testing
 
@@ -258,16 +265,26 @@ Design references:
 - [functional-design-dashboard-review-feedback.md](functional-design-dashboard-review-feedback.md)
 - [technical-design-dashboard-review-feedback.md](technical-design-dashboard-review-feedback.md)
 
-## Next Review Follow-Up Phase
+## Completed Review Follow-Up Work
 
-### Incremental PR Review Memory
+Completed summary:
 
-Goal:
+- bounded prior review memory is now persisted and loaded for same-MR follow-up
+  passes
+- repeated review notes can acknowledge unresolved, resolved, and new concerns
+  more conversationally without treating each run as stateless
+- stable finding identity and structured reconciliation now make follow-up
+  matching less dependent on wording drift
+- helper-following review context is implemented for bounded same-file Python
+  helpers and is now available as supporting context during review
 
-- make repeated reviews on the same merge request feel incremental rather than
-  stateless
-- reduce repeated comments after new commits while keeping the current diff and
-  code as the primary evidence surface
+Still being validated in the current testing window:
+
+- how well repeated-review continuity holds up on real merge-request threads
+- whether stable identity causes any collision or over-broad matching in live
+  use
+- how much helper-following reduces call-site-only false positives in practice
+- whether imported-helper following is worth a later slice
 
 Design references:
 
@@ -277,290 +294,99 @@ Design references:
 - [technical-design-pr-review-followup-reconciliation.md](technical-design-pr-review-followup-reconciliation.md)
 - [functional-design-pr-review-stable-finding-identity.md](functional-design-pr-review-stable-finding-identity.md)
 - [technical-design-pr-review-stable-finding-identity.md](technical-design-pr-review-stable-finding-identity.md)
+- [functional-design-pr-review-structured-reconciliation.md](functional-design-pr-review-structured-reconciliation.md)
+- [technical-design-pr-review-structured-reconciliation.md](technical-design-pr-review-structured-reconciliation.md)
+- [functional-design-pr-review-helper-following-context.md](functional-design-pr-review-helper-following-context.md)
+- [technical-design-pr-review-helper-following-context.md](technical-design-pr-review-helper-following-context.md)
 
-#### Phase 1: Persist Bounded Prior Review Passes
-
-Goal:
-
-- extend review state so repeated reviews can reuse compact structured prior
-  bot review history
-
-Status:
-
-- [x] persist bounded prior review passes keyed by MR IID and reviewed SHA
-- [x] store prior review classification, findings count, short summary, and
-      bounded normalized findings
-- [x] bound stored history by `review.max_prior_review_passes`
-- [x] add regression coverage for state persistence and trimming
-
-Done when:
-
-- review state stores enough structured history for later review passes
-- history stays bounded and deterministic
-- the first storage path does not depend on parsing rendered GitLab notes
-
-#### Phase 2: Load Prior Review Context Into Analysis
-
-Goal:
-
-- load compact prior review memory for the same MR and include it in the next
-  review analysis prompt
-
-Status:
-
-- [x] load prior bot-authored review history for the current MR from persisted
-      state
-- [x] inject bounded prior review context into prompt construction
-- [x] keep `review.max_prior_review_passes` configurable with a conservative
-      default of `2`
-- [x] add prompt and service coverage for no-history and repeated-review cases
-
-Done when:
-
-- repeated reviews on the same MR receive bounded prior review memory as prompt
-  context
-- current diff and code remain the primary evidence surface
-- history loading stays same-MR-only and bot-authored-only
-
-#### Phase 3: Incremental Review Output Framing
-
-Goal:
-
-- make repeated bot reviews feel like follow-up passes instead of fresh
-  discoveries
-
-Status:
-
-- [x] add light follow-up framing for unresolved earlier findings
-- [x] allow concise "no new actionable findings since the last reviewed SHA"
-      language when appropriate
-- [x] avoid repeating unchanged earlier findings as if they were newly
-      discovered
-- [x] add regression coverage for repeated-finding and no-new-finding phrasing
-
-Done when:
-
-- repeated reviews read like incremental follow-up notes
-- unresolved earlier findings are framed as follow-up context rather than fresh
-  discoveries
-- output stays concise and trust-building instead of turning into history recap
-
-#### Phase 4: Live Testing And Feedback Tightening
-
-Goal:
-
-- validate the first review-memory behavior against real merge request updates
-  before adding more policy or feedback mechanisms
-
-Status:
-
-- [ ] collect repeated-review examples where new commits previously caused bot
-      repetition
-- [ ] compare repeated-review notes before and after prior-review memory
-- [ ] refine lightweight follow-up phrasing only from real examples
-- [ ] decide whether any later operator feedback loop is needed beyond bounded
-      same-MR memory
-
-Done when:
-
-- repeated-review noise is lower on real merge requests with new commits
-- the bot clearly distinguishes new findings from unresolved earlier ones
-- follow-up phrasing feels natural enough in real review notes without opening
-  a larger redesign
-
-### Follow-Up Review Outcome Reconciliation
-
-Goal:
-
-- make repeated reviews explicitly acknowledge whether earlier concerns still
-  appear unresolved, now appear resolved, or have been replaced by different
-  new concerns
-- make repeated MR reviews feel more like a conversation than a stateless rerun
+## Next Review Context Phase: Function-Aware Review Context
 
 Design references:
 
-- [functional-design-pr-review-followup-reconciliation.md](functional-design-pr-review-followup-reconciliation.md)
-- [technical-design-pr-review-followup-reconciliation.md](technical-design-pr-review-followup-reconciliation.md)
+- [functional-design-pr-review-function-aware-context.md](functional-design-pr-review-function-aware-context.md)
+- [technical-design-pr-review-function-aware-context.md](technical-design-pr-review-function-aware-context.md)
 
-#### Phase 1: Conservative Finding Matching
+### Phase 1: Config And Boundary Detection
 
 Goal:
 
-- derive a bounded internal comparison between the latest prior review pass and
-  the current findings
+- add the function-aware config knobs and implement AST-first enclosing
+  function boundary detection for Python files
 
 Status:
 
-- [x] compare only against the latest prior review pass for the same MR
-- [x] match findings conservatively using file path, title, and normalized summary
-- [x] classify matches as `still_unresolved`, `appears_resolved`, or `new`
-- [x] add regression coverage for repeated, resolved, and new-finding cases
+- [ ] add function-aware review config flags and limits
+- [ ] detect the enclosing Python function for a changed hunk using AST
+- [ ] fall back safely when parsing fails or no enclosing function is found
 
 Done when:
 
-- the review workflow can derive a compact follow-up comparison result without
-  adding a large new schema
-- matching stays conservative and deterministic
+- review config can enable/disable function-aware context explicitly
+- the builder can detect enclosing Python function bounds deterministically
+- unsupported or uncertain cases stay on the existing hunk-window path
 
-#### Phase 2: Conversational Follow-Up Wording
+### Phase 2: Bounded Function Context Expansion
 
 Goal:
 
-- make repeated review notes acknowledge progress or non-progress more clearly
+- expand changed-file review context to the enclosing Python function when it
+  fits within bounded limits
 
 Status:
 
-- [x] render `still unresolved` wording for repeated matched findings
-- [x] render `appears resolved` wording when prior findings disappear and the
-      visible code supports that conclusion
-- [x] render a short mixed follow-up line when an earlier concern appears
-      resolved but a different new concern now appears
-- [x] mention resolved earlier findings in both `no_findings` and mixed
-      new-finding follow-ups when that improves continuity
+- [ ] keep the current fixed hunk window as the baseline
+- [ ] expand to whole-function context when the enclosing function fits within
+      the configured line limit
+- [ ] preserve deterministic `start_line`, `end_line`, and `truncated`
+      behavior
 
 Done when:
 
-- repeated reviews clearly distinguish unresolved, resolved, and new concerns
-- note wording feels more like a continued thread than a fresh review each time
+- small and medium Python functions can be included whole
+- non-Python files continue using the current bounded window logic
+- prompt context remains bounded and deterministic
 
-#### Phase 3: Ambiguity And Trust Guardrails
+### Phase 3: Large-Function Clipping
 
 Goal:
 
-- keep the new follow-up continuity helpful without overclaiming resolution
+- support long Python functions without allowing function-aware context to
+  consume the whole prompt
 
 Status:
 
-- [x] fall back to neutral follow-up wording when finding matching is weak
-- [x] use explicit `unable to verify` wording when current code does not
-      reliably support a resolved conclusion
-- [x] avoid strong resolved wording when the visible code remains ambiguous
-- [x] add regression coverage for ambiguous follow-up cases
+- [ ] add bounded clipping for oversized enclosing functions
+- [ ] keep the function signature visible in clipped output
+- [ ] keep the changed hunk and nearby lines visible in clipped output
 
 Done when:
 
-- the bot does not overstate that a prior issue is fixed when the current code
-  does not support that claim
-- follow-up notes stay trust-building in ambiguous cases
+- large Python functions produce a deterministic clipped function-aware slice
+- the clipped output still keeps the signature and changed hunk visible
+- oversized functions remain marked as truncated
 
-#### Phase 4: Live Testing And Wording Tightening
+### Phase 4: Testing And Tightening
 
 Goal:
 
-- validate the conversational follow-up behavior on real merge-request review
-  threads
+- validate that function-aware expansion improves long-function review quality
+  without bloating prompts unnecessarily
 
 Status:
 
-- [ ] collect real sequences with first finding, repeated finding, and resolved
-      finding outcomes
-- [ ] compare whether operators perceive the new follow-up notes as more
-      conversational and trustworthy
-- [ ] tighten wording only from real examples, not theoretical cases
-- [ ] decide whether a later explicit finding fingerprint or richer relationship
-      schema is actually needed
+- [ ] add deterministic tests for whole-function inclusion, non-Python
+      fallback, and large-function clipping
+- [ ] collect live examples where function-aware expansion improves review
+      accuracy on long legacy methods
+- [ ] decide whether the current function-aware limits are sufficient or need
+      later adjustment
 
 Done when:
 
-- repeated review threads feel more conversational in live use
-- resolved earlier concerns are acknowledged clearly enough to improve operator
-  trust
-- the current simple matching approach is either proven sufficient or clearly
-  bounded for a later follow-up
-
-### Stable Finding Identity For Follow-Up Matching
-
-Goal:
-
-- move repeated-review reconciliation onto a more stable machine-facing finding
-  identity
-- reduce dependence on human title wording for follow-up matching
-- preserve conversational MR notes while making matching more deterministic
-
-Design references:
-
-- [functional-design-pr-review-stable-finding-identity.md](functional-design-pr-review-stable-finding-identity.md)
-- [technical-design-pr-review-stable-finding-identity.md](technical-design-pr-review-stable-finding-identity.md)
-
-#### Phase 1: Persist Canonical Finding Identity
-
-Goal:
-
-- extend persisted prior review finding state with a canonical machine identity
-
-Status:
-
-- [x] add optional stored `identity` field for persisted prior review findings
-- [x] derive the identity in application code from normalized file path and
-      normalized issue subject
-- [x] keep the first identity shape as one canonical stored string
-- [x] preserve current human-facing summary storage alongside the new identity
-
-Done when:
-
-- new persisted review findings store both machine identity and human summary
-- the first identity shape is deterministic, conservative, and test-covered
-
-#### Phase 2: Load Identity Into Prior Review Context
-
-Goal:
-
-- make stable finding identity available during repeated-review reconciliation
-
-Status:
-
-- [x] extend prior review loading to carry stored identity into the review
-      workflow
-- [x] preserve backward compatibility for older entries that do not have
-      identity
-- [x] avoid migration or backfill requirements for the first rollout
-- [x] add regression coverage for mixed old/new persisted review history
-
-Done when:
-
-- repeated-review context can use stable identity when it exists
-- older persisted entries still load safely through legacy state handling
-
-#### Phase 3: Prefer Identity-First Reconciliation
-
-Goal:
-
-- make follow-up matching depend primarily on stored machine identity instead
-  of title drift
-
-Status:
-
-- [x] update follow-up reconciliation to match exact identity first
-- [x] reserve legacy summary/title fallback for older entries without identity
-- [x] keep ambiguity guardrails and conservative trust wording intact
-- [x] add regression coverage for wording-drift cases that should now reconcile
-      through stable identity
-
-Done when:
-
-- same-issue follow-up matching is driven primarily by stored identity
-- title-overlap heuristics are no longer the main path for new persisted entries
-
-#### Phase 4: Live Testing And Collision Review
-
-Goal:
-
-- validate that the first identity shape is stable enough in real repeated
-  review threads without collapsing unrelated same-file findings together
-
-Status:
-
-- [ ] collect live examples where stable identity improves continuity
-- [ ] watch for same-file collision cases or over-broad identity matches
-- [ ] refine normalization only from real examples
-- [ ] decide whether the first identity shape is sufficient or needs a later
-      narrower subject model
-
-Done when:
-
-- repeated-review matching is more reliable in live usage
-- no meaningful collision pattern is observed, or a bounded next refinement is
-      clearly identified
+- function-aware context is covered by deterministic tests
+- live review examples show better handling of long changed functions
+- the team has enough evidence to keep the current limits or make one bounded
+      follow-up adjustment
 
 ## Beyond V1
 
@@ -569,12 +395,9 @@ Post-v1 ideas and expansion tracks now live in
 
 That includes:
 
-- dashboard-centered review feedback and retry-state design
-  - [functional-design-dashboard-review-feedback.md](functional-design-dashboard-review-feedback.md)
-  - [technical-design-dashboard-review-feedback.md](technical-design-dashboard-review-feedback.md)
-- incremental PR review memory design
-  - [functional-design-pr-review-memory.md](functional-design-pr-review-memory.md)
-  - [technical-design-pr-review-memory.md](technical-design-pr-review-memory.md)
+- function-aware review context design
+  - [functional-design-pr-review-function-aware-context.md](functional-design-pr-review-function-aware-context.md)
+  - [technical-design-pr-review-function-aware-context.md](technical-design-pr-review-function-aware-context.md)
 - GitLab dashboard issue support
 - symbol-safe rename handling
 - complex single-file refactors

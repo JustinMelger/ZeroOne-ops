@@ -22,6 +22,11 @@ Review added and modified lines for:
 - scope and impact (localized vs shared logic)
 - ordering, filtering, grouping, selection, and data transformation
 
+Evidence priority:
+- treat the changed code and its immediate local context as the primary evidence
+- use supporting helper context to confirm, weaken, or refine conclusions about the changed code
+- treat the merge request description as background only; it may explain intent, but it must not override what the visible code shows
+
 ----------------------------------------------------------------
 CORE RULES
 ----------------------------------------------------------------
