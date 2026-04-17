@@ -29,23 +29,16 @@ class DashboardRenderer:
         *,
         workflow_items: list[DashboardItem],
     ) -> list[str]:
-        if (
-            section.key
-            in {
-                "in_progress",
-                "merge_requests_opened",
-                "completed",
-                "rejected_or_ignored",
-                "recent_failures",
-            }
-            and workflow_items
-        ):
+        if section.key in {
+            "in_progress",
+            "merge_requests_opened",
+            "completed",
+            "rejected_or_ignored",
+            "recent_failures",
+        }:
             return []
         lines = [f"## {section.title}", ""]
         if section.key == "open_candidates":
-            if not workflow_items:
-                lines.extend(["No items.", ""])
-                return lines
             lines.extend(self._render_workflow_section(workflow_items))
             lines.append("")
             for item in workflow_items:
