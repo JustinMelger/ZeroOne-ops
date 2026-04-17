@@ -10,6 +10,8 @@ from ai_sonar_bot.models.config import (
 from ai_sonar_bot.models.review import (
     MergeRequestChangedFile,
     MergeRequestReviewCandidate,
+    ReviewFileContext,
+    ReviewHelperContext,
 )
 from ai_sonar_bot.services.review_context_builder import ReviewContextBuilder
 
@@ -320,6 +322,30 @@ def test_build_does_not_set_prior_review_context_by_default(tmp_path: Path) -> N
 
     assert result.context is not None
     assert result.context.prior_review_context is None
+
+
+def test_review_file_context_can_carry_supplemental_helper_context() -> None:
+    context = ReviewFileContext(
+        file_path="src/service.py",
+        diff="@@ -1,1 +1,1 @@",
+        start_line=1,
+        end_line=3,
+        content="   1: def service():\n   2:     return helper()\n   3:\n",
+        full_file_included=False,
+        truncated=True,
+        helper_context=[
+            ReviewHelperContext(
+                file_path="src/service.py",
+                symbol="helper",
+                start_line=5,
+                end_line=6,
+                content="   5: def helper():\n   6:     return 1\n",
+            )
+        ],
+    )
+
+    assert context.helper_context[0].symbol == "helper"
+    assert context.helper_context[0].file_path == "src/service.py"
 
 
 def test_build_loads_bounded_repository_guidance(tmp_path: Path) -> None:

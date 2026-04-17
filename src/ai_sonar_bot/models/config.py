@@ -42,6 +42,12 @@ class ReviewConfig(BaseModel):
     max_changed_files: int = 10
     max_context_lines_before: int = 30
     max_context_lines_after: int = 30
+    enable_helper_following: bool = True
+    log_helper_following: bool = False
+    helper_follow_depth: int = 1
+    max_followed_helpers_per_function: int = 3
+    max_followed_helper_lines: int = 120
+    max_followed_helper_lines_per_review: int = 240
     max_findings_per_review: int = 3
     max_prior_review_passes: int = 2
     max_review_feedback_retries: int = 1
