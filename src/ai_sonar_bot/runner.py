@@ -6,7 +6,6 @@ This module acts as the composition root for the bot workflow.
 from __future__ import annotations
 
 import logging
-import os
 import secrets
 from pathlib import Path
 
@@ -26,7 +25,12 @@ from ai_sonar_bot.services.review_state_service import ReviewStateService
 from ai_sonar_bot.services.run_state_service import RunStateService, RunSummary
 from ai_sonar_bot.services.sonar_dashboard_sync_service import SonarDashboardSyncService
 from ai_sonar_bot.services.state_store import StateStore
-from ai_sonar_bot.settings import load_config, load_gitlab_connection_config
+from ai_sonar_bot.settings import (
+    load_config,
+    load_gitlab_connection_config,
+    load_gitlab_project_id_override,
+    load_sonarqube_project_key_override,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -39,16 +43,6 @@ def _build_run_id() -> str:
     return f"{timestamp}-{secrets.token_hex(4)}"
 
 
-def _project_id_from_env() -> str | None:
-    """Read the GitLab project ID override from the environment."""
-    return os.environ.get("GITLAB_PROJECT_ID")
-
-
-def _sonarqube_key_from_env() -> str | None:
-    """Read the SonarQube project key override from the environment."""
-    return os.environ.get("SONARQUBE_PROJECT_KEY")
-
-
 def review(*, dry_run: bool = False) -> RunSummary:
     """Run the merge-request review workflow."""
     config = load_config()
@@ -56,8 +50,8 @@ def review(*, dry_run: bool = False) -> RunSummary:
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,
-        gitlab_project_id=_project_id_from_env(),
-        sonarqube_project_key=_sonarqube_key_from_env(),
+        gitlab_project_id=load_gitlab_project_id_override(),
+        sonarqube_project_key=load_sonarqube_project_key_override(),
     )
     state = state_store.load()
     review_state_service = ReviewStateService(
@@ -90,8 +84,8 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,
-        gitlab_project_id=_project_id_from_env(),
-        sonarqube_project_key=_sonarqube_key_from_env(),
+        gitlab_project_id=load_gitlab_project_id_override(),
+        sonarqube_project_key=load_sonarqube_project_key_override(),
     )
     state = state_store.load()
     run_state_service = RunStateService(config=config, state_store=state_store, state=state)
@@ -122,8 +116,8 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,
-        gitlab_project_id=_project_id_from_env(),
-        sonarqube_project_key=_sonarqube_key_from_env(),
+        gitlab_project_id=load_gitlab_project_id_override(),
+        sonarqube_project_key=load_sonarqube_project_key_override(),
     )
     state = state_store.load()
     run_id = _build_run_id()
@@ -178,8 +172,8 @@ def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,
-        gitlab_project_id=_project_id_from_env(),
-        sonarqube_project_key=_sonarqube_key_from_env(),
+        gitlab_project_id=load_gitlab_project_id_override(),
+        sonarqube_project_key=load_sonarqube_project_key_override(),
     )
     state = state_store.load()
     run_state_service = RunStateService(config=config, state_store=state_store, state=state)

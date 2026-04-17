@@ -3,7 +3,9 @@ from pathlib import Path
 from ai_sonar_bot.settings import (
     load_config,
     load_gitlab_connection_config,
+    load_gitlab_project_id_override,
     load_sonarqube_connection_config,
+    load_sonarqube_project_key_override,
 )
 
 
@@ -139,3 +141,12 @@ def test_settings_load_helper_following_review_config(tmp_path: Path, monkeypatc
     assert config.review.max_followed_helpers_per_function == 2
     assert config.review.max_followed_helper_lines == 80
     assert config.review.max_followed_helper_lines_per_review == 160
+
+
+def test_settings_load_runner_state_metadata_overrides(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "project-key")
+
+    assert load_gitlab_project_id_override() == "123"
+    assert load_sonarqube_project_key_override() == "project-key"

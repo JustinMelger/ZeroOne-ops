@@ -202,3 +202,15 @@ def load_current_merge_request_iid() -> int | None:
         return int(raw_value)
     except ValueError as error:
         raise SettingsError("CI_MERGE_REQUEST_IID must be an integer when set.") from error
+
+
+def load_gitlab_project_id_override() -> str | None:
+    """Load the GitLab project ID override for state metadata when present."""
+    _load_environment_file()
+    return os.environ.get("GITLAB_PROJECT_ID")
+
+
+def load_sonarqube_project_key_override() -> str | None:
+    """Load the SonarQube project key override for state metadata when present."""
+    _load_environment_file()
+    return os.environ.get("SONARQUBE_PROJECT_KEY")
