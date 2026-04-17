@@ -103,11 +103,7 @@ class DashboardParser:
         if section_key == "merge_request_reviews":
             return self._is_supported_review_summary_content(stripped)
         if section_key == "open_candidates":
-            return self._is_supported_workflow_summary_content(
-                stripped
-            ) or self._is_supported_generic_summary_content(
-                stripped,
-            )
+            return self._is_supported_workflow_summary_content(stripped)
         return self._is_supported_generic_summary_content(stripped)
 
     def _is_supported_generic_summary_content(self, content: str) -> bool:
