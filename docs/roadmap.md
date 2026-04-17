@@ -587,10 +587,10 @@ Goal:
 
 Status:
 
-- [ ] add helper-following enable/logging flags and review budgets to
+- [x] add helper-following enable/logging flags and review budgets to
       `ReviewConfig`
-- [ ] add a bounded helper-context model to the review workflow models
-- [ ] keep all new fields additive and backward compatible
+- [x] add a bounded helper-context model to the review workflow models
+- [x] keep all new fields additive and backward compatible
 
 Done when:
 
@@ -608,10 +608,10 @@ Goal:
 
 Status:
 
-- [ ] detect the enclosing changed Python function when one can be identified
-- [ ] extract direct same-file helper calls conservatively from that function
-- [ ] resolve only one clear same-file local definition per helper symbol
-- [ ] skip ambiguous or unsupported cases safely
+- [x] detect the enclosing changed Python function when one can be identified
+- [x] extract direct same-file helper calls conservatively from that function
+- [x] resolve only one clear same-file local definition per helper symbol
+- [x] skip ambiguous or unsupported cases safely
 
 Done when:
 
