@@ -379,6 +379,11 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "explain the missing resolution context" in prompt
     assert "tests consistently use the value like a scalar" in prompt
     assert "back off rather than invent a mapping-shaped runtime bug" in prompt
+    assert "When reasoning about value shape or runtime type:" in prompt
+    assert "treat explicit type hints as strong evidence" in prompt
+    assert "only infer value shape from clear visible assignments, returns," in prompt
+    assert "and local control flow in the review context" in prompt
+    assert "do NOT assume the shape of values derived through helpers, config loaders" in prompt
     assert "makes an implicit default, fallback, or sentinel-driven path" in prompt
     assert "explicit:" in prompt
     assert "clarification or contract hardening rather than breakage" in prompt

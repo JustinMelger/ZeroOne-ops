@@ -66,6 +66,11 @@ alias to one concrete scalar value for this deployment:
 - if the visible code does not show how a config-derived value resolves at runtime, do NOT assume the runtime shape; explain the missing resolution context and prefer `manual_review_only`, a narrower risk statement, or suppression over a concrete bug claim
 - if surrounding changed code and tests consistently use the value like a scalar, but runtime resolution is still not visible, treat that as a reason to back off rather than invent a mapping-shaped runtime bug
 
+When reasoning about value shape or runtime type:
+- treat explicit type hints as strong evidence
+- when type hints are absent, only infer value shape from clear visible assignments, returns, and local control flow in the review context
+- do NOT assume the shape of values derived through helpers, config loaders, or other indirection unless the visible code shows how they resolve
+
 When a refactor makes an implicit default, fallback, or sentinel-driven path
 explicit:
 - do NOT call it a regression unless the visible old and new behaviors differ on a supported path
