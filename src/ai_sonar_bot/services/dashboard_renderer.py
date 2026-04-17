@@ -340,7 +340,7 @@ class DashboardRenderer:
     def _status_marker(self, status: str) -> str:
         """Return one lightweight marker for a workflow status."""
         markers = {
-            "open": "🟡",
+            "open": "🔵",
             "in_progress": "🟠",
             "mr_opened": "📦",
             "failed": "🔴",
