@@ -226,12 +226,18 @@ def test_rendered_review_section_uses_specialized_review_summary_layout() -> Non
     assert "| Reviews | Needs attention | Findings total | High priority |" in body
     assert "| 1 | 1 | 3 | 1 |" in body
     assert "### Needs Attention" in body
-    assert "| MR | Outcome | Findings | Priority | Summary |" in body
+    assert "| MR | Outcome | Findings | Confidence | Priority | Summary |" in body
     assert "[!363](https://gitlab.example.com/group/project/-/merge_requests/363)" in body
     assert "⚠️ Findings present" in body
+    assert (
+        "| [!363](https://gitlab.example.com/group/project/-/merge_requests/363) | "
+        "⚠️ Findings present | 3 | - | 🔴 High | "
+        "License logic change with visible redirect impact. | `abc123de` |"
+        in body
+    )
     assert "License logic change with visible redirect impact." in body
     assert "### All Reviews" in body
-    assert "| MR | Outcome | Findings | Priority | Summary | Reviewed SHA |" in body
+    assert "| MR | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |" in body
     assert "`abc123de`" in body
 
 
@@ -790,7 +796,7 @@ def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:
 
     assert "### Needs Attention" in body
     assert "No items." in body
-    assert "| !42 | ✅ No findings | 0 | 🟢 Low | No findings. | `abc123` |" in body
+    assert "| !42 | ✅ No findings | 0 | - | 🟢 Low | No findings. | `abc123` |" in body
     assert '"review_status": "no_findings"' in body
     assert '"file":' not in body
     assert '"rule":' not in body

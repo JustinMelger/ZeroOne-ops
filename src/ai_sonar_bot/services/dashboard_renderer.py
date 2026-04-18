@@ -227,24 +227,7 @@ class DashboardRenderer:
     def _render_review_attention_table(self, items: list[DashboardItem]) -> list[str]:
         """Render the focused attention queue for merge request reviews."""
         lines = [
-            "| MR | Outcome | Findings | Priority | Summary |",
-            "|---|---|---|---|---|",
-        ]
-        for item in items:
-            lines.append(
-                "| "
-                f"{self._render_merge_request_label(item)} | "
-                f"{self._render_review_outcome(item)} | "
-                f"{item.review_findings_count or 0} | "
-                f"{self._render_priority(item)} | "
-                f"{self._render_review_summary(item)} |"
-            )
-        return lines
-
-    def _render_all_reviews_table(self, items: list[DashboardItem]) -> list[str]:
-        """Render the full merge request review history table."""
-        lines = [
-            "| MR | Outcome | Findings | Priority | Summary | Reviewed SHA |",
+            "| MR | Outcome | Findings | Confidence | Priority | Summary |",
             "|---|---|---|---|---|---|",
         ]
         for item in items:
@@ -253,11 +236,36 @@ class DashboardRenderer:
                 f"{self._render_merge_request_label(item)} | "
                 f"{self._render_review_outcome(item)} | "
                 f"{item.review_findings_count or 0} | "
+                f"{self._render_review_confidence(item)} | "
+                f"{self._render_priority(item)} | "
+                f"{self._render_review_summary(item)} |"
+            )
+        return lines
+
+    def _render_all_reviews_table(self, items: list[DashboardItem]) -> list[str]:
+        """Render the full merge request review history table."""
+        lines = [
+            "| MR | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for item in items:
+            lines.append(
+                "| "
+                f"{self._render_merge_request_label(item)} | "
+                f"{self._render_review_outcome(item)} | "
+                f"{item.review_findings_count or 0} | "
+                f"{self._render_review_confidence(item)} | "
                 f"{self._render_priority(item)} | "
                 f"{self._render_review_summary(item)} | "
                 f"`{self._short_sha(item.reviewed_head_sha)}` |"
             )
         return lines
+
+    def _render_review_confidence(self, item: DashboardItem) -> str:
+        """Render one compact numeric confidence value for review rows."""
+        if item.review_confidence is None:
+            return "-"
+        return f"{item.review_confidence:.2f}"
 
     def _render_summary_table(self, items: list[DashboardItem]) -> list[str]:
         """Render one human-readable summary table for section items."""
