@@ -13,7 +13,7 @@ class DashboardRenderer:
     def render(self, *, title: str, sections: list[DashboardSection]) -> str:
         """Render one dashboard body."""
         lines = [
-            "Machine-managed remediation and review items.",
+            "Machine-managed remediation and review items for this repository.",
             "",
         ]
         workflow_items = self._workflow_items(sections)
