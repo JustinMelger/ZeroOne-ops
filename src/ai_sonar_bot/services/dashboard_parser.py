@@ -59,15 +59,14 @@ class DashboardParser:
         )
 
     def _extract_section_content(self, body: str, section_title: str) -> str:
-        section_heading = f"## {section_title}\n"
-        start = body.find(section_heading)
-        if start == -1:
+        pattern = re.compile(
+            rf"^## {re.escape(section_title)}\n(?P<content>.*?)(?=^## |\Z)",
+            re.MULTILINE | re.DOTALL,
+        )
+        match = pattern.search(body)
+        if match is None:
             return ""
-        start += len(section_heading)
-        next_index = body.find("\n## ", start)
-        if next_index == -1:
-            return body[start:].strip()
-        return body[start:next_index].strip()
+        return match.group("content").strip()
 
     def _parse_section_items(self, section_key: str, content: str) -> list[DashboardItem]:
         if not content or content == "No items.":
@@ -159,7 +158,7 @@ class DashboardParser:
     def _is_supported_workflow_summary_content(self, content: str) -> bool:
         """Return whether remaining content is a supported workflow summary layout."""
         blocks = self._summary_blocks(content)
-        if len(blocks) != 6:
+        if len(blocks) != 10:
             return False
         if blocks[0] != ["### Overview"]:
             return False
@@ -173,16 +172,34 @@ class DashboardParser:
             return False
         if blocks[3] != ["No items."] and not self._matches_table(
             blocks[3],
-            header="| Item | Status | Priority | Summary |",
+            header="| Item | File | Priority | Summary |",
             separator="|---|---|---|---|",
         ):
             return False
-        if blocks[4] != ["### All Workflow Items"]:
+        if blocks[4] != ["### In Flight"]:
             return False
-        return self._matches_table(
+        if blocks[5] != ["No items."] and not self._matches_table(
             blocks[5],
-            header="| Item | Status | Priority | Summary |",
+            header="| Item | Status | Priority | Review Summary |",
             separator="|---|---|---|---|",
+        ):
+            return False
+        if blocks[6] != ["### Completed"]:
+            return False
+        if blocks[7] != ["No items."] and not self._matches_table(
+            blocks[7],
+            header="| Item | Priority | Summary |",
+            separator="|---|---|---|",
+        ):
+            return False
+        if blocks[8] != ["### Work Type Breakdown"]:
+            return False
+        if blocks[9] == ["No items."]:
+            return True
+        return self._matches_table(
+            blocks[9],
+            header="| Work Type | Count |",
+            separator="|---|---|",
         )
 
     def _summary_blocks(self, content: str) -> list[list[str]]:
