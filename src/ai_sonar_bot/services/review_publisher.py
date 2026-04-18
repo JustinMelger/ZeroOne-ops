@@ -436,10 +436,18 @@ def _match_prior_finding(
     prior_findings: list[FollowUpFindingStatus],
 ) -> FollowUpFindingStatus | None:
     """Match one current finding to one prior finding conservatively."""
+    candidate_prior_findings = _candidate_prior_findings(
+        current_finding=current_finding,
+        current_identity=current_identity,
+        current_legacy_identity=current_legacy_identity,
+        current_key=current_key,
+        prior_findings=prior_findings,
+    )
+
     identity_match = next(
         (
             prior_finding
-            for prior_finding in prior_findings
+            for prior_finding in candidate_prior_findings
             if prior_finding.identity is not None and prior_finding.identity == current_identity
         ),
         None,
@@ -450,7 +458,7 @@ def _match_prior_finding(
     legacy_identity_match = next(
         (
             prior_finding
-            for prior_finding in prior_findings
+            for prior_finding in candidate_prior_findings
             if current_legacy_identity
             in {
                 prior_finding.identity,
@@ -465,7 +473,7 @@ def _match_prior_finding(
     exact_match = next(
         (
             prior_finding
-            for prior_finding in prior_findings
+            for prior_finding in candidate_prior_findings
             if prior_finding.legacy_identity is None
             and _prior_finding_key(prior_finding.summary) == current_key
         ),
@@ -474,20 +482,126 @@ def _match_prior_finding(
     if exact_match is not None:
         return exact_match
 
-    current_path = current_finding.file_path.strip().lower()
     current_title = current_finding.title
-    for prior_finding in prior_findings:
-        if prior_finding.legacy_identity is not None:
-            continue
+    current_has_structured_fields = _has_structured_continuity_fields(
+        symbol=current_finding.symbol,
+        issue_kind=current_finding.issue_kind,
+        region_hint=current_finding.region_hint,
+    )
+    fuzzy_candidates: list[FollowUpFindingStatus] = []
+    for prior_finding in candidate_prior_findings:
         parsed_prior_summary = _split_prior_summary(prior_finding.summary)
         if parsed_prior_summary is None:
             continue
-        prior_path, prior_title = parsed_prior_summary
-        if prior_path.strip().lower() != current_path:
+        _, prior_title = parsed_prior_summary
+        prior_has_structured_fields = _has_structured_continuity_fields(
+            symbol=prior_finding.symbol,
+            issue_kind=prior_finding.issue_kind,
+            region_hint=prior_finding.region_hint,
+        )
+        if current_has_structured_fields and prior_has_structured_fields:
             continue
         if _titles_look_like_same_finding(current_title, prior_title):
-            return prior_finding
+            fuzzy_candidates.append(prior_finding)
+    if len(fuzzy_candidates) == 1:
+        return fuzzy_candidates[0]
     return None
+
+
+def _candidate_prior_findings(
+    *,
+    current_finding: ReviewFinding,
+    current_identity: str,
+    current_legacy_identity: str,
+    current_key: tuple[str, str, str],
+    prior_findings: list[FollowUpFindingStatus],
+) -> list[FollowUpFindingStatus]:
+    """Return a bounded candidate set for overlap matching."""
+    identity_matches = [
+        prior_finding
+        for prior_finding in prior_findings
+        if prior_finding.identity is not None and prior_finding.identity == current_identity
+    ]
+    if identity_matches:
+        return identity_matches
+
+    legacy_identity_matches = [
+        prior_finding
+        for prior_finding in prior_findings
+        if current_legacy_identity in {prior_finding.identity, prior_finding.legacy_identity}
+    ]
+    if legacy_identity_matches:
+        return legacy_identity_matches
+
+    exact_key_matches = [
+        prior_finding
+        for prior_finding in prior_findings
+        if prior_finding.legacy_identity is None
+        and _prior_finding_key(prior_finding.summary) == current_key
+    ]
+    if exact_key_matches:
+        return exact_key_matches
+
+    current_file_path = _normalized_file_path(current_finding.file_path)
+    same_file_candidates = [
+        prior_finding
+        for prior_finding in prior_findings
+        if _normalized_file_path(prior_finding.file_path) == current_file_path
+    ]
+    if not same_file_candidates:
+        return []
+
+    narrowed_candidates = _narrow_candidates_by_field(
+        same_file_candidates,
+        field_name='symbol',
+        expected_value=current_finding.symbol,
+    )
+    narrowed_candidates = _narrow_candidates_by_field(
+        narrowed_candidates,
+        field_name='issue_kind',
+        expected_value=current_finding.issue_kind,
+    )
+    narrowed_candidates = _narrow_candidates_by_field(
+        narrowed_candidates,
+        field_name='region_hint',
+        expected_value=current_finding.region_hint,
+    )
+    return narrowed_candidates
+
+
+def _narrow_candidates_by_field(
+    candidates: list[FollowUpFindingStatus],
+    *,
+    field_name: str,
+    expected_value: str | None,
+) -> list[FollowUpFindingStatus]:
+    """Return a narrower candidate set when a structured field matches."""
+    if expected_value is None:
+        return candidates
+
+    matching_candidates = [
+        candidate
+        for candidate in candidates
+        if getattr(candidate, field_name) == expected_value
+    ]
+    return matching_candidates or candidates
+
+
+def _normalized_file_path(file_path: str | None) -> str | None:
+    """Return a normalized file path for candidate narrowing."""
+    if file_path is None:
+        return None
+    return file_path.strip().lower()
+
+
+def _has_structured_continuity_fields(
+    *,
+    symbol: str | None,
+    issue_kind: str | None,
+    region_hint: str | None,
+) -> bool:
+    """Return whether a finding carries structured continuity fields."""
+    return any(value is not None for value in (symbol, issue_kind, region_hint))
 
 
 def _titles_look_like_same_finding(current_title: str, prior_title: str) -> bool:
