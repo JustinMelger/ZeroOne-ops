@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import logging
 import re
 from dataclasses import dataclass
@@ -15,13 +14,14 @@ from ai_sonar_bot.models.review import (
     RemediationReviewContext,
     RepositoryGuidanceContext,
     ReviewFileContext,
-    ReviewHelperContext,
 )
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
 from ai_sonar_bot.services.context_builder import (
     _format_with_line_numbers,
     _window_bounds,
 )
+from ai_sonar_bot.services.review_function_context import select_function_aware_window
+from ai_sonar_bot.services.review_helper_context import build_same_file_helper_context
 
 HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 SECTION_HEADER_PATTERN = re.compile(r"^## (?P<title>.+)$", re.MULTILINE)
@@ -122,8 +122,30 @@ class ReviewContextBuilder:
                     changed_end - changed_start,
                 ),
             )
-            snippet_lines = lines[start_line - 1 : end_line]
-            helper_context, consumed_helper_lines = _build_same_file_helper_context(
+            function_window = select_function_aware_window(
+                file_path=change.new_path,
+                raw_content=raw_content,
+                line_count=line_count,
+                changed_start=changed_start,
+                changed_end=changed_end,
+                fallback_start_line=start_line,
+                fallback_end_line=end_line,
+                enable_function_context=self.config.review.enable_function_context,
+                max_function_context_lines=self.config.review.max_function_context_lines,
+            )
+            start_line = function_window.start_line
+            end_line = function_window.end_line
+            content = _format_line_ranges_with_numbers(
+                lines=lines,
+                line_ranges=function_window.line_ranges,
+            )
+            full_file_included = (
+                len(function_window.line_ranges) == 1
+                and start_line == 1
+                and end_line == max(line_count, 1)
+            )
+            helper_context, consumed_helper_lines = build_same_file_helper_context(
+                repo_root=self.repo_root,
                 file_path=change.new_path,
                 raw_content=raw_content,
                 lines=lines,
@@ -138,6 +160,8 @@ class ReviewContextBuilder:
                     self.config.review.max_followed_helper_lines,
                     remaining_helper_lines,
                 ),
+                supported_paths=self.config.review.supported_paths,
+                ignored_paths=self.config.review.ignored_paths,
             )
             remaining_helper_lines = max(0, remaining_helper_lines - consumed_helper_lines)
             changed_files.append(
@@ -146,12 +170,9 @@ class ReviewContextBuilder:
                     diff=change.diff,
                     start_line=start_line,
                     end_line=end_line,
-                    content=_format_with_line_numbers(
-                        start_line=start_line,
-                        lines=snippet_lines,
-                    ),
-                    full_file_included=start_line == 1 and end_line == max(line_count, 1),
-                    truncated=not (start_line == 1 and end_line == max(line_count, 1)),
+                    content=content,
+                    full_file_included=full_file_included,
+                    truncated=not full_file_included,
                     new_file=change.new_file,
                     deleted_file=change.deleted_file,
                     renamed_file=change.renamed_file,
@@ -277,6 +298,31 @@ def _parse_remediation_context(description: str | None) -> RemediationReviewCont
     return context
 
 
+def _format_line_ranges_with_numbers(
+    *,
+    lines: list[str],
+    line_ranges: tuple[tuple[int, int], ...],
+) -> str:
+    """Format one or more source ranges with numbered lines and omitted gaps."""
+    if not line_ranges:
+        return ""
+
+    formatted_parts: list[str] = []
+    for index, (start_line, end_line) in enumerate(line_ranges):
+        range_lines = lines[start_line - 1 : end_line]
+        if formatted_parts:
+            previous_end = line_ranges[index - 1][1]
+            if start_line > previous_end + 1:
+                formatted_parts.append(" ...")
+        formatted_parts.append(
+            _format_with_line_numbers(
+                start_line=start_line,
+                lines=range_lines,
+            )
+        )
+    return "\n".join(part for part in formatted_parts if part)
+
+
 def _parse_markdown_sections(text: str) -> dict[str, str]:
     """Split a markdown document into second-level heading sections."""
     matches = list(SECTION_HEADER_PATTERN.finditer(text))
@@ -378,168 +424,3 @@ def _extract_guidance_summary(path: Path) -> str | None:
     if len(summary) > MAX_GUIDANCE_CHARS:
         return f"{summary[: MAX_GUIDANCE_CHARS - 3].rstrip()}..."
     return summary
-
-
-def _build_same_file_helper_context(
-    *,
-    file_path: str,
-    raw_content: str,
-    lines: list[str],
-    changed_start: int,
-    changed_end: int,
-    enable_helper_following: bool,
-    log_helper_following: bool,
-    max_followed_helpers_per_function: int,
-    max_followed_helper_lines: int,
-) -> tuple[list[ReviewHelperContext], int]:
-    """Return bounded same-file helper context for one changed Python file."""
-    if not enable_helper_following or max_followed_helpers_per_function <= 0:
-        _log_helper_following(
-            enabled=log_helper_following,
-            message="Helper-following skipped for %s: disabled by config or zero budget.",
-            args=(file_path,),
-        )
-        return [], 0
-    if max_followed_helper_lines <= 0 or not file_path.endswith(".py"):
-        _log_helper_following(
-            enabled=log_helper_following,
-            message="Helper-following skipped for %s: non-Python file or no helper line budget.",
-            args=(file_path,),
-        )
-        return [], 0
-
-    try:
-        tree = ast.parse(raw_content)
-    except SyntaxError:
-        _log_helper_following(
-            enabled=log_helper_following,
-            message="Helper-following skipped for %s: parse_failed.",
-            args=(file_path,),
-        )
-        return [], 0
-
-    changed_function = _find_enclosing_python_function(
-        tree=tree,
-        changed_start=changed_start,
-        changed_end=changed_end,
-    )
-    if changed_function is None:
-        _log_helper_following(
-            enabled=log_helper_following,
-            message="Helper-following skipped for %s: no enclosing changed function.",
-            args=(file_path,),
-        )
-        return [], 0
-
-    available_helpers = _module_level_python_functions(tree)
-    helper_calls = _collect_direct_same_file_calls(changed_function)
-
-    helper_context: list[ReviewHelperContext] = []
-    consumed_lines = 0
-    seen_symbols: set[str] = set()
-    for symbol in helper_calls:
-        if symbol in seen_symbols:
-            continue
-        seen_symbols.add(symbol)
-        if len(helper_context) >= max_followed_helpers_per_function:
-            break
-
-        helper_node = available_helpers.get(symbol)
-        if helper_node is None:
-            continue
-        if helper_node is changed_function:
-            continue
-
-        start_line = helper_node.lineno
-        end_line = helper_node.end_lineno or helper_node.lineno
-        helper_line_count = end_line - start_line + 1
-        if consumed_lines + helper_line_count > max_followed_helper_lines:
-            continue
-
-        helper_context.append(
-            ReviewHelperContext(
-                file_path=file_path,
-                symbol=symbol,
-                start_line=start_line,
-                end_line=end_line,
-                content=_format_with_line_numbers(
-                    start_line=start_line,
-                    lines=lines[start_line - 1 : end_line],
-                ),
-            )
-        )
-        consumed_lines += helper_line_count
-
-    _log_helper_following(
-        enabled=log_helper_following,
-        message="Helper-following for %s included %s helper snippets using %s lines.",
-        args=(file_path, len(helper_context), consumed_lines),
-    )
-    return helper_context, consumed_lines
-
-
-def _find_enclosing_python_function(
-    *,
-    tree: ast.AST,
-    changed_start: int,
-    changed_end: int,
-) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
-    """Return the smallest enclosing Python function for the changed lines."""
-    candidates = [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and node.lineno <= changed_start
-        and (node.end_lineno or node.lineno) >= changed_end
-    ]
-    if not candidates:
-        return None
-    return min(candidates, key=lambda node: (node.end_lineno or node.lineno) - node.lineno)
-
-
-def _module_level_python_functions(
-    tree: ast.AST,
-) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
-    """Return same-file module-level function definitions keyed by symbol."""
-    if not isinstance(tree, ast.Module):
-        return {}
-    functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
-    for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            functions.setdefault(node.name, node)
-    return functions
-
-
-def _collect_direct_same_file_calls(
-    function_node: ast.FunctionDef | ast.AsyncFunctionDef,
-) -> list[str]:
-    """Return direct same-file call names in first-seen order."""
-
-    class _DirectCallCollector(ast.NodeVisitor):
-        def __init__(self, root: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-            self._root = root
-            self.calls: list[tuple[int, str]] = []
-
-        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
-            if node is self._root:
-                self.generic_visit(node)
-
-        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:  # noqa: N802
-            if node is self._root:
-                self.generic_visit(node)
-
-        def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
-            if isinstance(node.func, ast.Name):
-                self.calls.append((node.lineno, node.func.id))
-            self.generic_visit(node)
-
-    collector = _DirectCallCollector(function_node)
-    collector.visit(function_node)
-    return [symbol for _, symbol in sorted(collector.calls, key=lambda item: item[0])]
-
-
-def _log_helper_following(*, enabled: bool, message: str, args: tuple[object, ...]) -> None:
-    """Emit one helper-following debug message when diagnostics are enabled."""
-    if not enabled:
-        return
-    LOGGER.info(message, *args)

@@ -205,7 +205,7 @@ def test_render_note_formats_findings_present() -> None:
         ),
     )
 
-    assert "## AI Review Summary" in body
+    assert body.startswith("Hi,\n\nHere are your review notes.")
     assert "One medium-risk finding." in body
     assert "Review confidence: 0.82" in body
     assert "Reason: The diff is small and the evidence is specific." in body
@@ -233,6 +233,7 @@ def test_render_note_formats_no_findings() -> None:
     )
 
     assert "No actionable findings in this review pass." in body
+    assert body.startswith("Hi,\n\nHere are your review notes.")
     assert "Review confidence: 0.91" in body
     assert "- Reviewed merge request: `!17`" in body
     assert "- Files reviewed: 1" in body
@@ -273,6 +274,7 @@ def test_render_note_formats_manual_review_only() -> None:
     )
 
     assert "Bot assessment was insufficient for a trustworthy review decision." in body
+    assert body.startswith("Hi,\n\nHere are your review notes.")
     assert "Review confidence: 0.34" in body
     assert "The diff is too broad to assess reliably in this pass." in body
     assert "This is not an actionable finding by itself." in body

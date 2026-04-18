@@ -111,7 +111,9 @@ class ReviewPublisher:
             )
             return "\n".join(
                 [
-                    "## AI Review Summary",
+                    "Hi,",
+                    "",
+                    "Here are your review notes.",
                     "",
                     summary_line,
                     *_render_follow_up_lines(context, review_result),
@@ -126,7 +128,9 @@ class ReviewPublisher:
         if review_result.classification == "manual_review_only":
             return "\n".join(
                 [
-                    "## AI Review Summary",
+                    "Hi,",
+                    "",
+                    "Here are your review notes.",
                     "",
                     "Bot assessment was insufficient for a trustworthy review decision.",
                     *_render_follow_up_lines(context, review_result),
@@ -162,7 +166,9 @@ class ReviewPublisher:
 
         return "\n".join(
             [
-                "## AI Review Summary",
+                "Hi,",
+                "",
+                "Here are your review notes.",
                 "",
                 *_render_follow_up_lines(context, review_result),
                 review_result.summary,
