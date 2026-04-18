@@ -232,8 +232,7 @@ def test_rendered_review_section_uses_specialized_review_summary_layout() -> Non
     assert (
         "| [!363](https://gitlab.example.com/group/project/-/merge_requests/363) | "
         "⚠️ Findings present | 3 | - | 🔴 High | "
-        "License logic change with visible redirect impact. | `abc123de` |"
-        in body
+        "License logic change with visible redirect impact. | `abc123de` |" in body
     )
     assert "License logic change with visible redirect impact." in body
     assert "### All Reviews" in body
