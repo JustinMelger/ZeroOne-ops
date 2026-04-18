@@ -32,7 +32,7 @@ def test_find_open_issue_returns_exact_title_match() -> None:
                     "id": 3,
                     "iid": 4,
                     "web_url": "https://gitlab.example.com/group/project/-/issues/4",
-                    "title": "AI Code Ops Dashboard",
+                    "title": "AI Code Ops Work Queue",
                     "description": "body",
                 },
             ],
@@ -48,7 +48,7 @@ def test_find_open_issue_returns_exact_title_match() -> None:
 
     issue = client.find_open_issue(
         project_id="123",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         labels=["ai-code-ops", "dashboard"],
     )
 
@@ -66,7 +66,7 @@ def test_create_issue_normalizes_response() -> None:
                 "id": 10,
                 "iid": 11,
                 "web_url": "https://gitlab.example.com/group/project/-/issues/11",
-                "title": "AI Code Ops Dashboard",
+                "title": "AI Code Ops Work Queue",
                 "description": "body",
             },
         )
@@ -81,7 +81,7 @@ def test_create_issue_normalizes_response() -> None:
 
     issue = client.create_issue(
         project_id="123",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         description="body",
         labels=["ai-code-ops", "dashboard"],
     )
@@ -100,7 +100,7 @@ def test_update_issue_normalizes_response() -> None:
                 "id": 10,
                 "iid": 11,
                 "web_url": "https://gitlab.example.com/group/project/-/issues/11",
-                "title": "AI Code Ops Dashboard",
+                "title": "AI Code Ops Work Queue",
                 "description": "updated body",
             },
         )

@@ -76,7 +76,7 @@ def test_load_or_create_creates_dashboard_when_missing() -> None:
 
     document = service.load_or_create(project_id="123")
 
-    assert document.title == "AI Code Ops Dashboard"
+    assert document.title == "AI Code Ops Work Queue"
     assert len(document.sections) == 7
     assert document.sections[0].items == []
 
@@ -86,7 +86,7 @@ def test_upsert_items_updates_existing_dashboard_without_duplicates() -> None:
         id=10,
         iid=11,
         web_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         description="",
     )
     client = FakeDashboardClient(existing_issue=existing_issue)
@@ -113,7 +113,7 @@ def test_upsert_items_applies_section_retention_limits() -> None:
         id=10,
         iid=11,
         web_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         description="",
     )
     client = FakeDashboardClient(existing_issue=existing_issue)
@@ -149,7 +149,7 @@ def test_done_items_render_under_completed_section() -> None:
         id=10,
         iid=11,
         web_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         description="",
     )
     client = FakeDashboardClient(existing_issue=existing_issue)

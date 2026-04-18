@@ -27,7 +27,7 @@ def test_parse_round_trips_rendered_dashboard_body() -> None:
     renderer = DashboardRenderer()
     parser = DashboardParser()
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="open_candidates",
@@ -55,7 +55,7 @@ def test_parse_round_trips_rendered_dashboard_body() -> None:
         issue_id=10,
         issue_iid=11,
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         body=body,
     )
 
@@ -67,7 +67,7 @@ def test_parse_round_trips_dashboard_item_datetime_metadata() -> None:
     renderer = DashboardRenderer()
     parser = DashboardParser()
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="in_progress",
@@ -102,7 +102,7 @@ def test_parse_round_trips_dashboard_item_datetime_metadata() -> None:
         issue_id=10,
         issue_iid=11,
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         body=body,
     )
 
@@ -115,7 +115,7 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     renderer = DashboardRenderer()
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="open_candidates",
@@ -143,10 +143,14 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     assert "| Open | In progress | MR opened | Failed | Done |" in body
     assert "| 1 | 0 | 0 | 0 | 0 |" in body
     assert "### Needs Attention" in body
-    assert "| Item | Status | Priority | Summary |" in body
-    assert "`sonar:1` (src/service.py)" in body
-    assert "Open" in body
-    assert "Low" in body
+    assert "| Item | File | Priority | Suggested Action | Summary |" in body
+    assert "`sonar:1`" in body
+    assert "`service.py`" in body
+    assert "Auto-fix" in body
+    assert "Simplify boolean comparison" in body
+    assert "### In Flight" in body
+    assert "### Completed" in body
+    assert "### Work Type Breakdown" in body
     assert "<details>" in body
     assert "<summary><code>sonar:1</code> details</summary>" in body
 
@@ -155,7 +159,7 @@ def test_rendered_dashboard_body_keeps_new_workflow_layout_when_empty() -> None:
     renderer = DashboardRenderer()
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
@@ -180,10 +184,12 @@ def test_rendered_dashboard_body_keeps_new_workflow_layout_when_empty() -> None:
     assert "| Open | In progress | MR opened | Failed | Done |" in body
     assert "| 0 | 0 | 0 | 0 | 0 |" in body
     assert "### Needs Attention" in body
-    assert "### All Workflow Items" in body
+    assert "### In Flight" in body
+    assert "### Completed" in body
+    assert "### Work Type Breakdown" in body
     assert "## In Progress" not in body
     assert "## Merge Requests Opened" not in body
-    assert "## Completed" not in body
+    assert "\n## Completed\n" not in body
 
 
 def test_rendered_review_section_uses_specialized_review_summary_layout() -> None:
@@ -206,7 +212,7 @@ def test_rendered_review_section_uses_specialized_review_summary_layout() -> Non
     )
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="merge_request_reviews",
@@ -233,7 +239,7 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
     renderer = DashboardRenderer()
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
@@ -255,15 +261,16 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
         ],
     )
 
-    assert "| Item | Status | Priority | Summary |" in body
-    assert "Merge request metadata is inaccessible from GitLab." in body
+    assert "| Item | File | Priority | Suggested Action | Summary |" in body
+    assert "Review" in body
+    assert "Simplify boolean comparison" in body
 
 
 def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() -> None:
     renderer = DashboardRenderer()
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="open_candidates",
@@ -300,17 +307,23 @@ def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() ->
     assert "| Open | In progress | MR opened | Failed | Done |" in body
     assert "| 1 | 1 | 1 | 0 | 0 |" in body
     assert "### Needs Attention" in body
-    assert "### All Workflow Items" in body
-    assert "`sonar:open` (src/service.py)" in body
-    assert "`sonar:progress` (src/service.py)" in body
-    assert "[!42](https://gitlab.example.com/group/project/-/merge_requests/42)" in body
+    assert "| Item | File | Priority | Suggested Action | Summary |" in body
+    assert "### In Flight" in body
+    assert "| Item | Status | Priority | Review Summary |" in body
+    assert "### Completed" in body
+    assert "### Work Type Breakdown" in body
+    assert "`sonar:open`" in body
+    assert "`sonar:progress`" in body
+    assert "`sonar:mr`" in body
+    assert "Auto-fix" in body
+    assert "📦 Mr Opened" in body
 
 
 def test_render_hides_legacy_empty_workflow_sections_when_combined_view_is_present() -> None:
     renderer = DashboardRenderer()
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="open_candidates",
@@ -329,7 +342,7 @@ def test_render_hides_legacy_empty_workflow_sections_when_combined_view_is_prese
     assert "## Open Candidates" in body
     assert "## In Progress" not in body
     assert "## Merge Requests Opened" not in body
-    assert "## Completed" not in body
+    assert "\n## Completed\n" not in body
     assert "## Rejected Or Ignored" not in body
     assert "## Recent Failures" not in body
 
@@ -338,7 +351,7 @@ def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table()
     renderer = DashboardRenderer()
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
@@ -368,18 +381,14 @@ def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table()
         ],
     )
 
-    assert "review: findings_present" in body
-    assert "findings: 2" in body
-    assert "sha: abc123de" in body
-    assert "retry: eligible" in body
-    assert "Ordering changed in a shared code path." in body
+    assert "⚠️ Findings present" in body
 
 
 def test_parse_round_trips_dashboard_item_review_metadata() -> None:
     renderer = DashboardRenderer()
     parser = DashboardParser()
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="merge_requests_opened",
@@ -417,7 +426,7 @@ def test_parse_round_trips_dashboard_item_review_metadata() -> None:
         issue_id=10,
         issue_iid=11,
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         body=body,
     )
 
@@ -433,7 +442,7 @@ def test_parse_round_trips_dashboard_item_review_metadata() -> None:
 
 def test_parse_rejects_free_form_content_in_managed_section() -> None:
     parser = DashboardParser()
-    body = """# AI Code Ops Dashboard
+    body = """# AI Code Ops Work Queue
 
 ## Open Candidates
 
@@ -469,7 +478,7 @@ No items.
             issue_id=10,
             issue_iid=11,
             issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            title="AI Code Ops Dashboard",
+            title="AI Code Ops Work Queue",
             body=body,
         )
     except DashboardParseError as error:
@@ -480,7 +489,7 @@ No items.
 
 def test_parse_accepts_summary_table_followed_by_multiple_item_blocks() -> None:
     parser = DashboardParser()
-    body = """# AI Code Ops Dashboard
+    body = """# AI Code Ops Work Queue
 
 ## Open Candidates
 
@@ -492,17 +501,25 @@ def test_parse_accepts_summary_table_followed_by_multiple_item_blocks() -> None:
 
 ### Needs Attention
 
-| Item | Status | Priority | Summary |
-|---|---|---|---|
-| `sonar:1` (src/service.py) | Open | Low | Simplify boolean equality check. |
-| `sonar:2` (src/other.py) | Open | Medium | Delete the unused local variable. |
+| Item | File | Priority | Suggested Action | Summary |
+|---|---|---|---|---|
+| `sonar:1` | `service.py` | Low | Auto-fix | Simplify boolean comparison |
+| `sonar:2` | `other.py` | Medium | Auto-fix | Remove unused variable |
 
-### All Workflow Items
+### In Flight
 
-| Item | Status | Priority | Summary |
-|---|---|---|---|
-| `sonar:1` (src/service.py) | Open | Low | Simplify boolean equality check. |
-| `sonar:2` (src/other.py) | Open | Medium | Delete the unused local variable. |
+No items.
+
+### Completed
+
+No items.
+
+### Work Type Breakdown
+
+| Work Type | Count |
+|---|---|
+| Remove unused variable | 1 |
+| Simplify boolean comparison | 1 |
 
 <details>
 <summary><code>sonar:1</code> details</summary>
@@ -548,18 +565,6 @@ def test_parse_accepts_summary_table_followed_by_multiple_item_blocks() -> None:
 
 </details>
 
-## In Progress
-
-No items.
-
-## Merge Requests Opened
-
-No items.
-
-## Completed
-
-No items.
-
 ## Merge Request Reviews
 
 No items.
@@ -577,7 +582,7 @@ No items.
         issue_id=10,
         issue_iid=11,
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         body=body,
     )
 
@@ -586,7 +591,7 @@ No items.
 
 def test_parse_rejects_item_heading_id_mismatch() -> None:
     parser = DashboardParser()
-    body = """# AI Code Ops Dashboard
+    body = """# AI Code Ops Work Queue
 
 ## Open Candidates
 
@@ -638,7 +643,7 @@ No items.
             issue_id=10,
             issue_iid=11,
             issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            title="AI Code Ops Dashboard",
+            title="AI Code Ops Work Queue",
             body=body,
         )
     except DashboardParseError as error:
@@ -649,7 +654,7 @@ No items.
 
 def test_parse_rejects_unsupported_summary_table_shape() -> None:
     parser = DashboardParser()
-    body = """# AI Code Ops Dashboard
+    body = """# AI Code Ops Work Queue
 
 ## Open Candidates
 
@@ -705,7 +710,7 @@ No items.
             issue_id=10,
             issue_iid=11,
             issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            title="AI Code Ops Dashboard",
+            title="AI Code Ops Work Queue",
             body=body,
         )
     except DashboardParseError as error:
@@ -731,7 +736,7 @@ def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:
     )
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="merge_request_reviews",
@@ -753,7 +758,7 @@ def test_parse_round_trips_workflow_items_from_combined_workflow_section() -> No
     renderer = DashboardRenderer()
     parser = DashboardParser()
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="open_candidates",
@@ -785,7 +790,7 @@ def test_parse_round_trips_workflow_items_from_combined_workflow_section() -> No
         issue_id=10,
         issue_iid=11,
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         body=body,
     )
 
