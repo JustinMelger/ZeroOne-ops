@@ -105,6 +105,74 @@ Completed summary:
 The project is now in a sustained testing and hardening window with two
 parallel tracks rather than one linear implementation phase.
 
+Alongside those tracks, we can also take on bounded support work that improves
+workflow continuity without changing review-bot judgment, such as MR-scoped
+operator feedback intake for repeated reviews.
+
+### Parallel Continuity Plan
+
+Goal:
+
+- stabilize repeated-review continuity before adding MR-scoped operator
+  feedback intake
+- improve continuity using both stronger benchmark coverage and a cleaner
+  review-versus-overlap architecture
+
+Planned order:
+
+1. Continuity benchmark track
+
+- add more multi-pass review continuity regression fixtures like the current
+  `ValueError` sequence
+- cover wording drift, removed-versus-new concern swaps, and nearby
+  sibling/helper continuity cases
+- keep these fixtures focused on reconciliation behavior so they stay fast and
+  deterministic
+
+2. Stability track
+
+- strengthen app-side overlap candidate generation using canonical identity,
+  legacy identity, structured fields, and bounded summary/title fallback
+- add clearer ambiguous-overlap handling so weak matches fall back to neutral
+  continuity rather than overclaiming sameness or resolution
+- keep layered matching as the baseline rather than trying to replace it with a
+  single key
+
+Current implementation note: Phase 1 `Continuity Stability Tightening`
+
+Scope:
+- strengthen candidate generation and bounded matcher behavior using the new
+  continuity benchmark suite
+- tighten mixed structured/unstructured fallback rules without regressing
+  sibling, ambiguity, or cross-file separation
+- treat the benchmark suite as the main regression gate for continuity changes
+
+Out of scope:
+- no second LLM overlap pass yet
+- no MR-scoped operator feedback intake yet
+- no broad natural-language similarity layer
+
+Stable-enough gate before moving to the architecture track:
+- continuity benchmark fixtures pass consistently
+- mixed structured/unstructured wording drift behaves reliably enough
+- sibling and ambiguous same-file cases do not regress into false merges
+- remaining continuity misses are architectural enough to justify the split
+
+3. Architecture track
+
+- split current-pass review from bounded overlap reconciliation
+- let the first pass find current findings only
+- let the second pass compare current findings to prior findings within an
+  app-prepared candidate set
+- keep final persisted identity and state application app-owned
+
+4. Operator feedback gate
+
+- only implement MR-scoped structured operator feedback intake after the main
+  continuity benchmark cases feel stable enough in live and regression testing
+- use the continuity benchmark cases as the readiness signal before enabling
+  feedback-driven repeated-review behavior
+
 ### Track 1: Review Bot Live Testing
 
 Goal:
@@ -139,6 +207,11 @@ Status:
       validation, or ranking follow-up work after the live-testing period
 - [ ] document recurring operator friction in triaging, interpreting, and
       acting on review output
+- [ ] add MR-scoped structured operator feedback intake for review findings
+      so developers can mark a numbered finding as invalid, accepted, or
+      unclear without changing review analysis behavior
+- [ ] wire review reconciliation to consume that MR-scoped feedback on later
+      passes of the same merge request
 
 Done when:
 
