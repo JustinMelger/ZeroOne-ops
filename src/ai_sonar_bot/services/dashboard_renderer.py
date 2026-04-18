@@ -437,23 +437,15 @@ class DashboardRenderer:
         return self._compact_note(text.rstrip("."))
 
     def _next_step(self, item: DashboardItem) -> str:
-        """Classify one workflow item into a simple operator-facing next step."""
+        """Return one operator-facing next step from workflow state, not summary text.
+
+        For the current dashboard-backed Sonar remediation flow, open items on the
+        board are already considered queueable auto-fix candidates. Failed items
+        are the exception and need operator investigation.
+        """
         if item.status == "failed":
             return "Investigate Failure"
-
-        haystack = " ".join(
-            part for part in [item.title, item.summary, item.rule or ""] if part
-        ).lower()
-
-        auto_fix_patterns = (
-            "commented-out code",
-            "nested if",
-            "unused variable",
-            "boolean comparison",
-        )
-        if any(pattern in haystack for pattern in auto_fix_patterns):
-            return "Queue Auto-fix"
-        return "Review Before Fix"
+        return "Queue Auto-fix"
 
     def _needs_attention(self, item: DashboardItem) -> bool:
         """Return whether one review item should appear in the attention queue."""
