@@ -362,9 +362,9 @@ Goal:
 
 Status:
 
-- [ ] add function-aware review config flags and limits
-- [ ] detect the enclosing Python function for a changed hunk using AST
-- [ ] fall back safely when parsing fails or no enclosing function is found
+- [x] add function-aware review config flags and limits
+- [x] detect the enclosing Python function for a changed hunk using AST
+- [x] fall back safely when parsing fails or no enclosing function is found
 
 Done when:
 
@@ -381,10 +381,10 @@ Goal:
 
 Status:
 
-- [ ] keep the current fixed hunk window as the baseline
-- [ ] expand to whole-function context when the enclosing function fits within
+- [x] keep the current fixed hunk window as the baseline
+- [x] expand to whole-function context when the enclosing function fits within
       the configured line limit
-- [ ] preserve deterministic `start_line`, `end_line`, and `truncated`
+- [x] preserve deterministic `start_line`, `end_line`, and `truncated`
       behavior
 
 Done when:
@@ -402,9 +402,9 @@ Goal:
 
 Status:
 
-- [ ] add bounded clipping for oversized enclosing functions
-- [ ] keep the function signature visible in clipped output
-- [ ] keep the changed hunk and nearby lines visible in clipped output
+- [x] add bounded clipping for oversized enclosing functions
+- [x] keep the function signature visible in clipped output
+- [x] keep the changed hunk and nearby lines visible in clipped output
 
 Done when:
 
@@ -421,7 +421,7 @@ Goal:
 
 Status:
 
-- [ ] add deterministic tests for whole-function inclusion, non-Python
+- [x] add deterministic tests for whole-function inclusion, non-Python
       fallback, and large-function clipping
 - [ ] collect live examples where function-aware expansion improves review
       accuracy on long legacy methods

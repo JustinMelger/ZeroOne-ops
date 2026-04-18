@@ -20,6 +20,7 @@ from ai_sonar_bot.services.context_builder import (
     _format_with_line_numbers,
     _window_bounds,
 )
+from ai_sonar_bot.services.review_function_context import select_function_aware_window
 from ai_sonar_bot.services.review_helper_context import build_same_file_helper_context
 
 HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
@@ -121,7 +122,28 @@ class ReviewContextBuilder:
                     changed_end - changed_start,
                 ),
             )
-            snippet_lines = lines[start_line - 1 : end_line]
+            function_window = select_function_aware_window(
+                file_path=change.new_path,
+                raw_content=raw_content,
+                line_count=line_count,
+                changed_start=changed_start,
+                changed_end=changed_end,
+                fallback_start_line=start_line,
+                fallback_end_line=end_line,
+                enable_function_context=self.config.review.enable_function_context,
+                max_function_context_lines=self.config.review.max_function_context_lines,
+            )
+            start_line = function_window.start_line
+            end_line = function_window.end_line
+            content = _format_line_ranges_with_numbers(
+                lines=lines,
+                line_ranges=function_window.line_ranges,
+            )
+            full_file_included = (
+                len(function_window.line_ranges) == 1
+                and start_line == 1
+                and end_line == max(line_count, 1)
+            )
             helper_context, consumed_helper_lines = build_same_file_helper_context(
                 repo_root=self.repo_root,
                 file_path=change.new_path,
@@ -148,12 +170,9 @@ class ReviewContextBuilder:
                     diff=change.diff,
                     start_line=start_line,
                     end_line=end_line,
-                    content=_format_with_line_numbers(
-                        start_line=start_line,
-                        lines=snippet_lines,
-                    ),
-                    full_file_included=start_line == 1 and end_line == max(line_count, 1),
-                    truncated=not (start_line == 1 and end_line == max(line_count, 1)),
+                    content=content,
+                    full_file_included=full_file_included,
+                    truncated=not full_file_included,
                     new_file=change.new_file,
                     deleted_file=change.deleted_file,
                     renamed_file=change.renamed_file,
@@ -277,6 +296,31 @@ def _parse_remediation_context(description: str | None) -> RemediationReviewCont
     ):
         return None
     return context
+
+
+def _format_line_ranges_with_numbers(
+    *,
+    lines: list[str],
+    line_ranges: tuple[tuple[int, int], ...],
+) -> str:
+    """Format one or more source ranges with numbered lines and omitted gaps."""
+    if not line_ranges:
+        return ""
+
+    formatted_parts: list[str] = []
+    for index, (start_line, end_line) in enumerate(line_ranges):
+        range_lines = lines[start_line - 1 : end_line]
+        if formatted_parts:
+            previous_end = line_ranges[index - 1][1]
+            if start_line > previous_end + 1:
+                formatted_parts.append(" ...")
+        formatted_parts.append(
+            _format_with_line_numbers(
+                start_line=start_line,
+                lines=range_lines,
+            )
+        )
+    return "\n".join(part for part in formatted_parts if part)
 
 
 def _parse_markdown_sections(text: str) -> dict[str, str]:

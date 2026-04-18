@@ -22,6 +22,10 @@ def build_config(
     max_changed_files: int = 10,
     supported_paths: list[str] | None = None,
     ignored_paths: list[str] | None = None,
+    max_context_lines_before: int = 1,
+    max_context_lines_after: int = 1,
+    enable_function_context: bool = True,
+    max_function_context_lines: int = 200,
     enable_helper_following: bool = True,
     log_helper_following: bool = False,
     max_followed_helpers_per_function: int = 3,
@@ -37,8 +41,10 @@ def build_config(
         approval=ApprovalConfig(),
         review=ReviewConfig(
             max_changed_files=max_changed_files,
-            max_context_lines_before=1,
-            max_context_lines_after=1,
+            max_context_lines_before=max_context_lines_before,
+            max_context_lines_after=max_context_lines_after,
+            enable_function_context=enable_function_context,
+            max_function_context_lines=max_function_context_lines,
             enable_helper_following=enable_helper_following,
             log_helper_following=log_helper_following,
             max_followed_helpers_per_function=max_followed_helpers_per_function,
@@ -760,3 +766,94 @@ def test_build_logs_helper_following_when_enabled(tmp_path: Path, caplog) -> Non
         "Helper-following for src/service.py included 1 helper snippets using 2 lines."
         in caplog.text
     )
+
+
+def test_build_uses_enclosing_function_context_when_function_fits(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text(
+        "\n".join(
+            [
+                "def service(value):",
+                "    prepared = value + 1",
+                "    if prepared < 10:",
+                "        return prepared",
+                "    return prepared * 2",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -4,1 +4,1 @@\n-        return prepared - 1\n+        return prepared\n",
+            )
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(max_context_lines_before=0, max_context_lines_after=0),
+        review_client=FakeGitLabReviewClient(merge_request),
+    ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    changed_file = result.context.changed_files[0]
+    assert changed_file.start_line == 1
+    assert changed_file.end_line == 5
+    assert "def service(value):" in changed_file.content
+    assert "return prepared * 2" in changed_file.content
+
+
+def test_build_clips_large_function_context_when_function_exceeds_budget(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text(
+        "\n".join(
+            [
+                "def service(value):",
+                "    setup = value + 1",
+                "    branch = setup * 2",
+                "    guard = branch - 3",
+                "    current = guard + 4",
+                "    final = current * 5",
+                "    if final > 10:",
+                "        return final",
+                "    return current",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -7,1 +7,1 @@\n-    if final > 8:\n+    if final > 10:\n",
+            )
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(
+            max_context_lines_before=0,
+            max_context_lines_after=0,
+            max_function_context_lines=5,
+        ),
+        review_client=FakeGitLabReviewClient(merge_request),
+    ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    changed_file = result.context.changed_files[0]
+    assert changed_file.start_line == 1
+    assert changed_file.end_line == 8
+    assert "def service(value):" in changed_file.content
+    assert " ..." in changed_file.content
+    assert "if final > 10:" in changed_file.content
+    assert "return final" in changed_file.content
+    assert changed_file.truncated is True
