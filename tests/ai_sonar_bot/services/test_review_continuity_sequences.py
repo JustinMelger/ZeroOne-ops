@@ -326,7 +326,6 @@ def test_sibling_helper_sequence_marks_removed_and_new_separately() -> None:
     ]
 
 
-
 def _vehicle_details_finding_llm_variant_a() -> ReviewFinding:
     return ReviewFinding(
         severity="high",
@@ -337,15 +336,12 @@ def _vehicle_details_finding_llm_variant_a() -> ReviewFinding:
         title="Vehicle details helper now always raises",
         evidence="An unconditional ValueError is raised before any helper logic can run.",
         explanation=(
-            "All requests that reach this helper now fail before vehicle details "
-            "are built."
+            "All requests that reach this helper now fail before vehicle details are built."
         ),
         suggested_follow_up=(
-            "Remove the unconditional exception and restore the existing helper "
-            "flow."
+            "Remove the unconditional exception and restore the existing helper flow."
         ),
     )
-
 
 
 def _vehicle_details_finding_llm_variant_b() -> ReviewFinding:
@@ -362,7 +358,6 @@ def _vehicle_details_finding_llm_variant_b() -> ReviewFinding:
     )
 
 
-
 def _vehicle_details_finding_without_structured_fields() -> ReviewFinding:
     return ReviewFinding(
         severity="high",
@@ -372,7 +367,6 @@ def _vehicle_details_finding_without_structured_fields() -> ReviewFinding:
         explanation="The helper now raises before any existing vehicle detail logic can run.",
         suggested_follow_up="Remove the unconditional raise and restore the helper body.",
     )
-
 
 
 def test_llm_wording_drift_sequence_keeps_same_vehicle_detail_concern() -> None:
@@ -420,7 +414,6 @@ def test_llm_wording_drift_sequence_keeps_same_vehicle_detail_concern() -> None:
     assert pass3_reconciliation.appears_resolved == []
 
 
-
 def test_llm_wording_drift_sequence_survives_missing_structured_fields() -> None:
     pass1_findings = [_vehicle_details_finding_llm_variant_a()]
 
@@ -459,7 +452,6 @@ def _cache_guard_finding_high() -> ReviewFinding:
     )
 
 
-
 def _cache_guard_finding_low_wording_drift() -> ReviewFinding:
     return ReviewFinding(
         severity="low",
@@ -474,7 +466,6 @@ def _cache_guard_finding_low_wording_drift() -> ReviewFinding:
     )
 
 
-
 def _same_title_unstructured_file_a() -> ReviewFinding:
     return ReviewFinding(
         severity="medium",
@@ -484,7 +475,6 @@ def _same_title_unstructured_file_a() -> ReviewFinding:
         explanation="The request path now fails before any lookup logic executes.",
         suggested_follow_up="Remove the unconditional raise and restore the helper flow.",
     )
-
 
 
 def _same_title_unstructured_file_b() -> ReviewFinding:
@@ -498,7 +488,6 @@ def _same_title_unstructured_file_b() -> ReviewFinding:
     )
 
 
-
 def _ambiguous_prior_helper_a() -> ReviewFinding:
     return ReviewFinding(
         severity="high",
@@ -508,7 +497,6 @@ def _ambiguous_prior_helper_a() -> ReviewFinding:
         explanation="Payload assembly callers now fail immediately.",
         suggested_follow_up="Restore the payload assembly path.",
     )
-
 
 
 def _ambiguous_prior_helper_b() -> ReviewFinding:
@@ -522,7 +510,6 @@ def _ambiguous_prior_helper_b() -> ReviewFinding:
     )
 
 
-
 def _ambiguous_current_helper() -> ReviewFinding:
     return ReviewFinding(
         severity="high",
@@ -532,7 +519,6 @@ def _ambiguous_current_helper() -> ReviewFinding:
         explanation="Payload processing now aborts before helper logic completes.",
         suggested_follow_up="Remove the unconditional raise and restore helper execution.",
     )
-
 
 
 def test_same_title_in_different_files_does_not_overlap() -> None:
@@ -561,7 +547,6 @@ def test_same_title_in_different_files_does_not_overlap() -> None:
     ]
 
 
-
 def test_ambiguous_same_file_unstructured_match_stays_conservative() -> None:
     pass1_findings = [_ambiguous_prior_helper_a(), _ambiguous_prior_helper_b()]
 
@@ -587,7 +572,6 @@ def test_ambiguous_same_file_unstructured_match_stays_conservative() -> None:
         "src/helpers.py: Vehicle payload helper now fails before assembly",
         "src/helpers.py: Vehicle payload helper now fails before grouping",
     ]
-
 
 
 def test_same_symbol_with_severity_and_wording_drift_stays_unresolved() -> None:

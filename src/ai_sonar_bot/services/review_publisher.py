@@ -553,17 +553,17 @@ def _candidate_prior_findings(
 
     narrowed_candidates = _narrow_candidates_by_field(
         same_file_candidates,
-        field_name='symbol',
+        field_name="symbol",
         expected_value=current_finding.symbol,
     )
     narrowed_candidates = _narrow_candidates_by_field(
         narrowed_candidates,
-        field_name='issue_kind',
+        field_name="issue_kind",
         expected_value=current_finding.issue_kind,
     )
     narrowed_candidates = _narrow_candidates_by_field(
         narrowed_candidates,
-        field_name='region_hint',
+        field_name="region_hint",
         expected_value=current_finding.region_hint,
     )
     return narrowed_candidates
@@ -580,9 +580,7 @@ def _narrow_candidates_by_field(
         return candidates
 
     matching_candidates = [
-        candidate
-        for candidate in candidates
-        if getattr(candidate, field_name) == expected_value
+        candidate for candidate in candidates if getattr(candidate, field_name) == expected_value
     ]
     return matching_candidates or candidates
 
