@@ -143,10 +143,10 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     assert "| Open | In progress | MR opened | Failed | Done |" in body
     assert "| 1 | 0 | 0 | 0 | 0 |" in body
     assert "### Needs Attention" in body
-    assert "| Item | File | Priority | Suggested Action | Summary |" in body
+    assert "| Item | File | Priority | Next Step | Summary |" in body
     assert "`sonar:1`" in body
     assert "`service.py`" in body
-    assert "Auto-fix" in body
+    assert "Queue Auto-fix" in body
     assert "Simplify boolean comparison" in body
     assert "### In Flight" in body
     assert "### Completed" in body
@@ -261,8 +261,8 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
         ],
     )
 
-    assert "| Item | File | Priority | Suggested Action | Summary |" in body
-    assert "Review" in body
+    assert "| Item | File | Priority | Next Step | Summary |" in body
+    assert "Investigate Failure" in body
     assert "Simplify boolean comparison" in body
 
 
@@ -307,7 +307,7 @@ def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() ->
     assert "| Open | In progress | MR opened | Failed | Done |" in body
     assert "| 1 | 1 | 1 | 0 | 0 |" in body
     assert "### Needs Attention" in body
-    assert "| Item | File | Priority | Suggested Action | Summary |" in body
+    assert "| Item | File | Priority | Next Step | Summary |" in body
     assert "### In Flight" in body
     assert "| Item | Status | Priority | Review Summary |" in body
     assert "### Completed" in body
@@ -315,7 +315,7 @@ def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() ->
     assert "`sonar:open`" in body
     assert "`sonar:progress`" in body
     assert "`sonar:mr`" in body
-    assert "Auto-fix" in body
+    assert "Queue Auto-fix" in body
     assert "📦 Mr Opened" in body
 
 
@@ -382,6 +382,48 @@ def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table()
     )
 
     assert "⚠️ Findings present" in body
+
+
+def test_completed_workflow_items_render_review_outcome_not_raw_review_note() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[
+            DashboardSection(
+                key="completed",
+                title="Completed",
+                items=[
+                    build_item(item_id="sonar:done", status="done").model_copy(
+                        update={
+                            "review_status": "no_findings",
+                            "review_findings_count": 0,
+                            "reviewed_head_sha": "abc123def456",
+                            "review_feedback_summary": "Looks safe.",
+                        }
+                    )
+                ],
+            ),
+            DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(
+                key="merge_requests_opened",
+                title="Merge Requests Opened",
+                items=[],
+            ),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(
+                key="rejected_or_ignored",
+                title="Rejected Or Ignored",
+                items=[],
+            ),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    assert "### Completed" in body
+    assert "✅ No findings" in body
+    assert "review: no_findings" not in body
 
 
 def test_parse_round_trips_dashboard_item_review_metadata() -> None:
@@ -501,10 +543,10 @@ def test_parse_accepts_summary_table_followed_by_multiple_item_blocks() -> None:
 
 ### Needs Attention
 
-| Item | File | Priority | Suggested Action | Summary |
+| Item | File | Priority | Next Step | Summary |
 |---|---|---|---|---|
-| `sonar:1` | `service.py` | Low | Auto-fix | Simplify boolean comparison |
-| `sonar:2` | `other.py` | Medium | Auto-fix | Remove unused variable |
+| `sonar:1` | `service.py` | Low | Queue Auto-fix | Simplify boolean comparison |
+| `sonar:2` | `other.py` | Medium | Queue Auto-fix | Remove unused variable |
 
 ### In Flight
 
