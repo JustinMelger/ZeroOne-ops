@@ -117,6 +117,11 @@ Status:
 
 - [ ] collect real review examples where the bot was too conservative or too
       noisy
+- [ ] validate shipped helper-following context against live review examples
+      and collect any remaining misses it does not yet cover
+- [ ] validate shipped function-aware context against live review examples on
+      long Python functions and collect any remaining misses it does not yet
+      cover
 - [ ] collect operator feedback on note clarity, trust, and actionability in
       day-to-day review use
 - [ ] clarify operator-facing JSON expectations where it is currently unclear
@@ -348,6 +353,12 @@ Design references:
 
 ## Next Review Context Phase: Function-Aware Review Context
 
+Current state:
+
+- core implementation is shipped
+- remaining work is live validation, example collection, and one bounded
+  follow-up pass only if testing shows a repeated gap
+
 Design references:
 
 - [functional-design-pr-review-function-aware-context.md](functional-design-pr-review-function-aware-context.md)
@@ -434,6 +445,48 @@ Done when:
 - live review examples show better handling of long changed functions
 - the team has enough evidence to keep the current limits or make one bounded
       follow-up adjustment
+
+## Shipped Review Context Improvements Under Live Validation
+
+These context-expansion tracks are no longer primarily design work. The core
+implementation is shipped, and the current phase is live validation rather
+than broadening scope immediately.
+
+### Helper-Following Context
+
+Current implementation:
+
+- same-file direct helper functions
+- same-file conservative methods such as `self.foo()`, `cls.foo()`, and
+  `ClassName.foo()`
+- one-hop project-local imported helper functions
+- bounded helper counts and line budgets
+- supporting-context prompt rendering and optional diagnostics
+
+Current phase:
+
+- live testing
+- collecting review examples that confirm improvement or expose remaining
+  misses
+- deciding whether a later bounded follow-up is needed for diagnostics or
+  additional safe resolution cases
+
+### Function-Aware Context
+
+Current implementation:
+
+- Python AST-based enclosing function detection
+- whole-function expansion when the function fits the configured limit
+- bounded clipped rendering for large functions, keeping the function opening
+  and changed hunk visible
+- deterministic tests for whole-function, fallback, and clipping behavior
+
+Current phase:
+
+- live testing
+- collecting review examples on long-function code
+- deciding whether the current clipping and line limits are sufficient or need
+  one bounded follow-up adjustment
 
 ## Beyond V1
 
