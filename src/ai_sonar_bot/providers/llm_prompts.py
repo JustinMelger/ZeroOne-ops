@@ -13,6 +13,7 @@ from ai_sonar_bot.models.remediation import (
 from ai_sonar_bot.models.review import (
     MergeRequestReviewContext,
     PriorReviewContext,
+    PriorReviewFinding,
     RemediationReviewContext,
     ReviewFileContext,
 )
@@ -221,7 +222,7 @@ def _format_prior_review_context(context: PriorReviewContext | None) -> str:
     for index, prior_pass in enumerate(context.passes, start=1):
         findings = (
             "\n".join(
-                f"- {finding.summary} ({finding.severity or 'unknown'})"
+                _format_prior_review_finding(finding)
                 for finding in prior_pass.findings
             )
             if prior_pass.findings
@@ -243,6 +244,20 @@ def _format_prior_review_context(context: PriorReviewContext | None) -> str:
             )
         )
     return "\n\n".join(blocks)
+
+
+def _format_prior_review_finding(finding: PriorReviewFinding) -> str:
+    """Render one prior-review finding with optional structured continuity fields."""
+    parts = [f"- {finding.summary} ({finding.severity or 'unknown'})"]
+    structured_candidates = [
+        f"symbol={finding.symbol}" if finding.symbol else None,
+        f"issue_kind={finding.issue_kind}" if finding.issue_kind else None,
+        f"region_hint={finding.region_hint}" if finding.region_hint else None,
+    ]
+    structured_parts = [part for part in structured_candidates if part is not None]
+    if structured_parts:
+        parts.append(f"[{', '.join(structured_parts)}]")
+    return " ".join(parts)
 
 
 def _format_untrusted_block(*, label: str, content: str) -> str:

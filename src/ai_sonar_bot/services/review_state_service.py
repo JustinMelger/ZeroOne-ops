@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import logging
-import re
 
 from ai_sonar_bot.models.review import (
     MergeRequestReviewCandidate,
     PriorReviewContext,
     PriorReviewFinding,
     PriorReviewPass,
-    ReviewFinding,
     ReviewResult,
 )
 from ai_sonar_bot.models.state import (
@@ -23,27 +21,11 @@ from ai_sonar_bot.models.state import (
     utc_now,
 )
 from ai_sonar_bot.services.mr_selector import build_review_revision_key
+from ai_sonar_bot.services.review_finding_identity import build_review_finding_identity
 from ai_sonar_bot.services.run_state_service import RunSummary
 from ai_sonar_bot.services.state_store import StateStore
 
 LOGGER = logging.getLogger(__name__)
-
-_IDENTITY_STOP_TOKENS = frozenset({"always", "make"})
-_IDENTITY_TOKEN_ALIASES = {
-    "breaks": "fail",
-    "break": "fail",
-    "broken": "fail",
-    "fails": "fail",
-    "failing": "fail",
-    "failure": "fail",
-    "fail": "fail",
-    "makes": "make",
-    "make": "make",
-    "lookup": "lookup",
-    "retrieval": "lookup",
-    "retrieve": "lookup",
-    "details": "detail",
-}
 
 
 class ReviewStateService:
@@ -209,6 +191,9 @@ class ReviewStateService:
                             identity=finding.identity,
                             summary=finding.summary,
                             severity=finding.severity,
+                            symbol=finding.symbol,
+                            issue_kind=finding.issue_kind,
+                            region_hint=finding.region_hint,
                         )
                         for finding in review_state.findings
                     ],
@@ -226,45 +211,15 @@ def _build_prior_review_findings(
     for finding in review_result.findings:
         normalized_findings.append(
             PriorReviewFindingState(
-                identity=_build_prior_review_finding_identity(finding),
+                identity=build_review_finding_identity(finding),
                 summary=f"{finding.file_path}: {finding.title}",
                 severity=finding.severity,
+                symbol=finding.symbol,
+                issue_kind=finding.issue_kind,
+                region_hint=finding.region_hint,
             )
         )
     return normalized_findings
-
-
-def _build_prior_review_finding_identity(finding: ReviewFinding) -> str:
-    """Build a canonical persisted identity for one prior review finding."""
-    normalized_path = re.sub(r"\s+", "", finding.file_path.strip().lower())
-    normalized_subject = _normalize_finding_subject(finding.title)
-    return f"{normalized_path}::{normalized_subject}"
-
-
-def _normalize_finding_subject(title: str) -> str:
-    """Normalize a finding title into a conservative subject key."""
-    subject_tokens: set[str] = set()
-    for token in re.findall(r"[a-z0-9_]+", title.lower()):
-        normalized_token = _normalize_subject_token(token)
-        normalized_token = _IDENTITY_TOKEN_ALIASES.get(normalized_token, normalized_token)
-        if normalized_token in _IDENTITY_STOP_TOKENS:
-            continue
-        if len(normalized_token) >= 4:
-            subject_tokens.add(normalized_token)
-    if not subject_tokens:
-        return "unknown"
-    return "-".join(sorted(subject_tokens))
-
-
-def _normalize_subject_token(token: str) -> str:
-    """Lightly normalize one title token for persisted identity."""
-    if token.endswith("ing") and len(token) > 5:
-        return token[:-3]
-    if token.endswith("ed") and len(token) > 4:
-        return token[:-2]
-    if token.endswith("ion") and len(token) > 5:
-        return token[:-3]
-    return token
 
 
 def _review_classification_summary(review_result: ReviewResult) -> str:

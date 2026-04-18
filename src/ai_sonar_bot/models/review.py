@@ -89,6 +89,9 @@ class PriorReviewFinding(BaseModel):
     identity: str | None = None
     summary: str
     severity: str | None = None
+    symbol: str | None = None
+    issue_kind: str | None = None
+    region_hint: str | None = None
 
 
 class PriorReviewPass(BaseModel):
@@ -132,6 +135,9 @@ class ReviewFinding(BaseModel):
 
     severity: Literal["high", "medium", "low"]
     file_path: str
+    symbol: str | None = None
+    issue_kind: str | None = None
+    region_hint: str | None = None
     title: str
     evidence: str
     explanation: str

@@ -41,6 +41,9 @@ def build_review_result() -> ReviewResult:
             ReviewFinding(
                 severity="medium",
                 file_path="src/service.py",
+                symbol="Service.run",
+                issue_kind="ordering_regression",
+                region_hint="return-order",
                 title="Ordering regression",
                 evidence="The diff removes explicit sorting before output.",
                 explanation="This changes output semantics for callers.",
@@ -73,9 +76,15 @@ def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
     assert loaded.reviews["17:abc123"].status == "findings_present"
     assert loaded.reviews["17:abc123"].findings_count == 1
     assert loaded.reviews["17:abc123"].summary == "One finding."
-    assert loaded.reviews["17:abc123"].findings[0].identity == "src/service.py::order-regress"
+    assert (
+        loaded.reviews["17:abc123"].findings[0].identity
+        == "src/service.py::ordering_regression::service-run::return-order"
+    )
     assert loaded.reviews["17:abc123"].findings[0].summary == "src/service.py: Ordering regression"
     assert loaded.reviews["17:abc123"].findings[0].severity == "medium"
+    assert loaded.reviews["17:abc123"].findings[0].symbol == "Service.run"
+    assert loaded.reviews["17:abc123"].findings[0].issue_kind == "ordering_regression"
+    assert loaded.reviews["17:abc123"].findings[0].region_hint == "return-order"
     assert loaded.reviews["17:abc123"].note_url is not None
 
 
@@ -198,10 +207,16 @@ def test_load_prior_review_context_returns_recent_passes_for_same_mr(tmp_path) -
         "sha-2",
     ]
     assert prior_review_context.passes[0].classification == "findings_present"
-    assert prior_review_context.passes[0].findings[0].identity == "src/service.py::order-regress"
+    assert (
+        prior_review_context.passes[0].findings[0].identity
+        == "src/service.py::ordering_regression::service-run::return-order"
+    )
     assert (
         prior_review_context.passes[0].findings[0].summary == "src/service.py: Ordering regression"
     )
+    assert prior_review_context.passes[0].findings[0].symbol == "Service.run"
+    assert prior_review_context.passes[0].findings[0].issue_kind == "ordering_regression"
+    assert prior_review_context.passes[0].findings[0].region_hint == "return-order"
 
 
 def test_mark_reviewed_persists_canonical_identity_with_human_summary(tmp_path) -> None:
@@ -224,6 +239,9 @@ def test_mark_reviewed_persists_canonical_identity_with_human_summary(tmp_path) 
                 ReviewFinding(
                     severity="high",
                     file_path="bnl_app/functions/vehicle_functions.py",
+                    symbol="get_vehicle_details_short",
+                    issue_kind="unconditional_exception",
+                    region_hint="function-entry",
                     title="Unconditional exception breaks vehicle detail retrieval",
                     evidence="The diff inserts `raise ValueError` at the top of the helper.",
                     explanation="The helper now throws before any normal lookup logic runs.",
@@ -232,6 +250,8 @@ def test_mark_reviewed_persists_canonical_identity_with_human_summary(tmp_path) 
                 ReviewFinding(
                     severity="medium",
                     file_path="src/service.py",
+                    symbol="Service.run",
+                    issue_kind="coverage_gap",
                     title="Missing test coverage",
                     evidence="The diff changes a branch without any test updates.",
                     explanation="The change alters branch behavior without regression coverage.",
@@ -245,18 +265,24 @@ def test_mark_reviewed_persists_canonical_identity_with_human_summary(tmp_path) 
 
     loaded = store.load()
     assert loaded.reviews["17:abc123"].findings[0].identity == (
-        "bnl_app/functions/vehicle_functions.py::detail-except-fail-lookup-unconditional-vehicle"
+        "bnl_app/functions/vehicle_functions.py::unconditional_exception::get_vehicle_details_short::function-entry"
     )
     assert loaded.reviews["17:abc123"].findings[0].summary == (
         "bnl_app/functions/vehicle_functions.py: "
         "Unconditional exception breaks vehicle detail retrieval"
     )
     assert loaded.reviews["17:abc123"].findings[1].identity == (
-        "src/service.py::coverage-miss-test"
+        "src/service.py::coverage_gap::service-run"
     )
     assert loaded.reviews["17:abc123"].findings[1].summary == (
         "src/service.py: Missing test coverage"
     )
+    assert loaded.reviews["17:abc123"].findings[0].symbol == "get_vehicle_details_short"
+    assert loaded.reviews["17:abc123"].findings[0].issue_kind == "unconditional_exception"
+    assert loaded.reviews["17:abc123"].findings[0].region_hint == "function-entry"
+    assert loaded.reviews["17:abc123"].findings[1].symbol == "Service.run"
+    assert loaded.reviews["17:abc123"].findings[1].issue_kind == "coverage_gap"
+    assert loaded.reviews["17:abc123"].findings[1].region_hint is None
 
 
 def test_load_prior_review_context_preserves_mixed_new_and_legacy_finding_state(tmp_path) -> None:
@@ -279,6 +305,9 @@ def test_load_prior_review_context_preserves_mixed_new_and_legacy_finding_state(
                 identity="src/service.py::order-regress",
                 summary="src/service.py: Ordering regression",
                 severity="medium",
+                symbol="Service.run",
+                issue_kind="ordering_regression",
+                region_hint="return-order",
             ),
             PriorReviewFindingState(
                 summary="Legacy helper concern",
@@ -302,5 +331,8 @@ def test_load_prior_review_context_preserves_mixed_new_and_legacy_finding_state(
     assert (
         prior_review_context.passes[0].findings[0].summary == "src/service.py: Ordering regression"
     )
+    assert prior_review_context.passes[0].findings[0].symbol == "Service.run"
+    assert prior_review_context.passes[0].findings[0].issue_kind == "ordering_regression"
+    assert prior_review_context.passes[0].findings[0].region_hint == "return-order"
     assert prior_review_context.passes[0].findings[1].identity is None
     assert prior_review_context.passes[0].findings[1].summary == "Legacy helper concern"

@@ -586,6 +586,9 @@ def test_build_review_prompt_includes_prior_review_context_when_present() -> Non
                         PriorReviewFinding(
                             summary="src/service.py: Ordering regression",
                             severity="medium",
+                            symbol="Service.run",
+                            issue_kind="ordering_regression",
+                            region_hint="return-order",
                         )
                     ],
                 )
@@ -613,6 +616,10 @@ def test_build_review_prompt_includes_prior_review_context_when_present() -> Non
     assert "Findings count: 1" in prompt
     assert "Summary: One earlier concern still needs attention." in prompt
     assert "- src/service.py: Ordering regression (medium)" in prompt
+    assert (
+        "[symbol=Service.run, issue_kind=ordering_regression, "
+        "region_hint=return-order]" in prompt
+    )
 
 
 def test_load_prompt_template_rejects_unknown_template_name() -> None:

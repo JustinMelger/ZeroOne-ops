@@ -325,16 +325,12 @@ Completed summary:
   passes
 - repeated review notes can acknowledge unresolved, resolved, and new concerns
   more conversationally without treating each run as stateless
-- stable finding identity and structured reconciliation now make follow-up
-  matching less dependent on wording drift
 - helper-following review context is implemented for bounded same-file Python
   helpers and is now available as supporting context during review
 
 Still being validated in the current testing window:
 
 - how well repeated-review continuity holds up on real merge-request threads
-- whether stable identity causes any collision or over-broad matching in live
-  use
 - how much helper-following reduces call-site-only false positives in practice
 - whether imported-helper following is worth a later slice
 
@@ -487,6 +483,120 @@ Current phase:
 - collecting review examples on long-function code
 - deciding whether the current clipping and line limits are sufficient or need
   one bounded follow-up adjustment
+
+## Next Review Continuity Phase: Stable Identity And Reconciliation
+
+Current state:
+
+- bounded prior review memory, stable persisted finding identity, and
+  identity-first follow-up wording are shipped
+- repeated-review continuity still depends too much on wording drift in real
+  use
+- the more stable next step is stronger machine-facing identity and
+  reconciliation infrastructure
+
+Goal:
+
+- make repeated review continuity less dependent on human wording
+- improve `still unresolved`, `appears resolved`, and `new issue` follow-up
+  behavior on repeated MR review passes
+- keep the canonical reconciliation key app-owned and deterministic
+
+Design references:
+
+- [functional-design-pr-review-followup-reconciliation.md](functional-design-pr-review-followup-reconciliation.md)
+- [technical-design-pr-review-followup-reconciliation.md](technical-design-pr-review-followup-reconciliation.md)
+- [functional-design-pr-review-stable-finding-identity.md](functional-design-pr-review-stable-finding-identity.md)
+- [technical-design-pr-review-stable-finding-identity.md](technical-design-pr-review-stable-finding-identity.md)
+- [functional-design-pr-review-structured-reconciliation.md](functional-design-pr-review-structured-reconciliation.md)
+- [technical-design-pr-review-structured-reconciliation.md](technical-design-pr-review-structured-reconciliation.md)
+
+### Phase 1: Stable Persisted Finding Identity
+
+Goal:
+
+- store a stable machine-facing finding identity separately from human summary
+  text
+
+Status:
+
+- [x] extend persisted prior-review finding state with optional `identity`
+- [x] derive canonical identity in application code from bounded finding fields
+- [x] write identity for new persisted review passes without requiring state
+      migration
+- [x] load identity into prior review context when present
+
+Done when:
+
+- new persisted review findings carry `identity`, `summary`, and `severity`
+- older persisted state without identity still loads safely
+- machine matching can prefer identity without changing note wording
+
+### Phase 2: Identity-First Reconciliation
+
+Goal:
+
+- make repeated-review matching prefer stable identity over title/summary
+  wording
+
+Status:
+
+- [x] update repeated-review reconciliation to prefer exact identity matches
+- [x] keep bounded legacy fallback for older history without identity
+- [x] reduce title-overlap matching to legacy support instead of the primary
+      path
+
+Done when:
+
+- repeated same-issue matches depend primarily on exact identity
+- legacy state still reconciles conservatively through fallback
+- wording drift no longer drives most same-issue matching behavior
+
+### Phase 3: Structured Continuity Fields
+
+Goal:
+
+- prepare a later stronger continuity path where reconciliation can use bounded
+  structured fields, not only title normalization
+
+Status:
+
+- [ ] define a minimal bounded structured finding field set such as `symbol`,
+      `issue_kind`, and optional `region_hint`
+- [ ] validate that the app still owns the final canonical reconciliation key
+- [ ] decide whether those fields should be added now or only after stable
+      identity proves useful in live testing
+
+Done when:
+
+- the next structured-field step is clearly scoped
+- the app-owned identity rule is preserved
+- the team knows whether structured fields are the next needed increment or
+      still unnecessary
+
+### Phase 4: Testing And Tightening
+
+Goal:
+
+- validate repeated-review continuity on real MR threads after stable identity
+  is in place
+
+Status:
+
+- [x] add regression coverage for:
+      same finding still present,
+      earlier finding resolved,
+      earlier finding replaced by a different new concern,
+      and legacy history without identity
+- [ ] collect live repeated-review examples where identity improves continuity
+- [ ] watch for identity collisions or over-broad matching in live use
+
+Done when:
+
+- repeated-review continuity feels clearly more stable on real merge requests
+- same-issue matching depends less on title wording drift
+- the team has enough evidence to keep the identity shape or make one bounded
+      follow-up adjustment
 
 ## Beyond V1
 
