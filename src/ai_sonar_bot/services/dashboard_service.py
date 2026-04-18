@@ -33,7 +33,7 @@ class DashboardService:
         *,
         parser: DashboardParser | None = None,
         renderer: DashboardRenderer | None = None,
-        title: str = "AI Code Ops Dashboard",
+        title: str = "AI Code Ops Work Queue",
         labels: list[str] | None = None,
         section_item_limits: dict[DashboardSectionKey, int] | None = None,
     ) -> None:

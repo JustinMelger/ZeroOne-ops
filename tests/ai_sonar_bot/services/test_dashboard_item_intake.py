@@ -88,7 +88,7 @@ def build_document(*, items: list[DashboardItem]) -> DashboardDocument:
         issue_id=10,
         issue_iid=11,
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=sections,
     )
 

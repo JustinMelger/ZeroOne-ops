@@ -13,7 +13,7 @@ class DashboardRenderer:
     def render(self, *, title: str, sections: list[DashboardSection]) -> str:
         """Render one dashboard body."""
         lines = [
-            "Machine-managed dashboard for AI Code Ops work items.",
+            "Machine-managed remediation and review items.",
             "",
         ]
         workflow_items = self._workflow_items(sections)

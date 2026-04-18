@@ -20,7 +20,7 @@ class FakeDashboardService:
                 issue_id=11,
                 issue_iid=11,
                 issue_url="https://gitlab.example.com/group/project/-/issues/11",
-                title="AI Code Ops Dashboard",
+                title="AI Code Ops Work Queue",
                 sections=[],
             )
         return self.document
@@ -68,7 +68,7 @@ def test_sync_preserves_existing_status_for_current_sonar_items() -> None:
             issue_id=11,
             issue_iid=11,
             issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            title="AI Code Ops Dashboard",
+            title="AI Code Ops Work Queue",
             sections=[
                 DashboardSection(
                     key="merge_requests_opened",
@@ -122,7 +122,7 @@ def test_sync_marks_missing_active_sonar_items_done() -> None:
             issue_id=11,
             issue_iid=11,
             issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            title="AI Code Ops Dashboard",
+            title="AI Code Ops Work Queue",
             sections=[
                 DashboardSection(
                     key="open_candidates",
@@ -165,7 +165,7 @@ def test_sync_preserves_missing_sonar_items_once_remediation_has_started() -> No
             issue_id=11,
             issue_iid=11,
             issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            title="AI Code Ops Dashboard",
+            title="AI Code Ops Work Queue",
             sections=[
                 DashboardSection(
                     key="in_progress",

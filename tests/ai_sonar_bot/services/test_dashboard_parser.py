@@ -27,7 +27,7 @@ def test_parse_round_trips_rendered_dashboard_body() -> None:
     renderer = DashboardRenderer()
     parser = DashboardParser()
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="open_candidates",
@@ -55,7 +55,7 @@ def test_parse_round_trips_rendered_dashboard_body() -> None:
         issue_id=10,
         issue_iid=11,
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         body=body,
     )
 
@@ -67,7 +67,7 @@ def test_parse_round_trips_dashboard_item_datetime_metadata() -> None:
     renderer = DashboardRenderer()
     parser = DashboardParser()
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="in_progress",
@@ -102,7 +102,7 @@ def test_parse_round_trips_dashboard_item_datetime_metadata() -> None:
         issue_id=10,
         issue_iid=11,
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         body=body,
     )
 
@@ -115,7 +115,7 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     renderer = DashboardRenderer()
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="open_candidates",
@@ -159,7 +159,7 @@ def test_rendered_dashboard_body_keeps_new_workflow_layout_when_empty() -> None:
     renderer = DashboardRenderer()
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
@@ -212,7 +212,7 @@ def test_rendered_review_section_uses_specialized_review_summary_layout() -> Non
     )
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="merge_request_reviews",
@@ -239,7 +239,7 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
     renderer = DashboardRenderer()
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
@@ -270,7 +270,7 @@ def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() ->
     renderer = DashboardRenderer()
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="open_candidates",
@@ -323,7 +323,7 @@ def test_render_hides_legacy_empty_workflow_sections_when_combined_view_is_prese
     renderer = DashboardRenderer()
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="open_candidates",
@@ -351,7 +351,7 @@ def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table()
     renderer = DashboardRenderer()
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
@@ -388,7 +388,7 @@ def test_parse_round_trips_dashboard_item_review_metadata() -> None:
     renderer = DashboardRenderer()
     parser = DashboardParser()
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="merge_requests_opened",
@@ -426,7 +426,7 @@ def test_parse_round_trips_dashboard_item_review_metadata() -> None:
         issue_id=10,
         issue_iid=11,
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         body=body,
     )
 
@@ -442,7 +442,7 @@ def test_parse_round_trips_dashboard_item_review_metadata() -> None:
 
 def test_parse_rejects_free_form_content_in_managed_section() -> None:
     parser = DashboardParser()
-    body = """# AI Code Ops Dashboard
+    body = """# AI Code Ops Work Queue
 
 ## Open Candidates
 
@@ -478,7 +478,7 @@ No items.
             issue_id=10,
             issue_iid=11,
             issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            title="AI Code Ops Dashboard",
+            title="AI Code Ops Work Queue",
             body=body,
         )
     except DashboardParseError as error:
@@ -489,7 +489,7 @@ No items.
 
 def test_parse_accepts_summary_table_followed_by_multiple_item_blocks() -> None:
     parser = DashboardParser()
-    body = """# AI Code Ops Dashboard
+    body = """# AI Code Ops Work Queue
 
 ## Open Candidates
 
@@ -582,7 +582,7 @@ No items.
         issue_id=10,
         issue_iid=11,
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         body=body,
     )
 
@@ -591,7 +591,7 @@ No items.
 
 def test_parse_rejects_item_heading_id_mismatch() -> None:
     parser = DashboardParser()
-    body = """# AI Code Ops Dashboard
+    body = """# AI Code Ops Work Queue
 
 ## Open Candidates
 
@@ -643,7 +643,7 @@ No items.
             issue_id=10,
             issue_iid=11,
             issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            title="AI Code Ops Dashboard",
+            title="AI Code Ops Work Queue",
             body=body,
         )
     except DashboardParseError as error:
@@ -654,7 +654,7 @@ No items.
 
 def test_parse_rejects_unsupported_summary_table_shape() -> None:
     parser = DashboardParser()
-    body = """# AI Code Ops Dashboard
+    body = """# AI Code Ops Work Queue
 
 ## Open Candidates
 
@@ -710,7 +710,7 @@ No items.
             issue_id=10,
             issue_iid=11,
             issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            title="AI Code Ops Dashboard",
+            title="AI Code Ops Work Queue",
             body=body,
         )
     except DashboardParseError as error:
@@ -736,7 +736,7 @@ def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:
     )
 
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="merge_request_reviews",
@@ -758,7 +758,7 @@ def test_parse_round_trips_workflow_items_from_combined_workflow_section() -> No
     renderer = DashboardRenderer()
     parser = DashboardParser()
     body = renderer.render(
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
                 key="open_candidates",
@@ -790,7 +790,7 @@ def test_parse_round_trips_workflow_items_from_combined_workflow_section() -> No
         issue_id=10,
         issue_iid=11,
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Dashboard",
+        title="AI Code Ops Work Queue",
         body=body,
     )
 
