@@ -172,8 +172,8 @@ class DashboardParser:
             return False
         if blocks[3] != ["No items."] and not self._matches_table(
             blocks[3],
-            header="| Item | File | Priority | Summary |",
-            separator="|---|---|---|---|",
+            header="| Item | File | Priority | Suggested Action | Summary |",
+            separator="|---|---|---|---|---|",
         ):
             return False
         if blocks[4] != ["### In Flight"]:

@@ -133,8 +133,8 @@ class DashboardRenderer:
     def _render_workflow_attention_table(self, items: list[DashboardItem]) -> list[str]:
         """Render the focused queue of workflow items that need operator attention."""
         lines = [
-            "| Item | File | Priority | Summary |",
-            "|---|---|---|---|",
+            "| Item | File | Priority | Suggested Action | Summary |",
+            "|---|---|---|---|---|",
         ]
         for item in items:
             lines.append(
@@ -142,6 +142,7 @@ class DashboardRenderer:
                 f"{self._render_workflow_item_label(item)} | "
                 f"{self._render_workflow_file(item)} | "
                 f"{self._render_priority(item)} | "
+                f"{self._render_suggested_action(item)} | "
                 f"{self._render_workflow_summary(item)} |"
             )
         return lines
@@ -363,7 +364,7 @@ class DashboardRenderer:
         if review_note is not None:
             return self._compact_note(review_note)
         note = item.log_excerpt if item.status == "failed" and item.log_excerpt else item.summary
-        return self._compact_note(note)
+        return self._humanize_workflow_summary(item, note)
 
     def _render_in_flight_summary(self, item: DashboardItem) -> str:
         """Render one compact in-flight summary."""
@@ -387,12 +388,62 @@ class DashboardRenderer:
             return "-"
         return f"`{item.file.rsplit('/', maxsplit=1)[-1]}`"
 
+    def _render_suggested_action(self, item: DashboardItem) -> str:
+        """Render one compact suggested-action label."""
+        return self._suggested_action(item)
+
     def _work_type_label(self, item: DashboardItem) -> str:
         """Render one compact grouping label for workflow breakdowns."""
-        source_text = item.title.strip() or item.summary.strip()
+        source_text = self._humanize_workflow_summary(
+            item,
+            item.title.strip() or item.summary.strip(),
+        )
         if not source_text:
             return item.type.replace("_", " ").title()
         return self._compact_note(source_text.rstrip("."))
+
+    def _humanize_workflow_summary(self, item: DashboardItem, note: str | None) -> str:
+        """Render one shorter human-facing workflow summary."""
+        if not note:
+            return "-"
+        text = note.strip()
+        lower = text.lower()
+
+        if "commented-out code" in lower:
+            return "Remove dead commented code"
+        if "nested if" in lower:
+            return "Merge nested if statement"
+        if "sort_order" in lower and "lambda" in lower:
+            return "Capture sort_order safely in lambda"
+        if "lambda" in lower and "default value" in lower:
+            return "Bind value safely in lambda default"
+        if "type annotation" in lower or "return type" in lower:
+            return "Fix type annotation mismatch"
+        if "fixture" in lower and "type" in lower:
+            return "Fix fixture type annotation"
+        if "unused variable" in lower:
+            return "Remove unused variable"
+
+        title = item.title.strip()
+        if title:
+            text = title
+        return self._compact_note(text.rstrip("."))
+
+    def _suggested_action(self, item: DashboardItem) -> str:
+        """Classify one workflow item into a simple operator action."""
+        haystack = " ".join(
+            part for part in [item.title, item.summary, item.rule or ""] if part
+        ).lower()
+
+        auto_fix_patterns = (
+            "commented-out code",
+            "nested if",
+            "unused variable",
+            "boolean comparison",
+        )
+        if any(pattern in haystack for pattern in auto_fix_patterns):
+            return "Auto-fix"
+        return "Review"
 
     def _needs_attention(self, item: DashboardItem) -> bool:
         """Return whether one review item should appear in the attention queue."""

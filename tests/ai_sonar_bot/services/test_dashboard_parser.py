@@ -143,9 +143,11 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     assert "| Open | In progress | MR opened | Failed | Done |" in body
     assert "| 1 | 0 | 0 | 0 | 0 |" in body
     assert "### Needs Attention" in body
-    assert "| Item | File | Priority | Summary |" in body
+    assert "| Item | File | Priority | Suggested Action | Summary |" in body
     assert "`sonar:1`" in body
     assert "`service.py`" in body
+    assert "Auto-fix" in body
+    assert "Simplify boolean comparison" in body
     assert "### In Flight" in body
     assert "### Completed" in body
     assert "### Work Type Breakdown" in body
@@ -259,8 +261,9 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
         ],
     )
 
-    assert "| Item | File | Priority | Summary |" in body
-    assert "Merge request metadata is inaccessible from GitLab." in body
+    assert "| Item | File | Priority | Suggested Action | Summary |" in body
+    assert "Review" in body
+    assert "Simplify boolean comparison" in body
 
 
 def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() -> None:
@@ -304,7 +307,7 @@ def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() ->
     assert "| Open | In progress | MR opened | Failed | Done |" in body
     assert "| 1 | 1 | 1 | 0 | 0 |" in body
     assert "### Needs Attention" in body
-    assert "| Item | File | Priority | Summary |" in body
+    assert "| Item | File | Priority | Suggested Action | Summary |" in body
     assert "### In Flight" in body
     assert "| Item | Status | Priority | Review Summary |" in body
     assert "### Completed" in body
@@ -312,6 +315,7 @@ def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() ->
     assert "`sonar:open`" in body
     assert "`sonar:progress`" in body
     assert "`sonar:mr`" in body
+    assert "Auto-fix" in body
     assert "📦 Mr Opened" in body
 
 
@@ -497,10 +501,10 @@ def test_parse_accepts_summary_table_followed_by_multiple_item_blocks() -> None:
 
 ### Needs Attention
 
-| Item | File | Priority | Summary |
-|---|---|---|---|
-| `sonar:1` | `service.py` | Low | Simplify boolean equality check. |
-| `sonar:2` | `other.py` | Medium | Delete the unused local variable. |
+| Item | File | Priority | Suggested Action | Summary |
+|---|---|---|---|---|
+| `sonar:1` | `service.py` | Low | Auto-fix | Simplify boolean comparison |
+| `sonar:2` | `other.py` | Medium | Auto-fix | Remove unused variable |
 
 ### In Flight
 
