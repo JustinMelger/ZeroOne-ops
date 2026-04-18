@@ -70,6 +70,8 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
         summary="One finding.",
         findings=[
             PriorReviewFindingState(
+                identity="src/service.py::ordering_regression::service-run::return-order",
+                legacy_identity="src/service.py::order-regress",
                 summary="src/service.py: Ordering regression",
                 severity="medium",
                 symbol="Service.run",
@@ -110,6 +112,13 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
     assert loaded.reviews["17:abc123"].last_run_id == "run-2"
     assert loaded.reviews["17:abc123"].findings_count == 1
     assert loaded.reviews["17:abc123"].summary == "One finding."
+    assert (
+        loaded.reviews["17:abc123"].findings[0].identity
+        == "src/service.py::ordering_regression::service-run::return-order"
+    )
+    assert loaded.reviews["17:abc123"].findings[0].legacy_identity == (
+        "src/service.py::order-regress"
+    )
     assert loaded.reviews["17:abc123"].findings[0].summary == "src/service.py: Ordering regression"
     assert loaded.reviews["17:abc123"].findings[0].severity == "medium"
     assert loaded.reviews["17:abc123"].findings[0].symbol == "Service.run"

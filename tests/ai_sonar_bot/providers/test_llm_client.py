@@ -408,8 +408,10 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "one visible consumer is compatible" in prompt
     assert "do NOT infer issues from the call site alone" in prompt
     assert "review `prior_review_context`" in prompt
-    assert "determine if they are still present, resolved, or contradicted" in prompt
-    assert "Do NOT repeat prior findings unless still supported and unresolved." in prompt
+    assert "identify which prior findings are still present" in prompt
+    assert "which now appear resolved" in prompt
+    assert "which concerns are new in this pass" in prompt
+    assert "Do NOT repeat prior findings as if they were brand-new discoveries" in prompt
     assert "Each finding must:" in prompt
     assert "include concrete evidence from the diff or inspected code" in prompt
     assert "reference specific changed behavior" in prompt

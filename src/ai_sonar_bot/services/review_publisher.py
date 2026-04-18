@@ -14,7 +14,10 @@ from ai_sonar_bot.models.review import (
 )
 from ai_sonar_bot.providers.gitlab_client import GitLabClientError
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
-from ai_sonar_bot.services.review_finding_identity import build_review_finding_identity
+from ai_sonar_bot.services.review_finding_identity import (
+    build_legacy_review_finding_identity,
+    build_review_finding_identity,
+)
 
 _MIN_SHARED_TITLE_TOKENS = 2
 _MIN_TITLE_TOKEN_OVERLAP = 0.6
@@ -34,6 +37,7 @@ class FollowUpFindingStatus:
     """Represent one bounded follow-up comparison outcome."""
 
     identity: str | None
+    legacy_identity: str | None
     summary: str
     file_path: str | None
     symbol: str | None
@@ -239,6 +243,7 @@ def _reconcile_follow_up_review(
         finding_key = _current_finding_key(current_finding)
         finding_status = FollowUpFindingStatus(
             identity=_current_finding_identity(current_finding),
+            legacy_identity=build_legacy_review_finding_identity(current_finding),
             summary=finding_summary,
             file_path=current_finding.file_path,
             symbol=current_finding.symbol,
@@ -251,6 +256,7 @@ def _reconcile_follow_up_review(
         matched_prior_finding = _match_prior_finding(
             current_finding=current_finding,
             current_identity=_current_finding_identity(current_finding),
+            current_legacy_identity=build_legacy_review_finding_identity(current_finding),
             current_key=finding_key,
             prior_findings=prior_findings,
         )
@@ -258,6 +264,7 @@ def _reconcile_follow_up_review(
             still_unresolved.append(
                 FollowUpFindingStatus(
                     identity=matched_prior_finding.identity,
+                    legacy_identity=matched_prior_finding.legacy_identity,
                     summary=matched_prior_finding.summary,
                     file_path=matched_prior_finding.file_path,
                     symbol=matched_prior_finding.symbol,
@@ -424,6 +431,7 @@ def _match_prior_finding(
     *,
     current_finding: ReviewFinding,
     current_identity: str,
+    current_legacy_identity: str,
     current_key: tuple[str, str, str],
     prior_findings: list[FollowUpFindingStatus],
 ) -> FollowUpFindingStatus | None:
@@ -439,11 +447,26 @@ def _match_prior_finding(
     if identity_match is not None:
         return identity_match
 
+    legacy_identity_match = next(
+        (
+            prior_finding
+            for prior_finding in prior_findings
+            if current_legacy_identity
+            in {
+                prior_finding.identity,
+                prior_finding.legacy_identity,
+            }
+        ),
+        None,
+    )
+    if legacy_identity_match is not None:
+        return legacy_identity_match
+
     exact_match = next(
         (
             prior_finding
             for prior_finding in prior_findings
-            if prior_finding.identity is None
+            if prior_finding.legacy_identity is None
             and _prior_finding_key(prior_finding.summary) == current_key
         ),
         None,
@@ -454,7 +477,7 @@ def _match_prior_finding(
     current_path = current_finding.file_path.strip().lower()
     current_title = current_finding.title
     for prior_finding in prior_findings:
-        if prior_finding.identity is not None:
+        if prior_finding.legacy_identity is not None:
             continue
         parsed_prior_summary = _split_prior_summary(prior_finding.summary)
         if parsed_prior_summary is None:
@@ -509,6 +532,7 @@ def _to_follow_up_finding_status(finding: PriorReviewFinding) -> FollowUpFinding
         parsed_summary = _split_prior_summary(finding.summary)
         return FollowUpFindingStatus(
             identity=finding.identity,
+            legacy_identity=finding.legacy_identity,
             summary=finding.summary,
             file_path=parsed_summary[0] if parsed_summary is not None else None,
             symbol=finding.symbol,
@@ -520,6 +544,7 @@ def _to_follow_up_finding_status(finding: PriorReviewFinding) -> FollowUpFinding
         return None
     return FollowUpFindingStatus(
         identity=None,
+        legacy_identity=finding.legacy_identity,
         summary=finding.summary,
         file_path=_prior_finding_path(finding.summary),
         symbol=finding.symbol,

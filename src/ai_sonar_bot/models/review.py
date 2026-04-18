@@ -87,6 +87,7 @@ class PriorReviewFinding(BaseModel):
     """Represent one bounded prior-review finding summary."""
 
     identity: str | None = None
+    legacy_identity: str | None = None
     summary: str
     severity: str | None = None
     symbol: str | None = None

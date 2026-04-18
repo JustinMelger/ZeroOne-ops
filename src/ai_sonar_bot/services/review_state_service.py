@@ -21,7 +21,10 @@ from ai_sonar_bot.models.state import (
     utc_now,
 )
 from ai_sonar_bot.services.mr_selector import build_review_revision_key
-from ai_sonar_bot.services.review_finding_identity import build_review_finding_identity
+from ai_sonar_bot.services.review_finding_identity import (
+    build_legacy_review_finding_identity,
+    build_review_finding_identity,
+)
 from ai_sonar_bot.services.run_state_service import RunSummary
 from ai_sonar_bot.services.state_store import StateStore
 
@@ -189,6 +192,7 @@ class ReviewStateService:
                     findings=[
                         PriorReviewFinding(
                             identity=finding.identity,
+                            legacy_identity=finding.legacy_identity,
                             summary=finding.summary,
                             severity=finding.severity,
                             symbol=finding.symbol,
@@ -212,6 +216,7 @@ def _build_prior_review_findings(
         normalized_findings.append(
             PriorReviewFindingState(
                 identity=build_review_finding_identity(finding),
+                legacy_identity=build_legacy_review_finding_identity(finding),
                 summary=f"{finding.file_path}: {finding.title}",
                 severity=finding.severity,
                 symbol=finding.symbol,

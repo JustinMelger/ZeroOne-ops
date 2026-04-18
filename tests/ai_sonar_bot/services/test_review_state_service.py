@@ -80,6 +80,9 @@ def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
         loaded.reviews["17:abc123"].findings[0].identity
         == "src/service.py::ordering_regression::service-run::return-order"
     )
+    assert (
+        loaded.reviews["17:abc123"].findings[0].legacy_identity == "src/service.py::order-regress"
+    )
     assert loaded.reviews["17:abc123"].findings[0].summary == "src/service.py: Ordering regression"
     assert loaded.reviews["17:abc123"].findings[0].severity == "medium"
     assert loaded.reviews["17:abc123"].findings[0].symbol == "Service.run"

@@ -38,6 +38,12 @@ def build_review_finding_identity(finding: ReviewFinding) -> str:
     return f"{normalized_path}::{normalized_subject}"
 
 
+def build_legacy_review_finding_identity(finding: ReviewFinding) -> str:
+    """Build the legacy title-derived identity for compatibility matching."""
+    normalized_path = re.sub(r"\s+", "", finding.file_path.strip().lower())
+    return f"{normalized_path}::{_normalize_title_subject(finding.title)}"
+
+
 def _normalize_title_subject(title: str) -> str:
     """Normalize a finding title into a conservative subject key."""
     subject_tokens: set[str] = set()
