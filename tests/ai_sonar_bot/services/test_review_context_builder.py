@@ -491,6 +491,186 @@ def test_build_skips_helper_context_when_disabled(tmp_path: Path) -> None:
     assert result.context.changed_files[0].helper_context == []
 
 
+def test_build_includes_same_file_self_method_helper_context(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text(
+        "\n".join(
+            [
+                "class Service:",
+                "    def helper(self):",
+                "        return 1",
+                "",
+                "    def run(self):",
+                "        return self.helper()",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -5,1 +5,1 @@\n-        return 0\n+        return self.helper()\n",
+            )
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(),
+        review_client=FakeGitLabReviewClient(merge_request),
+    ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    helper_context = result.context.changed_files[0].helper_context
+    assert len(helper_context) == 1
+    assert helper_context[0].symbol == "Service.helper"
+    assert "def helper" in helper_context[0].content
+
+
+def test_build_includes_same_file_class_method_helper_context(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text(
+        "\n".join(
+            [
+                "class Service:",
+                "    @classmethod",
+                "    def helper(cls):",
+                "        return 1",
+                "",
+                "def run():",
+                "    return Service.helper()",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -6,1 +6,1 @@\n-    return 0\n+    return Service.helper()\n",
+            )
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(),
+        review_client=FakeGitLabReviewClient(merge_request),
+    ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    helper_context = result.context.changed_files[0].helper_context
+    assert len(helper_context) == 1
+    assert helper_context[0].symbol == "Service.helper"
+    assert "def helper" in helper_context[0].content
+
+
+def test_build_includes_project_local_imported_helper_context(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "helpers.py").write_text(
+        "\n".join(
+            [
+                "def helper():",
+                "    return 1",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (source_dir / "service.py").write_text(
+        "\n".join(
+            [
+                "from src.helpers import helper",
+                "",
+                "def service():",
+                "    return helper()",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -3,1 +3,1 @@\n-    return 0\n+    return helper()\n",
+            )
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(supported_paths=["src/"]),
+        review_client=FakeGitLabReviewClient(merge_request),
+    ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    helper_context = result.context.changed_files[0].helper_context
+    assert len(helper_context) == 1
+    assert helper_context[0].symbol == "helper"
+    assert helper_context[0].file_path == "src/helpers.py"
+    assert "def helper" in helper_context[0].content
+
+
+def test_build_skips_imported_helpers_in_ignored_paths(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    generated_dir = source_dir / "generated"
+    generated_dir.mkdir()
+    (generated_dir / "helpers.py").write_text(
+        "\n".join(
+            [
+                "def helper():",
+                "    return 1",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (source_dir / "service.py").write_text(
+        "\n".join(
+            [
+                "from src.generated.helpers import helper",
+                "",
+                "def service():",
+                "    return helper()",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    merge_request = build_merge_request(
+        changes=[
+            MergeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -3,1 +3,1 @@\n-    return 0\n+    return helper()\n",
+            )
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(
+            supported_paths=["src/"],
+            ignored_paths=["src/generated/"],
+        ),
+        review_client=FakeGitLabReviewClient(merge_request),
+    ).build(merge_request, project_id="123")
+
+    assert result.context is not None
+    assert result.context.changed_files[0].helper_context == []
+
+
 def test_build_limits_same_file_helper_context_by_budget(tmp_path: Path) -> None:
     source_dir = tmp_path / "src"
     source_dir.mkdir()
