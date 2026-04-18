@@ -172,7 +172,7 @@ class DashboardParser:
             return False
         if blocks[3] != ["No items."] and not self._matches_table(
             blocks[3],
-            header="| Item | File | Priority | Suggested Action | Summary |",
+            header="| Item | File | Priority | Next Step | Summary |",
             separator="|---|---|---|---|---|",
         ):
             return False

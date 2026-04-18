@@ -133,7 +133,7 @@ class DashboardRenderer:
     def _render_workflow_attention_table(self, items: list[DashboardItem]) -> list[str]:
         """Render the focused queue of workflow items that need operator attention."""
         lines = [
-            "| Item | File | Priority | Suggested Action | Summary |",
+            "| Item | File | Priority | Next Step | Summary |",
             "|---|---|---|---|---|",
         ]
         for item in items:
@@ -376,9 +376,8 @@ class DashboardRenderer:
 
     def _render_completed_summary(self, item: DashboardItem) -> str:
         """Render one compact completed summary."""
-        review_note = self._render_review_note(item)
-        if review_note is not None:
-            return self._compact_note(review_note)
+        if item.review_status is not None:
+            return self._render_review_outcome(item)
         note = item.log_excerpt or item.summary
         return self._compact_note(note)
 
@@ -390,7 +389,7 @@ class DashboardRenderer:
 
     def _render_suggested_action(self, item: DashboardItem) -> str:
         """Render one compact suggested-action label."""
-        return self._suggested_action(item)
+        return self._next_step(item)
 
     def _work_type_label(self, item: DashboardItem) -> str:
         """Render one compact grouping label for workflow breakdowns."""
@@ -429,8 +428,11 @@ class DashboardRenderer:
             text = title
         return self._compact_note(text.rstrip("."))
 
-    def _suggested_action(self, item: DashboardItem) -> str:
-        """Classify one workflow item into a simple operator action."""
+    def _next_step(self, item: DashboardItem) -> str:
+        """Classify one workflow item into a simple operator-facing next step."""
+        if item.status == "failed":
+            return "Investigate Failure"
+
         haystack = " ".join(
             part for part in [item.title, item.summary, item.rule or ""] if part
         ).lower()
@@ -442,8 +444,8 @@ class DashboardRenderer:
             "boolean comparison",
         )
         if any(pattern in haystack for pattern in auto_fix_patterns):
-            return "Auto-fix"
-        return "Review"
+            return "Queue Auto-fix"
+        return "Review Before Fix"
 
     def _needs_attention(self, item: DashboardItem) -> bool:
         """Return whether one review item should appear in the attention queue."""
