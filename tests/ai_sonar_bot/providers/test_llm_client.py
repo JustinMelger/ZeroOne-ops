@@ -617,8 +617,7 @@ def test_build_review_prompt_includes_prior_review_context_when_present() -> Non
     assert "Summary: One earlier concern still needs attention." in prompt
     assert "- src/service.py: Ordering regression (medium)" in prompt
     assert (
-        "[symbol=Service.run, issue_kind=ordering_regression, "
-        "region_hint=return-order]" in prompt
+        "[symbol=Service.run, issue_kind=ordering_regression, region_hint=return-order]" in prompt
     )
 
 

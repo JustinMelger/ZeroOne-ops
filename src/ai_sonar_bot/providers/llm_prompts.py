@@ -221,10 +221,7 @@ def _format_prior_review_context(context: PriorReviewContext | None) -> str:
     blocks: list[str] = []
     for index, prior_pass in enumerate(context.passes, start=1):
         findings = (
-            "\n".join(
-                _format_prior_review_finding(finding)
-                for finding in prior_pass.findings
-            )
+            "\n".join(_format_prior_review_finding(finding) for finding in prior_pass.findings)
             if prior_pass.findings
             else "- (none)"
         )
