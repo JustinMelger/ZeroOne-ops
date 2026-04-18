@@ -560,6 +560,127 @@ def test_reconcile_follow_up_review_prefers_identity_for_wording_drift() -> None
     ]
 
 
+def test_reconcile_follow_up_review_uses_structured_field_identity_when_present() -> None:
+    structured_context = build_context().model_copy(
+        update={
+            "head_sha": "ghi789",
+            "prior_review_context": PriorReviewContext(
+                merge_request_iid=17,
+                passes=[
+                    PriorReviewPass(
+                        reviewed_head_sha="def456",
+                        classification="findings_present",
+                        findings_count=1,
+                        summary="One earlier concern still needs attention.",
+                        findings=[
+                            PriorReviewFinding(
+                                identity=(
+                                    "src/service.py::ordering_regression::service-run::return-order"
+                                ),
+                                legacy_identity=(
+                                    "src/service.py::different-logic-order-returns-sequence"
+                                ),
+                                summary="src/service.py: Ordering regression",
+                                severity="medium",
+                                symbol="Service.run",
+                                issue_kind="ordering_regression",
+                                region_hint="return-order",
+                            )
+                        ],
+                    )
+                ],
+            ),
+        }
+    )
+
+    reconciliation = _reconcile_follow_up_review(
+        context=structured_context,
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One medium-risk finding.",
+            findings=[
+                ReviewFinding(
+                    severity="medium",
+                    file_path="src/service.py",
+                    symbol="Service.run",
+                    issue_kind="ordering_regression",
+                    region_hint="return-order",
+                    title="Ordering logic now returns a different sequence",
+                    evidence="The diff removes the stable sort before returning results.",
+                    explanation="The returned order can now drift between runs.",
+                    suggested_follow_up="Restore deterministic ordering.",
+                )
+            ],
+        ),
+    )
+
+    assert reconciliation is not None
+    assert [item.identity for item in reconciliation.still_unresolved] == [
+        "src/service.py::ordering_regression::service-run::return-order"
+    ]
+    assert [item.legacy_identity for item in reconciliation.still_unresolved] == [
+        "src/service.py::different-logic-order-returns-sequence"
+    ]
+    assert [item.summary for item in reconciliation.still_unresolved] == [
+        "src/service.py: Ordering regression"
+    ]
+
+
+def test_reconcile_follow_up_review_matches_old_legacy_identity() -> None:
+    structured_context = build_context().model_copy(
+        update={
+            "head_sha": "ghi789",
+            "prior_review_context": PriorReviewContext(
+                merge_request_iid=17,
+                passes=[
+                    PriorReviewPass(
+                        reviewed_head_sha="def456",
+                        classification="findings_present",
+                        findings_count=1,
+                        summary="One earlier concern still needs attention.",
+                        findings=[
+                            PriorReviewFinding(
+                                identity=("src/service.py::different-logic-order-returns-sequence"),
+                                summary=(
+                                    "src/service.py: Ordering logic now returns "
+                                    "a different sequence"
+                                ),
+                                severity="medium",
+                            )
+                        ],
+                    )
+                ],
+            ),
+        }
+    )
+
+    reconciliation = _reconcile_follow_up_review(
+        context=structured_context,
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One medium-risk finding.",
+            findings=[
+                ReviewFinding(
+                    severity="medium",
+                    file_path="src/service.py",
+                    symbol="Service.run",
+                    issue_kind="ordering_regression",
+                    region_hint="return-order",
+                    title="Ordering logic now returns a different sequence",
+                    evidence="The diff removes the stable sort before returning results.",
+                    explanation="The returned order can now drift between runs.",
+                    suggested_follow_up="Restore deterministic ordering.",
+                )
+            ],
+        ),
+    )
+
+    assert reconciliation is not None
+    assert [item.summary for item in reconciliation.still_unresolved] == [
+        "src/service.py: Ordering logic now returns a different sequence"
+    ]
+
+
 def test_reconcile_follow_up_review_keeps_legacy_fallback_without_identity() -> None:
     legacy_context = build_variant_title_follow_up_context().model_copy(
         update={
@@ -610,6 +731,63 @@ def test_reconcile_follow_up_review_keeps_legacy_fallback_without_identity() -> 
     assert [item.summary for item in reconciliation.still_unresolved] == [
         "bnl_app/functions/vehicle_functions.py: "
         "Unconditional exception breaks vehicle detail retrieval"
+    ]
+
+
+def test_reconcile_follow_up_review_matches_structured_history_without_fields() -> None:
+    unstructured_context = build_context().model_copy(
+        update={
+            "head_sha": "ghi789",
+            "prior_review_context": PriorReviewContext(
+                merge_request_iid=17,
+                passes=[
+                    PriorReviewPass(
+                        reviewed_head_sha="def456",
+                        classification="findings_present",
+                        findings_count=1,
+                        summary="One earlier concern still needs attention.",
+                        findings=[
+                            PriorReviewFinding(
+                                identity=(
+                                    "src/service.py::ordering_regression::service-run::return-order"
+                                ),
+                                legacy_identity=(
+                                    "src/service.py::different-logic-order-returns-sequence"
+                                ),
+                                summary="src/service.py: Ordering regression",
+                                severity="medium",
+                                symbol="Service.run",
+                                issue_kind="ordering_regression",
+                                region_hint="return-order",
+                            )
+                        ],
+                    )
+                ],
+            ),
+        }
+    )
+
+    reconciliation = _reconcile_follow_up_review(
+        context=unstructured_context,
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One medium-risk finding.",
+            findings=[
+                ReviewFinding(
+                    severity="medium",
+                    file_path="src/service.py",
+                    title="Ordering logic now returns a different sequence",
+                    evidence="The diff removes the stable sort before returning results.",
+                    explanation="The returned order can now drift between runs.",
+                    suggested_follow_up="Restore deterministic ordering.",
+                )
+            ],
+        ),
+    )
+
+    assert reconciliation is not None
+    assert [item.summary for item in reconciliation.still_unresolved] == [
+        "src/service.py: Ordering regression"
     ]
 
 

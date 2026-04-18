@@ -143,16 +143,16 @@ class DashboardParser:
             return False
         if blocks[3] != ["No items."] and not self._matches_table(
             blocks[3],
-            header="| MR | Outcome | Findings | Priority | Summary |",
-            separator="|---|---|---|---|---|",
+            header="| MR | Outcome | Findings | Confidence | Priority | Summary |",
+            separator="|---|---|---|---|---|---|",
         ):
             return False
         if blocks[4] != ["### All Reviews"]:
             return False
         return self._matches_table(
             blocks[5],
-            header="| MR | Outcome | Findings | Priority | Summary | Reviewed SHA |",
-            separator="|---|---|---|---|---|---|",
+            header="| MR | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |",
+            separator="|---|---|---|---|---|---|---|",
         )
 
     def _is_supported_workflow_summary_content(self, content: str) -> bool:

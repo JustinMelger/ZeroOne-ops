@@ -141,8 +141,12 @@ class PriorReviewFindingState(BaseModel):
     """Represent one bounded persisted prior-review finding summary."""
 
     identity: str | None = None
+    legacy_identity: str | None = None
     summary: str
     severity: str | None = None
+    symbol: str | None = None
+    issue_kind: str | None = None
+    region_hint: str | None = None
 
 
 class MergeRequestReviewState(BaseModel):

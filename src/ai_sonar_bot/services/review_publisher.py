@@ -14,25 +14,13 @@ from ai_sonar_bot.models.review import (
 )
 from ai_sonar_bot.providers.gitlab_client import GitLabClientError
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
+from ai_sonar_bot.services.review_finding_identity import (
+    build_legacy_review_finding_identity,
+    build_review_finding_identity,
+)
 
 _MIN_SHARED_TITLE_TOKENS = 2
 _MIN_TITLE_TOKEN_OVERLAP = 0.6
-_IDENTITY_STOP_TOKENS = frozenset({"always", "make"})
-_IDENTITY_TOKEN_ALIASES = {
-    "breaks": "fail",
-    "break": "fail",
-    "broken": "fail",
-    "fails": "fail",
-    "failing": "fail",
-    "failure": "fail",
-    "fail": "fail",
-    "makes": "make",
-    "make": "make",
-    "lookup": "lookup",
-    "retrieval": "lookup",
-    "retrieve": "lookup",
-    "details": "detail",
-}
 
 
 @dataclass(frozen=True)
@@ -49,8 +37,12 @@ class FollowUpFindingStatus:
     """Represent one bounded follow-up comparison outcome."""
 
     identity: str | None
+    legacy_identity: str | None
     summary: str
     file_path: str | None
+    symbol: str | None
+    issue_kind: str | None
+    region_hint: str | None
     status: str
 
 
@@ -251,8 +243,12 @@ def _reconcile_follow_up_review(
         finding_key = _current_finding_key(current_finding)
         finding_status = FollowUpFindingStatus(
             identity=_current_finding_identity(current_finding),
+            legacy_identity=build_legacy_review_finding_identity(current_finding),
             summary=finding_summary,
             file_path=current_finding.file_path,
+            symbol=current_finding.symbol,
+            issue_kind=current_finding.issue_kind,
+            region_hint=current_finding.region_hint,
             status="new",
         )
         # Prefer exact machine identity for new persisted entries. Only fall back
@@ -260,6 +256,7 @@ def _reconcile_follow_up_review(
         matched_prior_finding = _match_prior_finding(
             current_finding=current_finding,
             current_identity=_current_finding_identity(current_finding),
+            current_legacy_identity=build_legacy_review_finding_identity(current_finding),
             current_key=finding_key,
             prior_findings=prior_findings,
         )
@@ -267,8 +264,12 @@ def _reconcile_follow_up_review(
             still_unresolved.append(
                 FollowUpFindingStatus(
                     identity=matched_prior_finding.identity,
+                    legacy_identity=matched_prior_finding.legacy_identity,
                     summary=matched_prior_finding.summary,
                     file_path=matched_prior_finding.file_path,
+                    symbol=matched_prior_finding.symbol,
+                    issue_kind=matched_prior_finding.issue_kind,
+                    region_hint=matched_prior_finding.region_hint,
                     status="still_unresolved",
                 )
             )
@@ -302,9 +303,7 @@ def _current_finding_key(finding: ReviewFinding) -> tuple[str, str, str]:
 
 def _current_finding_identity(finding: ReviewFinding) -> str:
     """Build the canonical machine-facing identity for one current finding."""
-    normalized_path = re.sub(r"\s+", "", finding.file_path.strip().lower())
-    normalized_subject = _normalize_identity_subject(finding.title)
-    return f"{normalized_path}::{normalized_subject}"
+    return build_review_finding_identity(finding)
 
 
 def _prior_finding_key(summary: str) -> tuple[str, str, str] | None:
@@ -432,6 +431,7 @@ def _match_prior_finding(
     *,
     current_finding: ReviewFinding,
     current_identity: str,
+    current_legacy_identity: str,
     current_key: tuple[str, str, str],
     prior_findings: list[FollowUpFindingStatus],
 ) -> FollowUpFindingStatus | None:
@@ -447,11 +447,26 @@ def _match_prior_finding(
     if identity_match is not None:
         return identity_match
 
+    legacy_identity_match = next(
+        (
+            prior_finding
+            for prior_finding in prior_findings
+            if current_legacy_identity
+            in {
+                prior_finding.identity,
+                prior_finding.legacy_identity,
+            }
+        ),
+        None,
+    )
+    if legacy_identity_match is not None:
+        return legacy_identity_match
+
     exact_match = next(
         (
             prior_finding
             for prior_finding in prior_findings
-            if prior_finding.identity is None
+            if prior_finding.legacy_identity is None
             and _prior_finding_key(prior_finding.summary) == current_key
         ),
         None,
@@ -462,7 +477,7 @@ def _match_prior_finding(
     current_path = current_finding.file_path.strip().lower()
     current_title = current_finding.title
     for prior_finding in prior_findings:
-        if prior_finding.identity is not None:
+        if prior_finding.legacy_identity is not None:
             continue
         parsed_prior_summary = _split_prior_summary(prior_finding.summary)
         if parsed_prior_summary is None:
@@ -511,36 +526,29 @@ def _normalize_title_token(token: str) -> str:
     return token
 
 
-def _normalize_identity_subject(title: str) -> str:
-    """Normalize a title into a stable conservative identity subject."""
-    subject_tokens: set[str] = set()
-    for token in re.findall(r"[a-z0-9_]+", title.lower()):
-        normalized_token = _normalize_title_token(token)
-        normalized_token = _IDENTITY_TOKEN_ALIASES.get(normalized_token, normalized_token)
-        if normalized_token in _IDENTITY_STOP_TOKENS:
-            continue
-        if len(normalized_token) >= 4:
-            subject_tokens.add(normalized_token)
-    if not subject_tokens:
-        return "unknown"
-    return "-".join(sorted(subject_tokens))
-
-
 def _to_follow_up_finding_status(finding: PriorReviewFinding) -> FollowUpFindingStatus | None:
     """Convert one prior finding into reconciliation state when it is parseable."""
     if finding.identity is not None:
         parsed_summary = _split_prior_summary(finding.summary)
         return FollowUpFindingStatus(
             identity=finding.identity,
+            legacy_identity=finding.legacy_identity,
             summary=finding.summary,
             file_path=parsed_summary[0] if parsed_summary is not None else None,
+            symbol=finding.symbol,
+            issue_kind=finding.issue_kind,
+            region_hint=finding.region_hint,
             status="appears_resolved",
         )
     if _prior_finding_key(finding.summary) is None:
         return None
     return FollowUpFindingStatus(
         identity=None,
+        legacy_identity=finding.legacy_identity,
         summary=finding.summary,
         file_path=_prior_finding_path(finding.summary),
+        symbol=finding.symbol,
+        issue_kind=finding.issue_kind,
+        region_hint=finding.region_hint,
         status="appears_resolved",
     )
