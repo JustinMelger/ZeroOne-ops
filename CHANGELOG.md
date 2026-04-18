@@ -5,6 +5,13 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.25.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.24.0...zeroone-ops-v0.25.0) (2026-04-18)
+
+
+### Features
+
+* improve structured reconcilation matching ([#121](https://github.com/JustinMelger/ZeroOne-ops/issues/121)) ([25e69e8](https://github.com/JustinMelger/ZeroOne-ops/commit/25e69e882ac047622c8fa2be2a24cb0ad5e4b7f9))
+
 ## [0.24.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.23.1...zeroone-ops-v0.24.0) (2026-04-18)
 
 
