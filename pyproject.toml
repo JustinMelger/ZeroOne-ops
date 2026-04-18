@@ -1,6 +1,6 @@
 [project]
 name = "ai-sonar-bot"
-version = "0.22.5"
+version = "0.22.6"
 description = "AI bot that creates GitLab merge requests from SonarQube issues."
 readme = "README.md"
 requires-python = "==3.13.*"
