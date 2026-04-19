@@ -15,6 +15,8 @@ from ai_sonar_bot.services.mr_intake import MergeRequestIntakeService
 from ai_sonar_bot.services.review_analysis_service import ReviewAnalysisService
 from ai_sonar_bot.services.review_context_builder import ReviewContextBuilder
 from ai_sonar_bot.services.review_dashboard_updater import ReviewDashboardUpdater
+from ai_sonar_bot.services.review_overlap_analysis_service import ReviewOverlapAnalysisService
+from ai_sonar_bot.services.review_overlap_packet_builder import OverlapPacketBuilder
 from ai_sonar_bot.services.review_publisher import ReviewPublisher
 from ai_sonar_bot.services.review_state_service import ReviewStateService
 from ai_sonar_bot.services.run_state_service import RunSummary
@@ -148,6 +150,38 @@ class ReviewRunner:
             },
         )
 
+        overlap_result = None
+        overlap_packet = OverlapPacketBuilder().build(
+            context=context,
+            review_result=analysis_result.review_result,
+        )
+        if overlap_packet is not None:
+            overlap_analysis = ReviewOverlapAnalysisService(self.config).analyze(overlap_packet)
+            if overlap_analysis.overlap_result is not None:
+                overlap_result = overlap_analysis.overlap_result
+                LOGGER.info(
+                    "review overlap reconciliation completed",
+                    extra={
+                        "run_id": run_id,
+                        "mr_iid": context.mr_iid,
+                        "head_sha": context.head_sha,
+                        "prior_head_sha": overlap_result.prior_reviewed_head_sha,
+                        "resolution_count": len(overlap_result.resolutions),
+                    },
+                )
+            else:
+                LOGGER.warning(
+                    (
+                        "review overlap reconciliation unavailable; omitting "
+                        "continuity wording"
+                    ),
+                    extra={
+                        "run_id": run_id,
+                        "mr_iid": context.mr_iid,
+                        "head_sha": context.head_sha,
+                    },
+                )
+
         note_url: str | None = None
         dashboard_warning: str | None = None
         if not active_dry_run:
@@ -157,6 +191,7 @@ class ReviewRunner:
                     merge_request_iid=context.mr_iid,
                     context=context,
                     review_result=analysis_result.review_result,
+                    overlap_result=overlap_result,
                 )
                 if publish_result.error_message is not None:
                     return self.review_state_service.fail_review(

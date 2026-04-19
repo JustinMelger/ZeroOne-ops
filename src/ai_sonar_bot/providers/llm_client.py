@@ -20,15 +20,22 @@ from ai_sonar_bot.models.analysis import (
 )
 from ai_sonar_bot.models.config import OpenAIConnectionConfig
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget, remediation_profile_for
-from ai_sonar_bot.models.review import MergeRequestReviewContext, ReviewResult
+from ai_sonar_bot.models.review import (
+    MergeRequestReviewContext,
+    OverlapPacket,
+    OverlapReconciliationResult,
+    ReviewResult,
+)
 from ai_sonar_bot.providers.llm_fixtures import (
     LLMFixtureError,
     load_analysis_fixture,
     load_review_fixture,
+    load_review_overlap_fixture,
     load_structured_edit_fixture,
 )
 from ai_sonar_bot.providers.llm_prompts import (
     build_analysis_prompt,
+    build_review_overlap_prompt,
     build_review_prompt,
     build_structured_edit_prompt,
 )
@@ -80,6 +87,13 @@ class LLMClient:
     def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
         """Review one merge request and return structured findings."""
         raise NotImplementedError("Merge request review is not implemented yet.")
+
+    def review_overlap_reconciliation(
+        self,
+        packet: OverlapPacket,
+    ) -> OverlapReconciliationResult:
+        """Classify overlap between current and prior review findings."""
+        raise NotImplementedError("Review overlap reconciliation is not implemented yet.")
 
 
 class OpenAILLMClient(LLMClient):
@@ -222,6 +236,38 @@ class OpenAILLMClient(LLMClient):
             raise LLMClientError("OpenAI merge request review did not return parsed output.")
         return response.output_parsed
 
+    def review_overlap_reconciliation(
+        self,
+        packet: OverlapPacket,
+    ) -> OverlapReconciliationResult:
+        """Classify overlap between current and prior review findings with OpenAI."""
+        input_text = build_review_overlap_prompt(packet)
+        try:
+            response = self.client.responses.parse(
+                model=self.config.model,
+                input=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a careful senior software engineer comparing "
+                            "current and prior review findings for one merge request. "
+                            "Return strictly structured JSON overlap outcomes only. "
+                            "Do not invent new findings or reassess raw code from scratch."
+                        ),
+                    },
+                    {"role": "user", "content": input_text},
+                ],
+                text_format=OverlapReconciliationResult,
+            )
+        except Exception as error:
+            raise LLMClientError("OpenAI review overlap reconciliation request failed.") from error
+
+        if response.output_parsed is None:
+            raise LLMClientError(
+                "OpenAI review overlap reconciliation did not return parsed output."
+            )
+        return response.output_parsed
+
 
 class FixtureLLMClient(LLMClient):
     """LLM client backed by a local analysis fixture file.
@@ -236,6 +282,7 @@ class FixtureLLMClient(LLMClient):
         analysis_fixture_path: Path,
         structured_edit_fixture_path: Path | None = None,
         review_fixture_path: Path | None = None,
+        review_overlap_fixture_path: Path | None = None,
     ) -> None:
         """Initialize the fixture-backed LLM client.
 
@@ -243,10 +290,12 @@ class FixtureLLMClient(LLMClient):
             analysis_fixture_path: Path to a local JSON analysis fixture.
             structured_edit_fixture_path: Optional path to a local JSON structured edit fixture.
             review_fixture_path: Optional path to a local JSON review fixture.
+            review_overlap_fixture_path: Optional path to a local JSON overlap fixture.
         """
         self.analysis_fixture_path = analysis_fixture_path
         self.structured_edit_fixture_path = structured_edit_fixture_path
         self.review_fixture_path = review_fixture_path
+        self.review_overlap_fixture_path = review_overlap_fixture_path
 
     def analyze_issue(
         self,
@@ -299,6 +348,20 @@ class FixtureLLMClient(LLMClient):
             return load_review_fixture(self.review_fixture_path)
         except LLMFixtureError as error:
             raise LLMClientError(str(error)) from error
+
+    def review_overlap_reconciliation(
+        self,
+        packet: OverlapPacket,
+    ) -> OverlapReconciliationResult:
+        """Load a fixture-based overlap reconciliation result."""
+        del packet
+        if self.review_overlap_fixture_path is None:
+            raise LLMClientError("LLM review overlap fixture path is not configured.")
+        try:
+            return load_review_overlap_fixture(self.review_overlap_fixture_path)
+        except LLMFixtureError as error:
+            raise LLMClientError(str(error)) from error
+
 
 
 def _write_solution_file(

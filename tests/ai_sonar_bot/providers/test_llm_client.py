@@ -8,23 +8,30 @@ from ai_sonar_bot.models.analysis import (
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.models.review import (
     MergeRequestReviewContext,
+    OverlapCandidate,
+    OverlapPacket,
+    OverlapReconciliationResult,
     PriorReviewContext,
     PriorReviewFinding,
     PriorReviewPass,
     RemediationReviewContext,
     RepositoryGuidanceContext,
     ReviewFileContext,
+    ReviewFinding,
     ReviewHelperContext,
     ReviewResult,
 )
+from ai_sonar_bot.providers.llm_client import FixtureLLMClient
 from ai_sonar_bot.providers.llm_fixtures import (
     load_analysis_fixture,
     load_review_fixture,
+    load_review_overlap_fixture,
     load_structured_edit_fixture,
 )
 from ai_sonar_bot.providers.llm_prompts import (
     LLMPromptError,
     build_analysis_prompt,
+    build_review_overlap_prompt,
     build_review_prompt,
     build_structured_edit_prompt,
     load_prompt_template,
@@ -82,6 +89,35 @@ def test_load_structured_edit_fixture_returns_proposal(tmp_path: Path) -> None:
     assert proposal.issue_key == "AX1"
     assert proposal.edits[0].file_path == "src/service.py"
     assert proposal.mr_title == "fix: update service"
+
+
+def test_load_review_overlap_fixture_returns_overlap_result(tmp_path: Path) -> None:
+    fixture_path = tmp_path / "review-overlap.json"
+    fixture_path.write_text(
+        "\n".join(
+            [
+                "{",
+                '  "prior_reviewed_head_sha": "abc123",',
+                '  "resolutions": [',
+                "    {",
+                '      "outcome": "still_unresolved",',
+                '      "current_finding_index": 0,',
+                '      "prior_finding_index": 1,',
+                '      "related_prior_finding_indices": [1]',
+                "    }",
+                "  ]",
+                "}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = load_review_overlap_fixture(fixture_path)
+
+    assert isinstance(result, OverlapReconciliationResult)
+    assert result.prior_reviewed_head_sha == "abc123"
+    assert result.resolutions[0].outcome == "still_unresolved"
+    assert result.resolutions[0].prior_finding_index == 1
 
 
 def test_load_review_fixture_returns_review_result(tmp_path: Path) -> None:
@@ -647,3 +683,96 @@ def test_render_prompt_template_reports_missing_placeholder(monkeypatch) -> None
         )
     else:
         raise AssertionError("Expected prompt rendering to fail on missing placeholders.")
+
+
+def test_build_review_overlap_prompt_uses_prompt_template() -> None:
+    packet = OverlapPacket(
+        merge_request_iid=17,
+        current_head_sha="def456",
+        prior_head_sha="abc123",
+        current_findings=[
+            ReviewFinding(
+                severity="high",
+                file_path="src/service.py",
+                symbol="Service.run",
+                issue_kind="ordering_regression",
+                region_hint="return-order",
+                title="Ordering logic now returns a different sequence",
+                evidence="The diff removes stable ordering.",
+                explanation="The returned order can drift between runs.",
+                suggested_follow_up="Restore deterministic ordering.",
+            )
+        ],
+        prior_findings=[
+            PriorReviewFinding(
+                summary="src/service.py: Ordering regression",
+                severity="medium",
+                symbol="Service.run",
+                issue_kind="ordering_regression",
+                region_hint="return-order",
+            )
+        ],
+        candidates=[
+            OverlapCandidate(
+                current_finding_index=0,
+                prior_finding_index=0,
+                reasons=["same_file", "symbol", "issue_kind"],
+            )
+        ],
+    )
+
+    prompt = build_review_overlap_prompt(packet)
+
+    assert "Compare the current review findings against the latest prior review pass" in prompt
+    assert "You are NOT reviewing raw code in this step." in prompt
+    assert "Prefer `overlap_ambiguous` over a weak or forced match." in prompt
+    assert "Merge request IID: 17" in prompt
+    assert "Current reviewed SHA: def456" in prompt
+    assert "Prior reviewed SHA: abc123" in prompt
+    assert "<<BEGIN UNTRUSTED Current findings>>" in prompt
+    assert "current[1] src/service.py: Ordering logic now returns a different sequence" in prompt
+    assert "symbol=Service.run" in prompt
+    assert "<<BEGIN UNTRUSTED Prior findings>>" in prompt
+    assert "prior[1] src/service.py: Ordering regression" in prompt
+    assert "<<BEGIN UNTRUSTED Overlap candidates>>" in prompt
+    assert "current[1] <-> prior[1] reasons=same_file, symbol, issue_kind" in prompt
+
+
+def test_fixture_llm_client_loads_review_overlap_result(tmp_path: Path) -> None:
+    fixture_path = tmp_path / "review-overlap.json"
+    fixture_path.write_text(
+        "\n".join(
+            [
+                "{",
+                '  "prior_reviewed_head_sha": "abc123",',
+                '  "resolutions": [',
+                "    {",
+                '      "outcome": "still_unresolved",',
+                '      "current_finding_index": 0,',
+                '      "prior_finding_index": 0,',
+                '      "related_prior_finding_indices": [0]',
+                "    }",
+                "  ]",
+                "}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    client = FixtureLLMClient(
+        analysis_fixture_path=tmp_path / "analysis.json",
+        review_overlap_fixture_path=fixture_path,
+    )
+
+    result = client.review_overlap_reconciliation(
+        OverlapPacket(
+            merge_request_iid=17,
+            current_head_sha="def456",
+            prior_head_sha="abc123",
+            current_findings=[],
+            prior_findings=[],
+            candidates=[],
+        )
+    )
+
+    assert result.prior_reviewed_head_sha == "abc123"
+    assert result.resolutions[0].outcome == "still_unresolved"

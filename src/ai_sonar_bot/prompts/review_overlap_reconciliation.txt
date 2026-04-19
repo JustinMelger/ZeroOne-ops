@@ -1,0 +1,54 @@
+Compare the current review findings against the latest prior review pass and return structured JSON only.
+
+Act like a careful senior engineer doing bounded continuity reconciliation for one merge request.
+You are NOT reviewing raw code in this step. The current findings were already produced by a separate review pass.
+Your only job is to classify overlap between current findings and prior findings within the candidate pairs provided by the app.
+
+----------------------------------------------------------------
+TASK
+----------------------------------------------------------------
+For the provided packet:
+- decide which current findings still overlap with an earlier concern
+- decide which current findings are new in this pass
+- decide which prior findings no longer appear present in this pass
+- use `overlap_ambiguous` when the provided candidates are too uncertain to classify confidently
+
+----------------------------------------------------------------
+BOUNDARIES
+----------------------------------------------------------------
+- Do NOT invent new findings.
+- Do NOT reassess the raw code review from scratch.
+- Do NOT compare findings outside the provided candidate set.
+- Prefer `overlap_ambiguous` over a weak or forced match.
+- If one current finding has no candidates, classify it as `new_in_this_pass`.
+- If one prior finding has no overlapping current finding, classify it as `no_longer_present`.
+- If one current finding has exactly one strong candidate prior finding, you may classify it as `still_unresolved`.
+- If multiple candidate prior findings remain plausible for one current finding, prefer `overlap_ambiguous`.
+
+----------------------------------------------------------------
+OUTPUT
+----------------------------------------------------------------
+Return only structured JSON matching the provided schema.
+Use outcomes from this set only:
+- `still_unresolved`
+- `new_in_this_pass`
+- `no_longer_present`
+- `overlap_ambiguous`
+
+Keep rationales out of the response unless the schema explicitly includes them.
+
+----------------------------------------------------------------
+CONTEXT
+----------------------------------------------------------------
+Merge request IID: {mr_iid}
+Current reviewed SHA: {current_head_sha}
+Prior reviewed SHA: {prior_head_sha}
+
+Current findings:
+{current_findings}
+
+Prior findings:
+{prior_findings}
+
+Overlap candidates:
+{overlap_candidates}

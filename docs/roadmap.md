@@ -181,17 +181,17 @@ Phase 2: Overlap Result Contract
 - [x] add tests that map benchmark sequences onto those normalized outcomes
 
 Phase 3: Bounded Overlap LLM Step
-- [ ] add one bounded overlap call per MR run behind the same review command
-- [ ] keep the overlap prompt focused on compare-and-classify only
-- [ ] include structured fields and ids in the packet given to the overlap step
-- [ ] use neutral fallback wording when overlap remains ambiguous
+- [x] add one bounded overlap call per MR run behind the same review command
+- [x] keep the overlap prompt focused on compare-and-classify only
+- [x] include structured fields and ids in the packet given to the overlap step
+- [x] use neutral fallback wording when overlap remains ambiguous
 
 Phase 4: Renderer And Orchestration Integration
-- [ ] update the review run flow so one operator command performs current-pass
+- [x] update the review run flow so one operator command performs current-pass
       review, overlap reconciliation, and one final note render and publish
-- [ ] update note rendering to use normalized overlap outcomes instead of
+- [x] update note rendering to use normalized overlap outcomes instead of
       implicit continuity inference
-- [ ] keep graceful fallback to current continuity behavior during rollout
+- [x] keep graceful fallback to current continuity behavior during rollout
 
 Phase 5: Benchmark And Live Validation
 - [ ] run the continuity benchmark suite against the split flow
