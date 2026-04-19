@@ -28,10 +28,13 @@ class GitLabMergeRequestState(BaseModel):
 
 
 class MergeRequestNote(BaseModel):
-    """Represent a published GitLab merge request note."""
+    """Represent a GitLab merge request note."""
 
     id: int
     web_url: str | None = None
+    body: str | None = None
+    author_username: str | None = None
+    created_at: str | None = None
 
 
 class GitLabIssueInfo(BaseModel):

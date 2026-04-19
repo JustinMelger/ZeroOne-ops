@@ -91,6 +91,22 @@ class GitLabReviewClient:
             raise GitLabClientError("Unexpected GitLab merge request note payload.")
         return _normalize_merge_request_note(payload)
 
+    def list_merge_request_notes(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+    ) -> list[MergeRequestNote]:
+        """List notes for one merge request."""
+        encoded_project_id = quote_plus(project_id)
+        response = self._http_client.get(
+            f"/api/v4/projects/{encoded_project_id}/merge_requests/{merge_request_iid}/notes"
+        )
+        payload = _parse_json_response(response)
+        if not isinstance(payload, list):
+            raise GitLabClientError("Unexpected GitLab merge request notes payload.")
+        return [_normalize_merge_request_note(item) for item in payload if isinstance(item, dict)]
+
 
 def _normalize_review_candidate(payload: dict[str, Any]) -> MergeRequestReviewCandidate:
     """Normalize a GitLab merge request payload for review."""
@@ -176,11 +192,34 @@ def _normalize_merge_request_note(payload: dict[str, Any]) -> MergeRequestNote:
     """Normalize a GitLab merge request note payload."""
     note_id = payload.get("id")
     web_url = payload.get("web_url")
+    body = payload.get("body")
+    created_at = payload.get("created_at")
+    author_payload = payload.get("author")
     if not isinstance(note_id, int):
         raise GitLabClientError("Unexpected GitLab merge request note structure.")
     if web_url is not None and not isinstance(web_url, str):
         raise GitLabClientError("Unexpected GitLab merge request note structure.")
-    return MergeRequestNote(id=note_id, web_url=web_url)
+    if body is not None and not isinstance(body, str):
+        raise GitLabClientError("Unexpected GitLab merge request note body.")
+    if created_at is not None and not isinstance(created_at, str):
+        raise GitLabClientError("Unexpected GitLab merge request note timestamp.")
+
+    author_username: str | None = None
+    if author_payload is not None:
+        if not isinstance(author_payload, dict):
+            raise GitLabClientError("Unexpected GitLab merge request note author structure.")
+        username = author_payload.get("username")
+        if username is not None and not isinstance(username, str):
+            raise GitLabClientError("Unexpected GitLab merge request note author username.")
+        author_username = username
+
+    return MergeRequestNote(
+        id=note_id,
+        web_url=web_url,
+        body=body,
+        author_username=author_username,
+        created_at=created_at,
+    )
 
 
 def _normalize_merge_request_state(payload: dict[str, Any]) -> GitLabMergeRequestState:

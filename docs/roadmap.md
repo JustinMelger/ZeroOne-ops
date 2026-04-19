@@ -204,16 +204,16 @@ GitLab-backed prior review context
 Implementation phases:
 
 Phase 1: Machine-Safe Review Note Block
-- [ ] add a bounded machine-safe section to bot-authored MR review notes
-- [ ] include reviewed SHA, classification, findings count, and per-finding
+- [x] add a bounded machine-safe section to bot-authored MR review notes
+- [x] include reviewed SHA, classification, findings count, and per-finding
       structured continuity fields when present
-- [ ] keep the operator-facing markdown readable while making the machine block
+- [x] keep the operator-facing markdown readable while making the machine block
       strict and versionable
 
 Phase 2: MR Note Fetch And Filtering
-- [ ] add a dedicated service to fetch MR notes for prior review reconstruction
-- [ ] filter to bot-authored review notes only
-- [ ] sort and select the latest earlier parseable prior review note for v1
+- [x] add a dedicated service to fetch MR notes for prior review reconstruction
+- [x] filter to bot-authored review notes only
+- [x] sort and select the latest earlier parseable prior review note for v1
 
 Phase 3: Prior Review Note Parser
 - [ ] parse the machine-safe note block into reconstructed `PriorReviewPass`
