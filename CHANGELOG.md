@@ -5,6 +5,13 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.27.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.26.0...zeroone-ops-v0.27.0) (2026-04-19)
+
+
+### Features
+
+* gitlab mr notes reconcilation ([#125](https://github.com/JustinMelger/ZeroOne-ops/issues/125)) ([b1c8f99](https://github.com/JustinMelger/ZeroOne-ops/commit/b1c8f9921f256e6ab0427978703cf0ab44943c54))
+
 ## [0.26.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.25.0...zeroone-ops-v0.26.0) (2026-04-19)
 
 
