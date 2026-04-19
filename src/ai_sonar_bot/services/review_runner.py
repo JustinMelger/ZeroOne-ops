@@ -53,9 +53,7 @@ class ReviewRunner:
         self.review_state_service = review_state_service
         self.prior_context_service = prior_context_service
         self.prior_note_parser = prior_note_parser or ReviewGitLabPriorNoteParser()
-        self._resolved_bot_author_username: str | None | object = (
-            _UNRESOLVED_BOT_AUTHOR_USERNAME
-        )
+        self._resolved_bot_author_username: str | None | object = _UNRESOLVED_BOT_AUTHOR_USERNAME
 
     def run(
         self,
