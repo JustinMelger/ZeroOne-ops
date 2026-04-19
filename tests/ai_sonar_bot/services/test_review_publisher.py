@@ -1,3 +1,5 @@
+import json
+
 from ai_sonar_bot.models.gitlab import MergeRequestNote
 from ai_sonar_bot.models.review import (
     MergeRequestReviewContext,
@@ -11,6 +13,14 @@ from ai_sonar_bot.models.review import (
     ReviewResult,
 )
 from ai_sonar_bot.services.review_publisher import ReviewPublisher
+
+
+def extract_machine_safe_payload(body: str) -> dict[str, object]:
+    start_marker = "<!-- ai-sonar-bot:review-note:v1\n"
+    end_marker = "\n-->"
+    start = body.index(start_marker) + len(start_marker)
+    end = body.index(end_marker, start)
+    return json.loads(body[start:end])
 
 
 def build_context() -> MergeRequestReviewContext:
@@ -216,6 +226,24 @@ def test_render_note_formats_findings_present() -> None:
     assert "- Reviewed commit SHA: `abc123`" in body
     assert "- Files reviewed: 1" in body
 
+    payload = extract_machine_safe_payload(body)
+    assert payload["schema"] == "ai-sonar-bot/review-note/v1"
+    assert payload["reviewed_merge_request_iid"] == 17
+    assert payload["reviewed_head_sha"] == "abc123"
+    assert payload["classification"] == "findings_present"
+    assert payload["findings_count"] == 1
+    assert payload["findings"] == [
+        {
+            "file_path": "src/service.py",
+            "issue_kind": None,
+            "region_hint": None,
+            "severity": "medium",
+            "summary": "src/service.py: Missing test coverage",
+            "symbol": None,
+            "title": "Missing test coverage",
+        }
+    ]
+
 
 def test_render_note_formats_no_findings() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
@@ -237,6 +265,11 @@ def test_render_note_formats_no_findings() -> None:
     assert "- Reviewed merge request: `!17`" in body
     assert "- Files reviewed: 1" in body
     assert "Notes:" not in body
+
+    payload = extract_machine_safe_payload(body)
+    assert payload["classification"] == "no_findings"
+    assert payload["findings_count"] == 0
+    assert payload["findings"] == []
 
 
 def test_publish_sends_rendered_note_body() -> None:

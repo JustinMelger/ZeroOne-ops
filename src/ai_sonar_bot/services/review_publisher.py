@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 
 from ai_sonar_bot.models.gitlab import MergeRequestNote
@@ -67,35 +68,29 @@ class ReviewPublisher:
         overlap_result: OverlapReconciliationResult | None = None,
     ) -> str:
         """Render one deterministic review note body."""
+        lines = [
+            "Hi,",
+            "",
+            "Here are your review notes.",
+            "",
+        ]
+
         if review_result.classification == "no_findings":
             summary_line = (
                 "No new actionable findings since the last reviewed SHA."
                 if overlap_result is not None
                 else "No actionable findings in this review pass."
             )
-            return "\n".join(
+            lines.extend(
                 [
-                    "Hi,",
-                    "",
-                    "Here are your review notes.",
-                    "",
                     summary_line,
                     *_render_follow_up_lines(review_result, overlap_result),
                     *_render_confidence_lines(review_result),
-                    "",
-                    "Scope:",
-                    f"- Reviewed merge request: `!{context.mr_iid}`",
-                    f"- Reviewed commit SHA: `{context.head_sha}`",
-                    f"- Files reviewed: {len(context.changed_files)}",
                 ]
             )
-        if review_result.classification == "manual_review_only":
-            return "\n".join(
+        elif review_result.classification == "manual_review_only":
+            lines.extend(
                 [
-                    "Hi,",
-                    "",
-                    "Here are your review notes.",
-                    "",
                     "Bot assessment was insufficient for a trustworthy review decision.",
                     *_render_follow_up_lines(review_result, overlap_result),
                     "",
@@ -109,43 +104,41 @@ class ReviewPublisher:
                     ),
                     "- This is not an actionable finding by itself.",
                     "- Human review is still needed to decide whether the change is safe.",
-                    "",
-                    "Scope:",
-                    f"- Reviewed merge request: `!{context.mr_iid}`",
-                    f"- Reviewed commit SHA: `{context.head_sha}`",
-                    f"- Files reviewed: {len(context.changed_files)}",
                 ]
             )
-
-        finding_lines = ["Findings:"]
-        for index, finding in enumerate(review_result.findings, start=1):
-            finding_lines.extend(
+        else:
+            finding_lines = ["Findings:"]
+            for index, finding in enumerate(review_result.findings, start=1):
+                finding_lines.extend(
+                    [
+                        f"{index}. [{finding.severity}] {finding.title} (`{finding.file_path}`)",
+                        f"   Evidence: {finding.evidence}",
+                        f"   {finding.explanation}",
+                        f"   Follow-up: {finding.suggested_follow_up}",
+                    ]
+                )
+            lines.extend(
                 [
-                    f"{index}. [{finding.severity}] {finding.title} (`{finding.file_path}`)",
-                    f"   Evidence: {finding.evidence}",
-                    f"   {finding.explanation}",
-                    f"   Follow-up: {finding.suggested_follow_up}",
+                    *_render_follow_up_lines(review_result, overlap_result),
+                    review_result.summary,
+                    *_render_confidence_lines(review_result),
+                    "",
+                    *finding_lines,
                 ]
             )
 
-        return "\n".join(
+        lines.extend(
             [
-                "Hi,",
-                "",
-                "Here are your review notes.",
-                "",
-                *_render_follow_up_lines(review_result, overlap_result),
-                review_result.summary,
-                *_render_confidence_lines(review_result),
-                "",
-                *finding_lines,
                 "",
                 "Scope:",
                 f"- Reviewed merge request: `!{context.mr_iid}`",
                 f"- Reviewed commit SHA: `{context.head_sha}`",
                 f"- Files reviewed: {len(context.changed_files)}",
+                "",
+                *_render_machine_safe_block(context=context, review_result=review_result),
             ]
         )
+        return "\n".join(lines)
 
 
 def _render_confidence_lines(review_result: ReviewResult) -> list[str]:
@@ -267,10 +260,8 @@ def _render_overlap_summary_lines(
             )
         )
     elif new_in_this_pass:
-        lines.append(
-            f"""This pass also introduces 
-            {_counted_phrase(new_count, "a new concern", "new concerns")}."""
-        )
+        new_phrase = _counted_phrase(new_count, "a new concern", "new concerns")
+        lines.append(f"This pass also introduces {new_phrase}.")
 
     if overlap_ambiguous:
         lines.append(
@@ -278,3 +269,36 @@ def _render_overlap_summary_lines(
             "not fully clear from the current changes."
         )
     return lines
+
+
+def _render_machine_safe_block(
+    *,
+    context: MergeRequestReviewContext,
+    review_result: ReviewResult,
+) -> list[str]:
+    """Render one bounded machine-safe note block for later MR reconstruction."""
+    payload = {
+        "schema": "ai-sonar-bot/review-note/v1",
+        "reviewed_merge_request_iid": context.mr_iid,
+        "reviewed_head_sha": context.head_sha,
+        "classification": review_result.classification,
+        "summary": review_result.summary,
+        "findings_count": len(review_result.findings),
+        "findings": [
+            {
+                "summary": f"{finding.file_path}: {finding.title}",
+                "severity": finding.severity,
+                "file_path": finding.file_path,
+                "title": finding.title,
+                "symbol": finding.symbol,
+                "issue_kind": finding.issue_kind,
+                "region_hint": finding.region_hint,
+            }
+            for finding in review_result.findings
+        ],
+    }
+    return [
+        "<!-- ai-sonar-bot:review-note:v1",
+        json.dumps(payload, sort_keys=True, separators=(",", ":")),
+        "-->",
+    ]

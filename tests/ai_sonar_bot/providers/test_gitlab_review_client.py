@@ -150,6 +150,40 @@ def test_create_merge_request_note_allows_missing_web_url() -> None:
     assert note.web_url is None
 
 
+def test_list_merge_request_notes_normalizes_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/projects/123/merge_requests/17/notes"
+        assert request.method == "GET"
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 55,
+                    "body": "note body",
+                    "web_url": "https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
+                    "created_at": "2026-04-19T11:27:42.046Z",
+                    "author": {"username": "ai-sonar-bot"},
+                }
+            ],
+        )
+
+    client = GitLabReviewClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    notes = client.list_merge_request_notes(project_id="123", merge_request_iid=17)
+
+    assert len(notes) == 1
+    assert notes[0].id == 55
+    assert notes[0].body == "note body"
+    assert notes[0].author_username == "ai-sonar-bot"
+    assert notes[0].created_at == "2026-04-19T11:27:42.046Z"
+
+
 def test_get_merge_request_state_normalizes_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/api/v4/projects/123/merge_requests/17"

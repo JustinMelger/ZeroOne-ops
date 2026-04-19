@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 
 from ai_sonar_bot.models.config import AppConfig
-from ai_sonar_bot.models.review import ReviewResult
+from ai_sonar_bot.models.review import PriorReviewContext, ReviewResult
 from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunRecord
 from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
@@ -15,6 +15,12 @@ from ai_sonar_bot.services.mr_intake import MergeRequestIntakeService
 from ai_sonar_bot.services.review_analysis_service import ReviewAnalysisService
 from ai_sonar_bot.services.review_context_builder import ReviewContextBuilder
 from ai_sonar_bot.services.review_dashboard_updater import ReviewDashboardUpdater
+from ai_sonar_bot.services.review_gitlab_prior_context_service import (
+    ReviewGitLabPriorContextService,
+)
+from ai_sonar_bot.services.review_gitlab_prior_note_parser import (
+    ReviewGitLabPriorNoteParser,
+)
 from ai_sonar_bot.services.review_overlap_analysis_service import ReviewOverlapAnalysisService
 from ai_sonar_bot.services.review_overlap_packet_builder import OverlapPacketBuilder
 from ai_sonar_bot.services.review_publisher import ReviewPublisher
@@ -35,6 +41,8 @@ class ReviewRunner:
         review_client: GitLabReviewClient,
         dashboard_client: GitLabDashboardClient,
         review_state_service: ReviewStateService,
+        prior_context_service: ReviewGitLabPriorContextService | None = None,
+        prior_note_parser: ReviewGitLabPriorNoteParser | None = None,
     ) -> None:
         """Initialize the review workflow runner."""
         self.repo_root = repo_root
@@ -42,6 +50,10 @@ class ReviewRunner:
         self.review_client = review_client
         self.dashboard_client = dashboard_client
         self.review_state_service = review_state_service
+        self.prior_context_service = prior_context_service or ReviewGitLabPriorContextService(
+            review_client
+        )
+        self.prior_note_parser = prior_note_parser or ReviewGitLabPriorNoteParser()
 
     def run(
         self,
@@ -90,7 +102,9 @@ class ReviewRunner:
                     message=context_result.message,
                 ),
             )
-        prior_review_context = self.review_state_service.load_prior_review_context(
+        prior_review_context = self._load_gitlab_prior_review_context(
+            run_id=run_id,
+            project_id=project_id,
             mr_iid=intake_result.selected_merge_request.iid,
             current_head_sha=intake_result.selected_merge_request.head_sha,
         )
@@ -277,6 +291,91 @@ class ReviewRunner:
                 else f"[{self.config.execution_mode}] {summary.message} {dashboard_warning}"
             ),
             state_path=summary.state_path,
+        )
+
+    def _load_gitlab_prior_review_context(
+        self,
+        *,
+        run_id: str,
+        project_id: str,
+        mr_iid: int,
+        current_head_sha: str,
+    ) -> PriorReviewContext | None:
+        """Load prior review context from the latest earlier machine-safe MR note."""
+        try:
+            selection_result = self.prior_context_service.select_latest_prior_review_note(
+                project_id=project_id,
+                merge_request_iid=mr_iid,
+                current_head_sha=current_head_sha,
+            )
+        except Exception:  # pragma: no cover - exercised via integration stubs
+            LOGGER.warning(
+                "review gitlab prior note lookup failed; omitting continuity context",
+                extra={
+                    "run_id": run_id,
+                    "mr_iid": mr_iid,
+                    "head_sha": current_head_sha,
+                },
+            )
+            return None
+        if selection_result.selected_note is None:
+            LOGGER.info(
+                "review gitlab prior note not found",
+                extra={
+                    "run_id": run_id,
+                    "mr_iid": mr_iid,
+                    "head_sha": current_head_sha,
+                    "considered_note_count": selection_result.considered_note_count,
+                    "machine_safe_note_count": selection_result.machine_safe_note_count,
+                },
+            )
+            return None
+
+        try:
+            parse_result = self.prior_note_parser.parse_note(
+                note=selection_result.selected_note,
+                expected_merge_request_iid=mr_iid,
+            )
+        except Exception:  # pragma: no cover - defensive guard for malformed parser wiring
+            LOGGER.warning(
+                "review gitlab prior note parse crashed; omitting continuity context",
+                extra={
+                    "run_id": run_id,
+                    "mr_iid": mr_iid,
+                    "head_sha": current_head_sha,
+                    "selected_note_id": selection_result.selected_note.id,
+                },
+            )
+            return None
+        if parse_result.prior_review_pass is None:
+            LOGGER.warning(
+                "review gitlab prior note parse failed; omitting continuity context",
+                extra={
+                    "run_id": run_id,
+                    "mr_iid": mr_iid,
+                    "head_sha": current_head_sha,
+                    "selected_note_id": selection_result.selected_note.id,
+                    "considered_note_count": selection_result.considered_note_count,
+                    "machine_safe_note_count": selection_result.machine_safe_note_count,
+                },
+            )
+            return None
+
+        LOGGER.info(
+            "review gitlab prior note selected",
+            extra={
+                "run_id": run_id,
+                "mr_iid": mr_iid,
+                "head_sha": current_head_sha,
+                "selected_note_id": selection_result.selected_note.id,
+                "considered_note_count": selection_result.considered_note_count,
+                "machine_safe_note_count": selection_result.machine_safe_note_count,
+                "prior_head_sha": parse_result.prior_review_pass.reviewed_head_sha,
+            },
+        )
+        return PriorReviewContext(
+            merge_request_iid=mr_iid,
+            passes=[parse_result.prior_review_pass],
         )
 
     def _should_publish_note(self, review_result: ReviewResult) -> bool:

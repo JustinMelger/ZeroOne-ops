@@ -199,6 +199,42 @@ Phase 5: Benchmark And Live Validation
 - [ ] decide after live signal whether the split is stable enough to support
       MR-scoped operator feedback intake
 
+GitLab-backed prior review context
+
+Implementation phases:
+
+Phase 1: Machine-Safe Review Note Block
+- [x] add a bounded machine-safe section to bot-authored MR review notes
+- [x] include reviewed SHA, classification, findings count, and per-finding
+      structured continuity fields when present
+- [x] keep the operator-facing markdown readable while making the machine block
+      strict and versionable
+
+Phase 2: MR Note Fetch And Filtering
+- [x] add a dedicated service to fetch MR notes for prior review reconstruction
+- [x] filter to bot-authored review notes only
+- [x] sort and select the latest earlier parseable prior review note for v1
+
+Phase 3: Prior Review Note Parser
+- [x] parse the machine-safe note block into reconstructed `PriorReviewPass`
+      entries
+- [x] rebuild app-owned prior finding identities from parsed structured fields
+      and summaries
+- [x] skip malformed or non-parseable bot notes without fuzzy prose fallback
+
+Phase 4: Runner Integration
+- [x] inject GitLab-reconstructed prior review context into the review runner
+      before overlap packet building
+- [x] keep local state only as temporary migration support if still needed
+- [x] add explicit logs for found notes, parseable notes, and selected prior SHA
+
+Phase 5: CI And Runtime Validation
+- [x] add parser tests for findings, `no_findings`, and `manual_review_only`
+      note shapes
+- [x] add service tests for latest-prior-note selection and current-SHA skipping
+- [ ] add one runner/integration test proving overlap works without persisted
+      local review state
+
 4. Operator feedback gate
 
 - only implement MR-scoped structured operator feedback intake after the main
