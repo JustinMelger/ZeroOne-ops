@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from ai_sonar_bot.models.analysis import IssueAnalysis, StructuredEditProposal
-from ai_sonar_bot.models.review import ReviewResult
+from ai_sonar_bot.models.review import OverlapReconciliationResult, ReviewResult
 
 
 class LLMFixtureError(RuntimeError):
@@ -38,6 +38,15 @@ def load_review_fixture(path: Path) -> ReviewResult:
         return ReviewResult.model_validate(payload)
     except Exception as error:
         raise LLMFixtureError("Invalid LLM review fixture structure.") from error
+
+
+def load_review_overlap_fixture(path: Path) -> OverlapReconciliationResult:
+    """Load a structured overlap reconciliation result from a JSON fixture."""
+    payload = _load_fixture_payload(path, fixture_kind="review overlap")
+    try:
+        return OverlapReconciliationResult.model_validate(payload)
+    except Exception as error:
+        raise LLMFixtureError("Invalid LLM review overlap fixture structure.") from error
 
 
 def _load_fixture_payload(path: Path, *, fixture_kind: str) -> dict[str, object]:

@@ -153,3 +153,43 @@ class ReviewResult(BaseModel):
     review_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     review_confidence_reason: str | None = None
     findings: list[ReviewFinding] = Field(default_factory=list)
+
+
+class OverlapCandidate(BaseModel):
+    """Represent one app-owned overlap candidate pair for reconciliation."""
+
+    current_finding_index: int
+    prior_finding_index: int
+    reasons: list[str] = Field(default_factory=list)
+
+
+class OverlapPacket(BaseModel):
+    """Represent one bounded overlap packet for a single MR review run."""
+
+    merge_request_iid: int
+    current_head_sha: str
+    prior_head_sha: str
+    current_findings: list[ReviewFinding] = Field(default_factory=list)
+    prior_findings: list[PriorReviewFinding] = Field(default_factory=list)
+    candidates: list[OverlapCandidate] = Field(default_factory=list)
+
+
+class OverlapResolution(BaseModel):
+    """Represent one normalized overlap outcome."""
+
+    outcome: Literal[
+        "still_unresolved",
+        "new_in_this_pass",
+        "no_longer_present",
+        "overlap_ambiguous",
+    ]
+    current_finding_index: int | None = None
+    prior_finding_index: int | None = None
+    related_prior_finding_indices: list[int] = Field(default_factory=list)
+
+
+class OverlapReconciliationResult(BaseModel):
+    """Represent normalized overlap outcomes for one prior-current pass pair."""
+
+    prior_reviewed_head_sha: str
+    resolutions: list[OverlapResolution] = Field(default_factory=list)

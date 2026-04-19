@@ -12,10 +12,12 @@ from ai_sonar_bot.models.remediation import (
 )
 from ai_sonar_bot.models.review import (
     MergeRequestReviewContext,
-    PriorReviewContext,
+    OverlapCandidate,
+    OverlapPacket,
     PriorReviewFinding,
     RemediationReviewContext,
     ReviewFileContext,
+    ReviewFinding,
 )
 
 
@@ -28,6 +30,7 @@ _PROMPT_TEMPLATE_NAMES = frozenset(
         "analyze_issue.txt",
         "generate_structured_edit.txt",
         "review_merge_request.txt",
+        "review_overlap_reconciliation.txt",
     }
 )
 
@@ -129,9 +132,84 @@ def build_review_prompt(context: MergeRequestReviewContext) -> str:
         target_branch=context.target_branch,
         head_sha=context.head_sha,
         remediation_context=_format_remediation_review_context(context.remediation_context),
-        prior_review_context=_format_prior_review_context(context.prior_review_context),
         repository_guidance=_format_repository_guidance(context),
         changed_files=changed_files,
+    )
+
+
+def build_review_overlap_prompt(packet: OverlapPacket) -> str:
+    """Build the bounded overlap reconciliation prompt for one MR run."""
+    current_findings = (
+        "\n".join(
+            _format_current_overlap_finding(index, finding)
+            for index, finding in enumerate(packet.current_findings, start=1)
+        )
+        if packet.current_findings
+        else "- (none)"
+    )
+    prior_findings = (
+        "\n".join(
+            _format_prior_overlap_finding(index, finding)
+            for index, finding in enumerate(packet.prior_findings, start=1)
+        )
+        if packet.prior_findings
+        else "- (none)"
+    )
+    overlap_candidates = (
+        "\n".join(_format_overlap_candidate(candidate) for candidate in packet.candidates)
+        if packet.candidates
+        else "- (none)"
+    )
+    return render_prompt_template(
+        "review_overlap_reconciliation.txt",
+        mr_iid=packet.merge_request_iid,
+        current_head_sha=packet.current_head_sha,
+        prior_head_sha=packet.prior_head_sha,
+        current_findings=_format_untrusted_block(
+            label="Current findings",
+            content=current_findings,
+        ),
+        prior_findings=_format_untrusted_block(
+            label="Prior findings",
+            content=prior_findings,
+        ),
+        overlap_candidates=_format_untrusted_block(
+            label="Overlap candidates",
+            content=overlap_candidates,
+        ),
+    )
+
+
+def _format_current_overlap_finding(index: int, finding: ReviewFinding) -> str:
+    """Render one current finding for the overlap prompt."""
+    structured_parts = [
+        f"symbol={finding.symbol}" if finding.symbol else None,
+        f"issue_kind={finding.issue_kind}" if finding.issue_kind else None,
+        f"region_hint={finding.region_hint}" if finding.region_hint else None,
+    ]
+    visible_structured_parts = [part for part in structured_parts if part is not None]
+    suffix = f" [{', '.join(visible_structured_parts)}]" if visible_structured_parts else ""
+    return f"- current[{index}] {finding.file_path}: {finding.title}{suffix}"
+
+
+def _format_prior_overlap_finding(index: int, finding: PriorReviewFinding) -> str:
+    """Render one prior finding for the overlap prompt."""
+    structured_parts = [
+        f"symbol={finding.symbol}" if finding.symbol else None,
+        f"issue_kind={finding.issue_kind}" if finding.issue_kind else None,
+        f"region_hint={finding.region_hint}" if finding.region_hint else None,
+    ]
+    visible_structured_parts = [part for part in structured_parts if part is not None]
+    suffix = f" [{', '.join(visible_structured_parts)}]" if visible_structured_parts else ""
+    return f"- prior[{index}] {finding.summary}{suffix}"
+
+
+def _format_overlap_candidate(candidate: OverlapCandidate) -> str:
+    """Render one bounded overlap candidate pair."""
+    return (
+        f"- current[{candidate.current_finding_index + 1}] <-> "
+        f"prior[{candidate.prior_finding_index + 1}] "
+        f"reasons={', '.join(candidate.reasons) if candidate.reasons else '(none)'}"
     )
 
 
@@ -212,35 +290,6 @@ def _format_repository_guidance(context: MergeRequestReviewContext) -> str:
         )
         for guidance in context.repository_guidance
     )
-
-
-def _format_prior_review_context(context: PriorReviewContext | None) -> str:
-    """Render bounded prior review memory for repeated review passes."""
-    if context is None or not context.passes:
-        return "(none)"
-    blocks: list[str] = []
-    for index, prior_pass in enumerate(context.passes, start=1):
-        findings = (
-            "\n".join(_format_prior_review_finding(finding) for finding in prior_pass.findings)
-            if prior_pass.findings
-            else "- (none)"
-        )
-        blocks.append(
-            _format_untrusted_block(
-                label=f"Prior review pass {index}",
-                content="\n".join(
-                    [
-                        f"Reviewed SHA: {prior_pass.reviewed_head_sha}",
-                        f"Classification: {prior_pass.classification}",
-                        f"Findings count: {prior_pass.findings_count}",
-                        f"Summary: {prior_pass.summary or '(none)'}",
-                        f"Note URL: {prior_pass.note_url or '(none)'}",
-                        f"Findings:\n{findings}",
-                    ]
-                ),
-            )
-        )
-    return "\n\n".join(blocks)
 
 
 def _format_prior_review_finding(finding: PriorReviewFinding) -> str:
