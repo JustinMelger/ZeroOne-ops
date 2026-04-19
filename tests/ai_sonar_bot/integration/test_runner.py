@@ -3702,7 +3702,11 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
             {
                 "selected_note": selected_note,
                 "considered_note_count": 2,
+                "author_matched_note_count": 1,
                 "machine_safe_note_count": 1,
+                "parseable_note_count": 1,
+                "current_sha_skipped_count": 0,
+                "reason_code": "selected",
                 "message": "Selected latest earlier machine-safe bot review note.",
             },
         )(),
@@ -3820,7 +3824,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     assert "Reviewed merge request !17 at def456." in summary.message
 
 
-def test_review_non_dry_run_skips_no_findings_note_when_configured(
+def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -3837,9 +3841,6 @@ def test_review_non_dry_run_skips_no_findings_note_when_configured(
           "base_branch": "main",
           "execution_mode": "ci",
           "validation_commands": [],
-          "review": {
-            "publish_no_findings_note": false
-          },
           "gitlab": {
             "target_branch": "main",
             "labels": []
@@ -3914,7 +3915,9 @@ def test_review_non_dry_run_skips_no_findings_note_when_configured(
         )(),
     )
 
-    def fail_publish(  # noqa: ANN001, ANN202
+    observed: dict[str, object] = {}
+
+    def capture_publish(  # noqa: ANN001, ANN202
         self,
         project_id,
         merge_request_iid,
@@ -3922,11 +3925,25 @@ def test_review_non_dry_run_skips_no_findings_note_when_configured(
         review_result,
         overlap_result,
     ):
-        raise AssertionError("No-findings note should not be published when disabled.")
+        observed["review_result"] = review_result
+        observed["overlap_result"] = overlap_result
+        return ReviewPublishResult(
+            note=type(
+                "Note",
+                (),
+                {
+                    "id": 77,
+                    "web_url": (
+                        "https://gitlab.example.com/group/project/-/merge_requests/17#note_77"
+                    ),
+                },
+            )(),
+            body="summary",
+        )
 
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_publisher.ReviewPublisher.publish",
-        fail_publish,
+        capture_publish,
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_dashboard_updater.ReviewDashboardUpdater.update",
@@ -3944,7 +3961,9 @@ def test_review_non_dry_run_skips_no_findings_note_when_configured(
 
     assert summary.status.value == "reviewed"
     assert "Reviewed merge request !17 at abc123." in summary.message
-    assert "Review note:" not in summary.message
+    assert observed["review_result"].classification == "no_findings"
+    assert observed["overlap_result"] is None
+    assert "Review note:" in summary.message
 
 
 def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeypatch) -> None:

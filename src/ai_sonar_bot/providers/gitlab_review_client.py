@@ -97,15 +97,40 @@ class GitLabReviewClient:
         project_id: str,
         merge_request_iid: int,
     ) -> list[MergeRequestNote]:
-        """List notes for one merge request."""
+        """List every note for one merge request across paginated GitLab responses."""
         encoded_project_id = quote_plus(project_id)
-        response = self._http_client.get(
-            f"/api/v4/projects/{encoded_project_id}/merge_requests/{merge_request_iid}/notes"
-        )
+        page = 1
+        notes: list[MergeRequestNote] = []
+        while True:
+            response = self._http_client.get(
+                f"/api/v4/projects/{encoded_project_id}/merge_requests/{merge_request_iid}/notes",
+                params={"page": page, "per_page": 100},
+            )
+            payload = _parse_json_response(response)
+            if not isinstance(payload, list):
+                raise GitLabClientError("Unexpected GitLab merge request notes payload.")
+            notes.extend(
+                _normalize_merge_request_note(item) for item in payload if isinstance(item, dict)
+            )
+            next_page = response.headers.get("X-Next-Page")
+            if not next_page:
+                break
+            try:
+                page = int(next_page)
+            except ValueError as exc:
+                raise GitLabClientError("Unexpected GitLab merge request note pagination.") from exc
+        return notes
+
+    def get_current_user_username(self) -> str:
+        """Return the GitLab username associated with the active API token."""
+        response = self._http_client.get("/api/v4/user")
         payload = _parse_json_response(response)
-        if not isinstance(payload, list):
-            raise GitLabClientError("Unexpected GitLab merge request notes payload.")
-        return [_normalize_merge_request_note(item) for item in payload if isinstance(item, dict)]
+        if not isinstance(payload, dict):
+            raise GitLabClientError("Unexpected GitLab current user payload.")
+        username = payload.get("username")
+        if not isinstance(username, str):
+            raise GitLabClientError("Unexpected GitLab current user username.")
+        return username
 
 
 def _normalize_review_candidate(payload: dict[str, Any]) -> MergeRequestReviewCandidate:
