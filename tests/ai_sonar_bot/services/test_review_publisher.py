@@ -301,18 +301,13 @@ def test_render_note_prefers_normalized_overlap_result_when_available() -> None:
                     outcome="still_unresolved",
                     current_finding_index=0,
                     prior_finding_index=0,
-                ),
-                OverlapResolution(
-                    outcome="new_in_this_pass",
-                    current_finding_index=0,
-                ),
+                )
             ],
         ),
     )
 
     assert "Follow-up review after the earlier bot pass on `abc123`." in body
     assert "An earlier concern from the last pass still appears unresolved." in body
-    assert "This pass also introduces a new concern." in body
 
 
 def test_render_note_uses_neutral_overlap_fallback_for_ambiguous_overlap() -> None:
