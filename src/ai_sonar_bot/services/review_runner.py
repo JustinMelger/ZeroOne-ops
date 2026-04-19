@@ -185,7 +185,14 @@ class ReviewRunner:
                 )
             else:
                 LOGGER.warning(
-                    "review overlap reconciliation unavailable; omitting continuity wording",
+                    (
+                        "review overlap reconciliation unavailable; omitting continuity wording "
+                        f"[status={overlap_analysis.status} prior={overlap_packet.prior_head_sha} "
+                        f"curr={len(overlap_packet.current_findings)} "
+                        f"prev={len(overlap_packet.prior_findings)} "
+                        f"cand={len(overlap_packet.candidates)}] "
+                        f"{overlap_analysis.message}"
+                    ),
                     extra={
                         "run_id": run_id,
                         "mr_iid": context.mr_iid,
@@ -312,7 +319,7 @@ class ReviewRunner:
             return None
         self._resolved_bot_author_username = resolved_username
         LOGGER.info(
-            "review gitlab current user resolved",
+            f"review gitlab current user resolved (username={resolved_username})",
             extra={
                 "run_id": run_id,
                 "mr_iid": mr_iid,
@@ -357,7 +364,15 @@ class ReviewRunner:
             return None
         if selection_result.selected_note is None:
             LOGGER.info(
-                "review gitlab prior note not found",
+                (
+                    "review gitlab prior note not found "
+                    f"[reason={selection_result.reason_code} "
+                    f"considered={selection_result.considered_note_count} "
+                    f"author={selection_result.author_matched_note_count} "
+                    f"machine={selection_result.machine_safe_note_count} "
+                    f"parseable={selection_result.parseable_note_count} "
+                    f"current_sha={selection_result.current_sha_skipped_count}]"
+                ),
                 extra={
                     "run_id": run_id,
                     "mr_iid": mr_iid,
@@ -379,7 +394,10 @@ class ReviewRunner:
             )
         except Exception:  # pragma: no cover - defensive guard for malformed parser wiring
             LOGGER.warning(
-                "review gitlab prior note parse crashed; omitting continuity context",
+                (
+                    "review gitlab prior note parse crashed; omitting continuity context "
+                    f"(selected_note_id={selection_result.selected_note.id})"
+                ),
                 extra={
                     "run_id": run_id,
                     "mr_iid": mr_iid,
@@ -390,7 +408,12 @@ class ReviewRunner:
             return None
         if parse_result.prior_review_pass is None:
             LOGGER.warning(
-                "review gitlab prior note parse failed; omitting continuity context",
+                (
+                    "review gitlab prior note parse failed; omitting continuity context "
+                    f"[note={selection_result.selected_note.id} "
+                    f"reason={selection_result.reason_code}] "
+                    f"{parse_result.message}"
+                ),
                 extra={
                     "run_id": run_id,
                     "mr_iid": mr_iid,
@@ -407,7 +430,17 @@ class ReviewRunner:
             return None
 
         LOGGER.info(
-            "review gitlab prior note selected",
+            (
+                "review gitlab prior note selected "
+                f"[note={selection_result.selected_note.id} "
+                f"prior={parse_result.prior_review_pass.reviewed_head_sha} "
+                f"reason={selection_result.reason_code} "
+                f"considered={selection_result.considered_note_count} "
+                f"author={selection_result.author_matched_note_count} "
+                f"machine={selection_result.machine_safe_note_count} "
+                f"parseable={selection_result.parseable_note_count} "
+                f"current_sha={selection_result.current_sha_skipped_count}]"
+            ),
             extra={
                 "run_id": run_id,
                 "mr_iid": mr_iid,
