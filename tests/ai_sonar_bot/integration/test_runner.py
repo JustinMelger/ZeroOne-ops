@@ -18,7 +18,6 @@ from ai_sonar_bot.models.remediation import RemediationWorkItem
 from ai_sonar_bot.models.review import (
     MergeRequestReviewCandidate,
     MergeRequestReviewContext,
-    PriorReviewContext,
     PriorReviewFinding,
     PriorReviewPass,
     ReviewFileContext,
@@ -3684,26 +3683,57 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
             context=review_context, message=""
         ),
     )
+    selected_note = type(
+        "Note",
+        (),
+        {
+            "id": 44,
+            "web_url": "https://gitlab.example.com/group/project/-/merge_requests/17#note_44",
+            "body": "machine-safe",
+            "author_username": "ai-sonar-bot",
+            "created_at": "2026-04-19T11:27:42.046Z",
+        },
+    )()
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_state_service.ReviewStateService.load_prior_review_context",
-        lambda self, mr_iid, current_head_sha: PriorReviewContext(
-            merge_request_iid=mr_iid,
-            passes=[
-                PriorReviewPass(
+        "ai_sonar_bot.services.review_gitlab_prior_context_service.ReviewGitLabPriorContextService.select_latest_prior_review_note",
+        lambda self, project_id, merge_request_iid, current_head_sha: type(
+            "SelectionResult",
+            (),
+            {
+                "selected_note": selected_note,
+                "considered_note_count": 2,
+                "machine_safe_note_count": 1,
+                "message": "Selected latest earlier machine-safe bot review note.",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_gitlab_prior_note_parser.ReviewGitLabPriorNoteParser.parse_note",
+        lambda self, note, expected_merge_request_iid: type(
+            "ParseResult",
+            (),
+            {
+                "prior_review_pass": PriorReviewPass(
                     reviewed_head_sha="abc123",
                     classification="findings_present",
                     findings_count=1,
                     summary="One earlier concern still needs attention.",
+                    note_url=selected_note.web_url,
                     findings=[
                         PriorReviewFinding(
                             identity="src/service.py::missing-test-coverage",
+                            legacy_identity="src/service.py::coverage-miss-test",
                             summary="src/service.py: Missing test coverage",
                             severity="medium",
+                            symbol=None,
+                            issue_kind=None,
+                            region_hint=None,
                         )
                     ],
-                )
-            ],
-        ),
+                ),
+                "message": "Parsed machine-safe prior review note successfully.",
+            },
+        )(),
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",

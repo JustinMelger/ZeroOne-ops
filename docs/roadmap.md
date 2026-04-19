@@ -223,10 +223,10 @@ Phase 3: Prior Review Note Parser
 - [x] skip malformed or non-parseable bot notes without fuzzy prose fallback
 
 Phase 4: Runner Integration
-- [ ] inject GitLab-reconstructed prior review context into the review runner
+- [x] inject GitLab-reconstructed prior review context into the review runner
       before overlap packet building
-- [ ] keep local state only as temporary migration support if still needed
-- [ ] add explicit logs for found notes, parseable notes, and selected prior SHA
+- [x] keep local state only as temporary migration support if still needed
+- [x] add explicit logs for found notes, parseable notes, and selected prior SHA
 
 Phase 5: CI And Runtime Validation
 - [x] add parser tests for findings, `no_findings`, and `manual_review_only`

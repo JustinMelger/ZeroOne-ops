@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 
 from ai_sonar_bot.models.gitlab import MergeRequestNote
 from ai_sonar_bot.models.review import PriorReviewFinding, PriorReviewPass, ReviewFinding
@@ -105,7 +105,10 @@ class ReviewGitLabPriorNoteParser:
         return PriorReviewNoteParseResult(
             prior_review_pass=PriorReviewPass(
                 reviewed_head_sha=reviewed_head_sha,
-                classification=classification,
+                classification=cast(
+                    Literal["no_findings", "findings_present", "manual_review_only"],
+                    classification,
+                ),
                 findings_count=findings_count,
                 summary=summary,
                 note_url=note.web_url,
@@ -164,7 +167,7 @@ def _parse_prior_review_finding(payload: object) -> PriorReviewFinding | None:
 def _coerce_severity(severity: str | None) -> Literal["high", "medium", "low"]:
     """Return one valid severity for identity reconstruction scaffolding."""
     if severity in _VALID_SEVERITIES:
-        return severity
+        return cast(Literal["high", "medium", "low"], severity)
     return "medium"
 
 
