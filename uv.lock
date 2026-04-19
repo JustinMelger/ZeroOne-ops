@@ -4,7 +4,7 @@ requires-python = "==3.13.*"
 
 [[package]]
 name = "ai-sonar-bot"
-version = "0.23.1"
+version = "0.25.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },

@@ -166,6 +166,39 @@ Stable-enough gate before moving to the architecture track:
   app-prepared candidate set
 - keep final persisted identity and state application app-owned
 
+Implementation phases:
+
+Phase 1: Overlap Packet Builder
+- [x] add app-owned overlap packet models for one MR run
+- [x] include current findings, latest prior-pass findings, structured fields,
+      identities, and bounded candidate overlaps
+- [x] add direct tests for candidate generation and packet shaping
+
+Phase 2: Overlap Result Contract
+- [ ] add normalized overlap outcomes such as `still_unresolved`,
+      `new_in_this_pass`, `no_longer_present`, and `overlap_ambiguous`
+- [ ] keep the result app-owned and independent from note rendering
+- [ ] add tests that map benchmark sequences onto those normalized outcomes
+
+Phase 3: Bounded Overlap LLM Step
+- [ ] add one bounded overlap call per MR run behind the same review command
+- [ ] keep the overlap prompt focused on compare-and-classify only
+- [ ] include structured fields and ids in the packet given to the overlap step
+- [ ] use neutral fallback wording when overlap remains ambiguous
+
+Phase 4: Renderer And Orchestration Integration
+- [ ] update the review run flow so one operator command performs current-pass
+      review, overlap reconciliation, and one final note render and publish
+- [ ] update note rendering to use normalized overlap outcomes instead of
+      implicit continuity inference
+- [ ] keep graceful fallback to current continuity behavior during rollout
+
+Phase 5: Benchmark And Live Validation
+- [ ] run the continuity benchmark suite against the split flow
+- [ ] validate live repeated-review examples against the new overlap step
+- [ ] decide after live signal whether the split is stable enough to support
+      MR-scoped operator feedback intake
+
 4. Operator feedback gate
 
 - only implement MR-scoped structured operator feedback intake after the main

@@ -153,3 +153,22 @@ class ReviewResult(BaseModel):
     review_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     review_confidence_reason: str | None = None
     findings: list[ReviewFinding] = Field(default_factory=list)
+
+
+class OverlapCandidate(BaseModel):
+    """Represent one app-owned overlap candidate pair for reconciliation."""
+
+    current_finding_index: int
+    prior_finding_index: int
+    reasons: list[str] = Field(default_factory=list)
+
+
+class OverlapPacket(BaseModel):
+    """Represent one bounded overlap packet for a single MR review run."""
+
+    merge_request_iid: int
+    current_head_sha: str
+    prior_head_sha: str
+    current_findings: list[ReviewFinding] = Field(default_factory=list)
+    prior_findings: list[PriorReviewFinding] = Field(default_factory=list)
+    candidates: list[OverlapCandidate] = Field(default_factory=list)
