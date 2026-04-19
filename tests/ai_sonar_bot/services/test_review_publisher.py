@@ -350,8 +350,7 @@ def test_render_note_uses_neutral_overlap_fallback_for_ambiguous_overlap() -> No
 
     assert (
         "This pass may overlap with an earlier concern, but the overlap is not "
-        "fully clear from the current changes."
-        in body
+        "fully clear from the current changes." in body
     )
 
 
@@ -414,8 +413,7 @@ def test_render_note_keeps_manual_review_only_overlap_wording_conservative() -> 
 
     assert (
         "This pass may still relate to an earlier concern, but the current review "
-        "was not confident enough to verify continuity fully."
-        in body
+        "was not confident enough to verify continuity fully." in body
     )
     assert "introduces a new concern" not in body
     assert "no longer appears present" not in body

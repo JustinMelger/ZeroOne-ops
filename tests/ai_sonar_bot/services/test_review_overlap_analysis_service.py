@@ -31,7 +31,6 @@ def build_config() -> AppConfig:
     )
 
 
-
 def build_packet() -> OverlapPacket:
     return OverlapPacket(
         merge_request_iid=17,
@@ -86,7 +85,6 @@ class FakeReviewOverlapErrorClient:
         raise LLMClientError("bad overlap output")
 
 
-
 def test_analyze_returns_structured_overlap_result(monkeypatch) -> None:
     service = ReviewOverlapAnalysisService(build_config())
     monkeypatch.setattr(
@@ -114,7 +112,6 @@ def test_analyze_returns_structured_overlap_result(monkeypatch) -> None:
     assert "Review overlap reconciled against prior SHA: abc123." == result.message
 
 
-
 def test_analyze_reports_missing_llm_backend(monkeypatch, tmp_path) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_MODEL", raising=False)
@@ -125,7 +122,6 @@ def test_analyze_reports_missing_llm_backend(monkeypatch, tmp_path) -> None:
 
     assert result.overlap_result is None
     assert result.message == "LLM backend not configured for review overlap reconciliation."
-
 
 
 def test_analyze_reports_structured_overlap_failure(monkeypatch) -> None:

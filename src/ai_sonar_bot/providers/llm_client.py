@@ -363,7 +363,6 @@ class FixtureLLMClient(LLMClient):
             raise LLMClientError(str(error)) from error
 
 
-
 def _write_solution_file(
     path: Path,
     *,

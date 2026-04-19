@@ -171,10 +171,7 @@ class ReviewRunner:
                 )
             else:
                 LOGGER.warning(
-                    (
-                        "review overlap reconciliation unavailable; omitting "
-                        "continuity wording"
-                    ),
+                    ("review overlap reconciliation unavailable; omitting continuity wording"),
                     extra={
                         "run_id": run_id,
                         "mr_iid": context.mr_iid,
