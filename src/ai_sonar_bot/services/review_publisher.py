@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from ai_sonar_bot.models.gitlab import MergeRequestNote
 from ai_sonar_bot.models.review import (
     MergeRequestReviewContext,
+    OverlapPacket,
     PriorReviewFinding,
     ReviewFinding,
     ReviewResult,
@@ -18,6 +19,7 @@ from ai_sonar_bot.services.review_finding_identity import (
     build_legacy_review_finding_identity,
     build_review_finding_identity,
 )
+from ai_sonar_bot.services.review_overlap_packet_builder import build_overlap_packet
 
 _MIN_SHARED_TITLE_TOKENS = 2
 _MIN_TITLE_TOKEN_OVERLAP = 0.6
@@ -227,18 +229,21 @@ def _reconcile_follow_up_review(
         return None
 
     latest_prior_pass = prior_review_context.passes[0]
-    unparsed_prior_finding_count = 0
+    overlap_packet = build_overlap_packet(context=context, review_result=review_result)
     prior_findings: list[FollowUpFindingStatus] = []
-    for prior_finding in latest_prior_pass.findings:
+    prior_findings_by_index: dict[int, FollowUpFindingStatus] = {}
+    for prior_index, prior_finding in enumerate(latest_prior_pass.findings):
         follow_up_finding = _to_follow_up_finding_status(prior_finding)
         if follow_up_finding is not None:
             prior_findings.append(follow_up_finding)
+            prior_findings_by_index[prior_index] = follow_up_finding
     unparsed_prior_finding_count = len(latest_prior_pass.findings) - len(prior_findings)
+    candidate_indices_by_current = _candidate_indices_by_current_finding(overlap_packet)
 
     still_unresolved: list[FollowUpFindingStatus] = []
     new_findings: list[FollowUpFindingStatus] = []
 
-    for current_finding in review_result.findings:
+    for current_index, current_finding in enumerate(review_result.findings):
         finding_summary = f"{current_finding.file_path}: {current_finding.title}"
         finding_key = _current_finding_key(current_finding)
         finding_status = FollowUpFindingStatus(
@@ -251,14 +256,17 @@ def _reconcile_follow_up_review(
             region_hint=current_finding.region_hint,
             status="new",
         )
-        # Prefer exact machine identity for new persisted entries. Only fall back
-        # to legacy summary/title matching when older review state has no identity.
         matched_prior_finding = _match_prior_finding(
             current_finding=current_finding,
             current_identity=_current_finding_identity(current_finding),
             current_legacy_identity=build_legacy_review_finding_identity(current_finding),
             current_key=finding_key,
-            prior_findings=prior_findings,
+            candidate_prior_findings=_candidate_prior_findings_for_current(
+                current_finding_index=current_index,
+                candidate_indices_by_current=candidate_indices_by_current,
+                prior_findings_by_index=prior_findings_by_index,
+                available_prior_findings=prior_findings,
+            ),
         )
         if matched_prior_finding is not None:
             still_unresolved.append(
@@ -433,17 +441,9 @@ def _match_prior_finding(
     current_identity: str,
     current_legacy_identity: str,
     current_key: tuple[str, str, str],
-    prior_findings: list[FollowUpFindingStatus],
+    candidate_prior_findings: list[FollowUpFindingStatus],
 ) -> FollowUpFindingStatus | None:
     """Match one current finding to one prior finding conservatively."""
-    candidate_prior_findings = _candidate_prior_findings(
-        current_finding=current_finding,
-        current_identity=current_identity,
-        current_legacy_identity=current_legacy_identity,
-        current_key=current_key,
-        prior_findings=prior_findings,
-    )
-
     identity_match = next(
         (
             prior_finding
@@ -508,88 +508,36 @@ def _match_prior_finding(
     return None
 
 
-def _candidate_prior_findings(
+def _candidate_indices_by_current_finding(
+    overlap_packet: OverlapPacket | None,
+) -> dict[int, list[int]]:
+    """Group overlap packet candidate indices by current finding index."""
+    if overlap_packet is None:
+        return {}
+
+    grouped_candidates: dict[int, list[int]] = {}
+    for candidate in overlap_packet.candidates:
+        grouped_candidates.setdefault(candidate.current_finding_index, []).append(
+            candidate.prior_finding_index
+        )
+    return grouped_candidates
+
+
+def _candidate_prior_findings_for_current(
     *,
-    current_finding: ReviewFinding,
-    current_identity: str,
-    current_legacy_identity: str,
-    current_key: tuple[str, str, str],
-    prior_findings: list[FollowUpFindingStatus],
+    current_finding_index: int,
+    candidate_indices_by_current: dict[int, list[int]],
+    prior_findings_by_index: dict[int, FollowUpFindingStatus],
+    available_prior_findings: list[FollowUpFindingStatus],
 ) -> list[FollowUpFindingStatus]:
-    """Return a bounded candidate set for overlap matching."""
-    identity_matches = [
-        prior_finding
-        for prior_finding in prior_findings
-        if prior_finding.identity is not None and prior_finding.identity == current_identity
+    """Resolve overlap packet indices into currently available prior findings."""
+    candidate_indices = candidate_indices_by_current.get(current_finding_index, [])
+    return [
+        prior_findings_by_index[prior_index]
+        for prior_index in candidate_indices
+        if prior_index in prior_findings_by_index
+        and prior_findings_by_index[prior_index] in available_prior_findings
     ]
-    if identity_matches:
-        return identity_matches
-
-    legacy_identity_matches = [
-        prior_finding
-        for prior_finding in prior_findings
-        if current_legacy_identity in {prior_finding.identity, prior_finding.legacy_identity}
-    ]
-    if legacy_identity_matches:
-        return legacy_identity_matches
-
-    exact_key_matches = [
-        prior_finding
-        for prior_finding in prior_findings
-        if prior_finding.legacy_identity is None
-        and _prior_finding_key(prior_finding.summary) == current_key
-    ]
-    if exact_key_matches:
-        return exact_key_matches
-
-    current_file_path = _normalized_file_path(current_finding.file_path)
-    same_file_candidates = [
-        prior_finding
-        for prior_finding in prior_findings
-        if _normalized_file_path(prior_finding.file_path) == current_file_path
-    ]
-    if not same_file_candidates:
-        return []
-
-    narrowed_candidates = _narrow_candidates_by_field(
-        same_file_candidates,
-        field_name="symbol",
-        expected_value=current_finding.symbol,
-    )
-    narrowed_candidates = _narrow_candidates_by_field(
-        narrowed_candidates,
-        field_name="issue_kind",
-        expected_value=current_finding.issue_kind,
-    )
-    narrowed_candidates = _narrow_candidates_by_field(
-        narrowed_candidates,
-        field_name="region_hint",
-        expected_value=current_finding.region_hint,
-    )
-    return narrowed_candidates
-
-
-def _narrow_candidates_by_field(
-    candidates: list[FollowUpFindingStatus],
-    *,
-    field_name: str,
-    expected_value: str | None,
-) -> list[FollowUpFindingStatus]:
-    """Return a narrower candidate set when a structured field matches."""
-    if expected_value is None:
-        return candidates
-
-    matching_candidates = [
-        candidate for candidate in candidates if getattr(candidate, field_name) == expected_value
-    ]
-    return matching_candidates or candidates
-
-
-def _normalized_file_path(file_path: str | None) -> str | None:
-    """Return a normalized file path for candidate narrowing."""
-    if file_path is None:
-        return None
-    return file_path.strip().lower()
 
 
 def _has_structured_continuity_fields(
