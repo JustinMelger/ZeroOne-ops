@@ -3772,6 +3772,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         "ai_sonar_bot.services.review_overlap_analysis_service.ReviewOverlapAnalysisService.analyze",
         lambda self, packet: ReviewOverlapAnalysisResult(
             overlap_result=None,
+            status="llm_error",
             message="Structured review overlap reconciliation failed.",
         ),
     )

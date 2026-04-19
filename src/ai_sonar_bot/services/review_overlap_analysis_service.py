@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.review import (
@@ -19,6 +20,7 @@ class ReviewOverlapAnalysisResult:
     """Capture the outcome of bounded review overlap analysis."""
 
     overlap_result: OverlapReconciliationResult | None
+    status: Literal["ok", "no_backend", "llm_error", "invalid_result"]
     message: str
 
 
@@ -35,6 +37,7 @@ class ReviewOverlapAnalysisService:
         if llm_client is None:
             return ReviewOverlapAnalysisResult(
                 overlap_result=None,
+                status="no_backend",
                 message="LLM backend not configured for review overlap reconciliation.",
             )
 
@@ -43,6 +46,7 @@ class ReviewOverlapAnalysisService:
         except LLMClientError as error:
             return ReviewOverlapAnalysisResult(
                 overlap_result=None,
+                status="llm_error",
                 message=f"Structured review overlap reconciliation failed: {error}",
             )
 
@@ -50,6 +54,7 @@ class ReviewOverlapAnalysisService:
         if validation_error is not None:
             return ReviewOverlapAnalysisResult(
                 overlap_result=None,
+                status="invalid_result",
                 message=(
                     "Structured review overlap reconciliation returned an invalid "
                     f"result: {validation_error}"
@@ -58,6 +63,7 @@ class ReviewOverlapAnalysisService:
 
         return ReviewOverlapAnalysisResult(
             overlap_result=overlap_result,
+            status="ok",
             message=(
                 f"Review overlap reconciled against prior SHA: "
                 f"{overlap_result.prior_reviewed_head_sha}."
