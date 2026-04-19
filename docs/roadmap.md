@@ -216,11 +216,11 @@ Phase 2: MR Note Fetch And Filtering
 - [x] sort and select the latest earlier parseable prior review note for v1
 
 Phase 3: Prior Review Note Parser
-- [ ] parse the machine-safe note block into reconstructed `PriorReviewPass`
+- [x] parse the machine-safe note block into reconstructed `PriorReviewPass`
       entries
-- [ ] rebuild app-owned prior finding identities from parsed structured fields
+- [x] rebuild app-owned prior finding identities from parsed structured fields
       and summaries
-- [ ] skip malformed or non-parseable bot notes without fuzzy prose fallback
+- [x] skip malformed or non-parseable bot notes without fuzzy prose fallback
 
 Phase 4: Runner Integration
 - [ ] inject GitLab-reconstructed prior review context into the review runner
@@ -229,9 +229,9 @@ Phase 4: Runner Integration
 - [ ] add explicit logs for found notes, parseable notes, and selected prior SHA
 
 Phase 5: CI And Runtime Validation
-- [ ] add parser tests for findings, `no_findings`, and `manual_review_only`
+- [x] add parser tests for findings, `no_findings`, and `manual_review_only`
       note shapes
-- [ ] add service tests for latest-prior-note selection and current-SHA skipping
+- [x] add service tests for latest-prior-note selection and current-SHA skipping
 - [ ] add one runner/integration test proving overlap works without persisted
       local review state
 

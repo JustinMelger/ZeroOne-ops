@@ -56,7 +56,7 @@ class ReviewGitLabPriorContextService:
         ]
         candidate_notes = []
         for note in considered_notes:
-            payload = _extract_machine_safe_review_note_payload(note.body)
+            payload = extract_machine_safe_review_note_payload(note.body)
             if payload is None:
                 continue
             reviewed_head_sha = payload.get("reviewed_head_sha")
@@ -106,7 +106,7 @@ def _has_machine_safe_review_note_block(body: str) -> bool:
 
 
 
-def _extract_machine_safe_review_note_payload(body: str | None) -> dict[str, object] | None:
+def extract_machine_safe_review_note_payload(body: str | None) -> dict[str, object] | None:
     """Extract one machine-safe review note payload when present and valid."""
     if body is None:
         return None
