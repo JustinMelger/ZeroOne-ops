@@ -292,8 +292,6 @@ def _format_repository_guidance(context: MergeRequestReviewContext) -> str:
     )
 
 
-
-
 def _format_prior_review_finding(finding: PriorReviewFinding) -> str:
     """Render one prior-review finding with optional structured continuity fields."""
     parts = [f"- {finding.summary} ({finding.severity or 'unknown'})"]
