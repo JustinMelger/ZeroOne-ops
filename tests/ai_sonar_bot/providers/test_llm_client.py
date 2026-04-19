@@ -443,11 +443,11 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "distinguish between an inconsistent contract and a confirmed breakage" in prompt
     assert "one visible consumer is compatible" in prompt
     assert "do NOT infer issues from the call site alone" in prompt
-    assert "review `prior_review_context`" in prompt
-    assert "identify which prior findings are still present" in prompt
-    assert "which now appear resolved" in prompt
-    assert "which concerns are new in this pass" in prompt
-    assert "Do NOT repeat prior findings as if they were brand-new discoveries" in prompt
+    assert "review `prior_review_context`" not in prompt
+    assert "identify which prior findings are still present" not in prompt
+    assert "which now appear resolved" not in prompt
+    assert "which concerns are new in this pass" not in prompt
+    assert "Do NOT repeat prior findings as if they were brand-new discoveries" not in prompt
     assert "Each finding must:" in prompt
     assert "include concrete evidence from the diff or inspected code" in prompt
     assert "reference specific changed behavior" in prompt
@@ -602,31 +602,27 @@ def test_build_review_prompt_includes_remediation_context_when_present() -> None
     assert "Validation: All validation commands passed." in prompt
 
 
-def test_build_review_prompt_includes_prior_review_context_when_present() -> None:
+def test_build_review_prompt_omits_prior_review_context_even_when_present() -> None:
     context = MergeRequestReviewContext(
         mr_iid=17,
-        title="feat: add safety check",
-        description="Adds validation.",
+        title="feat: review flow",
+        description="summary",
         source_branch="feature/review",
         target_branch="main",
         web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
-        head_sha="def456",
+        head_sha="abc123",
         prior_review_context=PriorReviewContext(
             merge_request_iid=17,
             passes=[
                 PriorReviewPass(
-                    reviewed_head_sha="abc123",
+                    reviewed_head_sha="def456",
                     classification="findings_present",
                     findings_count=1,
                     summary="One earlier concern still needs attention.",
-                    note_url="https://gitlab.example.com/note/55",
                     findings=[
                         PriorReviewFinding(
-                            summary="src/service.py: Ordering regression",
+                            summary="src/service.py: Missing test coverage",
                             severity="medium",
-                            symbol="Service.run",
-                            issue_kind="ordering_regression",
-                            region_hint="return-order",
                         )
                     ],
                 )
@@ -635,10 +631,10 @@ def test_build_review_prompt_includes_prior_review_context_when_present() -> Non
         changed_files=[
             ReviewFileContext(
                 file_path="src/service.py",
-                diff="@@ -1 +1 @@\n-value = 1\n+value = 2",
-                content="value = 2\n",
+                diff="@@ -1,1 +1,1 @@",
                 start_line=1,
-                end_line=1,
+                end_line=2,
+                content="def service():\n    return 1\n",
                 full_file_included=True,
                 truncated=False,
             )
@@ -647,16 +643,9 @@ def test_build_review_prompt_includes_prior_review_context_when_present() -> Non
 
     prompt = build_review_prompt(context)
 
-    assert "Prior review context:" in prompt
-    assert "<<BEGIN UNTRUSTED Prior review pass 1>>" in prompt
-    assert "Reviewed SHA: abc123" in prompt
-    assert "Classification: findings_present" in prompt
-    assert "Findings count: 1" in prompt
-    assert "Summary: One earlier concern still needs attention." in prompt
-    assert "- src/service.py: Ordering regression (medium)" in prompt
-    assert (
-        "[symbol=Service.run, issue_kind=ordering_regression, region_hint=return-order]" in prompt
-    )
+    assert "Prior review context:" not in prompt
+    assert "review `prior_review_context`" not in prompt
+    assert "Missing test coverage" not in prompt
 
 
 def test_load_prompt_template_rejects_unknown_template_name() -> None:

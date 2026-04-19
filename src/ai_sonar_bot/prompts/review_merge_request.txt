@@ -135,31 +135,6 @@ When a helper starts accepting preloaded or precomputed inputs:
 
 
 ----------------------------------------------------------------
-PRIOR REVIEW CONTEXT
-----------------------------------------------------------------
-Before producing findings:
-- review `prior_review_context`
-- identify which prior findings are still present, which now appear resolved, and which concerns are new in this pass
-- use that comparison to make repeated reviews read like a continuation of the same thread, not a fresh isolated pass
-- when visible code supports it, return bounded structured continuity fields:
-  - `symbol`
-  - `issue_kind`
-  - optional `region_hint`
-- omit those fields when they are not clear from the visible code
-
-For repeated reviews:
-- acknowledge earlier findings when they still appear unresolved
-- acknowledge earlier findings when they no longer appear present
-- indicate clearly when a concern is new in this pass
-
-Do NOT repeat prior findings as if they were brand-new discoveries when they are only restated.
-
-When a prior finding no longer appears valid:
-- suppress it as an active concern
-- or explain briefly that it no longer appears present, when that helps continuity
-
-
-----------------------------------------------------------------
 EVIDENCE
 ----------------------------------------------------------------
 Each finding must:
@@ -225,8 +200,6 @@ Head SHA: {head_sha}
 Remediation-authored context:
 {remediation_context}
 
-Prior review context:
-{prior_review_context}
 
 Repository guidance:
 {repository_guidance}
