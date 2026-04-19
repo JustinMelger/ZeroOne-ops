@@ -11,7 +11,7 @@ from ai_sonar_bot.services.review_finding_identity import (
     build_legacy_review_finding_identity,
     build_review_finding_identity,
 )
-from ai_sonar_bot.services.review_overlap_packet_builder import build_overlap_packet
+from ai_sonar_bot.services.review_overlap_packet_builder import OverlapPacketBuilder
 
 
 def _build_context(*, prior_pass: PriorReviewPass | None = None) -> MergeRequestReviewContext:
@@ -120,7 +120,7 @@ def _unstructured_vehicle_variant() -> ReviewFinding:
 
 
 def test_build_overlap_packet_returns_none_without_prior_pass() -> None:
-    packet = build_overlap_packet(
+    packet = OverlapPacketBuilder().build(
         context=_build_context(),
         review_result=ReviewResult(
             classification="findings_present",
@@ -134,7 +134,7 @@ def test_build_overlap_packet_returns_none_without_prior_pass() -> None:
 
 def test_build_overlap_packet_uses_canonical_identity_candidate() -> None:
     prior_finding = _vehicle_details_finding()
-    packet = build_overlap_packet(
+    packet = OverlapPacketBuilder().build(
         context=_build_context(prior_pass=_build_prior_pass(findings=[prior_finding])),
         review_result=ReviewResult(
             classification="findings_present",
@@ -156,7 +156,7 @@ def test_build_overlap_packet_uses_canonical_identity_candidate() -> None:
 
 
 def test_build_overlap_packet_narrows_same_file_candidates_by_structured_fields() -> None:
-    packet = build_overlap_packet(
+    packet = OverlapPacketBuilder().build(
         context=_build_context(
             prior_pass=_build_prior_pass(findings=[_payload_finding(), _vehicle_details_finding()])
         ),
@@ -178,7 +178,7 @@ def test_build_overlap_packet_narrows_same_file_candidates_by_structured_fields(
 
 
 def test_build_overlap_packet_preserves_ambiguous_same_file_candidates() -> None:
-    packet = build_overlap_packet(
+    packet = OverlapPacketBuilder().build(
         context=_build_context(
             prior_pass=_build_prior_pass(findings=[_payload_finding(), _grouped_payload_finding()])
         ),

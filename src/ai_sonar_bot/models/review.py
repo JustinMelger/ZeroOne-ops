@@ -172,3 +172,24 @@ class OverlapPacket(BaseModel):
     current_findings: list[ReviewFinding] = Field(default_factory=list)
     prior_findings: list[PriorReviewFinding] = Field(default_factory=list)
     candidates: list[OverlapCandidate] = Field(default_factory=list)
+
+
+class OverlapResolution(BaseModel):
+    """Represent one normalized overlap outcome."""
+
+    outcome: Literal[
+        "still_unresolved",
+        "new_in_this_pass",
+        "no_longer_present",
+        "overlap_ambiguous",
+    ]
+    current_finding_index: int | None = None
+    prior_finding_index: int | None = None
+    related_prior_finding_indices: list[int] = Field(default_factory=list)
+
+
+class OverlapReconciliationResult(BaseModel):
+    """Represent normalized overlap outcomes for one prior-current pass pair."""
+
+    prior_reviewed_head_sha: str
+    resolutions: list[OverlapResolution] = Field(default_factory=list)

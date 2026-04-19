@@ -19,7 +19,7 @@ from ai_sonar_bot.services.review_finding_identity import (
     build_legacy_review_finding_identity,
     build_review_finding_identity,
 )
-from ai_sonar_bot.services.review_overlap_packet_builder import build_overlap_packet
+from ai_sonar_bot.services.review_overlap_packet_builder import OverlapPacketBuilder
 
 _MIN_SHARED_TITLE_TOKENS = 2
 _MIN_TITLE_TOKEN_OVERLAP = 0.6
@@ -229,7 +229,10 @@ def _reconcile_follow_up_review(
         return None
 
     latest_prior_pass = prior_review_context.passes[0]
-    overlap_packet = build_overlap_packet(context=context, review_result=review_result)
+    overlap_packet = OverlapPacketBuilder().build(
+        context=context,
+        review_result=review_result,
+    )
     prior_findings: list[FollowUpFindingStatus] = []
     prior_findings_by_index: dict[int, FollowUpFindingStatus] = {}
     for prior_index, prior_finding in enumerate(latest_prior_pass.findings):

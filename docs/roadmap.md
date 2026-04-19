@@ -175,10 +175,10 @@ Phase 1: Overlap Packet Builder
 - [x] add direct tests for candidate generation and packet shaping
 
 Phase 2: Overlap Result Contract
-- [ ] add normalized overlap outcomes such as `still_unresolved`,
+- [x] add normalized overlap outcomes such as `still_unresolved`,
       `new_in_this_pass`, `no_longer_present`, and `overlap_ambiguous`
-- [ ] keep the result app-owned and independent from note rendering
-- [ ] add tests that map benchmark sequences onto those normalized outcomes
+- [x] keep the result app-owned and independent from note rendering
+- [x] add tests that map benchmark sequences onto those normalized outcomes
 
 Phase 3: Bounded Overlap LLM Step
 - [ ] add one bounded overlap call per MR run behind the same review command
