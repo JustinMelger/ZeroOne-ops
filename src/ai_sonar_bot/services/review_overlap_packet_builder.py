@@ -186,9 +186,7 @@ class OverlapPacketBuilder:
             return matching_candidates
 
         candidates_with_structured_value = [
-            candidate
-            for candidate in candidates
-            if getattr(candidate[1], field_name) is not None
+            candidate for candidate in candidates if getattr(candidate[1], field_name) is not None
         ]
         if candidates_with_structured_value:
             return []

@@ -90,22 +90,19 @@ def _reconcile_sequence(
     still_unresolved = [
         packet.prior_findings[resolution.prior_finding_index].summary
         for resolution in result.resolutions
-        if resolution.outcome == "still_unresolved"
-        and resolution.prior_finding_index is not None
+        if resolution.outcome == "still_unresolved" and resolution.prior_finding_index is not None
     ]
     new_in_this_pass = [
         packet.current_findings[resolution.current_finding_index].file_path
         + ": "
         + packet.current_findings[resolution.current_finding_index].title
         for resolution in result.resolutions
-        if resolution.outcome == "new_in_this_pass"
-        and resolution.current_finding_index is not None
+        if resolution.outcome == "new_in_this_pass" and resolution.current_finding_index is not None
     ]
     no_longer_present = [
         packet.prior_findings[resolution.prior_finding_index].summary
         for resolution in result.resolutions
-        if resolution.outcome == "no_longer_present"
-        and resolution.prior_finding_index is not None
+        if resolution.outcome == "no_longer_present" and resolution.prior_finding_index is not None
     ]
     ambiguous = [
         resolution.related_prior_finding_indices
@@ -414,9 +411,7 @@ def test_wording_drift_sequence_keeps_same_concern_still_unresolved() -> None:
         prior_pass=_build_prior_pass("ordering-pass-2", [_ordering_finding_wording_drift()]),
         findings=[_ordering_finding_original()],
     )
-    assert pass3_still == [
-        "src/service.py: Ordering logic now returns a different sequence"
-    ]
+    assert pass3_still == ["src/service.py: Ordering logic now returns a different sequence"]
     assert pass3_new == []
     assert pass3_resolved == []
     assert pass3_ambiguous == []
@@ -437,9 +432,7 @@ def test_sibling_helper_replacement_stays_new_and_resolved_not_merged() -> None:
 def test_llm_wording_drift_sequence_stays_still_unresolved_with_structured_fields() -> None:
     pass2_still, pass2_new, pass2_resolved, pass2_ambiguous = _reconcile_sequence(
         head_sha="llm-drift-pass-2",
-        prior_pass=_build_prior_pass(
-            "llm-drift-pass-1", [_vehicle_details_finding()]
-        ),
+        prior_pass=_build_prior_pass("llm-drift-pass-1", [_vehicle_details_finding()]),
         findings=[_vehicle_details_finding_llm_variant_a()],
     )
     assert pass2_still == [
@@ -468,9 +461,7 @@ def test_llm_wording_drift_sequence_stays_still_unresolved_with_structured_field
 def test_llm_wording_drift_sequence_survives_missing_structured_fields() -> None:
     pass2_still, pass2_new, pass2_resolved, pass2_ambiguous = _reconcile_sequence(
         head_sha="llm-unstructured-pass-2",
-        prior_pass=_build_prior_pass(
-            "llm-unstructured-pass-1", [_vehicle_details_finding()]
-        ),
+        prior_pass=_build_prior_pass("llm-unstructured-pass-1", [_vehicle_details_finding()]),
         findings=[_vehicle_details_finding_without_structured_fields()],
     )
     assert pass2_still == [
@@ -515,9 +506,7 @@ def test_same_symbol_severity_and_wording_drift_stays_still_unresolved() -> None
         prior_pass=_build_prior_pass("severity-drift-pass-1", [_cache_guard_finding_high()]),
         findings=[_cache_guard_finding_low_wording_drift()],
     )
-    assert pass2_still == [
-        "src/cache.py: Cache key builder no longer guards missing tenant id"
-    ]
+    assert pass2_still == ["src/cache.py: Cache key builder no longer guards missing tenant id"]
     assert pass2_new == []
     assert pass2_resolved == []
     assert pass2_ambiguous == []
