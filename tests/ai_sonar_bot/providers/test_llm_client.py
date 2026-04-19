@@ -714,17 +714,18 @@ def test_build_review_overlap_prompt_uses_prompt_template() -> None:
 
     assert "Compare the current review findings against the latest prior review pass" in prompt
     assert "You are NOT reviewing raw code in this step." in prompt
+    assert "All indices in this packet are zero-based machine indices." in prompt
     assert "Prefer `overlap_ambiguous` over a weak or forced match." in prompt
     assert "Merge request IID: 17" in prompt
     assert "Current reviewed SHA: def456" in prompt
     assert "Prior reviewed SHA: abc123" in prompt
     assert "<<BEGIN UNTRUSTED Current findings>>" in prompt
-    assert "current[1] src/service.py: Ordering logic now returns a different sequence" in prompt
+    assert "current[0] src/service.py: Ordering logic now returns a different sequence" in prompt
     assert "symbol=Service.run" in prompt
     assert "<<BEGIN UNTRUSTED Prior findings>>" in prompt
-    assert "prior[1] src/service.py: Ordering regression" in prompt
+    assert "prior[0] src/service.py: Ordering regression" in prompt
     assert "<<BEGIN UNTRUSTED Overlap candidates>>" in prompt
-    assert "current[1] <-> prior[1] reasons=same_file, symbol, issue_kind" in prompt
+    assert "current[0] <-> prior[0] reasons=same_file, symbol, issue_kind" in prompt
 
 
 def test_fixture_llm_client_loads_review_overlap_result(tmp_path: Path) -> None:

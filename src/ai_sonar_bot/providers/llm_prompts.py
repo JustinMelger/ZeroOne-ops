@@ -142,7 +142,7 @@ def build_review_overlap_prompt(packet: OverlapPacket) -> str:
     current_findings = (
         "\n".join(
             _format_current_overlap_finding(index, finding)
-            for index, finding in enumerate(packet.current_findings, start=1)
+            for index, finding in enumerate(packet.current_findings)
         )
         if packet.current_findings
         else "- (none)"
@@ -150,7 +150,7 @@ def build_review_overlap_prompt(packet: OverlapPacket) -> str:
     prior_findings = (
         "\n".join(
             _format_prior_overlap_finding(index, finding)
-            for index, finding in enumerate(packet.prior_findings, start=1)
+            for index, finding in enumerate(packet.prior_findings)
         )
         if packet.prior_findings
         else "- (none)"
@@ -207,8 +207,8 @@ def _format_prior_overlap_finding(index: int, finding: PriorReviewFinding) -> st
 def _format_overlap_candidate(candidate: OverlapCandidate) -> str:
     """Render one bounded overlap candidate pair."""
     return (
-        f"- current[{candidate.current_finding_index + 1}] <-> "
-        f"prior[{candidate.prior_finding_index + 1}] "
+        f"- current[{candidate.current_finding_index}] <-> "
+        f"prior[{candidate.prior_finding_index}] "
         f"reasons={', '.join(candidate.reasons) if candidate.reasons else '(none)'}"
     )
 
