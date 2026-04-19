@@ -188,3 +188,70 @@ def test_analyze_rejects_overlap_result_outside_candidate_boundary(monkeypatch) 
         "Structured review overlap reconciliation returned an invalid result: "
         "prior finding index is out of range"
     )
+
+
+def test_analyze_rejects_overlap_result_reusing_one_current_finding(monkeypatch) -> None:
+    service = ReviewOverlapAnalysisService(build_config())
+    monkeypatch.setattr(
+        service,
+        "_build_llm_client",
+        lambda: FakeReviewOverlapLLMClient(
+            OverlapReconciliationResult(
+                prior_reviewed_head_sha="abc123",
+                resolutions=[
+                    OverlapResolution(
+                        outcome="still_unresolved",
+                        current_finding_index=0,
+                        prior_finding_index=0,
+                        related_prior_finding_indices=[0],
+                    ),
+                    OverlapResolution(
+                        outcome="new_in_this_pass",
+                        current_finding_index=0,
+                    ),
+                ],
+            )
+        ),
+    )
+
+    result = service.analyze(build_packet())
+
+    assert result.overlap_result is None
+    assert result.message == (
+        "Structured review overlap reconciliation returned an invalid result: "
+        "current finding is referenced by multiple overlap resolutions"
+    )
+
+
+def test_analyze_rejects_overlap_result_reusing_one_prior_finding(monkeypatch) -> None:
+    service = ReviewOverlapAnalysisService(build_config())
+    monkeypatch.setattr(
+        service,
+        "_build_llm_client",
+        lambda: FakeReviewOverlapLLMClient(
+            OverlapReconciliationResult(
+                prior_reviewed_head_sha="abc123",
+                resolutions=[
+                    OverlapResolution(
+                        outcome="still_unresolved",
+                        current_finding_index=0,
+                        prior_finding_index=0,
+                        related_prior_finding_indices=[0],
+                    ),
+                    OverlapResolution(
+                        outcome="no_longer_present",
+                        prior_finding_index=0,
+                        related_prior_finding_indices=[0],
+                    ),
+                ],
+            )
+        ),
+    )
+
+    result = service.analyze(build_packet())
+
+    assert result.overlap_result is None
+    assert result.message == (
+        "Structured review overlap reconciliation returned an invalid result: "
+        "prior finding is referenced by multiple overlap resolutions"
+    )

@@ -182,7 +182,17 @@ class OverlapPacketBuilder:
             for candidate in candidates
             if getattr(candidate[1], field_name) == expected_value
         ]
-        return matching_candidates or candidates
+        if matching_candidates:
+            return matching_candidates
+
+        candidates_with_structured_value = [
+            candidate
+            for candidate in candidates
+            if getattr(candidate[1], field_name) is not None
+        ]
+        if candidates_with_structured_value:
+            return []
+        return candidates
 
     def _current_finding_key(self, finding: ReviewFinding) -> tuple[str, str, str]:
         """Build a conservative key for one current finding."""

@@ -180,6 +180,13 @@ def _render_follow_up_lines(
     return [*lines, ""]
 
 
+def _counted_phrase(count: int, singular: str, plural: str) -> str:
+    """Return singular or count-aware plural wording for overlap summaries."""
+    if count == 1:
+        return singular
+    return f"{count} {plural}"
+
+
 def _render_overlap_summary_lines(
     overlap_result: OverlapReconciliationResult,
     review_result: ReviewResult,
@@ -206,6 +213,10 @@ def _render_overlap_summary_lines(
         if resolution.outcome == "overlap_ambiguous"
     ]
 
+    unresolved_count = len(still_unresolved)
+    new_count = len(new_in_this_pass)
+    resolved_count = len(no_longer_present)
+
     lines: list[str] = []
     if review_result.classification == "manual_review_only":
         if still_unresolved or overlap_ambiguous:
@@ -217,7 +228,13 @@ def _render_overlap_summary_lines(
 
     if review_result.classification == "no_findings":
         if no_longer_present:
-            lines.append("The earlier concern from the last pass no longer appears present.")
+            lines.append(
+                _counted_phrase(
+                    resolved_count,
+                    "The earlier concern from the last pass no longer appears present.",
+                    "earlier concerns from the last pass no longer appear present.",
+                )
+            )
         if overlap_ambiguous:
             lines.append(
                 "This pass may overlap with an earlier concern, but the overlap "
@@ -226,16 +243,33 @@ def _render_overlap_summary_lines(
         return lines
 
     if still_unresolved:
-        lines.append("An earlier concern from the last pass still appears unresolved.")
-    if no_longer_present and new_in_this_pass:
         lines.append(
-            "One earlier concern no longer appears present, but this pass also "
-            "introduces a new concern."
+            _counted_phrase(
+                unresolved_count,
+                "An earlier concern from the last pass still appears unresolved.",
+                "earlier concerns from the last pass still appear unresolved.",
+            )
         )
+    if no_longer_present and new_in_this_pass:
+        resolved_phrase = _counted_phrase(
+            resolved_count,
+            "One earlier concern no longer appears present",
+            "earlier concerns no longer appear present",
+        )
+        new_phrase = _counted_phrase(new_count, "a new concern", "new concerns")
+        lines.append(f"{resolved_phrase}, but this pass also introduces {new_phrase}.")
     elif no_longer_present:
-        lines.append("One earlier concern from the last pass no longer appears present.")
+        lines.append(
+            _counted_phrase(
+                resolved_count,
+                "One earlier concern from the last pass no longer appears present.",
+                "earlier concerns from the last pass no longer appear present.",
+            )
+        )
     elif new_in_this_pass:
-        lines.append("This pass also introduces a new concern.")
+        lines.append(
+            f"This pass also introduces {_counted_phrase(new_count, "a new concern", "new concerns")}."
+        )
 
     if overlap_ambiguous:
         lines.append(

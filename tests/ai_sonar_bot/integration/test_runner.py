@@ -18,6 +18,9 @@ from ai_sonar_bot.models.remediation import RemediationWorkItem
 from ai_sonar_bot.models.review import (
     MergeRequestReviewCandidate,
     MergeRequestReviewContext,
+    PriorReviewContext,
+    PriorReviewFinding,
+    PriorReviewPass,
     ReviewFileContext,
     ReviewFinding,
     ReviewResult,
@@ -33,6 +36,8 @@ from ai_sonar_bot.runner import dashboard_reconcile, dashboard_remediate, review
 from ai_sonar_bot.services.analysis_service import AnalysisResult
 from ai_sonar_bot.services.branch_manager import BranchManagerError
 from ai_sonar_bot.services.review_publisher import ReviewPublishResult
+from ai_sonar_bot.services.review_overlap_analysis_service import ReviewOverlapAnalysisResult
+from ai_sonar_bot.services.review_context_builder import ReviewContextBuildResult
 from ai_sonar_bot.services.state_store import StateStore
 from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
 
@@ -3309,14 +3314,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, project_id: type(
-            "ContextResult",
-            (),
-            {
-                "context": review_context,
-                "message": "",
-            },
-        )(),
+        lambda self, merge_request, project_id: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
@@ -3412,14 +3410,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, project_id: type(
-            "ContextResult",
-            (),
-            {
-                "context": review_context,
-                "message": "",
-            },
-        )(),
+        lambda self, merge_request, project_id: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
@@ -3452,7 +3443,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_publisher.ReviewPublisher.publish",
-        lambda self, project_id, merge_request_iid, context, review_result: ReviewPublishResult(
+        lambda self, project_id, merge_request_iid, context, review_result, overlap_result: ReviewPublishResult(
             note=type(
                 "Note",
                 (),
@@ -3566,14 +3557,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, project_id: type(
-            "ContextResult",
-            (),
-            {
-                "context": review_context,
-                "message": "",
-            },
-        )(),
+        lambda self, merge_request, project_id: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
@@ -3592,7 +3576,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_publisher.ReviewPublisher.publish",
-        lambda self, project_id, merge_request_iid, context, review_result: ReviewPublishResult(
+        lambda self, project_id, merge_request_iid, context, review_result, overlap_result: ReviewPublishResult(
             note=type("Note", (), {"id": 55, "web_url": None})(),
             body="summary",
         ),
@@ -3613,6 +3597,185 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
 
     assert summary.status.value == "reviewed"
     assert "Dashboard mirror failed: boom" in summary.message
+
+
+def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailable(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    merge_request = MergeRequestReviewCandidate(
+        iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="def456",
+        changes=[],
+    )
+    review_context = MergeRequestReviewContext(
+        mr_iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="def456",
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                diff="@@ -1,1 +1,1 @@",
+                start_line=1,
+                end_line=1,
+                content="   1: value = 1",
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.mr_intake.MergeRequestIntakeService.select_merge_request",
+        lambda self, state: type(
+            "Result",
+            (),
+            {
+                "selected_merge_request": merge_request,
+                "merge_request_count": 1,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
+        lambda self, merge_request, project_id: ReviewContextBuildResult(context=review_context, message=""),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_state_service.ReviewStateService.load_prior_review_context",
+        lambda self, mr_iid, current_head_sha: PriorReviewContext(
+            merge_request_iid=mr_iid,
+            passes=[
+                PriorReviewPass(
+                    reviewed_head_sha="abc123",
+                    classification="findings_present",
+                    findings_count=1,
+                    summary="One earlier concern still needs attention.",
+                    findings=[
+                        PriorReviewFinding(
+                            identity="src/service.py::missing-test-coverage",
+                            summary="src/service.py: Missing test coverage",
+                            severity="medium",
+                        )
+                    ],
+                )
+            ],
+        ),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
+        lambda self, context: type(
+            "AnalysisResult",
+            (),
+            {
+                "review_result": ReviewResult(
+                    classification="findings_present",
+                    summary="One medium-risk finding.",
+                    findings=[
+                        ReviewFinding(
+                            severity="medium",
+                            file_path="src/service.py",
+                            title="Missing test coverage",
+                            evidence=(
+                                "The diff changes `value = 1` to `value = 2` "
+                                "without any test updates."
+                            ),
+                            explanation="The change alters behavior without test updates.",
+                            suggested_follow_up="Add a regression test.",
+                        )
+                    ],
+                ),
+                "message": (
+                    "Review classification: findings_present. Summary: One medium-risk finding."
+                ),
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_overlap_analysis_service.ReviewOverlapAnalysisService.analyze",
+        lambda self, packet: ReviewOverlapAnalysisResult(
+            overlap_result=None,
+            message="Structured review overlap reconciliation failed.",
+        ),
+    )
+
+    observed: dict[str, object] = {}
+
+    def capture_publish(  # noqa: ANN001, ANN202
+        self,
+        project_id,
+        merge_request_iid,
+        context,
+        review_result,
+        overlap_result,
+    ):
+        observed["overlap_result"] = overlap_result
+        return ReviewPublishResult(
+            note=type(
+                "Note",
+                (),
+                {
+                    "id": 55,
+                    "web_url": (
+                        "https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
+                    ),
+                },
+            )(),
+            body="summary",
+        )
+
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_publisher.ReviewPublisher.publish",
+        capture_publish,
+    )
+    monkeypatch.setattr(
+        "ai_sonar_bot.services.review_dashboard_updater.ReviewDashboardUpdater.update",
+        lambda self, project_id, merge_request, review_result: type(
+            "DashboardResult",
+            (),
+            {
+                "dashboard_issue_url": None,
+                "error_message": None,
+            },
+        )(),
+    )
+
+    summary = review(dry_run=False)
+
+    assert summary.status.value == "reviewed"
+    assert observed["overlap_result"] is None
+    assert "Reviewed merge request !17 at def456." in summary.message
 
 
 def test_review_non_dry_run_skips_no_findings_note_when_configured(
@@ -3689,14 +3852,7 @@ def test_review_non_dry_run_skips_no_findings_note_when_configured(
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, project_id: type(
-            "ContextResult",
-            (),
-            {
-                "context": review_context,
-                "message": "",
-            },
-        )(),
+        lambda self, merge_request, project_id: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
@@ -3714,7 +3870,14 @@ def test_review_non_dry_run_skips_no_findings_note_when_configured(
         )(),
     )
 
-    def fail_publish(self, project_id, merge_request_iid, context, review_result):  # noqa: ANN001, ANN202
+    def fail_publish(  # noqa: ANN001, ANN202
+        self,
+        project_id,
+        merge_request_iid,
+        context,
+        review_result,
+        overlap_result,
+    ):
         raise AssertionError("No-findings note should not be published when disabled.")
 
     monkeypatch.setattr(

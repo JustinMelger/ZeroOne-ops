@@ -86,6 +86,8 @@ def _validate_overlap_result(
         (candidate.current_finding_index, candidate.prior_finding_index)
         for candidate in packet.candidates
     }
+    seen_current_indices: set[int] = set()
+    seen_prior_indices: set[int] = set()
 
     for resolution in overlap_result.resolutions:
         index_error = _validate_resolution_indices(
@@ -95,6 +97,14 @@ def _validate_overlap_result(
         )
         if index_error is not None:
             return index_error
+
+        consistency_error = _validate_resolution_consistency(
+            resolution=resolution,
+            seen_current_indices=seen_current_indices,
+            seen_prior_indices=seen_prior_indices,
+        )
+        if consistency_error is not None:
+            return consistency_error
 
         if resolution.outcome == "still_unresolved":
             pair = (resolution.current_finding_index, resolution.prior_finding_index)
@@ -112,6 +122,30 @@ def _validate_overlap_result(
                 return "overlap_ambiguous resolution has no bounded candidate set"
             if not set(resolution.related_prior_finding_indices).issubset(allowed_priors):
                 return "overlap_ambiguous resolution references priors outside the packet"
+
+    return None
+
+
+def _validate_resolution_consistency(
+    *,
+    resolution: OverlapResolution,
+    seen_current_indices: set[int],
+    seen_prior_indices: set[int],
+) -> str | None:
+    """Return one validation error when overlap output reuses findings inconsistently."""
+    if resolution.outcome in {"still_unresolved", "new_in_this_pass", "overlap_ambiguous"}:
+        current_index = resolution.current_finding_index
+        if current_index is not None:
+            if current_index in seen_current_indices:
+                return "current finding is referenced by multiple overlap resolutions"
+            seen_current_indices.add(current_index)
+
+    if resolution.outcome in {"still_unresolved", "no_longer_present"}:
+        prior_index = resolution.prior_finding_index
+        if prior_index is not None:
+            if prior_index in seen_prior_indices:
+                return "prior finding is referenced by multiple overlap resolutions"
+            seen_prior_indices.add(prior_index)
 
     return None
 
