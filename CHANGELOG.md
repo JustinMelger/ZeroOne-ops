@@ -5,6 +5,13 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.27.3](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.27.2...zeroone-ops-v0.27.3) (2026-04-19)
+
+
+### Bug Fixes
+
+* loggingci pipeline reconcilation ([001184f](https://github.com/JustinMelger/ZeroOne-ops/commit/001184fdab42253d633f489649c32d73f9debfa7))
+
 ## [0.27.2](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.27.1...zeroone-ops-v0.27.2) (2026-04-19)
 
 
