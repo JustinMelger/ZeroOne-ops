@@ -260,7 +260,7 @@ def _render_overlap_summary_lines(
             )
         )
     elif new_in_this_pass:
-        new_phrase = _counted_phrase(new_count, 'a new concern', 'new concerns')
+        new_phrase = _counted_phrase(new_count, "a new concern", "new concerns")
         lines.append(f"This pass also introduces {new_phrase}.")
 
     if overlap_ambiguous:

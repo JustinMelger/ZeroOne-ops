@@ -97,8 +97,7 @@ class ReviewGitLabPriorNoteParser:
             return PriorReviewNoteParseResult(
                 prior_review_pass=None,
                 message=(
-                    "Selected note machine-safe payload findings count does not "
-                    "match findings."
+                    "Selected note machine-safe payload findings count does not match findings."
                 ),
             )
 

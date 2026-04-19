@@ -49,11 +49,7 @@ class ReviewGitLabPriorContextService:
             project_id=project_id,
             merge_request_iid=merge_request_iid,
         )
-        considered_notes = [
-            note
-            for note in notes
-            if self._is_machine_safe_bot_review_note(note)
-        ]
+        considered_notes = [note for note in notes if self._is_machine_safe_bot_review_note(note)]
         candidate_notes = []
         for note in considered_notes:
             payload = extract_machine_safe_review_note_payload(note.body)
@@ -103,7 +99,6 @@ class ReviewGitLabPriorContextService:
 def _has_machine_safe_review_note_block(body: str) -> bool:
     """Return whether one MR note contains the bounded machine-safe block."""
     return _MACHINE_SAFE_REVIEW_NOTE_PREFIX in body
-
 
 
 def extract_machine_safe_review_note_payload(body: str | None) -> dict[str, object] | None:
