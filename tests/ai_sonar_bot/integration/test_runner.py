@@ -35,9 +35,9 @@ from ai_sonar_bot.providers.gitlab_client import GitLabClientError
 from ai_sonar_bot.runner import dashboard_reconcile, dashboard_remediate, review
 from ai_sonar_bot.services.analysis_service import AnalysisResult
 from ai_sonar_bot.services.branch_manager import BranchManagerError
-from ai_sonar_bot.services.review_publisher import ReviewPublishResult
-from ai_sonar_bot.services.review_overlap_analysis_service import ReviewOverlapAnalysisResult
 from ai_sonar_bot.services.review_context_builder import ReviewContextBuildResult
+from ai_sonar_bot.services.review_overlap_analysis_service import ReviewOverlapAnalysisResult
+from ai_sonar_bot.services.review_publisher import ReviewPublishResult
 from ai_sonar_bot.services.state_store import StateStore
 from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
 
