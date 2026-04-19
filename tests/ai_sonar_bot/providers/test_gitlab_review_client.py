@@ -184,6 +184,56 @@ def test_list_merge_request_notes_normalizes_response() -> None:
     assert notes[0].created_at == "2026-04-19T11:27:42.046Z"
 
 
+def test_list_merge_request_notes_paginates_until_gitlab_history_is_exhausted() -> None:
+    seen_pages: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/projects/123/merge_requests/17/notes"
+        assert request.method == "GET"
+        seen_pages.append(request.url.params["page"])
+        assert request.url.params["per_page"] == "100"
+        if request.url.params["page"] == "1":
+            return httpx.Response(
+                200,
+                headers={"X-Next-Page": "2"},
+                json=[
+                    {
+                        "id": 55,
+                        "body": "note body 1",
+                        "web_url": "https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
+                        "created_at": "2026-04-19T11:27:42.046Z",
+                        "author": {"username": "ai-sonar-bot"},
+                    }
+                ],
+            )
+        return httpx.Response(
+            200,
+            headers={"X-Next-Page": ""},
+            json=[
+                {
+                    "id": 56,
+                    "body": "note body 2",
+                    "web_url": "https://gitlab.example.com/group/project/-/merge_requests/17#note_56",
+                    "created_at": "2026-04-19T11:28:42.046Z",
+                    "author": {"username": "ai-sonar-bot"},
+                }
+            ],
+        )
+
+    client = GitLabReviewClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    notes = client.list_merge_request_notes(project_id="123", merge_request_iid=17)
+
+    assert seen_pages == ["1", "2"]
+    assert [note.id for note in notes] == [55, 56]
+
+
 def test_get_merge_request_state_normalizes_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/api/v4/projects/123/merge_requests/17"
@@ -213,3 +263,22 @@ def test_get_merge_request_state_normalizes_response() -> None:
     assert merge_request.source_branch == "feature/review"
     assert merge_request.head_sha == "abc123"
     assert merge_request.state == "merged"
+
+
+def test_get_current_user_username_normalizes_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/user"
+        assert request.method == "GET"
+        return httpx.Response(200, json={"username": "custom-bot-user"})
+
+    client = GitLabReviewClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    username = client.get_current_user_username()
+
+    assert username == "custom-bot-user"

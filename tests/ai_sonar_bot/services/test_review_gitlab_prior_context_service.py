@@ -72,7 +72,11 @@ def test_select_latest_prior_review_note_chooses_latest_earlier_note() -> None:
     assert result.selected_note is not None
     assert result.selected_note.id == 11
     assert result.considered_note_count == 2
+    assert result.author_matched_note_count == 2
     assert result.machine_safe_note_count == 2
+    assert result.parseable_note_count == 2
+    assert result.current_sha_skipped_count == 0
+    assert result.reason_code == "selected"
     assert result.message == "Selected latest earlier machine-safe bot review note."
 
 
@@ -102,6 +106,7 @@ def test_select_latest_prior_review_note_skips_current_head_sha() -> None:
 
     assert result.selected_note is not None
     assert result.selected_note.id == 10
+    assert result.current_sha_skipped_count == 1
 
 
 def test_select_latest_prior_review_note_ignores_notes_from_other_authors() -> None:
@@ -131,6 +136,7 @@ def test_select_latest_prior_review_note_ignores_notes_from_other_authors() -> N
 
     assert result.selected_note is not None
     assert result.selected_note.id == 10
+    assert result.author_matched_note_count == 1
     assert result.machine_safe_note_count == 1
 
 
@@ -162,6 +168,7 @@ def test_select_latest_prior_review_note_ignores_malformed_machine_safe_notes() 
     assert result.selected_note is not None
     assert result.selected_note.id == 10
     assert result.machine_safe_note_count == 2
+    assert result.parseable_note_count == 1
 
 
 def test_select_latest_prior_review_note_returns_none_without_earlier_note() -> None:
@@ -191,7 +198,95 @@ def test_select_latest_prior_review_note_returns_none_without_earlier_note() -> 
 
     assert result.selected_note is None
     assert result.considered_note_count == 2
+    assert result.author_matched_note_count == 2
     assert result.machine_safe_note_count == 1
+    assert result.parseable_note_count == 1
+    assert result.current_sha_skipped_count == 1
+    assert result.reason_code == "only_current_sha_notes"
     assert result.message == (
         "No earlier machine-safe bot prior review note found on this merge request."
     )
+
+
+def test_select_latest_prior_review_note_allows_machine_safe_note_without_author_filter() -> None:
+    service = ReviewGitLabPriorContextService(
+        FakeGitLabReviewClient(
+            [
+                build_note(
+                    note_id=12,
+                    reviewed_head_sha="abc123",
+                    created_at="2026-04-19T11:31:42.046Z",
+                    author_username="custom-bot-user",
+                )
+            ]
+        ),
+        bot_author_username=None,
+    )
+
+    result = service.select_latest_prior_review_note(
+        project_id="123",
+        merge_request_iid=17,
+        current_head_sha="ghi789",
+    )
+
+    assert result.selected_note is not None
+    assert result.selected_note.id == 12
+    assert result.machine_safe_note_count == 1
+
+
+def test_select_latest_prior_review_note_reports_no_author_match_reason() -> None:
+    service = ReviewGitLabPriorContextService(
+        FakeGitLabReviewClient(
+            [
+                build_note(
+                    note_id=12,
+                    reviewed_head_sha="abc123",
+                    created_at="2026-04-19T11:31:42.046Z",
+                    author_username="other-bot",
+                )
+            ]
+        )
+    )
+
+    result = service.select_latest_prior_review_note(
+        project_id="123",
+        merge_request_iid=17,
+        current_head_sha="ghi789",
+    )
+
+    assert result.selected_note is None
+    assert result.considered_note_count == 1
+    assert result.author_matched_note_count == 0
+    assert result.machine_safe_note_count == 0
+    assert result.parseable_note_count == 0
+    assert result.current_sha_skipped_count == 0
+    assert result.reason_code == "no_author_match"
+
+
+def test_select_latest_prior_review_note_reports_no_machine_safe_reason() -> None:
+    service = ReviewGitLabPriorContextService(
+        FakeGitLabReviewClient(
+            [
+                MergeRequestNote(
+                    id=12,
+                    body="plain operator note",
+                    author_username="ai-sonar-bot",
+                    created_at="2026-04-19T11:30:42.046Z",
+                )
+            ]
+        )
+    )
+
+    result = service.select_latest_prior_review_note(
+        project_id="123",
+        merge_request_iid=17,
+        current_head_sha="ghi789",
+    )
+
+    assert result.selected_note is None
+    assert result.considered_note_count == 1
+    assert result.author_matched_note_count == 1
+    assert result.machine_safe_note_count == 0
+    assert result.parseable_note_count == 0
+    assert result.current_sha_skipped_count == 0
+    assert result.reason_code == "no_machine_safe_notes"

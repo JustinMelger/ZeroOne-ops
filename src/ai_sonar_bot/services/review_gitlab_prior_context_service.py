@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import Literal
 
 from ai_sonar_bot.models.gitlab import MergeRequestNote
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
@@ -20,7 +21,18 @@ class PriorReviewNoteSelectionResult:
 
     selected_note: MergeRequestNote | None
     considered_note_count: int
+    author_matched_note_count: int
     machine_safe_note_count: int
+    parseable_note_count: int
+    current_sha_skipped_count: int
+    reason_code: Literal[
+        "selected",
+        "no_notes",
+        "no_author_match",
+        "no_machine_safe_notes",
+        "no_parseable_notes",
+        "only_current_sha_notes",
+    ]
     message: str
 
 
@@ -31,7 +43,7 @@ class ReviewGitLabPriorContextService:
         self,
         review_client: GitLabReviewClient,
         *,
-        bot_author_username: str = _DEFAULT_BOT_AUTHOR_USERNAME,
+        bot_author_username: str | None = _DEFAULT_BOT_AUTHOR_USERNAME,
     ) -> None:
         """Initialize the GitLab-backed prior review note selector."""
         self.review_client = review_client
@@ -49,16 +61,26 @@ class ReviewGitLabPriorContextService:
             project_id=project_id,
             merge_request_iid=merge_request_iid,
         )
-        considered_notes = [note for note in notes if self._is_machine_safe_bot_review_note(note)]
-        candidate_notes = []
-        for note in considered_notes:
+        author_matched_notes = [note for note in notes if self._matches_bot_author(note)]
+        machine_safe_notes = [
+            note
+            for note in author_matched_notes
+            if note.body and _has_machine_safe_review_note_block(note.body)
+        ]
+
+        parseable_notes: list[tuple[MergeRequestNote, dict[str, object]]] = []
+        current_sha_skipped_count = 0
+        candidate_notes: list[MergeRequestNote] = []
+        for note in machine_safe_notes:
             payload = extract_machine_safe_review_note_payload(note.body)
             if payload is None:
                 continue
+            parseable_notes.append((note, payload))
             reviewed_head_sha = payload.get("reviewed_head_sha")
             if not isinstance(reviewed_head_sha, str):
                 continue
             if reviewed_head_sha == current_head_sha:
+                current_sha_skipped_count += 1
                 continue
             candidate_notes.append(note)
 
@@ -74,7 +96,17 @@ class ReviewGitLabPriorContextService:
             return PriorReviewNoteSelectionResult(
                 selected_note=None,
                 considered_note_count=len(notes),
-                machine_safe_note_count=len(considered_notes),
+                author_matched_note_count=len(author_matched_notes),
+                machine_safe_note_count=len(machine_safe_notes),
+                parseable_note_count=len(parseable_notes),
+                current_sha_skipped_count=current_sha_skipped_count,
+                reason_code=_reason_code_for_no_selection(
+                    considered_note_count=len(notes),
+                    author_matched_note_count=len(author_matched_notes),
+                    machine_safe_note_count=len(machine_safe_notes),
+                    parseable_note_count=len(parseable_notes),
+                    current_sha_skipped_count=current_sha_skipped_count,
+                ),
                 message=(
                     "No earlier machine-safe bot prior review note found on this merge request."
                 ),
@@ -83,17 +115,19 @@ class ReviewGitLabPriorContextService:
         return PriorReviewNoteSelectionResult(
             selected_note=selected_note,
             considered_note_count=len(notes),
-            machine_safe_note_count=len(considered_notes),
+            author_matched_note_count=len(author_matched_notes),
+            machine_safe_note_count=len(machine_safe_notes),
+            parseable_note_count=len(parseable_notes),
+            current_sha_skipped_count=current_sha_skipped_count,
+            reason_code="selected",
             message="Selected latest earlier machine-safe bot review note.",
         )
 
-    def _is_machine_safe_bot_review_note(self, note: MergeRequestNote) -> bool:
-        """Return whether one MR note is a parseable machine-safe bot review note."""
-        if note.author_username != self.bot_author_username:
-            return False
-        if note.body is None:
-            return False
-        return _has_machine_safe_review_note_block(note.body)
+    def _matches_bot_author(self, note: MergeRequestNote) -> bool:
+        """Return whether one note matches the configured bot author when set."""
+        if self.bot_author_username is None:
+            return True
+        return note.author_username == self.bot_author_username
 
 
 def _has_machine_safe_review_note_block(body: str) -> bool:
@@ -121,3 +155,31 @@ def extract_machine_safe_review_note_payload(body: str | None) -> dict[str, obje
     if payload.get("schema") != _MACHINE_SAFE_REVIEW_NOTE_SCHEMA:
         return None
     return payload
+
+
+def _reason_code_for_no_selection(
+    *,
+    considered_note_count: int,
+    author_matched_note_count: int,
+    machine_safe_note_count: int,
+    parseable_note_count: int,
+    current_sha_skipped_count: int,
+) -> Literal[
+    "no_notes",
+    "no_author_match",
+    "no_machine_safe_notes",
+    "no_parseable_notes",
+    "only_current_sha_notes",
+]:
+    """Classify why prior-note selection produced no earlier candidate."""
+    if considered_note_count == 0:
+        return "no_notes"
+    if author_matched_note_count == 0:
+        return "no_author_match"
+    if machine_safe_note_count == 0:
+        return "no_machine_safe_notes"
+    if parseable_note_count == 0:
+        return "no_parseable_notes"
+    if current_sha_skipped_count == parseable_note_count:
+        return "only_current_sha_notes"
+    return "no_parseable_notes"

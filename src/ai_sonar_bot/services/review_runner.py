@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 
 from ai_sonar_bot.models.config import AppConfig
-from ai_sonar_bot.models.review import PriorReviewContext, ReviewResult
+from ai_sonar_bot.models.review import PriorReviewContext
 from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunRecord
 from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
@@ -28,6 +28,7 @@ from ai_sonar_bot.services.review_state_service import ReviewStateService
 from ai_sonar_bot.services.run_state_service import RunSummary
 
 LOGGER = logging.getLogger(__name__)
+_UNRESOLVED_BOT_AUTHOR_USERNAME = object()
 
 
 class ReviewRunner:
@@ -50,10 +51,11 @@ class ReviewRunner:
         self.review_client = review_client
         self.dashboard_client = dashboard_client
         self.review_state_service = review_state_service
-        self.prior_context_service = prior_context_service or ReviewGitLabPriorContextService(
-            review_client
-        )
+        self.prior_context_service = prior_context_service
         self.prior_note_parser = prior_note_parser or ReviewGitLabPriorNoteParser()
+        self._resolved_bot_author_username: str | None | object = (
+            _UNRESOLVED_BOT_AUTHOR_USERNAME
+        )
 
     def run(
         self,
@@ -196,48 +198,36 @@ class ReviewRunner:
         note_url: str | None = None
         dashboard_warning: str | None = None
         if not active_dry_run:
-            if self._should_publish_note(analysis_result.review_result):
-                publish_result = ReviewPublisher(self.review_client).publish(
-                    project_id=project_id,
-                    merge_request_iid=context.mr_iid,
-                    context=context,
-                    review_result=analysis_result.review_result,
-                    overlap_result=overlap_result,
+            publish_result = ReviewPublisher(self.review_client).publish(
+                project_id=project_id,
+                merge_request_iid=context.mr_iid,
+                context=context,
+                review_result=analysis_result.review_result,
+                overlap_result=overlap_result,
+            )
+            if publish_result.error_message is not None:
+                return self.review_state_service.fail_review(
+                    record=record,
+                    error_message=(
+                        f"[{self.config.execution_mode}] {publish_result.error_message}"
+                    ),
+                    failure=FailureDetails(
+                        stage=FailureStage.REVIEW_PUBLISH,
+                        message=publish_result.error_message,
+                    ),
                 )
-                if publish_result.error_message is not None:
-                    return self.review_state_service.fail_review(
-                        record=record,
-                        error_message=(
-                            f"[{self.config.execution_mode}] {publish_result.error_message}"
-                        ),
-                        failure=FailureDetails(
-                            stage=FailureStage.REVIEW_PUBLISH,
-                            message=publish_result.error_message,
-                        ),
-                    )
-                if publish_result.note is not None:
-                    note_url = publish_result.note.web_url
-                    LOGGER.info(
-                        "review note published",
-                        extra={
-                            "run_id": run_id,
-                            "mr_iid": context.mr_iid,
-                            "head_sha": context.head_sha,
-                            "note_id": publish_result.note.id,
-                            "note_url": publish_result.note.web_url,
-                        },
-                    )
-            else:
+            if publish_result.note is not None:
+                note_url = publish_result.note.web_url
                 LOGGER.info(
-                    "review note publication skipped by config",
+                    "review note published",
                     extra={
                         "run_id": run_id,
                         "mr_iid": context.mr_iid,
                         "head_sha": context.head_sha,
-                        "classification": analysis_result.review_result.classification,
+                        "note_id": publish_result.note.id,
+                        "note_url": publish_result.note.web_url,
                     },
                 )
-
             dashboard_update = ReviewDashboardUpdater(
                 DashboardService(self.dashboard_client)
             ).update(
@@ -293,6 +283,41 @@ class ReviewRunner:
             state_path=summary.state_path,
         )
 
+    def _resolve_prior_note_author_username(
+        self,
+        *,
+        run_id: str,
+        mr_iid: int,
+        current_head_sha: str,
+    ) -> str | None:
+        """Resolve and cache the GitLab username behind the active review token."""
+        if self._resolved_bot_author_username is not _UNRESOLVED_BOT_AUTHOR_USERNAME:
+            return self._resolved_bot_author_username  # type: ignore[return-value]
+        try:
+            resolved_username = self.review_client.get_current_user_username()
+        except Exception:
+            LOGGER.warning(
+                "review gitlab current user lookup failed; prior-note author filter disabled",
+                extra={
+                    "run_id": run_id,
+                    "mr_iid": mr_iid,
+                    "head_sha": current_head_sha,
+                },
+            )
+            self._resolved_bot_author_username = None
+            return None
+        self._resolved_bot_author_username = resolved_username
+        LOGGER.info(
+            "review gitlab current user resolved",
+            extra={
+                "run_id": run_id,
+                "mr_iid": mr_iid,
+                "head_sha": current_head_sha,
+                "bot_author_username": resolved_username,
+            },
+        )
+        return resolved_username
+
     def _load_gitlab_prior_review_context(
         self,
         *,
@@ -302,8 +327,16 @@ class ReviewRunner:
         current_head_sha: str,
     ) -> PriorReviewContext | None:
         """Load prior review context from the latest earlier machine-safe MR note."""
+        prior_context_service = self.prior_context_service or ReviewGitLabPriorContextService(
+            self.review_client,
+            bot_author_username=self._resolve_prior_note_author_username(
+                run_id=run_id,
+                mr_iid=mr_iid,
+                current_head_sha=current_head_sha,
+            ),
+        )
         try:
-            selection_result = self.prior_context_service.select_latest_prior_review_note(
+            selection_result = prior_context_service.select_latest_prior_review_note(
                 project_id=project_id,
                 merge_request_iid=mr_iid,
                 current_head_sha=current_head_sha,
@@ -326,7 +359,11 @@ class ReviewRunner:
                     "mr_iid": mr_iid,
                     "head_sha": current_head_sha,
                     "considered_note_count": selection_result.considered_note_count,
+                    "author_matched_note_count": selection_result.author_matched_note_count,
                     "machine_safe_note_count": selection_result.machine_safe_note_count,
+                    "parseable_note_count": selection_result.parseable_note_count,
+                    "current_sha_skipped_count": selection_result.current_sha_skipped_count,
+                    "reason_code": selection_result.reason_code,
                 },
             )
             return None
@@ -356,7 +393,11 @@ class ReviewRunner:
                     "head_sha": current_head_sha,
                     "selected_note_id": selection_result.selected_note.id,
                     "considered_note_count": selection_result.considered_note_count,
+                    "author_matched_note_count": selection_result.author_matched_note_count,
                     "machine_safe_note_count": selection_result.machine_safe_note_count,
+                    "parseable_note_count": selection_result.parseable_note_count,
+                    "current_sha_skipped_count": selection_result.current_sha_skipped_count,
+                    "reason_code": selection_result.reason_code,
                 },
             )
             return None
@@ -369,7 +410,11 @@ class ReviewRunner:
                 "head_sha": current_head_sha,
                 "selected_note_id": selection_result.selected_note.id,
                 "considered_note_count": selection_result.considered_note_count,
+                "author_matched_note_count": selection_result.author_matched_note_count,
                 "machine_safe_note_count": selection_result.machine_safe_note_count,
+                "parseable_note_count": selection_result.parseable_note_count,
+                "current_sha_skipped_count": selection_result.current_sha_skipped_count,
+                "reason_code": selection_result.reason_code,
                 "prior_head_sha": parse_result.prior_review_pass.reviewed_head_sha,
             },
         )
@@ -377,9 +422,3 @@ class ReviewRunner:
             merge_request_iid=mr_iid,
             passes=[parse_result.prior_review_pass],
         )
-
-    def _should_publish_note(self, review_result: ReviewResult) -> bool:
-        """Return whether one review result should produce an MR note."""
-        if review_result.classification == "no_findings":
-            return self.config.review.publish_no_findings_note
-        return True
