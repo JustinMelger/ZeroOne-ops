@@ -381,97 +381,56 @@ def test_build_review_prompt_uses_prompt_template() -> None:
 
     assert "Review the merge request and return structured JSON only." in prompt
     assert "thoughtful senior software engineer" in prompt
-    assert "REVIEW FOCUS" in prompt
+    assert "REVIEW GOAL" in prompt
     assert "deterministic runtime errors" in prompt
-    assert "leftover debug code affecting runtime behavior" in prompt
+    assert "leftover debug code affecting runtime" in prompt
     assert "unintended behavioral changes" in prompt
-    assert "scope and impact (localized vs shared logic)" in prompt
-    assert "ordering, filtering, grouping, selection, and data transformation" in prompt
-    assert "Evidence priority:" in prompt
-    assert "changed code and its immediate local context as the primary evidence" in prompt
-    assert "supporting helper context to confirm, weaken, or refine conclusions" in prompt
-    assert "merge request description as background only" in prompt
+    assert "GROUNDING" in prompt
+    assert "Use the changed code and immediate local context as primary evidence." in prompt
+    assert "Treat the MR description as background only." in prompt
+    assert "Only report issues grounded in:" in prompt
     assert "Always report deterministic runtime errors." in prompt
-    assert "correctness cannot be inferred from visible code" in prompt
-    assert "make the narrowest claim the visible code supports" in prompt
+    assert "Consistency rule:" in prompt
+    assert "do not return `no_findings`" in prompt
+    assert "REGRESSION CLAIMS" in prompt
+    assert "verify that with the visible old and new code" in prompt
+    assert "SHARED CODE SCOPE" in prompt
+    assert "inspect visible in-repo runtime usages before claiming broad impact" in prompt
     assert (
-        "prefer inconsistency, downstream risk, or `manual_review_only` over confirmed breakage"
+        "do NOT describe the impact as global, repository-wide, or affecting every caller"
         in prompt
     )
-    assert "do NOT escalate hypothetical misuse or missing-context uncertainty" in prompt
-    assert "only describe a regression or breakage when the visible code proves it" in prompt
-    assert "When the visible code suggests a possible issue but does not prove it:" in prompt
-    assert "do NOT present the issue as confirmed" in prompt
-    assert "explain briefly which missing context prevents confirmation" in prompt
-    assert "a narrower risk statement, or `no_findings`" in prompt
-    assert "binds a runtime constant, config value, or" in prompt
-    assert "alias to one concrete scalar value" in prompt
-    assert "evaluate the contract using that visible resolved value" in prompt
-    assert "mapping or container as the active runtime contract" in prompt
-    assert (
-        "if the visible code does not show how a config-derived value resolves at runtime" in prompt
-    )
-    assert "do NOT assume the runtime shape" in prompt
-    assert "explain the missing resolution context" in prompt
-    assert "tests consistently use the value like a scalar" in prompt
-    assert "back off rather than invent a mapping-shaped runtime bug" in prompt
-    assert "When reasoning about value shape or runtime type:" in prompt
-    assert "treat explicit type hints as strong evidence" in prompt
-    assert "only infer value shape from clear visible assignments, returns," in prompt
-    assert "and local control flow in the review context" in prompt
-    assert "do NOT assume the shape of values derived through helpers, config loaders" in prompt
-    assert "makes an implicit default, fallback, or sentinel-driven path" in prompt
-    assert "explicit:" in prompt
-    assert "clarification or contract hardening rather than breakage" in prompt
-    assert "dead fallback logic, unreachable cleanup, or redundant" in prompt
-    assert "you may describe that as cleanup or dead code" in prompt
-    assert "do NOT escalate it into a runtime regression" in prompt
-    assert "supported execution path whose behavior is now broken or materially changed" in prompt
-    assert "unknown remaining callers may crash unless a visible unchanged caller" in prompt
-    assert "compatibility concern for unseen external consumers" in prompt
-    assert "Treat visible request/schema validation as authoritative" in prompt
-    assert "Do NOT raise findings based on `None`, missing, or invalid-input paths" in prompt
-    assert "schemas that extend a visible base class" in prompt
+    assert "CONTRACTS AND INHERITANCE" in prompt
+    assert "inspect visible base classes and inheritance" in prompt
     assert "treat inherited fields as part of the active contract" in prompt
-    assert "field was removed unless" in prompt
-    assert "redundant guards or misleading dead checks" in prompt
-    assert "degrades gracefully, falls back, or skips optional behavior" in prompt
-    assert "distinguish that from a hard end-to-end failure" in prompt
-    assert "preserve a usable fallback result" in prompt
-    assert "visible code does not support treating them as behavior-preserving" in prompt
-    assert "response shape, payload location, or return wiring" in prompt
-    assert "distinguish between an inconsistent contract and a confirmed breakage" in prompt
-    assert "one visible consumer is compatible" in prompt
-    assert "do NOT infer issues from the call site alone" in prompt
+    assert "TESTS AND CONFIG" in prompt
+    assert "Do not infer unsupported runtime behavior from tests alone." in prompt
+    assert "VALUE SHAPE / TYPE REASONING" in prompt
+    assert "Treat explicit type hints as strong evidence." in prompt
+    assert "BEHAVIORAL CHANGES" in prompt
+    assert "ordering, filtering, grouping, selection, and data transformation" in prompt
     assert "review `prior_review_context`" not in prompt
     assert "identify which prior findings are still present" not in prompt
     assert "which now appear resolved" not in prompt
     assert "which concerns are new in this pass" not in prompt
     assert "Do NOT repeat prior findings as if they were brand-new discoveries" not in prompt
     assert "Each finding must:" in prompt
-    assert "include concrete evidence from the diff or inspected code" in prompt
-    assert "reference specific changed behavior" in prompt
-    assert "use only the shortest explanation needed to justify the finding" in prompt
-    assert (
-        "do NOT repeat the same fact across summary, evidence, explanation, and follow-up" in prompt
-    )
-    assert "SUMMARY" in prompt
+    assert "cite concrete evidence from the diff or inspected code" in prompt
+    assert "reference the specific changed behavior" in prompt
+    assert "identify the reviewed file or directly impacted visible consumer" in prompt
+    assert "OUTPUT" in prompt
     assert "1. What changed" in prompt
     assert "2. Overall assessment" in prompt
     assert "3. Risk level" in prompt
     assert "4. Key reasoning" in prompt
     assert "CLASSIFICATION" in prompt
-    assert "Do NOT convert uncertainty into findings." in prompt
-    assert "do NOT describe still-open concerns, hidden issues, or unresolved risks" in prompt
-    assert "visible code does not justify an actionable finding" in prompt
-    assert "if a concern is strong enough to describe as a real unresolved issue" in prompt
+    assert "`manual_review_only`: missing context prevents reliable judgment" in prompt
     assert "CONFIDENCE" in prompt
     assert "review_confidence_reason" in prompt
-    assert "intent is unclear" in prompt
     assert "FINAL DISCIPLINE" in prompt
-    assert "Prefer `manual_review_only` when judgment is unreliable" in prompt
+    assert "Prefer `manual_review_only` when judgment depends on missing context" in prompt
+    assert "treat the reviewed SHA as authoritative" in prompt
     assert "Limit findings to the most important issues (<=5)" in prompt
-    assert "Keep findings concise and avoid restating the same point" in prompt
     assert "CONTEXT" in prompt
     assert "Merge request IID: 17" in prompt
     assert "<<BEGIN UNTRUSTED Merge request description>>" in prompt
@@ -512,10 +471,10 @@ def test_build_review_prompt_includes_preloaded_input_context_guardrail() -> Non
 
     prompt = build_review_prompt(context)
 
-    assert "preloaded or precomputed inputs" in prompt
-    assert "do NOT report a context-mismatch finding unless the visible code shows" in prompt
-    assert "same request context" in prompt
-    assert "generic misuse scenario" in prompt
+    assert "Use the changed code and immediate local context as primary evidence." in prompt
+    assert "Make the narrowest claim the visible code supports." in prompt
+    assert "Do not turn uncertainty into a concrete bug." in prompt
+    assert "Only report issues grounded in:" in prompt
 
 
 def test_build_review_prompt_renders_supporting_helper_context() -> None:

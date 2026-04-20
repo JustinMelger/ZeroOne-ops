@@ -45,6 +45,11 @@ Suggested status values:
 | 2026-04-18 |  | Repeated review does not acknowledge earlier review clearly enough |  | Follow-up review support exists, but real notes still do not consistently feel like a continuation of the earlier pass | prompt + context | tracking | Example: a later review reads like a fresh isolated pass instead of clearly acknowledging what the bot said before. |
 | 2026-04-17 |  | Header tone too robotic | yes | Replaced with a simpler conversational opener | docs | implemented | Example: `AI Review Summary` feels impersonal and not aligned with a conversational review style. |
 | 2026-04-17 |  | Conversational greeting using MR author |  | Good later polish, but intentionally deferred | docs | tracking | Example: prefer `Hi <MR author>,` with `Hi,` as a fallback before the review summary. |
+| 2026-04-20 | !376 / e47ba30b9e642e4ae4ae614fac15b0f851480a25 | Same-SHA review instability | no | Identical reviewed SHA produced materially different outcomes, including `no actionable findings` vs actionable FR findings | validator + prompt | tracking | Same-SHA reruns should not behave like fresh stochastic reviews; treat this as a separate validation bucket from changed-SHA continuity. |
+| 2026-04-20 | !376 / 0bf395931f2e712326d6ddff75f0484e0fa3fc1a | Missing inheritance or base-schema context | no | Review overclaimed a missing `customer_id` contract break even though the field is inherited from a base request model | context | tracking | Shared base classes or inherited schema fields still escape the visible local reasoning window in some reviews. |
+| 2026-04-20 | !96 / e9a9a7c221c3480a1d671c449b8219d6fb755449 | Test inconsistency overstated as runtime regression | no | Review treated removal of one country skip as concrete unsupported-runtime evidence even though the visible implementation and config do not support that conclusion | prompt | tracking | Adjacent stale tests or inconsistent skips are not enough on their own to claim a production/runtime regression. |
+| 2026-04-20 | !98 / 94fed6081726196e738c4952c20a73b6b888aab4 | Supported-path contract change overstated | no | Review falsely claimed the endpoint newly accepted single-character codes and overstated global alias impact beyond visible usages | prompt + validator | tracking | Contract-change detection is useful, but the bot still sometimes overstates the pre/post behavior or affected surface. |
+| 2026-04-20 | !382 / 9b2b597fe38ed7ae9249194d2293505d07fb9c8f | Verdict/reason contradiction | no | Review concluded `No actionable findings` while the confidence reason described a deterministic key-mismatch bug on a different file/version | validator | tracking | Output should be rejected when the rationale describes an actionable defect but the verdict is a clean pass. |
 
 ## Pattern Notes
 
@@ -131,3 +136,44 @@ Suggested status values:
     greeting such as `Hi <name>,`
   - fall back to a neutral `Hi,` when author name is not available
   - keep the greeting short and use it only once at the top of the note
+
+### Same-SHA Review Instability
+
+- Typical shape:
+  - the bot reviews the exact same merge-request SHA more than once and produces materially different findings or verdicts
+- Preferred response:
+  - add explicit same-SHA rerun handling
+  - track same-SHA drift separately from changed-SHA continuity
+  - tighten validator checks for unstable or contradictory rerun output
+
+### Missing Inheritance Or Base-Schema Context
+
+- Typical shape:
+  - review reasons locally about one schema/router file and misses a required field or contract supplied by a shared base class or inherited model
+- Preferred response:
+  - improve context around inherited request/response models
+  - be more conservative before claiming schema/contract regressions when inheritance is only partially visible
+
+### Test Inconsistency Overstated As Runtime Regression
+
+- Typical shape:
+  - review interprets one changed or removed test skip as proof of runtime/platform support or regression without sufficient implementation evidence
+- Preferred response:
+  - prompt discipline
+  - distinguish test-suite inconsistency from supported-path runtime behavior
+
+### Supported-Path Contract Change Overstated
+
+- Typical shape:
+  - review spots a real contract-related change but overstates what behavior is newly allowed/forbidden or how widely the impact propagates
+- Preferred response:
+  - prompt tightening
+  - possible validator support for pre/post behavior claims when they are easy to contradict from the visible diff
+
+### Verdict/Reason Contradiction
+
+- Typical shape:
+  - the final verdict says `no actionable findings`, but the confidence reason or summary describes a deterministic or actionable defect
+- Preferred response:
+  - validator rule or post-generation consistency check
+  - reject or repair internally contradictory outputs before publishing
