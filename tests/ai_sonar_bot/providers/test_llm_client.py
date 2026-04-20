@@ -397,8 +397,7 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "SHARED CODE SCOPE" in prompt
     assert "inspect visible in-repo runtime usages before claiming broad impact" in prompt
     assert (
-        "do NOT describe the impact as global, repository-wide, or affecting every caller"
-        in prompt
+        "do NOT describe the impact as global, repository-wide, or affecting every caller" in prompt
     )
     assert "CONTRACTS AND INHERITANCE" in prompt
     assert "inspect visible base classes and inheritance" in prompt
