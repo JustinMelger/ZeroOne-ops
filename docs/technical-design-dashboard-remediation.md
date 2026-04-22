@@ -46,7 +46,7 @@ No new runtime dependencies should be required for the first implementation.
 Suggested additions:
 
 ```text
-ai-sonar-bot/
+zeroone-ops/
   docs/
     functional-design-dashboard-remediation.md
     technical-design-dashboard-remediation.md
@@ -131,8 +131,8 @@ Responsibilities:
 
 Suggested commands:
 
-- `ai-sonar-bot dashboard remediate`
-- `ai-sonar-bot dashboard remediate --dry-run`
+- `zeroone-ops dashboard remediate`
+- `zeroone-ops dashboard remediate --dry-run`
 
 The first implementation should use `dashboard remediate` as the explicit
 workflow entrypoint. Dashboard-backed remediation should stay a separate
@@ -448,8 +448,8 @@ This workflow should remain distinct from the active remediation runner:
 
 Recommended entrypoint:
 
-- `ai-sonar-bot dashboard reconcile`
-- optionally `ai-sonar-bot dashboard reconcile --dry-run` for operator review
+- `zeroone-ops dashboard reconcile`
+- optionally `zeroone-ops dashboard reconcile --dry-run` for operator review
 
 Recommended runtime shape:
 

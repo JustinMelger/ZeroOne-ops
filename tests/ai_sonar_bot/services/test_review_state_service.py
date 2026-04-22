@@ -55,7 +55,7 @@ def build_review_result() -> ReviewResult:
 
 def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
     store = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -93,7 +93,7 @@ def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
 
 def test_mark_reviewed_dry_run_does_not_persist_review_revision(tmp_path) -> None:
     store = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -120,7 +120,7 @@ def test_mark_reviewed_dry_run_does_not_persist_review_revision(tmp_path) -> Non
 
 def test_mark_reviewed_manual_review_only_uses_clear_summary_language(tmp_path) -> None:
     store = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -147,7 +147,7 @@ def test_mark_reviewed_manual_review_only_uses_clear_summary_language(tmp_path) 
 
 def test_mark_reviewed_trims_prior_review_history_per_merge_request(tmp_path) -> None:
     store = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -177,7 +177,7 @@ def test_mark_reviewed_trims_prior_review_history_per_merge_request(tmp_path) ->
 
 def test_load_prior_review_context_returns_recent_passes_for_same_mr(tmp_path) -> None:
     store = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -224,7 +224,7 @@ def test_load_prior_review_context_returns_recent_passes_for_same_mr(tmp_path) -
 
 def test_mark_reviewed_persists_canonical_identity_with_human_summary(tmp_path) -> None:
     store = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -290,7 +290,7 @@ def test_mark_reviewed_persists_canonical_identity_with_human_summary(tmp_path) 
 
 def test_load_prior_review_context_preserves_mixed_new_and_legacy_finding_state(tmp_path) -> None:
     store = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,

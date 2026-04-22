@@ -52,7 +52,7 @@ The dashboard itself should use GitLab issues as the durable remote store.
 Suggested additions:
 
 ```text
-ai-sonar-bot/
+zeroone-ops/
   docs/
     functional-design-dashboard.md
     technical-design-dashboard.md

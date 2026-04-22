@@ -175,7 +175,7 @@ def test_select_item_skips_item_with_existing_open_merge_request(
                 ]
             )
         ),
-        merge_request_service=FakeMergeRequestService({"ai-sonar/issue-1/service"}),
+        merge_request_service=FakeMergeRequestService({"zeroone-ops/issue-1/service"}),
     )
 
     result = service.select_item(project_id="123", state=build_state())
@@ -262,7 +262,7 @@ def test_select_item_allows_reopened_item_with_cleared_merge_request_linkage(
                 items=[
                     build_item(item_id="sonar:1").model_copy(
                         update={
-                            "branch_name": "ai-sonar/issue-1/service",
+                            "branch_name": "zeroone-ops/issue-1/service",
                             "commit_sha": "abc123",
                             "merge_request_url": None,
                             "merge_request_iid": None,

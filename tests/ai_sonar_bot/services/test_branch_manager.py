@@ -9,14 +9,14 @@ from ai_sonar_bot.services.branch_manager import BranchManager, BranchManagerErr
 def _init_git_repo(repo_root: Path) -> None:
     subprocess.run(["git", "init"], cwd=repo_root, check=True, capture_output=True, text=True)
     subprocess.run(
-        ["git", "config", "user.name", "AI Sonar Bot"],
+        ["git", "config", "user.name", "ZeroOne Ops"],
         cwd=repo_root,
         check=True,
         capture_output=True,
         text=True,
     )
     subprocess.run(
-        ["git", "config", "user.email", "ai-sonar-bot@example.com"],
+        ["git", "config", "user.email", "zeroone-ops@example.com"],
         cwd=repo_root,
         check=True,
         capture_output=True,
@@ -34,12 +34,12 @@ def test_ensure_ready_rejects_dirty_repository(tmp_path: Path) -> None:
 
 def test_build_branch_name_is_predictable() -> None:
     branch_name = BranchManager(Path.cwd()).build_branch_name(
-        branch_prefix="ai-sonar",
+        branch_prefix="zeroone-ops",
         issue_key="AX-123",
         file_path="src/service.py",
     )
 
-    assert branch_name == "ai-sonar/ax-123/service"
+    assert branch_name == "zeroone-ops/ax-123/service"
 
 
 def test_create_branch_and_commit_changes(tmp_path: Path) -> None:
@@ -63,7 +63,7 @@ def test_create_branch_and_commit_changes(tmp_path: Path) -> None:
 
     manager = BranchManager(tmp_path)
     manager.ensure_ready()
-    manager.create_branch("ai-sonar/ax-1/sample")
+    manager.create_branch("zeroone-ops/ax-1/sample")
     tracked.write_text("updated\n", encoding="utf-8")
 
     commit_sha = manager.commit_and_push("fix(sonar): update sample [AX-1]", push=False)
@@ -76,5 +76,5 @@ def test_create_branch_and_commit_changes(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
     ).stdout.strip()
-    assert current_branch == "ai-sonar/ax-1/sample"
+    assert current_branch == "zeroone-ops/ax-1/sample"
     assert tracked.read_text(encoding="utf-8") == "updated\n"

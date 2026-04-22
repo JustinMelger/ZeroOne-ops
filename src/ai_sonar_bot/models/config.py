@@ -121,7 +121,7 @@ class StateConfig(BaseModel):
         path: Path to the local JSON state file.
     """
 
-    path: Path = Path(".ai-sonar-bot-state.json")
+    path: Path = Path(".zeroone-ops-state.json")
 
 
 class AppConfig(BaseModel):
@@ -152,7 +152,7 @@ class AppConfig(BaseModel):
 
     execution_mode: Literal["local", "ci"] = "ci"
     base_branch: str
-    branch_prefix: str = "ai-sonar"
+    branch_prefix: str = "zeroone-ops"
     dry_run: bool = False
     apply_patch_in_dry_run: bool = False
     openai_solution_output_path: Path = Path("artifacts/openai-solution.json")

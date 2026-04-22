@@ -48,7 +48,7 @@ when one item can hold the needed state.
 Suggested additions or follow-up changes:
 
 ```text
-ai-sonar-bot/
+zeroone-ops/
   docs/
     functional-design-dashboard-review-feedback.md
     technical-design-dashboard-review-feedback.md

@@ -241,7 +241,7 @@ def test_select_issue_skips_issue_with_existing_open_merge_request_in_ci(
     result = IssueIntakeService(
         repo_root=tmp_path,
         config=config,
-        merge_request_service=FakeMergeRequestService({"ai-sonar/first/service"}),
+        merge_request_service=FakeMergeRequestService({"zeroone-ops/first/service"}),
     ).select_issue(state=build_state(), dry_run=True, run_id="run-1")
 
     assert result.selected_issue is not None

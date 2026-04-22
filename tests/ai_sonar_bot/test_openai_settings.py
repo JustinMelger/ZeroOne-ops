@@ -7,7 +7,7 @@ def test_load_openai_connection_config_from_dotenv(tmp_path: Path, monkeypatch) 
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_MODEL", raising=False)
-    monkeypatch.delenv("AI_SONAR_BOT_OPENAI_SOLUTION_OUTPUT_PATH", raising=False)
+    monkeypatch.delenv("ZEROONE_OPS_OPENAI_SOLUTION_OUTPUT_PATH", raising=False)
     (tmp_path / ".env").write_text(
         "\n".join(
             [

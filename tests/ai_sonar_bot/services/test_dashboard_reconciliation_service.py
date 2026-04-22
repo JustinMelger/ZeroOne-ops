@@ -10,7 +10,7 @@ from ai_sonar_bot.services.dashboard_reconciliation_service import (
 def build_item(
     *,
     merge_request_url: str = "https://gitlab.example.com/group/project/-/merge_requests/7",
-    branch_name: str = "ai-sonar/issue-1/service",
+    branch_name: str = "zeroone-ops/issue-1/service",
     commit_sha: str = "abc123",
 ) -> DashboardItem:
     return DashboardItem(
@@ -70,7 +70,7 @@ def test_decide_returns_done_for_merged_merge_request() -> None:
             GitLabMergeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
-                source_branch="ai-sonar/issue-1/service",
+                source_branch="zeroone-ops/issue-1/service",
                 head_sha="abc123",
                 state="merged",
             )
@@ -87,7 +87,7 @@ def test_decide_returns_open_for_closed_merge_request_with_matching_traceability
             GitLabMergeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
-                source_branch="ai-sonar/issue-1/service",
+                source_branch="zeroone-ops/issue-1/service",
                 head_sha="abc123",
                 state="closed",
             )
@@ -106,7 +106,7 @@ def test_decide_returns_done_for_closed_merge_request_when_dashboard_marks_item_
             GitLabMergeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
-                source_branch="ai-sonar/issue-1/service",
+                source_branch="zeroone-ops/issue-1/service",
                 head_sha="abc123",
                 state="closed",
             )
@@ -157,7 +157,7 @@ def test_decide_returns_retry_eligible_open_for_closed_merge_request_with_findin
             GitLabMergeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
-                source_branch="ai-sonar/issue-1/service",
+                source_branch="zeroone-ops/issue-1/service",
                 head_sha="abc123",
                 state="closed",
             )
@@ -185,7 +185,7 @@ def test_decide_returns_failed_when_review_feedback_retry_limit_is_reached() -> 
             GitLabMergeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
-                source_branch="ai-sonar/issue-1/service",
+                source_branch="zeroone-ops/issue-1/service",
                 head_sha="abc123",
                 state="closed",
             )
@@ -213,7 +213,7 @@ def test_decide_returns_failed_for_manual_review_only_outcome() -> None:
             GitLabMergeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
-                source_branch="ai-sonar/issue-1/service",
+                source_branch="zeroone-ops/issue-1/service",
                 head_sha="abc123",
                 state="closed",
             )

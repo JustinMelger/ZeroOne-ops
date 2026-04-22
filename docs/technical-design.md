@@ -1,8 +1,8 @@
-# AI Sonar Bot Technical Design
+# ZeroOne Ops Technical Design
 
 ## 1. Scope
 
-This document defines the technical design for v1 of the AI Sonar Bot described in [functional-design.md](functional-design.md).
+This document defines the technical design for v1 of the ZeroOne Ops described in [functional-design.md](functional-design.md).
 
 V1 constraints:
 
@@ -45,7 +45,7 @@ Recommended packaging:
 ## 4. Repository Layout
 
 ```text
-ai-sonar-bot/
+zeroone-ops/
   docs/
     functional-design.md
     technical-design.md
@@ -101,11 +101,11 @@ ai-sonar-bot/
   examples/
     .env.example
     .gitlab-ci.example.yml
-    .ai-sonar-bot.json
+    .zeroone-ops.json
   pyproject.toml
   uv.lock
   README.md
-  .ai-sonar-bot.json
+  .zeroone-ops.json
 ```
 
 ## 5. Runtime Architecture
@@ -171,10 +171,10 @@ Responsibilities:
 
 Suggested commands:
 
-- `ai-sonar-bot dashboard sonar`
-- `ai-sonar-bot dashboard remediate`
-- `ai-sonar-bot dashboard reconcile`
-- `ai-sonar-bot review`
+- `zeroone-ops dashboard sonar`
+- `zeroone-ops dashboard remediate`
+- `zeroone-ops dashboard reconcile`
+- `zeroone-ops review`
 
 For the current CLI, workflow entrypoints live under explicit dashboard and
 review subcommands.
@@ -365,14 +365,14 @@ Responsibilities:
 Configuration should come from:
 
 - environment variables for secrets,
-- `.ai-sonar-bot.json` for non-secret runtime settings,
+- `.zeroone-ops.json` for non-secret runtime settings,
 - CLI flags for run-time overrides.
 
 Precedence order:
 
 1. CLI flags
 2. Environment variables
-3. `.ai-sonar-bot.json`
+3. `.zeroone-ops.json`
 
 GitLab project resolution:
 
@@ -394,15 +394,15 @@ Required:
 
 Optional:
 
-- `AI_SONAR_BOT_CONFIG`
-- `AI_SONAR_BOT_STATE_PATH`
-- `AI_SONAR_BOT_LOG_LEVEL`
-- `AI_SONAR_BOT_BASE_BRANCH`
-- `AI_SONAR_BOT_EXECUTION_MODE`
+- `ZEROONE_OPS_CONFIG`
+- `ZEROONE_OPS_STATE_PATH`
+- `ZEROONE_OPS_LOG_LEVEL`
+- `ZEROONE_OPS_BASE_BRANCH`
+- `ZEROONE_OPS_EXECUTION_MODE`
 
 ## 7.3 Runtime Config File
 
-Example `examples/.ai-sonar-bot.json`:
+Example `examples/.zeroone-ops.json`:
 
 ```json
 {
@@ -430,10 +430,10 @@ Example `examples/.ai-sonar-bot.json`:
   },
   "gitlab": {
     "target_branch": "main",
-    "labels": ["ai-sonar-bot", "sonarqube"]
+    "labels": ["zeroone-ops", "sonarqube"]
   },
   "state": {
-    "path": ".ai-sonar-bot-state.json"
+    "path": ".zeroone-ops-state.json"
   }
 }
 ```
@@ -581,7 +581,7 @@ class RunRecord(BaseModel):
 
 Default path:
 
-- `.ai-sonar-bot-state.json`
+- `.zeroone-ops-state.json`
 
 The file lives in the repository root so it is easy to inspect locally. It should not be committed by default.
 

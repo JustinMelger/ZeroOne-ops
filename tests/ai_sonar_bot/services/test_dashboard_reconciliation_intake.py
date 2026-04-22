@@ -14,7 +14,7 @@ def build_item(
     item_id: str,
     status: str = "mr_opened",
     merge_request_url: str | None = "https://gitlab.example.com/group/project/-/merge_requests/1",
-    branch_name: str | None = "ai-sonar/issue-1/service",
+    branch_name: str | None = "zeroone-ops/issue-1/service",
     commit_sha: str | None = "abc123",
 ) -> DashboardItem:
     return DashboardItem(

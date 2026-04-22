@@ -16,7 +16,7 @@ from ai_sonar_bot.runner import (
     sync_dashboard_sonar,
 )
 
-app = typer.Typer(add_completion=False, help="AI Sonar Bot CLI.")
+app = typer.Typer(add_completion=False, help="ZeroOne Ops CLI.")
 review_app = typer.Typer(add_completion=False, help="Merge request review workflow.")
 dashboard_app = typer.Typer(add_completion=False, help="Dashboard sync workflows.")
 app.add_typer(review_app, name="review")

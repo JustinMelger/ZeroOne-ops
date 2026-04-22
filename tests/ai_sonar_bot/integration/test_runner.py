@@ -181,7 +181,7 @@ def test_dashboard_reconcile_dry_run_selects_mr_opened_item(
         line=42,
         rule="python:S1125",
         severity="LOW",
-        branch_name="ai-sonar/AX123/service",
+        branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
@@ -226,7 +226,7 @@ def test_dashboard_reconcile_dry_run_selects_mr_opened_item(
 
     summary = dashboard_reconcile(dry_run=True)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -234,7 +234,7 @@ def test_dashboard_reconcile_dry_run_selects_mr_opened_item(
 
     assert summary.status.value == "selected"
     assert summary.dashboard_item_id == "sonar:AX123"
-    assert summary.branch_name == "ai-sonar/AX123/service"
+    assert summary.branch_name == "zeroone-ops/AX123/service"
     assert summary.commit_sha == "abc123"
     assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/7"
     assert "Dry-run would reconcile 1 dashboard item: sonar:AX123" in summary.message
@@ -307,7 +307,7 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
         line=42,
         rule="python:S1125",
         severity="LOW",
-        branch_name="ai-sonar/AX123/service",
+        branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
@@ -383,7 +383,7 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
 
     summary = dashboard_reconcile(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -430,7 +430,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
         line=10,
         rule="python:S1125",
         severity="LOW",
-        branch_name="ai-sonar/AX124/open",
+        branch_name="zeroone-ops/AX124/open",
         commit_sha="open123",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/8",
     )
@@ -447,7 +447,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
         line=11,
         rule="python:S1125",
         severity="LOW",
-        branch_name="ai-sonar/AX125/merged",
+        branch_name="zeroone-ops/AX125/merged",
         commit_sha="merged123",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/9",
     )
@@ -526,7 +526,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
 
     summary = dashboard_reconcile(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -576,7 +576,7 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
         line=42,
         rule="python:S1125",
         severity="LOW",
-        branch_name="ai-sonar/AX123/service",
+        branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
@@ -652,7 +652,7 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
 
     summary = dashboard_reconcile(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -699,7 +699,7 @@ def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
         line=42,
         rule="python:S1125",
         severity="LOW",
-        branch_name="ai-sonar/AX123/service",
+        branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
         review_status="findings_present",
@@ -781,7 +781,7 @@ def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
 
     summary = dashboard_reconcile(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -829,7 +829,7 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
         line=42,
         rule="python:S1125",
         severity="LOW",
-        branch_name="ai-sonar/AX123/service",
+        branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
         review_status="manual_review_only",
@@ -910,7 +910,7 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
 
     summary = dashboard_reconcile(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -958,7 +958,7 @@ def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
         line=42,
         rule="python:S1125",
         severity="LOW",
-        branch_name="ai-sonar/AX123/service",
+        branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
@@ -1003,7 +1003,7 @@ def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
 
     summary = dashboard_reconcile(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -1050,7 +1050,7 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
         line=42,
         rule="python:S1125",
         severity="LOW",
-        branch_name="ai-sonar/AX123/service",
+        branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
         upstream_active=False,
@@ -1127,7 +1127,7 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
 
     summary = dashboard_reconcile(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -1174,7 +1174,7 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
         line=42,
         rule="python:S1125",
         severity="LOW",
-        branch_name="ai-sonar/AX123/service",
+        branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
@@ -1240,7 +1240,7 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
 
     summary = dashboard_reconcile(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -1289,7 +1289,7 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         line=10,
         rule="python:S1125",
         severity="LOW",
-        branch_name="ai-sonar/BROKEN/service",
+        branch_name="zeroone-ops/BROKEN/service",
         commit_sha="broken123",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
@@ -1306,7 +1306,7 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         line=42,
         rule="python:S1125",
         severity="LOW",
-        branch_name="ai-sonar/MERGED/service",
+        branch_name="zeroone-ops/MERGED/service",
         commit_sha="merged123",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/8",
         upstream_active=False,
@@ -1418,7 +1418,7 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
 
     summary = dashboard_reconcile(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -1463,7 +1463,7 @@ def test_dashboard_remediate_live_run_requires_ci_mode(tmp_path: Path, monkeypat
 
     summary = dashboard_remediate(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -1643,7 +1643,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
                 "analysis_result": type("AnalysisResult", (), {"summary": "done"})(),
                 "status_message": "Patch applied locally in run. All validation commands passed.",
                 "failure": None,
-                "branch_name": "ai-sonar/ax123/service",
+                "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": "abc123",
                 "mr_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
                 "mr_action": "created",
@@ -1657,7 +1657,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
 
     assert summary.status.value == "mr_created"
     assert summary.dashboard_item_id == "sonar:AX123"
-    assert summary.branch_name == "ai-sonar/ax123/service"
+    assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha == "abc123"
     assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
     assert "Selected dashboard item sonar:AX123 in src/service.py" in summary.message
@@ -1827,7 +1827,7 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
                 "analysis_result": type("AnalysisResult", (), {"summary": "done"})(),
                 "status_message": "Patch applied locally in run. All validation commands passed.",
                 "failure": None,
-                "branch_name": "ai-sonar/ax123/service",
+                "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": "abc123",
                 "mr_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
                 "mr_action": "created",
@@ -1966,7 +1966,7 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
                 "analysis_result": type("AnalysisResult", (), {"summary": "done"})(),
                 "status_message": "Patch applied locally in run. All validation commands passed.",
                 "failure": None,
-                "branch_name": "ai-sonar/ax123/service",
+                "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": "abc123",
                 "mr_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
                 "mr_action": "created",
@@ -1978,7 +1978,7 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
 
     summary = dashboard_remediate(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -2166,7 +2166,7 @@ def test_dashboard_remediate_fails_when_mr_opened_update_cannot_persist(
                 "analysis_result": type("AnalysisResult", (), {"summary": "done"})(),
                 "status_message": "Patch applied locally in run. All validation commands passed.",
                 "failure": None,
-                "branch_name": "ai-sonar/ax123/service",
+                "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": "abc123",
                 "mr_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
                 "mr_action": "created",
@@ -2202,7 +2202,7 @@ def test_dashboard_remediate_fails_when_mr_opened_update_cannot_persist(
 
     summary = dashboard_remediate(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -2380,7 +2380,7 @@ def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
                     (),
                     {"stage": FailureStage.COMMIT, "message": "Commit failed: git commit failed"},
                 )(),
-                "branch_name": "ai-sonar/ax123/service",
+                "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": None,
                 "mr_url": None,
                 "mr_action": None,
@@ -2416,7 +2416,7 @@ def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
 
     summary = dashboard_remediate(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -2581,7 +2581,7 @@ def test_dashboard_remediate_ci_failure_marks_dashboard_failed(
                     (),
                     {"stage": FailureStage.COMMIT, "message": "Commit failed: git commit failed"},
                 )(),
-                "branch_name": "ai-sonar/ax123/service",
+                "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": None,
                 "mr_url": None,
                 "mr_action": None,
@@ -2619,7 +2619,7 @@ def test_dashboard_remediate_ci_failure_marks_dashboard_failed(
 
     assert summary.status.value == "failed"
     assert summary.dashboard_item_id == "sonar:AX123"
-    assert summary.branch_name == "ai-sonar/ax123/service"
+    assert summary.branch_name == "zeroone-ops/ax123/service"
     assert "Commit failed: git commit failed" in summary.message
     assert recorded_updates == [("in_progress", "sonar:AX123"), ("failed", "sonar:AX123")]
 
@@ -2768,7 +2768,7 @@ def test_dashboard_remediate_ci_rejection_marks_dashboard_rejected(
                 "analysis_result": type("AnalysisResult", (), {"summary": "done"})(),
                 "status_message": "Local approval rejected the proposed change.",
                 "failure": None,
-                "branch_name": "ai-sonar/ax123/service",
+                "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": None,
                 "mr_url": None,
                 "mr_action": None,
@@ -2806,7 +2806,7 @@ def test_dashboard_remediate_ci_rejection_marks_dashboard_rejected(
 
     assert summary.status.value == "rejected"
     assert summary.dashboard_item_id == "sonar:AX123"
-    assert summary.branch_name == "ai-sonar/ax123/service"
+    assert summary.branch_name == "zeroone-ops/ax123/service"
     assert "Local approval rejected the proposed change." in summary.message
     assert recorded_updates == [("in_progress", "sonar:AX123"), ("rejected", "sonar:AX123")]
 
@@ -2985,7 +2985,7 @@ def test_dashboard_remediate_ci_manual_analysis_marks_dashboard_rejected(
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.branch_manager.BranchManager.build_branch_name",
-        lambda self, branch_prefix, issue_key, file_path: "ai-sonar/ax123/service",
+        lambda self, branch_prefix, issue_key, file_path: "zeroone-ops/ax123/service",
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.branch_manager.BranchManager.create_branch",
@@ -2996,7 +2996,7 @@ def test_dashboard_remediate_ci_manual_analysis_marks_dashboard_rejected(
 
     assert summary.status.value == "rejected"
     assert summary.dashboard_item_id == "sonar:AX123"
-    assert summary.branch_name == "ai-sonar/ax123/service"
+    assert summary.branch_name == "zeroone-ops/ax123/service"
     assert "manual review is required" in summary.message
     assert recorded_updates == [("in_progress", "sonar:AX123"), ("rejected", "sonar:AX123")]
 
@@ -3168,7 +3168,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.branch_manager.BranchManager.build_branch_name",
-        lambda self, *, branch_prefix, issue_key, file_path: "ai-sonar/ax123/service",
+        lambda self, *, branch_prefix, issue_key, file_path: "zeroone-ops/ax123/service",
     )
     monkeypatch.setattr(
         "ai_sonar_bot.services.branch_manager.BranchManager.create_branch",
@@ -3219,7 +3219,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
 
     summary = dashboard_remediate(dry_run=False)
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -3229,7 +3229,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
 
     assert summary.status.value == "failed"
     assert summary.dashboard_item_id == "sonar:AX123"
-    assert summary.branch_name == "ai-sonar/ax123/service"
+    assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha is None
     assert summary.mr_url is None
     assert "Commit failed: git commit failed" in summary.message
@@ -3240,7 +3240,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
     assert last_run.failure.stage == FailureStage.COMMIT
     assert dashboard_state.status == "failed"
     assert dashboard_state.last_run_id == last_run.run_id
-    assert dashboard_state.branch_name == "ai-sonar/ax123/service"
+    assert dashboard_state.branch_name == "zeroone-ops/ax123/service"
     assert dashboard_state.commit_sha is None
     assert dashboard_state.mr_url is None
     assert dashboard_state.last_error == "Commit failed: git commit failed"
@@ -3483,7 +3483,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         in summary.message
     )
     state = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,
@@ -3988,7 +3988,7 @@ def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeyp
         encoding="utf-8",
     )
     store = StateStore(
-        tmp_path / ".ai-sonar-bot-state.json",
+        tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
         gitlab_project_id="123",
         sonarqube_project_key=None,

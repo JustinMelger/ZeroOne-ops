@@ -531,7 +531,7 @@ def test_build_review_prompt_includes_remediation_context_when_present() -> None
         mr_iid=17,
         title="fix: add null guard",
         description="Bot-authored remediation merge request.",
-        source_branch="ai-sonar/AX123",
+        source_branch="zeroone-ops/AX123",
         target_branch="main",
         web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
         head_sha="abc123",

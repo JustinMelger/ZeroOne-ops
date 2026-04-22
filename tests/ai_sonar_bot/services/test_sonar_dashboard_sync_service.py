@@ -184,7 +184,7 @@ def test_sync_preserves_missing_sonar_items_once_remediation_has_started() -> No
                             line=10,
                             rule="python:S1125",
                             severity="LOW",
-                            branch_name="ai-sonar/inprogress",
+                            branch_name="zeroone-ops/inprogress",
                             last_run_id="run-1",
                         )
                     ],
@@ -206,7 +206,7 @@ def test_sync_preserves_missing_sonar_items_once_remediation_has_started() -> No
                             line=10,
                             rule="python:S1125",
                             severity="LOW",
-                            branch_name="ai-sonar/mr-opened",
+                            branch_name="zeroone-ops/mr-opened",
                             last_run_id="run-2",
                             commit_sha="abc123",
                             merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/9",

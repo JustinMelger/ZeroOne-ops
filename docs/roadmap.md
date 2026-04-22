@@ -5,10 +5,7 @@
 This roadmap translates the current functional and technical design into an
 implementation sequence for v1 of the broader ZeroOne Ops platform.
 
-The repository and runtime still use the compatibility name `ai-sonar-bot`,
-but the roadmap now reflects a product scope that includes review,
-dashboard-backed remediation, and reconciliation rather than only SonarQube
-automation.
+The roadmap reflects the broader ZeroOne Ops product scope across review, dashboard-backed remediation, and reconciliation.
 
 It is intentionally short and execution-focused. The goal is to make the next steps obvious and keep scope controlled while the bot is being built.
 
@@ -409,10 +406,10 @@ Completed:
 Later:
 
 - decide after the testing window whether to rename the CLI command, Python
-  package path, config filename, env vars, `/opt/ai-sonar-bot`, and GitLab job
+  package path, config filename, env vars, `/opt/zeroone-ops`, and GitLab job
   identifiers
 - prioritize the repository config filename in that decision, because
-  `.ai-sonar-bot.json` is still operator-facing and now reads as a misleading
+  `.zeroone-ops.json` is still operator-facing and now reads as a misleading
   legacy name
 - if a runtime rename happens, support both old and new config naming
   temporarily and document the deprecation path

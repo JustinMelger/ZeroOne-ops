@@ -43,7 +43,7 @@ V1 constraints:
 Suggested additions alongside the existing SonarQube bot layout:
 
 ```text
-ai-sonar-bot/
+zeroone-ops/
   docs/
     functional-design-pr-review.md
     technical-design-pr-review.md
@@ -119,9 +119,9 @@ Responsibilities:
 
 Suggested commands:
 
-- `ai-sonar-bot review`
-- `ai-sonar-bot review --dry-run`
-- `ai-sonar-bot review --mr-iid <iid>`
+- `zeroone-ops review`
+- `zeroone-ops review --dry-run`
+- `zeroone-ops review --mr-iid <iid>`
 
 The review workflow should ship in the same container image as the SonarQube
 workflow, with separate subcommands rather than a separate review-only image.
@@ -266,10 +266,10 @@ Required:
 
 Optional:
 
-- `AI_SONAR_BOT_CONFIG`
-- `AI_SONAR_BOT_STATE_PATH`
-- `AI_SONAR_BOT_LOG_LEVEL`
-- `AI_SONAR_BOT_BASE_BRANCH`
+- `ZEROONE_OPS_CONFIG`
+- `ZEROONE_OPS_STATE_PATH`
+- `ZEROONE_OPS_LOG_LEVEL`
+- `ZEROONE_OPS_BASE_BRANCH`
 
 ### 7.3 Runtime Config File
 
@@ -293,7 +293,7 @@ Example review-specific config shape:
     "labels": ["ai-code-review"]
   },
   "state": {
-    "path": ".ai-sonar-bot-state.json"
+    "path": ".zeroone-ops-state.json"
   }
 }
 ```
