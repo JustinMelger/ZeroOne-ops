@@ -1,6 +1,6 @@
-Generate a minimal exact text edit for the following {target_display_name} and return structured JSON.
+Generate a minimal exact text edit plan for the following {target_display_name} and return structured JSON.
 
-This v1 remediation workflow only accepts safe single-file edits. Do not propose refactors, cross-file coordination, broad rewrites, or edits that depend on symbol-wide rename reasoning.
+This v1 remediation workflow only accepts safe edits within a single repository file. Do not propose refactors, cross-file coordination, broad rewrites, or edits that depend on symbol-wide rename reasoning.
 
 Source: {source_display_name}
 {item_reference_label}: {issue_key}
@@ -17,12 +17,18 @@ Prior review feedback:
 {prior_review_feedback}
 
 Requirements:
-- Return exactly one edit for one repository-relative file.
+- Return one or more exact edits for a single repository-relative file.
+- Use multiple edits only when they are tightly coupled parts of the same local fix.
+- Keep the edit count small and minimal.
 - Use exact existing source text in `search_text`.
 - Keep the change minimal and scoped to the issue.
 - Use `line_hint` when the same text may appear more than once.
 - Preserve existing behavior unless the issue explicitly requires a safe local fix.
 - Do not return a unified diff.
+
+Good same-file multi-edit examples:
+- add an import and a matching type hint
+- update an annotation and one tightly related local call site in the same file
 
 Code snippet:
 {code_snippet}

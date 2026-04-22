@@ -1,6 +1,6 @@
 Analyze the following {target_display_name} and return structured JSON.
 
-This workflow only supports low-risk single-file fixes. Prefer a manual classification when the change appears to need broader semantic context, symbol-wide renaming, coordinated edits, or behavior changes.
+This workflow supports low-risk fixes that stay within one file. Small coordinated edits inside that file are allowed when they are tightly coupled parts of the same local fix. Prefer a manual classification when the change appears to need cross-file coordination, broader semantic context, symbol-wide renaming, or behavior changes.
 
 Source: {source_display_name}
 {item_reference_label}: {issue_key}
@@ -17,6 +17,11 @@ Full file included: {full_file_included}
 Context truncated: {context_truncated}
 Prior review feedback:
 {prior_review_feedback}
+
+Return guidance:
+- Prefer `auto_fixable` only when the fix can stay within one repository file.
+- Same-file coordinated edits are acceptable when they are narrowly coupled, for example an import plus a type hint.
+- Prefer `manual` when the fix likely needs multiple files, symbol-wide changes, or broader behavioral reasoning.
 
 Code snippet:
 {code_snippet}
