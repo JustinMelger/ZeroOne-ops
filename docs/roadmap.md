@@ -50,6 +50,50 @@ Finished foundation:
 - runner and service refactors that moved workflow orchestration into clearer
   dedicated homes
 
+## V1 Close-Out Plan
+
+Goal:
+
+- finish the remaining product-shaping work needed for a confident v1 release
+  without reopening large architecture changes that are already parked for
+  post-v1
+
+Remaining v1 work:
+
+1. Finish rebranding
+- complete operator-facing naming cleanup for `ZeroOne Ops`
+- align docs, dashboard/operator text, release surface, and safe runtime-facing
+  naming where appropriate
+- keep compatibility shims only where they still reduce rollout risk
+
+2. Validate the new reconciliation flow in live use
+- keep the current split flow in place and continue real merge-request testing
+- treat this as validation and small hardening only, not a new architecture
+  phase
+- capture any remaining real-world misses as regression tests or bounded fixes
+
+3. Add remediation exclusion flow
+- add the exclusion-first operator path for remediation issue classes
+- keep broad default eligibility inside existing safety boundaries
+- make exclusions easy to inspect later so they become a useful product
+  learning surface
+
+Execution rule:
+
+- prefer small finishing slices over new workflow expansion until these three
+  items are stable
+- move any larger redesign ideas that fall out of this work into post-v1 plans
+  instead of extending v1 scope
+
+Done when:
+
+- naming, docs, and operator-facing surfaces consistently reflect the intended
+  v1 product shape
+- live reconciliation behavior stays trustworthy without needing another major
+  design round
+- exclusion-first remediation control exists in a form operators can use and
+  inspect without maintaining a full allowlist
+
 ## Finished Phases
 
 ### Sonar Remediation V1

@@ -50,6 +50,7 @@ Suggested status values:
 | 2026-04-20 | !96 / e9a9a7c221c3480a1d671c449b8219d6fb755449 | Test inconsistency overstated as runtime regression | no | Review treated removal of one country skip as concrete unsupported-runtime evidence even though the visible implementation and config do not support that conclusion | prompt | tracking | Adjacent stale tests or inconsistent skips are not enough on their own to claim a production/runtime regression. |
 | 2026-04-20 | !98 / 94fed6081726196e738c4952c20a73b6b888aab4 | Supported-path contract change overstated | no | Review falsely claimed the endpoint newly accepted single-character codes and overstated global alias impact beyond visible usages | prompt + validator | tracking | Contract-change detection is useful, but the bot still sometimes overstates the pre/post behavior or affected surface. |
 | 2026-04-20 | !382 / 9b2b597fe38ed7ae9249194d2293505d07fb9c8f | Verdict/reason contradiction | no | Review concluded `No actionable findings` while the confidence reason described a deterministic key-mismatch bug on a different file/version | validator | tracking | Output should be rejected when the rationale describes an actionable defect but the verdict is a clean pass. |
+| 2026-04-22 |  | No-findings summary/reason still describes regression | no | Live review still emitted `no_findings` while summary or confidence reason talked about a regression, so the review artifact remained internally inconsistent | validator | tracking | Treat this as a reconciliation-owned consistency failure: downgrade or repair instead of publishing a normal clean-pass review. |
 
 ## Pattern Notes
 
@@ -177,3 +178,11 @@ Suggested status values:
 - Preferred response:
   - validator rule or post-generation consistency check
   - reject or repair internally contradictory outputs before publishing
+
+### No-Findings Summary/Reason Still Describes Regression
+
+- Typical shape:
+  - classification is effectively a clean pass, but summary or confidence wording still talks about a regression or other actionable defect
+- Preferred response:
+  - reconciliation-owned consistency validation
+  - downgrade to `manual_review_only` or repair the artifact instead of publishing it as a normal `no_findings` review
