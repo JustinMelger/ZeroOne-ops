@@ -141,9 +141,7 @@ def test_matches_dashboard_item_requires_scope_match_when_present(tmp_path: Path
 
     assert service.matches_dashboard_item(build_dashboard_item()) is True
     assert (
-        service.matches_dashboard_item(
-            build_dashboard_item(file_path="src/services/example.py")
-        )
+        service.matches_dashboard_item(build_dashboard_item(file_path="src/services/example.py"))
         is False
     )
 
@@ -157,8 +155,6 @@ def test_matches_dashboard_item_ignores_unsupported_source_mapping(tmp_path: Pat
     )
 
     assert (
-        service.matches_dashboard_item(
-            build_dashboard_item(source="pipeline_failure", rule=None)
-        )
+        service.matches_dashboard_item(build_dashboard_item(source="pipeline_failure", rule=None))
         is False
     )

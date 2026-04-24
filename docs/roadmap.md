@@ -94,6 +94,15 @@ Done when:
 - the v1 workflow feels stable enough to shift effort from hardening to broader
   platform expansion
 
+Near-term rollout prep:
+
+- finalize the operator-facing config structure before broader remediation
+  rollout
+- use the compatibility-first shape in
+  [technical-design-config-structure.md](technical-design-config-structure.md)
+  so new repos adopt the clearer workflow/source split without forcing an
+  immediate migration on existing review-only repos
+
 ## Recently Completed
 
 Completed in the latest close-out period:
@@ -139,5 +148,6 @@ Use these docs when deeper detail is needed:
 - [technical-design-pr-review-overlap-reconciliation.md](technical-design-pr-review-overlap-reconciliation.md)
 - [technical-design-pr-review-gitlab-prior-context.md](technical-design-pr-review-gitlab-prior-context.md)
 - [technical-design-remediation-exclusions.md](technical-design-remediation-exclusions.md)
+- [technical-design-config-structure.md](technical-design-config-structure.md)
 - [review-bot-feedback-log.md](review-bot-feedback-log.md)
 - [future_plans.md](../future_plans.md)

@@ -12,9 +12,10 @@ from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import AppState
 
-DEFAULT_V1_SUPPORTED_RULES = frozenset(
+DEFAULT_V1_SUPPORTED_TYPES = frozenset(
     {
-        "python:S1125",
+        "BUG",
+        "CODE_SMELL",
     }
 )
 
@@ -44,25 +45,16 @@ class IssueEligibilityPolicy:
         Returns:
             A stable skip-reason code, or ``None`` if the issue is eligible.
         """
-        supported_rules = self._supported_rules()
         if not issue.matches_supported_severities(self.config.supported_severities):
             return "unsupported_severity"
-        if issue.type not in self.config.supported_issue_types:
+        if issue.type not in DEFAULT_V1_SUPPORTED_TYPES:
             return "unsupported_type"
         if _is_risky_rename_issue(issue):
             return "risky_rename"
-        if issue.rule not in supported_rules:
-            return "unsupported_rule"
         issue_state = state.issues.get(issue.key)
         if issue_state and issue_state.status == "mr_created":
             return "existing_merge_request"
         return None
-
-    def _supported_rules(self) -> set[str]:
-        """Return the effective rule allowlist for v1 issue selection."""
-        if self.config.supported_rules:
-            return set(self.config.supported_rules)
-        return set(DEFAULT_V1_SUPPORTED_RULES)
 
 
 def describe_skip_reasons(reason_counts: dict[str, int]) -> str:
@@ -81,7 +73,6 @@ def describe_skip_reasons(reason_counts: dict[str, int]) -> str:
         ("risky_rename", "excluded as rename-style issues"),
         ("unsupported_severity", "with unsupported severity"),
         ("unsupported_type", "with unsupported type"),
-        ("unsupported_rule", "with unsupported rule"),
         ("existing_merge_request", "already marked as merge-request created"),
     )
     parts = [

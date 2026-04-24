@@ -11,8 +11,6 @@
   "mock_sonar_issues_path": "fixtures/sonar/issues.json",
   "max_retry_count": 1,
   "supported_severities": ["LOW"],
-  "supported_issue_types": ["CODE_SMELL", "BUG", "VULNERABILITY"],
-  "supported_rules": ["python:S1125"],
   "validation_commands": [
     "uv run lint-imports",
     "uv run pytest",

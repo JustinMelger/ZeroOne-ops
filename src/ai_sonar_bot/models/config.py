@@ -140,8 +140,6 @@ class AppConfig(BaseModel):
         mock_llm_edit_path: Optional path to a local LLM structured edit fixture.
         max_retry_count: Maximum retry attempts after validation failure.
         supported_severities: Allowed SonarQube severities.
-        supported_issue_types: Allowed SonarQube issue types.
-        supported_rules: Optional allow-list of SonarQube rules.
         validation_commands: Commands run after a generated patch is applied.
         analysis: Analysis-related settings.
         approval: Approval-related settings.
@@ -162,8 +160,6 @@ class AppConfig(BaseModel):
     mock_llm_edit_path: Path | None = None
     max_retry_count: int = 1
     supported_severities: list[str] = Field(default_factory=list)
-    supported_issue_types: list[str] = Field(default_factory=list)
-    supported_rules: list[str] = Field(default_factory=list)
     validation_commands: list[str] = Field(default_factory=list)
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
     approval: ApprovalConfig = Field(default_factory=ApprovalConfig)
