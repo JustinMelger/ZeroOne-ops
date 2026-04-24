@@ -7,11 +7,11 @@ from typing import Literal, cast
 
 from ai_sonar_bot.models.gitlab import MergeRequestNote
 from ai_sonar_bot.models.review import PriorReviewFinding, PriorReviewPass, ReviewFinding
-from ai_sonar_bot.services.review_finding_identity import (
+from ai_sonar_bot.services.review.review_finding_identity import (
     build_legacy_review_finding_identity,
     build_review_finding_identity,
 )
-from ai_sonar_bot.services.review_gitlab_prior_context_service import (
+from ai_sonar_bot.services.review.review_gitlab_prior_context_service import (
     extract_machine_safe_review_note_payload,
 )
 

@@ -14,7 +14,7 @@ from ai_sonar_bot.models.review import (
     PriorReviewFinding,
     ReviewFinding,
 )
-from ai_sonar_bot.services.review_overlap_analysis_service import (
+from ai_sonar_bot.services.review.review_overlap_analysis_service import (
     ReviewOverlapAnalysisService,
 )
 

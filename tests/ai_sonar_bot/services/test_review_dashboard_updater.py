@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 from ai_sonar_bot.models.dashboard import DashboardDocument, DashboardItem, empty_sections
 from ai_sonar_bot.models.review import MergeRequestReviewCandidate, ReviewResult
-from ai_sonar_bot.services.review_dashboard_updater import ReviewDashboardUpdater
+from ai_sonar_bot.services.review.review_dashboard_updater import ReviewDashboardUpdater
 
 
 class FakeDashboardService:

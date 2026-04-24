@@ -15,7 +15,7 @@ from ai_sonar_bot.models.review import (
     ReviewFileContext,
     ReviewHelperContext,
 )
-from ai_sonar_bot.services.review_context_builder import ReviewContextBuilder
+from ai_sonar_bot.services.review.review_context_builder import ReviewContextBuilder
 
 
 def build_config(

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from ai_sonar_bot.models.review import MergeRequestReviewCandidate
 from ai_sonar_bot.models.state import AppState
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
-from ai_sonar_bot.services.mr_selector import MergeRequestSelector
+from ai_sonar_bot.services.review.mr_selector import MergeRequestSelector
 from ai_sonar_bot.settings import (
     SettingsError,
     load_current_merge_request_iid,

@@ -138,6 +138,42 @@ These are important, but intentionally not part of the v1 finish line.
 - additional remediation producers such as pipeline-failure and security-scan inputs
 - dashboard readability and grouped review-history improvements where they help operators
 
+### Service Domain Cleanup
+
+- pure structure cleanup only
+- move services into clearer domain folders without changing behavior or policy
+- do this in small slices so import churn stays easy to review and rollback
+
+Implementation phases:
+
+Phase 1: Review Domain Move
+- move review-specific services into `services/review/`
+- update imports only
+- keep names and behavior unchanged unless a path collision forces a minimal rename
+
+Phase 2: Dashboard Domain Move
+- move dashboard parser, renderer, service, and dashboard-specific runners/updaters
+  into `services/dashboard/`
+- keep the move structural only
+- avoid mixing dashboard behavior cleanup into the same slice
+
+Phase 3: Remediation Domain Move
+- move remediation-specific analysis, execution, context, exclusions, and patch-flow
+  services into `services/remediation/`
+- keep hard workflow boundaries unchanged
+- treat this as structure and imports only
+
+Phase 4: Intake And Source Cleanup
+- move source-specific intake and selector services into a clearer intake/source area
+- keep source normalization boundaries explicit
+- do not expand source behavior during the move
+
+Phase 5: Shared Service Stabilization
+- review what remains at the service root after the domain moves
+- leave truly shared services flat or move them into a small shared area if that
+  improves clarity
+- stop once the leftovers are clearly shared rather than forcing uniform nesting
+
 ## Reference Docs
 
 Use these docs when deeper detail is needed:

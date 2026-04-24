@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from ai_sonar_bot.models.review import MergeRequestReviewCandidate
 from ai_sonar_bot.models.state import AppState, MergeRequestReviewState, RepositoryState
-from ai_sonar_bot.services.mr_intake import MergeRequestIntakeService
-from ai_sonar_bot.services.mr_selector import build_review_revision_key
+from ai_sonar_bot.services.review.mr_intake import MergeRequestIntakeService
+from ai_sonar_bot.services.review.mr_selector import build_review_revision_key
 
 
 class FakeGitLabReviewClient:

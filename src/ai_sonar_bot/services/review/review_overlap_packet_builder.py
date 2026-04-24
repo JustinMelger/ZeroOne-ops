@@ -12,7 +12,7 @@ from ai_sonar_bot.models.review import (
     ReviewFinding,
     ReviewResult,
 )
-from ai_sonar_bot.services.review_finding_identity import (
+from ai_sonar_bot.services.review.review_finding_identity import (
     build_legacy_review_finding_identity,
     build_review_finding_identity,
 )

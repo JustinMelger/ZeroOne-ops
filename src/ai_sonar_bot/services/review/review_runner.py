@@ -11,20 +11,26 @@ from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunRecord
 from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
 from ai_sonar_bot.services.dashboard_service import DashboardService
-from ai_sonar_bot.services.mr_intake import MergeRequestIntakeService
-from ai_sonar_bot.services.review_analysis_service import ReviewAnalysisService
-from ai_sonar_bot.services.review_context_builder import ReviewContextBuilder
-from ai_sonar_bot.services.review_dashboard_updater import ReviewDashboardUpdater
-from ai_sonar_bot.services.review_gitlab_prior_context_service import (
+from ai_sonar_bot.services.review.mr_intake import MergeRequestIntakeService
+from ai_sonar_bot.services.review.review_analysis_service import ReviewAnalysisService
+from ai_sonar_bot.services.review.review_context_builder import ReviewContextBuilder
+from ai_sonar_bot.services.review.review_dashboard_updater import (
+    ReviewDashboardUpdater,
+)
+from ai_sonar_bot.services.review.review_gitlab_prior_context_service import (
     ReviewGitLabPriorContextService,
 )
-from ai_sonar_bot.services.review_gitlab_prior_note_parser import (
+from ai_sonar_bot.services.review.review_gitlab_prior_note_parser import (
     ReviewGitLabPriorNoteParser,
 )
-from ai_sonar_bot.services.review_overlap_analysis_service import ReviewOverlapAnalysisService
-from ai_sonar_bot.services.review_overlap_packet_builder import OverlapPacketBuilder
-from ai_sonar_bot.services.review_publisher import ReviewPublisher
-from ai_sonar_bot.services.review_state_service import ReviewStateService
+from ai_sonar_bot.services.review.review_overlap_analysis_service import (
+    ReviewOverlapAnalysisService,
+)
+from ai_sonar_bot.services.review.review_overlap_packet_builder import (
+    OverlapPacketBuilder,
+)
+from ai_sonar_bot.services.review.review_publisher import ReviewPublisher
+from ai_sonar_bot.services.review.review_state_service import ReviewStateService
 from ai_sonar_bot.services.run_state_service import RunSummary
 
 LOGGER = logging.getLogger(__name__)

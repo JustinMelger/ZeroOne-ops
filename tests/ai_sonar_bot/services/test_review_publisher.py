@@ -12,7 +12,7 @@ from ai_sonar_bot.models.review import (
     ReviewFinding,
     ReviewResult,
 )
-from ai_sonar_bot.services.review_publisher import ReviewPublisher
+from ai_sonar_bot.services.review.review_publisher import ReviewPublisher
 
 
 def extract_machine_safe_payload(body: str) -> dict[str, object]:

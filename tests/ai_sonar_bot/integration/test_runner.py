@@ -34,9 +34,13 @@ from ai_sonar_bot.providers.gitlab_client import GitLabClientError
 from ai_sonar_bot.runner import dashboard_reconcile, dashboard_remediate, review
 from ai_sonar_bot.services.analysis_service import AnalysisResult
 from ai_sonar_bot.services.branch_manager import BranchManagerError
-from ai_sonar_bot.services.review_context_builder import ReviewContextBuildResult
-from ai_sonar_bot.services.review_overlap_analysis_service import ReviewOverlapAnalysisResult
-from ai_sonar_bot.services.review_publisher import ReviewPublishResult
+from ai_sonar_bot.services.review.review_context_builder import (
+    ReviewContextBuildResult,
+)
+from ai_sonar_bot.services.review.review_overlap_analysis_service import (
+    ReviewOverlapAnalysisResult,
+)
+from ai_sonar_bot.services.review.review_publisher import ReviewPublishResult
 from ai_sonar_bot.services.state_store import StateStore
 from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
 
@@ -3300,7 +3304,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
     )
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.mr_intake.MergeRequestIntakeService.select_merge_request",
+        "ai_sonar_bot.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
         lambda self, state: type(
             "Result",
             (),
@@ -3312,13 +3316,13 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
+        "ai_sonar_bot.services.review.review_context_builder.ReviewContextBuilder.build",
         lambda self, merge_request, project_id: ReviewContextBuildResult(
             context=review_context, message=""
         ),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
+        "ai_sonar_bot.services.review.review_analysis_service.ReviewAnalysisService.analyze",
         lambda self, context: type(
             "AnalysisResult",
             (),
@@ -3398,7 +3402,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     )
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.mr_intake.MergeRequestIntakeService.select_merge_request",
+        "ai_sonar_bot.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
         lambda self, state: type(
             "Result",
             (),
@@ -3410,13 +3414,13 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
+        "ai_sonar_bot.services.review.review_context_builder.ReviewContextBuilder.build",
         lambda self, merge_request, project_id: ReviewContextBuildResult(
             context=review_context, message=""
         ),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
+        "ai_sonar_bot.services.review.review_analysis_service.ReviewAnalysisService.analyze",
         lambda self, context: type(
             "AnalysisResult",
             (),
@@ -3445,7 +3449,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_publisher.ReviewPublisher.publish",
+        "ai_sonar_bot.services.review.review_publisher.ReviewPublisher.publish",
         lambda self, project_id, merge_request_iid, context, review_result, overlap_result: (
             ReviewPublishResult(
                 note=type(
@@ -3463,7 +3467,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         ),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_dashboard_updater.ReviewDashboardUpdater.update",
+        "ai_sonar_bot.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
         lambda self, project_id, merge_request, review_result: type(
             "DashboardResult",
             (),
@@ -3549,7 +3553,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     )
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.mr_intake.MergeRequestIntakeService.select_merge_request",
+        "ai_sonar_bot.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
         lambda self, state: type(
             "Result",
             (),
@@ -3561,13 +3565,13 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
+        "ai_sonar_bot.services.review.review_context_builder.ReviewContextBuilder.build",
         lambda self, merge_request, project_id: ReviewContextBuildResult(
             context=review_context, message=""
         ),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
+        "ai_sonar_bot.services.review.review_analysis_service.ReviewAnalysisService.analyze",
         lambda self, context: type(
             "AnalysisResult",
             (),
@@ -3582,7 +3586,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_publisher.ReviewPublisher.publish",
+        "ai_sonar_bot.services.review.review_publisher.ReviewPublisher.publish",
         lambda self, project_id, merge_request_iid, context, review_result, overlap_result: (
             ReviewPublishResult(
                 note=type("Note", (), {"id": 55, "web_url": None})(),
@@ -3591,7 +3595,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         ),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_dashboard_updater.ReviewDashboardUpdater.update",
+        "ai_sonar_bot.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
         lambda self, project_id, merge_request, review_result: type(
             "DashboardResult",
             (),
@@ -3666,7 +3670,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     )
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.mr_intake.MergeRequestIntakeService.select_merge_request",
+        "ai_sonar_bot.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
         lambda self, state: type(
             "Result",
             (),
@@ -3678,7 +3682,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
+        "ai_sonar_bot.services.review.review_context_builder.ReviewContextBuilder.build",
         lambda self, merge_request, project_id: ReviewContextBuildResult(
             context=review_context, message=""
         ),
@@ -3695,7 +3699,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         },
     )()
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_gitlab_prior_context_service.ReviewGitLabPriorContextService.select_latest_prior_review_note",
+        "ai_sonar_bot.services.review.review_gitlab_prior_context_service.ReviewGitLabPriorContextService.select_latest_prior_review_note",
         lambda self, project_id, merge_request_iid, current_head_sha: type(
             "SelectionResult",
             (),
@@ -3712,7 +3716,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_gitlab_prior_note_parser.ReviewGitLabPriorNoteParser.parse_note",
+        "ai_sonar_bot.services.review.review_gitlab_prior_note_parser.ReviewGitLabPriorNoteParser.parse_note",
         lambda self, note, expected_merge_request_iid: type(
             "ParseResult",
             (),
@@ -3740,7 +3744,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
+        "ai_sonar_bot.services.review.review_analysis_service.ReviewAnalysisService.analyze",
         lambda self, context: type(
             "AnalysisResult",
             (),
@@ -3769,7 +3773,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_overlap_analysis_service.ReviewOverlapAnalysisService.analyze",
+        "ai_sonar_bot.services.review.review_overlap_analysis_service.ReviewOverlapAnalysisService.analyze",
         lambda self, packet: ReviewOverlapAnalysisResult(
             overlap_result=None,
             status="llm_error",
@@ -3803,11 +3807,11 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_publisher.ReviewPublisher.publish",
+        "ai_sonar_bot.services.review.review_publisher.ReviewPublisher.publish",
         capture_publish,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_dashboard_updater.ReviewDashboardUpdater.update",
+        "ai_sonar_bot.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
         lambda self, project_id, merge_request, review_result: type(
             "DashboardResult",
             (),
@@ -3883,7 +3887,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     )
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.mr_intake.MergeRequestIntakeService.select_merge_request",
+        "ai_sonar_bot.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
         lambda self, state: type(
             "Result",
             (),
@@ -3895,13 +3899,13 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_context_builder.ReviewContextBuilder.build",
+        "ai_sonar_bot.services.review.review_context_builder.ReviewContextBuilder.build",
         lambda self, merge_request, project_id: ReviewContextBuildResult(
             context=review_context, message=""
         ),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_analysis_service.ReviewAnalysisService.analyze",
+        "ai_sonar_bot.services.review.review_analysis_service.ReviewAnalysisService.analyze",
         lambda self, context: type(
             "AnalysisResult",
             (),
@@ -3943,11 +3947,11 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         )
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_publisher.ReviewPublisher.publish",
+        "ai_sonar_bot.services.review.review_publisher.ReviewPublisher.publish",
         capture_publish,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.review_dashboard_updater.ReviewDashboardUpdater.update",
+        "ai_sonar_bot.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
         lambda self, project_id, merge_request, review_result: type(
             "DashboardResult",
             (),

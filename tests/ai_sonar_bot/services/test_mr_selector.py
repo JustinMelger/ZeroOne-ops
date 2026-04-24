@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from ai_sonar_bot.models.review import MergeRequestReviewCandidate
 from ai_sonar_bot.models.state import AppState, MergeRequestReviewState, RepositoryState
-from ai_sonar_bot.services.mr_selector import MergeRequestSelector, build_review_revision_key
+from ai_sonar_bot.services.review.mr_selector import (
+    MergeRequestSelector,
+    build_review_revision_key,
+)
 
 
 def build_merge_request(iid: int, head_sha: str) -> MergeRequestReviewCandidate:

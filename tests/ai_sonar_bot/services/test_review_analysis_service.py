@@ -12,7 +12,7 @@ from ai_sonar_bot.models.review import (
     ReviewFinding,
     ReviewResult,
 )
-from ai_sonar_bot.services.review_analysis_service import ReviewAnalysisService
+from ai_sonar_bot.services.review.review_analysis_service import ReviewAnalysisService
 
 
 def build_config() -> AppConfig:

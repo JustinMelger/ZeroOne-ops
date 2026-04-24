@@ -1,5 +1,5 @@
 from ai_sonar_bot.models.gitlab import MergeRequestNote
-from ai_sonar_bot.services.review_gitlab_prior_context_service import (
+from ai_sonar_bot.services.review.review_gitlab_prior_context_service import (
     ReviewGitLabPriorContextService,
 )
 

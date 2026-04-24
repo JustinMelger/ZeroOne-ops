@@ -20,8 +20,8 @@ from ai_sonar_bot.models.state import (
     RunStatus,
     utc_now,
 )
-from ai_sonar_bot.services.mr_selector import build_review_revision_key
-from ai_sonar_bot.services.review_finding_identity import (
+from ai_sonar_bot.services.review.mr_selector import build_review_revision_key
+from ai_sonar_bot.services.review.review_finding_identity import (
     build_legacy_review_finding_identity,
     build_review_finding_identity,
 )

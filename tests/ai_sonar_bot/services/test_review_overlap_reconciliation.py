@@ -4,7 +4,9 @@ from ai_sonar_bot.models.review import (
     PriorReviewFinding,
     ReviewFinding,
 )
-from ai_sonar_bot.services.review_overlap_reconciliation import OverlapReconciliationService
+from ai_sonar_bot.services.review.review_overlap_reconciliation import (
+    OverlapReconciliationService,
+)
 
 
 def _current_finding(title: str) -> ReviewFinding:

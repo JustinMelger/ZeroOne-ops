@@ -1,7 +1,9 @@
 import json
 
 from ai_sonar_bot.models.gitlab import MergeRequestNote
-from ai_sonar_bot.services.review_gitlab_prior_note_parser import ReviewGitLabPriorNoteParser
+from ai_sonar_bot.services.review.review_gitlab_prior_note_parser import (
+    ReviewGitLabPriorNoteParser,
+)
 
 START_MARKER = "<!-- ai-sonar-bot:review-note:v1\n"
 END_MARKER = "\n-->"

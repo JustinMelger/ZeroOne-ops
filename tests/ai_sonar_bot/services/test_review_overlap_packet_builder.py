@@ -7,11 +7,13 @@ from ai_sonar_bot.models.review import (
     ReviewFinding,
     ReviewResult,
 )
-from ai_sonar_bot.services.review_finding_identity import (
+from ai_sonar_bot.services.review.review_finding_identity import (
     build_legacy_review_finding_identity,
     build_review_finding_identity,
 )
-from ai_sonar_bot.services.review_overlap_packet_builder import OverlapPacketBuilder
+from ai_sonar_bot.services.review.review_overlap_packet_builder import (
+    OverlapPacketBuilder,
+)
 
 
 def _build_context(*, prior_pass: PriorReviewPass | None = None) -> MergeRequestReviewContext:
