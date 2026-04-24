@@ -31,7 +31,7 @@ The current v1 automation scope is intentionally narrow:
 - structured-edit generation with bot-rendered diffs
 - structured edits must touch exactly one file
 - GitLab merge request creation in `ci` mode
-- a conservative built-in Sonar rule allowlist unless the repo explicitly sets `supported_rules`
+- severity-based intake control through `supported_severities`, with built-in safety guards for issue classes the bot should not automate
 
 The bot currently excludes rename-style issues by design. Rename changes need
 symbol-reference safety checks that are not part of v1 yet.

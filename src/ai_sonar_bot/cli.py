@@ -5,22 +5,30 @@ This module exposes the Typer application used to run the bot from the shell.
 
 from __future__ import annotations
 
+import json
+
 import typer
 from typer import Context
 
 from ai_sonar_bot.logging import configure_logging
 from ai_sonar_bot.runner import (
+    add_remediation_exclusion,
     dashboard_reconcile,
     dashboard_remediate,
+    list_remediation_exclusions,
+    remove_remediation_exclusion,
     review,
+    summarize_remediation_exclusions,
     sync_dashboard_sonar,
 )
 
 app = typer.Typer(add_completion=False, help="ZeroOne Ops CLI.")
 review_app = typer.Typer(add_completion=False, help="Merge request review workflow.")
 dashboard_app = typer.Typer(add_completion=False, help="Dashboard sync workflows.")
+exclusions_app = typer.Typer(add_completion=False, help="Remediation exclusion policy.")
 app.add_typer(review_app, name="review")
 app.add_typer(dashboard_app, name="dashboard")
+dashboard_app.add_typer(exclusions_app, name="exclusions")
 
 
 def _echo_review_summary(*, dry_run: bool) -> None:
@@ -142,6 +150,106 @@ def dashboard_reconcile_command(
         typer.echo(f"mr_url={summary.mr_url}")
     typer.echo(summary.message)
     typer.echo(f"state_path={summary.state_path}")
+
+
+@exclusions_app.command("list")
+def dashboard_exclusions_list_command() -> None:
+    """List persisted remediation exclusions."""
+    exclusions, state_path = list_remediation_exclusions()
+    source_counts, _ = summarize_remediation_exclusions()
+    typer.echo(f"count={len(exclusions)}")
+    for source, count in source_counts.items():
+        typer.echo(f"source_count[{source}]={count}")
+    typer.echo(f"state_path={state_path}")
+    for exclusion in exclusions:
+        typer.echo(
+            json.dumps(
+                {
+                    "source": exclusion.source,
+                    "issue_key": exclusion.issue_key,
+                    "scope": exclusion.scope,
+                    "reason": exclusion.reason,
+                    "updated_at": exclusion.updated_at.isoformat(),
+                    "updated_by": exclusion.updated_by,
+                },
+                sort_keys=True,
+            )
+        )
+
+
+@exclusions_app.command("add")
+def dashboard_exclusions_add_command(
+    source: str = typer.Option(..., "--source", help="Source family such as sonarqube."),
+    issue_key: str = typer.Option(..., "--issue-key", help="Source-specific exclusion key."),
+    reason: str = typer.Option(..., "--reason", help="Short operator reason for the exclusion."),
+    scope: str | None = typer.Option(
+        None,
+        "--scope",
+        help="Optional bounded scope such as a path prefix.",
+    ),
+    updated_by: str | None = typer.Option(
+        None,
+        "--updated-by",
+        help="Optional operator identity.",
+    ),
+) -> None:
+    """Add or replace one persisted remediation exclusion."""
+    exclusion, created, state_path = add_remediation_exclusion(
+        source=source,
+        issue_key=issue_key,
+        reason=reason,
+        scope=scope,
+        updated_by=updated_by,
+    )
+    typer.echo(f"state_path={state_path}")
+    typer.echo(f"action={'created' if created else 'replaced'}")
+    typer.echo(
+        json.dumps(
+            {
+                "source": exclusion.source,
+                "issue_key": exclusion.issue_key,
+                "scope": exclusion.scope,
+                "reason": exclusion.reason,
+                "updated_at": exclusion.updated_at.isoformat(),
+                "updated_by": exclusion.updated_by,
+            },
+            sort_keys=True,
+        )
+    )
+
+
+@exclusions_app.command("remove")
+def dashboard_exclusions_remove_command(
+    source: str = typer.Option(..., "--source", help="Source family such as sonarqube."),
+    issue_key: str = typer.Option(..., "--issue-key", help="Source-specific exclusion key."),
+    scope: str | None = typer.Option(
+        None,
+        "--scope",
+        help="Optional bounded scope such as a path prefix.",
+    ),
+) -> None:
+    """Remove one persisted remediation exclusion."""
+    exclusion, removed, state_path = remove_remediation_exclusion(
+        source=source,
+        issue_key=issue_key,
+        scope=scope,
+    )
+    typer.echo(f"state_path={state_path}")
+    typer.echo(f"removed={str(removed).lower()}")
+    if exclusion is not None:
+        typer.echo(
+            json.dumps(
+                {
+                    "source": exclusion.source,
+                    "issue_key": exclusion.issue_key,
+                    "scope": exclusion.scope,
+                    "reason": exclusion.reason,
+                    "updated_at": exclusion.updated_at.isoformat(),
+                    "updated_by": exclusion.updated_by,
+                },
+                sort_keys=True,
+            )
+        )
 
 
 def main() -> None:

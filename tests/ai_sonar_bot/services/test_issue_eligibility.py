@@ -4,12 +4,10 @@ from ai_sonar_bot.models.state import AppState, IssueState, RepositoryState
 from ai_sonar_bot.services.issue_eligibility import IssueEligibilityPolicy
 
 
-def build_config(*, supported_rules: list[str] | None = None) -> AppConfig:
+def build_config() -> AppConfig:
     return AppConfig(
         base_branch="main",
         supported_severities=["LOW"],
-        supported_issue_types=["BUG"],
-        supported_rules=supported_rules or [],
         validation_commands=[],
         analysis=AnalysisConfig(),
         approval=ApprovalConfig(),
@@ -60,13 +58,13 @@ def test_policy_rejects_existing_merge_request_issue() -> None:
     assert policy.skip_reason(issue, state) == "existing_merge_request"
 
 
-def test_policy_rejects_rule_outside_allowlist() -> None:
-    policy = IssueEligibilityPolicy(build_config(supported_rules=["python:S1125"]))
+def test_policy_rejects_unsupported_issue_type() -> None:
+    policy = IssueEligibilityPolicy(build_config())
     issue = SonarIssue(
         key="LOW-2",
         rule="python:S1481",
         severity="UNKNOWN",
-        type="BUG",
+        type="SECURITY_HOTSPOT",
         status="OPEN",
         message="Remove this unused local variable.",
         component="component",
@@ -77,5 +75,5 @@ def test_policy_rejects_rule_outside_allowlist() -> None:
 
     assert (
         policy.skip_reason(issue, AppState(repository=RepositoryState(base_branch="main")))
-        == "unsupported_rule"
+        == "unsupported_type"
     )

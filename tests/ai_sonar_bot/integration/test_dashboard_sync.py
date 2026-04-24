@@ -98,8 +98,6 @@ def test_sync_dashboard_sonar_dry_run_reports_eligible_issue_count(
         {
           "base_branch": "main",
           "supported_severities": ["LOW"],
-          "supported_issue_types": ["CODE_SMELL"],
-          "supported_rules": ["python:S1125"],
           "validation_commands": [],
           "gitlab": {
             "target_branch": "main",
@@ -141,8 +139,6 @@ def test_sync_dashboard_sonar_ci_mode_publishes_dashboard_summary(
           "base_branch": "main",
           "execution_mode": "ci",
           "supported_severities": ["LOW"],
-          "supported_issue_types": ["CODE_SMELL"],
-          "supported_rules": ["python:S1125"],
           "validation_commands": [],
           "gitlab": {
             "target_branch": "main",
@@ -191,8 +187,6 @@ def test_sync_dashboard_sonar_reports_no_eligible_issues_in_ci_mode(
           "base_branch": "main",
           "execution_mode": "ci",
           "supported_severities": ["LOW"],
-          "supported_issue_types": ["CODE_SMELL"],
-          "supported_rules": ["python:S1125"],
           "validation_commands": [],
           "gitlab": {
             "target_branch": "main",

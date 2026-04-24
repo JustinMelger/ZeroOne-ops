@@ -15,6 +15,7 @@ from ai_sonar_bot.providers.gitlab_client import GitLabClient
 from ai_sonar_bot.services.dashboard_item_selector import DashboardItemSelector
 from ai_sonar_bot.services.dashboard_service import DashboardService
 from ai_sonar_bot.services.mr_service import MergeRequestService
+from ai_sonar_bot.services.remediation_exclusion_service import RemediationExclusionService
 from ai_sonar_bot.settings import SettingsError, load_gitlab_connection_config
 from ai_sonar_bot.utils.git import build_issue_branch_name
 
@@ -24,6 +25,7 @@ _STALE_IN_PROGRESS_WINDOW = timedelta(hours=24)
 _SKIP_REASON_MESSAGES = {
     "active_local_state": "already tracked as active locally",
     "active_merge_request": "already represented by an active merge request",
+    "excluded_by_policy": "explicitly excluded from automation",
     "missing_file_path": "without a target file path",
     "missing_local_file": "without a matching local file",
     "unsupported_source": "from unsupported sources",
@@ -75,17 +77,20 @@ class DashboardItemIntakeService:
             project_id=project_id,
         )
         items = [item for section in document.sections for item in section.items]
+        exclusion_service = self._build_exclusion_service(state)
         gitlab_config = self._load_gitlab_config()
         merge_request_service = self._build_merge_request_service(gitlab_config)
         skip_reason_counts = self._skip_reason_counts(
             items,
             state,
+            exclusion_service=exclusion_service,
             gitlab_config=gitlab_config,
             merge_request_service=merge_request_service,
         )
         selected_item = self._select_item(
             items,
             state,
+            exclusion_service=exclusion_service,
             gitlab_config=gitlab_config,
             merge_request_service=merge_request_service,
         )
@@ -114,6 +119,7 @@ class DashboardItemIntakeService:
         items: list[DashboardItem],
         state: AppState,
         *,
+        exclusion_service: RemediationExclusionService,
         gitlab_config: GitLabConnectionConfig | None,
         merge_request_service: MergeRequestService | None,
     ) -> Counter[str]:
@@ -123,6 +129,7 @@ class DashboardItemIntakeService:
             skip_reason = self._skip_reason(
                 item,
                 state,
+                exclusion_service=exclusion_service,
                 gitlab_config=gitlab_config,
                 merge_request_service=merge_request_service,
             )
@@ -131,7 +138,13 @@ class DashboardItemIntakeService:
             skip_reason_counts[skip_reason] += 1
             LOGGER.info(
                 "skipped dashboard remediation item during intake",
-                extra={"dashboard_item_id": item.id, "reason": skip_reason},
+                extra={
+                    "dashboard_item_id": item.id,
+                    "reason": skip_reason,
+                    "source": item.source,
+                    "issue_key": item.rule or item.source_reference,
+                    "file": item.file,
+                },
             )
         return skip_reason_counts
 
@@ -140,6 +153,7 @@ class DashboardItemIntakeService:
         items: list[DashboardItem],
         state: AppState,
         *,
+        exclusion_service: RemediationExclusionService,
         gitlab_config: GitLabConnectionConfig | None,
         merge_request_service: MergeRequestService | None,
     ) -> DashboardItem | None:
@@ -149,6 +163,7 @@ class DashboardItemIntakeService:
                 self._skip_reason(
                     item,
                     state,
+                    exclusion_service=exclusion_service,
                     gitlab_config=gitlab_config,
                     merge_request_service=merge_request_service,
                 )
@@ -162,6 +177,7 @@ class DashboardItemIntakeService:
         item: DashboardItem,
         state: AppState,
         *,
+        exclusion_service: RemediationExclusionService,
         gitlab_config: GitLabConnectionConfig | None,
         merge_request_service: MergeRequestService | None,
     ) -> str | None:
@@ -169,6 +185,8 @@ class DashboardItemIntakeService:
         selector_reason = self.selector.skip_reason(item, state)
         if selector_reason is not None:
             return selector_reason
+        if exclusion_service.matches_dashboard_item(item):
+            return "excluded_by_policy"
         return self._active_merge_request_skip_reason(
             item,
             gitlab_config=gitlab_config,
@@ -269,6 +287,10 @@ class DashboardItemIntakeService:
         if gitlab_config is None:
             return None
         return MergeRequestService(GitLabClient(gitlab_config))
+
+    def _build_exclusion_service(self, state: AppState) -> RemediationExclusionService:
+        """Return one read-only exclusion matcher for remediation intake."""
+        return RemediationExclusionService(state_store=None, state=state)
 
     def _build_no_item_message(
         self,

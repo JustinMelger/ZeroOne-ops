@@ -412,8 +412,7 @@ Example `examples/.zeroone-ops.json`:
   "dry_run": false,
   "max_retry_count": 1,
   "supported_severities": ["BLOCKER", "CRITICAL", "MAJOR"],
-  "supported_issue_types": ["CODE_SMELL", "BUG", "VULNERABILITY"],
-  "supported_rules": [],
+  "supported_severities": ["LOW", "MEDIUM", "HIGH"],
   "validation_commands": [
     "uv run pytest",
     "uv run mypy src",
@@ -450,8 +449,7 @@ class AppConfig(BaseModel):
     dry_run: bool = False
     max_retry_count: int = 1
     supported_severities: list[str]
-    supported_issue_types: list[str]
-    supported_rules: list[str] = []
+    supported_severities: list[str]
     validation_commands: list[str]
     analysis: AnalysisConfig
     approval: ApprovalConfig

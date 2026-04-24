@@ -175,6 +175,17 @@ class DashboardItemState(BaseModel):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class RemediationExclusionState(BaseModel):
+    """Represent one persisted remediation exclusion decision."""
+
+    source: str
+    issue_key: str
+    scope: str | None = None
+    reason: str
+    updated_at: datetime = Field(default_factory=utc_now)
+    updated_by: str | None = None
+
+
 class RepositoryState(BaseModel):
     """Represent repository-level state metadata.
 
@@ -201,6 +212,7 @@ class AppState(BaseModel):
         runs: Execution history.
         issues: Latest state keyed by issue key.
         dashboard_items: Latest remediation state keyed by dashboard item ID.
+        remediation_exclusions: Operator-managed remediation exclusions.
         reviews: Latest review state keyed by merge-request revision key.
     """
 
@@ -212,4 +224,5 @@ class AppState(BaseModel):
     runs: list[RunRecord] = Field(default_factory=list)
     issues: dict[str, IssueState] = Field(default_factory=dict)
     dashboard_items: dict[str, DashboardItemState] = Field(default_factory=dict)
+    remediation_exclusions: list[RemediationExclusionState] = Field(default_factory=list)
     reviews: dict[str, MergeRequestReviewState] = Field(default_factory=dict)

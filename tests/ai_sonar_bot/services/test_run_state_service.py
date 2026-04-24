@@ -306,3 +306,9 @@ def test_reject_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path)
     assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha == "abc123"
     assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
+
+
+def test_build_state_starts_with_no_remediation_exclusions() -> None:
+    state = build_state()
+
+    assert state.remediation_exclusions == []
