@@ -2,7 +2,13 @@ import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
+from ai_sonar_bot.models.config import (
+    AnalysisConfig,
+    AppConfig,
+    ApprovalConfig,
+    GitLabConfig,
+    RemediationConfig,
+)
 from ai_sonar_bot.models.dashboard import (
     DashboardDocument,
     DashboardItem,
@@ -106,11 +112,12 @@ def build_config(*, execution_mode: str = "ci") -> AppConfig:
     return AppConfig(
         execution_mode=execution_mode,
         base_branch="main",
-        supported_severities=["LOW"],
-        supported_issue_types=["CODE_SMELL"],
         validation_commands=[],
-        analysis=AnalysisConfig(),
         approval=ApprovalConfig(),
+        remediation=RemediationConfig(
+            supported_severities=["LOW"],
+            analysis=AnalysisConfig(),
+        ),
         gitlab=GitLabConfig(target_branch="main"),
     )
 

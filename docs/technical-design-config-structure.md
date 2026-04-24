@@ -158,6 +158,7 @@ Recommended first fields:
 
 - `supported_severities`
 - `max_retry_count`
+- `analysis`
 
 ### Add or strengthen `sonarqube`
 
@@ -236,7 +237,12 @@ Why:
   },
   "remediation": {
     "supported_severities": ["LOW", "MEDIUM", "HIGH"],
-    "max_retry_count": 1
+    "max_retry_count": 1,
+    "analysis": {
+      "context_lines_before": 40,
+      "context_lines_after": 40,
+      "max_file_bytes": 200000
+    }
   },
   "sonarqube": {
     "mock_issues_path": "fixtures/sonar/issues.json"

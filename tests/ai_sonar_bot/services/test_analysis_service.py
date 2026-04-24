@@ -13,6 +13,7 @@ from ai_sonar_bot.models.config import (
     AppConfig,
     ApprovalConfig,
     GitLabConfig,
+    RemediationConfig,
 )
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.services.analysis_service import AnalysisService
@@ -32,21 +33,22 @@ def build_config(
     return AppConfig(
         execution_mode=execution_mode,
         base_branch="main",
-        supported_severities=["MAJOR"],
-        supported_issue_types=["BUG"],
         validation_commands=validation_commands or [],
-        analysis=AnalysisConfig(
-            context_lines_before=1,
-            context_lines_after=1,
-            max_file_bytes=200_000,
-        ),
         approval=ApprovalConfig(),
+        remediation=RemediationConfig(
+            supported_severities=["MAJOR"],
+            max_retry_count=max_retry_count,
+            analysis=AnalysisConfig(
+                context_lines_before=1,
+                context_lines_after=1,
+                max_file_bytes=200_000,
+            ),
+        ),
         gitlab=GitLabConfig(target_branch="main"),
         mock_llm_analysis_path=mock_llm_analysis_path,
         mock_llm_edit_path=mock_llm_edit_path,
         apply_patch_in_dry_run=apply_patch_in_dry_run,
         write_solution_artifacts_in_ci=write_solution_artifacts_in_ci,
-        max_retry_count=max_retry_count,
     )
 
 

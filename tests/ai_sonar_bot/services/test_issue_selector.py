@@ -1,4 +1,10 @@
-from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
+from ai_sonar_bot.models.config import (
+    AnalysisConfig,
+    AppConfig,
+    ApprovalConfig,
+    GitLabConfig,
+    RemediationConfig,
+)
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import AppState, IssueState, RepositoryState
 from ai_sonar_bot.services.issue_selector import IssueSelector
@@ -7,10 +13,12 @@ from ai_sonar_bot.services.issue_selector import IssueSelector
 def build_config() -> AppConfig:
     return AppConfig(
         base_branch="main",
-        supported_severities=["LOW"],
         validation_commands=[],
-        analysis=AnalysisConfig(),
         approval=ApprovalConfig(),
+        remediation=RemediationConfig(
+            supported_severities=["LOW"],
+            analysis=AnalysisConfig(),
+        ),
         gitlab=GitLabConfig(target_branch="main"),
     )
 

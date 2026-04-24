@@ -1,7 +1,14 @@
 import logging
 from pathlib import Path
 
-from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
+from ai_sonar_bot.models.config import (
+    AnalysisConfig,
+    AppConfig,
+    ApprovalConfig,
+    GitLabConfig,
+    RemediationConfig,
+    SonarQubeConfig,
+)
 from ai_sonar_bot.models.gitlab import MergeRequestInfo
 from ai_sonar_bot.models.state import AppState, IssueState, RepositoryState
 from ai_sonar_bot.services.issue_intake import IssueIntakeService
@@ -15,12 +22,14 @@ def build_config(
     return AppConfig(
         execution_mode=execution_mode,
         base_branch="main",
-        supported_severities=["MAJOR"],
         validation_commands=[],
-        analysis=AnalysisConfig(),
         approval=ApprovalConfig(),
+        remediation=RemediationConfig(
+            supported_severities=["MAJOR"],
+            analysis=AnalysisConfig(),
+        ),
         gitlab=GitLabConfig(target_branch="main"),
-        mock_sonar_issues_path=mock_sonar_issues_path,
+        sonarqube=SonarQubeConfig(mock_issues_path=mock_sonar_issues_path),
     )
 
 

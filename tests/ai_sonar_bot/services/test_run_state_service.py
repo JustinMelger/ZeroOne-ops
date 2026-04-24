@@ -1,6 +1,12 @@
 from pathlib import Path
 
-from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
+from ai_sonar_bot.models.config import (
+    AnalysisConfig,
+    AppConfig,
+    ApprovalConfig,
+    GitLabConfig,
+    RemediationConfig,
+)
 from ai_sonar_bot.models.state import (
     AppState,
     FailureDetails,
@@ -16,11 +22,12 @@ def build_config(state_path: Path) -> AppConfig:
     return AppConfig(
         execution_mode="ci",
         base_branch="main",
-        supported_severities=["MAJOR"],
-        supported_issue_types=["BUG"],
         validation_commands=[],
-        analysis=AnalysisConfig(),
         approval=ApprovalConfig(),
+        remediation=RemediationConfig(
+            supported_severities=["MAJOR"],
+            analysis=AnalysisConfig(),
+        ),
         gitlab=GitLabConfig(target_branch="main"),
         state={"path": state_path},
     )

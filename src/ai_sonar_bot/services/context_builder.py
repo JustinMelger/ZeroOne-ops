@@ -69,7 +69,7 @@ def build_issue_context(
     line_count = len(lines)
     clamped_issue_line = _clamp_issue_line(issue_line, line_count)
 
-    if file_size_bytes <= config.analysis.max_file_bytes:
+    if file_size_bytes <= config.remediation.analysis.max_file_bytes:
         start_line = 1
         end_line = line_count if line_count > 0 else 1
         snippet_lines = lines
@@ -79,8 +79,8 @@ def build_issue_context(
         start_line, end_line = _window_bounds(
             issue_line=clamped_issue_line,
             line_count=line_count,
-            lines_before=config.analysis.context_lines_before,
-            lines_after=config.analysis.context_lines_after,
+            lines_before=config.remediation.analysis.context_lines_before,
+            lines_after=config.remediation.analysis.context_lines_after,
         )
         snippet_lines = lines[start_line - 1 : end_line]
         full_file_included = False

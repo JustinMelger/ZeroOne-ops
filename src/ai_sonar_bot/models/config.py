@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class AnalysisConfig(BaseModel):
@@ -124,6 +124,20 @@ class StateConfig(BaseModel):
     path: Path = Path(".zeroone-ops-state.json")
 
 
+class RemediationConfig(BaseModel):
+    """Configure remediation workflow behavior."""
+
+    supported_severities: list[str] = Field(default_factory=list)
+    max_retry_count: int = 1
+    analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
+
+
+class SonarQubeConfig(BaseModel):
+    """Configure SonarQube producer behavior."""
+
+    mock_issues_path: Path | None = None
+
+
 class AppConfig(BaseModel):
     """Represent validated runtime configuration.
 
@@ -135,15 +149,13 @@ class AppConfig(BaseModel):
         apply_patch_in_dry_run: Whether dry-run may apply proposed patches locally.
         openai_solution_output_path: Path where OpenAI solutions should be written.
         write_solution_artifacts_in_ci: Whether CI mode should write solution artifact files.
-        mock_sonar_issues_path: Optional path to a local SonarQube issue fixture.
         mock_llm_analysis_path: Optional path to a local LLM analysis fixture.
         mock_llm_edit_path: Optional path to a local LLM structured edit fixture.
-        max_retry_count: Maximum retry attempts after validation failure.
-        supported_severities: Allowed SonarQube severities.
         validation_commands: Commands run after a generated patch is applied.
-        analysis: Analysis-related settings.
         approval: Approval-related settings.
         review: Review-related settings.
+        remediation: Remediation-related settings.
+        sonarqube: SonarQube producer settings.
         gitlab: GitLab merge request settings.
         state: State persistence settings.
     """
@@ -155,17 +167,41 @@ class AppConfig(BaseModel):
     apply_patch_in_dry_run: bool = False
     openai_solution_output_path: Path = Path("artifacts/openai-solution.json")
     write_solution_artifacts_in_ci: bool = False
-    mock_sonar_issues_path: Path | None = None
     mock_llm_analysis_path: Path | None = None
     mock_llm_edit_path: Path | None = None
-    max_retry_count: int = 1
-    supported_severities: list[str] = Field(default_factory=list)
     validation_commands: list[str] = Field(default_factory=list)
-    analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
     approval: ApprovalConfig = Field(default_factory=ApprovalConfig)
     review: ReviewConfig = Field(default_factory=ReviewConfig)
+    remediation: RemediationConfig = Field(default_factory=RemediationConfig)
+    sonarqube: SonarQubeConfig = Field(default_factory=SonarQubeConfig)
     gitlab: GitLabConfig
     state: StateConfig = Field(default_factory=StateConfig)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_legacy_fields(cls, value: object) -> object:
+        """Lift legacy flat config keys into nested workflow/source blocks."""
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+
+        remediation = dict(data.get("remediation", {}))
+        if "supported_severities" in data and "supported_severities" not in remediation:
+            remediation["supported_severities"] = data.pop("supported_severities")
+        if "max_retry_count" in data and "max_retry_count" not in remediation:
+            remediation["max_retry_count"] = data.pop("max_retry_count")
+        if "analysis" in data and "analysis" not in remediation:
+            remediation["analysis"] = data.pop("analysis")
+        if remediation:
+            data["remediation"] = remediation
+
+        sonarqube = dict(data.get("sonarqube", {}))
+        if "mock_sonar_issues_path" in data and "mock_issues_path" not in sonarqube:
+            sonarqube["mock_issues_path"] = data.pop("mock_sonar_issues_path")
+        if sonarqube:
+            data["sonarqube"] = sonarqube
+
+        return data
 
     def requires_local_approval(self) -> bool:
         """Return whether this run should block for terminal approval.

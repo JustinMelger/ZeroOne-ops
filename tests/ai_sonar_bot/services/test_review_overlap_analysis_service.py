@@ -3,6 +3,7 @@ from ai_sonar_bot.models.config import (
     AppConfig,
     ApprovalConfig,
     GitLabConfig,
+    RemediationConfig,
     ReviewConfig,
 )
 from ai_sonar_bot.models.review import (
@@ -21,11 +22,12 @@ from ai_sonar_bot.services.review_overlap_analysis_service import (
 def build_config() -> AppConfig:
     return AppConfig(
         base_branch="main",
-        supported_severities=["LOW"],
-        supported_issue_types=["CODE_SMELL"],
         validation_commands=[],
-        analysis=AnalysisConfig(),
         approval=ApprovalConfig(),
+        remediation=RemediationConfig(
+            supported_severities=["LOW"],
+            analysis=AnalysisConfig(),
+        ),
         review=ReviewConfig(),
         gitlab=GitLabConfig(target_branch="main"),
     )
