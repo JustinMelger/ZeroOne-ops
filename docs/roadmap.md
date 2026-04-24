@@ -48,6 +48,8 @@ Remaining v1 work:
 2. Add remediation exclusion flow
 - add the exclusion-first operator path for remediation issue classes
 - keep broad default eligibility inside existing safety boundaries
+- treat the dashboard as the broader work inventory while remediation intake
+  decides automated pickup eligibility
 - make exclusions easy to inspect later so they become a useful product
   learning surface
 - use the generalized exclusion contract in
@@ -56,24 +58,28 @@ Remaining v1 work:
 Implementation phases:
 
 Phase 1: Exclusion State Model
-- [ ] add a persisted repo-scoped exclusion model keyed by `source` plus `issue_key`
-- [ ] include a short operator reason plus basic audit fields such as updated time
+- [x] add a persisted repo-scoped exclusion model keyed by `source` plus `issue_key`
+- [x] include a short operator reason plus basic audit fields such as updated time
       and actor when available
-- [ ] keep the storage shape simple and compatible with current state handling
+- [x] keep the storage shape simple and compatible with current state handling
 
 Phase 2: Operator Edit Path
 - [ ] add a lightweight operator path to create and remove exclusions
+- [ ] treat this as remediation policy editing, even though exclusions remain
+      source-aware in identity
 - [ ] keep the input structured and bounded rather than relying on free-form text
 - [ ] make the resulting exclusions easy to inspect in local and CI workflows
 
 Phase 3: Eligibility Integration
-- [ ] check exclusions before normal remediation issue selection
+- [ ] check exclusions in remediation intake and selection, not during source sync
 - [ ] let explicit exclusions override broad default remediation eligibility
 - [ ] keep hard safety guards such as rename exclusions independent from
       operator-managed exclusions
 
 Phase 4: Visibility And Learning Loop
 - [ ] surface current exclusions in a simple inspectable form for operators
+- [ ] keep it clear that excluded items are excluded from automation pickup,
+      not erased from the broader dashboard inventory model
 - [ ] record enough context that repeated exclusion patterns are useful later as
       product feedback
 - [ ] add focused tests that prove excluded issues are skipped while normal safe

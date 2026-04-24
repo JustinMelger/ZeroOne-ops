@@ -8,6 +8,7 @@ from ai_sonar_bot.models.state import (
     IssueState,
     MergeRequestReviewState,
     PriorReviewFindingState,
+    RemediationExclusionState,
     RepositoryState,
     RunRecord,
     RunStatus,
@@ -61,6 +62,16 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
         last_run_id="run-3",
         branch_name="zeroone-ops/sonar-1",
     )
+    initial.remediation_exclusions.append(
+        RemediationExclusionState(
+            source="sonarqube",
+            issue_key="python:S3776",
+            scope="src/routers/",
+            reason="Usually requires broader refactor than the current safe fix boundary.",
+            updated_at="2026-04-24T10:00:00Z",
+            updated_by="operator",
+        )
+    )
     initial.reviews["17:abc123"] = MergeRequestReviewState(
         mr_iid=17,
         head_sha="abc123",
@@ -106,6 +117,15 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
     assert loaded.dashboard_items["sonar:1"].status == "in_progress"
     assert loaded.dashboard_items["sonar:1"].last_run_id == "run-3"
     assert loaded.dashboard_items["sonar:1"].branch_name == "zeroone-ops/sonar-1"
+    assert len(loaded.remediation_exclusions) == 1
+    assert loaded.remediation_exclusions[0].source == "sonarqube"
+    assert loaded.remediation_exclusions[0].issue_key == "python:S3776"
+    assert loaded.remediation_exclusions[0].scope == "src/routers/"
+    assert (
+        loaded.remediation_exclusions[0].reason
+        == "Usually requires broader refactor than the current safe fix boundary."
+    )
+    assert loaded.remediation_exclusions[0].updated_by == "operator"
     assert loaded.reviews["17:abc123"].mr_iid == 17
     assert loaded.reviews["17:abc123"].head_sha == "abc123"
     assert loaded.reviews["17:abc123"].status == "findings_present"

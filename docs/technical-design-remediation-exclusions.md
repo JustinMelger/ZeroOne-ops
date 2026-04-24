@@ -34,7 +34,52 @@ Examples of future exclusion keys:
 - pipeline failure: `source=pipeline_failure`, `issue_key=mypy:arg-type`
 - security scan: `source=security_scan`, `issue_key=semgrep:python.lang.correctness`
 
-## 4. Exclusion Record Model
+## 4. Architectural Direction
+
+The dashboard should be treated as a broader work inventory, not only as a
+pre-filtered autofix queue.
+
+That means:
+
+- source-specific producer bots sync normalized dashboard items to the dashboard
+- the dashboard remains the shared control plane for available work
+- the remediation bot decides which dashboard items are eligible for automated
+  pickup during remediation intake and selection
+
+This keeps the responsibilities clean:
+
+- producer bot
+  - fetches source findings
+  - normalizes them into dashboard items
+  - does not apply operator-managed exclusions during sync
+  - does not own remediation pickup policy
+- remediation bot
+  - reads dashboard items
+  - applies hard safety guards
+  - applies operator-managed exclusions
+  - decides what it will attempt to fix
+
+Why this direction is preferred:
+
+- the dashboard provides better visibility into what work exists, not only what
+  automation currently likes
+- remediation policy stays explicit at the point where automation risk is
+  actually accepted or rejected
+- later platform growth is easier because multiple consumers can reason about
+  the same synchronized dashboard inventory
+
+This means exclusions are source-aware in identity, but remediation-owned in
+application.
+
+Examples:
+
+- `source=sonarqube`, `issue_key=python:S1125`
+- `source=pipeline_failure`, `issue_key=mypy:arg-type`
+
+The source tells us what kind of work item it is. The remediation bot still
+owns the decision to skip or pick it up.
+
+## 5. Exclusion Record Model
 
 Suggested record shape:
 
@@ -69,7 +114,7 @@ Suggested first implementation constraint:
 - keep `scope` optional and simple
 - do not add broad matching logic yet
 
-## 5. Storage Direction
+## 6. Storage Direction
 
 The first implementation should keep exclusions repo-scoped.
 
@@ -86,14 +131,15 @@ Reasonable v1 shape:
 - keep the storage schema simple and inspectable
 - avoid adding a new remote system or external database just for exclusions
 
-## 6. Matching Contract
+## 7. Matching Contract
 
 Eligibility should consult exclusions before normal remediation issue
 selection.
 
 High-level rule:
 
-- if a work item matches an explicit exclusion, skip it before normal selection
+- if a work item matches an explicit exclusion, remediation intake skips it
+  before normal selection
 
 Suggested first matching contract:
 
@@ -115,13 +161,15 @@ Out of scope for v1:
 - global exclusion inheritance across repositories
 - free-form natural-language matching
 
-## 7. Operator Interaction Shape
+## 8. Operator Interaction Shape
 
 The operator path should stay lightweight and structured.
 
 Preferred v1 direction:
 
 - add/remove exclusion through a bounded command or small dashboard action
+- treat the edit path as remediation policy editing, even though exclusions are
+  source-aware in identity
 - avoid free-form text parsing as the primary contract
 
 Desired behavior:
@@ -132,16 +180,16 @@ Desired behavior:
 
 The UX should optimize for low effort, not for building a full policy engine.
 
-## 8. Eligibility Integration
+## 9. Eligibility Integration
 
 Exclusions should be one filter inside the current remediation eligibility
 pipeline.
 
 Recommended order:
 
-1. load candidate work item
+1. load candidate work item from the dashboard
 2. apply hard built-in safety guards
-3. apply operator-managed exclusions
+3. apply operator-managed exclusions in remediation intake and selection
 4. continue with normal eligibility and selection
 
 Important boundary:
@@ -155,13 +203,13 @@ Examples of safety rules that should stay independent:
 - unsafe multi-file remediation boundaries
 - unsupported workflow/source types
 
-## 9. Visibility And Learning Loop
+## 10. Visibility And Learning Loop
 
 Exclusions should remain easy to inspect later.
 
 The system should make it easy to answer:
 
-- which issue classes are currently excluded
+- which issue classes are currently excluded from automation
 - which source they belong to
 - why they were excluded
 - whether the same patterns keep recurring
@@ -173,7 +221,7 @@ That accumulated data should become a product-learning surface for later:
 - workflow changes
 - post-v1 architecture work
 
-## 10. Testing Guidance
+## 11. Testing Guidance
 
 The first implementation should cover:
 
@@ -183,7 +231,7 @@ The first implementation should cover:
 - skipped remediation behavior for excluded items
 - proof that built-in safety guards still apply independently
 
-## 11. Initial Guardrails
+## 12. Initial Guardrails
 
 - do not make the model SonarQube-only
 - do not introduce free-form matching for v1
