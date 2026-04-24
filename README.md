@@ -89,6 +89,23 @@ Use the root [.zeroone-ops.json](.zeroone-ops.json) as the repository's live
 runtime config, and use the files in [examples/](examples/) as copyable
 templates when wiring the bot into another repository.
 
+Config structure direction:
+
+- top-level shared runtime settings stay at the root
+- review-specific behavior lives under `review`
+- remediation-specific rollout policy now lives under `remediation`
+- Sonar-specific local fixture behavior now lives under `sonarqube`
+
+For example:
+
+- `remediation.supported_severities`
+- `remediation.max_retry_count`
+- `remediation.analysis`
+- `sonarqube.mock_issues_path`
+
+Legacy flat keys still load for compatibility during migration, but new repos
+should use the nested structure.
+
 To test the real OpenAI path instead of local fixtures:
 
 ```bash

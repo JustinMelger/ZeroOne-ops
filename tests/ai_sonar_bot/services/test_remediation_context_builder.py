@@ -1,6 +1,12 @@
 from pathlib import Path
 
-from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
+from ai_sonar_bot.models.config import (
+    AnalysisConfig,
+    AppConfig,
+    ApprovalConfig,
+    GitLabConfig,
+    RemediationConfig,
+)
 from ai_sonar_bot.models.remediation import RemediationWorkItem
 from ai_sonar_bot.services.remediation_context_builder import RemediationContextBuilder
 
@@ -8,11 +14,12 @@ from ai_sonar_bot.services.remediation_context_builder import RemediationContext
 def build_config(*, max_file_bytes: int = 200_000) -> AppConfig:
     return AppConfig(
         base_branch="main",
-        supported_severities=["LOW"],
-        supported_issue_types=["CODE_SMELL"],
         validation_commands=[],
-        analysis=AnalysisConfig(max_file_bytes=max_file_bytes),
         approval=ApprovalConfig(),
+        remediation=RemediationConfig(
+            supported_severities=["LOW"],
+            analysis=AnalysisConfig(max_file_bytes=max_file_bytes),
+        ),
         gitlab=GitLabConfig(target_branch="main"),
     )
 

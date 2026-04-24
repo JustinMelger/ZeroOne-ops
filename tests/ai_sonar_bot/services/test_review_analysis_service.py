@@ -3,6 +3,7 @@ from ai_sonar_bot.models.config import (
     AppConfig,
     ApprovalConfig,
     GitLabConfig,
+    RemediationConfig,
     ReviewConfig,
 )
 from ai_sonar_bot.models.review import (
@@ -17,11 +18,12 @@ from ai_sonar_bot.services.review_analysis_service import ReviewAnalysisService
 def build_config() -> AppConfig:
     return AppConfig(
         base_branch="main",
-        supported_severities=["LOW"],
-        supported_issue_types=["CODE_SMELL"],
         validation_commands=[],
-        analysis=AnalysisConfig(),
         approval=ApprovalConfig(),
+        remediation=RemediationConfig(
+            supported_severities=["LOW"],
+            analysis=AnalysisConfig(),
+        ),
         review=ReviewConfig(),
         gitlab=GitLabConfig(target_branch="main"),
     )
@@ -30,11 +32,12 @@ def build_config() -> AppConfig:
 def build_config_with_max_findings(max_findings_per_review: int) -> AppConfig:
     return AppConfig(
         base_branch="main",
-        supported_severities=["LOW"],
-        supported_issue_types=["CODE_SMELL"],
         validation_commands=[],
-        analysis=AnalysisConfig(),
         approval=ApprovalConfig(),
+        remediation=RemediationConfig(
+            supported_severities=["LOW"],
+            analysis=AnalysisConfig(),
+        ),
         review=ReviewConfig(max_findings_per_review=max_findings_per_review),
         gitlab=GitLabConfig(target_branch="main"),
     )

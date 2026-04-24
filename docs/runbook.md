@@ -33,6 +33,23 @@ The current v1 automation scope is intentionally narrow:
 - GitLab merge request creation in `ci` mode
 - severity-based intake control through `supported_severities`, with built-in safety guards for issue classes the bot should not automate
 
+Current config shape for rollout:
+
+- shared runtime settings remain top-level
+- review behavior lives under `review`
+- remediation policy lives under `remediation`
+- Sonar-specific local fixture behavior lives under `sonarqube`
+
+In practice, the main remediation rollout keys now are:
+
+- `remediation.supported_severities`
+- `remediation.max_retry_count`
+- `remediation.analysis`
+- `sonarqube.mock_issues_path`
+
+Legacy flat keys still work during migration, but new repository rollouts
+should use the nested shape.
+
 The bot currently excludes rename-style issues by design. Rename changes need
 symbol-reference safety checks that are not part of v1 yet.
 

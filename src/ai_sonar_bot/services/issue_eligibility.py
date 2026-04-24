@@ -45,7 +45,7 @@ class IssueEligibilityPolicy:
         Returns:
             A stable skip-reason code, or ``None`` if the issue is eligible.
         """
-        if not issue.matches_supported_severities(self.config.supported_severities):
+        if not issue.matches_supported_severities(self.config.remediation.supported_severities):
             return "unsupported_severity"
         if issue.type not in DEFAULT_V1_SUPPORTED_TYPES:
             return "unsupported_type"

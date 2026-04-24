@@ -1,7 +1,13 @@
 from pathlib import Path
 
 from ai_sonar_bot.models.analysis import PatchProposal, ValidationResult
-from ai_sonar_bot.models.config import AnalysisConfig, AppConfig, ApprovalConfig, GitLabConfig
+from ai_sonar_bot.models.config import (
+    AnalysisConfig,
+    AppConfig,
+    ApprovalConfig,
+    GitLabConfig,
+    RemediationConfig,
+)
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.services.analysis_service import AnalysisResult
 from ai_sonar_bot.services.execution_service import ExecutionService
@@ -13,11 +19,12 @@ def build_config(*, execution_mode: str = "local") -> AppConfig:
     return AppConfig(
         execution_mode=execution_mode,
         base_branch="main",
-        supported_severities=["MAJOR"],
-        supported_issue_types=["BUG"],
         validation_commands=[],
-        analysis=AnalysisConfig(),
         approval=ApprovalConfig(),
+        remediation=RemediationConfig(
+            supported_severities=["MAJOR"],
+            analysis=AnalysisConfig(),
+        ),
         gitlab=GitLabConfig(target_branch="main", labels=["ai-sonar-bot"]),
     )
 

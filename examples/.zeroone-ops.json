@@ -8,9 +8,6 @@
   "write_solution_artifacts_in_ci": false,
   "mock_llm_analysis_path": "fixtures/llm/analysis.json",
   "mock_llm_edit_path": "fixtures/llm/edit.json",
-  "mock_sonar_issues_path": "fixtures/sonar/issues.json",
-  "max_retry_count": 1,
-  "supported_severities": ["LOW"],
   "validation_commands": [
     "uv run lint-imports",
     "uv run pytest",
@@ -18,11 +15,6 @@
     "uv run ruff check .",
     "uv run ruff format --check ."
   ],
-  "analysis": {
-    "context_lines_before": 40,
-    "context_lines_after": 40,
-    "max_file_bytes": 200000
-  },
   "approval": {
     "required": true
   },
@@ -36,6 +28,18 @@
     "ignored_paths": ["src/generated/"],
     "skip_draft_merge_requests": true,
     "max_review_feedback_retries": 1
+  },
+  "remediation": {
+    "supported_severities": ["LOW"],
+    "max_retry_count": 1,
+    "analysis": {
+      "context_lines_before": 40,
+      "context_lines_after": 40,
+      "max_file_bytes": 200000
+    }
+  },
+  "sonarqube": {
+    "mock_issues_path": "fixtures/sonar/issues.json"
   },
   "gitlab": {
     "target_branch": "main",

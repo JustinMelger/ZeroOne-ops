@@ -140,7 +140,9 @@ def load_config() -> AppConfig:
     if env_mock_llm_edit_path:
         data["mock_llm_edit_path"] = env_mock_llm_edit_path
     if env_mock_sonar_issues_path:
-        data["mock_sonar_issues_path"] = env_mock_sonar_issues_path
+        sonarqube = dict(data.get("sonarqube", {}))
+        sonarqube["mock_issues_path"] = env_mock_sonar_issues_path
+        data["sonarqube"] = sonarqube
     if env_state_path:
         state = dict(data.get("state", {}))
         state["path"] = env_state_path

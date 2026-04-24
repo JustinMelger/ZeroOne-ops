@@ -130,7 +130,7 @@ class IssueIntakeService:
         allow_remote_duplicate_lookup: bool = True,
     ) -> IssueCollectionResult:
         """Fetch issues and return all eligible candidates without selecting one."""
-        if dry_run and self.config.mock_sonar_issues_path is not None:
+        if dry_run and self.config.sonarqube.mock_issues_path is not None:
             return self._collect_from_fixture(state=state)
         return self._collect_from_sonarqube(
             state=state,
@@ -147,7 +147,7 @@ class IssueIntakeService:
         Returns:
             The fixture-backed eligible-issue result.
         """
-        fixture_path = self.config.mock_sonar_issues_path
+        fixture_path = self.config.sonarqube.mock_issues_path
         if fixture_path is None:
             return IssueCollectionResult(
                 eligible_issues=[],

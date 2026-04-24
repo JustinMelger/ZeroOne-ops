@@ -74,7 +74,7 @@ class PatchExecutionService:
         patch_factory: Callable[..., PatchProposal],
     ) -> PatchExecutionResult:
         """Apply a patch locally and run configured validation commands."""
-        for attempt in range(self.config.max_retry_count + 1):
+        for attempt in range(self.config.remediation.max_retry_count + 1):
             snapshot = self.workspace_snapshot_service.capture(patch.files_touched)
             try:
                 self.patch_applier.validate(patch)
@@ -117,7 +117,7 @@ class PatchExecutionService:
                 )
 
             self.workspace_snapshot_service.restore(snapshot)
-            if attempt >= self.config.max_retry_count:
+            if attempt >= self.config.remediation.max_retry_count:
                 mode_label = "dry-run" if dry_run else "run"
                 return PatchExecutionResult(
                     summary=(

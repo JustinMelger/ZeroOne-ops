@@ -143,6 +143,84 @@ def test_settings_load_helper_following_review_config(tmp_path: Path, monkeypatc
     assert config.review.max_followed_helper_lines_per_review == 160
 
 
+def test_settings_load_nested_remediation_and_sonarqube_config(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "remediation": {
+            "supported_severities": ["LOW", "MEDIUM"],
+            "max_retry_count": 2,
+            "analysis": {
+              "context_lines_before": 12,
+              "context_lines_after": 18,
+              "max_file_bytes": 1234
+            }
+          },
+          "sonarqube": {
+            "mock_issues_path": "fixtures/sonar/issues.json"
+          },
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.remediation.supported_severities == ["LOW", "MEDIUM"]
+    assert config.remediation.max_retry_count == 2
+    assert config.remediation.analysis.context_lines_before == 12
+    assert config.remediation.analysis.context_lines_after == 18
+    assert config.remediation.analysis.max_file_bytes == 1234
+    assert config.sonarqube.mock_issues_path == Path("fixtures/sonar/issues.json")
+
+
+def test_settings_keep_legacy_flat_remediation_and_sonar_keys_compatible(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "supported_severities": ["LOW"],
+          "max_retry_count": 3,
+          "analysis": {
+            "context_lines_before": 2,
+            "context_lines_after": 3,
+            "max_file_bytes": 999
+          },
+          "mock_sonar_issues_path": "fixtures/sonar/issues.json",
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.remediation.supported_severities == ["LOW"]
+    assert config.remediation.max_retry_count == 3
+    assert config.remediation.analysis.context_lines_before == 2
+    assert config.remediation.analysis.context_lines_after == 3
+    assert config.remediation.analysis.max_file_bytes == 999
+    assert config.sonarqube.mock_issues_path == Path("fixtures/sonar/issues.json")
+
+
 def test_settings_load_runner_state_metadata_overrides(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
