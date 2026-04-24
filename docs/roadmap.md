@@ -64,16 +64,16 @@ Phase 1: Exclusion State Model
 - [x] keep the storage shape simple and compatible with current state handling
 
 Phase 2: Operator Edit Path
-- [ ] add a lightweight operator path to create and remove exclusions
-- [ ] treat this as remediation policy editing, even though exclusions remain
+- [x] add a lightweight operator path to create and remove exclusions
+- [x] treat this as remediation policy editing, even though exclusions remain
       source-aware in identity
-- [ ] keep the input structured and bounded rather than relying on free-form text
-- [ ] make the resulting exclusions easy to inspect in local and CI workflows
+- [x] keep the input structured and bounded rather than relying on free-form text
+- [x] make the resulting exclusions easy to inspect in local and CI workflows
 
 Phase 3: Eligibility Integration
-- [ ] check exclusions in remediation intake and selection, not during source sync
-- [ ] let explicit exclusions override broad default remediation eligibility
-- [ ] keep hard safety guards such as rename exclusions independent from
+- [x] check exclusions in remediation intake and selection, not during source sync
+- [x] let explicit exclusions override broad default remediation eligibility
+- [x] keep hard safety guards such as rename exclusions independent from
       operator-managed exclusions
 
 Phase 4: Visibility And Learning Loop

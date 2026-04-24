@@ -10,7 +10,12 @@ from ai_sonar_bot.models.dashboard import (
     empty_sections,
 )
 from ai_sonar_bot.models.gitlab import MergeRequestInfo
-from ai_sonar_bot.models.state import AppState, DashboardItemState, RepositoryState
+from ai_sonar_bot.models.state import (
+    AppState,
+    DashboardItemState,
+    RemediationExclusionState,
+    RepositoryState,
+)
 from ai_sonar_bot.services.dashboard_item_intake import DashboardItemIntakeService
 
 
@@ -243,6 +248,67 @@ def test_select_item_reports_skip_reasons_when_no_dashboard_item_is_eligible(
     assert "2 dashboard items" in result.message
     assert "unsupported status" in result.message
     assert "skipped dashboard remediation item during intake" in caplog.text
+
+
+def test_select_item_skips_item_excluded_by_policy_and_moves_to_next(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    (tmp_path / "src" / "other.py").write_text("value = False\n", encoding="utf-8")
+    service = DashboardItemIntakeService(
+        repo_root=tmp_path,
+        dashboard_service=FakeDashboardService(
+            build_document(
+                items=[
+                    build_item(item_id="sonar:1"),
+                    build_item(item_id="sonar:2", file_path="src/other.py"),
+                ]
+            )
+        ),
+    )
+    state = AppState(
+        repository=RepositoryState(base_branch="main"),
+        remediation_exclusions=[
+            RemediationExclusionState(
+                source="sonarqube",
+                issue_key="python:S1125",
+                reason="Too noisy for automation.",
+                scope="src/service.py",
+            )
+        ],
+    )
+
+    result = service.select_item(project_id="123", state=state)
+
+    assert result.selected_item is not None
+    assert result.selected_item.id == "sonar:2"
+
+
+def test_select_item_reports_excluded_by_policy_when_no_dashboard_item_is_eligible(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    service = DashboardItemIntakeService(
+        repo_root=tmp_path,
+        dashboard_service=FakeDashboardService(
+            build_document(items=[build_item(item_id="sonar:1")])
+        ),
+    )
+    state = AppState(
+        repository=RepositoryState(base_branch="main"),
+        remediation_exclusions=[
+            RemediationExclusionState(
+                source="sonarqube",
+                issue_key="python:S1125",
+                reason="Too noisy for automation.",
+            )
+        ],
+    )
+
+    result = service.select_item(project_id="123", state=state)
+
+    assert result.selected_item is None
+    assert "explicitly excluded from automation" in result.message
 
 
 def test_select_item_allows_reopened_item_with_cleared_merge_request_linkage(
