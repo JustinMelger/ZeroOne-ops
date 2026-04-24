@@ -62,6 +62,12 @@ def list_remediation_exclusions() -> tuple[list[RemediationExclusionState], Path
     return service.list_exclusions(), state_path
 
 
+def summarize_remediation_exclusions() -> tuple[dict[str, int], Path]:
+    """Return grouped remediation exclusion counts and their state path."""
+    service, state_path = _load_exclusion_service()
+    return service.summarize_exclusions_by_source(), state_path
+
+
 def add_remediation_exclusion(
     *,
     source: str,

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+from collections import Counter
 from dataclasses import dataclass
 
 from ai_sonar_bot.models.dashboard import DashboardItem
 from ai_sonar_bot.models.state import AppState, RemediationExclusionState
 from ai_sonar_bot.services.state_store import StateStore
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -34,6 +38,11 @@ class RemediationExclusionService:
             key=lambda item: (item.source, item.issue_key, item.scope or ""),
         )
 
+    def summarize_exclusions_by_source(self) -> dict[str, int]:
+        """Return stable exclusion counts grouped by source."""
+        counts = Counter(item.source for item in self.state.remediation_exclusions)
+        return dict(sorted(counts.items()))
+
     def add_exclusion(
         self,
         *,
@@ -55,10 +64,28 @@ class RemediationExclusionService:
         if index is None:
             self.state.remediation_exclusions.append(exclusion)
             self._save()
+            LOGGER.info(
+                "remediation exclusion created",
+                extra={
+                    "source": source,
+                    "issue_key": issue_key,
+                    "scope": scope,
+                    "updated_by": updated_by,
+                },
+            )
             return RemediationExclusionMutationResult(exclusion=exclusion, created=True)
 
         self.state.remediation_exclusions[index] = exclusion
         self._save()
+        LOGGER.info(
+            "remediation exclusion replaced",
+            extra={
+                "source": source,
+                "issue_key": issue_key,
+                "scope": scope,
+                "updated_by": updated_by,
+            },
+        )
         return RemediationExclusionMutationResult(exclusion=exclusion, replaced=True)
 
     def remove_exclusion(
@@ -74,6 +101,15 @@ class RemediationExclusionService:
             return RemediationExclusionMutationResult(exclusion=None, removed=False)
         exclusion = self.state.remediation_exclusions.pop(index)
         self._save()
+        LOGGER.info(
+            "remediation exclusion removed",
+            extra={
+                "source": exclusion.source,
+                "issue_key": exclusion.issue_key,
+                "scope": exclusion.scope,
+                "updated_by": exclusion.updated_by,
+            },
+        )
         return RemediationExclusionMutationResult(exclusion=exclusion, removed=True)
 
     def matches_dashboard_item(self, item: DashboardItem) -> bool:

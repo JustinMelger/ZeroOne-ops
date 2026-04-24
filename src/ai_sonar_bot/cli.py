@@ -18,6 +18,7 @@ from ai_sonar_bot.runner import (
     list_remediation_exclusions,
     remove_remediation_exclusion,
     review,
+    summarize_remediation_exclusions,
     sync_dashboard_sonar,
 )
 
@@ -155,7 +156,10 @@ def dashboard_reconcile_command(
 def dashboard_exclusions_list_command() -> None:
     """List persisted remediation exclusions."""
     exclusions, state_path = list_remediation_exclusions()
+    source_counts, _ = summarize_remediation_exclusions()
     typer.echo(f"count={len(exclusions)}")
+    for source, count in source_counts.items():
+        typer.echo(f"source_count[{source}]={count}")
     typer.echo(f"state_path={state_path}")
     for exclusion in exclusions:
         typer.echo(

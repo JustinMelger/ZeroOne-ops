@@ -77,12 +77,12 @@ Phase 3: Eligibility Integration
       operator-managed exclusions
 
 Phase 4: Visibility And Learning Loop
-- [ ] surface current exclusions in a simple inspectable form for operators
-- [ ] keep it clear that excluded items are excluded from automation pickup,
+- [x] surface current exclusions in a simple inspectable form for operators
+- [x] keep it clear that excluded items are excluded from automation pickup,
       not erased from the broader dashboard inventory model
-- [ ] record enough context that repeated exclusion patterns are useful later as
+- [x] record enough context that repeated exclusion patterns are useful later as
       product feedback
-- [ ] add focused tests that prove excluded issues are skipped while normal safe
+- [x] add focused tests that prove excluded issues are skipped while normal safe
       issues still flow through
 
 Done when:

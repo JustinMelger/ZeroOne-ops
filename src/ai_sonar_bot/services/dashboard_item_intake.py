@@ -138,7 +138,13 @@ class DashboardItemIntakeService:
             skip_reason_counts[skip_reason] += 1
             LOGGER.info(
                 "skipped dashboard remediation item during intake",
-                extra={"dashboard_item_id": item.id, "reason": skip_reason},
+                extra={
+                    "dashboard_item_id": item.id,
+                    "reason": skip_reason,
+                    "source": item.source,
+                    "issue_key": item.rule or item.source_reference,
+                    "file": item.file,
+                },
             )
         return skip_reason_counts
 
