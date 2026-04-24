@@ -10,7 +10,7 @@ from ai_sonar_bot.models.review import PriorReviewContext
 from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunRecord
 from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
-from ai_sonar_bot.services.dashboard_service import DashboardService
+from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
 from ai_sonar_bot.services.review.mr_intake import MergeRequestIntakeService
 from ai_sonar_bot.services.review.review_analysis_service import ReviewAnalysisService
 from ai_sonar_bot.services.review.review_context_builder import ReviewContextBuilder

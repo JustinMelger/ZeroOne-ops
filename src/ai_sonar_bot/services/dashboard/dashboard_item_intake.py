@@ -12,8 +12,10 @@ from ai_sonar_bot.models.config import AppConfig, GitLabConnectionConfig
 from ai_sonar_bot.models.dashboard import DashboardDocument, DashboardItem
 from ai_sonar_bot.models.state import AppState
 from ai_sonar_bot.providers.gitlab_client import GitLabClient
-from ai_sonar_bot.services.dashboard_item_selector import DashboardItemSelector
-from ai_sonar_bot.services.dashboard_service import DashboardService
+from ai_sonar_bot.services.dashboard.dashboard_item_selector import (
+    DashboardItemSelector,
+)
+from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
 from ai_sonar_bot.services.mr_service import MergeRequestService
 from ai_sonar_bot.services.remediation_exclusion_service import RemediationExclusionService
 from ai_sonar_bot.settings import SettingsError, load_gitlab_connection_config

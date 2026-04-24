@@ -4,7 +4,9 @@ from ai_sonar_bot.models.dashboard import (
     DashboardSection,
     empty_sections,
 )
-from ai_sonar_bot.services.dashboard_remediation_updater import DashboardRemediationUpdater
+from ai_sonar_bot.services.dashboard.dashboard_remediation_updater import (
+    DashboardRemediationUpdater,
+)
 
 
 def build_item(

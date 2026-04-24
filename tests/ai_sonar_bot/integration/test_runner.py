@@ -81,7 +81,7 @@ def test_dashboard_remediate_dry_run_returns_no_issue_summary(tmp_path: Path, mo
         encoding="utf-8",
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
         lambda self, project_id, state: type(
             "DashboardIntakeResult",
             (),
@@ -126,7 +126,7 @@ def test_dashboard_reconcile_dry_run_returns_no_issue_summary(tmp_path: Path, mo
         encoding="utf-8",
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
         lambda self, project_id: type(
             "DashboardReconciliationIntakeResult",
             (),
@@ -190,7 +190,7 @@ def test_dashboard_reconcile_dry_run_selects_mr_opened_item(
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
         lambda self, project_id: type(
             "DashboardReconciliationIntakeResult",
             (),
@@ -316,7 +316,7 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
         lambda self, project_id: type(
             "DashboardReconciliationIntakeResult",
             (),
@@ -381,7 +381,7 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
         fake_mark_done,
     )
 
@@ -456,7 +456,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/9",
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
         lambda self, project_id: type(
             "DashboardReconciliationIntakeResult",
             (),
@@ -524,7 +524,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
         fake_mark_done,
     )
 
@@ -585,7 +585,7 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
         lambda self, project_id: type(
             "DashboardReconciliationIntakeResult",
             (),
@@ -650,7 +650,7 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_open",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_open",
         fake_mark_open,
     )
 
@@ -712,7 +712,7 @@ def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
         retry_count=0,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
         lambda self, project_id: type(
             "DashboardReconciliationIntakeResult",
             (),
@@ -779,7 +779,7 @@ def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
         )()
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_open",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_open",
         fake_mark_open,
     )
 
@@ -841,7 +841,7 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
         retry_count=0,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
         lambda self, project_id: type(
             "DashboardReconciliationIntakeResult",
             (),
@@ -908,7 +908,7 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
         )()
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
         fake_mark_failed,
     )
 
@@ -967,7 +967,7 @@ def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
         lambda self, project_id: type(
             "DashboardReconciliationIntakeResult",
             (),
@@ -1060,7 +1060,7 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
         upstream_active=False,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
         lambda self, project_id: type(
             "DashboardReconciliationIntakeResult",
             (),
@@ -1125,7 +1125,7 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
         fake_mark_done,
     )
 
@@ -1183,7 +1183,7 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
         lambda self, project_id: type(
             "DashboardReconciliationIntakeResult",
             (),
@@ -1238,7 +1238,7 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
         lambda self, **kwargs: failing_get_merge_request_state(**kwargs),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
         fake_mark_failed,
     )
 
@@ -1316,7 +1316,7 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         upstream_active=False,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
         lambda self, project_id: type(
             "DashboardReconciliationIntakeResult",
             (),
@@ -1412,11 +1412,11 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
         fake_mark_failed,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
         fake_mark_done,
     )
 
@@ -1461,7 +1461,7 @@ def test_dashboard_remediate_live_run_requires_ci_mode(tmp_path: Path, monkeypat
         raise AssertionError("dashboard intake should not run for live local mode")
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
         unexpected_select_item,
     )
 
@@ -1518,7 +1518,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
         severity="LOW",
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
         lambda self, project_id, state: type(
             "DashboardIntakeResult",
             (),
@@ -1537,7 +1537,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        "ai_sonar_bot.services.dashboard.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
         lambda self, item: type(
             "NormalizationResult",
             (),
@@ -1631,11 +1631,11 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
         )()
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
         mark_in_progress,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_mr_opened",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_mr_opened",
         mark_mr_opened,
     )
     monkeypatch.setattr(
@@ -1715,7 +1715,7 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
         retry_eligible=True,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
         lambda self, project_id, state: type(
             "DashboardIntakeResult",
             (),
@@ -1809,11 +1809,11 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
         )()
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
         mark_in_progress,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_mr_opened",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_mr_opened",
         mark_mr_opened,
     )
 
@@ -1916,11 +1916,11 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
         return current_document
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_service.DashboardService.load_or_create",
+        "ai_sonar_bot.services.dashboard.dashboard_service.DashboardService.load_or_create",
         load_or_create,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_service.DashboardService.upsert_items",
+        "ai_sonar_bot.services.dashboard.dashboard_service.DashboardService.upsert_items",
         upsert_items,
     )
     monkeypatch.setattr(
@@ -1928,7 +1928,7 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
         lambda self, project_id, source_branch, target_branch: None,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        "ai_sonar_bot.services.dashboard.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
         lambda self, item: type(
             "NormalizationResult",
             (),
@@ -2180,11 +2180,11 @@ def test_dashboard_remediate_fails_when_mr_opened_update_cannot_persist(
         )()
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
         select_item,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        "ai_sonar_bot.services.dashboard.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
         normalize,
     )
     monkeypatch.setattr(
@@ -2192,11 +2192,11 @@ def test_dashboard_remediate_fails_when_mr_opened_update_cannot_persist(
         build_context,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
         mark_in_progress,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_mr_opened",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_mr_opened",
         mark_mr_opened,
     )
     monkeypatch.setattr(
@@ -2394,11 +2394,11 @@ def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
         )()
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
         select_item,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        "ai_sonar_bot.services.dashboard.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
         normalize,
     )
     monkeypatch.setattr(
@@ -2406,11 +2406,11 @@ def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
         build_context,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
         mark_in_progress,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
         mark_failed,
     )
     monkeypatch.setattr(
@@ -2595,11 +2595,11 @@ def test_dashboard_remediate_ci_failure_marks_dashboard_failed(
         )()
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
         select_item,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        "ai_sonar_bot.services.dashboard.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
         normalize,
     )
     monkeypatch.setattr(
@@ -2607,11 +2607,11 @@ def test_dashboard_remediate_ci_failure_marks_dashboard_failed(
         build_context,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
         mark_in_progress,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
         mark_failed,
     )
     monkeypatch.setattr(
@@ -2782,11 +2782,11 @@ def test_dashboard_remediate_ci_rejection_marks_dashboard_rejected(
         )()
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
         select_item,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        "ai_sonar_bot.services.dashboard.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
         normalize,
     )
     monkeypatch.setattr(
@@ -2794,11 +2794,11 @@ def test_dashboard_remediate_ci_rejection_marks_dashboard_rejected(
         build_context,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
         mark_in_progress,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_rejected",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_rejected",
         mark_rejected,
     )
     monkeypatch.setattr(
@@ -2960,11 +2960,11 @@ def test_dashboard_remediate_ci_manual_analysis_marks_dashboard_rejected(
         )
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
         select_item,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        "ai_sonar_bot.services.dashboard.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
         normalize,
     )
     monkeypatch.setattr(
@@ -2972,11 +2972,11 @@ def test_dashboard_remediate_ci_manual_analysis_marks_dashboard_rejected(
         build_context,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
         mark_in_progress,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_rejected",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_rejected",
         mark_rejected,
     )
     monkeypatch.setattr(
@@ -3147,11 +3147,11 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
         )()
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        "ai_sonar_bot.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
         select_item,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        "ai_sonar_bot.services.dashboard.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
         normalize,
     )
     monkeypatch.setattr(
@@ -3159,11 +3159,11 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
         build_context,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_in_progress",
         mark_in_progress,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
+        "ai_sonar_bot.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
         mark_failed,
     )
     monkeypatch.setattr(

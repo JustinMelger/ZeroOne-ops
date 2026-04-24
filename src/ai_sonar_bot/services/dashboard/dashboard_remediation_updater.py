@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from ai_sonar_bot.models.dashboard import DashboardDocument, DashboardItem
-from ai_sonar_bot.services.dashboard_service import DashboardService
+from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
 
 
 @dataclass(frozen=True)

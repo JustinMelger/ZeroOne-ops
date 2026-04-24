@@ -1,8 +1,11 @@
 from datetime import UTC, datetime
 
 from ai_sonar_bot.models.dashboard import DashboardItem, DashboardSection
-from ai_sonar_bot.services.dashboard_parser import DashboardParseError, DashboardParser
-from ai_sonar_bot.services.dashboard_renderer import DashboardRenderer
+from ai_sonar_bot.services.dashboard.dashboard_parser import (
+    DashboardParseError,
+    DashboardParser,
+)
+from ai_sonar_bot.services.dashboard.dashboard_renderer import DashboardRenderer
 
 
 def build_item(*, item_id: str, status: str = "open") -> DashboardItem:

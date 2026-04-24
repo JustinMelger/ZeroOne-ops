@@ -6,10 +6,16 @@ from pathlib import Path
 
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.state import AppState, FailureDetails, FailureStage, RunRecord
-from ai_sonar_bot.services.dashboard_item_intake import DashboardItemIntakeService
-from ai_sonar_bot.services.dashboard_item_normalizer import DashboardItemNormalizer
-from ai_sonar_bot.services.dashboard_remediation_updater import DashboardRemediationUpdater
-from ai_sonar_bot.services.dashboard_service import DashboardService
+from ai_sonar_bot.services.dashboard.dashboard_item_intake import (
+    DashboardItemIntakeService,
+)
+from ai_sonar_bot.services.dashboard.dashboard_item_normalizer import (
+    DashboardItemNormalizer,
+)
+from ai_sonar_bot.services.dashboard.dashboard_remediation_updater import (
+    DashboardRemediationUpdater,
+)
+from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
 from ai_sonar_bot.services.execution_service import ExecutionService
 from ai_sonar_bot.services.remediation_context_builder import RemediationContextBuilder
 from ai_sonar_bot.services.remediation_execution_adapter import (

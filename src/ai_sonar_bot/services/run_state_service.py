@@ -16,7 +16,9 @@ from ai_sonar_bot.models.state import (
     RunStatus,
     utc_now,
 )
-from ai_sonar_bot.services.dashboard_run_state_service import DashboardRunStateService
+from ai_sonar_bot.services.dashboard.dashboard_run_state_service import (
+    DashboardRunStateService,
+)
 from ai_sonar_bot.services.run_summary_builder import RunSummary, RunSummaryBuilder
 from ai_sonar_bot.services.state_store import StateStore
 

@@ -2,7 +2,9 @@ from pathlib import Path
 
 from ai_sonar_bot.models.dashboard import DashboardItem
 from ai_sonar_bot.models.state import AppState, DashboardItemState, RepositoryState
-from ai_sonar_bot.services.dashboard_item_selector import DashboardItemSelector
+from ai_sonar_bot.services.dashboard.dashboard_item_selector import (
+    DashboardItemSelector,
+)
 
 
 def build_item(

@@ -12,13 +12,13 @@ from pathlib import Path
 from ai_sonar_bot.models.state import RemediationExclusionState, RunStatus
 from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
-from ai_sonar_bot.services.dashboard_reconciliation_runner import (
+from ai_sonar_bot.services.dashboard.dashboard_reconciliation_runner import (
     DashboardReconciliationRunner,
 )
-from ai_sonar_bot.services.dashboard_remediation_runner import (
+from ai_sonar_bot.services.dashboard.dashboard_remediation_runner import (
     DashboardRemediationRunner,
 )
-from ai_sonar_bot.services.dashboard_service import DashboardService
+from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
 from ai_sonar_bot.services.issue_intake import IssueIntakeService
 from ai_sonar_bot.services.remediation_exclusion_service import RemediationExclusionService
 from ai_sonar_bot.services.review.review_runner import ReviewRunner

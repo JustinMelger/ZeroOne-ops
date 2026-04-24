@@ -22,7 +22,9 @@ from ai_sonar_bot.models.state import (
     RemediationExclusionState,
     RepositoryState,
 )
-from ai_sonar_bot.services.dashboard_item_intake import DashboardItemIntakeService
+from ai_sonar_bot.services.dashboard.dashboard_item_intake import (
+    DashboardItemIntakeService,
+)
 
 
 def build_item(

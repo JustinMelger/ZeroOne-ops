@@ -1,5 +1,7 @@
 from ai_sonar_bot.models.dashboard import DashboardItem
-from ai_sonar_bot.services.dashboard_item_normalizer import DashboardItemNormalizer
+from ai_sonar_bot.services.dashboard.dashboard_item_normalizer import (
+    DashboardItemNormalizer,
+)
 
 
 def build_item(

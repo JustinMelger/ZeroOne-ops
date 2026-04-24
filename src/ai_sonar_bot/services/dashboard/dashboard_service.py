@@ -11,8 +11,8 @@ from ai_sonar_bot.models.dashboard import (
     section_key_for_item,
 )
 from ai_sonar_bot.providers.gitlab_dashboard_client import GitLabDashboardClient
-from ai_sonar_bot.services.dashboard_parser import DashboardParser
-from ai_sonar_bot.services.dashboard_renderer import DashboardRenderer
+from ai_sonar_bot.services.dashboard.dashboard_parser import DashboardParser
+from ai_sonar_bot.services.dashboard.dashboard_renderer import DashboardRenderer
 
 DEFAULT_SECTION_ITEM_LIMITS: dict[DashboardSectionKey, int] = {
     "open_candidates": 50,

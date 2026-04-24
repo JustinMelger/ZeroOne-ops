@@ -6,14 +6,16 @@ from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.dashboard import DashboardItem
 from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunRecord, RunStatus, utc_now
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
-from ai_sonar_bot.services.dashboard_reconciliation_intake import (
+from ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake import (
     DashboardReconciliationIntakeService,
 )
-from ai_sonar_bot.services.dashboard_reconciliation_service import (
+from ai_sonar_bot.services.dashboard.dashboard_reconciliation_service import (
     DashboardReconciliationService,
 )
-from ai_sonar_bot.services.dashboard_remediation_updater import DashboardRemediationUpdater
-from ai_sonar_bot.services.dashboard_service import DashboardService
+from ai_sonar_bot.services.dashboard.dashboard_remediation_updater import (
+    DashboardRemediationUpdater,
+)
+from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
 from ai_sonar_bot.services.run_state_service import RunStateService, RunSummary
 
 

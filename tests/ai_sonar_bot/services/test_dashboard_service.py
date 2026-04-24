@@ -1,6 +1,6 @@
 from ai_sonar_bot.models.dashboard import DashboardItem
 from ai_sonar_bot.models.gitlab import GitLabIssueInfo
-from ai_sonar_bot.services.dashboard_service import DashboardService
+from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
 
 
 def build_item(

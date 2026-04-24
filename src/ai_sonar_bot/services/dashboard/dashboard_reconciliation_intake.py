@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import dataclass
 
 from ai_sonar_bot.models.dashboard import DashboardDocument, DashboardItem
-from ai_sonar_bot.services.dashboard_service import DashboardService
+from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
 
 _SKIP_REASON_MESSAGES = {
     "missing_branch_name": "without a stored branch name",

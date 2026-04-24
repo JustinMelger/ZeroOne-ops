@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 
 from ai_sonar_bot.models.dashboard import DashboardItem
 from ai_sonar_bot.models.review import MergeRequestReviewCandidate, ReviewResult
-from ai_sonar_bot.services.dashboard_service import DashboardService
+from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
 
 LOGGER = logging.getLogger(__name__)
 

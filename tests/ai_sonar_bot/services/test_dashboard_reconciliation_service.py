@@ -1,7 +1,7 @@
 from ai_sonar_bot.models.dashboard import DashboardItem
 from ai_sonar_bot.models.gitlab import GitLabMergeRequestState
 from ai_sonar_bot.providers.gitlab_client import GitLabClientError
-from ai_sonar_bot.services.dashboard_reconciliation_service import (
+from ai_sonar_bot.services.dashboard.dashboard_reconciliation_service import (
     DashboardReconciliationService,
     merge_request_iid_from_url,
 )

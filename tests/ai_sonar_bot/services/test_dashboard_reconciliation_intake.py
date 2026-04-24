@@ -4,7 +4,7 @@ from ai_sonar_bot.models.dashboard import (
     DashboardSection,
     empty_sections,
 )
-from ai_sonar_bot.services.dashboard_reconciliation_intake import (
+from ai_sonar_bot.services.dashboard.dashboard_reconciliation_intake import (
     DashboardReconciliationIntakeService,
 )
 
