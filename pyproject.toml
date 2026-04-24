@@ -1,7 +1,7 @@
 [project]
-name = "ai-sonar-bot"
+name = "zeroone-ops"
 version = "0.27.6"
-description = "AI bot that creates GitLab merge requests from SonarQube issues."
+description = "ZeroOne Ops automates GitLab review and remediation workflows."
 readme = "README.md"
 requires-python = "==3.13.*"
 dependencies = [
@@ -25,6 +25,7 @@ dev = [
 ]
 
 [project.scripts]
+zeroone-ops = "ai_sonar_bot.cli:main"
 ai-sonar-bot = "ai_sonar_bot.cli:main"
 
 [build-system]

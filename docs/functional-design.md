@@ -1,4 +1,4 @@
-# AI Sonar Bot Functional Design
+# ZeroOne Ops Functional Design
 
 ## 1. Purpose
 
@@ -427,7 +427,7 @@ This keeps the first version controlled and easier to debug.
 One practical structure for implementation:
 
 ```text
-ai-sonar-bot/
+zeroone-ops/
   docs/
     functional-design.md
   src/
@@ -444,7 +444,7 @@ ai-sonar-bot/
   examples/
     .env.example
     .gitlab-ci.example.yml
-    .ai-sonar-bot.json
+    .zeroone-ops.json
   README.md
 ```
 

@@ -8,8 +8,8 @@ stages:
     entrypoint: [""]
   interruptible: false
   variables:
-    AI_SONAR_BOT_EXECUTION_MODE: "ci"
-    AI_SONAR_BOT_CONFIG: ".ai-sonar-bot.json"
+    ZEROONE_OPS_EXECUTION_MODE: "ci"
+    ZEROONE_OPS_CONFIG: ".zeroone-ops.json"
     GIT_STRATEGY: clone
     GIT_DEPTH: "0"
     GITLAB_URL: "https://${CI_SERVER_HOST}"
@@ -37,7 +37,7 @@ zeroone_ops_dashboard:
     # SONARQUBE_PROJECT_KEY
     # GITLAB_TOKEN
   script:
-    - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard sonar
+    - uv run --project /opt/zeroone-ops zeroone-ops dashboard sonar
 
 # Dashboard-backed remediation workflow.
 # Keep this separate from discovery, but run it after dashboard sync in the
@@ -71,7 +71,7 @@ zeroone_ops_dashboard_remediate:
       git remote set-url origin
       "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
   script:
-    - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard remediate
+    - uv run --project /opt/zeroone-ops zeroone-ops dashboard remediate
 
 # Dashboard reconciliation workflow.
 # Keep this as a separate later lifecycle job rather than chaining it directly
@@ -89,7 +89,7 @@ zeroone_ops_dashboard_reconcile:
     # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
   script:
-    - uv run --project /opt/ai-sonar-bot ai-sonar-bot dashboard reconcile
+    - uv run --project /opt/zeroone-ops zeroone-ops dashboard reconcile
 
 # Merge request review workflow.
 # Prefer the merge_request_event manual trigger for the first smoke test so the
@@ -105,4 +105,4 @@ zeroone_ops_review:
       when: manual
     - when: never
   script:
-    - uv run --project /opt/ai-sonar-bot ai-sonar-bot review
+    - uv run --project /opt/zeroone-ops zeroone-ops review

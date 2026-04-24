@@ -16,7 +16,7 @@ from ai_sonar_bot.services.state_store import StateStore
 
 
 def test_state_store_round_trip(tmp_path: Path) -> None:
-    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    state_path = tmp_path / ".zeroone-ops-state.json"
     store = StateStore(
         state_path,
         base_branch="main",
@@ -59,7 +59,7 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
     initial.dashboard_items["sonar:1"] = DashboardItemState(
         status="in_progress",
         last_run_id="run-3",
-        branch_name="ai-sonar/sonar-1",
+        branch_name="zeroone-ops/sonar-1",
     )
     initial.reviews["17:abc123"] = MergeRequestReviewState(
         mr_iid=17,
@@ -105,7 +105,7 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
     )
     assert loaded.dashboard_items["sonar:1"].status == "in_progress"
     assert loaded.dashboard_items["sonar:1"].last_run_id == "run-3"
-    assert loaded.dashboard_items["sonar:1"].branch_name == "ai-sonar/sonar-1"
+    assert loaded.dashboard_items["sonar:1"].branch_name == "zeroone-ops/sonar-1"
     assert loaded.reviews["17:abc123"].mr_iid == 17
     assert loaded.reviews["17:abc123"].head_sha == "abc123"
     assert loaded.reviews["17:abc123"].status == "findings_present"

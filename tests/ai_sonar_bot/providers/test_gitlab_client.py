@@ -37,7 +37,7 @@ def test_create_merge_request_normalizes_response() -> None:
 
     mr = client.create_merge_request(
         project_id="123",
-        source_branch="ai-sonar/ax-1/service",
+        source_branch="zeroone-ops/ax-1/service",
         target_branch="main",
         title="fix: patch service",
         description="summary",
@@ -64,7 +64,7 @@ def test_find_open_merge_request_returns_none_for_empty_result() -> None:
 
     mr = client.find_open_merge_request(
         project_id="123",
-        source_branch="ai-sonar/ax-1/service",
+        source_branch="zeroone-ops/ax-1/service",
         target_branch="main",
     )
 
@@ -96,7 +96,7 @@ def test_find_open_merge_request_normalizes_existing_merge_request() -> None:
 
     mr = client.find_open_merge_request(
         project_id="123",
-        source_branch="ai-sonar/ax-1/service",
+        source_branch="zeroone-ops/ax-1/service",
         target_branch="main",
     )
 

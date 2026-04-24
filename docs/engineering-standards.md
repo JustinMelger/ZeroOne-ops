@@ -1,6 +1,6 @@
 ## Engineering Standards
 
-This document defines the coding standards for AI Sonar Bot v1. The goal is to keep the codebase easy to reason about while the implementation grows from scaffold to production workflow.
+This document defines the coding standards for ZeroOne Ops v1. The goal is to keep the codebase easy to reason about while the implementation grows from scaffold to production workflow.
 
 ## 1. Core Principles
 

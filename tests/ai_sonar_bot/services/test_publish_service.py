@@ -38,7 +38,7 @@ def build_issue() -> RemediationExecutionTarget:
 class StubBranchManager:
     def push_current_branch(self, *, remote_name: str = "origin") -> str:
         del remote_name
-        return "ai-sonar/fix"
+        return "zeroone-ops/fix"
 
 
 def test_publish_service_builds_deterministic_description() -> None:

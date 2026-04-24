@@ -31,7 +31,7 @@ def build_state() -> AppState:
 
 
 def test_mark_selected_updates_issue_state(tmp_path: Path) -> None:
-    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    state_path = tmp_path / ".zeroone-ops-state.json"
     config = build_config(state_path)
     store = StateStore(
         state_path,
@@ -52,7 +52,7 @@ def test_mark_selected_updates_issue_state(tmp_path: Path) -> None:
 
 
 def test_fail_issue_persists_structured_failure(tmp_path: Path) -> None:
-    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    state_path = tmp_path / ".zeroone-ops-state.json"
     config = build_config(state_path)
     store = StateStore(
         state_path,
@@ -63,7 +63,7 @@ def test_fail_issue_persists_structured_failure(tmp_path: Path) -> None:
     service = RunStateService(config=config, state_store=store, state=build_state())
 
     record = service.start_run("run-1")
-    record.branch_name = "ai-sonar/fix"
+    record.branch_name = "zeroone-ops/fix"
     failure = FailureDetails(
         stage=FailureStage.VALIDATION,
         message="Validation failed: pytest (exit code 1).",
@@ -90,7 +90,7 @@ def test_fail_issue_persists_structured_failure(tmp_path: Path) -> None:
 
 
 def test_build_summary_includes_merge_request_action(tmp_path: Path) -> None:
-    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    state_path = tmp_path / ".zeroone-ops-state.json"
     config = build_config(state_path)
     store = StateStore(
         state_path,
@@ -115,7 +115,7 @@ def test_build_summary_includes_merge_request_action(tmp_path: Path) -> None:
 
 
 def test_reject_issue_persists_rejected_status(tmp_path: Path) -> None:
-    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    state_path = tmp_path / ".zeroone-ops-state.json"
     config = build_config(state_path)
     store = StateStore(
         state_path,
@@ -130,18 +130,18 @@ def test_reject_issue_persists_rejected_status(tmp_path: Path) -> None:
         record=record,
         issue_key="ISSUE-1",
         attempt_count=1,
-        branch_name="ai-sonar/fix",
+        branch_name="zeroone-ops/fix",
         message="Local approval rejected the proposed change.",
     )
 
     loaded = store.load()
     assert summary.status == RunStatus.REJECTED
     assert loaded.issues["ISSUE-1"].status == "rejected"
-    assert loaded.issues["ISSUE-1"].branch_name == "ai-sonar/fix"
+    assert loaded.issues["ISSUE-1"].branch_name == "zeroone-ops/fix"
 
 
 def test_mark_dashboard_selected_updates_dashboard_item_state(tmp_path: Path) -> None:
-    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    state_path = tmp_path / ".zeroone-ops-state.json"
     config = build_config(state_path)
     store = StateStore(
         state_path,
@@ -162,7 +162,7 @@ def test_mark_dashboard_selected_updates_dashboard_item_state(tmp_path: Path) ->
 
 
 def test_mark_dashboard_mr_created_persists_dashboard_item_state(tmp_path: Path) -> None:
-    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    state_path = tmp_path / ".zeroone-ops-state.json"
     config = build_config(state_path)
     store = StateStore(
         state_path,
@@ -176,14 +176,14 @@ def test_mark_dashboard_mr_created_persists_dashboard_item_state(tmp_path: Path)
     service.dashboard.mark_mr_created(
         record=record,
         dashboard_item_id="sonar:1",
-        branch_name="ai-sonar/ax123/service",
+        branch_name="zeroone-ops/ax123/service",
         mr_url="https://gitlab.example.com/group/project/-/merge_requests/1",
     )
     service.dashboard.finish_success()
 
     loaded = store.load()
     assert loaded.dashboard_items["sonar:1"].status == "mr_created"
-    assert loaded.dashboard_items["sonar:1"].branch_name == "ai-sonar/ax123/service"
+    assert loaded.dashboard_items["sonar:1"].branch_name == "zeroone-ops/ax123/service"
     assert (
         loaded.dashboard_items["sonar:1"].mr_url
         == "https://gitlab.example.com/group/project/-/merge_requests/1"
@@ -191,7 +191,7 @@ def test_mark_dashboard_mr_created_persists_dashboard_item_state(tmp_path: Path)
 
 
 def test_mark_dashboard_done_persists_completed_dashboard_item_state(tmp_path: Path) -> None:
-    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    state_path = tmp_path / ".zeroone-ops-state.json"
     config = build_config(state_path)
     store = StateStore(
         state_path,
@@ -205,7 +205,7 @@ def test_mark_dashboard_done_persists_completed_dashboard_item_state(tmp_path: P
     service.dashboard.mark_done(
         record=record,
         dashboard_item_id="sonar:1",
-        branch_name="ai-sonar/ax123/service",
+        branch_name="zeroone-ops/ax123/service",
         commit_sha="abc123",
         mr_url="https://gitlab.example.com/group/project/-/merge_requests/1",
     )
@@ -214,7 +214,7 @@ def test_mark_dashboard_done_persists_completed_dashboard_item_state(tmp_path: P
     loaded = store.load()
     assert loaded.active_dashboard_item_id is None
     assert loaded.dashboard_items["sonar:1"].status == "done"
-    assert loaded.dashboard_items["sonar:1"].branch_name == "ai-sonar/ax123/service"
+    assert loaded.dashboard_items["sonar:1"].branch_name == "zeroone-ops/ax123/service"
     assert loaded.dashboard_items["sonar:1"].commit_sha == "abc123"
     assert (
         loaded.dashboard_items["sonar:1"].mr_url
@@ -223,7 +223,7 @@ def test_mark_dashboard_done_persists_completed_dashboard_item_state(tmp_path: P
 
 
 def test_mark_dashboard_reopened_persists_open_dashboard_item_state(tmp_path: Path) -> None:
-    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    state_path = tmp_path / ".zeroone-ops-state.json"
     config = build_config(state_path)
     store = StateStore(
         state_path,
@@ -237,7 +237,7 @@ def test_mark_dashboard_reopened_persists_open_dashboard_item_state(tmp_path: Pa
     service.dashboard.mark_reopened(
         record=record,
         dashboard_item_id="sonar:1",
-        branch_name="ai-sonar/ax123/service",
+        branch_name="zeroone-ops/ax123/service",
         commit_sha="abc123",
         mr_url="https://gitlab.example.com/group/project/-/merge_requests/1",
     )
@@ -246,12 +246,12 @@ def test_mark_dashboard_reopened_persists_open_dashboard_item_state(tmp_path: Pa
     loaded = store.load()
     assert loaded.active_dashboard_item_id is None
     assert loaded.dashboard_items["sonar:1"].status == "open"
-    assert loaded.dashboard_items["sonar:1"].branch_name == "ai-sonar/ax123/service"
+    assert loaded.dashboard_items["sonar:1"].branch_name == "zeroone-ops/ax123/service"
     assert loaded.dashboard_items["sonar:1"].commit_sha == "abc123"
 
 
 def test_fail_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -> None:
-    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    state_path = tmp_path / ".zeroone-ops-state.json"
     config = build_config(state_path)
     store = StateStore(
         state_path,
@@ -262,7 +262,7 @@ def test_fail_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -
     service = RunStateService(config=config, state_store=store, state=build_state())
 
     record = service.start_run("run-1")
-    record.branch_name = "ai-sonar/ax123/service"
+    record.branch_name = "zeroone-ops/ax123/service"
     record.commit_sha = "abc123"
     record.mr_url = "https://gitlab.example.com/group/project/-/merge_requests/1"
     summary = service.dashboard.fail_item(
@@ -276,13 +276,13 @@ def test_fail_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -
     )
 
     assert summary.dashboard_item_id == "sonar:1"
-    assert summary.branch_name == "ai-sonar/ax123/service"
+    assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha == "abc123"
     assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
 
 
 def test_reject_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -> None:
-    state_path = tmp_path / ".ai-sonar-bot-state.json"
+    state_path = tmp_path / ".zeroone-ops-state.json"
     config = build_config(state_path)
     store = StateStore(
         state_path,
@@ -298,11 +298,11 @@ def test_reject_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path)
     summary = service.dashboard.reject_item(
         record=record,
         dashboard_item_id="sonar:1",
-        branch_name="ai-sonar/ax123/service",
+        branch_name="zeroone-ops/ax123/service",
         message="Local approval rejected the proposed change.",
     )
 
     assert summary.dashboard_item_id == "sonar:1"
-    assert summary.branch_name == "ai-sonar/ax123/service"
+    assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha == "abc123"
     assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"

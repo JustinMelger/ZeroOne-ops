@@ -195,7 +195,9 @@ def test_build_analysis_prompt_uses_prompt_template() -> None:
 
     assert "Issue key: AX1" in prompt
     assert "Constraints: Keep the fix local to this function." in prompt
-    assert "This workflow only supports low-risk single-file fixes." in prompt
+    assert "This workflow supports low-risk fixes that stay within one file." in prompt
+    assert "Small coordinated edits inside that file are allowed" in prompt
+    assert "an import plus a type hint" in prompt
     assert "Code snippet:\ndef bad_name():\n    return 1\n" in prompt
 
 
@@ -275,9 +277,14 @@ def test_build_structured_edit_prompt_uses_prompt_template() -> None:
 
     prompt = build_structured_edit_prompt(issue, context)
 
-    assert "Generate a minimal exact text edit" in prompt
+    assert "Generate a minimal exact text edit plan" in prompt
     assert "Constraints: Keep the fix local to this function." in prompt
-    assert "Return exactly one edit for one repository-relative file." in prompt
+    assert "Return one or more exact edits for a single repository-relative file." in prompt
+    assert (
+        "Use multiple edits only when they are tightly coupled parts of the same local fix."
+        in prompt
+    )
+    assert "Good same-file multi-edit examples:" in prompt
     assert "File path: src/service.py" in prompt
 
 
@@ -524,7 +531,7 @@ def test_build_review_prompt_includes_remediation_context_when_present() -> None
         mr_iid=17,
         title="fix: add null guard",
         description="Bot-authored remediation merge request.",
-        source_branch="ai-sonar/AX123",
+        source_branch="zeroone-ops/AX123",
         target_branch="main",
         web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
         head_sha="abc123",

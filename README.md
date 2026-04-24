@@ -8,11 +8,7 @@ Naming note:
 
 - product brand: `ZeroOne Ops`
 - technical release and image slug: `zeroone-ops`
-- temporary runtime compatibility name: `ai-sonar-bot`
-
-The current runtime still uses the compatibility name `ai-sonar-bot` for the
-CLI, package path, config filename, and some filesystem paths while the
-rebrand is rolled out in phases.
+- legacy compatibility aliases still work for config and environment variables during the transition, but operator-facing examples now use the `ZeroOne Ops` names everywhere.
 
 ## Current Scope
 
@@ -33,9 +29,9 @@ expansion.
 
 ```bash
 uv sync
-uv run ai-sonar-bot dashboard sonar --dry-run
-uv run ai-sonar-bot dashboard remediate --dry-run
-uv run ai-sonar-bot review --dry-run
+uv run zeroone-ops dashboard sonar --dry-run
+uv run zeroone-ops dashboard remediate --dry-run
+uv run zeroone-ops review --dry-run
 ```
 
 Useful quality commands:
@@ -82,14 +78,14 @@ Included fixtures:
 - [samples/auto_fixable_example.py](samples/auto_fixable_example.py)
 
 The repository's current default config file is
-[.ai-sonar-bot.json](.ai-sonar-bot.json).
+[.zeroone-ops.json](.zeroone-ops.json).
 Copyable operator examples now live in [examples/](examples/), including:
 
-- [examples/.ai-sonar-bot.json](examples/.ai-sonar-bot.json)
+- [examples/.zeroone-ops.json](examples/.zeroone-ops.json)
 - [examples/.env.example](examples/.env.example)
 - [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml)
 
-Use the root [.ai-sonar-bot.json](.ai-sonar-bot.json) as the repository's live
+Use the root [.zeroone-ops.json](.zeroone-ops.json) as the repository's live
 runtime config, and use the files in [examples/](examples/) as copyable
 templates when wiring the bot into another repository.
 
@@ -136,7 +132,7 @@ docker run --rm \
   zeroone-ops:latest
 ```
 
-The image keeps the installed bot in `/opt/ai-sonar-bot` and uses `/workspace`
+The image keeps the installed bot in `/opt/zeroone-ops` and uses `/workspace`
 as the repository root, so mounting another repository does not hide the bot's
 virtual environment.
 

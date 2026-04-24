@@ -26,7 +26,7 @@ def test_settings_load_environment_from_dotenv(tmp_path: Path, monkeypatch) -> N
         ),
         encoding="utf-8",
     )
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -51,9 +51,9 @@ def test_settings_load_environment_from_dotenv(tmp_path: Path, monkeypatch) -> N
 
 def test_settings_allow_execution_mode_override(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_EXECUTION_MODE", "local")
+    monkeypatch.setenv("ZEROONE_OPS_EXECUTION_MODE", "local")
 
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "execution_mode": "ci",
@@ -87,9 +87,9 @@ def test_gitlab_settings_fall_back_to_ci_project_id(tmp_path: Path, monkeypatch)
 
 def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_WRITE_SOLUTION_ARTIFACTS_IN_CI", "true")
+    monkeypatch.setenv("ZEROONE_OPS_WRITE_SOLUTION_ARTIFACTS_IN_CI", "true")
 
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "execution_mode": "ci",
@@ -112,7 +112,7 @@ def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatc
 def test_settings_load_helper_following_review_config(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
 
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -150,3 +150,63 @@ def test_settings_load_runner_state_metadata_overrides(tmp_path: Path, monkeypat
 
     assert load_gitlab_project_id_override() == "123"
     assert load_sonarqube_project_key_override() == "project-key"
+
+
+def test_settings_fall_back_to_legacy_config_names(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ZEROONE_OPS_CONFIG", raising=False)
+    monkeypatch.delenv("AI_SONAR_BOT_CONFIG", raising=False)
+    monkeypatch.delenv("ZEROONE_OPS_EXECUTION_MODE", raising=False)
+    monkeypatch.setenv("AI_SONAR_BOT_EXECUTION_MODE", "local")
+
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "execution_mode": "ci",
+          "base_branch": "main",
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.execution_mode == "local"
+    assert config.base_branch == "main"
+
+
+def test_settings_prefer_zeroone_ops_config_when_both_exist(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "legacy",
+          "gitlab": {
+            "target_branch": "legacy",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.base_branch == "main"

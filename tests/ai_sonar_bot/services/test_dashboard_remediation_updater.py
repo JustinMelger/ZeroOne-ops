@@ -180,7 +180,7 @@ def test_mark_mr_opened_writes_traceability_fields() -> None:
         project_id="123",
         dashboard_item_id="sonar:1",
         run_id="run-1",
-        branch_name="ai-sonar/ax123/service",
+        branch_name="zeroone-ops/ax123/service",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/1",
         merge_request_iid=1,
         commit_sha="abc123",
@@ -189,7 +189,7 @@ def test_mark_mr_opened_writes_traceability_fields() -> None:
     assert result.error_message is None
     assert result.updated_item is not None
     assert result.updated_item.status == "mr_opened"
-    assert result.updated_item.branch_name == "ai-sonar/ax123/service"
+    assert result.updated_item.branch_name == "zeroone-ops/ax123/service"
     assert result.updated_item.merge_request_url is not None
     assert result.updated_item.merge_request_iid == 1
     assert result.updated_item.commit_sha == "abc123"
@@ -200,7 +200,7 @@ def test_mark_failed_preserves_existing_metadata_and_records_error_context() -> 
         build_document(
             items=[
                 build_item(status="in_progress").model_copy(
-                    update={"branch_name": "ai-sonar/ax123/service"}
+                    update={"branch_name": "zeroone-ops/ax123/service"}
                 )
             ]
         )
@@ -218,7 +218,7 @@ def test_mark_failed_preserves_existing_metadata_and_records_error_context() -> 
     assert result.updated_item is not None
     assert result.updated_item.status == "failed"
     assert result.updated_item.last_run_id == "run-2"
-    assert result.updated_item.branch_name == "ai-sonar/ax123/service"
+    assert result.updated_item.branch_name == "zeroone-ops/ax123/service"
     assert result.updated_item.log_excerpt == "Validation failed."
 
 
@@ -228,7 +228,7 @@ def test_mark_done_moves_item_to_completed_and_preserves_traceability() -> None:
             items=[
                 build_item(status="mr_opened").model_copy(
                     update={
-                        "branch_name": "ai-sonar/ax123/service",
+                        "branch_name": "zeroone-ops/ax123/service",
                         "merge_request_url": (
                             "https://gitlab.example.com/group/project/-/merge_requests/1"
                         ),
@@ -251,7 +251,7 @@ def test_mark_done_moves_item_to_completed_and_preserves_traceability() -> None:
     assert result.updated_item is not None
     assert result.updated_item.status == "done"
     assert result.updated_item.last_run_id == "run-3"
-    assert result.updated_item.branch_name == "ai-sonar/ax123/service"
+    assert result.updated_item.branch_name == "zeroone-ops/ax123/service"
     assert (
         result.updated_item.merge_request_url
         == "https://gitlab.example.com/group/project/-/merge_requests/1"
@@ -266,7 +266,7 @@ def test_mark_open_reopens_item_and_clears_merge_request_linkage() -> None:
             items=[
                 build_item(status="mr_opened").model_copy(
                     update={
-                        "branch_name": "ai-sonar/ax123/service",
+                        "branch_name": "zeroone-ops/ax123/service",
                         "merge_request_url": (
                             "https://gitlab.example.com/group/project/-/merge_requests/1"
                         ),
@@ -289,7 +289,7 @@ def test_mark_open_reopens_item_and_clears_merge_request_linkage() -> None:
     assert result.updated_item is not None
     assert result.updated_item.status == "open"
     assert result.updated_item.last_run_id == "run-4"
-    assert result.updated_item.branch_name == "ai-sonar/ax123/service"
+    assert result.updated_item.branch_name == "zeroone-ops/ax123/service"
     assert result.updated_item.merge_request_url is None
     assert result.updated_item.merge_request_iid is None
     assert result.updated_item.commit_sha == "abc123"
@@ -302,7 +302,7 @@ def test_reconciliation_updates_preserve_existing_remediation_metadata() -> None
             items=[
                 build_item(status="mr_opened").model_copy(
                     update={
-                        "branch_name": "ai-sonar/ax123/service",
+                        "branch_name": "zeroone-ops/ax123/service",
                         "merge_request_url": (
                             "https://gitlab.example.com/group/project/-/merge_requests/1"
                         ),
@@ -341,7 +341,7 @@ def test_replayed_transition_for_same_run_is_idempotent() -> None:
     existing_item = build_item(status="mr_opened").model_copy(
         update={
             "last_run_id": "run-1",
-            "branch_name": "ai-sonar/ax123/service",
+            "branch_name": "zeroone-ops/ax123/service",
             "merge_request_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
             "merge_request_iid": 1,
             "commit_sha": "abc123",
@@ -354,7 +354,7 @@ def test_replayed_transition_for_same_run_is_idempotent() -> None:
         project_id="123",
         dashboard_item_id="sonar:1",
         run_id="run-1",
-        branch_name="ai-sonar/ax123/service",
+        branch_name="zeroone-ops/ax123/service",
         merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/1",
         merge_request_iid=1,
         commit_sha="abc123",

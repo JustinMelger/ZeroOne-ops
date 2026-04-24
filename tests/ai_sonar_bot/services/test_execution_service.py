@@ -53,7 +53,7 @@ def build_patch() -> PatchProposal:
 
 def fake_branch_name(*, branch_prefix: str, issue_key: str, file_path: str) -> str:
     del branch_prefix, issue_key, file_path
-    return "ai-sonar/fix"
+    return "zeroone-ops/fix"
 
 
 def fake_create_branch(branch_name: str) -> None:
@@ -86,7 +86,7 @@ def fake_analysis_result(
 def fake_publish_reused(**kwargs) -> PublishResult:
     del kwargs
     return PublishResult(
-        branch_name="ai-sonar/fix",
+        branch_name="zeroone-ops/fix",
         mr_url="https://gitlab.example.com/group/project/-/merge_requests/9",
         mr_action="reused",
     )
@@ -181,7 +181,7 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
     assert result.failure is not None
     assert result.failure.stage.value == "commit"
     assert result.status_message == "Commit failed: git commit failed"
-    assert result.branch_name == "ai-sonar/fix"
+    assert result.branch_name == "zeroone-ops/fix"
     assert result.commit_sha is None
     assert target_file.read_text(encoding="utf-8") == "value = 1\n"
 
@@ -208,7 +208,7 @@ def test_execute_reuses_existing_merge_request_in_ci_mode(tmp_path: Path, monkey
     result = service.execute(selected_issue=build_issue(), dry_run=False)
 
     assert result.failure is None
-    assert result.branch_name == "ai-sonar/fix"
+    assert result.branch_name == "zeroone-ops/fix"
     assert result.commit_sha == "abc123"
     assert result.mr_action == "reused"
     assert result.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/9"
@@ -239,7 +239,7 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
     )
 
     def fake_push_current_branch() -> str:
-        return "ai-sonar/fix"
+        return "zeroone-ops/fix"
 
     monkeypatch.setattr(service.branch_manager, "push_current_branch", fake_push_current_branch)
     monkeypatch.setattr(

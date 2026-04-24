@@ -4,7 +4,7 @@
 
 Repeated-review continuity currently depends on locally persisted review state.
 That works in tests and local development, but it does not hold up in CI, where
-pipeline jobs do not reliably retain `.ai-sonar-bot-state.json` between runs.
+pipeline jobs do not reliably retain `.zeroone-ops-state.json` between runs.
 
 This design moves the primary continuity source to GitLab merge request review
 notes, so follow-up review context can be rebuilt from the MR itself.

@@ -7,11 +7,9 @@ Naming note:
 
 - product brand: `ZeroOne Ops`
 - technical release and image slug: `zeroone-ops`
-- temporary runtime compatibility name: `ai-sonar-bot`
+- operator-facing commands, config examples, and container paths now use the `zeroone-ops` names
 
-The repository runtime still uses the compatibility name `ai-sonar-bot` in the
-CLI, package path, config filename, and some filesystem paths while the
-rebrand is rolled out in phases.
+Legacy compatibility aliases still work under the hood, but operator-facing setup now uses the `ZeroOne Ops` names throughout.
 
 ## Purpose
 
@@ -86,11 +84,11 @@ Optional variables:
 
 - `GITLAB_PROJECT_ID`
   - not required in GitLab CI when `CI_PROJECT_ID` is present
-- `AI_SONAR_BOT_EXECUTION_MODE`
+- `ZEROONE_OPS_EXECUTION_MODE`
   - should be `ci` for pipeline usage
-- `AI_SONAR_BOT_OPENAI_SOLUTION_OUTPUT_PATH`
+- `ZEROONE_OPS_OPENAI_SOLUTION_OUTPUT_PATH`
   - only needed if you want a non-default local artifact path
-- `AI_SONAR_BOT_WRITE_SOLUTION_ARTIFACTS_IN_CI`
+- `ZEROONE_OPS_WRITE_SOLUTION_ARTIFACTS_IN_CI`
   - defaults to `false`
   - set to `true` only for debugging
 
@@ -203,7 +201,7 @@ If no reviewable merge request remains, the run should exit cleanly with `no_iss
 The merge request should contain:
 
 - one issue per branch
-- labels from `examples/.ai-sonar-bot.json` or the repository-specific runtime
+- labels from `examples/.zeroone-ops.json` or the repository-specific runtime
   config derived from it
 - a deterministic description template with:
   - issue key
@@ -266,7 +264,7 @@ For a lower-cost review setup:
 Recommended first rollout order:
 
 1. manually run `zeroone_ops_dashboard` once to confirm dashboard discovery is healthy
-2. inspect one supported dashboard item locally with `ai-sonar-bot dashboard remediate --dry-run`
+2. inspect one supported dashboard item locally with `zeroone-ops dashboard remediate --dry-run`
 3. manually run one live CI pipeline where `zeroone_ops_dashboard_remediate`
    follows `zeroone_ops_dashboard`
 4. manually run `zeroone_ops_dashboard_reconcile` once after a remediation MR
@@ -355,7 +353,7 @@ Look at:
 
 - pipeline logs
 - the final run summary
-- `.ai-sonar-bot-state.json` if local state persistence is enabled in the repo
+- `.zeroone-ops-state.json` if local state persistence is enabled in the repo
 
 The failure record should tell you:
 
@@ -414,7 +412,7 @@ Checks:
 
 - inspect the failed command in the logs
 - inspect whether the selected issue was actually low-risk enough for the current eligibility policy
-- confirm the validation commands in the repository-specific `.ai-sonar-bot.json`
+- confirm the validation commands in the repository-specific `.zeroone-ops.json`
   are correct for the target repo
 
 ### Branch Push Failure
@@ -492,7 +490,7 @@ disabled by default in `ci` mode to reduce artifact churn.
 
 If you need them temporarily:
 
-- set `AI_SONAR_BOT_WRITE_SOLUTION_ARTIFACTS_IN_CI=true`
+- set `ZEROONE_OPS_WRITE_SOLUTION_ARTIFACTS_IN_CI=true`
 - rerun the pipeline
 - remove the override once debugging is done
 
@@ -509,9 +507,9 @@ Make sure the target repository has:
   [examples/.gitlab-ci.example.yml](../examples/.gitlab-ci.example.yml)
 - the published bot image reference updated to the current technical slug, such
   as `ghcr.io/<owner>/zeroone-ops:latest`
-- a repository-specific `.ai-sonar-bot.json`, often copied from either:
-  - [examples/.ai-sonar-bot.minimal.json](../examples/.ai-sonar-bot.minimal.json)
-  - [examples/.ai-sonar-bot.json](../examples/.ai-sonar-bot.json)
+- a repository-specific `.zeroone-ops.json`, often copied from either:
+  - [examples/.zeroone-ops.minimal.json](../examples/.zeroone-ops.minimal.json)
+  - [examples/.zeroone-ops.json](../examples/.zeroone-ops.json)
 - required CI variables set
 - at least one open SonarQube issue that is:
   - low severity in the maintainability model
@@ -521,7 +519,7 @@ Make sure the target repository has:
 
 ### JSON Config Quick Guide
 
-The repository-level `.ai-sonar-bot.json` has a small required core.
+The repository-level `.zeroone-ops.json` has a small required core.
 
 Required JSON fields:
 
@@ -552,7 +550,7 @@ Minimal valid example:
 
 Fuller example:
 
-- [examples/.ai-sonar-bot.json](../examples/.ai-sonar-bot.json)
+- [examples/.zeroone-ops.json](../examples/.zeroone-ops.json)
 
 ### Recommended First Test
 
@@ -633,7 +631,7 @@ repository.
 
 Make sure the target repository has:
 
-- a valid `.gitlab-ci.yml` that can run `ai-sonar-bot review`
+- a valid `.gitlab-ci.yml` that can run `zeroone-ops review`
 - required review variables set:
   - `GITLAB_URL`
   - `GITLAB_TOKEN`
@@ -695,8 +693,8 @@ Do not move to unattended review runs yet if you see:
 Use this quick check after the remediation workflow is already healthy.
 
 For dashboard-backed remediation itself, keep the first rollout boundary simple:
-use `ai-sonar-bot dashboard remediate --dry-run` for local inspection and use
-live `ai-sonar-bot dashboard remediate` only from CI jobs.
+use `zeroone-ops dashboard remediate --dry-run` for local inspection and use
+live `zeroone-ops dashboard remediate` only from CI jobs.
 
 ### Preconditions
 
@@ -751,7 +749,7 @@ Start with one dashboard item that:
 
 ### Steps
 
-1. run `ai-sonar-bot dashboard remediate --dry-run` locally
+1. run `zeroone-ops dashboard remediate --dry-run` locally
 2. confirm the output reports one selected dashboard item and no lifecycle mutation
 3. trigger one live dashboard remediation CI job manually on the default branch
 4. watch the logs for:

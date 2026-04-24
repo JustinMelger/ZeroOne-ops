@@ -30,13 +30,32 @@ def _load_environment_file() -> None:
     load_dotenv(override=False)
 
 
+def _first_env(*names: str) -> str | None:
+    """Return the first set environment variable value from ``names``."""
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
+
+
 def _config_path() -> Path:
     """Return the config file path.
 
     Returns:
         The resolved path to the runtime config file.
     """
-    return Path(os.environ.get("AI_SONAR_BOT_CONFIG", ".ai-sonar-bot.json"))
+    explicit_path = _first_env("ZEROONE_OPS_CONFIG", "AI_SONAR_BOT_CONFIG")
+    if explicit_path is not None:
+        return Path(explicit_path)
+
+    preferred_path = Path(".zeroone-ops.json")
+    legacy_path = Path(".ai-sonar-bot.json")
+    if preferred_path.exists():
+        return preferred_path
+    if legacy_path.exists():
+        return legacy_path
+    return preferred_path
 
 
 def _load_json_file(path: Path) -> dict[str, Any]:
@@ -65,17 +84,36 @@ def load_config() -> AppConfig:
     """
     _load_environment_file()
     data = _load_json_file(_config_path())
-    env_execution_mode = os.environ.get("AI_SONAR_BOT_EXECUTION_MODE")
-    env_base_branch = os.environ.get("AI_SONAR_BOT_BASE_BRANCH")
-    env_apply_patch_in_dry_run = os.environ.get("AI_SONAR_BOT_APPLY_PATCH_IN_DRY_RUN")
-    env_write_solution_artifacts_in_ci = os.environ.get(
-        "AI_SONAR_BOT_WRITE_SOLUTION_ARTIFACTS_IN_CI"
+    env_execution_mode = _first_env(
+        "ZEROONE_OPS_EXECUTION_MODE",
+        "AI_SONAR_BOT_EXECUTION_MODE",
     )
-    env_mock_llm_analysis_path = os.environ.get("AI_SONAR_BOT_MOCK_LLM_ANALYSIS_PATH")
-    env_mock_llm_edit_path = os.environ.get("AI_SONAR_BOT_MOCK_LLM_EDIT_PATH")
-    env_openai_solution_output_path = os.environ.get("AI_SONAR_BOT_OPENAI_SOLUTION_OUTPUT_PATH")
-    env_mock_sonar_issues_path = os.environ.get("AI_SONAR_BOT_MOCK_SONAR_ISSUES_PATH")
-    env_state_path = os.environ.get("AI_SONAR_BOT_STATE_PATH")
+    env_base_branch = _first_env("ZEROONE_OPS_BASE_BRANCH", "AI_SONAR_BOT_BASE_BRANCH")
+    env_apply_patch_in_dry_run = _first_env(
+        "ZEROONE_OPS_APPLY_PATCH_IN_DRY_RUN",
+        "AI_SONAR_BOT_APPLY_PATCH_IN_DRY_RUN",
+    )
+    env_write_solution_artifacts_in_ci = _first_env(
+        "ZEROONE_OPS_WRITE_SOLUTION_ARTIFACTS_IN_CI",
+        "AI_SONAR_BOT_WRITE_SOLUTION_ARTIFACTS_IN_CI",
+    )
+    env_mock_llm_analysis_path = _first_env(
+        "ZEROONE_OPS_MOCK_LLM_ANALYSIS_PATH",
+        "AI_SONAR_BOT_MOCK_LLM_ANALYSIS_PATH",
+    )
+    env_mock_llm_edit_path = _first_env(
+        "ZEROONE_OPS_MOCK_LLM_EDIT_PATH",
+        "AI_SONAR_BOT_MOCK_LLM_EDIT_PATH",
+    )
+    env_openai_solution_output_path = _first_env(
+        "ZEROONE_OPS_OPENAI_SOLUTION_OUTPUT_PATH",
+        "AI_SONAR_BOT_OPENAI_SOLUTION_OUTPUT_PATH",
+    )
+    env_mock_sonar_issues_path = _first_env(
+        "ZEROONE_OPS_MOCK_SONAR_ISSUES_PATH",
+        "AI_SONAR_BOT_MOCK_SONAR_ISSUES_PATH",
+    )
+    env_state_path = _first_env("ZEROONE_OPS_STATE_PATH", "AI_SONAR_BOT_STATE_PATH")
 
     if env_execution_mode:
         data["execution_mode"] = env_execution_mode
