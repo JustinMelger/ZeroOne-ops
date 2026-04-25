@@ -81,7 +81,7 @@ In practice, that means:
 ### 5.3 Helper Resolution
 
 Add an internal helper in
-[review_context_builder.py](../src/ai_sonar_bot/services/review_context_builder.py)
+[review_context_builder.py](../src/zeroone_ops/services/review_context_builder.py)
 such as:
 
 ```python

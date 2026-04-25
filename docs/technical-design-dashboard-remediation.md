@@ -50,7 +50,7 @@ zeroone-ops/
   docs/
     functional-design-dashboard-remediation.md
     technical-design-dashboard-remediation.md
-  src/ai_sonar_bot/
+  src/zeroone_ops/
     models/
       dashboard.py
       remediation.py

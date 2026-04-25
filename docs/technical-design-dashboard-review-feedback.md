@@ -52,7 +52,7 @@ zeroone-ops/
   docs/
     functional-design-dashboard-review-feedback.md
     technical-design-dashboard-review-feedback.md
-  src/ai_sonar_bot/
+  src/zeroone_ops/
     models/
       dashboard.py
     services/

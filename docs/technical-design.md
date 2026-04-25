@@ -49,7 +49,7 @@ zeroone-ops/
   docs/
     functional-design.md
     technical-design.md
-  src/ai_sonar_bot/
+  src/zeroone_ops/
     __init__.py
     cli.py
     settings.py
