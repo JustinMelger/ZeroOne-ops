@@ -190,11 +190,12 @@ CI mode:
 
 Use these docs for the deeper operational details:
 
+- [docs/README.md](docs/README.md) for the documentation map
 - [docs/runbook.md](docs/runbook.md) for CI setup, credentials, rollout order,
   and smoke-test recipes
 - [docs/roadmap.md](docs/roadmap.md) for current build, hardening, and rebrand
   sequencing
-- [docs/functional-design-pr-review.md](docs/functional-design-pr-review.md)
-  and [docs/technical-design-pr-review.md](docs/technical-design-pr-review.md)
+- [docs/design/functional/functional-design-pr-review.md](docs/design/functional/functional-design-pr-review.md)
+  and [docs/design/technical/technical-design-pr-review.md](docs/design/technical/technical-design-pr-review.md)
   for the review workflow design
 - [future_plans.md](future_plans.md) for post-v1 ideas

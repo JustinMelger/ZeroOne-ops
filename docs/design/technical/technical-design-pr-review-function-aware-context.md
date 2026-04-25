@@ -5,8 +5,8 @@
 This document defines a technical design for adding bounded function-aware
 context expansion to the review workflow described in:
 
-- [functional-design-pr-review.md](functional-design-pr-review.md)
-- [functional-design-pr-review-function-aware-context.md](functional-design-pr-review-function-aware-context.md)
+- [functional-design-pr-review.md](../functional/functional-design-pr-review.md)
+- [functional-design-pr-review-function-aware-context.md](../functional/functional-design-pr-review-function-aware-context.md)
 
 The goal is to improve review context quality for long Python functions without
 abandoning the current deterministic hunk-window model.
@@ -38,7 +38,7 @@ line limit or can be clipped in a deterministic way.
 
 ## 4. Current State
 
-Today [review_context_builder.py](../src/zeroone_ops/services/review_context_builder.py)
+Today [review_context_builder.py](../../../src/zeroone_ops/services/review/review_context_builder.py)
 does this:
 
 1. parse the changed hunk line range,
@@ -58,7 +58,7 @@ is inside:
 ### 5.1 AST-First Python Function Boundary Detection
 
 Add an internal helper in
-[review_context_builder.py](../src/zeroone_ops/services/review_context_builder.py)
+[review_context_builder.py](../../../src/zeroone_ops/services/review/review_context_builder.py)
 such as:
 
 ```python

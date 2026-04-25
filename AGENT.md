@@ -13,14 +13,15 @@ When there is any ambiguity, follow that document over this summary.
 
 Current workflow behavior and future direction are documented in:
 
-- [docs/functional-design.md](docs/functional-design.md)
-- [docs/technical-design.md](docs/technical-design.md)
-- [docs/functional-design-pr-review.md](docs/functional-design-pr-review.md)
-- [docs/technical-design-pr-review.md](docs/technical-design-pr-review.md)
-- [docs/functional-design-dashboard.md](docs/functional-design-dashboard.md)
-- [docs/functional-design-dashboard-remediation.md](docs/functional-design-dashboard-remediation.md)
-- [docs/technical-design-dashboard.md](docs/technical-design-dashboard.md)
-- [docs/technical-design-dashboard-remediation.md](docs/technical-design-dashboard-remediation.md)
+- [docs/README.md](docs/README.md)
+- [docs/design/functional/functional-design.md](docs/design/functional/functional-design.md)
+- [docs/design/technical/technical-design.md](docs/design/technical/technical-design.md)
+- [docs/design/functional/functional-design-pr-review.md](docs/design/functional/functional-design-pr-review.md)
+- [docs/design/technical/technical-design-pr-review.md](docs/design/technical/technical-design-pr-review.md)
+- [docs/design/functional/functional-design-dashboard.md](docs/design/functional/functional-design-dashboard.md)
+- [docs/design/functional/functional-design-dashboard-remediation.md](docs/design/functional/functional-design-dashboard-remediation.md)
+- [docs/design/technical/technical-design-dashboard.md](docs/design/technical/technical-design-dashboard.md)
+- [docs/design/technical/technical-design-dashboard-remediation.md](docs/design/technical/technical-design-dashboard-remediation.md)
 - [future_plans.md](future_plans.md)
 
 ## Repository Intent

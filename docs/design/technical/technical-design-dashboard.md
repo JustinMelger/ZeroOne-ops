@@ -4,7 +4,7 @@
 
 This document defines the technical design for the GitLab-first dashboard
 described in
-[functional-design-dashboard.md](functional-design-dashboard.md).
+[functional-design-dashboard.md](../functional/functional-design-dashboard.md).
 
 The dashboard is a future control-plane feature, not part of the current
 SonarQube v1 runtime path.

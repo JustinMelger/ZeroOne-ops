@@ -1,10 +1,10 @@
-# AI Pull Request Review Bot Technical Design
+# ZeroOne Ops Pull Request Review Technical Design
 
 ## 1. Scope
 
 This document defines the technical design for v1 of the GitLab-first pull
 request review bot described in
-[functional-design-pr-review.md](functional-design-pr-review.md).
+[functional-design-pr-review.md](../functional/functional-design-pr-review.md).
 
 V1 constraints:
 
@@ -40,25 +40,34 @@ V1 constraints:
 
 ## 4. Repository Layout
 
-Suggested additions alongside the existing SonarQube bot layout:
-
 ```text
 zeroone-ops/
   docs/
-    functional-design-pr-review.md
-    technical-design-pr-review.md
+    design/
+      functional/
+        functional-design-pr-review.md
+      technical/
+        technical-design-pr-review.md
   src/zeroone_ops/
     models/
       review.py
     providers/
       gitlab_review_client.py
     services/
-      mr_intake.py
-      mr_selector.py
-      review_context_builder.py
-      review_analysis_service.py
-      review_publisher.py
-      review_state_service.py
+      review/
+        mr_intake.py
+        mr_selector.py
+        review_context_builder.py
+        review_analysis_service.py
+        review_overlap_analysis_service.py
+        review_overlap_packet_builder.py
+        review_publisher.py
+        review_state_service.py
+        review_dashboard_updater.py
+      dashboard/
+        dashboard_service.py
+      shared/
+        run_state_service.py
 ```
 
 The exact file names can change, but the review workflow should stay separate
@@ -69,7 +78,7 @@ services.
 
 ### 5.1 Main Execution Path
 
-The review bot runs as a synchronous pipeline in v1:
+The review bot currently runs as a synchronous MR-first pipeline:
 
 1. Load config.
 2. Initialize GitLab review client and state store.
@@ -84,28 +93,49 @@ The review bot runs as a synchronous pipeline in v1:
 9. Combine MR metadata, optional remediation context, repository guidance,
    diff data, and local code context into the review payload.
 10. Use `ReviewAnalysisService` to request structured findings from the LLM.
-11. Use `ReviewPublisher` to render a deterministic review note.
-12. Publish the note to GitLab.
-13. Persist reviewed SHA and outcome in state.
+11. When a prior review note exists on the same MR, build bounded prior-review
+    continuity context from GitLab note history.
+12. Run overlap reconciliation so repeated findings can be classified as
+    unresolved, new, or resolved where the evidence supports it.
+13. Use `ReviewPublisher` to render a deterministic review note.
+14. Publish the note to GitLab.
+15. Persist reviewed SHA and outcome in state.
+16. Mirror review status to the dashboard as additive workflow context.
 
 ### 5.2 Execution Diagram
 
 ```mermaid
 flowchart TD
-    A[CLI Entry] --> B[Load Settings]
-    B --> C[Create Service Container]
-    C --> D[Read State File]
-    D --> E[MergeRequestIntake]
-    E --> F{MR found?}
-    F -- No --> G[ReviewStateService]
-    G --> H[Exit cleanly]
-    F -- Yes --> I[ReviewContextBuilder]
-    I --> J[ReviewAnalysisService]
-    J --> K[ReviewPublisher]
-    K --> L[GitLab Review Client]
-    L --> M[ReviewStateService]
-    M --> N[Exit]
+    A[CLI Entry] --> B[Load Settings And Local State]
+    B --> C[MergeRequestIntake]
+    C --> D{MR Found?}
+    D -- No --> E[ReviewStateService]
+    E --> F[Exit Cleanly]
+    D -- Yes --> G[ReviewContextBuilder]
+    G --> H[Load Prior Review Note Continuity]
+    H --> I[ReviewAnalysisService]
+    I --> J[Build Overlap Packet]
+    J --> K[Overlap Reconciliation]
+    K --> L[ReviewPublisher]
+    L --> M[GitLab Review Client]
+    M --> N[ReviewStateService]
+    N --> O[ReviewDashboardUpdater]
+    O --> P[Exit]
 ```
+
+### 5.3 Relationship To The Wider System
+
+The review workflow remains MR-first:
+
+- it does not depend on the dashboard to perform review
+- it publishes directly to GitLab merge requests
+- dashboard mirroring is additive, not the source of truth for review output
+
+The current continuity path is also GitLab-first:
+
+- prior review notes are loaded from GitLab note history
+- overlap reconciliation uses the current pass plus bounded prior-pass context
+- the resulting note becomes the next continuity checkpoint
 
 ## 6. Python Module Responsibilities
 
@@ -220,7 +250,15 @@ to compare:
 This additional context should improve finding quality without making the
 review workflow dependent on remediation-specific merge requests.
 
-### 6.10 `services/review_publisher.py`
+### 6.10 `services/review_overlap_analysis_service.py`
+
+Responsibilities:
+
+- request overlap-reconciliation output from the LLM
+- validate overlap results against the current and prior finding packet
+- classify overlap failures cleanly when the result is invalid or unavailable
+
+### 6.11 `services/review_publisher.py`
 
 Responsibilities:
 
@@ -228,7 +266,10 @@ Responsibilities:
 - include summary and numbered findings,
 - publish a single note through the GitLab review client.
 
-### 6.11 `services/review_state_service.py`
+The publisher also owns the machine-safe continuity block used for later
+GitLab-backed prior-review parsing.
+
+### 6.12 `services/review_state_service.py`
 
 Responsibilities:
 
@@ -237,7 +278,17 @@ Responsibilities:
 - prevent duplicate reviews for the same MR SHA,
 - build user-facing summaries.
 
-### 6.12 `services/state_store.py`
+### 6.13 `services/review_dashboard_updater.py`
+
+Responsibilities:
+
+- mirror review outcomes to the dashboard when a matching remediation item
+  exists
+- create standalone review-status dashboard entries when no remediation item is
+  linked
+- keep dashboard mirroring secondary to the merge request note itself
+
+### 6.14 `services/shared/state_store.py`
 
 Responsibilities:
 

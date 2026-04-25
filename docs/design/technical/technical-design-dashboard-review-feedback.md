@@ -8,9 +8,9 @@ phase.
 
 It builds on:
 
-- [functional-design-dashboard-remediation.md](functional-design-dashboard-remediation.md)
+- [functional-design-dashboard-remediation.md](../functional/functional-design-dashboard-remediation.md)
 - [technical-design-dashboard-remediation.md](technical-design-dashboard-remediation.md)
-- [functional-design-pr-review.md](functional-design-pr-review.md)
+- [functional-design-pr-review.md](../functional/functional-design-pr-review.md)
 - [technical-design-pr-review.md](technical-design-pr-review.md)
 
 Initial constraints:

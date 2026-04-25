@@ -10,8 +10,8 @@ request review into two phases:
 
 It builds on:
 
-- [functional-design-pr-review-overlap-reconciliation.md](functional-design-pr-review-overlap-reconciliation.md)
-- [functional-design-pr-review-operator-feedback.md](functional-design-pr-review-operator-feedback.md)
+- [functional-design-pr-review-overlap-reconciliation.md](../functional/functional-design-pr-review-overlap-reconciliation.md)
+- [functional-design-pr-review-operator-feedback.md](../functional/functional-design-pr-review-operator-feedback.md)
 
 This design is intentionally narrow.
 
