@@ -5,8 +5,8 @@
 This document defines a technical design for adding bounded helper-following
 context to the review workflow described in:
 
-- [functional-design-pr-review.md](functional-design-pr-review.md)
-- [functional-design-pr-review-helper-following-context.md](functional-design-pr-review-helper-following-context.md)
+- [functional-design-pr-review.md](../functional/functional-design-pr-review.md)
+- [functional-design-pr-review-helper-following-context.md](../functional/functional-design-pr-review-helper-following-context.md)
 
 The goal is to let the review bot inspect directly relevant local helpers
 without introducing a full repo-exploration agent.
@@ -81,7 +81,7 @@ In practice, that means:
 ### 5.3 Helper Resolution
 
 Add an internal helper in
-[review_context_builder.py](../src/zeroone_ops/services/review_context_builder.py)
+[review_context_builder.py](../../../src/zeroone_ops/services/review/review_context_builder.py)
 such as:
 
 ```python

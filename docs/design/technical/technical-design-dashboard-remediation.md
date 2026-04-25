@@ -1,20 +1,20 @@
-# AI Code Ops Dashboard Remediation Technical Design
+# ZeroOne Ops Dashboard Remediation Technical Design
 
 ## 1. Scope
 
 This document defines the technical design for dashboard-backed remediation
 described in
-[functional-design-dashboard-remediation.md](functional-design-dashboard-remediation.md).
+[functional-design-dashboard-remediation.md](../functional/functional-design-dashboard-remediation.md).
 
 The goal is to let the remediation workflow consume one structured dashboard
 item instead of reading directly from SonarQube.
 
-Initial constraints:
+Current constraints:
 
 - GitLab only
 - one dashboard item processed per run
 - one shared container image and CLI
-- dashboard issue remains the remote control plane
+- dashboard issue remains the remote control plane and broader work inventory
 - remediation stays limited to the current safe single-file structured-edit
   model
 
@@ -36,89 +36,114 @@ Initial constraints:
 - `httpx` for GitLab API requests
 - `pydantic` for dashboard and remediation models
 - standard `logging`
-- `json` for local state during the current phase
+- `json` for local repo-scoped execution state during the current phase
 - `pathlib` for workspace access
 
 No new runtime dependencies should be required for the first implementation.
 
 ## 4. Repository Layout
 
-Suggested additions:
-
 ```text
 zeroone-ops/
   docs/
-    functional-design-dashboard-remediation.md
-    technical-design-dashboard-remediation.md
+    design/
+      functional/
+        functional-design-dashboard-remediation.md
+      technical/
+        technical-design-dashboard-remediation.md
   src/zeroone_ops/
     models/
       dashboard.py
       remediation.py
     services/
-      dashboard_item_intake.py
-      dashboard_item_selector.py
-      dashboard_item_normalizer.py
-      dashboard_remediation_updater.py
-      remediation_context_builder.py
+      dashboard/
+        dashboard_item_intake.py
+        dashboard_item_selector.py
+        dashboard_item_normalizer.py
+        dashboard_remediation_runner.py
+        dashboard_remediation_updater.py
+        dashboard_service.py
+      remediation/
+        remediation_context_builder.py
+        execution_service.py
+        publish_service.py
+      shared/
+        run_state_service.py
 ```
 
-The exact filenames can vary, but dashboard-backed remediation should stay
-isolated from:
+Dashboard-backed remediation should stay isolated from:
 
-- source-specific discovery producers
-- merge-request review workflow services
-- low-level GitLab issue transport
+- source-specific discovery producers in `services/intake/`
+- merge-request review workflow services in `services/review/`
+- low-level GitLab issue transport in `providers/`
 
 ## 5. Runtime Architecture
 
 ### 5.1 Main Execution Path
 
-Dashboard-backed remediation should run as a synchronous pipeline:
+Dashboard-backed remediation currently runs as a synchronous pipeline over the
+shared GitLab dashboard inventory:
 
 1. Load config and state.
 2. Initialize GitLab dashboard client and dashboard service.
 3. Load and parse the dashboard issue.
-4. Select one remediation-ready item.
-5. Mark the item `in_progress`.
-6. Normalize the dashboard item into a provider-neutral remediation work item.
-7. Build local repository context for that work item.
-8. Run analysis, structured-edit generation, edit rendering, patch execution,
+4. Select one remediation-ready item from the broader dashboard inventory.
+5. Apply hard safety guards plus operator exclusions during remediation intake.
+6. Mark the item `in_progress`.
+7. Normalize the dashboard item into a provider-neutral remediation work item.
+8. Build local repository context for that work item.
+9. Run analysis, structured-edit generation, edit rendering, patch execution,
    validation, and publish through a remediation-native execution contract.
-9. Update the dashboard item to:
+10. Update the dashboard item to:
    - `mr_opened` on success,
    - `rejected` when policy or local approval rejects it,
    - `failed` on execution failure.
-10. Return a run summary.
+11. Return a run summary.
 
-The runtime path should also define how it behaves when a previously selected
-item is still marked `in_progress` from an interrupted earlier run.
+This workflow intentionally does not own source sync or later merge-request
+outcome handling:
 
-The first version should keep this runtime path limited to state transitions it
-can observe directly during the active remediation run. Post-run reconciliation
-for merge requests that are later merged or closed should remain outside this
-workflow.
+- source-specific producers sync normalized items into the dashboard inventory
+- remediation decides automated pickup eligibility from that inventory
+- later merge-request outcomes are handled by dashboard reconciliation
 
 ### 5.2 Execution Diagram
 
 ```mermaid
 flowchart TD
-    A[CLI Entry] --> B[Load Settings]
+    A[CLI Entry] --> B[Load Settings And Local State]
     B --> C[Dashboard Service]
     C --> D[Load And Parse Dashboard]
     D --> E[Dashboard Item Intake]
     E --> F{Eligible Item Found?}
     F -- No --> G[Finish No Work]
-    F -- Yes --> H[Mark Item In Progress]
-    H --> I[Normalize Work Item]
-    I --> J[Build Context]
-    J --> K[Analysis Service]
-    K --> L[Patch Execution]
-    L --> M{Validation Passes?}
-    M -- No --> N[Mark Item Failed]
-    M -- Yes --> O[Publish Service]
-    O --> P[Mark Item MR Opened]
-    P --> Q[Return Summary]
+    F -- Yes --> H[Apply Safety Guards And Exclusions]
+    H --> I[Mark Item In Progress]
+    I --> J[Normalize Remediation Work Item]
+    J --> K[Build Remediation Context]
+    K --> L[Analysis Service]
+    L --> M[Patch Execution And Validation]
+    M --> N{Validation Passes?}
+    N -- No --> O[Mark Failed Or Rejected]
+    N -- Yes --> P{Execution Mode}
+    P -- Local --> Q[Create Local Commit]
+    P -- CI --> R[Publish Service]
+    R --> S[Mark Item MR Opened]
+    Q --> T[Persist Run Summary]
+    O --> T
+    S --> T
 ```
+
+### 5.3 Relationship To The Wider System
+
+The remediation workflow now sits between dashboard sync and dashboard
+reconciliation:
+
+- source-specific intake writes normalized items into the dashboard
+- remediation selects one eligible item and attempts execution
+- review later evaluates the resulting merge request independently
+- dashboard reconciliation observes merge-request and review outcomes and may
+  reopen retry-eligible work
 
 ## 6. Python Module Responsibilities
 
@@ -176,6 +201,7 @@ Responsibilities:
 
 - load the parsed dashboard document
 - select one supported remediation-ready item
+- apply operator exclusions during remediation intake rather than during source sync
 - return a typed no-work result when nothing is eligible
 
 This service should not know how to fix code. It only selects one candidate.

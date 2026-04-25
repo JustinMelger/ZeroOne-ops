@@ -2,7 +2,7 @@
 
 ## 1. Scope
 
-This document defines the technical design for v1 of the ZeroOne Ops described in [functional-design.md](functional-design.md).
+This document defines the technical design for v1 of the ZeroOne Ops described in [functional-design.md](../functional/functional-design.md).
 
 V1 constraints:
 
@@ -47,8 +47,17 @@ Recommended packaging:
 ```text
 zeroone-ops/
   docs/
-    functional-design.md
-    technical-design.md
+    README.md
+    roadmap.md
+    runbook.md
+    design/
+      functional/
+        functional-design.md
+        functional-design-pr-review.md
+      technical/
+        technical-design.md
+        technical-design-dashboard-remediation.md
+        technical-design-pr-review.md
   src/zeroone_ops/
     __init__.py
     cli.py
@@ -66,25 +75,16 @@ zeroone-ops/
       __init__.py
       sonar_client.py
       gitlab_client.py
+      gitlab_dashboard_client.py
+      gitlab_review_client.py
       llm_client.py
     services/
       __init__.py
-      issue_intake.py
-      analysis_service.py
-      execution_service.py
-      patch_execution_service.py
-      solution_artifact_service.py
-      publish_service.py
-      issue_selector.py
-      context_builder.py
-      fix_generator.py
-      validator.py
-      approval.py
-      branch_manager.py
-      mr_service.py
-      workspace_snapshot.py
-      run_state_service.py
-      state_store.py
+      dashboard/
+      intake/
+      remediation/
+      review/
+      shared/
     prompts/
       analyze_issue.txt
       generate_structured_edit.txt
@@ -112,51 +112,98 @@ zeroone-ops/
 
 ### 5.1 Main Execution Path
 
-The bot runs as a synchronous pipeline in v1:
+The current product is no longer a single remediation-only pipeline.
 
-1. Load config.
-2. Initialize clients and state store.
-3. Use `IssueIntakeService` to fetch and select one supported issue.
-4. Use `ExecutionService` to coordinate branch creation, approval, commit, and handoff to publish.
-5. Use `AnalysisService` to build code context, choose the active LLM backend, and render a patch from a structured edit.
-6. Use `PatchExecutionService` to apply changes, run validation commands, retry once on failure, and roll back the working tree before commit.
-7. In local mode, stop after a validated local commit.
-8. In CI mode, use `PublishService` to push the branch and create or reuse a GitLab merge request.
-9. Use `RunStateService` to persist run and issue lifecycle updates.
+The active v1 architecture is a small workflow platform with shared
+coordination surfaces:
 
-The current implementation follows this path. The remaining approval work is
-limited to an optional local interactive mode.
+1. Load config, initialize providers, and load local state.
+2. Source-specific intake discovers work such as SonarQube issues.
+3. Discovery sync writes normalized work items into the GitLab dashboard issue,
+   which acts as the shared work inventory.
+4. Dashboard-backed remediation selects one eligible item, applies hard safety
+   guards plus operator exclusions, and normalizes it into a remediation work
+   item.
+5. Remediation execution builds code context, requests structured edits, applies
+   the patch, validates the result, and publishes a merge request when running
+   in CI.
+6. Review runs separately against merge requests, builds local diff-aware
+   context, loads bounded prior-review continuity from GitLab, and publishes a
+   deterministic review note.
+7. Dashboard reconciliation observes merge request outcomes and review results,
+   updates dashboard lifecycle state, and reopens retry-eligible remediation
+   work when appropriate.
+8. Local JSON state remains the repo-scoped execution memory, while the GitLab
+   dashboard issue and review notes provide the shared remote coordination
+   surface across CI runs.
 
 ### 5.2 Execution Diagram
 
 ```mermaid
 flowchart TD
-    A[CLI Entry] --> B[Load Settings]
-    B --> C[Create Service Container]
-    C --> D[Read State File]
-    D --> E[IssueIntakeService]
-    E --> F{Issue found?}
-    F -- No --> G[RunStateService]
-    G --> H[Exit cleanly]
-    F -- Yes --> I[ExecutionService]
-    I --> J[Create Work Branch]
-    J --> K[AnalysisService]
-    K --> L[LLM Analysis and Bot-Rendered Patch]
-    L --> M[PatchExecutionService]
-    M --> N[Run Validation Commands]
-    N --> O{Validation pass?}
-    O -- No --> P[Optional single retry]
-    P --> Q{Recovered?}
-    Q -- No --> R[RunStateService]
-    O -- Yes --> S{Execution mode}
-    Q -- Yes --> S
-    S -- CI --> T[Commit, PublishService, Create or Reuse GitLab MR]
-    S -- Local --> U[Create Local Commit]
-    T --> V[RunStateService]
+    A[CLI Workflow Entry] --> B[Load Settings And Providers]
+    B --> C[Load Local State]
+
+    C --> D[Source Intake]
+    D --> E[Normalize Source Findings]
+    E --> F[Dashboard Sync]
+    F --> G[GitLab Dashboard Inventory]
+
+    G --> H[Dashboard Remediation Intake]
+    H --> I{Eligible Item Found?}
+    I -- No --> J[Record No-Work Summary]
+    I -- Yes --> K[Apply Safety Guards And Exclusions]
+    K --> L[Normalize Remediation Work Item]
+    L --> M[Build Remediation Context]
+    M --> N[LLM Analysis And Structured Edit]
+    N --> O[Patch Execution And Validation]
+    O --> P{Validation Passes?}
+    P -- No --> Q[Mark Failed Or Rejected]
+    P -- Yes --> R{Execution Mode}
+    R -- Local --> S[Create Local Commit]
+    R -- CI --> T[Publish Merge Request]
+    T --> U[Mark Dashboard Item MR Opened]
+    S --> V[Persist Local Run State]
+    Q --> V
     U --> V
-    R --> W[Exit]
-    V --> W
+
+    C --> W[MR Review Intake]
+    W --> X[Build Review Context]
+    X --> Y[Load Prior Review Note Continuity]
+    Y --> Z[Review Analysis]
+    Z --> AA[Overlap Reconciliation]
+    AA --> AB[Publish GitLab Review Note]
+    AB --> AC[Update Review State]
+    AC --> AD[Mirror Review Status To Dashboard]
+
+    G --> AE[Dashboard Reconciliation]
+    AE --> AF[Observe MR State And Review Outcome]
+    AF --> AG{Retry Eligible?}
+    AG -- Yes --> AH[Reopen Dashboard Item]
+    AG -- No --> AI[Mark Done Or Closed]
+    AH --> G
+    AI --> G
 ```
+
+### 5.3 Coordination Surfaces
+
+The current system has three important shared coordination layers:
+
+- local repo state
+  - run memory, exclusions, review state, and retry-related execution memory
+- GitLab dashboard issue
+  - shared work inventory, lifecycle state, and operator-visible remediation
+    coordination
+- GitLab merge request notes
+  - review output, prior-review continuity, and follow-up review context
+
+This split is important to the current product shape:
+
+- producer bots discover and normalize work
+- remediation decides what to automate from dashboard-backed inventory
+- review runs MR-first and publishes directly on GitLab
+- reconciliation closes the loop between remediation, review, and dashboard
+  state
 
 ## 6. Python Module Responsibilities
 

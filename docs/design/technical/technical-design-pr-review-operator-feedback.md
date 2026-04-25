@@ -7,11 +7,11 @@ feedback on numbered review findings.
 
 It builds on:
 
-- [functional-design-pr-review-operator-feedback.md](functional-design-pr-review-operator-feedback.md)
-- [functional-design-pr-review-followup-reconciliation.md](functional-design-pr-review-followup-reconciliation.md)
+- [functional-design-pr-review-operator-feedback.md](../functional/functional-design-pr-review-operator-feedback.md)
+- [functional-design-pr-review-followup-reconciliation.md](../functional/functional-design-pr-review-followup-reconciliation.md)
 - [technical-design-pr-review-followup-reconciliation.md](technical-design-pr-review-followup-reconciliation.md)
-- [functional-design-pr-review-stable-finding-identity.md](functional-design-pr-review-stable-finding-identity.md)
-- [functional-design-pr-review-structured-reconciliation.md](functional-design-pr-review-structured-reconciliation.md)
+- [functional-design-pr-review-stable-finding-identity.md](../functional/functional-design-pr-review-stable-finding-identity.md)
+- [functional-design-pr-review-structured-reconciliation.md](../functional/functional-design-pr-review-structured-reconciliation.md)
 
 This design is intentionally narrow.
 
