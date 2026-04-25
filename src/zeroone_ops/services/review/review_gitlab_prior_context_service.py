@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from zeroone_ops.models.gitlab import MergeRequestNote
-from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
+from zeroone_ops.providers.gitlab_review_client import GitLabReviewClientProtocol
 
 _MACHINE_SAFE_REVIEW_NOTE_PREFIX = "<!-- ai-sonar-bot:review-note:v1\n"
 _MACHINE_SAFE_REVIEW_NOTE_SUFFIX = "\n-->"
@@ -41,7 +41,7 @@ class ReviewGitLabPriorContextService:
 
     def __init__(
         self,
-        review_client: GitLabReviewClient,
+        review_client: GitLabReviewClientProtocol,
         *,
         bot_author_username: str | None = _DEFAULT_BOT_AUTHOR_USERNAME,
     ) -> None:

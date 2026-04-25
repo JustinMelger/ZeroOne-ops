@@ -15,7 +15,7 @@ from zeroone_ops.models.review import (
     RepositoryGuidanceContext,
     ReviewFileContext,
 )
-from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
+from zeroone_ops.providers.gitlab_review_client import GitLabReviewClientProtocol
 from zeroone_ops.services.review.review_function_context import (
     select_function_aware_window,
 )
@@ -60,7 +60,7 @@ class ReviewContextBuilder:
         self,
         repo_root: Path,
         config: AppConfig,
-        review_client: GitLabReviewClient,
+        review_client: GitLabReviewClientProtocol,
     ) -> None:
         """Initialize the review context builder."""
         self.repo_root = repo_root

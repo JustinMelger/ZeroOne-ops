@@ -12,7 +12,7 @@ from zeroone_ops.models.review import (
     ReviewResult,
 )
 from zeroone_ops.providers.gitlab_client import GitLabClientError
-from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
+from zeroone_ops.providers.gitlab_review_client import GitLabReviewClientProtocol
 
 
 @dataclass(frozen=True)
@@ -27,7 +27,7 @@ class ReviewPublishResult:
 class ReviewPublisher:
     """Render and publish deterministic merge-request review notes."""
 
-    def __init__(self, review_client: GitLabReviewClient) -> None:
+    def __init__(self, review_client: GitLabReviewClientProtocol) -> None:
         """Initialize the review publisher."""
         self.review_client = review_client
 
