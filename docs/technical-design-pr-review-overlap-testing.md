@@ -125,7 +125,7 @@ It should:
 ### Deterministic benchmark suite
 
 File direction:
-- `tests/zeroone_ops/services/test_review_continuity_sequences.py`
+- `tests/zeroone_ops/services/review/test_review_continuity_sequences.py`
 
 Owns:
 - packet-builder benchmark cases
@@ -134,7 +134,7 @@ Owns:
 ### Overlap runtime validation suite
 
 File direction:
-- `tests/zeroone_ops/services/test_review_overlap_analysis_service.py`
+- `tests/zeroone_ops/services/review/test_review_overlap_analysis_service.py`
 - optionally a dedicated runtime fixture file later if this grows
 
 Owns:
