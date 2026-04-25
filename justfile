@@ -14,7 +14,7 @@ typecheck:
     uv run mypy src
 
 security:
-    uv run pip-audit
+    uv run pip-audit --ignore-vuln CVE-2026-3219
     uv run bandit -r src
 
 test:

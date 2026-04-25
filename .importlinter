@@ -1,13 +1,13 @@
 [importlinter]
-root_package = ai_sonar_bot
+root_package = zeroone_ops
 
 [importlinter:contract:layers]
 name = Enforce application layers
 type = layers
 layers =
-    ai_sonar_bot.cli
-    ai_sonar_bot.runner
-    ai_sonar_bot.services
-    ai_sonar_bot.providers
-    ai_sonar_bot.models
-    ai_sonar_bot.utils
+    zeroone_ops.cli
+    zeroone_ops.runner
+    zeroone_ops.services
+    zeroone_ops.providers
+    zeroone_ops.models
+    zeroone_ops.utils

@@ -56,7 +56,7 @@ zeroone-ops/
   docs/
     functional-design-dashboard.md
     technical-design-dashboard.md
-  src/ai_sonar_bot/
+  src/zeroone_ops/
     models/
       dashboard.py
     providers/

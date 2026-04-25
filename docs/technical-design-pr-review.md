@@ -47,7 +47,7 @@ zeroone-ops/
   docs/
     functional-design-pr-review.md
     technical-design-pr-review.md
-  src/ai_sonar_bot/
+  src/zeroone_ops/
     models/
       review.py
     providers/

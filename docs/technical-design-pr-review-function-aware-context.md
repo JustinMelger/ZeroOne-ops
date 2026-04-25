@@ -38,7 +38,7 @@ line limit or can be clipped in a deterministic way.
 
 ## 4. Current State
 
-Today [review_context_builder.py](../src/ai_sonar_bot/services/review_context_builder.py)
+Today [review_context_builder.py](../src/zeroone_ops/services/review_context_builder.py)
 does this:
 
 1. parse the changed hunk line range,
@@ -58,7 +58,7 @@ is inside:
 ### 5.1 AST-First Python Function Boundary Detection
 
 Add an internal helper in
-[review_context_builder.py](../src/ai_sonar_bot/services/review_context_builder.py)
+[review_context_builder.py](../src/zeroone_ops/services/review_context_builder.py)
 such as:
 
 ```python
