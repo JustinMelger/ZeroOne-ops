@@ -65,7 +65,7 @@ class LLMClient(ABC):
         Returns:
             Structured issue analysis.
         """
-        raise NotImplementedError
+        ...
 
     @abstractmethod
     def generate_structured_edit(
@@ -85,12 +85,12 @@ class LLMClient(ABC):
         Raises:
             LLMClientError: If structured edit generation is unsupported or fails.
         """
-        raise NotImplementedError
+        ...
 
     @abstractmethod
     def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
         """Review one merge request and return structured findings."""
-        raise NotImplementedError
+        ...
 
     @abstractmethod
     def review_overlap_reconciliation(
@@ -98,7 +98,7 @@ class LLMClient(ABC):
         packet: OverlapPacket,
     ) -> OverlapReconciliationResult:
         """Classify overlap between current and prior review findings."""
-        raise NotImplementedError
+        ...
 
 
 class OpenAILLMClient(LLMClient):
