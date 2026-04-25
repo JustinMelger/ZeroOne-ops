@@ -158,7 +158,7 @@ def test_sync_dashboard_sonar_ci_mode_publishes_dashboard_summary(
         _find_no_open_merge_request,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.sonar_dashboard_sync_service.SonarDashboardSyncService.sync",
+        "ai_sonar_bot.services.intake.sonar_dashboard_sync_service.SonarDashboardSyncService.sync",
         _sync_result,
     )
 

@@ -16,8 +16,8 @@ from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import AppState
 from ai_sonar_bot.providers.gitlab_client import GitLabClient
 from ai_sonar_bot.providers.sonar_client import SonarClient, load_issues_fixture
-from ai_sonar_bot.services.issue_eligibility import describe_skip_reasons
-from ai_sonar_bot.services.issue_selector import IssueSelector
+from ai_sonar_bot.services.intake.issue_eligibility import describe_skip_reasons
+from ai_sonar_bot.services.intake.issue_selector import IssueSelector
 from ai_sonar_bot.services.mr_service import MergeRequestService
 from ai_sonar_bot.settings import (
     SettingsError,

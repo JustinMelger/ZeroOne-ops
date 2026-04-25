@@ -19,14 +19,16 @@ from ai_sonar_bot.services.dashboard.dashboard_remediation_runner import (
     DashboardRemediationRunner,
 )
 from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
-from ai_sonar_bot.services.issue_intake import IssueIntakeService
+from ai_sonar_bot.services.intake.issue_intake import IssueIntakeService
+from ai_sonar_bot.services.intake.sonar_dashboard_sync_service import (
+    SonarDashboardSyncService,
+)
 from ai_sonar_bot.services.remediation.remediation_exclusion_service import (
     RemediationExclusionService,
 )
 from ai_sonar_bot.services.review.review_runner import ReviewRunner
 from ai_sonar_bot.services.review.review_state_service import ReviewStateService
 from ai_sonar_bot.services.run_state_service import RunStateService, RunSummary
-from ai_sonar_bot.services.sonar_dashboard_sync_service import SonarDashboardSyncService
 from ai_sonar_bot.services.state_store import StateStore
 from ai_sonar_bot.settings import (
     load_config,

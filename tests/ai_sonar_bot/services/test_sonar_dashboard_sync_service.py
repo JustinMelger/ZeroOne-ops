@@ -1,6 +1,8 @@
 from ai_sonar_bot.models.dashboard import DashboardDocument, DashboardItem, DashboardSection
 from ai_sonar_bot.models.sonar import SonarIssue
-from ai_sonar_bot.services.sonar_dashboard_sync_service import SonarDashboardSyncService
+from ai_sonar_bot.services.intake.sonar_dashboard_sync_service import (
+    SonarDashboardSyncService,
+)
 
 
 class FakeDashboardDocument:

@@ -7,7 +7,7 @@ from ai_sonar_bot.models.config import (
 )
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import AppState, IssueState, RepositoryState
-from ai_sonar_bot.services.issue_eligibility import IssueEligibilityPolicy
+from ai_sonar_bot.services.intake.issue_eligibility import IssueEligibilityPolicy
 
 
 def build_config() -> AppConfig:

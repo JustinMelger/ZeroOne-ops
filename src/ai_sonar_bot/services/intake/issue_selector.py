@@ -5,7 +5,7 @@ from __future__ import annotations
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.sonar import SonarIssue
 from ai_sonar_bot.models.state import AppState
-from ai_sonar_bot.services.issue_eligibility import IssueEligibilityPolicy
+from ai_sonar_bot.services.intake.issue_eligibility import IssueEligibilityPolicy
 
 
 class IssueSelector:

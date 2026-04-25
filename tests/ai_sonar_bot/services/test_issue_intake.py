@@ -11,7 +11,7 @@ from ai_sonar_bot.models.config import (
 )
 from ai_sonar_bot.models.gitlab import MergeRequestInfo
 from ai_sonar_bot.models.state import AppState, IssueState, RepositoryState
-from ai_sonar_bot.services.issue_intake import IssueIntakeService
+from ai_sonar_bot.services.intake.issue_intake import IssueIntakeService
 
 
 def build_config(
