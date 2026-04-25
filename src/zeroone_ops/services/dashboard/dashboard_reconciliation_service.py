@@ -10,7 +10,7 @@ import httpx
 from zeroone_ops.models.dashboard import DashboardItem
 from zeroone_ops.models.gitlab import GitLabMergeRequestState
 from zeroone_ops.providers.gitlab_client import GitLabClientError
-from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
+from zeroone_ops.providers.gitlab_review_client import GitLabReviewClientProtocol
 
 
 @dataclass(frozen=True)
@@ -29,7 +29,7 @@ class DashboardReconciliationService:
 
     def __init__(
         self,
-        review_client: GitLabReviewClient,
+        review_client: GitLabReviewClientProtocol,
         *,
         max_review_feedback_retries: int = 1,
     ) -> None:

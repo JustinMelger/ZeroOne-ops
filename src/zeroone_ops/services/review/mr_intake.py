@@ -8,7 +8,10 @@ from dataclasses import dataclass
 
 from zeroone_ops.models.review import MergeRequestReviewCandidate
 from zeroone_ops.models.state import AppState
-from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
+from zeroone_ops.providers.gitlab_review_client import (
+    GitLabReviewClient,
+    GitLabReviewClientProtocol,
+)
 from zeroone_ops.services.review.mr_selector import MergeRequestSelector
 from zeroone_ops.settings import (
     SettingsError,
@@ -33,7 +36,7 @@ class MergeRequestIntakeService:
 
     def __init__(
         self,
-        review_client: GitLabReviewClient | None = None,
+        review_client: GitLabReviewClientProtocol | None = None,
         selector: MergeRequestSelector | None = None,
     ) -> None:
         """Initialize the merge request intake service."""

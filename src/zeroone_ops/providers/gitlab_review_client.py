@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import quote_plus
 
 import httpx
@@ -11,6 +11,49 @@ from zeroone_ops.models.config import GitLabConnectionConfig
 from zeroone_ops.models.gitlab import GitLabMergeRequestState, MergeRequestNote
 from zeroone_ops.models.review import MergeRequestChangedFile, MergeRequestReviewCandidate
 from zeroone_ops.providers.gitlab_client import GitLabClientError, _parse_json_response
+
+
+class GitLabReviewClientProtocol(Protocol):
+    """Structural interface for review-oriented GitLab access."""
+
+    def list_open_merge_requests(self, *, project_id: str) -> list[MergeRequestReviewCandidate]:
+        """List open merge requests for review."""
+
+    def get_merge_request(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+    ) -> MergeRequestReviewCandidate:
+        """Fetch one merge request with change metadata."""
+
+    def get_merge_request_state(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+    ) -> GitLabMergeRequestState:
+        """Fetch one merge request state for reconciliation."""
+
+    def create_merge_request_note(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+        body: str,
+    ) -> MergeRequestNote:
+        """Publish one merge request note."""
+
+    def list_merge_request_notes(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+    ) -> list[MergeRequestNote]:
+        """List every note for one merge request."""
+
+    def get_current_user_username(self) -> str:
+        """Return the username associated with the active API token."""
 
 
 class GitLabReviewClient:

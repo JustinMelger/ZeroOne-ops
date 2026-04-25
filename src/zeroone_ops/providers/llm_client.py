@@ -7,6 +7,7 @@ an LLM provider.
 from __future__ import annotations
 
 import json
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
@@ -46,9 +47,10 @@ class LLMClientError(RuntimeError):
     """Raised when LLM analysis or patch generation fails."""
 
 
-class LLMClient:
-    """Placeholder LLM client for the initial scaffold."""
+class LLMClient(ABC):
+    """Abstract interface for LLM-backed analysis and review clients."""
 
+    @abstractmethod
     def analyze_issue(
         self,
         issue: RemediationExecutionTarget,
@@ -63,8 +65,9 @@ class LLMClient:
         Returns:
             Structured issue analysis.
         """
-        raise NotImplementedError("LLM integration is not implemented yet.")
+        ...
 
+    @abstractmethod
     def generate_structured_edit(
         self,
         issue: RemediationExecutionTarget,
@@ -82,18 +85,20 @@ class LLMClient:
         Raises:
             LLMClientError: If structured edit generation is unsupported or fails.
         """
-        raise NotImplementedError("Structured edit generation is not implemented yet.")
+        ...
 
+    @abstractmethod
     def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
         """Review one merge request and return structured findings."""
-        raise NotImplementedError("Merge request review is not implemented yet.")
+        ...
 
+    @abstractmethod
     def review_overlap_reconciliation(
         self,
         packet: OverlapPacket,
     ) -> OverlapReconciliationResult:
         """Classify overlap between current and prior review findings."""
-        raise NotImplementedError("Review overlap reconciliation is not implemented yet.")
+        ...
 
 
 class OpenAILLMClient(LLMClient):
