@@ -10,8 +10,11 @@ from ai_sonar_bot.models.state import (
     RunStatus,
     utc_now,
 )
-from ai_sonar_bot.services.run_summary_builder import RunSummary, RunSummaryBuilder
-from ai_sonar_bot.services.state_store import StateStore
+from ai_sonar_bot.services.shared.run_summary_builder import (
+    RunSummary,
+    RunSummaryBuilder,
+)
+from ai_sonar_bot.services.shared.state_store import StateStore
 
 
 class DashboardRunStateService:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 
-from ai_sonar_bot.services.context_builder import _window_bounds
+from ai_sonar_bot.services.shared.context_builder import _window_bounds
 
 
 @dataclass(frozen=True)

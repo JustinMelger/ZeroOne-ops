@@ -12,7 +12,7 @@ from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.services.remediation.analysis_service import AnalysisResult
 from ai_sonar_bot.services.remediation.execution_service import ExecutionService
 from ai_sonar_bot.services.remediation.publish_service import PublishResult
-from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
+from ai_sonar_bot.services.shared.workspace_snapshot import WorkspaceSnapshotService
 
 
 def build_config(*, execution_mode: str = "local") -> AppConfig:
@@ -174,7 +174,7 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
 
     def commit_error(commit_message: str, *, push: bool = False) -> str:
         del commit_message, push
-        from ai_sonar_bot.services.branch_manager import BranchManagerError
+        from ai_sonar_bot.services.shared.branch_manager import BranchManagerError
 
         target_file.write_text("value = 2\n", encoding="utf-8")
         raise BranchManagerError("git commit failed")

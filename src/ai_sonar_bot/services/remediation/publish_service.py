@@ -14,8 +14,11 @@ from ai_sonar_bot.models.remediation import (
     remediation_profile_for,
 )
 from ai_sonar_bot.providers.gitlab_client import GitLabClient, GitLabClientError
-from ai_sonar_bot.services.branch_manager import BranchManager, BranchManagerError
-from ai_sonar_bot.services.mr_service import MergeRequestService
+from ai_sonar_bot.services.shared.branch_manager import (
+    BranchManager,
+    BranchManagerError,
+)
+from ai_sonar_bot.services.shared.mr_service import MergeRequestService
 from ai_sonar_bot.settings import load_gitlab_connection_config
 
 

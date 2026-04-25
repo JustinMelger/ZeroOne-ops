@@ -32,7 +32,6 @@ from ai_sonar_bot.models.state import (
 )
 from ai_sonar_bot.providers.gitlab_client import GitLabClientError
 from ai_sonar_bot.runner import dashboard_reconcile, dashboard_remediate, review
-from ai_sonar_bot.services.branch_manager import BranchManagerError
 from ai_sonar_bot.services.remediation.analysis_service import AnalysisResult
 from ai_sonar_bot.services.review.review_context_builder import (
     ReviewContextBuildResult,
@@ -41,8 +40,9 @@ from ai_sonar_bot.services.review.review_overlap_analysis_service import (
     ReviewOverlapAnalysisResult,
 )
 from ai_sonar_bot.services.review.review_publisher import ReviewPublishResult
-from ai_sonar_bot.services.state_store import StateStore
-from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
+from ai_sonar_bot.services.shared.branch_manager import BranchManagerError
+from ai_sonar_bot.services.shared.state_store import StateStore
+from ai_sonar_bot.services.shared.workspace_snapshot import WorkspaceSnapshotService
 
 
 def build_dashboard_document(*, items: list[DashboardItem]) -> DashboardDocument:
@@ -1924,7 +1924,7 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
         upsert_items,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.mr_service.MergeRequestService.find_open",
+        "ai_sonar_bot.services.shared.mr_service.MergeRequestService.find_open",
         lambda self, project_id, source_branch, target_branch: None,
     )
     monkeypatch.setattr(
@@ -2984,15 +2984,15 @@ def test_dashboard_remediate_ci_manual_analysis_marks_dashboard_rejected(
         fake_analyze_issue_with_context,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.branch_manager.BranchManager.ensure_ready",
+        "ai_sonar_bot.services.shared.branch_manager.BranchManager.ensure_ready",
         lambda self: None,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.branch_manager.BranchManager.build_branch_name",
+        "ai_sonar_bot.services.shared.branch_manager.BranchManager.build_branch_name",
         lambda self, branch_prefix, issue_key, file_path: "zeroone-ops/ax123/service",
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.branch_manager.BranchManager.create_branch",
+        "ai_sonar_bot.services.shared.branch_manager.BranchManager.create_branch",
         lambda self, branch_name: None,
     )
 
@@ -3167,19 +3167,19 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
         mark_failed,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.branch_manager.BranchManager.ensure_ready",
+        "ai_sonar_bot.services.shared.branch_manager.BranchManager.ensure_ready",
         lambda self: None,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.branch_manager.BranchManager.build_branch_name",
+        "ai_sonar_bot.services.shared.branch_manager.BranchManager.build_branch_name",
         lambda self, *, branch_prefix, issue_key, file_path: "zeroone-ops/ax123/service",
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.branch_manager.BranchManager.create_branch",
+        "ai_sonar_bot.services.shared.branch_manager.BranchManager.create_branch",
         lambda self, branch_name: None,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.branch_manager.BranchManager.reset_index",
+        "ai_sonar_bot.services.shared.branch_manager.BranchManager.reset_index",
         lambda self: None,
     )
 
@@ -3217,7 +3217,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
         analyze_issue_with_context,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.branch_manager.BranchManager.commit_and_push",
+        "ai_sonar_bot.services.shared.branch_manager.BranchManager.commit_and_push",
         commit_and_push,
     )
 

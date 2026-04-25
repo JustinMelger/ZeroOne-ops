@@ -25,8 +25,8 @@ from ai_sonar_bot.services.review.review_finding_identity import (
     build_legacy_review_finding_identity,
     build_review_finding_identity,
 )
-from ai_sonar_bot.services.run_state_service import RunSummary
-from ai_sonar_bot.services.state_store import StateStore
+from ai_sonar_bot.services.shared.run_state_service import RunSummary
+from ai_sonar_bot.services.shared.state_store import StateStore
 
 LOGGER = logging.getLogger(__name__)
 

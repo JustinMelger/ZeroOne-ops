@@ -5,7 +5,7 @@ from ai_sonar_bot.models.state import AppState, RepositoryState
 from ai_sonar_bot.services.remediation.remediation_exclusion_service import (
     RemediationExclusionService,
 )
-from ai_sonar_bot.services.state_store import StateStore
+from ai_sonar_bot.services.shared.state_store import StateStore
 
 
 def build_service(tmp_path: Path) -> tuple[RemediationExclusionService, StateStore]:

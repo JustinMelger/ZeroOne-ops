@@ -19,8 +19,11 @@ from ai_sonar_bot.models.state import (
 from ai_sonar_bot.services.dashboard.dashboard_run_state_service import (
     DashboardRunStateService,
 )
-from ai_sonar_bot.services.run_summary_builder import RunSummary, RunSummaryBuilder
-from ai_sonar_bot.services.state_store import StateStore
+from ai_sonar_bot.services.shared.run_summary_builder import (
+    RunSummary,
+    RunSummaryBuilder,
+)
+from ai_sonar_bot.services.shared.state_store import StateStore
 
 LOGGER = logging.getLogger(__name__)
 

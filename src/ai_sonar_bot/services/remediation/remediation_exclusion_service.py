@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from ai_sonar_bot.models.dashboard import DashboardItem
 from ai_sonar_bot.models.state import AppState, RemediationExclusionState
-from ai_sonar_bot.services.state_store import StateStore
+from ai_sonar_bot.services.shared.state_store import StateStore
 
 LOGGER = logging.getLogger(__name__)
 

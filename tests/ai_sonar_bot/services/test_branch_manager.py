@@ -3,7 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from ai_sonar_bot.services.branch_manager import BranchManager, BranchManagerError
+from ai_sonar_bot.services.shared.branch_manager import (
+    BranchManager,
+    BranchManagerError,
+)
 
 
 def _init_git_repo(repo_root: Path) -> None:

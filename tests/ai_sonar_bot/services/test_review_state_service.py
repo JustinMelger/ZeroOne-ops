@@ -12,7 +12,7 @@ from ai_sonar_bot.models.state import (
     RunStatus,
 )
 from ai_sonar_bot.services.review.review_state_service import ReviewStateService
-from ai_sonar_bot.services.state_store import StateStore
+from ai_sonar_bot.services.shared.state_store import StateStore
 
 
 def build_state() -> AppState:

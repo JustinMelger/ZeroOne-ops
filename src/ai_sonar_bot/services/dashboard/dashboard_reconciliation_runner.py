@@ -16,7 +16,10 @@ from ai_sonar_bot.services.dashboard.dashboard_remediation_updater import (
     DashboardRemediationUpdater,
 )
 from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
-from ai_sonar_bot.services.run_state_service import RunStateService, RunSummary
+from ai_sonar_bot.services.shared.run_state_service import (
+    RunStateService,
+    RunSummary,
+)
 
 
 class DashboardReconciliationRunner:

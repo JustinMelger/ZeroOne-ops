@@ -13,7 +13,7 @@ from ai_sonar_bot.models.state import (
     RunRecord,
     RunStatus,
 )
-from ai_sonar_bot.services.state_store import StateStore
+from ai_sonar_bot.services.shared.state_store import StateStore
 
 
 def test_state_store_round_trip(tmp_path: Path) -> None:

@@ -23,7 +23,10 @@ from ai_sonar_bot.services.remediation.remediation_context_builder import (
 from ai_sonar_bot.services.remediation.remediation_execution_adapter import (
     remediation_work_item_to_execution_target,
 )
-from ai_sonar_bot.services.run_state_service import RunStateService, RunSummary
+from ai_sonar_bot.services.shared.run_state_service import (
+    RunStateService,
+    RunSummary,
+)
 
 
 class DashboardRemediationRunner:

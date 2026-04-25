@@ -31,7 +31,7 @@ from ai_sonar_bot.services.review.review_overlap_packet_builder import (
 )
 from ai_sonar_bot.services.review.review_publisher import ReviewPublisher
 from ai_sonar_bot.services.review.review_state_service import ReviewStateService
-from ai_sonar_bot.services.run_state_service import RunSummary
+from ai_sonar_bot.services.shared.run_state_service import RunSummary
 
 LOGGER = logging.getLogger(__name__)
 _UNRESOLVED_BOT_AUTHOR_USERNAME = object()

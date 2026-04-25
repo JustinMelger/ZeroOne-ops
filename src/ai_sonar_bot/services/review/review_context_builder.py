@@ -16,15 +16,15 @@ from ai_sonar_bot.models.review import (
     ReviewFileContext,
 )
 from ai_sonar_bot.providers.gitlab_review_client import GitLabReviewClient
-from ai_sonar_bot.services.context_builder import (
-    _format_with_line_numbers,
-    _window_bounds,
-)
 from ai_sonar_bot.services.review.review_function_context import (
     select_function_aware_window,
 )
 from ai_sonar_bot.services.review.review_helper_context import (
     build_same_file_helper_context,
+)
+from ai_sonar_bot.services.shared.context_builder import (
+    _format_with_line_numbers,
+    _window_bounds,
 )
 
 HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")

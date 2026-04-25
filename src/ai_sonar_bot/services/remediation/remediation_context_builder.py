@@ -7,7 +7,7 @@ from pathlib import Path
 from ai_sonar_bot.models.analysis import IssueContext, PriorReviewFeedback
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.remediation import RemediationWorkItem
-from ai_sonar_bot.services.context_builder import build_issue_context
+from ai_sonar_bot.services.shared.context_builder import build_issue_context
 
 
 class RemediationContextBuilder:

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from ai_sonar_bot.models.review import ReviewHelperContext
-from ai_sonar_bot.services.context_builder import _format_with_line_numbers
+from ai_sonar_bot.services.shared.context_builder import _format_with_line_numbers
 
 LOGGER = logging.getLogger(__name__)
 

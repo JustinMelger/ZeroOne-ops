@@ -28,8 +28,11 @@ from ai_sonar_bot.services.remediation.remediation_exclusion_service import (
 )
 from ai_sonar_bot.services.review.review_runner import ReviewRunner
 from ai_sonar_bot.services.review.review_state_service import ReviewStateService
-from ai_sonar_bot.services.run_state_service import RunStateService, RunSummary
-from ai_sonar_bot.services.state_store import StateStore
+from ai_sonar_bot.services.shared.run_state_service import (
+    RunStateService,
+    RunSummary,
+)
+from ai_sonar_bot.services.shared.state_store import StateStore
 from ai_sonar_bot.settings import (
     load_config,
     load_gitlab_connection_config,

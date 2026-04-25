@@ -18,7 +18,7 @@ from ai_sonar_bot.services.remediation.patch_execution_service import (
     PatchExecutionService,
 )
 from ai_sonar_bot.services.remediation.validator import Validator
-from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
+from ai_sonar_bot.services.shared.workspace_snapshot import WorkspaceSnapshotService
 
 
 class StubFixGenerator(FixGenerator):

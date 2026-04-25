@@ -14,8 +14,8 @@ from ai_sonar_bot.models.state import (
     RepositoryState,
     RunStatus,
 )
-from ai_sonar_bot.services.run_state_service import RunStateService
-from ai_sonar_bot.services.state_store import StateStore
+from ai_sonar_bot.services.shared.run_state_service import RunStateService
+from ai_sonar_bot.services.shared.state_store import StateStore
 
 
 def build_config(state_path: Path) -> AppConfig:

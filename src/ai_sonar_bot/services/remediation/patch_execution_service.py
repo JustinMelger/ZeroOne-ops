@@ -25,7 +25,10 @@ from ai_sonar_bot.services.remediation.patch_applier import (
     PatchApplyError,
 )
 from ai_sonar_bot.services.remediation.validator import Validator
-from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshot, WorkspaceSnapshotService
+from ai_sonar_bot.services.shared.workspace_snapshot import (
+    WorkspaceSnapshot,
+    WorkspaceSnapshotService,
+)
 
 
 @dataclass(frozen=True)
