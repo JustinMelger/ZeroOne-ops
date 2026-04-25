@@ -3,7 +3,10 @@ from pathlib import Path
 import pytest
 
 from ai_sonar_bot.models.analysis import StructuredEditProposal, TextEdit
-from ai_sonar_bot.services.edit_renderer import EditRenderer, EditRenderError
+from ai_sonar_bot.services.remediation.edit_renderer import (
+    EditRenderer,
+    EditRenderError,
+)
 
 
 def test_render_creates_patch_from_exact_text_replacement(tmp_path: Path) -> None:

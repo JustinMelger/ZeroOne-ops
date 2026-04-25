@@ -2,7 +2,9 @@ from pathlib import Path
 
 from ai_sonar_bot.models.dashboard import DashboardItem
 from ai_sonar_bot.models.state import AppState, RepositoryState
-from ai_sonar_bot.services.remediation_exclusion_service import RemediationExclusionService
+from ai_sonar_bot.services.remediation.remediation_exclusion_service import (
+    RemediationExclusionService,
+)
 from ai_sonar_bot.services.state_store import StateStore
 
 

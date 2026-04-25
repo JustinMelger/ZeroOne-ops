@@ -18,10 +18,13 @@ from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.models.state import FailureDetails, FailureStage
 from ai_sonar_bot.providers.llm_client import LLMClientError
-from ai_sonar_bot.services.edit_renderer import EditRenderError
-from ai_sonar_bot.services.fix_generator import FixGenerator
-from ai_sonar_bot.services.patch_applier import PatchApplier, PatchApplyError
-from ai_sonar_bot.services.validator import Validator
+from ai_sonar_bot.services.remediation.edit_renderer import EditRenderError
+from ai_sonar_bot.services.remediation.fix_generator import FixGenerator
+from ai_sonar_bot.services.remediation.patch_applier import (
+    PatchApplier,
+    PatchApplyError,
+)
+from ai_sonar_bot.services.remediation.validator import Validator
 from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshot, WorkspaceSnapshotService
 
 

@@ -9,10 +9,15 @@ from ai_sonar_bot.models.config import (
     RemediationConfig,
 )
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget
-from ai_sonar_bot.services.fix_generator import FixGenerator
-from ai_sonar_bot.services.patch_applier import PatchApplier, PatchApplyError
-from ai_sonar_bot.services.patch_execution_service import PatchExecutionService
-from ai_sonar_bot.services.validator import Validator
+from ai_sonar_bot.services.remediation.fix_generator import FixGenerator
+from ai_sonar_bot.services.remediation.patch_applier import (
+    PatchApplier,
+    PatchApplyError,
+)
+from ai_sonar_bot.services.remediation.patch_execution_service import (
+    PatchExecutionService,
+)
+from ai_sonar_bot.services.remediation.validator import Validator
 from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
 
 

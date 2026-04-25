@@ -16,8 +16,8 @@ from ai_sonar_bot.models.config import (
     RemediationConfig,
 )
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget
-from ai_sonar_bot.services.analysis_service import AnalysisService
-from ai_sonar_bot.services.patch_applier import PatchApplyError
+from ai_sonar_bot.services.remediation.analysis_service import AnalysisService
+from ai_sonar_bot.services.remediation.patch_applier import PatchApplyError
 
 
 def build_config(

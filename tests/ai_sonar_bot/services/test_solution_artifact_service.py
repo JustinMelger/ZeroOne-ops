@@ -7,7 +7,9 @@ from ai_sonar_bot.models.analysis import (
     StructuredEditProposal,
     TextEdit,
 )
-from ai_sonar_bot.services.solution_artifact_service import SolutionArtifactService
+from ai_sonar_bot.services.remediation.solution_artifact_service import (
+    SolutionArtifactService,
+)
 
 
 def build_analysis() -> IssueAnalysis:

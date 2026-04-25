@@ -7,7 +7,7 @@ from ai_sonar_bot.models.config import (
     RemediationConfig,
 )
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget
-from ai_sonar_bot.services.publish_service import PublishService
+from ai_sonar_bot.services.remediation.publish_service import PublishService
 
 
 def build_config() -> AppConfig:

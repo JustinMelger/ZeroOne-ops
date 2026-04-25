@@ -4,7 +4,10 @@ from pathlib import Path
 import pytest
 
 from ai_sonar_bot.models.analysis import PatchProposal
-from ai_sonar_bot.services.patch_applier import PatchApplier, PatchApplyError
+from ai_sonar_bot.services.remediation.patch_applier import (
+    PatchApplier,
+    PatchApplyError,
+)
 
 
 def _init_git_repo(repo_root: Path) -> None:

@@ -12,10 +12,16 @@ from ai_sonar_bot.models.analysis import IssueContext, ValidationResult
 from ai_sonar_bot.models.config import AppConfig
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget
 from ai_sonar_bot.models.state import FailureDetails, FailureStage, RunStatus
-from ai_sonar_bot.services.analysis_service import AnalysisResult, AnalysisService
 from ai_sonar_bot.services.approval import ApprovalService
 from ai_sonar_bot.services.branch_manager import BranchManager, BranchManagerError
-from ai_sonar_bot.services.publish_service import PublishResult, PublishService
+from ai_sonar_bot.services.remediation.analysis_service import (
+    AnalysisResult,
+    AnalysisService,
+)
+from ai_sonar_bot.services.remediation.publish_service import (
+    PublishResult,
+    PublishService,
+)
 from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
 
 

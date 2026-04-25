@@ -9,9 +9,9 @@ from ai_sonar_bot.models.config import (
     RemediationConfig,
 )
 from ai_sonar_bot.models.remediation import RemediationExecutionTarget
-from ai_sonar_bot.services.analysis_service import AnalysisResult
-from ai_sonar_bot.services.execution_service import ExecutionService
-from ai_sonar_bot.services.publish_service import PublishResult
+from ai_sonar_bot.services.remediation.analysis_service import AnalysisResult
+from ai_sonar_bot.services.remediation.execution_service import ExecutionService
+from ai_sonar_bot.services.remediation.publish_service import PublishResult
 from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshotService
 
 
@@ -241,7 +241,7 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
     captured: dict[str, str] = {}
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.publish_service.load_gitlab_connection_config",
+        "ai_sonar_bot.services.remediation.publish_service.load_gitlab_connection_config",
         fake_gitlab_config,
     )
 
@@ -250,7 +250,7 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
 
     monkeypatch.setattr(service.branch_manager, "push_current_branch", fake_push_current_branch)
     monkeypatch.setattr(
-        "ai_sonar_bot.services.publish_service.MergeRequestService.find_open",
+        "ai_sonar_bot.services.remediation.publish_service.MergeRequestService.find_open",
         fake_find_open_none,
     )
 
@@ -266,7 +266,7 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
         )
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.publish_service.MergeRequestService.create",
+        "ai_sonar_bot.services.remediation.publish_service.MergeRequestService.create",
         capture_create,
     )
 

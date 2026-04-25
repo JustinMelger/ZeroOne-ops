@@ -16,9 +16,11 @@ from ai_sonar_bot.services.dashboard.dashboard_remediation_updater import (
     DashboardRemediationUpdater,
 )
 from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
-from ai_sonar_bot.services.execution_service import ExecutionService
-from ai_sonar_bot.services.remediation_context_builder import RemediationContextBuilder
-from ai_sonar_bot.services.remediation_execution_adapter import (
+from ai_sonar_bot.services.remediation.execution_service import ExecutionService
+from ai_sonar_bot.services.remediation.remediation_context_builder import (
+    RemediationContextBuilder,
+)
+from ai_sonar_bot.services.remediation.remediation_execution_adapter import (
     remediation_work_item_to_execution_target,
 )
 from ai_sonar_bot.services.run_state_service import RunStateService, RunSummary

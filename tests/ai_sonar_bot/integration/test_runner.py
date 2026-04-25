@@ -32,8 +32,8 @@ from ai_sonar_bot.models.state import (
 )
 from ai_sonar_bot.providers.gitlab_client import GitLabClientError
 from ai_sonar_bot.runner import dashboard_reconcile, dashboard_remediate, review
-from ai_sonar_bot.services.analysis_service import AnalysisResult
 from ai_sonar_bot.services.branch_manager import BranchManagerError
+from ai_sonar_bot.services.remediation.analysis_service import AnalysisResult
 from ai_sonar_bot.services.review.review_context_builder import (
     ReviewContextBuildResult,
 )
@@ -1559,7 +1559,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.remediation_context_builder.RemediationContextBuilder.build",
+        "ai_sonar_bot.services.remediation.remediation_context_builder.RemediationContextBuilder.build",
         lambda self, work_item: IssueContext(
             issue_key=work_item.dashboard_item_id,
             file_path=work_item.file_path,
@@ -1639,7 +1639,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
         mark_mr_opened,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.ExecutionService.execute_with_context",
+        "ai_sonar_bot.services.remediation.execution_service.ExecutionService.execute_with_context",
         lambda self, selected_issue, context, dry_run: type(
             "ExecutionResult",
             (),
@@ -1729,7 +1729,7 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.remediation_context_builder.RemediationContextBuilder.build",
+        "ai_sonar_bot.services.remediation.remediation_context_builder.RemediationContextBuilder.build",
         lambda self, work_item: IssueContext(
             issue_key=work_item.dashboard_item_id,
             file_path=work_item.file_path,
@@ -1841,7 +1841,7 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
         )()
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.ExecutionService.execute_with_context",
+        "ai_sonar_bot.services.remediation.execution_service.ExecutionService.execute_with_context",
         execute_with_context,
     )
 
@@ -1950,7 +1950,7 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
         )(),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.remediation_context_builder.RemediationContextBuilder.build",
+        "ai_sonar_bot.services.remediation.remediation_context_builder.RemediationContextBuilder.build",
         lambda self, work_item: IssueContext(
             issue_key=work_item.dashboard_item_id,
             file_path=work_item.file_path,
@@ -1962,7 +1962,7 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
         ),
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.ExecutionService.execute_with_context",
+        "ai_sonar_bot.services.remediation.execution_service.ExecutionService.execute_with_context",
         lambda self, selected_issue, context, dry_run: type(
             "ExecutionResult",
             (),
@@ -2188,7 +2188,7 @@ def test_dashboard_remediate_fails_when_mr_opened_update_cannot_persist(
         normalize,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.remediation_context_builder.RemediationContextBuilder.build",
+        "ai_sonar_bot.services.remediation.remediation_context_builder.RemediationContextBuilder.build",
         build_context,
     )
     monkeypatch.setattr(
@@ -2200,7 +2200,7 @@ def test_dashboard_remediate_fails_when_mr_opened_update_cannot_persist(
         mark_mr_opened,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.ExecutionService.execute_with_context",
+        "ai_sonar_bot.services.remediation.execution_service.ExecutionService.execute_with_context",
         execute_with_context,
     )
 
@@ -2402,7 +2402,7 @@ def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
         normalize,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.remediation_context_builder.RemediationContextBuilder.build",
+        "ai_sonar_bot.services.remediation.remediation_context_builder.RemediationContextBuilder.build",
         build_context,
     )
     monkeypatch.setattr(
@@ -2414,7 +2414,7 @@ def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
         mark_failed,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.ExecutionService.execute_with_context",
+        "ai_sonar_bot.services.remediation.execution_service.ExecutionService.execute_with_context",
         execute_with_context,
     )
 
@@ -2603,7 +2603,7 @@ def test_dashboard_remediate_ci_failure_marks_dashboard_failed(
         normalize,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.remediation_context_builder.RemediationContextBuilder.build",
+        "ai_sonar_bot.services.remediation.remediation_context_builder.RemediationContextBuilder.build",
         build_context,
     )
     monkeypatch.setattr(
@@ -2615,7 +2615,7 @@ def test_dashboard_remediate_ci_failure_marks_dashboard_failed(
         mark_failed,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.ExecutionService.execute_with_context",
+        "ai_sonar_bot.services.remediation.execution_service.ExecutionService.execute_with_context",
         execute_with_context,
     )
 
@@ -2790,7 +2790,7 @@ def test_dashboard_remediate_ci_rejection_marks_dashboard_rejected(
         normalize,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.remediation_context_builder.RemediationContextBuilder.build",
+        "ai_sonar_bot.services.remediation.remediation_context_builder.RemediationContextBuilder.build",
         build_context,
     )
     monkeypatch.setattr(
@@ -2802,7 +2802,7 @@ def test_dashboard_remediate_ci_rejection_marks_dashboard_rejected(
         mark_rejected,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.execution_service.ExecutionService.execute_with_context",
+        "ai_sonar_bot.services.remediation.execution_service.ExecutionService.execute_with_context",
         execute_with_context,
     )
 
@@ -2968,7 +2968,7 @@ def test_dashboard_remediate_ci_manual_analysis_marks_dashboard_rejected(
         normalize,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.remediation_context_builder.RemediationContextBuilder.build",
+        "ai_sonar_bot.services.remediation.remediation_context_builder.RemediationContextBuilder.build",
         build_context,
     )
     monkeypatch.setattr(
@@ -2980,7 +2980,7 @@ def test_dashboard_remediate_ci_manual_analysis_marks_dashboard_rejected(
         mark_rejected,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.analysis_service.AnalysisService.analyze_issue_with_context",
+        "ai_sonar_bot.services.remediation.analysis_service.AnalysisService.analyze_issue_with_context",
         fake_analyze_issue_with_context,
     )
     monkeypatch.setattr(
@@ -3155,7 +3155,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
         normalize,
     )
     monkeypatch.setattr(
-        "ai_sonar_bot.services.remediation_context_builder.RemediationContextBuilder.build",
+        "ai_sonar_bot.services.remediation.remediation_context_builder.RemediationContextBuilder.build",
         build_context,
     )
     monkeypatch.setattr(
@@ -3213,7 +3213,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
         raise BranchManagerError("git commit failed")
 
     monkeypatch.setattr(
-        "ai_sonar_bot.services.analysis_service.AnalysisService.analyze_issue_with_context",
+        "ai_sonar_bot.services.remediation.analysis_service.AnalysisService.analyze_issue_with_context",
         analyze_issue_with_context,
     )
     monkeypatch.setattr(

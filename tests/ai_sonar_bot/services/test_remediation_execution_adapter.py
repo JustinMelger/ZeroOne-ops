@@ -1,5 +1,5 @@
 from ai_sonar_bot.models.sonar import SonarIssue
-from ai_sonar_bot.services.remediation_execution_adapter import (
+from ai_sonar_bot.services.remediation.remediation_execution_adapter import (
     remediation_work_item_to_execution_target,
     sonar_issue_to_execution_target,
     sonar_issue_to_work_item,

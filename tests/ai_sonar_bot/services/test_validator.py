@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ai_sonar_bot.services.validator import Validator
+from ai_sonar_bot.services.remediation.validator import Validator
 
 
 def test_run_returns_success_when_no_commands_configured(tmp_path: Path) -> None:

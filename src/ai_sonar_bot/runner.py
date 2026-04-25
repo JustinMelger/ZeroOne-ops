@@ -20,7 +20,9 @@ from ai_sonar_bot.services.dashboard.dashboard_remediation_runner import (
 )
 from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
 from ai_sonar_bot.services.issue_intake import IssueIntakeService
-from ai_sonar_bot.services.remediation_exclusion_service import RemediationExclusionService
+from ai_sonar_bot.services.remediation.remediation_exclusion_service import (
+    RemediationExclusionService,
+)
 from ai_sonar_bot.services.review.review_runner import ReviewRunner
 from ai_sonar_bot.services.review.review_state_service import ReviewStateService
 from ai_sonar_bot.services.run_state_service import RunStateService, RunSummary

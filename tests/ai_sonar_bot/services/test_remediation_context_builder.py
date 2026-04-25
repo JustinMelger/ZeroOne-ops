@@ -8,7 +8,9 @@ from ai_sonar_bot.models.config import (
     RemediationConfig,
 )
 from ai_sonar_bot.models.remediation import RemediationWorkItem
-from ai_sonar_bot.services.remediation_context_builder import RemediationContextBuilder
+from ai_sonar_bot.services.remediation.remediation_context_builder import (
+    RemediationContextBuilder,
+)
 
 
 def build_config(*, max_file_bytes: int = 200_000) -> AppConfig:

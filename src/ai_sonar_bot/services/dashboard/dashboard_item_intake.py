@@ -17,7 +17,9 @@ from ai_sonar_bot.services.dashboard.dashboard_item_selector import (
 )
 from ai_sonar_bot.services.dashboard.dashboard_service import DashboardService
 from ai_sonar_bot.services.mr_service import MergeRequestService
-from ai_sonar_bot.services.remediation_exclusion_service import RemediationExclusionService
+from ai_sonar_bot.services.remediation.remediation_exclusion_service import (
+    RemediationExclusionService,
+)
 from ai_sonar_bot.settings import SettingsError, load_gitlab_connection_config
 from ai_sonar_bot.utils.git import build_issue_branch_name
 

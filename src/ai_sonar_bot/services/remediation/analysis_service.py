@@ -24,12 +24,19 @@ from ai_sonar_bot.providers.llm_client import (
     OpenAILLMClient,
 )
 from ai_sonar_bot.services.context_builder import ContextBuilder
-from ai_sonar_bot.services.edit_renderer import EditRenderer, EditRenderError
-from ai_sonar_bot.services.fix_generator import FixGenerator
-from ai_sonar_bot.services.patch_applier import PatchApplier
-from ai_sonar_bot.services.patch_execution_service import PatchExecutionService
-from ai_sonar_bot.services.solution_artifact_service import SolutionArtifactService
-from ai_sonar_bot.services.validator import Validator
+from ai_sonar_bot.services.remediation.edit_renderer import (
+    EditRenderer,
+    EditRenderError,
+)
+from ai_sonar_bot.services.remediation.fix_generator import FixGenerator
+from ai_sonar_bot.services.remediation.patch_applier import PatchApplier
+from ai_sonar_bot.services.remediation.patch_execution_service import (
+    PatchExecutionService,
+)
+from ai_sonar_bot.services.remediation.solution_artifact_service import (
+    SolutionArtifactService,
+)
+from ai_sonar_bot.services.remediation.validator import Validator
 from ai_sonar_bot.services.workspace_snapshot import WorkspaceSnapshot, WorkspaceSnapshotService
 from ai_sonar_bot.settings import SettingsError, load_openai_connection_config
 
