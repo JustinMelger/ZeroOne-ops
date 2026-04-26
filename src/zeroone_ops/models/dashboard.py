@@ -85,6 +85,7 @@ class DashboardIssueClassInventoryEntry(BaseModel):
     issue_key: str
     matching_items_count: int
     severities_present: list[str] = Field(default_factory=list)
+    source_severities_present: list[str] = Field(default_factory=list)
     automation_status: DashboardAutomationStatus
     reason: str | None = None
 
@@ -112,6 +113,8 @@ class DashboardItem(BaseModel):
     line: int | None = None
     rule: str | None = None
     severity: str | None = None
+    source_severity: str | None = None
+    automation_severity: str | None = None
     validation_commands: list[str] = Field(default_factory=list)
     expected_change: str | None = None
     constraints: str | None = None

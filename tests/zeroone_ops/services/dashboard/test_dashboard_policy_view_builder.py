@@ -36,6 +36,8 @@ def build_item(
         file=file_path,
         rule=rule,
         severity=severity,
+        source_severity=severity,
+        automation_severity=severity.lower(),
     )
 
 
@@ -97,3 +99,5 @@ def test_build_returns_read_only_policy_view_with_severity_exclusion_and_invento
         inventory_by_key[("sonarqube", "python:S1125")].automation_status
         == "eligible for automation"
     )
+    assert inventory_by_key[("sonarqube", "python:S3776")].severities_present == ["high"]
+    assert inventory_by_key[("sonarqube", "python:S3776")].source_severities_present == ["HIGH"]

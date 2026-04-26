@@ -140,8 +140,14 @@ class DashboardPolicyViewBuilder:
             source, issue_key = key
             grouped = grouped_items[key]
             status, reason = self._group_status(grouped)
+            normalized_severities = {
+                severity
+                for item in grouped
+                for severity in [self._automation_severity_for_item(item)]
+                if severity is not None
+            }
             severities = sorted(
-                {self._normalized_severity(item.severity) for item in grouped if item.severity},
+                normalized_severities,
                 key=(
                     lambda severity: (
                         _SEVERITY_ORDER.index(severity) if severity in _SEVERITY_ORDER else 99
@@ -154,6 +160,14 @@ class DashboardPolicyViewBuilder:
                     issue_key=issue_key,
                     matching_items_count=len(grouped),
                     severities_present=severities,
+                    source_severities_present=sorted(
+                        {
+                            severity
+                            for item in grouped
+                            for severity in [item.source_severity or item.severity]
+                            if severity
+                        }
+                    ),
                     automation_status=status,
                     reason=reason,
                 )
@@ -184,9 +198,14 @@ class DashboardPolicyViewBuilder:
 
         if self._all_items_blocked_by_severity(items):
             severities = sorted(
-                {self._normalized_severity(item.severity) for item in items if item.severity}
+                {
+                    severity
+                    for item in items
+                    for severity in [self._automation_severity_for_item(item)]
+                    if severity is not None
+                }
             )
-            severity_text = ", ".join(severities).upper() if severities else "unknown"
+            severity_text = ", ".join(severities) if severities else "unknown"
             return (
                 "blocked by severity policy",
                 f"Current severity policy disables {severity_text}.",
@@ -205,7 +224,12 @@ class DashboardPolicyViewBuilder:
 
     def _all_items_blocked_by_severity(self, items: list[DashboardItem]) -> bool:
         enabled = {severity.lower() for severity in self.config.remediation.supported_severities}
-        severities = [self._normalized_severity(item.severity) for item in items if item.severity]
+        severities = [
+            severity
+            for item in items
+            for severity in [self._automation_severity_for_item(item)]
+            if severity is not None
+        ]
         if not severities:
             return False
         return all(severity not in enabled for severity in severities)
@@ -215,5 +239,9 @@ class DashboardPolicyViewBuilder:
             return item.rule
         return None
 
-    def _normalized_severity(self, severity: str | None) -> str:
-        return (severity or "unknown").lower()
+    def _automation_severity_for_item(self, item: DashboardItem) -> str | None:
+        if item.automation_severity:
+            return item.automation_severity.lower()
+        if item.severity:
+            return item.severity.lower()
+        return None

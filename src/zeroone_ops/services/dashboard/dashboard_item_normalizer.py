@@ -60,7 +60,7 @@ class DashboardItemNormalizer:
                 file_path=item.file,
                 line=item.line,
                 rule_id=item.rule,
-                severity=item.severity,
+                severity=item.automation_severity or item.severity,
                 source_payload=item.model_dump(mode="python"),
                 validation_commands=list(item.validation_commands),
                 expected_change=item.expected_change,

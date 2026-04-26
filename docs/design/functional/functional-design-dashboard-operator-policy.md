@@ -101,6 +101,9 @@ Severity policy controls whether remediation is currently allowed to attempt:
 - `medium`
 - `high`
 
+This policy should operate on normalized automation severity bands, not on raw
+source-native severity labels.
+
 Expected operator behavior:
 
 - operators can inspect current severity policy,
@@ -183,6 +186,10 @@ For each shown group, the dashboard should include:
 The grouped inventory should help operators make policy decisions without
 having to scan all individual items first, but it should not attempt to show
 every possible issue-key grouping in the first version.
+
+When useful, the dashboard may still surface raw source severity secondarily for
+traceability, but policy status should be driven by normalized automation
+severity.
 
 ## 9. Operator Actions
 

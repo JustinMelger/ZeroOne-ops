@@ -55,6 +55,21 @@ class SonarIssue(BaseModel):
     impacts: list[SonarImpact] = Field(default_factory=list)
     creation_date: datetime | None = None
 
+    def automation_severity(self) -> str:
+        """Return the normalized automation severity band for the issue."""
+        maintainability_severities = {
+            impact.severity.upper()
+            for impact in self.impacts
+            if impact.software_quality.upper() == "MAINTAINABILITY"
+        }
+        if maintainability_severities:
+            return _normalize_automation_severity(next(iter(sorted(maintainability_severities))))
+        return _normalize_automation_severity(self.severity)
+
+    def source_severity(self) -> str:
+        """Return the raw source severity label for traceability."""
+        return self.severity.upper()
+
     def matches_supported_severities(self, supported_severities: list[str]) -> bool:
         """Return whether the issue matches configured severity filters.
 
@@ -81,6 +96,12 @@ class SonarIssue(BaseModel):
         if raw_severity in normalized:
             return True
         return _legacy_to_modern_severity(self.severity) in normalized
+
+
+def _normalize_automation_severity(severity: str) -> str:
+    """Map raw SonarQube severities into automation severity bands."""
+    normalized = _legacy_to_modern_severity(severity)
+    return normalized.lower()
 
 
 def _legacy_to_modern_severity(severity: str) -> str:
