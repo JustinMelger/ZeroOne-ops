@@ -46,7 +46,16 @@ Shipped baseline:
 - track exclusion usage and repeated remediation skip patterns
 - treat these as the evidence base for later architecture work
 
-### 3. Cleanup
+### 3. Dashboard Operator Policy
+
+- finish the operator-filter story so dashboard policy, exclusions, and
+  severity control stop being split across multiple surfaces
+- design the grouped dashboard policy model before implementing new interaction
+  paths
+- treat review-bot improvements as lower urgency than making remediation policy
+  product-shaped
+
+### 4. Cleanup
 
 - continue small codebase and docs cleanup where it improves operator or
   maintainer clarity
@@ -138,7 +147,9 @@ Use these docs when deeper detail is needed:
 - [design/technical/technical-design-pr-review.md](design/technical/technical-design-pr-review.md)
 - [design/technical/technical-design-pr-review-overlap-reconciliation.md](design/technical/technical-design-pr-review-overlap-reconciliation.md)
 - [design/technical/technical-design-pr-review-gitlab-prior-context.md](design/technical/technical-design-pr-review-gitlab-prior-context.md)
+- [design/functional/functional-design-dashboard-operator-policy.md](design/functional/functional-design-dashboard-operator-policy.md)
 - [design/technical/technical-design-remediation-exclusions.md](design/technical/technical-design-remediation-exclusions.md)
+- [design/technical/technical-design-dashboard-operator-policy.md](design/technical/technical-design-dashboard-operator-policy.md)
 - [design/technical/technical-design-config-structure.md](design/technical/technical-design-config-structure.md)
 - [review-bot-feedback-log.md](review-bot-feedback-log.md)
 - [../future_plans.md](../future_plans.md)
