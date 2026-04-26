@@ -5,6 +5,18 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.29.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.28.0...zeroone-ops-v0.29.0) (2026-04-26)
+
+
+### Features
+
+* versioned dashboards migration ([#142](https://github.com/JustinMelger/ZeroOne-ops/issues/142)) ([7301a9f](https://github.com/JustinMelger/ZeroOne-ops/commit/7301a9f39844b20113ac44bc482ee22822fa45cd))
+
+
+### Documentation
+
+* restructure docs ([#139](https://github.com/JustinMelger/ZeroOne-ops/issues/139)) ([8fd1e48](https://github.com/JustinMelger/ZeroOne-ops/commit/8fd1e48e1e856c59febebc550de97ac035ac128b))
+
 ## [0.28.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.27.6...zeroone-ops-v0.28.0) (2026-04-24)
 
 
