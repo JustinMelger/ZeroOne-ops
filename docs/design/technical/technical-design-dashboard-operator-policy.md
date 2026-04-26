@@ -68,6 +68,13 @@ Purpose:
 - keep severity policy visible and editable through the dashboard-backed policy
   surface.
 
+Normalization responsibility:
+
+- producer-side normalization should compute the automation severity band,
+- the dashboard and remediation policy layers should consume normalized
+  severity, not re-implement source-specific mappings,
+- raw source severity may still be preserved separately for traceability.
+
 ### 4.2 Issue-Class Policy Record
 
 Suggested fields:
@@ -103,7 +110,8 @@ Suggested derived fields per group:
 - `source`
 - `issue_key`
 - `current_item_count`
-- `severities_present`
+- `severities_present` (normalized automation severity bands)
+- `source_severities_present` (optional raw source severities)
 - `excluded`
 - `exclusion_reason`
 - `last_updated`
@@ -266,9 +274,11 @@ Suggested migration:
 1. seed dashboard severity policy from config when no dashboard policy exists,
 2. render the effective seeded severity policy visibly in the dashboard so
    operators can see the active baseline,
-3. once dashboard severity policy exists, remediation reads the dashboard
+3. make sure policy evaluation uses normalized automation severity rather than
+   raw source severity,
+4. once dashboard severity policy exists, remediation reads the dashboard
    policy,
-4. later de-emphasize config severity in operator docs and workflows.
+5. later de-emphasize config severity in operator docs and workflows.
 
 ### 9.2 Exclusion Migration
 

@@ -26,6 +26,8 @@ def build_item(
         line=42,
         rule="python:S1125",
         severity="LOW",
+        source_severity="LOW",
+        automation_severity="low",
         validation_commands=["uv run pytest"],
         expected_change="Use direct truthiness.",
         constraints="Single-file change only.",
@@ -43,6 +45,7 @@ def test_normalize_returns_provider_neutral_work_item_for_supported_dashboard_it
     assert result.work_item.source_ref == "AX123"
     assert result.work_item.file_path == "src/service.py"
     assert result.work_item.validation_commands == ["uv run pytest"]
+    assert result.work_item.severity == "low"
     assert result.message == ""
 
 

@@ -62,6 +62,9 @@ def test_sync_normalizes_sonar_issues_into_dashboard_items() -> None:
     assert dashboard_service.items[0].status == "open"
     assert dashboard_service.items[0].upstream_active is True
     assert dashboard_service.items[0].rule == "python:S1125"
+    assert dashboard_service.items[0].source_severity == "LOW"
+    assert dashboard_service.items[0].automation_severity == "low"
+    assert dashboard_service.items[0].severity == "low"
 
 
 def test_sync_preserves_existing_status_for_current_sonar_items() -> None:

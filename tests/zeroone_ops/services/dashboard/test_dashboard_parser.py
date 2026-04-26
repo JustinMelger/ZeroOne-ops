@@ -22,6 +22,8 @@ def build_item(*, item_id: str, status: str = "open") -> DashboardItem:
         line=42,
         rule="python:S1125",
         severity="LOW",
+        source_severity="LOW",
+        automation_severity="low",
         validation_commands=["uv run pytest"],
     )
 
