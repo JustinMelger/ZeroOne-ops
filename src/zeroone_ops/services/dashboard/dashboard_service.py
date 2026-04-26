@@ -19,7 +19,6 @@ from zeroone_ops.services.dashboard.dashboard_parser import DashboardParser
 from zeroone_ops.services.dashboard.dashboard_renderer import DashboardRenderer
 
 
-
 class DashboardPolicyViewBuilderProtocol(Protocol):
     """Protocol for dashboard policy-view builders."""
 

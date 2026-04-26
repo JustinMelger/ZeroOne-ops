@@ -72,9 +72,7 @@ class DashboardRenderer:
         ]
         for row in rows:
             status = (
-                "[x] eligible for automation"
-                if row.enabled
-                else "[ ] blocked by severity policy"
+                "[x] eligible for automation" if row.enabled else "[ ] blocked by severity policy"
             )
             lines.append(f"| `{row.severity}` | {status} | {row.reason or '-'} |")
         return lines
@@ -110,9 +108,7 @@ class DashboardRenderer:
             "|---|---|---|---|---|",
         ]
         for row in rows:
-            severities = ", ".join(
-                severity.upper() for severity in row.severities_present
-            ) or "-"
+            severities = ", ".join(severity.upper() for severity in row.severities_present) or "-"
             lines.append(
                 "| "
                 f"`{row.source} / {row.issue_key}` | "

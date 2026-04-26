@@ -169,7 +169,6 @@ def test_done_items_render_under_completed_section() -> None:
     assert updated.sections[3].items[0].status == "done"
 
 
-
 class FakePolicyViewBuilder:
     def build(self, items: list[DashboardItem]) -> DashboardPolicyView:
         return DashboardPolicyView(

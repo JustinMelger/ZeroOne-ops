@@ -192,10 +192,7 @@ class DashboardPolicyViewBuilder:
                 f"Current severity policy disables {severity_text}.",
             )
 
-        selector_reasons = [
-            self.selector.skip_reason(item, self.state)
-            for item in items
-        ]
+        selector_reasons = [self.selector.skip_reason(item, self.state) for item in items]
         if any(reason is None for reason in selector_reasons):
             return "eligible for automation", None
         non_null_reasons = [reason for reason in selector_reasons if reason is not None]
