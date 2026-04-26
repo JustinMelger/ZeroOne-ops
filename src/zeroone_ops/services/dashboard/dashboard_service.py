@@ -22,7 +22,9 @@ from zeroone_ops.services.dashboard.dashboard_renderer import DashboardRenderer
 class DashboardPolicyViewBuilderProtocol(Protocol):
     """Protocol for dashboard policy-view builders."""
 
-    def build(self, items: list[DashboardItem]) -> DashboardPolicyView: ...
+    def build(self, items: list[DashboardItem]) -> DashboardPolicyView:
+        """Build one dashboard policy view from current dashboard items."""
+        ...
 
 
 DEFAULT_SECTION_ITEM_LIMITS: dict[DashboardSectionKey, int] = {
