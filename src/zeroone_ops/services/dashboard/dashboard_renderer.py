@@ -4,24 +4,126 @@ from __future__ import annotations
 
 import json
 
-from zeroone_ops.models.dashboard import DashboardDocument, DashboardItem, DashboardSection
+from zeroone_ops.models.dashboard import (
+    CURRENT_DASHBOARD_SCHEMA_VERSION,
+    DASHBOARD_SCHEMA_MARKER,
+    DashboardDocument,
+    DashboardIssueClassExclusionEntry,
+    DashboardIssueClassInventoryEntry,
+    DashboardItem,
+    DashboardPolicyView,
+    DashboardSection,
+    DashboardSeverityPolicyEntry,
+)
 
 
 class DashboardRenderer:
     """Render deterministic dashboard markdown."""
 
-    def render(self, *, title: str, sections: list[DashboardSection]) -> str:
+    def render(
+        self,
+        *,
+        title: str,
+        sections: list[DashboardSection],
+        schema_version: int = CURRENT_DASHBOARD_SCHEMA_VERSION,
+        policy_view: DashboardPolicyView | None = None,
+    ) -> str:
         """Render one dashboard body."""
         lines = [
+            (
+                DASHBOARD_SCHEMA_MARKER
+                if schema_version == CURRENT_DASHBOARD_SCHEMA_VERSION
+                else f"<!-- zeroone-ops:dashboard-schema:v{schema_version} -->"
+            ),
+            "",
             "Machine-managed remediation and review items for this repository.",
             "",
         ]
+        policy_view = policy_view or DashboardPolicyView()
+        lines.extend(self._render_policy_sections(policy_view))
         workflow_items = self._workflow_items(sections)
         for section in sections:
             rendered = self._render_section(section, workflow_items=workflow_items)
             if rendered:
                 lines.extend(rendered)
         return "\n".join(lines).rstrip() + "\n"
+
+    def _render_policy_sections(self, policy_view: DashboardPolicyView) -> list[str]:
+        """Render the read-only operator policy sections."""
+        lines: list[str] = [
+            "## Automation Severity Policy",
+            "",
+        ]
+        lines.extend(self._render_severity_policy_table(policy_view.severity_policy))
+        lines.extend(["", "## Excluded Issue Classes", ""])
+        lines.extend(self._render_excluded_issue_classes_table(policy_view.excluded_issue_classes))
+        lines.extend(["", "## Issue Class Inventory", ""])
+        lines.extend(self._render_issue_class_inventory_table(policy_view.issue_class_inventory))
+        lines.append("")
+        return lines
+
+    def _render_severity_policy_table(
+        self,
+        rows: list[DashboardSeverityPolicyEntry],
+    ) -> list[str]:
+        lines = [
+            "| Severity | Automation Status | Reason |",
+            "|---|---|---|",
+        ]
+        for row in rows:
+            status = (
+                "[x] eligible for automation" if row.enabled else "[ ] blocked by severity policy"
+            )
+            lines.append(f"| `{row.severity}` | {status} | {row.reason or '-'} |")
+        return lines
+
+    def _render_excluded_issue_classes_table(
+        self,
+        rows: list[DashboardIssueClassExclusionEntry],
+    ) -> list[str]:
+        if not rows:
+            return ["No items."]
+        lines = [
+            "| Issue Class | Automation Status | Matching Items | Reason |",
+            "|---|---|---|---|",
+        ]
+        for row in rows:
+            lines.append(
+                "| "
+                f"`{row.source} / {row.issue_key}` | "
+                "[x] excluded from automation | "
+                f"{row.matching_items_count} | "
+                f"{row.reason} |"
+            )
+        return lines
+
+    def _render_issue_class_inventory_table(
+        self,
+        rows: list[DashboardIssueClassInventoryEntry],
+    ) -> list[str]:
+        if not rows:
+            return ["No items."]
+        lines = [
+            "| Issue Class | Automation Status | Count | Severities | Reason |",
+            "|---|---|---|---|---|",
+        ]
+        for row in rows:
+            severities = ", ".join(severity.upper() for severity in row.severities_present) or "-"
+            lines.append(
+                "| "
+                f"`{row.source} / {row.issue_key}` | "
+                f"{self._render_inventory_status(row.automation_status)} | "
+                f"{row.matching_items_count} | {severities} | "
+                f"{row.reason or '-'} |"
+            )
+        return lines
+
+    def _render_inventory_status(self, status: str) -> str:
+        if status == "excluded from automation":
+            return "[x] excluded from automation"
+        if status == "eligible for automation":
+            return "[x] eligible for automation"
+        return f"[ ] {status}"
 
     def _render_section(
         self,
@@ -497,4 +599,9 @@ class DashboardRenderer:
 
     def render_document(self, document: DashboardDocument) -> str:
         """Render one structured dashboard document."""
-        return self.render(title=document.title, sections=document.sections)
+        return self.render(
+            title=document.title,
+            sections=document.sections,
+            schema_version=document.schema_version,
+            policy_view=document.policy_view,
+        )

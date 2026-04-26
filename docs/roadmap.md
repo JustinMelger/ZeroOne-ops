@@ -46,7 +46,52 @@ Shipped baseline:
 - track exclusion usage and repeated remediation skip patterns
 - treat these as the evidence base for later architecture work
 
-### 3. Cleanup
+### 3. Dashboard Operator Policy
+
+- finish the operator-filter story so dashboard policy, exclusions, and
+  severity control stop being split across multiple surfaces
+- design the grouped dashboard policy model before implementing new interaction
+  paths
+- treat review-bot improvements as lower urgency than making remediation policy
+  product-shaped
+
+Implementation phases:
+
+- [x] Phase 1: Versioned Read-Only Policy Surface
+- [x] add a document-level dashboard schema marker
+- [x] treat missing schema markers as legacy `v0` and migrate recognized dashboards on read
+- [x] render machine-owned `Automation Severity Policy` and `Excluded Issue Classes`
+      sections
+- [x] render a narrow grouped issue inventory for policy-relevant groups only
+- [x] show checkbox-style state for readability, but keep it read-only
+- [x] show operator-facing status language:
+      `eligible for automation`, `excluded from automation`, `blocked by severity policy`, `blocked by safety guard`
+
+- [ ] Phase 2: Dashboard Policy Action Parsing
+- [ ] add a compact `Operator Policy Actions` legend to the dashboard
+- [ ] introduce structured dashboard comment commands with a strict prefix such as
+      `/zeroone policy`
+- [ ] add `dashboard_policy_action_service` to validate commands and reject malformed input safely
+- [ ] keep raw checkbox edits and direct markdown edits non-authoritative
+
+- [ ] Phase 3: Severity Policy Writes
+- [ ] support bounded actions for enabling and disabling `low`, `medium`, and `high`
+- [ ] seed dashboard severity policy once from config when no dashboard policy exists yet
+- [ ] after seeding, make dashboard policy authoritative for remediation pickup
+- [ ] re-render checkbox-style severity state from canonical dashboard policy
+
+- [ ] Phase 4: Issue-Class Exclusion Writes
+- [ ] support bounded actions for excluding and re-including grouped issue classes by `source + issue_key`
+- [ ] keep exclusions repo-wide in the first version with no operator-facing scope
+- [ ] re-render the `Excluded Issue Classes` section and grouped inventory from the canonical dashboard policy state
+- [ ] make remediation intake apply dashboard-backed issue-class policy during pickup
+
+- [ ] Phase 5: Dashboard-First Policy Authority
+- [ ] reduce config severity to bootstrap/fallback semantics in operator docs and workflow expectations
+- [ ] narrow compatibility reads from older exclusion/state paths once rollout is stable
+- [ ] keep migration and rewrite behavior explicit for future dashboard schema changes
+
+### 4. Cleanup
 
 - continue small codebase and docs cleanup where it improves operator or
   maintainer clarity
@@ -92,42 +137,6 @@ These are important, but intentionally not part of the immediate rollout phase.
 - dashboard readability and grouped review-history improvements where they help
   operators
 
-### Service Domain Cleanup
-
-- pure structure cleanup only
-- move services into clearer domain folders without changing behavior or policy
-- do this in small slices so import churn stays easy to review and rollback
-
-Implementation phases:
-
-Phase 1: Review Domain Move
-- move review-specific services into `services/review/`
-- update imports only
-- keep names and behavior unchanged unless a path collision forces a minimal rename
-
-Phase 2: Dashboard Domain Move
-- move dashboard parser, renderer, service, and dashboard-specific runners/updaters
-  into `services/dashboard/`
-- keep the move structural only
-- avoid mixing dashboard behavior cleanup into the same slice
-
-Phase 3: Remediation Domain Move
-- move remediation-specific analysis, execution, context, exclusions, and patch-flow
-  services into `services/remediation/`
-- keep hard workflow boundaries unchanged
-- treat this as structure and imports only
-
-Phase 4: Intake And Source Cleanup
-- move source-specific intake and selector services into a clearer intake/source area
-- keep source normalization boundaries explicit
-- do not expand source behavior during the move
-
-Phase 5: Shared Service Stabilization
-- review what remains at the service root after the domain moves
-- leave truly shared services flat or move them into a small shared area if that
-  improves clarity
-- stop once the leftovers are clearly shared rather than forcing uniform nesting
-
 ## Reference Docs
 
 Use these docs when deeper detail is needed:
@@ -138,7 +147,9 @@ Use these docs when deeper detail is needed:
 - [design/technical/technical-design-pr-review.md](design/technical/technical-design-pr-review.md)
 - [design/technical/technical-design-pr-review-overlap-reconciliation.md](design/technical/technical-design-pr-review-overlap-reconciliation.md)
 - [design/technical/technical-design-pr-review-gitlab-prior-context.md](design/technical/technical-design-pr-review-gitlab-prior-context.md)
+- [design/functional/functional-design-dashboard-operator-policy.md](design/functional/functional-design-dashboard-operator-policy.md)
 - [design/technical/technical-design-remediation-exclusions.md](design/technical/technical-design-remediation-exclusions.md)
+- [design/technical/technical-design-dashboard-operator-policy.md](design/technical/technical-design-dashboard-operator-policy.md)
 - [design/technical/technical-design-config-structure.md](design/technical/technical-design-config-structure.md)
 - [review-bot-feedback-log.md](review-bot-feedback-log.md)
 - [../future_plans.md](../future_plans.md)
