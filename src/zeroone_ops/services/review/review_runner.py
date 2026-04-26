@@ -10,6 +10,7 @@ from zeroone_ops.models.review import PriorReviewContext
 from zeroone_ops.models.state import FailureDetails, FailureStage, RunRecord
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
+from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 from zeroone_ops.services.review.mr_intake import MergeRequestIntakeService
 from zeroone_ops.services.review.review_analysis_service import ReviewAnalysisService
@@ -246,7 +247,14 @@ class ReviewRunner:
                     },
                 )
             dashboard_update = ReviewDashboardUpdater(
-                DashboardService(self.dashboard_client)
+                DashboardService(
+                    self.dashboard_client,
+                    policy_view_builder=DashboardPolicyViewBuilder(
+                        repo_root=self.repo_root,
+                        config=self.config,
+                        state=self.review_state_service.state,
+                    ),
+                )
             ).update(
                 project_id=project_id,
                 merge_request=intake_result.selected_merge_request,

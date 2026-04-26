@@ -12,6 +12,7 @@ from pathlib import Path
 from zeroone_ops.models.state import RemediationExclusionState, RunStatus
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
+from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
 from zeroone_ops.services.dashboard.dashboard_reconciliation_runner import (
     DashboardReconciliationRunner,
 )
@@ -164,7 +165,14 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
     return DashboardRemediationRunner(
         repo_root=repo_root,
         config=config,
-        dashboard_service=DashboardService(GitLabDashboardClient(gitlab_config)),
+        dashboard_service=DashboardService(
+            GitLabDashboardClient(gitlab_config),
+            policy_view_builder=DashboardPolicyViewBuilder(
+                repo_root=repo_root,
+                config=config,
+                state=state,
+            ),
+        ),
         run_state_service=run_state_service,
     ).run(
         project_id=gitlab_config.project_id,
@@ -216,7 +224,14 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
         )
 
     sync_result = SonarDashboardSyncService(
-        DashboardService(GitLabDashboardClient(gitlab_config))
+        DashboardService(
+            GitLabDashboardClient(gitlab_config),
+            policy_view_builder=DashboardPolicyViewBuilder(
+                repo_root=repo_root,
+                config=config,
+                state=state,
+            ),
+        )
     ).sync(
         project_id=gitlab_config.project_id,
         issues=collection.eligible_issues,
@@ -250,7 +265,14 @@ def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:
     gitlab_config = load_gitlab_connection_config()
     return DashboardReconciliationRunner(
         config=config,
-        dashboard_service=DashboardService(GitLabDashboardClient(gitlab_config)),
+        dashboard_service=DashboardService(
+            GitLabDashboardClient(gitlab_config),
+            policy_view_builder=DashboardPolicyViewBuilder(
+                repo_root=Path.cwd(),
+                config=config,
+                state=state,
+            ),
+        ),
         review_client=GitLabReviewClient(gitlab_config),
         run_state_service=run_state_service,
     ).run(

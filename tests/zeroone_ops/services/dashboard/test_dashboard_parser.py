@@ -848,3 +848,37 @@ def test_parse_round_trips_workflow_items_from_combined_workflow_section() -> No
     assert [item.id for item in document.sections[1].items] == ["sonar:progress"]
     assert [item.id for item in document.sections[2].items] == ["sonar:mr"]
     assert [item.id for item in document.sections[3].items] == ["sonar:done"]
+
+
+def test_rendered_dashboard_body_includes_schema_marker_and_policy_sections() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[DashboardSection(key="open_candidates", title="Open Candidates", items=[])],
+    )
+
+    assert "<!-- zeroone-ops:dashboard-schema:v1 -->" in body
+    assert "## Automation Severity Policy" in body
+    assert "## Excluded Issue Classes" in body
+    assert "## Issue Class Inventory" in body
+
+
+def test_parse_treats_missing_schema_marker_as_legacy_v0() -> None:
+    renderer = DashboardRenderer()
+    parser = DashboardParser()
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[DashboardSection(key="open_candidates", title="Open Candidates", items=[])],
+    )
+    legacy_body = "\n".join(body.splitlines()[2:]) + "\n"
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=legacy_body,
+    )
+
+    assert document.schema_version == 0

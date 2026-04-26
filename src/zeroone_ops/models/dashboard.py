@@ -7,6 +7,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+CURRENT_DASHBOARD_SCHEMA_VERSION = 1
+DASHBOARD_SCHEMA_MARKER = (
+    f"<!-- zeroone-ops:dashboard-schema:v{CURRENT_DASHBOARD_SCHEMA_VERSION} -->"
+)
+
 DashboardStatus = Literal[
     "open",
     "in_progress",
@@ -15,6 +20,13 @@ DashboardStatus = Literal[
     "rejected",
     "ignored",
     "failed",
+]
+
+DashboardAutomationStatus = Literal[
+    "eligible for automation",
+    "excluded from automation",
+    "blocked by severity policy",
+    "blocked by safety guard",
 ]
 
 DashboardSectionKey = Literal[
@@ -47,6 +59,42 @@ SECTION_ORDER: tuple[DashboardSectionKey, ...] = (
     "rejected_or_ignored",
     "recent_failures",
 )
+
+
+class DashboardSeverityPolicyEntry(BaseModel):
+    """Represent one rendered remediation severity-policy entry."""
+
+    severity: Literal["low", "medium", "high"]
+    enabled: bool
+    reason: str | None = None
+
+
+class DashboardIssueClassExclusionEntry(BaseModel):
+    """Represent one rendered excluded issue-class entry."""
+
+    source: str
+    issue_key: str
+    matching_items_count: int = 0
+    reason: str
+
+
+class DashboardIssueClassInventoryEntry(BaseModel):
+    """Represent one rendered grouped issue-class inventory entry."""
+
+    source: str
+    issue_key: str
+    matching_items_count: int
+    severities_present: list[str] = Field(default_factory=list)
+    automation_status: DashboardAutomationStatus
+    reason: str | None = None
+
+
+class DashboardPolicyView(BaseModel):
+    """Represent the rendered operator-policy view for the dashboard."""
+
+    severity_policy: list[DashboardSeverityPolicyEntry] = Field(default_factory=list)
+    excluded_issue_classes: list[DashboardIssueClassExclusionEntry] = Field(default_factory=list)
+    issue_class_inventory: list[DashboardIssueClassInventoryEntry] = Field(default_factory=list)
 
 
 class DashboardItem(BaseModel):
@@ -107,6 +155,8 @@ class DashboardDocument(BaseModel):
     issue_url: str
     title: str
     sections: list[DashboardSection]
+    schema_version: int = CURRENT_DASHBOARD_SCHEMA_VERSION
+    policy_view: DashboardPolicyView = Field(default_factory=DashboardPolicyView)
 
     def items_by_id(self) -> dict[str, DashboardItem]:
         """Return dashboard items keyed by ID."""

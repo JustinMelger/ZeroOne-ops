@@ -1,4 +1,9 @@
-from zeroone_ops.models.dashboard import DashboardItem
+from zeroone_ops.models.dashboard import (
+    DashboardIssueClassInventoryEntry,
+    DashboardItem,
+    DashboardPolicyView,
+    DashboardSeverityPolicyEntry,
+)
 from zeroone_ops.models.gitlab import GitLabIssueInfo
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 
@@ -162,3 +167,63 @@ def test_done_items_render_under_completed_section() -> None:
 
     assert updated.sections[3].items[0].id == "sonar:done"
     assert updated.sections[3].items[0].status == "done"
+
+
+
+class FakePolicyViewBuilder:
+    def build(self, items: list[DashboardItem]) -> DashboardPolicyView:
+        return DashboardPolicyView(
+            severity_policy=[
+                DashboardSeverityPolicyEntry(
+                    severity="low",
+                    enabled=True,
+                )
+            ],
+            issue_class_inventory=[
+                DashboardIssueClassInventoryEntry(
+                    source="sonarqube",
+                    issue_key="python:S1125",
+                    matching_items_count=len(items),
+                    severities_present=["low"],
+                    automation_status="eligible for automation",
+                )
+            ],
+        )
+
+
+def test_load_or_create_migrates_legacy_dashboard_to_current_schema() -> None:
+    legacy_body = (
+        "Machine-managed remediation and review items for this repository.\n\n"
+        "## Open Candidates\n\n"
+        "### Overview\n\n"
+        "| Open | In progress | MR opened | Failed | Done |\n"
+        "|---|---|---|---|---|\n"
+        "| 0 | 0 | 0 | 0 | 0 |\n\n"
+        "### Needs Attention\n\n"
+        "No items.\n\n"
+        "### In Flight\n\n"
+        "No items.\n\n"
+        "### Completed\n\n"
+        "No items.\n\n"
+        "### Work Type Breakdown\n\n"
+        "No items.\n"
+    )
+    existing_issue = GitLabIssueInfo(
+        id=10,
+        iid=11,
+        web_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        description=legacy_body,
+    )
+    client = FakeDashboardClient(existing_issue=existing_issue)
+    service = DashboardService(
+        client,
+        policy_view_builder=FakePolicyViewBuilder(),
+    )
+
+    document = service.load_or_create(project_id="123")
+
+    assert document.schema_version == 1
+    assert client.updated_issue is not None
+    assert "<!-- zeroone-ops:dashboard-schema:v1 -->" in client.updated_issue.description
+    assert "## Automation Severity Policy" in client.updated_issue.description

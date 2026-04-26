@@ -6,10 +6,12 @@ import json
 import re
 
 from zeroone_ops.models.dashboard import (
+    CURRENT_DASHBOARD_SCHEMA_VERSION,
     SECTION_ORDER,
     SECTION_TITLES,
     DashboardDocument,
     DashboardItem,
+    DashboardPolicyView,
     DashboardSection,
     section_key_for_item,
 )
@@ -30,6 +32,9 @@ _ITEM_BLOCK_PATTERN = re.compile(
 )
 
 
+_SCHEMA_MARKER_PATTERN = re.compile(r"<!-- zeroone-ops:dashboard-schema:v(?P<version>\d+) -->")
+
+
 class DashboardParser:
     """Parse deterministic dashboard markdown into structured models."""
 
@@ -43,6 +48,7 @@ class DashboardParser:
         body: str,
     ) -> DashboardDocument:
         """Parse one dashboard issue body."""
+        schema_version = self._extract_schema_version(body)
         sections = [
             DashboardSection(key=key, title=SECTION_TITLES[key], items=[]) for key in SECTION_ORDER
         ]
@@ -56,7 +62,21 @@ class DashboardParser:
             issue_url=issue_url,
             title=title,
             sections=sections,
+            schema_version=schema_version,
+            policy_view=DashboardPolicyView(),
         )
+
+    def _extract_schema_version(self, body: str) -> int:
+        """Return the dashboard schema version or legacy v0 when missing."""
+        match = _SCHEMA_MARKER_PATTERN.search(body)
+        if match is None:
+            return 0
+        version = int(match.group("version"))
+        if version > CURRENT_DASHBOARD_SCHEMA_VERSION:
+            raise DashboardParseError(
+                "Dashboard schema version is newer than this parser supports."
+            )
+        return version
 
     def _extract_section_content(self, body: str, section_title: str) -> str:
         pattern = re.compile(
