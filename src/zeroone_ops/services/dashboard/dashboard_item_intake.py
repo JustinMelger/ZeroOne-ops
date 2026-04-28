@@ -21,15 +21,13 @@ from zeroone_ops.services.dashboard.dashboard_item_selector import (
     DashboardItemSelector,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
-from zeroone_ops.services.remediation.remediation_exclusion_service import (
-    RemediationExclusionService,
-)
 from zeroone_ops.services.shared.mr_service import MergeRequestService
 from zeroone_ops.settings import SettingsError, load_gitlab_connection_config
 from zeroone_ops.utils.git import build_issue_branch_name
 
 LOGGER = logging.getLogger(__name__)
 _STALE_IN_PROGRESS_WINDOW = timedelta(hours=24)
+_DEFAULT_ENABLED_SEVERITIES: frozenset[str] = frozenset({"low", "medium"})
 
 _SKIP_REASON_MESSAGES = {
     "active_local_state": "already tracked as active locally",
@@ -92,14 +90,12 @@ class DashboardItemIntakeService:
             update={"policy_state": self._resolved_policy_state(document.policy_state)}
         )
         items = [item for section in document.sections for item in section.items]
-        exclusion_service = self._build_exclusion_service(state)
         gitlab_config = self._load_gitlab_config()
         merge_request_service = self._build_merge_request_service(gitlab_config)
         skip_reason_counts = self._skip_reason_counts(
             items,
             state,
             policy_state=document.policy_state,
-            exclusion_service=exclusion_service,
             gitlab_config=gitlab_config,
             merge_request_service=merge_request_service,
         )
@@ -107,7 +103,6 @@ class DashboardItemIntakeService:
             items,
             state,
             policy_state=document.policy_state,
-            exclusion_service=exclusion_service,
             gitlab_config=gitlab_config,
             merge_request_service=merge_request_service,
         )
@@ -137,7 +132,6 @@ class DashboardItemIntakeService:
         state: AppState,
         *,
         policy_state: DashboardPolicyState,
-        exclusion_service: RemediationExclusionService,
         gitlab_config: GitLabConnectionConfig | None,
         merge_request_service: MergeRequestService | None,
     ) -> Counter[str]:
@@ -148,7 +142,6 @@ class DashboardItemIntakeService:
                 item,
                 state,
                 policy_state=policy_state,
-                exclusion_service=exclusion_service,
                 gitlab_config=gitlab_config,
                 merge_request_service=merge_request_service,
             )
@@ -173,7 +166,6 @@ class DashboardItemIntakeService:
         state: AppState,
         *,
         policy_state: DashboardPolicyState,
-        exclusion_service: RemediationExclusionService,
         gitlab_config: GitLabConnectionConfig | None,
         merge_request_service: MergeRequestService | None,
     ) -> DashboardItem | None:
@@ -184,7 +176,6 @@ class DashboardItemIntakeService:
                     item,
                     state,
                     policy_state=policy_state,
-                    exclusion_service=exclusion_service,
                     gitlab_config=gitlab_config,
                     merge_request_service=merge_request_service,
                 )
@@ -199,7 +190,6 @@ class DashboardItemIntakeService:
         state: AppState,
         *,
         policy_state: DashboardPolicyState,
-        exclusion_service: RemediationExclusionService,
         gitlab_config: GitLabConnectionConfig | None,
         merge_request_service: MergeRequestService | None,
     ) -> str | None:
@@ -209,7 +199,7 @@ class DashboardItemIntakeService:
             return selector_reason
         if self._is_blocked_by_severity_policy(item, policy_state=policy_state):
             return "blocked_by_severity_policy"
-        if exclusion_service.matches_dashboard_item(item):
+        if self._is_excluded_by_dashboard_policy(item, policy_state=policy_state):
             return "excluded_by_policy"
         return self._active_merge_request_skip_reason(
             item,
@@ -244,12 +234,17 @@ class DashboardItemIntakeService:
                 severity_policy=[
                     DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
                     DashboardSeverityPolicyStateEntry(severity="medium", enabled=True),
-                    DashboardSeverityPolicyStateEntry(severity="high", enabled=True),
+                    DashboardSeverityPolicyStateEntry(
+                        severity="high",
+                        enabled=False,
+                        reason="Disabled by current config baseline.",
+                        updated_by="config_seed",
+                    ),
                 ]
             )
         enabled = {
             severity.lower() for severity in self.config.remediation.supported_severities
-        } or {"low", "medium", "high"}
+        } or set(_DEFAULT_ENABLED_SEVERITIES)
         return DashboardPolicyState(
             severity_policy=[
                 DashboardSeverityPolicyStateEntry(
@@ -273,6 +268,21 @@ class DashboardItemIntakeService:
                     updated_by="config_seed",
                 ),
             ]
+        )
+
+    def _is_excluded_by_dashboard_policy(
+        self,
+        item: DashboardItem,
+        *,
+        policy_state: DashboardPolicyState,
+    ) -> bool:
+        """Return whether one dashboard item matches canonical dashboard exclusion policy."""
+        issue_key = item.rule if item.source == "sonarqube" else None
+        if issue_key is None:
+            return False
+        return any(
+            exclusion.source == item.source and exclusion.issue_key == issue_key
+            for exclusion in policy_state.issue_class_exclusions
         )
 
     def _active_merge_request_skip_reason(
@@ -369,10 +379,6 @@ class DashboardItemIntakeService:
         if gitlab_config is None:
             return None
         return MergeRequestService(GitLabClient(gitlab_config))
-
-    def _build_exclusion_service(self, state: AppState) -> RemediationExclusionService:
-        """Return one read-only exclusion matcher for remediation intake."""
-        return RemediationExclusionService(state_store=None, state=state)
 
     def _build_no_item_message(
         self,

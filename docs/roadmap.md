@@ -63,33 +63,41 @@ Implementation phases:
 - [x] render machine-owned `Automation Severity Policy` and `Excluded Issue Classes`
       sections
 - [x] render a narrow grouped issue inventory for policy-relevant groups only
-- [x] show checkbox-style state for readability, but keep it read-only
+- [x] show read-only policy status for readability
 - [x] show operator-facing status language:
       `eligible for automation`, `excluded from automation`, `blocked by severity policy`, `blocked by safety guard`
 
-- [ ] Phase 2: Dashboard Policy Action Parsing
+- [x] Phase 2: Dashboard Policy Action Parsing
 - [x] add a compact `Operator Policy Actions` legend to the dashboard
 - [x] introduce structured dashboard comment commands with a strict prefix such as
       `/zeroone policy`
 - [x] add `dashboard_policy_action_service` to validate commands and reject malformed input safely
 - [x] keep raw checkbox edits and direct markdown edits non-authoritative
 
-- [ ] Phase 3: Severity Policy Writes
+- [x] Phase 3: Severity Policy Writes
 - [x] support bounded actions for enabling and disabling `low`, `medium`, and `high`
 - [x] seed dashboard severity policy once from config when no dashboard policy exists yet
 - [x] after seeding, make dashboard policy authoritative for remediation pickup
-- [x] re-render checkbox-style severity state from canonical dashboard policy
+- [x] re-render severity policy state from canonical dashboard policy
 
-- [ ] Phase 4: Issue-Class Exclusion Writes
-- [ ] support bounded actions for excluding and re-including grouped issue classes by `source + issue_key`
-- [ ] keep exclusions repo-wide in the first version with no operator-facing scope
-- [ ] re-render the `Excluded Issue Classes` section and grouped inventory from the canonical dashboard policy state
-- [ ] make remediation intake apply dashboard-backed issue-class policy during pickup
+- [x] Phase 4: Issue-Class Exclusion Writes
+- [x] support bounded actions for excluding and re-including grouped issue classes by `source + issue_key`
+- [x] keep exclusions repo-wide in the first version with no operator-facing scope
+- [x] re-render the `Excluded Issue Classes` section and grouped inventory from the canonical dashboard policy state
+- [x] make remediation intake apply dashboard-backed issue-class policy during pickup
 
-- [ ] Phase 5: Dashboard-First Policy Authority
-- [ ] reduce config severity to bootstrap/fallback semantics in operator docs and workflow expectations
-- [ ] narrow compatibility reads from older exclusion/state paths once rollout is stable
-- [ ] keep migration and rewrite behavior explicit for future dashboard schema changes
+- [x] Phase 5: Dashboard-First Policy Authority
+- [x] reduce config severity to bootstrap/fallback semantics in operator docs and workflow expectations
+- [x] remove duplicate issue-class exclusion reads so dashboard policy is the only exclusion authority
+- [x] keep migration and rewrite behavior explicit for future dashboard schema changes
+
+- [ ] Phase 6: Dedicated Dashboard Policy Processing
+- [ ] add a separate dashboard policy-action runner/command
+- [ ] process strict `/zeroone policy ...` operator commands independently of remediation and reconciliation runs
+- [ ] keep policy mutation, validation, and dashboard re-render in the dedicated policy workflow path
+- [ ] preserve reconciliation as observed-state convergence only
+- [ ] preserve remediation as policy-consuming, not policy-mutating
+- [ ] rename `remediation.supported_severities` to reflect bootstrap-only semantics and keep backward compatibility during migration
 
 ### 4. Cleanup
 

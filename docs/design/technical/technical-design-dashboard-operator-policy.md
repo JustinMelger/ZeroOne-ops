@@ -14,7 +14,7 @@ This technical design focuses on:
 - policy data models,
 - dashboard-backed storage and rendering direction,
 - remediation intake behavior,
-- migration from config/state split policy,
+- migration from config-first severity policy,
 - schema versioning and live dashboard migration needs.
 
 ## 2. Architectural Direction
@@ -174,7 +174,7 @@ editing.
 
 Preferred technical direction:
 
-- checkbox-style state may be rendered in the dashboard for readability,
+- descriptive policy state should be rendered in the dashboard for readability,
 - raw checkbox edits should not be treated as the authoritative policy write
   contract,
 - operators act through a bounded dashboard command or similarly strict
@@ -255,7 +255,9 @@ and read from the dashboard.
 
 ## 9. Migration Direction
 
-The current product splits policy across config and state.
+The current product still carries a transition on severity policy, but
+issue-class exclusion authority should now live in the dashboard-backed policy
+model rather than in a separate state path.
 
 ### 9.1 Severity Migration
 
@@ -277,14 +279,15 @@ Suggested migration:
 3. make sure policy evaluation uses normalized automation severity rather than
    raw source severity,
 4. once dashboard severity policy exists, remediation reads the dashboard
-   policy,
+   policy and config severity becomes bootstrap/default input rather than the
+   active operator control plane,
 5. later de-emphasize config severity in operator docs and workflows.
 
 ### 9.2 Exclusion Migration
 
 Current source of truth:
 
-- remediation exclusion state outside the dashboard interaction surface.
+- dashboard-backed issue-class policy state.
 
 Target direction:
 
@@ -293,13 +296,11 @@ Target direction:
 
 Suggested migration:
 
-1. render existing exclusions into the dashboard policy views,
-2. make current effective policy visible in the dashboard even when it was
-   initially seeded from config or prior state,
-3. when dashboard-backed writes are enabled, update exclusions through the
-   dashboard policy path,
-4. keep compatibility reads during rollout,
-5. later collapse duplicate storage paths if one canonical model proves stable.
+1. render and persist issue-class exclusions in canonical dashboard policy
+   state,
+2. apply that canonical dashboard policy during remediation intake,
+3. remove duplicate issue-class exclusion reads so visibility and enforcement
+   stay aligned.
 
 ## 10. Schema Versioning And Migration
 
@@ -331,6 +332,15 @@ Legacy dashboard rule:
 - fail safely when the unversioned dashboard shape is too ambiguous to migrate
   reliably.
 
+Current implementation expectation:
+
+- recognized legacy dashboards are rewritten to the current schema during
+  normal dashboard load,
+- policy evaluation should happen against the rewritten canonical document
+  model rather than against mixed legacy/current bodies,
+- schema rewrite remains explicit product behavior, not an incidental side
+  effect.
+
 The first interactive policy rollout should not depend on delete-and-recreate
 recovery for normal upgrades.
 
@@ -346,13 +356,13 @@ recovery for normal upgrades.
 
 - add bounded operator interaction for policy changes,
 - persist policy changes through the dashboard-backed policy path,
-- keep compatibility with current config/state during rollout.
+- keep schema migration explicit while the policy surface evolves.
 
 ### Phase 3: Dashboard-First Policy Authority
 
 - make dashboard-backed policy the primary operator-facing authority,
 - reduce config severity to bootstrap/fallback semantics,
-- narrow or retire duplicate exclusion-control paths.
+- remove duplicate issue-class exclusion-control paths.
 
 ## 12. Guardrails
 

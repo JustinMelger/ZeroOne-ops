@@ -879,9 +879,9 @@ Machine-managed remediation and review items for this repository.
 
 | Severity | Automation Status | Reason |
 |---|---|---|
-| `low` | [ ] blocked by severity policy | manually edited checkbox |
-| `medium` | [x] eligible for automation | - |
-| `high` | [x] eligible for automation | manually edited checkbox |
+| `low` | blocked by severity policy | manually edited checkbox |
+| `medium` | eligible for automation | - |
+| `high` | eligible for automation | manually edited checkbox |
 
 ## Excluded Issue Classes
 
@@ -897,7 +897,6 @@ Use strict dashboard issue comments with the exact `/zeroone policy` prefix.
 
 | Action | Command |
 |---|---|
-| Inspect current policy | `/zeroone policy show` |
 
 Direct markdown edits and raw checkbox changes in this dashboard are display-only
 and do not mutate operator policy.
@@ -950,9 +949,9 @@ Machine-managed remediation and review items for this repository.
 
 | Severity | Automation Status | Reason |
 |---|---|---|
-| `low` | [ ] blocked by severity policy | manually edited checkbox |
-| `medium` | [x] eligible for automation | - |
-| `high` | [x] eligible for automation | manually edited checkbox |
+| `low` | blocked by severity policy | manually edited checkbox |
+| `medium` | eligible for automation | - |
+| `high` | eligible for automation | manually edited checkbox |
 
 ## Excluded Issue Classes
 
@@ -992,7 +991,6 @@ Use strict dashboard issue comments with the exact `/zeroone policy` prefix.
 
 | Action | Command |
 |---|---|
-| Inspect current policy | `/zeroone policy show` |
 
 Direct markdown edits and raw checkbox changes in this dashboard are display-only
 and do not mutate operator policy.

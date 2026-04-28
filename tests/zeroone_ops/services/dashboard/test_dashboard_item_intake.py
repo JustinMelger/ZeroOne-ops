@@ -11,6 +11,7 @@ from zeroone_ops.models.config import (
 )
 from zeroone_ops.models.dashboard import (
     DashboardDocument,
+    DashboardIssueClassPolicyStateEntry,
     DashboardItem,
     DashboardPolicyState,
     DashboardSection,
@@ -21,7 +22,6 @@ from zeroone_ops.models.gitlab import MergeRequestInfo
 from zeroone_ops.models.state import (
     AppState,
     DashboardItemState,
-    RemediationExclusionState,
     RepositoryState,
 )
 from zeroone_ops.services.dashboard.dashboard_item_intake import (
@@ -272,30 +272,37 @@ def test_select_item_skips_item_excluded_by_policy_and_moves_to_next(tmp_path: P
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
     (tmp_path / "src" / "other.py").write_text("value = False\n", encoding="utf-8")
+    document = build_document(
+        items=[
+            build_item(item_id="sonar:1"),
+            build_item(item_id="sonar:2", file_path="src/other.py").model_copy(
+                update={"rule": "python:S3776"}
+            ),
+        ]
+    ).model_copy(
+        update={
+            "policy_state": DashboardPolicyState(
+                severity_policy=[
+                    DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
+                    DashboardSeverityPolicyStateEntry(severity="medium", enabled=True),
+                    DashboardSeverityPolicyStateEntry(severity="high", enabled=True),
+                ],
+                issue_class_exclusions=[
+                    DashboardIssueClassPolicyStateEntry(
+                        source="sonarqube",
+                        issue_key="python:S1125",
+                        reason="Excluded by dashboard policy action.",
+                    )
+                ],
+            )
+        }
+    )
     service = DashboardItemIntakeService(
         repo_root=tmp_path,
-        dashboard_service=FakeDashboardService(
-            build_document(
-                items=[
-                    build_item(item_id="sonar:1"),
-                    build_item(item_id="sonar:2", file_path="src/other.py"),
-                ]
-            )
-        ),
-    )
-    state = AppState(
-        repository=RepositoryState(base_branch="main"),
-        remediation_exclusions=[
-            RemediationExclusionState(
-                source="sonarqube",
-                issue_key="python:S1125",
-                reason="Too noisy for automation.",
-                scope="src/service.py",
-            )
-        ],
+        dashboard_service=FakeDashboardService(document),
     )
 
-    result = service.select_item(project_id="123", state=state)
+    result = service.select_item(project_id="123", state=build_state())
 
     assert result.selected_item is not None
     assert result.selected_item.id == "sonar:2"
@@ -335,29 +342,69 @@ def test_select_item_skips_item_blocked_by_dashboard_severity_policy(tmp_path: P
     assert result.selected_item.id == "sonar:2"
 
 
+def test_select_item_reports_dashboard_issue_class_exclusion_when_no_item_is_eligible(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    document = build_document(items=[build_item(item_id="sonar:1")]).model_copy(
+        update={
+            "policy_state": DashboardPolicyState(
+                severity_policy=[
+                    DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
+                    DashboardSeverityPolicyStateEntry(severity="medium", enabled=True),
+                    DashboardSeverityPolicyStateEntry(severity="high", enabled=True),
+                ],
+                issue_class_exclusions=[
+                    DashboardIssueClassPolicyStateEntry(
+                        source="sonarqube",
+                        issue_key="python:S1125",
+                        reason="Excluded by dashboard policy action.",
+                    )
+                ],
+            )
+        }
+    )
+    service = DashboardItemIntakeService(
+        repo_root=tmp_path,
+        dashboard_service=FakeDashboardService(document),
+    )
+
+    result = service.select_item(project_id="123", state=build_state())
+
+    assert result.selected_item is None
+    assert "explicitly excluded from automation" in result.message
+
+
 def test_select_item_reports_excluded_by_policy_when_no_dashboard_item_is_eligible(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    document = build_document(items=[build_item(item_id="sonar:1")]).model_copy(
+        update={
+            "policy_state": DashboardPolicyState(
+                severity_policy=[
+                    DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
+                    DashboardSeverityPolicyStateEntry(severity="medium", enabled=True),
+                    DashboardSeverityPolicyStateEntry(severity="high", enabled=True),
+                ],
+                issue_class_exclusions=[
+                    DashboardIssueClassPolicyStateEntry(
+                        source="sonarqube",
+                        issue_key="python:S1125",
+                        reason="Excluded by dashboard policy action.",
+                    )
+                ],
+            )
+        }
+    )
     service = DashboardItemIntakeService(
         repo_root=tmp_path,
-        dashboard_service=FakeDashboardService(
-            build_document(items=[build_item(item_id="sonar:1")])
-        ),
-    )
-    state = AppState(
-        repository=RepositoryState(base_branch="main"),
-        remediation_exclusions=[
-            RemediationExclusionState(
-                source="sonarqube",
-                issue_key="python:S1125",
-                reason="Too noisy for automation.",
-            )
-        ],
+        dashboard_service=FakeDashboardService(document),
     )
 
-    result = service.select_item(project_id="123", state=state)
+    result = service.select_item(project_id="123", state=build_state())
 
     assert result.selected_item is None
     assert "explicitly excluded from automation" in result.message

@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
 
-from zeroone_ops.models.dashboard import DashboardPolicyState, DashboardSeverityPolicyStateEntry
+from zeroone_ops.models.dashboard import (
+    DashboardIssueClassPolicyStateEntry,
+    DashboardPolicyState,
+    DashboardSeverityPolicyStateEntry,
+)
 from zeroone_ops.models.gitlab import GitLabIssueNote
 
 _POLICY_PREFIX = "/zeroone policy"
@@ -170,6 +175,20 @@ class DashboardPolicyActionService:
                     reason="Disabled by dashboard policy action.",
                     note=notes_by_id.get(action.note_id or -1),
                 )
+            elif action.action_type == "exclude_issue_class":
+                updated_state = self._upsert_issue_class_exclusion(
+                    policy_state=updated_state,
+                    source=action.source,
+                    issue_key=action.issue_key,
+                    reason="Excluded by dashboard policy action.",
+                    note=notes_by_id.get(action.note_id or -1),
+                )
+            elif action.action_type == "include_issue_class":
+                updated_state = self._remove_issue_class_exclusion(
+                    policy_state=updated_state,
+                    source=action.source,
+                    issue_key=action.issue_key,
+                )
         return updated_state
 
     def _normalize_command(self, body: str | None) -> str | None:
@@ -209,8 +228,6 @@ class DashboardPolicyActionService:
             note_id=note.id if note is not None else None,
         )
         if note is not None and note.created_at:
-            from datetime import datetime
-
             updated_entry.updated_at = datetime.fromisoformat(
                 note.created_at.replace("Z", "+00:00")
             )
@@ -222,6 +239,56 @@ class DashboardPolicyActionService:
         severity_entries.append(updated_entry)
         severity_entries.sort(key=lambda entry: ("low", "medium", "high").index(entry.severity))
         return policy_state.model_copy(update={"severity_policy": severity_entries})
+
+    def _upsert_issue_class_exclusion(
+        self,
+        *,
+        policy_state: DashboardPolicyState,
+        source: str | None,
+        issue_key: str | None,
+        reason: str,
+        note: GitLabIssueNote | None,
+    ) -> DashboardPolicyState:
+        """Return the updated policy state for one issue-class exclusion command."""
+        if not source or not issue_key:
+            return policy_state
+        updated_entry = DashboardIssueClassPolicyStateEntry(
+            source=source,
+            issue_key=issue_key,
+            reason=reason,
+            updated_at=None,
+            updated_by=note.author_username if note is not None else None,
+            note_id=note.id if note is not None else None,
+        )
+        if note is not None and note.created_at:
+            updated_entry.updated_at = datetime.fromisoformat(
+                note.created_at.replace("Z", "+00:00")
+            )
+        entries = list(policy_state.issue_class_exclusions)
+        for index, entry in enumerate(entries):
+            if entry.source == source and entry.issue_key == issue_key:
+                entries[index] = updated_entry
+                return policy_state.model_copy(update={"issue_class_exclusions": entries})
+        entries.append(updated_entry)
+        entries.sort(key=lambda entry: (entry.source, entry.issue_key))
+        return policy_state.model_copy(update={"issue_class_exclusions": entries})
+
+    def _remove_issue_class_exclusion(
+        self,
+        *,
+        policy_state: DashboardPolicyState,
+        source: str | None,
+        issue_key: str | None,
+    ) -> DashboardPolicyState:
+        """Return the updated policy state for one issue-class include command."""
+        if not source or not issue_key:
+            return policy_state
+        entries = [
+            entry
+            for entry in policy_state.issue_class_exclusions
+            if not (entry.source == source and entry.issue_key == issue_key)
+        ]
+        return policy_state.model_copy(update={"issue_class_exclusions": entries})
 
 
 def _severity_literal(value: str) -> DashboardPolicySeverity:

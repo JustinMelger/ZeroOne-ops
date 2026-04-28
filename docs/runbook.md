@@ -31,7 +31,8 @@ The current v1 automation scope is intentionally narrow:
 - structured-edit generation with bot-rendered diffs
 - structured edits must touch exactly one file
 - GitLab merge request creation in `ci` mode
-- severity-based intake control through `supported_severities`, with built-in safety guards for issue classes the bot should not automate
+- severity-based intake control seeded from `supported_severities`, with
+  built-in safety guards for issue classes the bot should not automate
 
 Current config shape for rollout:
 
@@ -46,6 +47,18 @@ In practice, the main remediation rollout keys now are:
 - `remediation.max_retry_count`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
+
+Authority note:
+
+- `remediation.supported_severities` is the bootstrap/default seed for a new
+  dashboard severity policy
+- once the dashboard has canonical policy state, remediation pickup follows
+  the dashboard policy instead of treating config severity as the active
+  operator control plane
+- if neither config severity nor dashboard severity policy exists yet, the
+  bootstrap default is `low` and `medium` enabled with `high` disabled
+- operators should change ongoing severity policy through strict
+  `/zeroone policy ...` dashboard comments
 
 Legacy flat keys still work during migration, but new repository rollouts
 should use the nested shape.
@@ -74,12 +87,14 @@ The dashboard workflow also includes scheduled reconciliation:
 
 The dashboard also renders an operator policy surface:
 
-- current severity policy is shown as read-only checkbox-style state
+- current severity policy is shown as read-only descriptive state
 - excluded issue classes and grouped issue inventory are shown for visibility
 - policy actions should be issued as strict dashboard issue comments beginning
   with `/zeroone policy`
 - direct dashboard markdown edits and raw checkbox toggles are display-only and
   are not the authoritative mutation path
+- when an older recognized dashboard body is loaded, ZeroOne Ops rewrites it
+  into the current schema before continuing normal dashboard-backed workflows
 
 ## Required CI Variables
 

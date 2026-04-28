@@ -2,46 +2,26 @@
 
 from __future__ import annotations
 
-from typing import Protocol
-
 from zeroone_ops.models.dashboard import (
     CURRENT_DASHBOARD_SCHEMA_VERSION,
     DashboardDocument,
     DashboardItem,
-    DashboardPolicyState,
-    DashboardPolicyView,
     DashboardSection,
     DashboardSectionKey,
     empty_sections,
     section_key_for_item,
 )
+from zeroone_ops.models.gitlab import GitLabIssueNote
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.services.dashboard.dashboard_parser import DashboardParser
 from zeroone_ops.services.dashboard.dashboard_policy_action_service import (
     DashboardPolicyActionService,
 )
+from zeroone_ops.services.dashboard.dashboard_policy_service import (
+    DashboardPolicyService,
+    DashboardPolicyViewBuilderProtocol,
+)
 from zeroone_ops.services.dashboard.dashboard_renderer import DashboardRenderer
-
-
-class DashboardPolicyViewBuilderProtocol(Protocol):
-    """Protocol for dashboard policy-view builders."""
-
-    def resolve_policy_state(
-        self,
-        policy_state: DashboardPolicyState | None,
-    ) -> DashboardPolicyState:
-        """Resolve canonical dashboard policy state, seeding defaults when needed."""
-        ...
-
-    def build(
-        self,
-        items: list[DashboardItem],
-        *,
-        policy_state: DashboardPolicyState | None = None,
-    ) -> DashboardPolicyView:
-        """Build one dashboard policy view from current dashboard items."""
-        ...
-
 
 DEFAULT_SECTION_ITEM_LIMITS: dict[DashboardSectionKey, int] = {
     "open_candidates": 50,
@@ -75,8 +55,10 @@ class DashboardService:
         self.title = title
         self.labels = labels or ["ai-code-ops", "dashboard"]
         self.section_item_limits = section_item_limits or DEFAULT_SECTION_ITEM_LIMITS.copy()
-        self.policy_view_builder = policy_view_builder
-        self.policy_action_service = policy_action_service or DashboardPolicyActionService()
+        self.policy_service = DashboardPolicyService(
+            policy_view_builder=policy_view_builder,
+            policy_action_service=policy_action_service or DashboardPolicyActionService(),
+        )
 
     def load_or_create(self, *, project_id: str) -> DashboardDocument:
         """Load the dashboard issue or create it if missing."""
@@ -86,7 +68,7 @@ class DashboardService:
             labels=self.labels,
         )
         if issue is None:
-            document = self._apply_policy_view(
+            document = self._apply_policy(
                 DashboardDocument(
                     issue_id=0,
                     issue_iid=0,
@@ -117,8 +99,11 @@ class DashboardService:
             title=issue.title,
             body=issue.description,
         )
-        document = self._apply_policy_actions(document, project_id=project_id)
-        document = self._apply_policy_view(document)
+        notes = self.client.list_issue_notes(
+            project_id=project_id,
+            issue_iid=document.issue_iid,
+        )
+        document = self._apply_policy(document, notes=notes)
         rendered = self.renderer.render_document(document)
         if (
             rendered != issue.description
@@ -149,7 +134,7 @@ class DashboardService:
         """Upsert dashboard items and publish the updated issue."""
         document = self.load_or_create(project_id=project_id)
         merged_document = self._merge_items(document=document, items=items)
-        merged_document = self._apply_policy_view(merged_document)
+        merged_document = self._apply_policy(merged_document)
         rendered = self.renderer.render_document(merged_document)
         issue = self.client.update_issue(
             project_id=project_id,
@@ -166,26 +151,15 @@ class DashboardService:
             }
         )
 
-    def _apply_policy_view(self, document: DashboardDocument) -> DashboardDocument:
-        """Apply the current read-only policy snapshot to one dashboard document."""
-        if self.policy_view_builder is None:
-            return document.model_copy(update={"schema_version": CURRENT_DASHBOARD_SCHEMA_VERSION})
-        resolved_policy_state = self.policy_view_builder.resolve_policy_state(document.policy_state)
-        policy_view = self.policy_view_builder.build(
-            list(document.items_by_id().values()),
-            policy_state=resolved_policy_state,
-        )
-        return document.model_copy(
-            update={
-                "schema_version": CURRENT_DASHBOARD_SCHEMA_VERSION,
-                "policy_state": resolved_policy_state,
-                "policy_view": (
-                    policy_view
-                    if isinstance(policy_view, DashboardPolicyView)
-                    else DashboardPolicyView.model_validate(policy_view)
-                ),
-            }
-        )
+    def _apply_policy(
+        self,
+        document: DashboardDocument,
+        *,
+        notes: list[GitLabIssueNote] | None = None,
+    ) -> DashboardDocument:
+        """Apply canonical dashboard policy state and rendered view to one document."""
+        updated = self.policy_service.apply_to_document(document, notes=notes)
+        return updated.model_copy(update={"schema_version": CURRENT_DASHBOARD_SCHEMA_VERSION})
 
     def _merge_items(
         self,
@@ -222,26 +196,6 @@ class DashboardService:
             policy_state=document.policy_state,
             policy_view=document.policy_view,
         )
-
-    def _apply_policy_actions(
-        self,
-        document: DashboardDocument,
-        *,
-        project_id: str,
-    ) -> DashboardDocument:
-        """Replay policy issue-note actions into canonical dashboard policy state."""
-        if self.policy_view_builder is None:
-            return document
-        notes = self.client.list_issue_notes(
-            project_id=project_id,
-            issue_iid=document.issue_iid,
-        )
-        seeded_policy_state = self.policy_view_builder.resolve_policy_state(document.policy_state)
-        policy_state = self.policy_action_service.apply_actions(
-            policy_state=seeded_policy_state,
-            notes=notes,
-        )
-        return document.model_copy(update={"policy_state": policy_state})
 
     def _apply_retention(
         self,

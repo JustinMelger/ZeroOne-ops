@@ -1,5 +1,9 @@
 # ZeroOne Ops Remediation Exclusions Technical Design
 
+This document is kept as design history and domain-model context.
+The active operator-facing exclusion workflow now lives in the dashboard-backed
+operator policy surface rather than in a separate state-backed CLI path.
+
 ## 1. Scope
 
 This document defines a small technical design for exclusion-first operator

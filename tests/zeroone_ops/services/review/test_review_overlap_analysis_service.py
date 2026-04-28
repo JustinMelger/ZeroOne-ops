@@ -14,6 +14,7 @@ from zeroone_ops.models.review import (
     PriorReviewFinding,
     ReviewFinding,
 )
+from zeroone_ops.providers.llm_client import LLMClientError
 from zeroone_ops.services.review.review_overlap_analysis_service import (
     ReviewOverlapAnalysisService,
 )
@@ -81,8 +82,6 @@ class FakeReviewOverlapErrorClient:
         self,
         packet: OverlapPacket,
     ) -> OverlapReconciliationResult:
-        from zeroone_ops.providers.llm_client import LLMClientError
-
         del packet
         raise LLMClientError("bad overlap output")
 
