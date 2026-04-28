@@ -5,6 +5,14 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.30.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.29.1...zeroone-ops-v0.30.0) (2026-04-28)
+
+
+### Features
+
+* dashboard policy actions ([#145](https://github.com/JustinMelger/ZeroOne-ops/issues/145)) ([84fe611](https://github.com/JustinMelger/ZeroOne-ops/commit/84fe61198e79df589dbeae6c816daa3677fb757a))
+* severity policy writes dashboard ([#147](https://github.com/JustinMelger/ZeroOne-ops/issues/147)) ([f9d4b3f](https://github.com/JustinMelger/ZeroOne-ops/commit/f9d4b3f1e9a3949b7f36837cf76f0f3a444dad36))
+
 ## [0.29.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.29.0...zeroone-ops-v0.29.1) (2026-04-26)
 
 
