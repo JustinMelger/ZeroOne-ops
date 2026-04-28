@@ -68,11 +68,11 @@ Implementation phases:
       `eligible for automation`, `excluded from automation`, `blocked by severity policy`, `blocked by safety guard`
 
 - [ ] Phase 2: Dashboard Policy Action Parsing
-- [ ] add a compact `Operator Policy Actions` legend to the dashboard
-- [ ] introduce structured dashboard comment commands with a strict prefix such as
+- [x] add a compact `Operator Policy Actions` legend to the dashboard
+- [x] introduce structured dashboard comment commands with a strict prefix such as
       `/zeroone policy`
-- [ ] add `dashboard_policy_action_service` to validate commands and reject malformed input safely
-- [ ] keep raw checkbox edits and direct markdown edits non-authoritative
+- [x] add `dashboard_policy_action_service` to validate commands and reject malformed input safely
+- [x] keep raw checkbox edits and direct markdown edits non-authoritative
 
 - [ ] Phase 3: Severity Policy Writes
 - [ ] support bounded actions for enabling and disabling `low`, `medium`, and `high`

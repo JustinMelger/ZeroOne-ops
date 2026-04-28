@@ -8,7 +8,7 @@ from urllib.parse import quote_plus
 import httpx
 
 from zeroone_ops.models.config import GitLabConnectionConfig
-from zeroone_ops.models.gitlab import GitLabIssueInfo
+from zeroone_ops.models.gitlab import GitLabIssueInfo, GitLabIssueNote
 from zeroone_ops.providers.gitlab_client import GitLabClientError, _parse_json_response
 
 
@@ -108,6 +108,34 @@ class GitLabDashboardClient:
             raise GitLabClientError("Unexpected GitLab issue payload.")
         return _normalize_issue(payload)
 
+    def list_issue_notes(
+        self,
+        *,
+        project_id: str,
+        issue_iid: int,
+    ) -> list[GitLabIssueNote]:
+        """List every note for one GitLab issue across paginated responses."""
+        encoded_project_id = quote_plus(project_id)
+        page = 1
+        notes: list[GitLabIssueNote] = []
+        while True:
+            response = self._http_client.get(
+                f"/api/v4/projects/{encoded_project_id}/issues/{issue_iid}/notes",
+                params={"page": page, "per_page": 100},
+            )
+            payload = _parse_json_response(response)
+            if not isinstance(payload, list):
+                raise GitLabClientError("Unexpected GitLab issue notes payload.")
+            notes.extend(_normalize_issue_note(item) for item in payload if isinstance(item, dict))
+            next_page = response.headers.get("X-Next-Page")
+            if not next_page:
+                break
+            try:
+                page = int(next_page)
+            except ValueError as exc:
+                raise GitLabClientError("Unexpected GitLab issue note pagination.") from exc
+        return notes
+
 
 def _normalize_issue(payload: dict[str, Any]) -> GitLabIssueInfo:
     """Normalize one GitLab issue payload."""
@@ -130,4 +158,32 @@ def _normalize_issue(payload: dict[str, Any]) -> GitLabIssueInfo:
         web_url=web_url,
         title=title,
         description=description,
+    )
+
+
+def _normalize_issue_note(payload: dict[str, Any]) -> GitLabIssueNote:
+    """Normalize one GitLab issue note payload."""
+    note_id = payload.get("id")
+    body = payload.get("body")
+    created_at = payload.get("created_at")
+    author = payload.get("author")
+    author_username: str | None = None
+    if not isinstance(note_id, int):
+        raise GitLabClientError("Unexpected GitLab issue note structure.")
+    if body is not None and not isinstance(body, str):
+        raise GitLabClientError("Unexpected GitLab issue note body.")
+    if created_at is not None and not isinstance(created_at, str):
+        raise GitLabClientError("Unexpected GitLab issue note timestamp.")
+    if author is not None:
+        if not isinstance(author, dict):
+            raise GitLabClientError("Unexpected GitLab issue note author structure.")
+        raw_username = author.get("username")
+        if raw_username is not None and not isinstance(raw_username, str):
+            raise GitLabClientError("Unexpected GitLab issue note author username.")
+        author_username = raw_username
+    return GitLabIssueNote(
+        id=note_id,
+        body=body,
+        author_username=author_username,
+        created_at=created_at,
     )
