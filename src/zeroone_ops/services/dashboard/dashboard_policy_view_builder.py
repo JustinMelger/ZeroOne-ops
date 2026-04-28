@@ -11,6 +11,7 @@ from zeroone_ops.models.dashboard import (
     DashboardAutomationStatus,
     DashboardIssueClassExclusionEntry,
     DashboardIssueClassInventoryEntry,
+    DashboardIssueClassPolicyStateEntry,
     DashboardItem,
     DashboardPolicyState,
     DashboardPolicyView,
@@ -64,22 +65,43 @@ class DashboardPolicyViewBuilder:
             else DashboardPolicyState()
         )
         if state.severity_policy:
-            return state
-        enabled = self._seed_enabled_severities()
-        return state.model_copy(
-            update={
-                "severity_policy": [
-                    DashboardSeverityPolicyStateEntry(
-                        severity=severity,
-                        enabled=severity in enabled,
-                        reason=(
-                            None if severity in enabled else "Disabled by current config baseline."
-                        ),
-                        updated_by="config_seed",
-                    )
-                    for severity in _SEVERITY_ORDER
-                ]
-            }
+            seeded_state = state
+        else:
+            enabled = self._seed_enabled_severities()
+            seeded_state = state.model_copy(
+                update={
+                    "severity_policy": [
+                        DashboardSeverityPolicyStateEntry(
+                            severity=severity,
+                            enabled=severity in enabled,
+                            reason=(
+                                None
+                                if severity in enabled
+                                else "Disabled by current config baseline."
+                            ),
+                            updated_by="config_seed",
+                        )
+                        for severity in _SEVERITY_ORDER
+                    ]
+                }
+            )
+        if seeded_state.issue_class_exclusions:
+            return seeded_state
+        compatibility_exclusions = [
+            DashboardIssueClassPolicyStateEntry(
+                source=exclusion.source,
+                issue_key=exclusion.issue_key,
+                reason=exclusion.reason,
+                updated_at=exclusion.updated_at,
+                updated_by=exclusion.updated_by or "state_seed",
+            )
+            for exclusion in self.exclusion_service.list_exclusions()
+            if exclusion.scope is None
+        ]
+        if not compatibility_exclusions:
+            return seeded_state
+        return seeded_state.model_copy(
+            update={"issue_class_exclusions": compatibility_exclusions}
         )
 
     def _seed_enabled_severities(self) -> set[str]:
@@ -97,7 +119,10 @@ class DashboardPolicyViewBuilder:
         resolved_policy_state = self.resolve_policy_state(policy_state)
         return DashboardPolicyView(
             severity_policy=self._build_severity_policy(resolved_policy_state),
-            excluded_issue_classes=self._build_excluded_issue_classes(items),
+            excluded_issue_classes=self._build_excluded_issue_classes(
+                items,
+                policy_state=resolved_policy_state,
+            ),
             issue_class_inventory=self._build_issue_class_inventory(
                 items,
                 policy_state=resolved_policy_state,
@@ -129,14 +154,15 @@ class DashboardPolicyViewBuilder:
     def _build_excluded_issue_classes(
         self,
         items: list[DashboardItem],
+        *,
+        policy_state: DashboardPolicyState,
     ) -> list[DashboardIssueClassExclusionEntry]:
         grouped: list[DashboardIssueClassExclusionEntry] = []
-        for exclusion in self.exclusion_service.list_exclusions():
+        for exclusion in policy_state.issue_class_exclusions:
             matching_count = sum(
                 1
                 for item in items
-                if self.exclusion_service.matches_dashboard_item(item)
-                and item.source == exclusion.source
+                if item.source == exclusion.source
                 and self._issue_key_for_item(item) == exclusion.issue_key
             )
             grouped.append(
@@ -169,7 +195,7 @@ class DashboardPolicyViewBuilder:
 
         excluded_keys = {
             (exclusion.source, exclusion.issue_key)
-            for exclusion in self.exclusion_service.list_exclusions()
+            for exclusion in policy_state.issue_class_exclusions
         }
         blocked_severity_keys = {
             key
@@ -238,23 +264,20 @@ class DashboardPolicyViewBuilder:
         *,
         policy_state: DashboardPolicyState,
     ) -> tuple[DashboardAutomationStatus, str | None]:
-        matching_exclusion = next(
-            (item for item in items if self.exclusion_service.matches_dashboard_item(item)),
+        exclusion = next(
+            (
+                exclusion
+                for exclusion in policy_state.issue_class_exclusions
+                if any(
+                    exclusion.source == item.source
+                    and exclusion.issue_key == self._issue_key_for_item(item)
+                    for item in items
+                )
+            ),
             None,
         )
-        if matching_exclusion is not None:
-            issue_key = self._issue_key_for_item(matching_exclusion)
-            exclusion = next(
-                (
-                    exclusion
-                    for exclusion in self.exclusion_service.list_exclusions()
-                    if exclusion.source == matching_exclusion.source
-                    and exclusion.issue_key == issue_key
-                ),
-                None,
-            )
-            reason = exclusion.reason if exclusion is not None else None
-            return "excluded from automation", reason
+        if exclusion is not None:
+            return "excluded from automation", exclusion.reason
 
         if self._all_items_blocked_by_severity(items, policy_state=policy_state):
             severities = sorted(

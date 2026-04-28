@@ -67,24 +67,24 @@ Implementation phases:
 - [x] show operator-facing status language:
       `eligible for automation`, `excluded from automation`, `blocked by severity policy`, `blocked by safety guard`
 
-- [ ] Phase 2: Dashboard Policy Action Parsing
+- [x] Phase 2: Dashboard Policy Action Parsing
 - [x] add a compact `Operator Policy Actions` legend to the dashboard
 - [x] introduce structured dashboard comment commands with a strict prefix such as
       `/zeroone policy`
 - [x] add `dashboard_policy_action_service` to validate commands and reject malformed input safely
 - [x] keep raw checkbox edits and direct markdown edits non-authoritative
 
-- [ ] Phase 3: Severity Policy Writes
+- [x] Phase 3: Severity Policy Writes
 - [x] support bounded actions for enabling and disabling `low`, `medium`, and `high`
 - [x] seed dashboard severity policy once from config when no dashboard policy exists yet
 - [x] after seeding, make dashboard policy authoritative for remediation pickup
 - [x] re-render checkbox-style severity state from canonical dashboard policy
 
-- [ ] Phase 4: Issue-Class Exclusion Writes
-- [ ] support bounded actions for excluding and re-including grouped issue classes by `source + issue_key`
-- [ ] keep exclusions repo-wide in the first version with no operator-facing scope
-- [ ] re-render the `Excluded Issue Classes` section and grouped inventory from the canonical dashboard policy state
-- [ ] make remediation intake apply dashboard-backed issue-class policy during pickup
+- [x] Phase 4: Issue-Class Exclusion Writes
+- [x] support bounded actions for excluding and re-including grouped issue classes by `source + issue_key`
+- [x] keep exclusions repo-wide in the first version with no operator-facing scope
+- [x] re-render the `Excluded Issue Classes` section and grouped inventory from the canonical dashboard policy state
+- [x] make remediation intake apply dashboard-backed issue-class policy during pickup
 
 - [ ] Phase 5: Dashboard-First Policy Authority
 - [ ] reduce config severity to bootstrap/fallback semantics in operator docs and workflow expectations

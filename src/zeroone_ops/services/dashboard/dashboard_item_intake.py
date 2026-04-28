@@ -209,6 +209,8 @@ class DashboardItemIntakeService:
             return selector_reason
         if self._is_blocked_by_severity_policy(item, policy_state=policy_state):
             return "blocked_by_severity_policy"
+        if self._is_excluded_by_dashboard_policy(item, policy_state=policy_state):
+            return "excluded_by_policy"
         if exclusion_service.matches_dashboard_item(item):
             return "excluded_by_policy"
         return self._active_merge_request_skip_reason(
@@ -273,6 +275,21 @@ class DashboardItemIntakeService:
                     updated_by="config_seed",
                 ),
             ]
+        )
+
+    def _is_excluded_by_dashboard_policy(
+        self,
+        item: DashboardItem,
+        *,
+        policy_state: DashboardPolicyState,
+    ) -> bool:
+        """Return whether one dashboard item matches canonical dashboard exclusion policy."""
+        issue_key = item.rule if item.source == "sonarqube" else None
+        if issue_key is None:
+            return False
+        return any(
+            exclusion.source == item.source and exclusion.issue_key == issue_key
+            for exclusion in policy_state.issue_class_exclusions
         )
 
     def _active_merge_request_skip_reason(

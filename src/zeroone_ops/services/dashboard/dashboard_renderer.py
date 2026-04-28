@@ -98,7 +98,6 @@ class DashboardRenderer:
             "",
             "| Action | Command |",
             "|---|---|",
-            "| Inspect current policy | `/zeroone policy show` |",
             "| Enable a severity | `/zeroone policy severity enable high` |",
             "| Disable a severity | `/zeroone policy severity disable high` |",
             (
@@ -125,9 +124,7 @@ class DashboardRenderer:
             "|---|---|---|",
         ]
         for row in rows:
-            status = (
-                "[x] eligible for automation" if row.enabled else "[ ] blocked by severity policy"
-            )
+            status = "eligible for automation" if row.enabled else "blocked by severity policy"
             lines.append(f"| `{row.severity}` | {status} | {row.reason or '-'} |")
         return lines
 
@@ -145,7 +142,7 @@ class DashboardRenderer:
             lines.append(
                 "| "
                 f"`{row.source} / {row.issue_key}` | "
-                "[x] excluded from automation | "
+                "excluded from automation | "
                 f"{row.matching_items_count} | "
                 f"{row.reason} |"
             )
@@ -173,11 +170,7 @@ class DashboardRenderer:
         return lines
 
     def _render_inventory_status(self, status: str) -> str:
-        if status == "excluded from automation":
-            return "[x] excluded from automation"
-        if status == "eligible for automation":
-            return "[x] eligible for automation"
-        return f"[ ] {status}"
+        return status
 
     def _render_section(
         self,
