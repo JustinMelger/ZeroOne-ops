@@ -100,9 +100,7 @@ class DashboardPolicyViewBuilder:
         ]
         if not compatibility_exclusions:
             return seeded_state
-        return seeded_state.model_copy(
-            update={"issue_class_exclusions": compatibility_exclusions}
-        )
+        return seeded_state.model_copy(update={"issue_class_exclusions": compatibility_exclusions})
 
     def _seed_enabled_severities(self) -> set[str]:
         """Return the bootstrap enabled severities for a dashboard policy seed."""

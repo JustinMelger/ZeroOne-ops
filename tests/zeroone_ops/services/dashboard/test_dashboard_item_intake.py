@@ -341,9 +341,7 @@ def test_select_item_reports_dashboard_issue_class_exclusion_when_no_item_is_eli
 ) -> None:
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
-    document = build_document(
-        items=[build_item(item_id="sonar:1")]
-    ).model_copy(
+    document = build_document(items=[build_item(item_id="sonar:1")]).model_copy(
         update={
             "policy_state": DashboardPolicyState(
                 severity_policy=[
