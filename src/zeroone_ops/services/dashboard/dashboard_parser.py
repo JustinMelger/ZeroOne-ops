@@ -11,6 +11,7 @@ from zeroone_ops.models.dashboard import (
     SECTION_TITLES,
     DashboardDocument,
     DashboardItem,
+    DashboardPolicyState,
     DashboardPolicyView,
     DashboardSection,
     section_key_for_item,
@@ -33,6 +34,15 @@ _ITEM_BLOCK_PATTERN = re.compile(
 
 
 _SCHEMA_MARKER_PATTERN = re.compile(r"<!-- zeroone-ops:dashboard-schema:v(?P<version>\d+) -->")
+_POLICY_STATE_BLOCK_PATTERN = re.compile(
+    (
+        r"<details>\n"
+        r"<summary><code>zeroone-policy-state</code> machine state</summary>\n\n"
+        r"```json\n(?P<payload>.*?)\n```\n\n"
+        r"</details>"
+    ),
+    re.DOTALL,
+)
 
 
 class DashboardParser:
@@ -63,8 +73,22 @@ class DashboardParser:
             title=title,
             sections=sections,
             schema_version=schema_version,
+            policy_state=self._extract_policy_state(body),
             policy_view=DashboardPolicyView(),
         )
+
+    def _extract_policy_state(self, body: str) -> DashboardPolicyState:
+        """Return the canonical dashboard policy state when present."""
+        match = _POLICY_STATE_BLOCK_PATTERN.search(body)
+        if match is None:
+            return DashboardPolicyState()
+        try:
+            payload = json.loads(match.group("payload"))
+        except json.JSONDecodeError as error:
+            raise DashboardParseError(
+                "Dashboard policy state block contained invalid JSON."
+            ) from error
+        return DashboardPolicyState.model_validate(payload)
 
     def _extract_schema_version(self, body: str) -> int:
         """Return the dashboard schema version or legacy v0 when missing."""

@@ -75,10 +75,10 @@ Implementation phases:
 - [x] keep raw checkbox edits and direct markdown edits non-authoritative
 
 - [ ] Phase 3: Severity Policy Writes
-- [ ] support bounded actions for enabling and disabling `low`, `medium`, and `high`
-- [ ] seed dashboard severity policy once from config when no dashboard policy exists yet
-- [ ] after seeding, make dashboard policy authoritative for remediation pickup
-- [ ] re-render checkbox-style severity state from canonical dashboard policy
+- [x] support bounded actions for enabling and disabling `low`, `medium`, and `high`
+- [x] seed dashboard severity policy once from config when no dashboard policy exists yet
+- [x] after seeding, make dashboard policy authoritative for remediation pickup
+- [x] re-render checkbox-style severity state from canonical dashboard policy
 
 - [ ] Phase 4: Issue-Class Exclusion Writes
 - [ ] support bounded actions for excluding and re-including grouped issue classes by `source + issue_key`

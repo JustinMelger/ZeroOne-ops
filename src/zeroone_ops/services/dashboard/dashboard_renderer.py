@@ -11,6 +11,7 @@ from zeroone_ops.models.dashboard import (
     DashboardIssueClassExclusionEntry,
     DashboardIssueClassInventoryEntry,
     DashboardItem,
+    DashboardPolicyState,
     DashboardPolicyView,
     DashboardSection,
     DashboardSeverityPolicyEntry,
@@ -26,6 +27,7 @@ class DashboardRenderer:
         title: str,
         sections: list[DashboardSection],
         schema_version: int = CURRENT_DASHBOARD_SCHEMA_VERSION,
+        policy_state: DashboardPolicyState | None = None,
         policy_view: DashboardPolicyView | None = None,
     ) -> str:
         """Render one dashboard body."""
@@ -40,7 +42,12 @@ class DashboardRenderer:
             "",
         ]
         policy_view = policy_view or DashboardPolicyView()
-        lines.extend(self._render_policy_sections(policy_view))
+        lines.extend(
+            self._render_policy_sections(
+                policy_view,
+                policy_state or DashboardPolicyState(),
+            )
+        )
         workflow_items = self._workflow_items(sections)
         for section in sections:
             rendered = self._render_section(section, workflow_items=workflow_items)
@@ -48,7 +55,11 @@ class DashboardRenderer:
                 lines.extend(rendered)
         return "\n".join(lines).rstrip() + "\n"
 
-    def _render_policy_sections(self, policy_view: DashboardPolicyView) -> list[str]:
+    def _render_policy_sections(
+        self,
+        policy_view: DashboardPolicyView,
+        policy_state: DashboardPolicyState,
+    ) -> list[str]:
         """Render the read-only operator policy sections."""
         lines: list[str] = [
             "## Automation Severity Policy",
@@ -60,9 +71,25 @@ class DashboardRenderer:
         lines.extend(["", "## Issue Class Inventory", ""])
         lines.extend(self._render_issue_class_inventory_table(policy_view.issue_class_inventory))
         lines.extend(["", "## Operator Policy Actions", ""])
+        lines.extend(self._render_policy_state_block(policy_state))
+        lines.append("")
         lines.extend(self._render_operator_policy_actions_legend())
         lines.append("")
         return lines
+
+    def _render_policy_state_block(self, policy_state: DashboardPolicyState) -> list[str]:
+        """Render the canonical machine-readable dashboard policy state block."""
+        payload = policy_state.model_dump(mode="json", exclude_none=True)
+        return [
+            "<details>",
+            "<summary><code>zeroone-policy-state</code> machine state</summary>",
+            "",
+            "```json",
+            json.dumps(payload, indent=2, sort_keys=True),
+            "```",
+            "",
+            "</details>",
+        ]
 
     def _render_operator_policy_actions_legend(self) -> list[str]:
         """Render the machine-owned operator action legend."""
@@ -630,5 +657,6 @@ class DashboardRenderer:
             title=document.title,
             sections=document.sections,
             schema_version=document.schema_version,
+            policy_state=document.policy_state,
             policy_view=document.policy_view,
         )

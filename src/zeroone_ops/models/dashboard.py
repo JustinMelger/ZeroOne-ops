@@ -69,6 +69,28 @@ class DashboardSeverityPolicyEntry(BaseModel):
     reason: str | None = None
 
 
+class DashboardSeverityPolicyStateEntry(BaseModel):
+    """Represent one canonical dashboard-backed severity policy entry."""
+
+    severity: Literal["low", "medium", "high"]
+    enabled: bool
+    reason: str | None = None
+    updated_at: datetime | None = None
+    updated_by: str | None = None
+    note_id: int | None = None
+
+
+class DashboardIssueClassPolicyStateEntry(BaseModel):
+    """Represent one canonical dashboard-backed issue-class policy entry."""
+
+    source: str
+    issue_key: str
+    reason: str
+    updated_at: datetime | None = None
+    updated_by: str | None = None
+    note_id: int | None = None
+
+
 class DashboardIssueClassExclusionEntry(BaseModel):
     """Represent one rendered excluded issue-class entry."""
 
@@ -96,6 +118,13 @@ class DashboardPolicyView(BaseModel):
     severity_policy: list[DashboardSeverityPolicyEntry] = Field(default_factory=list)
     excluded_issue_classes: list[DashboardIssueClassExclusionEntry] = Field(default_factory=list)
     issue_class_inventory: list[DashboardIssueClassInventoryEntry] = Field(default_factory=list)
+
+
+class DashboardPolicyState(BaseModel):
+    """Represent the canonical machine-owned dashboard policy state."""
+
+    severity_policy: list[DashboardSeverityPolicyStateEntry] = Field(default_factory=list)
+    issue_class_exclusions: list[DashboardIssueClassPolicyStateEntry] = Field(default_factory=list)
 
 
 class DashboardItem(BaseModel):
@@ -159,6 +188,7 @@ class DashboardDocument(BaseModel):
     title: str
     sections: list[DashboardSection]
     schema_version: int = CURRENT_DASHBOARD_SCHEMA_VERSION
+    policy_state: DashboardPolicyState = Field(default_factory=DashboardPolicyState)
     policy_view: DashboardPolicyView = Field(default_factory=DashboardPolicyView)
 
     def items_by_id(self) -> dict[str, DashboardItem]:

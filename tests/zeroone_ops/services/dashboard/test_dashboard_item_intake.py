@@ -12,7 +12,9 @@ from zeroone_ops.models.config import (
 from zeroone_ops.models.dashboard import (
     DashboardDocument,
     DashboardItem,
+    DashboardPolicyState,
     DashboardSection,
+    DashboardSeverityPolicyStateEntry,
     empty_sections,
 )
 from zeroone_ops.models.gitlab import MergeRequestInfo
@@ -103,6 +105,13 @@ def build_document(*, items: list[DashboardItem]) -> DashboardDocument:
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
         title="AI Code Ops Work Queue",
         sections=sections,
+        policy_state=DashboardPolicyState(
+            severity_policy=[
+                DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
+                DashboardSeverityPolicyStateEntry(severity="medium", enabled=True),
+                DashboardSeverityPolicyStateEntry(severity="high", enabled=True),
+            ]
+        ),
     )
 
 
@@ -287,6 +296,40 @@ def test_select_item_skips_item_excluded_by_policy_and_moves_to_next(tmp_path: P
     )
 
     result = service.select_item(project_id="123", state=state)
+
+    assert result.selected_item is not None
+    assert result.selected_item.id == "sonar:2"
+
+
+def test_select_item_skips_item_blocked_by_dashboard_severity_policy(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    (tmp_path / "src" / "other.py").write_text("value = False\n", encoding="utf-8")
+    document = build_document(
+        items=[
+            build_item(item_id="sonar:1").model_copy(update={"automation_severity": "high"}),
+            build_item(
+                item_id="sonar:2",
+                file_path="src/other.py",
+            ).model_copy(update={"automation_severity": "low"}),
+        ]
+    ).model_copy(
+        update={
+            "policy_state": DashboardPolicyState(
+                severity_policy=[
+                    DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
+                    DashboardSeverityPolicyStateEntry(severity="medium", enabled=False),
+                    DashboardSeverityPolicyStateEntry(severity="high", enabled=False),
+                ]
+            )
+        }
+    )
+    service = DashboardItemIntakeService(
+        repo_root=tmp_path,
+        dashboard_service=FakeDashboardService(document),
+    )
+
+    result = service.select_item(project_id="123", state=build_state())
 
     assert result.selected_item is not None
     assert result.selected_item.id == "sonar:2"
