@@ -74,7 +74,7 @@ The dashboard workflow also includes scheduled reconciliation:
 
 The dashboard also renders an operator policy surface:
 
-- current severity policy is shown as read-only checkbox-style state
+- current severity policy is shown as read-only descriptive state
 - excluded issue classes and grouped issue inventory are shown for visibility
 - policy actions should be issued as strict dashboard issue comments beginning
   with `/zeroone policy`

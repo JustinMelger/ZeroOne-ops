@@ -36,7 +36,7 @@ up, and which issue classes are intentionally excluded from automation.
 Today the operator-filter story is split across several places:
 
 - remediation severity gating still lives mainly in config,
-- issue-class exclusions exist outside the dashboard interaction surface,
+- issue-class exclusions should move into the dashboard interaction surface,
 - the dashboard shows work, but operators cannot directly select or deselect
   issue classes for automation there.
 
@@ -198,7 +198,7 @@ editing.
 
 Checkbox-style state is useful for presentation, but raw checkbox edits should
 not be the authoritative policy mutation path. The dashboard may show
-checkbox-like enabled/excluded state visually, while actual operator changes
+descriptive enabled/excluded state visually, while actual operator changes
 should still go through a bounded structured interaction that the bot validates
 and then re-renders.
 
@@ -207,8 +207,7 @@ Required actions:
 - enable severity,
 - disable severity,
 - exclude issue class,
-- remove issue-class exclusion,
-- inspect current policy state.
+- remove issue-class exclusion.
 
 Examples of intended actions:
 
@@ -279,4 +278,4 @@ Recommended rollout sequence:
 
 - make dashboard-backed policy the primary operator-facing control surface,
 - reduce config-only severity control to bootstrap or fallback semantics,
-- reduce duplicate policy editing paths once rollout is stable.
+- remove duplicate issue-class exclusion paths.

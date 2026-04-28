@@ -63,7 +63,7 @@ Implementation phases:
 - [x] render machine-owned `Automation Severity Policy` and `Excluded Issue Classes`
       sections
 - [x] render a narrow grouped issue inventory for policy-relevant groups only
-- [x] show checkbox-style state for readability, but keep it read-only
+- [x] show read-only policy status for readability
 - [x] show operator-facing status language:
       `eligible for automation`, `excluded from automation`, `blocked by severity policy`, `blocked by safety guard`
 
@@ -78,7 +78,7 @@ Implementation phases:
 - [x] support bounded actions for enabling and disabling `low`, `medium`, and `high`
 - [x] seed dashboard severity policy once from config when no dashboard policy exists yet
 - [x] after seeding, make dashboard policy authoritative for remediation pickup
-- [x] re-render checkbox-style severity state from canonical dashboard policy
+- [x] re-render severity policy state from canonical dashboard policy
 
 - [x] Phase 4: Issue-Class Exclusion Writes
 - [x] support bounded actions for excluding and re-including grouped issue classes by `source + issue_key`
@@ -88,8 +88,15 @@ Implementation phases:
 
 - [ ] Phase 5: Dashboard-First Policy Authority
 - [ ] reduce config severity to bootstrap/fallback semantics in operator docs and workflow expectations
-- [ ] narrow compatibility reads from older exclusion/state paths once rollout is stable
+- [x] remove duplicate issue-class exclusion reads so dashboard policy is the only exclusion authority
 - [ ] keep migration and rewrite behavior explicit for future dashboard schema changes
+
+- [ ] Phase 6: Dedicated Dashboard Policy Processing
+- [ ] add a separate dashboard policy-action runner/command
+- [ ] process strict `/zeroone policy ...` operator commands independently of remediation and reconciliation runs
+- [ ] keep policy mutation, validation, and dashboard re-render in the dedicated policy workflow path
+- [ ] preserve reconciliation as observed-state convergence only
+- [ ] preserve remediation as policy-consuming, not policy-mutating
 
 ### 4. Cleanup
 

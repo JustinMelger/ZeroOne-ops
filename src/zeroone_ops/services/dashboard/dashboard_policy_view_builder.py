@@ -11,7 +11,6 @@ from zeroone_ops.models.dashboard import (
     DashboardAutomationStatus,
     DashboardIssueClassExclusionEntry,
     DashboardIssueClassInventoryEntry,
-    DashboardIssueClassPolicyStateEntry,
     DashboardItem,
     DashboardPolicyState,
     DashboardPolicyView,
@@ -20,9 +19,6 @@ from zeroone_ops.models.dashboard import (
 )
 from zeroone_ops.models.state import AppState
 from zeroone_ops.services.dashboard.dashboard_item_selector import DashboardItemSelector
-from zeroone_ops.services.remediation.remediation_exclusion_service import (
-    RemediationExclusionService,
-)
 
 _SEVERITY_ORDER: tuple[Literal["low", "medium", "high"], ...] = ("low", "medium", "high")
 _TOP_ACTIVE_GROUP_LIMIT = 5
@@ -52,7 +48,6 @@ class DashboardPolicyViewBuilder:
         self.config = config
         self.state = state
         self.selector = DashboardItemSelector(repo_root=repo_root)
-        self.exclusion_service = RemediationExclusionService(state_store=None, state=state)
 
     def resolve_policy_state(
         self,
@@ -85,22 +80,7 @@ class DashboardPolicyViewBuilder:
                     ]
                 }
             )
-        if seeded_state.issue_class_exclusions:
-            return seeded_state
-        compatibility_exclusions = [
-            DashboardIssueClassPolicyStateEntry(
-                source=exclusion.source,
-                issue_key=exclusion.issue_key,
-                reason=exclusion.reason,
-                updated_at=exclusion.updated_at,
-                updated_by=exclusion.updated_by or "state_seed",
-            )
-            for exclusion in self.exclusion_service.list_exclusions()
-            if exclusion.scope is None
-        ]
-        if not compatibility_exclusions:
-            return seeded_state
-        return seeded_state.model_copy(update={"issue_class_exclusions": compatibility_exclusions})
+        return seeded_state
 
     def _seed_enabled_severities(self) -> set[str]:
         """Return the bootstrap enabled severities for a dashboard policy seed."""

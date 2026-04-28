@@ -1,8 +1,12 @@
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig, GitLabConfig, RemediationConfig
-from zeroone_ops.models.dashboard import DashboardItem, DashboardPolicyState
-from zeroone_ops.models.state import AppState, RemediationExclusionState, RepositoryState
+from zeroone_ops.models.dashboard import (
+    DashboardIssueClassPolicyStateEntry,
+    DashboardItem,
+    DashboardPolicyState,
+)
+from zeroone_ops.models.state import AppState, RepositoryState
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import (
     DashboardPolicyViewBuilder,
 )
@@ -49,16 +53,7 @@ def test_build_returns_read_only_policy_view_with_severity_exclusion_and_invento
     source_file.parent.mkdir(parents=True)
     source_file.write_text("print('ok')\n")
 
-    state = AppState(
-        repository=RepositoryState(base_branch="main"),
-        remediation_exclusions=[
-            RemediationExclusionState(
-                source="sonarqube",
-                issue_key="python:S3776",
-                reason="Usually needs refactor.",
-            )
-        ],
-    )
+    state = AppState(repository=RepositoryState(base_branch="main"))
     builder = DashboardPolicyViewBuilder(
         repo_root=repo_root,
         config=build_config(),
@@ -79,7 +74,16 @@ def test_build_returns_read_only_policy_view_with_severity_exclusion_and_invento
                 severity="LOW",
                 file_path="src/service.py",
             ),
-        ]
+        ],
+        policy_state=DashboardPolicyState(
+            issue_class_exclusions=[
+                DashboardIssueClassPolicyStateEntry(
+                    source="sonarqube",
+                    issue_key="python:S3776",
+                    reason="Excluded by dashboard policy action.",
+                )
+            ]
+        ),
     )
 
     assert [row.severity for row in policy_view.severity_policy] == ["low", "medium", "high"]
@@ -114,3 +118,17 @@ def test_resolve_policy_state_seeds_severity_policy_once_from_config(tmp_path: P
 
     assert [entry.severity for entry in policy_state.severity_policy] == ["low", "medium", "high"]
     assert [entry.enabled for entry in policy_state.severity_policy] == [True, True, False]
+
+
+def test_resolve_policy_state_keeps_issue_class_exclusions_empty_without_dashboard_state(
+    tmp_path: Path,
+) -> None:
+    builder = DashboardPolicyViewBuilder(
+        repo_root=tmp_path,
+        config=build_config(),
+        state=AppState(repository=RepositoryState(base_branch="main")),
+    )
+
+    policy_state = builder.resolve_policy_state(DashboardPolicyState())
+
+    assert policy_state.issue_class_exclusions == []
