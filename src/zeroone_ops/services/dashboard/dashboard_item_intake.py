@@ -9,7 +9,12 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig, GitLabConnectionConfig
-from zeroone_ops.models.dashboard import DashboardDocument, DashboardItem
+from zeroone_ops.models.dashboard import (
+    DashboardDocument,
+    DashboardItem,
+    DashboardPolicyState,
+    DashboardSeverityPolicyStateEntry,
+)
 from zeroone_ops.models.state import AppState
 from zeroone_ops.providers.gitlab_client import GitLabClient
 from zeroone_ops.services.dashboard.dashboard_item_selector import (
@@ -29,6 +34,7 @@ _STALE_IN_PROGRESS_WINDOW = timedelta(hours=24)
 _SKIP_REASON_MESSAGES = {
     "active_local_state": "already tracked as active locally",
     "active_merge_request": "already represented by an active merge request",
+    "blocked_by_severity_policy": "blocked by severity policy",
     "excluded_by_policy": "explicitly excluded from automation",
     "missing_file_path": "without a target file path",
     "missing_local_file": "without a matching local file",
@@ -76,9 +82,14 @@ class DashboardItemIntakeService:
     ) -> DashboardItemIntakeResult:
         """Load the dashboard and return the next eligible remediation item."""
         document = self.dashboard_service.load_or_create(project_id=project_id)
+        policy_state = self._resolved_policy_state(document.policy_state)
+        document = document.model_copy(update={"policy_state": policy_state})
         document, recovered_stale_item_ids = self._recover_stale_in_progress_items(
             document=document,
             project_id=project_id,
+        )
+        document = document.model_copy(
+            update={"policy_state": self._resolved_policy_state(document.policy_state)}
         )
         items = [item for section in document.sections for item in section.items]
         exclusion_service = self._build_exclusion_service(state)
@@ -87,6 +98,7 @@ class DashboardItemIntakeService:
         skip_reason_counts = self._skip_reason_counts(
             items,
             state,
+            policy_state=document.policy_state,
             exclusion_service=exclusion_service,
             gitlab_config=gitlab_config,
             merge_request_service=merge_request_service,
@@ -94,6 +106,7 @@ class DashboardItemIntakeService:
         selected_item = self._select_item(
             items,
             state,
+            policy_state=document.policy_state,
             exclusion_service=exclusion_service,
             gitlab_config=gitlab_config,
             merge_request_service=merge_request_service,
@@ -123,6 +136,7 @@ class DashboardItemIntakeService:
         items: list[DashboardItem],
         state: AppState,
         *,
+        policy_state: DashboardPolicyState,
         exclusion_service: RemediationExclusionService,
         gitlab_config: GitLabConnectionConfig | None,
         merge_request_service: MergeRequestService | None,
@@ -133,6 +147,7 @@ class DashboardItemIntakeService:
             skip_reason = self._skip_reason(
                 item,
                 state,
+                policy_state=policy_state,
                 exclusion_service=exclusion_service,
                 gitlab_config=gitlab_config,
                 merge_request_service=merge_request_service,
@@ -157,6 +172,7 @@ class DashboardItemIntakeService:
         items: list[DashboardItem],
         state: AppState,
         *,
+        policy_state: DashboardPolicyState,
         exclusion_service: RemediationExclusionService,
         gitlab_config: GitLabConnectionConfig | None,
         merge_request_service: MergeRequestService | None,
@@ -167,6 +183,7 @@ class DashboardItemIntakeService:
                 self._skip_reason(
                     item,
                     state,
+                    policy_state=policy_state,
                     exclusion_service=exclusion_service,
                     gitlab_config=gitlab_config,
                     merge_request_service=merge_request_service,
@@ -181,6 +198,7 @@ class DashboardItemIntakeService:
         item: DashboardItem,
         state: AppState,
         *,
+        policy_state: DashboardPolicyState,
         exclusion_service: RemediationExclusionService,
         gitlab_config: GitLabConnectionConfig | None,
         merge_request_service: MergeRequestService | None,
@@ -189,12 +207,72 @@ class DashboardItemIntakeService:
         selector_reason = self.selector.skip_reason(item, state)
         if selector_reason is not None:
             return selector_reason
+        if self._is_blocked_by_severity_policy(item, policy_state=policy_state):
+            return "blocked_by_severity_policy"
         if exclusion_service.matches_dashboard_item(item):
             return "excluded_by_policy"
         return self._active_merge_request_skip_reason(
             item,
             gitlab_config=gitlab_config,
             merge_request_service=merge_request_service,
+        )
+
+    def _is_blocked_by_severity_policy(
+        self,
+        item: DashboardItem,
+        *,
+        policy_state: DashboardPolicyState,
+    ) -> bool:
+        """Return whether one dashboard item is blocked by canonical severity policy."""
+        automation_severity = (item.automation_severity or item.severity or "").lower()
+        if not automation_severity:
+            return False
+        enabled = {
+            entry.severity.lower() for entry in policy_state.severity_policy if entry.enabled
+        }
+        return automation_severity not in enabled
+
+    def _resolved_policy_state(
+        self,
+        policy_state: DashboardPolicyState,
+    ) -> DashboardPolicyState:
+        """Return the effective severity policy for intake when the document lacks one."""
+        if policy_state.severity_policy:
+            return policy_state
+        if self.config is None:
+            return DashboardPolicyState(
+                severity_policy=[
+                    DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
+                    DashboardSeverityPolicyStateEntry(severity="medium", enabled=True),
+                    DashboardSeverityPolicyStateEntry(severity="high", enabled=True),
+                ]
+            )
+        enabled = {
+            severity.lower() for severity in self.config.remediation.supported_severities
+        } or {"low", "medium", "high"}
+        return DashboardPolicyState(
+            severity_policy=[
+                DashboardSeverityPolicyStateEntry(
+                    severity="low",
+                    enabled="low" in enabled,
+                    reason=None if "low" in enabled else "Disabled by current config baseline.",
+                    updated_by="config_seed",
+                ),
+                DashboardSeverityPolicyStateEntry(
+                    severity="medium",
+                    enabled="medium" in enabled,
+                    reason=(
+                        None if "medium" in enabled else "Disabled by current config baseline."
+                    ),
+                    updated_by="config_seed",
+                ),
+                DashboardSeverityPolicyStateEntry(
+                    severity="high",
+                    enabled="high" in enabled,
+                    reason=(None if "high" in enabled else "Disabled by current config baseline."),
+                    updated_by="config_seed",
+                ),
+            ]
         )
 
     def _active_merge_request_skip_reason(

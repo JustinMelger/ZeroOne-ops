@@ -12,8 +12,10 @@ from zeroone_ops.models.dashboard import (
     DashboardIssueClassExclusionEntry,
     DashboardIssueClassInventoryEntry,
     DashboardItem,
+    DashboardPolicyState,
     DashboardPolicyView,
     DashboardSeverityPolicyEntry,
+    DashboardSeverityPolicyStateEntry,
 )
 from zeroone_ops.models.state import AppState
 from zeroone_ops.services.dashboard.dashboard_item_selector import DashboardItemSelector
@@ -51,21 +53,75 @@ class DashboardPolicyViewBuilder:
         self.selector = DashboardItemSelector(repo_root=repo_root)
         self.exclusion_service = RemediationExclusionService(state_store=None, state=state)
 
-    def build(self, items: list[DashboardItem]) -> DashboardPolicyView:
-        """Return the rendered read-only policy view for current dashboard items."""
-        return DashboardPolicyView(
-            severity_policy=self._build_severity_policy(),
-            excluded_issue_classes=self._build_excluded_issue_classes(items),
-            issue_class_inventory=self._build_issue_class_inventory(items),
+    def resolve_policy_state(
+        self,
+        policy_state: DashboardPolicyState | None,
+    ) -> DashboardPolicyState:
+        """Return the canonical policy state with config-seeded severity defaults."""
+        state = (
+            policy_state.model_copy(deep=True)
+            if policy_state is not None
+            else DashboardPolicyState()
+        )
+        if state.severity_policy:
+            return state
+        enabled = self._seed_enabled_severities()
+        return state.model_copy(
+            update={
+                "severity_policy": [
+                    DashboardSeverityPolicyStateEntry(
+                        severity=severity,
+                        enabled=severity in enabled,
+                        reason=(
+                            None if severity in enabled else "Disabled by current config baseline."
+                        ),
+                        updated_by="config_seed",
+                    )
+                    for severity in _SEVERITY_ORDER
+                ]
+            }
         )
 
-    def _build_severity_policy(self) -> list[DashboardSeverityPolicyEntry]:
-        enabled = {severity.lower() for severity in self.config.remediation.supported_severities}
+    def _seed_enabled_severities(self) -> set[str]:
+        """Return the bootstrap enabled severities for a dashboard policy seed."""
+        configured = {severity.lower() for severity in self.config.remediation.supported_severities}
+        return configured or set(_SEVERITY_ORDER)
+
+    def build(
+        self,
+        items: list[DashboardItem],
+        *,
+        policy_state: DashboardPolicyState | None = None,
+    ) -> DashboardPolicyView:
+        """Return the rendered read-only policy view for current dashboard items."""
+        resolved_policy_state = self.resolve_policy_state(policy_state)
+        return DashboardPolicyView(
+            severity_policy=self._build_severity_policy(resolved_policy_state),
+            excluded_issue_classes=self._build_excluded_issue_classes(items),
+            issue_class_inventory=self._build_issue_class_inventory(
+                items,
+                policy_state=resolved_policy_state,
+            ),
+        )
+
+    def _build_severity_policy(
+        self,
+        policy_state: DashboardPolicyState,
+    ) -> list[DashboardSeverityPolicyEntry]:
+        entries_by_severity = {entry.severity: entry for entry in policy_state.severity_policy}
         return [
             DashboardSeverityPolicyEntry(
                 severity=severity,
-                enabled=severity in enabled,
-                reason=None if severity in enabled else "Disabled by current config baseline.",
+                enabled=(
+                    entries_by_severity[severity].enabled
+                    if severity in entries_by_severity
+                    else False
+                ),
+                reason=(
+                    entries_by_severity[severity].reason
+                    if severity in entries_by_severity
+                    else None
+                ),
             )
             for severity in _SEVERITY_ORDER
         ]
@@ -96,6 +152,8 @@ class DashboardPolicyViewBuilder:
     def _build_issue_class_inventory(
         self,
         items: list[DashboardItem],
+        *,
+        policy_state: DashboardPolicyState,
     ) -> list[DashboardIssueClassInventoryEntry]:
         grouped_items: dict[tuple[str, str], list[DashboardItem]] = defaultdict(list)
         for item in items:
@@ -116,7 +174,7 @@ class DashboardPolicyViewBuilder:
         blocked_severity_keys = {
             key
             for key, grouped in grouped_items.items()
-            if self._all_items_blocked_by_severity(grouped)
+            if self._all_items_blocked_by_severity(grouped, policy_state=policy_state)
         }
         sorted_keys = sorted(
             grouped_items,
@@ -139,7 +197,7 @@ class DashboardPolicyViewBuilder:
         for key in selected_keys:
             source, issue_key = key
             grouped = grouped_items[key]
-            status, reason = self._group_status(grouped)
+            status, reason = self._group_status(grouped, policy_state=policy_state)
             normalized_severities = {
                 severity
                 for item in grouped
@@ -177,6 +235,8 @@ class DashboardPolicyViewBuilder:
     def _group_status(
         self,
         items: list[DashboardItem],
+        *,
+        policy_state: DashboardPolicyState,
     ) -> tuple[DashboardAutomationStatus, str | None]:
         matching_exclusion = next(
             (item for item in items if self.exclusion_service.matches_dashboard_item(item)),
@@ -196,7 +256,7 @@ class DashboardPolicyViewBuilder:
             reason = exclusion.reason if exclusion is not None else None
             return "excluded from automation", reason
 
-        if self._all_items_blocked_by_severity(items):
+        if self._all_items_blocked_by_severity(items, policy_state=policy_state):
             severities = sorted(
                 {
                     severity
@@ -222,8 +282,15 @@ class DashboardPolicyViewBuilder:
             )
         return "eligible for automation", None
 
-    def _all_items_blocked_by_severity(self, items: list[DashboardItem]) -> bool:
-        enabled = {severity.lower() for severity in self.config.remediation.supported_severities}
+    def _all_items_blocked_by_severity(
+        self,
+        items: list[DashboardItem],
+        *,
+        policy_state: DashboardPolicyState,
+    ) -> bool:
+        enabled = {
+            entry.severity.lower() for entry in policy_state.severity_policy if entry.enabled
+        }
         severities = [
             severity
             for item in items

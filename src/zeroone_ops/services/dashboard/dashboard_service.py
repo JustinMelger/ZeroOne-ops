@@ -8,6 +8,7 @@ from zeroone_ops.models.dashboard import (
     CURRENT_DASHBOARD_SCHEMA_VERSION,
     DashboardDocument,
     DashboardItem,
+    DashboardPolicyState,
     DashboardPolicyView,
     DashboardSection,
     DashboardSectionKey,
@@ -16,13 +17,28 @@ from zeroone_ops.models.dashboard import (
 )
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.services.dashboard.dashboard_parser import DashboardParser
+from zeroone_ops.services.dashboard.dashboard_policy_action_service import (
+    DashboardPolicyActionService,
+)
 from zeroone_ops.services.dashboard.dashboard_renderer import DashboardRenderer
 
 
 class DashboardPolicyViewBuilderProtocol(Protocol):
     """Protocol for dashboard policy-view builders."""
 
-    def build(self, items: list[DashboardItem]) -> DashboardPolicyView:
+    def resolve_policy_state(
+        self,
+        policy_state: DashboardPolicyState | None,
+    ) -> DashboardPolicyState:
+        """Resolve canonical dashboard policy state, seeding defaults when needed."""
+        ...
+
+    def build(
+        self,
+        items: list[DashboardItem],
+        *,
+        policy_state: DashboardPolicyState | None = None,
+    ) -> DashboardPolicyView:
         """Build one dashboard policy view from current dashboard items."""
         ...
 
@@ -50,6 +66,7 @@ class DashboardService:
         labels: list[str] | None = None,
         section_item_limits: dict[DashboardSectionKey, int] | None = None,
         policy_view_builder: DashboardPolicyViewBuilderProtocol | None = None,
+        policy_action_service: DashboardPolicyActionService | None = None,
     ) -> None:
         """Initialize the dashboard service."""
         self.client = client
@@ -59,6 +76,7 @@ class DashboardService:
         self.labels = labels or ["ai-code-ops", "dashboard"]
         self.section_item_limits = section_item_limits or DEFAULT_SECTION_ITEM_LIMITS.copy()
         self.policy_view_builder = policy_view_builder
+        self.policy_action_service = policy_action_service or DashboardPolicyActionService()
 
     def load_or_create(self, *, project_id: str) -> DashboardDocument:
         """Load the dashboard issue or create it if missing."""
@@ -99,6 +117,7 @@ class DashboardService:
             title=issue.title,
             body=issue.description,
         )
+        document = self._apply_policy_actions(document, project_id=project_id)
         document = self._apply_policy_view(document)
         rendered = self.renderer.render_document(document)
         if (
@@ -151,10 +170,15 @@ class DashboardService:
         """Apply the current read-only policy snapshot to one dashboard document."""
         if self.policy_view_builder is None:
             return document.model_copy(update={"schema_version": CURRENT_DASHBOARD_SCHEMA_VERSION})
-        policy_view = self.policy_view_builder.build(list(document.items_by_id().values()))
+        resolved_policy_state = self.policy_view_builder.resolve_policy_state(document.policy_state)
+        policy_view = self.policy_view_builder.build(
+            list(document.items_by_id().values()),
+            policy_state=resolved_policy_state,
+        )
         return document.model_copy(
             update={
                 "schema_version": CURRENT_DASHBOARD_SCHEMA_VERSION,
+                "policy_state": resolved_policy_state,
                 "policy_view": (
                     policy_view
                     if isinstance(policy_view, DashboardPolicyView)
@@ -195,8 +219,29 @@ class DashboardService:
             title=document.title,
             sections=sections,
             schema_version=document.schema_version,
+            policy_state=document.policy_state,
             policy_view=document.policy_view,
         )
+
+    def _apply_policy_actions(
+        self,
+        document: DashboardDocument,
+        *,
+        project_id: str,
+    ) -> DashboardDocument:
+        """Replay policy issue-note actions into canonical dashboard policy state."""
+        if self.policy_view_builder is None:
+            return document
+        notes = self.client.list_issue_notes(
+            project_id=project_id,
+            issue_iid=document.issue_iid,
+        )
+        seeded_policy_state = self.policy_view_builder.resolve_policy_state(document.policy_state)
+        policy_state = self.policy_action_service.apply_actions(
+            policy_state=seeded_policy_state,
+            notes=notes,
+        )
+        return document.model_copy(update={"policy_state": policy_state})
 
     def _apply_retention(
         self,

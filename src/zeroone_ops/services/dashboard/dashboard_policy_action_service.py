@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from zeroone_ops.models.dashboard import DashboardPolicyState, DashboardSeverityPolicyStateEntry
 from zeroone_ops.models.gitlab import GitLabIssueNote
 
 _POLICY_PREFIX = "/zeroone policy"
@@ -134,7 +135,42 @@ class DashboardPolicyActionService:
     def accepted_actions(self, notes: list[GitLabIssueNote]) -> list[DashboardPolicyAction]:
         """Return accepted policy actions in note order."""
         parsed = self.parse_notes(notes)
-        return [result.action for result in parsed if result.action is not None]
+        actions = [result.action for result in parsed if result.action is not None]
+        return sorted(
+            actions,
+            key=lambda action: (
+                self._note_sort_key(notes, action.note_id),
+                action.note_id or 0,
+            ),
+        )
+
+    def apply_actions(
+        self,
+        *,
+        policy_state: DashboardPolicyState,
+        notes: list[GitLabIssueNote],
+    ) -> DashboardPolicyState:
+        """Return the policy state after replaying accepted dashboard note actions."""
+        updated_state = policy_state.model_copy(deep=True)
+        notes_by_id = {note.id: note for note in notes}
+        for action in self.accepted_actions(notes):
+            if action.action_type == "enable_severity":
+                updated_state = self._upsert_severity_state(
+                    policy_state=updated_state,
+                    severity=action.severity,
+                    enabled=True,
+                    reason=None,
+                    note=notes_by_id.get(action.note_id or -1),
+                )
+            elif action.action_type == "disable_severity":
+                updated_state = self._upsert_severity_state(
+                    policy_state=updated_state,
+                    severity=action.severity,
+                    enabled=False,
+                    reason="Disabled by dashboard policy action.",
+                    note=notes_by_id.get(action.note_id or -1),
+                )
+        return updated_state
 
     def _normalize_command(self, body: str | None) -> str | None:
         """Return one strict single-line command when the note uses the policy prefix."""
@@ -146,6 +182,46 @@ class DashboardPolicyActionService:
         if "\n" in stripped:
             return stripped
         return " ".join(stripped.split())
+
+    def _note_sort_key(self, notes: list[GitLabIssueNote], note_id: int | None) -> tuple[str, int]:
+        """Return one deterministic sort key for policy-note replay."""
+        note = next((candidate for candidate in notes if candidate.id == note_id), None)
+        return ((note.created_at or "") if note is not None else "", note_id or 0)
+
+    def _upsert_severity_state(
+        self,
+        *,
+        policy_state: DashboardPolicyState,
+        severity: DashboardPolicySeverity | None,
+        enabled: bool,
+        reason: str | None,
+        note: GitLabIssueNote | None,
+    ) -> DashboardPolicyState:
+        """Return the updated policy state for one severity command."""
+        if severity is None:
+            return policy_state
+        updated_entry = DashboardSeverityPolicyStateEntry(
+            severity=severity,
+            enabled=enabled,
+            reason=reason,
+            updated_at=None,
+            updated_by=note.author_username if note is not None else None,
+            note_id=note.id if note is not None else None,
+        )
+        if note is not None and note.created_at:
+            from datetime import datetime
+
+            updated_entry.updated_at = datetime.fromisoformat(
+                note.created_at.replace("Z", "+00:00")
+            )
+        severity_entries = list(policy_state.severity_policy)
+        for index, entry in enumerate(severity_entries):
+            if entry.severity == severity:
+                severity_entries[index] = updated_entry
+                return policy_state.model_copy(update={"severity_policy": severity_entries})
+        severity_entries.append(updated_entry)
+        severity_entries.sort(key=lambda entry: ("low", "medium", "high").index(entry.severity))
+        return policy_state.model_copy(update={"severity_policy": severity_entries})
 
 
 def _severity_literal(value: str) -> DashboardPolicySeverity:

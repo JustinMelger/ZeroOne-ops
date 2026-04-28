@@ -1,10 +1,11 @@
 from zeroone_ops.models.dashboard import (
     DashboardIssueClassInventoryEntry,
     DashboardItem,
+    DashboardPolicyState,
     DashboardPolicyView,
     DashboardSeverityPolicyEntry,
 )
-from zeroone_ops.models.gitlab import GitLabIssueInfo
+from zeroone_ops.models.gitlab import GitLabIssueInfo, GitLabIssueNote
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 
 
@@ -32,6 +33,7 @@ class FakeDashboardClient:
         self.existing_issue = existing_issue
         self.created_issue: GitLabIssueInfo | None = None
         self.updated_issue: GitLabIssueInfo | None = None
+        self.notes: list[GitLabIssueNote] = []
 
     def find_open_issue(
         self,
@@ -74,6 +76,10 @@ class FakeDashboardClient:
         )
         self.existing_issue = self.updated_issue
         return self.updated_issue
+
+    def list_issue_notes(self, *, project_id: str, issue_iid: int) -> list[GitLabIssueNote]:
+        del project_id, issue_iid
+        return list(self.notes)
 
 
 def test_load_or_create_creates_dashboard_when_missing() -> None:
@@ -170,7 +176,19 @@ def test_done_items_render_under_completed_section() -> None:
 
 
 class FakePolicyViewBuilder:
-    def build(self, items: list[DashboardItem]) -> DashboardPolicyView:
+    def resolve_policy_state(
+        self,
+        policy_state: DashboardPolicyState | None,
+    ) -> DashboardPolicyState:
+        return policy_state or DashboardPolicyState()
+
+    def build(
+        self,
+        items: list[DashboardItem],
+        *,
+        policy_state: DashboardPolicyState | None = None,
+    ) -> DashboardPolicyView:
+        del policy_state
         return DashboardPolicyView(
             severity_policy=[
                 DashboardSeverityPolicyEntry(
@@ -226,3 +244,33 @@ def test_load_or_create_migrates_legacy_dashboard_to_current_schema() -> None:
     assert client.updated_issue is not None
     assert "<!-- zeroone-ops:dashboard-schema:v1 -->" in client.updated_issue.description
     assert "## Automation Severity Policy" in client.updated_issue.description
+
+
+def test_load_or_create_replays_severity_policy_actions_from_issue_notes() -> None:
+    existing_issue = GitLabIssueInfo(
+        id=10,
+        iid=11,
+        web_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        description="",
+    )
+    client = FakeDashboardClient(existing_issue=existing_issue)
+    client.notes = [
+        GitLabIssueNote(
+            id=12,
+            body="/zeroone policy severity disable high",
+            author_username="operator",
+            created_at="2026-04-28T10:00:00.000Z",
+        )
+    ]
+    service = DashboardService(
+        client,
+        policy_view_builder=FakePolicyViewBuilder(),
+    )
+
+    document = service.load_or_create(project_id="123")
+
+    severity_by_name = {entry.severity: entry for entry in document.policy_state.severity_policy}
+    assert severity_by_name["high"].enabled is False
+    assert severity_by_name["high"].updated_by == "operator"
+    assert severity_by_name["high"].note_id == 12

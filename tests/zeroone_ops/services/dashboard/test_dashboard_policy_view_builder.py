@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig, GitLabConfig, RemediationConfig
-from zeroone_ops.models.dashboard import DashboardItem
+from zeroone_ops.models.dashboard import DashboardItem, DashboardPolicyState
 from zeroone_ops.models.state import AppState, RemediationExclusionState, RepositoryState
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import (
     DashboardPolicyViewBuilder,
@@ -101,3 +101,16 @@ def test_build_returns_read_only_policy_view_with_severity_exclusion_and_invento
     )
     assert inventory_by_key[("sonarqube", "python:S3776")].severities_present == ["high"]
     assert inventory_by_key[("sonarqube", "python:S3776")].source_severities_present == ["HIGH"]
+
+
+def test_resolve_policy_state_seeds_severity_policy_once_from_config(tmp_path: Path) -> None:
+    builder = DashboardPolicyViewBuilder(
+        repo_root=tmp_path,
+        config=build_config(),
+        state=AppState(repository=RepositoryState(base_branch="main")),
+    )
+
+    policy_state = builder.resolve_policy_state(DashboardPolicyState())
+
+    assert [entry.severity for entry in policy_state.severity_policy] == ["low", "medium", "high"]
+    assert [entry.enabled for entry in policy_state.severity_policy] == [True, True, False]
