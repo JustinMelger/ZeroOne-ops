@@ -55,6 +55,8 @@ Authority note:
 - once the dashboard has canonical policy state, remediation pickup follows
   the dashboard policy instead of treating config severity as the active
   operator control plane
+- if neither config severity nor dashboard severity policy exists yet, the
+  bootstrap default is `low` and `medium` enabled with `high` disabled
 - operators should change ongoing severity policy through strict
   `/zeroone policy ...` dashboard comments
 

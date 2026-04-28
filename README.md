@@ -62,6 +62,8 @@ Severity control note:
 - once the dashboard has canonical policy state, remediation pickup follows the
   dashboard policy and operators should change severity policy through
   `/zeroone policy ...` comments
+- if neither dashboard policy nor config severity is present, the bootstrap
+  default is `low` and `medium` enabled with `high` disabled
 - when an older dashboard body is recognized, ZeroOne Ops rewrites it into the
   current schema on read before continuing normal dashboard-backed workflows
 
@@ -119,6 +121,8 @@ For example:
 `remediation.supported_severities` is best treated as the initial rollout
 baseline for seeding dashboard severity policy in a repository, not as the
 primary steady-state operator control once dashboard policy exists.
+When config leaves severity empty and no dashboard policy exists yet, the
+default bootstrap baseline is `low` and `medium` enabled with `high` disabled.
 
 Legacy flat keys still load for compatibility during migration, but new repos
 should use the nested structure.

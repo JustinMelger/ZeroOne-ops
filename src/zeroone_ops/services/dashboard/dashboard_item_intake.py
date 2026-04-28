@@ -27,6 +27,7 @@ from zeroone_ops.utils.git import build_issue_branch_name
 
 LOGGER = logging.getLogger(__name__)
 _STALE_IN_PROGRESS_WINDOW = timedelta(hours=24)
+_DEFAULT_ENABLED_SEVERITIES: frozenset[str] = frozenset({"low", "medium"})
 
 _SKIP_REASON_MESSAGES = {
     "active_local_state": "already tracked as active locally",
@@ -233,12 +234,17 @@ class DashboardItemIntakeService:
                 severity_policy=[
                     DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
                     DashboardSeverityPolicyStateEntry(severity="medium", enabled=True),
-                    DashboardSeverityPolicyStateEntry(severity="high", enabled=True),
+                    DashboardSeverityPolicyStateEntry(
+                        severity="high",
+                        enabled=False,
+                        reason="Disabled by current config baseline.",
+                        updated_by="config_seed",
+                    ),
                 ]
             )
         enabled = {
             severity.lower() for severity in self.config.remediation.supported_severities
-        } or {"low", "medium", "high"}
+        } or set(_DEFAULT_ENABLED_SEVERITIES)
         return DashboardPolicyState(
             severity_policy=[
                 DashboardSeverityPolicyStateEntry(

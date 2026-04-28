@@ -132,3 +132,22 @@ def test_resolve_policy_state_keeps_issue_class_exclusions_empty_without_dashboa
     policy_state = builder.resolve_policy_state(DashboardPolicyState())
 
     assert policy_state.issue_class_exclusions == []
+
+
+def test_resolve_policy_state_defaults_to_low_and_medium_when_config_is_empty(
+    tmp_path: Path,
+) -> None:
+    builder = DashboardPolicyViewBuilder(
+        repo_root=tmp_path,
+        config=AppConfig(
+            base_branch="main",
+            remediation=RemediationConfig(supported_severities=[]),
+            gitlab=GitLabConfig(target_branch="main"),
+        ),
+        state=AppState(repository=RepositoryState(base_branch="main")),
+    )
+
+    policy_state = builder.resolve_policy_state(DashboardPolicyState())
+
+    assert [entry.severity for entry in policy_state.severity_policy] == ["low", "medium", "high"]
+    assert [entry.enabled for entry in policy_state.severity_policy] == [True, True, False]

@@ -21,6 +21,7 @@ from zeroone_ops.models.state import AppState
 from zeroone_ops.services.dashboard.dashboard_item_selector import DashboardItemSelector
 
 _SEVERITY_ORDER: tuple[Literal["low", "medium", "high"], ...] = ("low", "medium", "high")
+_DEFAULT_ENABLED_SEVERITIES: frozenset[str] = frozenset({"low", "medium"})
 _TOP_ACTIVE_GROUP_LIMIT = 5
 _SAFETY_SKIP_REASONS = frozenset(
     {
@@ -85,7 +86,7 @@ class DashboardPolicyViewBuilder:
     def _seed_enabled_severities(self) -> set[str]:
         """Return the bootstrap enabled severities for a dashboard policy seed."""
         configured = {severity.lower() for severity in self.config.remediation.supported_severities}
-        return configured or set(_SEVERITY_ORDER)
+        return configured or set(_DEFAULT_ENABLED_SEVERITIES)
 
     def build(
         self,
