@@ -12,6 +12,7 @@ from zeroone_ops.models.review import (
     ReviewFinding,
     ReviewResult,
 )
+from zeroone_ops.providers.llm_client import LLMClientError
 from zeroone_ops.services.review.review_analysis_service import ReviewAnalysisService
 
 
@@ -100,8 +101,6 @@ class FakeReviewLLMClient:
 
 class FakeReviewErrorClient:
     def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
-        from zeroone_ops.providers.llm_client import LLMClientError
-
         del context
         raise LLMClientError("bad output")
 

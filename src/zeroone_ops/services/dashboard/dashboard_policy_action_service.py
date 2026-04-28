@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -227,8 +228,6 @@ class DashboardPolicyActionService:
             note_id=note.id if note is not None else None,
         )
         if note is not None and note.created_at:
-            from datetime import datetime
-
             updated_entry.updated_at = datetime.fromisoformat(
                 note.created_at.replace("Z", "+00:00")
             )
@@ -262,8 +261,6 @@ class DashboardPolicyActionService:
             note_id=note.id if note is not None else None,
         )
         if note is not None and note.created_at:
-            from datetime import datetime
-
             updated_entry.updated_at = datetime.fromisoformat(
                 note.created_at.replace("Z", "+00:00")
             )

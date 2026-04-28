@@ -8,10 +8,12 @@ from zeroone_ops.models.config import (
     GitLabConfig,
     RemediationConfig,
 )
+from zeroone_ops.models.gitlab import MergeRequestInfo
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
 from zeroone_ops.services.remediation.execution_service import ExecutionService
 from zeroone_ops.services.remediation.publish_service import PublishResult
+from zeroone_ops.services.shared.branch_manager import BranchManagerError
 from zeroone_ops.services.shared.workspace_snapshot import WorkspaceSnapshotService
 
 
@@ -174,7 +176,6 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
 
     def commit_error(commit_message: str, *, push: bool = False) -> str:
         del commit_message, push
-        from zeroone_ops.services.shared.branch_manager import BranchManagerError
 
         target_file.write_text("value = 2\n", encoding="utf-8")
         raise BranchManagerError("git commit failed")
@@ -257,7 +258,6 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
     def capture_create(self, project_id, source_branch, target_branch, title, description, labels):
         del self, project_id, source_branch, target_branch, title, labels
         captured["description"] = description
-        from zeroone_ops.models.gitlab import MergeRequestInfo
 
         return MergeRequestInfo(
             iid=10,

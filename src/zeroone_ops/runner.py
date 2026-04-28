@@ -9,7 +9,7 @@ import logging
 import secrets
 from pathlib import Path
 
-from zeroone_ops.models.state import RemediationExclusionState, RunStatus
+from zeroone_ops.models.state import RemediationExclusionState, RunStatus, utc_now
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
@@ -46,8 +46,6 @@ LOGGER = logging.getLogger(__name__)
 
 def _build_run_id() -> str:
     """Build a unique run identifier."""
-    from zeroone_ops.models.state import utc_now
-
     timestamp = utc_now().strftime("%Y%m%dT%H%M%SZ")
     return f"{timestamp}-{secrets.token_hex(4)}"
 
