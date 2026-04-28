@@ -73,9 +73,7 @@ class DashboardPolicyViewBuilder:
                         severity=severity,
                         enabled=severity in enabled,
                         reason=(
-                            None
-                            if severity in enabled
-                            else "Disabled by current config baseline."
+                            None if severity in enabled else "Disabled by current config baseline."
                         ),
                         updated_by="config_seed",
                     )

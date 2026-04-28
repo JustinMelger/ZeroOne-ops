@@ -257,26 +257,19 @@ class DashboardItemIntakeService:
                     enabled="low" in enabled,
                     reason=None if "low" in enabled else "Disabled by current config baseline.",
                     updated_by="config_seed",
-                )
-                ,
+                ),
                 DashboardSeverityPolicyStateEntry(
                     severity="medium",
                     enabled="medium" in enabled,
                     reason=(
-                        None
-                        if "medium" in enabled
-                        else "Disabled by current config baseline."
+                        None if "medium" in enabled else "Disabled by current config baseline."
                     ),
                     updated_by="config_seed",
                 ),
                 DashboardSeverityPolicyStateEntry(
                     severity="high",
                     enabled="high" in enabled,
-                    reason=(
-                        None
-                        if "high" in enabled
-                        else "Disabled by current config baseline."
-                    ),
+                    reason=(None if "high" in enabled else "Disabled by current config baseline."),
                     updated_by="config_seed",
                 ),
             ]
