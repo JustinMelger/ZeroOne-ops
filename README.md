@@ -51,6 +51,8 @@ just architecture
 - select one supported item per run
 - generate and validate a bounded fix
 - create or reuse a GitLab merge request in CI mode
+- expose read-only operator policy state in the dashboard with strict
+  `/zeroone policy ...` comment commands for policy actions
 
 ### Dashboard Reconciliation
 

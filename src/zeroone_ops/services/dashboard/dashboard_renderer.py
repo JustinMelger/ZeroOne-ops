@@ -59,8 +59,35 @@ class DashboardRenderer:
         lines.extend(self._render_excluded_issue_classes_table(policy_view.excluded_issue_classes))
         lines.extend(["", "## Issue Class Inventory", ""])
         lines.extend(self._render_issue_class_inventory_table(policy_view.issue_class_inventory))
+        lines.extend(["", "## Operator Policy Actions", ""])
+        lines.extend(self._render_operator_policy_actions_legend())
         lines.append("")
         return lines
+
+    def _render_operator_policy_actions_legend(self) -> list[str]:
+        """Render the machine-owned operator action legend."""
+        return [
+            "Use strict dashboard issue comments with the exact `/zeroone policy` prefix.",
+            "",
+            "| Action | Command |",
+            "|---|---|",
+            "| Inspect current policy | `/zeroone policy show` |",
+            "| Enable a severity | `/zeroone policy severity enable high` |",
+            "| Disable a severity | `/zeroone policy severity disable high` |",
+            (
+                "| Exclude an issue class | "
+                "`/zeroone policy issue-class exclude sonarqube / python:S3776` |"
+            ),
+            (
+                "| Remove an issue-class exclusion | "
+                "`/zeroone policy issue-class include sonarqube / python:S3776` |"
+            ),
+            "",
+            (
+                "Direct markdown edits and raw checkbox changes in this dashboard are "
+                "display-only and do not mutate operator policy."
+            ),
+        ]
 
     def _render_severity_policy_table(
         self,

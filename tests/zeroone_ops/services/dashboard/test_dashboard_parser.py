@@ -864,6 +864,79 @@ def test_rendered_dashboard_body_includes_schema_marker_and_policy_sections() ->
     assert "## Automation Severity Policy" in body
     assert "## Excluded Issue Classes" in body
     assert "## Issue Class Inventory" in body
+    assert "## Operator Policy Actions" in body
+    assert "/zeroone policy severity enable high" in body
+
+
+def test_parse_ignores_direct_policy_markdown_edits_as_non_authoritative() -> None:
+    parser = DashboardParser()
+    body = """<!-- zeroone-ops:dashboard-schema:v1 -->
+
+Machine-managed remediation and review items for this repository.
+
+## Automation Severity Policy
+
+| Severity | Automation Status | Reason |
+|---|---|---|
+| `low` | [ ] blocked by severity policy | manually edited checkbox |
+| `medium` | [x] eligible for automation | - |
+| `high` | [x] eligible for automation | manually edited checkbox |
+
+## Excluded Issue Classes
+
+No items.
+
+## Issue Class Inventory
+
+No items.
+
+## Operator Policy Actions
+
+Use strict dashboard issue comments with the exact `/zeroone policy` prefix.
+
+| Action | Command |
+|---|---|
+| Inspect current policy | `/zeroone policy show` |
+
+Direct markdown edits and raw checkbox changes in this dashboard are display-only
+and do not mutate operator policy.
+
+## Open Candidates
+
+### Overview
+
+| Open | In progress | MR opened | Failed | Done |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+
+### Needs Attention
+
+No items.
+
+### In Flight
+
+No items.
+
+### Completed
+
+No items.
+
+### Work Type Breakdown
+
+No items.
+"""
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert document.schema_version == 1
+    assert document.policy_view.severity_policy == []
+    assert document.sections[0].items == []
 
 
 def test_parse_treats_missing_schema_marker_as_legacy_v0() -> None:

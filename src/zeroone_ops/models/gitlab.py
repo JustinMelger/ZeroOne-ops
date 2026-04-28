@@ -45,3 +45,12 @@ class GitLabIssueInfo(BaseModel):
     web_url: str
     title: str
     description: str
+
+
+class GitLabIssueNote(BaseModel):
+    """Represent a GitLab issue note."""
+
+    id: int
+    body: str | None = None
+    author_username: str | None = None
+    created_at: str | None = None

@@ -120,3 +120,35 @@ def test_update_issue_normalizes_response() -> None:
     )
 
     assert issue.description == "updated body"
+
+
+def test_list_issue_notes_normalizes_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/projects/123/issues/11/notes"
+        assert request.method == "GET"
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 77,
+                    "body": "/zeroone policy show",
+                    "created_at": "2026-04-28T09:00:00.000Z",
+                    "author": {"username": "operator"},
+                }
+            ],
+        )
+
+    client = GitLabDashboardClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    notes = client.list_issue_notes(project_id="123", issue_iid=11)
+
+    assert len(notes) == 1
+    assert notes[0].id == 77
+    assert notes[0].body == "/zeroone policy show"
+    assert notes[0].author_username == "operator"
