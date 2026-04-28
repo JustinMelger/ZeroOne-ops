@@ -279,7 +279,8 @@ Suggested migration:
 3. make sure policy evaluation uses normalized automation severity rather than
    raw source severity,
 4. once dashboard severity policy exists, remediation reads the dashboard
-   policy,
+   policy and config severity becomes bootstrap/default input rather than the
+   active operator control plane,
 5. later de-emphasize config severity in operator docs and workflows.
 
 ### 9.2 Exclusion Migration
@@ -330,6 +331,15 @@ Legacy dashboard rule:
   migration,
 - fail safely when the unversioned dashboard shape is too ambiguous to migrate
   reliably.
+
+Current implementation expectation:
+
+- recognized legacy dashboards are rewritten to the current schema during
+  normal dashboard load,
+- policy evaluation should happen against the rewritten canonical document
+  model rather than against mixed legacy/current bodies,
+- schema rewrite remains explicit product behavior, not an incidental side
+  effect.
 
 The first interactive policy rollout should not depend on delete-and-recreate
 recovery for normal upgrades.

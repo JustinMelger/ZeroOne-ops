@@ -54,6 +54,17 @@ just architecture
 - expose read-only operator policy state in the dashboard with strict
   `/zeroone policy ...` comment commands for policy actions
 
+Severity control note:
+
+- `remediation.supported_severities` is the bootstrap seed for a new dashboard
+  policy, not the day-to-day operator control surface after the dashboard
+  policy exists
+- once the dashboard has canonical policy state, remediation pickup follows the
+  dashboard policy and operators should change severity policy through
+  `/zeroone policy ...` comments
+- when an older dashboard body is recognized, ZeroOne Ops rewrites it into the
+  current schema on read before continuing normal dashboard-backed workflows
+
 ### Dashboard Reconciliation
 
 - inspect `mr_opened` dashboard items
@@ -104,6 +115,10 @@ For example:
 - `remediation.max_retry_count`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
+
+`remediation.supported_severities` is best treated as the initial rollout
+baseline for seeding dashboard severity policy in a repository, not as the
+primary steady-state operator control once dashboard policy exists.
 
 Legacy flat keys still load for compatibility during migration, but new repos
 should use the nested structure.

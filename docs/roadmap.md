@@ -86,10 +86,10 @@ Implementation phases:
 - [x] re-render the `Excluded Issue Classes` section and grouped inventory from the canonical dashboard policy state
 - [x] make remediation intake apply dashboard-backed issue-class policy during pickup
 
-- [ ] Phase 5: Dashboard-First Policy Authority
-- [ ] reduce config severity to bootstrap/fallback semantics in operator docs and workflow expectations
+- [x] Phase 5: Dashboard-First Policy Authority
+- [x] reduce config severity to bootstrap/fallback semantics in operator docs and workflow expectations
 - [x] remove duplicate issue-class exclusion reads so dashboard policy is the only exclusion authority
-- [ ] keep migration and rewrite behavior explicit for future dashboard schema changes
+- [x] keep migration and rewrite behavior explicit for future dashboard schema changes
 
 - [ ] Phase 6: Dedicated Dashboard Policy Processing
 - [ ] add a separate dashboard policy-action runner/command
