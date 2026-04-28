@@ -197,6 +197,26 @@ class DashboardService:
             policy_view=document.policy_view,
         )
 
+    def _apply_policy_actions(
+        self,
+        document: DashboardDocument,
+        *,
+        project_id: str,
+    ) -> DashboardDocument:
+        """Replay policy issue-note actions into canonical dashboard policy state."""
+        if self.policy_view_builder is None:
+            return document
+        notes = self.client.list_issue_notes(
+            project_id=project_id,
+            issue_iid=document.issue_iid,
+        )
+        seeded_policy_state = self.policy_view_builder.resolve_policy_state(document.policy_state)
+        policy_state = self.policy_action_service.apply_actions(
+            policy_state=seeded_policy_state,
+            notes=notes,
+        )
+        return document.model_copy(update={"policy_state": policy_state})
+
     def _apply_retention(
         self,
         section_key: DashboardSectionKey,
