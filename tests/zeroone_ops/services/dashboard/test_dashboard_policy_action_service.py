@@ -71,4 +71,3 @@ def test_parse_note_rejects_multiline_prefixed_markdown_as_non_command() -> None
     assert result.matched_prefix is True
     assert result.accepted is False
     assert result.action is None
-

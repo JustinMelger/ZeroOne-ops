@@ -72,6 +72,15 @@ The dashboard workflow also includes scheduled reconciliation:
 - deterministic transitions to `done`, `open`, or `failed`
 - CI-only live execution, with local inspection limited to `--dry-run`
 
+The dashboard also renders an operator policy surface:
+
+- current severity policy is shown as read-only checkbox-style state
+- excluded issue classes and grouped issue inventory are shown for visibility
+- policy actions should be issued as strict dashboard issue comments beginning
+  with `/zeroone policy`
+- direct dashboard markdown edits and raw checkbox toggles are display-only and
+  are not the authoritative mutation path
+
 ## Required CI Variables
 
 Define these variables in the target GitLab project or group according to the

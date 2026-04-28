@@ -10,15 +10,14 @@ from pydantic import BaseModel
 from zeroone_ops.models.gitlab import GitLabIssueNote
 
 _POLICY_PREFIX = "/zeroone policy"
+DashboardPolicySeverity = Literal["low", "medium", "high"]
 _SEVERITY_PATTERN = re.compile(
     r"^/zeroone policy severity (?P<verb>enable|disable) (?P<severity>low|medium|high)$"
 )
 _ISSUE_CLASS_PATTERN = re.compile(
-    (
-        r"^/zeroone policy issue-class "
-        r"(?P<verb>exclude|include) "
-        r"(?P<source>[a-z0-9_-]+)\s*/\s*(?P<issue_key>\S+)$"
-    )
+    r"^/zeroone policy issue-class "
+    r"(?P<verb>exclude|include) "
+    r"(?P<source>[a-z0-9_-]+)\s*/\s*(?P<issue_key>\S+)$"
 )
 _SHOW_PATTERN = re.compile(r"^/zeroone policy (?P<verb>show|inspect)$")
 
@@ -36,7 +35,7 @@ class DashboardPolicyAction(BaseModel):
     raw_command: str
     note_id: int | None = None
     author_username: str | None = None
-    severity: Literal["low", "medium", "high"] | None = None
+    severity: DashboardPolicySeverity | None = None
     source: str | None = None
     issue_key: str | None = None
 
@@ -83,16 +82,14 @@ class DashboardPolicyActionService:
         matched = _SEVERITY_PATTERN.fullmatch(command)
         if matched is not None:
             verb = matched.group("verb")
-            severity = matched.group("severity")
+            severity = _severity_literal(matched.group("severity"))
             return DashboardPolicyActionParseResult(
                 matched_prefix=True,
                 accepted=True,
                 raw_command=command,
                 note_id=note.id,
                 action=DashboardPolicyAction(
-                    action_type=(
-                        "enable_severity" if verb == "enable" else "disable_severity"
-                    ),
+                    action_type=("enable_severity" if verb == "enable" else "disable_severity"),
                     raw_command=command,
                     note_id=note.id,
                     author_username=note.author_username,
@@ -109,9 +106,7 @@ class DashboardPolicyActionService:
                 note_id=note.id,
                 action=DashboardPolicyAction(
                     action_type=(
-                        "exclude_issue_class"
-                        if verb == "exclude"
-                        else "include_issue_class"
+                        "exclude_issue_class" if verb == "exclude" else "include_issue_class"
                     ),
                     raw_command=command,
                     note_id=note.id,
@@ -151,3 +146,14 @@ class DashboardPolicyActionService:
         if "\n" in stripped:
             return stripped
         return " ".join(stripped.split())
+
+
+def _severity_literal(value: str) -> DashboardPolicySeverity:
+    """Return one validated severity literal from a regex match."""
+    if value == "low":
+        return "low"
+    if value == "medium":
+        return "medium"
+    if value == "high":
+        return "high"
+    raise ValueError(f"Unsupported severity literal: {value}")

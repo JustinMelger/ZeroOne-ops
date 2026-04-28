@@ -898,7 +898,8 @@ Use strict dashboard issue comments with the exact `/zeroone policy` prefix.
 |---|---|
 | Inspect current policy | `/zeroone policy show` |
 
-Direct markdown edits and raw checkbox changes in this dashboard are display-only and do not mutate operator policy.
+Direct markdown edits and raw checkbox changes in this dashboard are display-only
+and do not mutate operator policy.
 
 ## Open Candidates
 
