@@ -78,6 +78,8 @@ Severity control note:
 
 - inspect dashboard issue notes for strict `/zeroone policy ...` commands
 - replay valid policy actions into canonical dashboard policy state
+- publish bounded acknowledgement notes for accepted and rejected strict
+  policy-command attempts
 - keep policy processing separate from remediation pickup and lifecycle
   reconciliation
 - use `zeroone-ops dashboard policy` as the explicit workflow entrypoint

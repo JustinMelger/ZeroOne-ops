@@ -152,3 +152,35 @@ def test_list_issue_notes_normalizes_response() -> None:
     assert notes[0].id == 77
     assert notes[0].body == "/zeroone policy show"
     assert notes[0].author_username == "operator"
+
+
+def test_create_issue_note_normalizes_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/projects/123/issues/11/notes"
+        assert request.method == "POST"
+        return httpx.Response(
+            201,
+            json={
+                "id": 91,
+                "body": "Policy command accepted for note #77.",
+                "created_at": "2026-04-29T10:00:00.000Z",
+                "author": {"username": "ai-sonar-bot"},
+            },
+        )
+
+    client = GitLabDashboardClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    note = client.create_issue_note(
+        project_id="123",
+        issue_iid=11,
+        body="Policy command accepted for note #77.",
+    )
+
+    assert note.id == 91
+    assert note.author_username == "ai-sonar-bot"
