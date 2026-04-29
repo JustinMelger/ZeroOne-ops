@@ -6,7 +6,10 @@ from zeroone_ops.models.dashboard import (
     DashboardSeverityPolicyEntry,
 )
 from zeroone_ops.models.gitlab import GitLabIssueInfo, GitLabIssueNote
-from zeroone_ops.services.dashboard.dashboard_service import DashboardService
+from zeroone_ops.services.dashboard.dashboard_service import (
+    DashboardPolicyProcessResult,
+    DashboardService,
+)
 
 
 def build_item(
@@ -273,4 +276,53 @@ def test_load_or_create_replays_severity_policy_actions_from_issue_notes() -> No
     severity_by_name = {entry.severity: entry for entry in document.policy_state.severity_policy}
     assert severity_by_name["high"].enabled is False
     assert severity_by_name["high"].updated_by == "operator"
+
+
+def test_process_policy_dry_run_reports_counts_without_updating_issue() -> None:
+    existing_issue = GitLabIssueInfo(
+        id=10,
+        iid=11,
+        web_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        description="",
+    )
+    client = FakeDashboardClient(existing_issue=existing_issue)
+    client.notes = [
+        GitLabIssueNote(
+            id=12,
+            body="/zeroone policy severity disable high",
+            author_username="operator",
+            created_at="2026-04-29T10:00:00.000Z",
+        ),
+        GitLabIssueNote(
+            id=13,
+            body="/zeroone policy severity maybe high",
+            author_username="operator",
+            created_at="2026-04-29T10:01:00.000Z",
+        ),
+        GitLabIssueNote(
+            id=14,
+            body="ordinary comment",
+            author_username="operator",
+            created_at="2026-04-29T10:02:00.000Z",
+        ),
+    ]
+    service = DashboardService(
+        client,
+        policy_view_builder=FakePolicyViewBuilder(),
+    )
+
+    result = service.process_policy(project_id="123", persist=False)
+
+    assert isinstance(result, DashboardPolicyProcessResult)
+    assert result.note_count == 3
+    assert result.matched_prefix_count == 2
+    assert result.accepted_action_count == 1
+    assert result.rejected_prefix_count == 1
+    assert result.dashboard_changed is True
+    assert client.updated_issue is None
+    severity_by_name = {
+        entry.severity: entry for entry in result.document.policy_state.severity_policy
+    }
     assert severity_by_name["high"].note_id == 12
+    assert severity_by_name["high"].enabled is False
