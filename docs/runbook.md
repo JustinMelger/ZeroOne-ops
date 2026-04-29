@@ -91,6 +91,8 @@ The dashboard policy workflow is also separate:
 
 - one dedicated policy-processing run replays dashboard note commands into
   canonical policy state
+- accepted commands and malformed prefixed commands receive bounded
+  acknowledgement notes on the dashboard issue
 - strict `/zeroone policy ...` comments are the only operator mutation path
 - CI-only live execution, with local inspection limited to `--dry-run`
 

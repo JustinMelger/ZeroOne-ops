@@ -99,6 +99,12 @@ Implementation phases:
 - [x] preserve remediation as policy-consuming, not policy-mutating
 - [x] rename `remediation.supported_severities` to `remediation.bootstrap_severities` and keep backward compatibility during migration
 
+- [ ] Phase 6b: Dashboard Policy Acknowledgements
+- [x] add bounded acknowledgement replies for accepted and rejected strict `/zeroone policy ...` note commands
+- [x] keep dashboard policy state authoritative while reply notes remain non-authoritative workflow feedback
+- [x] make acknowledgement publishing idempotent under full note replay
+- [x] avoid requiring operators to separately inspect pipeline execution before knowing whether a policy command was accepted
+
 ### 4. Cleanup
 
 - continue small codebase and docs cleanup where it improves operator or

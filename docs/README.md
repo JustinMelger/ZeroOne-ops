@@ -37,7 +37,9 @@ Recommended entry points:
 - [design/functional/functional-design-dashboard-operator-policy.md](design/functional/functional-design-dashboard-operator-policy.md)
 - [design/technical/technical-design-dashboard-operator-policy.md](design/technical/technical-design-dashboard-operator-policy.md)
 - [design/functional/functional-design-dashboard-policy-processing.md](design/functional/functional-design-dashboard-policy-processing.md)
+- [design/functional/functional-design-dashboard-policy-acknowledgements.md](design/functional/functional-design-dashboard-policy-acknowledgements.md)
 - [design/technical/technical-design-dashboard-policy-processing.md](design/technical/technical-design-dashboard-policy-processing.md)
+- [design/technical/technical-design-dashboard-policy-acknowledgements.md](design/technical/technical-design-dashboard-policy-acknowledgements.md)
 - [design/technical/technical-design-config-structure.md](design/technical/technical-design-config-structure.md)
 
 ## Related Root Docs
