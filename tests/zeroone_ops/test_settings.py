@@ -154,7 +154,7 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
         {
           "base_branch": "main",
           "remediation": {
-            "supported_severities": ["LOW", "MEDIUM"],
+            "bootstrap_severities": ["LOW", "MEDIUM"],
             "max_retry_count": 2,
             "analysis": {
               "context_lines_before": 12,
@@ -176,7 +176,7 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
 
     config = load_config()
 
-    assert config.remediation.supported_severities == ["LOW", "MEDIUM"]
+    assert config.remediation.bootstrap_severities == ["LOW", "MEDIUM"]
     assert config.remediation.max_retry_count == 2
     assert config.remediation.analysis.context_lines_before == 12
     assert config.remediation.analysis.context_lines_after == 18
@@ -213,12 +213,39 @@ def test_settings_keep_legacy_flat_remediation_and_sonar_keys_compatible(
 
     config = load_config()
 
-    assert config.remediation.supported_severities == ["LOW"]
+    assert config.remediation.bootstrap_severities == ["LOW"]
     assert config.remediation.max_retry_count == 3
     assert config.remediation.analysis.context_lines_before == 2
     assert config.remediation.analysis.context_lines_after == 3
     assert config.remediation.analysis.max_file_bytes == 999
     assert config.sonarqube.mock_issues_path == Path("fixtures/sonar/issues.json")
+
+
+def test_settings_keep_legacy_nested_supported_severities_compatible(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "remediation": {
+            "supported_severities": ["LOW"]
+          },
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.remediation.bootstrap_severities == ["LOW"]
 
 
 def test_settings_load_runner_state_metadata_overrides(tmp_path: Path, monkeypatch) -> None:

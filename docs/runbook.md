@@ -31,7 +31,7 @@ The current v1 automation scope is intentionally narrow:
 - structured-edit generation with bot-rendered diffs
 - structured edits must touch exactly one file
 - GitLab merge request creation in `ci` mode
-- severity-based intake control seeded from `supported_severities`, with
+- severity-based intake control seeded from `bootstrap_severities`, with
   built-in safety guards for issue classes the bot should not automate
 
 Current config shape for rollout:
@@ -43,14 +43,14 @@ Current config shape for rollout:
 
 In practice, the main remediation rollout keys now are:
 
-- `remediation.supported_severities`
+- `remediation.bootstrap_severities`
 - `remediation.max_retry_count`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
 
 Authority note:
 
-- `remediation.supported_severities` is the bootstrap/default seed for a new
+- `remediation.bootstrap_severities` is the bootstrap/default seed for a new
   dashboard severity policy
 - once the dashboard has canonical policy state, remediation pickup follows
   the dashboard policy instead of treating config severity as the active
@@ -61,7 +61,9 @@ Authority note:
   `/zeroone policy ...` dashboard comments
 
 Legacy flat keys still work during migration, but new repository rollouts
-should use the nested shape.
+should use the nested shape. Legacy nested or flat `supported_severities`
+still load during migration, but new repository rollouts should use
+`bootstrap_severities`.
 
 The bot currently excludes rename-style issues by design. Rename changes need
 symbol-reference safety checks that are not part of v1 yet.
@@ -83,6 +85,13 @@ The dashboard workflow also includes scheduled reconciliation:
 - one `mr_opened` dashboard item per run
 - GitLab merge request state lookup using stored MR traceability
 - deterministic transitions to `done`, `open`, or `failed`
+- CI-only live execution, with local inspection limited to `--dry-run`
+
+The dashboard policy workflow is also separate:
+
+- one dedicated policy-processing run replays dashboard note commands into
+  canonical policy state
+- strict `/zeroone policy ...` comments are the only operator mutation path
 - CI-only live execution, with local inspection limited to `--dry-run`
 
 The dashboard also renders an operator policy surface:
@@ -112,6 +121,9 @@ workflow you want to run:
   - `GITLAB_TOKEN`
   - `OPENAI_API_KEY`
   - `OPENAI_MODEL`
+- `zeroone_ops_dashboard_policy`
+  - `GITLAB_URL`
+  - `GITLAB_TOKEN`
 - `zeroone_ops_dashboard_reconcile`
   - `GITLAB_URL`
   - `GITLAB_TOKEN`
@@ -264,6 +276,8 @@ Current job roles:
 
 - `zeroone_ops_dashboard`
   - discovery-only dashboard sync for eligible Sonar findings
+- `zeroone_ops_dashboard_policy`
+  - dashboard policy processing for strict `/zeroone policy ...` note commands
 - `zeroone_ops_dashboard_remediate`
   - dashboard-backed remediation
 - `zeroone_ops_dashboard_reconcile`
@@ -277,6 +291,8 @@ Recommended settings:
 - run only on the default branch
 - trigger from a schedule or explicit manual run
 - keep dashboard sync as a separate job from active remediation
+- keep dashboard policy processing as a separate job from sync, remediation,
+  and reconciliation so policy mutations do not depend on other workflows
 - keep dashboard-backed remediation as a separate job from dashboard sync, but
   run it after dashboard sync in the same pipeline with `needs:` or explicit
   stage ordering
@@ -305,21 +321,27 @@ For a lower-cost review setup:
 Recommended first rollout order:
 
 1. manually run `zeroone_ops_dashboard` once to confirm dashboard discovery is healthy
-2. inspect one supported dashboard item locally with `zeroone-ops dashboard remediate --dry-run`
-3. manually run one live CI pipeline where `zeroone_ops_dashboard_remediate`
+2. inspect dashboard policy locally with `zeroone-ops dashboard policy --dry-run`
+3. add one strict `/zeroone policy ...` dashboard comment and manually run
+   `zeroone_ops_dashboard_policy`
+4. inspect one supported dashboard item locally with `zeroone-ops dashboard remediate --dry-run`
+5. manually run one live CI pipeline where `zeroone_ops_dashboard_remediate`
    follows `zeroone_ops_dashboard`
-4. manually run `zeroone_ops_dashboard_reconcile` once after a remediation MR
+6. manually run `zeroone_ops_dashboard_reconcile` once after a remediation MR
    is merged or closed
-5. manually run `zeroone_ops_review` on one small merge request pipeline
-6. enable schedules only after all workflows behave as expected
+7. manually run `zeroone_ops_review` on one small merge request pipeline
+8. enable schedules only after all workflows behave as expected
 
 Dashboard rollout model:
 
 - keep Sonar dashboard sync as a separate discovery producer for Sonar-derived dashboard items
+- keep dashboard policy processing as the separate operator-command consumer
+  for policy mutation
 - treat `dashboard sync` then `dashboard remediate` as the normal ordered CI
   flow for active remediation work
 - keep `dashboard reconcile` as a separate later lifecycle job rather than
   chaining it directly after remediation
+- keep live `dashboard policy` CI-only in the first version; local use should stay `--dry-run`
 - keep live `dashboard remediate` CI-only in the first version; local use should stay `--dry-run`
 - keep live `dashboard reconcile` CI-only in the first version; local use should stay `--dry-run`
 - let Sonar dashboard sync clean up only stale untouched `open` Sonar items; once remediation has touched an item, preserve the dashboard lifecycle history
@@ -760,6 +782,45 @@ Make sure the target repository has:
 - an immediate rerun updates existing dashboard items instead of duplicating them
 - stale untouched `open` Sonar items disappear or move out of the open section when they no longer exist upstream
 - Sonar-derived items already in remediation-owned states such as `in_progress` or `mr_opened` remain visible instead of being cleared by sync
+
+## Dashboard Policy Smoke Check
+
+Use this quick check after dashboard discovery is already healthy.
+
+For live policy mutation, keep the first rollout boundary simple: use
+`zeroone-ops dashboard policy --dry-run` for local inspection and use live
+`zeroone-ops dashboard policy` only from CI jobs.
+
+### Preconditions
+
+Make sure the target repository has:
+
+- the `zeroone_ops_dashboard` job already behaving as expected
+- the `zeroone_ops_dashboard_policy` job from the example pipeline
+- the GitLab CI variables required for dashboard issue reads and writes:
+  - `GITLAB_URL`
+  - `GITLAB_TOKEN`
+  - `GITLAB_PROJECT_ID` or `CI_PROJECT_ID`
+
+### Steps
+
+1. run `zeroone-ops dashboard policy --dry-run` locally
+2. confirm the output reports the dashboard note counts and whether a policy
+   change would be applied
+3. add one strict dashboard note such as `/zeroone policy severity disable high`
+4. trigger `zeroone_ops_dashboard_policy` manually on the default branch
+5. open the dashboard issue in GitLab
+6. confirm the severity or exclusion state reflects the note command
+7. rerun the policy job once and confirm the dashboard stays stable rather than
+   drifting on repeated replay
+
+### Expected Healthy Outcome
+
+- strict prefixed commands are replayed into canonical dashboard policy state
+- malformed prefixed commands are rejected safely with no unintended mutation
+- repeated policy runs are stable because the dashboard state is derived from
+  the dashboard body plus note replay
+- remediation pickup now sees the updated canonical policy on its next run
 
 ## Dashboard Remediation Smoke Test Recipe
 

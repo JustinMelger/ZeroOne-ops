@@ -12,7 +12,12 @@ from pathlib import Path
 from zeroone_ops.models.state import RunStatus, utc_now
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
-from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
+from zeroone_ops.services.dashboard.dashboard_policy_processing_runner import (
+    DashboardPolicyProcessingRunner,
+)
+from zeroone_ops.services.dashboard.dashboard_policy_view_builder import (
+    DashboardPolicyViewBuilder,
+)
 from zeroone_ops.services.dashboard.dashboard_reconciliation_runner import (
     DashboardReconciliationRunner,
 )
@@ -216,6 +221,40 @@ def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:
         project_id=gitlab_config.project_id,
         record=record,
         run_id=run_id,
+        active_dry_run=active_dry_run,
+        execution_mode=config.execution_mode,
+    )
+
+
+def dashboard_policy(*, dry_run: bool = False) -> RunSummary:
+    """Run dedicated dashboard policy processing."""
+    config = load_config()
+    state_store = StateStore(
+        config.state.path,
+        base_branch=config.base_branch,
+        gitlab_project_id=load_gitlab_project_id_override(),
+        sonarqube_project_key=load_sonarqube_project_key_override(),
+    )
+    state = state_store.load()
+    run_state_service = RunStateService(config=config, state_store=state_store, state=state)
+
+    run_id = _build_run_id()
+    record = run_state_service.start_run(run_id)
+    active_dry_run = dry_run or config.dry_run
+    gitlab_config = load_gitlab_connection_config()
+    return DashboardPolicyProcessingRunner(
+        dashboard_service=DashboardService(
+            GitLabDashboardClient(gitlab_config),
+            policy_view_builder=DashboardPolicyViewBuilder(
+                repo_root=Path.cwd(),
+                config=config,
+                state=state,
+            ),
+        ),
+        run_state_service=run_state_service,
+    ).run(
+        project_id=gitlab_config.project_id,
+        record=record,
         active_dry_run=active_dry_run,
         execution_mode=config.execution_mode,
     )

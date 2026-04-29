@@ -31,7 +31,8 @@ from zeroone_ops.models.state import (
     RepositoryState,
 )
 from zeroone_ops.providers.gitlab_client import GitLabClientError
-from zeroone_ops.runner import dashboard_reconcile, dashboard_remediate, review
+from zeroone_ops.runner import dashboard_policy, dashboard_reconcile, dashboard_remediate, review
+from zeroone_ops.services.dashboard.dashboard_service import DashboardPolicyProcessResult
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
 from zeroone_ops.services.review.review_context_builder import (
     ReviewContextBuildResult,
@@ -148,6 +149,53 @@ def test_dashboard_reconcile_dry_run_returns_no_issue_summary(tmp_path: Path, mo
 
     assert summary.status.value == "no_issue"
     assert "No reconciliation-ready dashboard item found." in summary.message
+
+
+def test_dashboard_policy_dry_run_returns_policy_processing_summary(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.dashboard.dashboard_service.DashboardService.process_policy",
+        lambda self, project_id, persist=True: DashboardPolicyProcessResult(
+            document=DashboardDocument(
+                issue_id=10,
+                issue_iid=11,
+                issue_url="https://gitlab.example.com/group/project/-/issues/11",
+                title="AI Code Ops Work Queue",
+                sections=empty_sections(),
+            ),
+            note_count=3,
+            matched_prefix_count=2,
+            accepted_action_count=1,
+            rejected_prefix_count=1,
+            dashboard_changed=True,
+        ),
+    )
+
+    summary = dashboard_policy(dry_run=True)
+
+    assert summary.status.value == "synced"
+    assert "Dry-run would process 3 dashboard notes" in summary.message
+    assert "2 prefixed, 1 accepted, 1 rejected" in summary.message
 
 
 def test_dashboard_reconcile_dry_run_selects_mr_opened_item(

@@ -30,6 +30,7 @@ expansion.
 ```bash
 uv sync
 uv run zeroone-ops dashboard sonar --dry-run
+uv run zeroone-ops dashboard policy --dry-run
 uv run zeroone-ops dashboard remediate --dry-run
 uv run zeroone-ops review --dry-run
 ```
@@ -56,7 +57,7 @@ just architecture
 
 Severity control note:
 
-- `remediation.supported_severities` is the bootstrap seed for a new dashboard
+- `remediation.bootstrap_severities` is the bootstrap seed for a new dashboard
   policy, not the day-to-day operator control surface after the dashboard
   policy exists
 - once the dashboard has canonical policy state, remediation pickup follows the
@@ -72,6 +73,14 @@ Severity control note:
 - inspect `mr_opened` dashboard items
 - update lifecycle state after merge request outcomes change
 - keep reconciliation separate from active remediation
+
+### Dashboard Policy Processing
+
+- inspect dashboard issue notes for strict `/zeroone policy ...` commands
+- replay valid policy actions into canonical dashboard policy state
+- keep policy processing separate from remediation pickup and lifecycle
+  reconciliation
+- use `zeroone-ops dashboard policy` as the explicit workflow entrypoint
 
 ### Merge Request Review
 
@@ -113,16 +122,18 @@ Config structure direction:
 
 For example:
 
-- `remediation.supported_severities`
+- `remediation.bootstrap_severities`
 - `remediation.max_retry_count`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
 
-`remediation.supported_severities` is best treated as the initial rollout
+`remediation.bootstrap_severities` is best treated as the initial rollout
 baseline for seeding dashboard severity policy in a repository, not as the
 primary steady-state operator control once dashboard policy exists.
 When config leaves severity empty and no dashboard policy exists yet, the
 default bootstrap baseline is `low` and `medium` enabled with `high` disabled.
+Legacy `supported_severities` still loads during migration, but new configs
+should use `bootstrap_severities`.
 
 Legacy flat keys still load for compatibility during migration, but new repos
 should use the nested structure.

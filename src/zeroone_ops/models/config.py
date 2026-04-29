@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 
 class AnalysisConfig(BaseModel):
@@ -127,9 +127,17 @@ class StateConfig(BaseModel):
 class RemediationConfig(BaseModel):
     """Configure remediation workflow behavior."""
 
-    supported_severities: list[str] = Field(default_factory=list)
+    bootstrap_severities: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("bootstrap_severities", "supported_severities"),
+    )
     max_retry_count: int = 1
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
+
+    @property
+    def supported_severities(self) -> list[str]:
+        """Return the legacy severity seed name for compatibility."""
+        return self.bootstrap_severities
 
 
 class SonarQubeConfig(BaseModel):
@@ -186,7 +194,17 @@ class AppConfig(BaseModel):
         data = dict(value)
 
         remediation = dict(data.get("remediation", {}))
-        if "supported_severities" in data and "supported_severities" not in remediation:
+        if (
+            "bootstrap_severities" in data
+            and "bootstrap_severities" not in remediation
+            and "supported_severities" not in remediation
+        ):
+            remediation["bootstrap_severities"] = data.pop("bootstrap_severities")
+        if (
+            "supported_severities" in data
+            and "bootstrap_severities" not in remediation
+            and "supported_severities" not in remediation
+        ):
             remediation["supported_severities"] = data.pop("supported_severities")
         if "max_retry_count" in data and "max_retry_count" not in remediation:
             remediation["max_retry_count"] = data.pop("max_retry_count")

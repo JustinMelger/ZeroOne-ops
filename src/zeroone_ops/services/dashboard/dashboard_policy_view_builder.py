@@ -85,7 +85,7 @@ class DashboardPolicyViewBuilder:
 
     def _seed_enabled_severities(self) -> set[str]:
         """Return the bootstrap enabled severities for a dashboard policy seed."""
-        configured = {severity.lower() for severity in self.config.remediation.supported_severities}
+        configured = {severity.lower() for severity in self.config.remediation.bootstrap_severities}
         return configured or set(_DEFAULT_ENABLED_SEVERITIES)
 
     def build(

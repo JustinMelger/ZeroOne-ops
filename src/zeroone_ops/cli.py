@@ -10,6 +10,7 @@ from typer import Context
 
 from zeroone_ops.logging import configure_logging
 from zeroone_ops.runner import (
+    dashboard_policy,
     dashboard_reconcile,
     dashboard_remediate,
     review,
@@ -140,6 +141,23 @@ def dashboard_reconcile_command(
         typer.echo(f"commit_sha={summary.commit_sha}")
     if summary.mr_url is not None:
         typer.echo(f"mr_url={summary.mr_url}")
+    typer.echo(summary.message)
+    typer.echo(f"state_path={summary.state_path}")
+
+
+@dashboard_app.command("policy")
+def dashboard_policy_command(
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Run without updating dashboard policy state.",
+    ),
+) -> None:
+    """Run the dedicated dashboard policy-processing workflow."""
+    configure_logging()
+    summary = dashboard_policy(dry_run=dry_run)
+    typer.echo(f"run_id={summary.run_id}")
+    typer.echo(f"status={summary.status.value}")
     typer.echo(summary.message)
     typer.echo(f"state_path={summary.state_path}")
 

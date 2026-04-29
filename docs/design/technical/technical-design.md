@@ -219,6 +219,7 @@ Responsibilities:
 Suggested commands:
 
 - `zeroone-ops dashboard sonar`
+- `zeroone-ops dashboard policy`
 - `zeroone-ops dashboard remediate`
 - `zeroone-ops dashboard reconcile`
 - `zeroone-ops review`
@@ -458,8 +459,8 @@ Example `examples/.zeroone-ops.json`:
   "execution_mode": "ci",
   "dry_run": false,
   "max_retry_count": 1,
-  "supported_severities": ["BLOCKER", "CRITICAL", "MAJOR"],
-  "supported_severities": ["LOW", "MEDIUM", "HIGH"],
+  "bootstrap_severities": ["BLOCKER", "CRITICAL", "MAJOR"],
+  "bootstrap_severities": ["LOW", "MEDIUM", "HIGH"],
   "validation_commands": [
     "uv run pytest",
     "uv run mypy src",
@@ -495,8 +496,8 @@ class AppConfig(BaseModel):
     branch_prefix: str = "ai-sonar"
     dry_run: bool = False
     max_retry_count: int = 1
-    supported_severities: list[str]
-    supported_severities: list[str]
+    bootstrap_severities: list[str]
+    bootstrap_severities: list[str]
     validation_commands: list[str]
     analysis: AnalysisConfig
     approval: ApprovalConfig

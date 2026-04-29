@@ -30,7 +30,7 @@
     "max_review_feedback_retries": 1
   },
   "remediation": {
-    "supported_severities": ["LOW"],
+    "bootstrap_severities": ["LOW"],
     "max_retry_count": 1,
     "analysis": {
       "context_lines_before": 40,

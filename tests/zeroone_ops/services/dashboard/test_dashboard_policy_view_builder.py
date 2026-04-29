@@ -15,7 +15,7 @@ from zeroone_ops.services.dashboard.dashboard_policy_view_builder import (
 def build_config() -> AppConfig:
     return AppConfig(
         base_branch="main",
-        remediation=RemediationConfig(supported_severities=["low", "medium"]),
+        remediation=RemediationConfig(bootstrap_severities=["low", "medium"]),
         gitlab=GitLabConfig(target_branch="main"),
     )
 
@@ -141,7 +141,7 @@ def test_resolve_policy_state_defaults_to_low_and_medium_when_config_is_empty(
         repo_root=tmp_path,
         config=AppConfig(
             base_branch="main",
-            remediation=RemediationConfig(supported_severities=[]),
+            remediation=RemediationConfig(bootstrap_severities=[]),
             gitlab=GitLabConfig(target_branch="main"),
         ),
         state=AppState(repository=RepositoryState(base_branch="main")),
