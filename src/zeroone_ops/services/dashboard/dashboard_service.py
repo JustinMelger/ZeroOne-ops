@@ -46,6 +46,7 @@ class DashboardPolicyProcessResult:
     rejected_prefix_count: int
     dashboard_changed: bool
     issue_created: bool = False
+    dashboard_missing: bool = False
 
 
 class DashboardService:
@@ -77,7 +78,64 @@ class DashboardService:
 
     def load_or_create(self, *, project_id: str) -> DashboardDocument:
         """Load the dashboard issue or create it if missing."""
-        return self.process_policy(project_id=project_id).document
+        issue = self.client.find_open_issue(
+            project_id=project_id,
+            title=self.title,
+            labels=self.labels,
+        )
+        if issue is None:
+            document = self._apply_policy(
+                DashboardDocument(
+                    issue_id=0,
+                    issue_iid=0,
+                    issue_url="",
+                    title=self.title,
+                    sections=empty_sections(),
+                )
+            )
+            body = self.renderer.render_document(document)
+            issue = self.client.create_issue(
+                project_id=project_id,
+                title=self.title,
+                description=body,
+                labels=self.labels,
+            )
+            return document.model_copy(
+                update={
+                    "issue_id": issue.id,
+                    "issue_iid": issue.iid,
+                    "issue_url": issue.web_url,
+                    "title": issue.title,
+                }
+            )
+        document = self.parser.parse(
+            issue_id=issue.id,
+            issue_iid=issue.iid,
+            issue_url=issue.web_url,
+            title=issue.title,
+            body=issue.description,
+        )
+        document = self._apply_policy(document)
+        rendered = self.renderer.render_document(document)
+        if (
+            rendered != issue.description
+            or document.schema_version != CURRENT_DASHBOARD_SCHEMA_VERSION
+        ):
+            issue = self.client.update_issue(
+                project_id=project_id,
+                issue_iid=document.issue_iid,
+                description=rendered,
+            )
+            return document.model_copy(
+                update={
+                    "issue_id": issue.id,
+                    "issue_iid": issue.iid,
+                    "issue_url": issue.web_url,
+                    "title": issue.title,
+                    "schema_version": CURRENT_DASHBOARD_SCHEMA_VERSION,
+                }
+            )
+        return document
 
     def process_policy(
         self,
@@ -124,7 +182,8 @@ class DashboardService:
                 accepted_action_count=0,
                 rejected_prefix_count=0,
                 dashboard_changed=True,
-                issue_created=True,
+                issue_created=persist,
+                dashboard_missing=True,
             )
         document = self.parser.parse(
             issue_id=issue.id,

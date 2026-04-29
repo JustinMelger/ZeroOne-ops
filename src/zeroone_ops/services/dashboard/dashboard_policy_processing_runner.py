@@ -79,7 +79,9 @@ class DashboardPolicyProcessingRunner:
     ) -> str:
         """Build one dashboard policy-processing summary."""
         prefix = "Dry-run would process" if active_dry_run else "Processed"
-        if process_result.issue_created:
+        if process_result.issue_created or (
+            active_dry_run and process_result.dashboard_missing
+        ):
             created_text = "created the dashboard and "
         else:
             created_text = ""

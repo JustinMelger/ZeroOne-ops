@@ -249,7 +249,7 @@ def test_load_or_create_migrates_legacy_dashboard_to_current_schema() -> None:
     assert "## Automation Severity Policy" in client.updated_issue.description
 
 
-def test_load_or_create_replays_severity_policy_actions_from_issue_notes() -> None:
+def test_load_or_create_does_not_replay_severity_policy_actions_from_issue_notes() -> None:
     existing_issue = GitLabIssueInfo(
         id=10,
         iid=11,
@@ -274,6 +274,37 @@ def test_load_or_create_replays_severity_policy_actions_from_issue_notes() -> No
     document = service.load_or_create(project_id="123")
 
     severity_by_name = {entry.severity: entry for entry in document.policy_state.severity_policy}
+    assert "high" not in severity_by_name
+    assert all(entry.updated_by != "operator" for entry in document.policy_state.severity_policy)
+
+
+def test_process_policy_replays_severity_policy_actions_from_issue_notes() -> None:
+    existing_issue = GitLabIssueInfo(
+        id=10,
+        iid=11,
+        web_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        description="",
+    )
+    client = FakeDashboardClient(existing_issue=existing_issue)
+    client.notes = [
+        GitLabIssueNote(
+            id=12,
+            body="/zeroone policy severity disable high",
+            author_username="operator",
+            created_at="2026-04-28T10:00:00.000Z",
+        )
+    ]
+    service = DashboardService(
+        client,
+        policy_view_builder=FakePolicyViewBuilder(),
+    )
+
+    result = service.process_policy(project_id="123", persist=False)
+
+    severity_by_name = {
+        entry.severity: entry for entry in result.document.policy_state.severity_policy
+    }
     assert severity_by_name["high"].enabled is False
     assert severity_by_name["high"].updated_by == "operator"
 
@@ -326,3 +357,14 @@ def test_process_policy_dry_run_reports_counts_without_updating_issue() -> None:
     }
     assert severity_by_name["high"].note_id == 12
     assert severity_by_name["high"].enabled is False
+
+
+def test_process_policy_dry_run_marks_missing_dashboard_without_persisting() -> None:
+    service = DashboardService(FakeDashboardClient(), policy_view_builder=FakePolicyViewBuilder())
+
+    result = service.process_policy(project_id="123", persist=False)
+
+    assert result.note_count == 0
+    assert result.dashboard_changed is True
+    assert result.issue_created is False
+    assert result.dashboard_missing is True
