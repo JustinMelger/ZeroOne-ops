@@ -127,9 +127,8 @@ class DashboardPolicyActionService:
             raw_command=command,
             note_id=note.id,
             error=(
-                "Unsupported policy command. Use `/zeroone policy show`, "
-                "`/zeroone policy severity enable|disable <low|medium|high>`, or "
-                "`/zeroone policy issue-class exclude|include <source> / <issue_key>`."
+                "Unsupported policy command. Use the strict `/zeroone policy` "
+                "forms shown in the dashboard legend."
             ),
         )
 
@@ -190,6 +189,46 @@ class DashboardPolicyActionService:
                     issue_key=action.issue_key,
                 )
         return updated_state
+
+    def apply_action(
+        self,
+        *,
+        policy_state: DashboardPolicyState,
+        action: DashboardPolicyAction,
+        note: GitLabIssueNote | None,
+    ) -> DashboardPolicyState:
+        """Return the policy state after applying one accepted action."""
+        if action.action_type == "enable_severity":
+            return self._upsert_severity_state(
+                policy_state=policy_state,
+                severity=action.severity,
+                enabled=True,
+                reason=None,
+                note=note,
+            )
+        if action.action_type == "disable_severity":
+            return self._upsert_severity_state(
+                policy_state=policy_state,
+                severity=action.severity,
+                enabled=False,
+                reason="Disabled by dashboard policy action.",
+                note=note,
+            )
+        if action.action_type == "exclude_issue_class":
+            return self._upsert_issue_class_exclusion(
+                policy_state=policy_state,
+                source=action.source,
+                issue_key=action.issue_key,
+                reason="Excluded by dashboard policy action.",
+                note=note,
+            )
+        if action.action_type == "include_issue_class":
+            return self._remove_issue_class_exclusion(
+                policy_state=policy_state,
+                source=action.source,
+                issue_key=action.issue_key,
+            )
+        return policy_state
 
     def _normalize_command(self, body: str | None) -> str | None:
         """Return one strict single-line command when the note uses the policy prefix."""
