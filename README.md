@@ -57,7 +57,7 @@ just architecture
 
 Severity control note:
 
-- `remediation.supported_severities` is the bootstrap seed for a new dashboard
+- `remediation.bootstrap_severities` is the bootstrap seed for a new dashboard
   policy, not the day-to-day operator control surface after the dashboard
   policy exists
 - once the dashboard has canonical policy state, remediation pickup follows the
@@ -122,16 +122,18 @@ Config structure direction:
 
 For example:
 
-- `remediation.supported_severities`
+- `remediation.bootstrap_severities`
 - `remediation.max_retry_count`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
 
-`remediation.supported_severities` is best treated as the initial rollout
+`remediation.bootstrap_severities` is best treated as the initial rollout
 baseline for seeding dashboard severity policy in a repository, not as the
 primary steady-state operator control once dashboard policy exists.
 When config leaves severity empty and no dashboard policy exists yet, the
 default bootstrap baseline is `low` and `medium` enabled with `high` disabled.
+Legacy `supported_severities` still loads during migration, but new configs
+should use `bootstrap_severities`.
 
 Legacy flat keys still load for compatibility during migration, but new repos
 should use the nested structure.

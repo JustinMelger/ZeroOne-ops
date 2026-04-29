@@ -156,7 +156,7 @@ live repo adoption:
 
 Recommended first fields:
 
-- `supported_severities`
+- `bootstrap_severities`
 - `max_retry_count`
 - `analysis`
 
@@ -236,7 +236,7 @@ Why:
     "max_review_feedback_retries": 1
   },
   "remediation": {
-    "supported_severities": ["LOW", "MEDIUM", "HIGH"],
+    "bootstrap_severities": ["LOW", "MEDIUM", "HIGH"],
     "max_retry_count": 1,
     "analysis": {
       "context_lines_before": 40,

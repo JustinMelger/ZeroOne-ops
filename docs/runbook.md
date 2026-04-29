@@ -31,7 +31,7 @@ The current v1 automation scope is intentionally narrow:
 - structured-edit generation with bot-rendered diffs
 - structured edits must touch exactly one file
 - GitLab merge request creation in `ci` mode
-- severity-based intake control seeded from `supported_severities`, with
+- severity-based intake control seeded from `bootstrap_severities`, with
   built-in safety guards for issue classes the bot should not automate
 
 Current config shape for rollout:
@@ -43,14 +43,14 @@ Current config shape for rollout:
 
 In practice, the main remediation rollout keys now are:
 
-- `remediation.supported_severities`
+- `remediation.bootstrap_severities`
 - `remediation.max_retry_count`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
 
 Authority note:
 
-- `remediation.supported_severities` is the bootstrap/default seed for a new
+- `remediation.bootstrap_severities` is the bootstrap/default seed for a new
   dashboard severity policy
 - once the dashboard has canonical policy state, remediation pickup follows
   the dashboard policy instead of treating config severity as the active
@@ -61,7 +61,9 @@ Authority note:
   `/zeroone policy ...` dashboard comments
 
 Legacy flat keys still work during migration, but new repository rollouts
-should use the nested shape.
+should use the nested shape. Legacy nested or flat `supported_severities`
+still load during migration, but new repository rollouts should use
+`bootstrap_severities`.
 
 The bot currently excludes rename-style issues by design. Rename changes need
 symbol-reference safety checks that are not part of v1 yet.

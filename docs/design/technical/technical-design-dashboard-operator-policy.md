@@ -263,7 +263,7 @@ model rather than in a separate state path.
 
 Current source of truth:
 
-- `remediation.supported_severities`
+- `remediation.bootstrap_severities`
 
 Target direction:
 

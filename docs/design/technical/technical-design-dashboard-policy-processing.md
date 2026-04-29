@@ -221,8 +221,9 @@ Possible later additions:
 - note-level processing summaries,
 - richer policy command types such as bounded policy inspection,
 - policy-run-specific metrics or dashboards,
-- a future rename from `remediation.supported_severities` to a clearer
-  bootstrap-only config name.
+- `remediation.bootstrap_severities` is the clearer bootstrap-only config
+  name; legacy `supported_severities` should remain backward compatible during
+  migration.
 
 These should remain follow-up work, not blockers for the first dedicated
 policy runner.

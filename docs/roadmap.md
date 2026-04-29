@@ -97,7 +97,7 @@ Implementation phases:
 - [x] keep policy mutation, validation, and dashboard re-render in the dedicated policy workflow path
 - [x] preserve reconciliation as observed-state convergence only
 - [x] preserve remediation as policy-consuming, not policy-mutating
-- [ ] rename `remediation.supported_severities` to reflect bootstrap-only semantics and keep backward compatibility during migration
+- [x] rename `remediation.supported_severities` to `remediation.bootstrap_severities` and keep backward compatibility during migration
 
 ### 4. Cleanup
 
