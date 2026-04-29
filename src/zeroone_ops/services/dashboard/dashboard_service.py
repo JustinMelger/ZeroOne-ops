@@ -8,6 +8,7 @@ from zeroone_ops.models.dashboard import (
     CURRENT_DASHBOARD_SCHEMA_VERSION,
     DashboardDocument,
     DashboardItem,
+    DashboardPolicyState,
     DashboardSection,
     DashboardSectionKey,
     empty_sections,
@@ -17,6 +18,7 @@ from zeroone_ops.models.gitlab import GitLabIssueNote
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.services.dashboard.dashboard_parser import DashboardParser
 from zeroone_ops.services.dashboard.dashboard_policy_action_service import (
+    DashboardPolicyActionParseResult,
     DashboardPolicyActionService,
 )
 from zeroone_ops.services.dashboard.dashboard_policy_service import (
@@ -47,6 +49,9 @@ class DashboardPolicyProcessResult:
     dashboard_changed: bool
     issue_created: bool = False
     dashboard_missing: bool = False
+    notes: list[GitLabIssueNote] | None = None
+    parsed_results: list[DashboardPolicyActionParseResult] | None = None
+    initial_policy_state: DashboardPolicyState | None = None
 
 
 class DashboardService:
@@ -150,6 +155,7 @@ class DashboardService:
             labels=self.labels,
         )
         if issue is None:
+            initial_policy_state = self.policy_service.resolve_policy_state(None)
             document = self._apply_policy(
                 DashboardDocument(
                     issue_id=0,
@@ -184,6 +190,9 @@ class DashboardService:
                 dashboard_changed=True,
                 issue_created=persist,
                 dashboard_missing=True,
+                notes=[],
+                parsed_results=[],
+                initial_policy_state=initial_policy_state,
             )
         document = self.parser.parse(
             issue_id=issue.id,
@@ -197,6 +206,7 @@ class DashboardService:
             issue_iid=document.issue_iid,
         )
         parsed_results = self.policy_service.policy_action_service.parse_notes(notes)
+        initial_policy_state = self.policy_service.resolve_policy_state(document.policy_state)
         document = self._apply_policy(document, notes=notes)
         rendered = self.renderer.render_document(document)
         dashboard_changed = (
@@ -227,6 +237,9 @@ class DashboardService:
                 1 for result in parsed_results if result.matched_prefix and not result.accepted
             ),
             dashboard_changed=dashboard_changed,
+            notes=notes,
+            parsed_results=parsed_results,
+            initial_policy_state=initial_policy_state,
         )
 
     def upsert_items(

@@ -136,6 +136,24 @@ class GitLabDashboardClient:
                 raise GitLabClientError("Unexpected GitLab issue note pagination.") from exc
         return notes
 
+    def create_issue_note(
+        self,
+        *,
+        project_id: str,
+        issue_iid: int,
+        body: str,
+    ) -> GitLabIssueNote:
+        """Create one note on a GitLab issue."""
+        encoded_project_id = quote_plus(project_id)
+        response = self._http_client.post(
+            f"/api/v4/projects/{encoded_project_id}/issues/{issue_iid}/notes",
+            data={"body": body},
+        )
+        payload = _parse_json_response(response)
+        if not isinstance(payload, dict):
+            raise GitLabClientError("Unexpected GitLab issue note payload.")
+        return _normalize_issue_note(payload)
+
 
 def _normalize_issue(payload: dict[str, Any]) -> GitLabIssueInfo:
     """Normalize one GitLab issue payload."""
