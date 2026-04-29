@@ -36,6 +36,8 @@ Recommended entry points:
 - [design/technical/technical-design-remediation-exclusions.md](design/technical/technical-design-remediation-exclusions.md)
 - [design/functional/functional-design-dashboard-operator-policy.md](design/functional/functional-design-dashboard-operator-policy.md)
 - [design/technical/technical-design-dashboard-operator-policy.md](design/technical/technical-design-dashboard-operator-policy.md)
+- [design/functional/functional-design-dashboard-policy-processing.md](design/functional/functional-design-dashboard-policy-processing.md)
+- [design/technical/technical-design-dashboard-policy-processing.md](design/technical/technical-design-dashboard-policy-processing.md)
 - [design/technical/technical-design-config-structure.md](design/technical/technical-design-config-structure.md)
 
 ## Related Root Docs

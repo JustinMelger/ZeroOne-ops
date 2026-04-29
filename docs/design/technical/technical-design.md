@@ -219,6 +219,7 @@ Responsibilities:
 Suggested commands:
 
 - `zeroone-ops dashboard sonar`
+- `zeroone-ops dashboard policy`
 - `zeroone-ops dashboard remediate`
 - `zeroone-ops dashboard reconcile`
 - `zeroone-ops review`

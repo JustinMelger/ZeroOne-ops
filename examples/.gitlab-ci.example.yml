@@ -39,6 +39,24 @@ zeroone_ops_dashboard:
   script:
     - uv run --project /opt/zeroone-ops zeroone-ops dashboard sonar
 
+# Dedicated dashboard policy processing.
+# Keep this separate so operator-issued policy commands do not depend on
+# remediation or reconciliation runs.
+zeroone_ops_dashboard_policy:
+  extends: .zeroone_ops_base
+  stage: zeroone-ops-fix
+  resource_group: zeroone-ops-dashboard-policy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_DASHBOARD_POLICY == "true"'
+      when: manual
+    - when: never
+  variables:
+    # Define these as masked and protected CI/CD variables:
+    # GITLAB_TOKEN
+  script:
+    - uv run --project /opt/zeroone-ops zeroone-ops dashboard policy
+
 # Dashboard-backed remediation workflow.
 # Keep this separate from discovery, but run it after dashboard sync in the
 # same pipeline when both jobs are enabled so remediation acts on freshly

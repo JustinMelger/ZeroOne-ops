@@ -30,6 +30,7 @@ expansion.
 ```bash
 uv sync
 uv run zeroone-ops dashboard sonar --dry-run
+uv run zeroone-ops dashboard policy --dry-run
 uv run zeroone-ops dashboard remediate --dry-run
 uv run zeroone-ops review --dry-run
 ```
@@ -72,6 +73,14 @@ Severity control note:
 - inspect `mr_opened` dashboard items
 - update lifecycle state after merge request outcomes change
 - keep reconciliation separate from active remediation
+
+### Dashboard Policy Processing
+
+- inspect dashboard issue notes for strict `/zeroone policy ...` commands
+- replay valid policy actions into canonical dashboard policy state
+- keep policy processing separate from remediation pickup and lifecycle
+  reconciliation
+- use `zeroone-ops dashboard policy` as the explicit workflow entrypoint
 
 ### Merge Request Review
 
