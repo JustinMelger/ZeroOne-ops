@@ -27,7 +27,7 @@ class SettingsError(RuntimeError):
 
 def _load_environment_file() -> None:
     """Load environment variables from a local ``.env`` file if present."""
-    load_dotenv(override=False)
+    load_dotenv(dotenv_path=Path(".env"), override=False)
 
 
 def _first_env(*names: str) -> str | None:

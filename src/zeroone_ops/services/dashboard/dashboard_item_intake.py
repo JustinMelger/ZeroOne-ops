@@ -243,7 +243,7 @@ class DashboardItemIntakeService:
                 ]
             )
         enabled = {
-            severity.lower() for severity in self.config.remediation.supported_severities
+            severity.lower() for severity in self.config.remediation.bootstrap_severities
         } or set(_DEFAULT_ENABLED_SEVERITIES)
         return DashboardPolicyState(
             severity_policy=[
