@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from zeroone_ops.models.dashboard import (
     CURRENT_DASHBOARD_SCHEMA_VERSION,
     DashboardDocument,
@@ -33,6 +35,19 @@ DEFAULT_SECTION_ITEM_LIMITS: dict[DashboardSectionKey, int] = {
 }
 
 
+@dataclass(frozen=True)
+class DashboardPolicyProcessResult:
+    """Summarize one dashboard policy-processing pass."""
+
+    document: DashboardDocument
+    note_count: int
+    matched_prefix_count: int
+    accepted_action_count: int
+    rejected_prefix_count: int
+    dashboard_changed: bool
+    issue_created: bool = False
+
+
 class DashboardService:
     """Load, create, merge, and publish the dashboard issue."""
 
@@ -62,6 +77,15 @@ class DashboardService:
 
     def load_or_create(self, *, project_id: str) -> DashboardDocument:
         """Load the dashboard issue or create it if missing."""
+        return self.process_policy(project_id=project_id).document
+
+    def process_policy(
+        self,
+        *,
+        project_id: str,
+        persist: bool = True,
+    ) -> DashboardPolicyProcessResult:
+        """Load the dashboard, replay policy notes, and optionally persist changes."""
         issue = self.client.find_open_issue(
             project_id=project_id,
             title=self.title,
@@ -78,19 +102,29 @@ class DashboardService:
                 )
             )
             body = self.renderer.render_document(document)
-            issue = self.client.create_issue(
-                project_id=project_id,
-                title=self.title,
-                description=body,
-                labels=self.labels,
-            )
-            return document.model_copy(
-                update={
-                    "issue_id": issue.id,
-                    "issue_iid": issue.iid,
-                    "issue_url": issue.web_url,
-                    "title": issue.title,
-                }
+            if persist:
+                issue = self.client.create_issue(
+                    project_id=project_id,
+                    title=self.title,
+                    description=body,
+                    labels=self.labels,
+                )
+                document = document.model_copy(
+                    update={
+                        "issue_id": issue.id,
+                        "issue_iid": issue.iid,
+                        "issue_url": issue.web_url,
+                        "title": issue.title,
+                    }
+                )
+            return DashboardPolicyProcessResult(
+                document=document,
+                note_count=0,
+                matched_prefix_count=0,
+                accepted_action_count=0,
+                rejected_prefix_count=0,
+                dashboard_changed=True,
+                issue_created=True,
             )
         document = self.parser.parse(
             issue_id=issue.id,
@@ -103,18 +137,20 @@ class DashboardService:
             project_id=project_id,
             issue_iid=document.issue_iid,
         )
+        parsed_results = self.policy_service.policy_action_service.parse_notes(notes)
         document = self._apply_policy(document, notes=notes)
         rendered = self.renderer.render_document(document)
-        if (
+        dashboard_changed = (
             rendered != issue.description
             or document.schema_version != CURRENT_DASHBOARD_SCHEMA_VERSION
-        ):
+        )
+        if persist and dashboard_changed:
             issue = self.client.update_issue(
                 project_id=project_id,
                 issue_iid=document.issue_iid,
                 description=rendered,
             )
-            return document.model_copy(
+            document = document.model_copy(
                 update={
                     "issue_id": issue.id,
                     "issue_iid": issue.iid,
@@ -123,7 +159,16 @@ class DashboardService:
                     "schema_version": CURRENT_DASHBOARD_SCHEMA_VERSION,
                 }
             )
-        return document
+        return DashboardPolicyProcessResult(
+            document=document,
+            note_count=len(notes),
+            matched_prefix_count=sum(1 for result in parsed_results if result.matched_prefix),
+            accepted_action_count=sum(1 for result in parsed_results if result.accepted),
+            rejected_prefix_count=sum(
+                1 for result in parsed_results if result.matched_prefix and not result.accepted
+            ),
+            dashboard_changed=dashboard_changed,
+        )
 
     def upsert_items(
         self,
