@@ -60,12 +60,53 @@ Shipped baseline:
 - prefer contract-sharpening and explicit validator boundaries over broad new
   review surface expansion
 
-Planned direction:
+Implementation phases:
 
-- candidate review pass for evidence-backed finding generation
-- reconciliation / precision pass for overlap handling, deduplication, and
-  final accepted finding selection
-- validator / artifact consistency gate for contradictory review outputs
+- [ ] Phase 1: Stage Contracts And Decision Models
+  - define typed candidate, reconciled-decision, publish-artifact, and
+    validator-result models
+  - keep stage boundaries explicit so candidate generation does not regain
+    verdict authority
+  - add boundary-focused tests for model contracts and handoff semantics
+- [ ] Phase 2: Candidate Review Stage
+  - evolve the current review analysis flow into an explicitly
+    non-authoritative candidate generation stage
+  - preserve candidate provenance and reconciliation outcome metadata for
+    evaluation
+  - keep candidate output optimized for evidence-backed recall rather than
+    final review wording
+- [ ] Phase 3: Reconciliation / Precision Stage
+  - adapt current overlap and structured-reconciliation behavior behind a new
+    reconciliation-stage contract
+  - make reconciliation the only stage that decides final review meaning,
+    final accepted findings, and continuity outcomes
+  - add review-phase checks to prevent candidate-stage or artifact-builder
+    authority drift
+- [ ] Phase 4: Artifact Builder
+  - introduce a dedicated artifact-building step that converts reconciled
+    review meaning into publish-shaped output
+  - keep presentation deterministic without changing review meaning
+  - add tests that prove packaging changes do not alter classification or
+    accepted findings
+- [ ] Phase 5: Validator Gate
+  - add a strict first validator focused on contradiction-heavy high-trust
+    failure classes from the live feedback log
+  - validate publish-shaped artifacts only, not as a second reconciler
+  - support downgrade to `manual_review_only` when a trustworthy publish
+    artifact cannot be produced
+- [ ] Phase 6: Bounded Repair Path
+  - add artifact-level repair for narrow contradiction classes that can be
+    corrected without changing reconciled review meaning
+  - record repaired publish outcomes as workflow provenance rather than a new
+    operator-facing verdict class
+  - downgrade instead of repairing when coherence would require changing final
+    review truth
+- [ ] Phase 7: Evaluation And Hardening
+  - evaluate candidate-stage quality using preserved candidate metadata and
+    reconciliation outcomes
+  - add same-SHA stability checks and contradiction-focused evaluator coverage
+  - review each implementation phase for boundary erosion and pause when stage
+    ownership becomes ambiguous
 
 ### 4. Cleanup
 
@@ -121,6 +162,8 @@ Use these docs when deeper detail is needed:
 - [runbook.md](runbook.md)
 - [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
 - [design/technical/technical-design-pr-review.md](design/technical/technical-design-pr-review.md)
+- [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)
+- [design/technical/technical-design-pr-review-staged-pipeline.md](design/technical/technical-design-pr-review-staged-pipeline.md)
 - [design/technical/technical-design-pr-review-overlap-reconciliation.md](design/technical/technical-design-pr-review-overlap-reconciliation.md)
 - [design/technical/technical-design-pr-review-gitlab-prior-context.md](design/technical/technical-design-pr-review-gitlab-prior-context.md)
 - [design/functional/functional-design-dashboard-operator-policy.md](design/functional/functional-design-dashboard-operator-policy.md)
