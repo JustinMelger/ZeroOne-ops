@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from zeroone_ops.models.gitlab import MergeRequestNote
 from zeroone_ops.models.review import (
     MergeRequestReviewContext,
     OverlapReconciliationResult,
+    PublishableReviewArtifact,
+    ReconciledReviewDecision,
     ReviewResult,
 )
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_review_client import GitLabReviewClientProtocol
+from zeroone_ops.services.review.review_artifact_builder import ReviewArtifactBuilder
 
 
 @dataclass(frozen=True)
@@ -41,10 +45,40 @@ class ReviewPublisher:
         overlap_result: OverlapReconciliationResult | None = None,
     ) -> ReviewPublishResult:
         """Publish one deterministic review summary note."""
-        body = self.render_note(
-            context=context,
+        artifact = _artifact_from_review_result(
             review_result=review_result,
             overlap_result=overlap_result,
+        )
+        body = self.render_artifact(
+            context=context,
+            artifact=artifact,
+        )
+        try:
+            note = self.review_client.create_merge_request_note(
+                project_id=project_id,
+                merge_request_iid=merge_request_iid,
+                body=body,
+            )
+        except GitLabClientError as error:
+            return ReviewPublishResult(
+                note=None,
+                body=body,
+                error_message=f"Review note publish failed: {error}",
+            )
+        return ReviewPublishResult(note=note, body=body)
+
+    def publish_artifact(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+        context: MergeRequestReviewContext,
+        artifact: PublishableReviewArtifact,
+    ) -> ReviewPublishResult:
+        """Publish one note from a publish-shaped review artifact."""
+        body = self.render_artifact(
+            context=context,
+            artifact=artifact,
         )
         try:
             note = self.review_client.create_merge_request_note(
@@ -67,7 +101,20 @@ class ReviewPublisher:
         review_result: ReviewResult,
         overlap_result: OverlapReconciliationResult | None = None,
     ) -> str:
-        """Render one deterministic review note body."""
+        """Render one deterministic review note body from the legacy review result shape."""
+        artifact = _artifact_from_review_result(
+            review_result=review_result,
+            overlap_result=overlap_result,
+        )
+        return self.render_artifact(context=context, artifact=artifact)
+
+    def render_artifact(
+        self,
+        *,
+        context: MergeRequestReviewContext,
+        artifact: PublishableReviewArtifact,
+    ) -> str:
+        """Render one deterministic review note body from a publish-shaped artifact."""
         lines = [
             "Hi,",
             "",
@@ -75,27 +122,22 @@ class ReviewPublisher:
             "",
         ]
 
-        if review_result.classification == "no_findings":
-            summary_line = (
-                "No new actionable findings since the last reviewed SHA."
-                if overlap_result is not None
-                else "No actionable findings in this review pass."
-            )
+        if artifact.classification == "no_findings":
             lines.extend(
                 [
-                    summary_line,
-                    *_render_follow_up_lines(review_result, overlap_result),
-                    *_render_confidence_lines(review_result),
+                    artifact.summary,
+                    *artifact.follow_up_lines,
+                    *_render_confidence_lines(artifact),
                 ]
             )
-        elif review_result.classification == "manual_review_only":
+        elif artifact.classification == "manual_review_only":
             lines.extend(
                 [
                     "Bot assessment was insufficient for a trustworthy review decision.",
-                    *_render_follow_up_lines(review_result, overlap_result),
+                    *artifact.follow_up_lines,
                     "",
-                    review_result.summary,
-                    *_render_confidence_lines(review_result),
+                    artifact.summary,
+                    *_render_confidence_lines(artifact),
                     "",
                     "What this means:",
                     (
@@ -108,7 +150,7 @@ class ReviewPublisher:
             )
         else:
             finding_lines = ["Findings:"]
-            for index, finding in enumerate(review_result.findings, start=1):
+            for index, finding in enumerate(artifact.findings, start=1):
                 finding_lines.extend(
                     [
                         f"{index}. [{finding.severity}] {finding.title} (`{finding.file_path}`)",
@@ -119,9 +161,9 @@ class ReviewPublisher:
                 )
             lines.extend(
                 [
-                    *_render_follow_up_lines(review_result, overlap_result),
-                    review_result.summary,
-                    *_render_confidence_lines(review_result),
+                    *artifact.follow_up_lines,
+                    artifact.summary,
+                    *_render_confidence_lines(artifact),
                     "",
                     *finding_lines,
                 ]
@@ -135,155 +177,52 @@ class ReviewPublisher:
                 f"- Reviewed commit SHA: `{context.head_sha}`",
                 f"- Files reviewed: {len(context.changed_files)}",
                 "",
-                *_render_machine_safe_block(context=context, review_result=review_result),
+                *_render_machine_safe_block(context=context, artifact=artifact),
             ]
         )
         return "\n".join(lines)
 
 
-def _render_confidence_lines(review_result: ReviewResult) -> list[str]:
+def _render_confidence_lines(artifact: PublishableReviewArtifact) -> list[str]:
     """Render advisory confidence lines when present."""
-    if review_result.review_confidence is None:
+    if artifact.review_confidence is None:
         return []
     lines = [
         "",
         "Confidence:",
-        f"- Review confidence: {review_result.review_confidence:.2f}",
+        f"- Review confidence: {artifact.review_confidence:.2f}",
     ]
-    if review_result.review_confidence_reason:
-        lines.append(f"- Reason: {review_result.review_confidence_reason}")
+    if artifact.review_confidence_reason:
+        lines.append(f"- Reason: {artifact.review_confidence_reason}")
     return lines
 
 
-def _render_follow_up_lines(
+def _artifact_from_review_result(
+    *,
     review_result: ReviewResult,
     overlap_result: OverlapReconciliationResult | None,
-) -> list[str]:
-    """Render light follow-up framing for repeated reviews on the same MR."""
-    if overlap_result is None:
-        return []
-
-    lines = [
-        (
-            f"Follow-up review after the earlier bot pass on "
-            f"`{overlap_result.prior_reviewed_head_sha}`."
-        )
-    ]
-    lines.extend(_render_overlap_summary_lines(overlap_result, review_result))
-    return [*lines, ""]
-
-
-def _counted_phrase(count: int, singular: str, plural: str) -> str:
-    """Return singular or count-aware plural wording for overlap summaries."""
-    if count == 1:
-        return singular
-    return f"{count} {plural}"
-
-
-def _render_overlap_summary_lines(
-    overlap_result: OverlapReconciliationResult,
-    review_result: ReviewResult,
-) -> list[str]:
-    """Render concise follow-up lines from normalized overlap outcomes."""
-    still_unresolved = [
-        resolution
-        for resolution in overlap_result.resolutions
-        if resolution.outcome == "still_unresolved"
-    ]
-    new_in_this_pass = [
-        resolution
-        for resolution in overlap_result.resolutions
-        if resolution.outcome == "new_in_this_pass"
-    ]
-    no_longer_present = [
-        resolution
-        for resolution in overlap_result.resolutions
-        if resolution.outcome == "no_longer_present"
-    ]
-    overlap_ambiguous = [
-        resolution
-        for resolution in overlap_result.resolutions
-        if resolution.outcome == "overlap_ambiguous"
-    ]
-
-    unresolved_count = len(still_unresolved)
-    new_count = len(new_in_this_pass)
-    resolved_count = len(no_longer_present)
-
-    lines: list[str] = []
-    if review_result.classification == "manual_review_only":
-        if still_unresolved or overlap_ambiguous:
-            lines.append(
-                "This pass may still relate to an earlier concern, but the current "
-                "review was not confident enough to verify continuity fully."
-            )
-        return lines
-
-    if review_result.classification == "no_findings":
-        if no_longer_present:
-            lines.append(
-                _counted_phrase(
-                    resolved_count,
-                    "The earlier concern from the last pass no longer appears present.",
-                    "earlier concerns from the last pass no longer appear present.",
-                )
-            )
-        if overlap_ambiguous:
-            lines.append(
-                "This pass may overlap with an earlier concern, but the overlap "
-                "is not fully clear from the current changes."
-            )
-        return lines
-
-    if still_unresolved:
-        lines.append(
-            _counted_phrase(
-                unresolved_count,
-                "An earlier concern from the last pass still appears unresolved.",
-                "earlier concerns from the last pass still appear unresolved.",
-            )
-        )
-    if no_longer_present and new_in_this_pass:
-        resolved_phrase = _counted_phrase(
-            resolved_count,
-            "One earlier concern no longer appears present",
-            "earlier concerns no longer appear present",
-        )
-        new_phrase = _counted_phrase(new_count, "a new concern", "new concerns")
-        lines.append(f"{resolved_phrase}, but this pass also introduces {new_phrase}.")
-    elif no_longer_present:
-        lines.append(
-            _counted_phrase(
-                resolved_count,
-                "One earlier concern from the last pass no longer appears present.",
-                "earlier concerns from the last pass no longer appear present.",
-            )
-        )
-    elif new_in_this_pass:
-        new_phrase = _counted_phrase(new_count, "a new concern", "new concerns")
-        lines.append(f"This pass also introduces {new_phrase}.")
-
-    if overlap_ambiguous:
-        lines.append(
-            "This pass may overlap with an earlier concern, but the overlap is "
-            "not fully clear from the current changes."
-        )
-    return lines
+) -> PublishableReviewArtifact:
+    """Adapt the legacy review-result path into the publish-shaped artifact shape."""
+    artifact_builder = ReviewArtifactBuilder()
+    return artifact_builder.build(
+        reconciled_decision=_reconciled_decision_from_review_result(review_result),
+        overlap_result=overlap_result,
+    ).artifact
 
 
 def _render_machine_safe_block(
     *,
     context: MergeRequestReviewContext,
-    review_result: ReviewResult,
+    artifact: PublishableReviewArtifact,
 ) -> list[str]:
     """Render one bounded machine-safe note block for later MR reconstruction."""
     payload = {
         "schema": "ai-sonar-bot/review-note/v1",
         "reviewed_merge_request_iid": context.mr_iid,
         "reviewed_head_sha": context.head_sha,
-        "classification": review_result.classification,
-        "summary": review_result.summary,
-        "findings_count": len(review_result.findings),
+        "classification": artifact.classification,
+        "summary": artifact.summary,
+        "findings_count": len(artifact.findings),
         "findings": [
             {
                 "summary": f"{finding.file_path}: {finding.title}",
@@ -294,7 +233,7 @@ def _render_machine_safe_block(
                 "issue_kind": finding.issue_kind,
                 "region_hint": finding.region_hint,
             }
-            for finding in review_result.findings
+            for finding in artifact.findings
         ],
     }
     return [
@@ -302,3 +241,17 @@ def _render_machine_safe_block(
         json.dumps(payload, sort_keys=True, separators=(",", ":")),
         "-->",
     ]
+
+
+def _reconciled_decision_from_review_result(
+    review_result: ReviewResult,
+) -> ReconciledReviewDecision:
+    """Build a minimal reconciled decision adapter for legacy publisher calls."""
+    return ReconciledReviewDecision.from_review_result(
+        review_result,
+        prior_review_context_used=False,
+        same_sha_review=False,
+        repair_allowed=review_result.classification != "manual_review_only",
+        reconciled_at=datetime.now(UTC),
+        pipeline_version="review-legacy-adapter",
+    )

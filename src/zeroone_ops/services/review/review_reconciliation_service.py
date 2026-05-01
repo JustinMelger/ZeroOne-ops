@@ -6,10 +6,12 @@ from dataclasses import dataclass
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
+    CandidateReviewFinding,
     ContinuityStatus,
     MergeRequestReviewContext,
     OverlapReconciliationResult,
     ReconciledReviewDecision,
+    ReviewFinding,
     ReviewResult,
 )
 from zeroone_ops.services.review.review_candidate_service import ReviewCandidateStageResult
@@ -44,14 +46,19 @@ class ReviewReconciliationService:
         candidate_stage_result: ReviewCandidateStageResult,
     ) -> ReviewReconciliationResult:
         """Reconcile candidate-stage output into final review meaning."""
-        review_result = candidate_stage_result.review_result
-        if review_result is None:
+        raw_review_result = candidate_stage_result.raw_review_result
+        if raw_review_result is None:
             return ReviewReconciliationResult(
                 review_result=None,
                 reconciled_decision=None,
                 overlap_result=None,
                 message=candidate_stage_result.message,
             )
+
+        review_result = self._authoritative_review_result(
+            raw_review_result=raw_review_result,
+            candidate_stage_result=candidate_stage_result,
+        )
 
         overlap_result = self._reconcile_overlap(context=context, review_result=review_result)
         prior_review_context_used = bool(
@@ -101,6 +108,58 @@ class ReviewReconciliationService:
         overlap_analysis = ReviewOverlapAnalysisService(self.config).analyze(overlap_packet)
         return overlap_analysis.overlap_result
 
+    def _authoritative_review_result(
+        self,
+        *,
+        raw_review_result: ReviewResult,
+        candidate_stage_result: ReviewCandidateStageResult,
+    ) -> ReviewResult:
+        """Build the authoritative review result from candidate-stage output."""
+        if raw_review_result.classification != "findings_present":
+            return raw_review_result
+
+        candidate_result = candidate_stage_result.candidate_result
+        if candidate_result is None:
+            return ReviewResult(
+                classification="no_findings",
+                summary="No actionable findings after review validation.",
+                review_confidence=raw_review_result.review_confidence,
+                review_confidence_reason=raw_review_result.review_confidence_reason,
+                findings=[],
+            )
+
+        accepted_candidates = self._accepted_candidates(
+            candidate_result.findings,
+            candidate_stage_result.accepted_candidate_ids,
+        )
+        if not accepted_candidates:
+            return ReviewResult(
+                classification="no_findings",
+                summary="No actionable findings after review validation.",
+                review_confidence=raw_review_result.review_confidence,
+                review_confidence_reason=raw_review_result.review_confidence_reason,
+                findings=[],
+            )
+
+        ranked_candidates = sorted(
+            accepted_candidates,
+            key=lambda candidate: (
+                _SEVERITY_RANK[candidate.severity],
+                candidate.file_path,
+                candidate.title,
+            ),
+        )
+        limited_candidates = ranked_candidates[: self.config.review.max_findings_per_review]
+        return ReviewResult(
+            classification="findings_present",
+            summary=raw_review_result.summary,
+            review_confidence=raw_review_result.review_confidence,
+            review_confidence_reason=raw_review_result.review_confidence_reason,
+            findings=[
+                _review_finding_from_candidate(candidate) for candidate in limited_candidates
+            ],
+        )
+
     def _attach_candidate_provenance(
         self,
         *,
@@ -143,3 +202,34 @@ class ReviewReconciliationService:
         if prior_review_context is None or not prior_review_context.passes:
             return False
         return prior_review_context.passes[0].reviewed_head_sha == context.head_sha
+
+    def _accepted_candidates(
+        self,
+        candidates: list[CandidateReviewFinding],
+        accepted_candidate_ids: tuple[str, ...],
+    ) -> list[CandidateReviewFinding]:
+        """Return accepted candidates in the original candidate list order."""
+        accepted_ids = set(accepted_candidate_ids)
+        return [candidate for candidate in candidates if candidate.candidate_id in accepted_ids]
+
+
+_SEVERITY_RANK = {
+    "high": 0,
+    "medium": 1,
+    "low": 2,
+}
+
+
+def _review_finding_from_candidate(candidate: CandidateReviewFinding) -> ReviewFinding:
+    """Convert one accepted candidate into the authoritative review-finding shape."""
+    return ReviewFinding(
+        severity=candidate.severity,
+        file_path=candidate.file_path,
+        symbol=candidate.symbol,
+        issue_kind=candidate.issue_kind,
+        region_hint=candidate.region_hint,
+        title=candidate.title,
+        evidence=candidate.evidence,
+        explanation=candidate.explanation,
+        suggested_follow_up=candidate.suggested_follow_up,
+    )

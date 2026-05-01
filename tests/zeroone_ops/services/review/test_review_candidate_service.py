@@ -94,12 +94,12 @@ def test_analyze_returns_explicit_candidate_stage_result(monkeypatch) -> None:
     result = service.analyze(build_context())
 
     assert result.candidate_result is not None
-    assert result.review_result is not None
+    assert result.raw_review_result is not None
     assert len(result.candidate_result.findings) == 1
     assert result.candidate_result.findings[0].candidate_id == "candidate-1"
     assert result.accepted_candidate_ids == ("candidate-1",)
     assert result.dropped_candidates == ()
-    assert result.review_result.classification == "findings_present"
+    assert result.raw_review_result.classification == "findings_present"
 
 
 def test_analyze_tracks_dropped_candidate_metadata(monkeypatch) -> None:
@@ -130,8 +130,8 @@ def test_analyze_tracks_dropped_candidate_metadata(monkeypatch) -> None:
     result = service.analyze(build_context())
 
     assert result.candidate_result is not None
-    assert result.review_result is not None
-    assert result.review_result.classification == "no_findings"
+    assert result.raw_review_result is not None
+    assert result.raw_review_result.classification == "findings_present"
     assert result.accepted_candidate_ids == ()
     assert len(result.dropped_candidates) == 1
     assert result.dropped_candidates[0].candidate_id == "candidate-1"
@@ -145,5 +145,5 @@ def test_analyze_reports_structured_review_failure(monkeypatch) -> None:
     result = service.analyze(build_context())
 
     assert result.candidate_result is None
-    assert result.review_result is None
+    assert result.raw_review_result is None
     assert result.message == "Structured merge request review failed: bad output"

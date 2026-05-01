@@ -16,6 +16,8 @@ from zeroone_ops.models.dashboard import (
 )
 from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.models.review import (
+    CandidateReviewFinding,
+    CandidateReviewResult,
     MergeRequestReviewCandidate,
     MergeRequestReviewContext,
     PriorReviewFinding,
@@ -3376,7 +3378,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
             (),
             {
                 "candidate_result": None,
-                "review_result": ReviewResult(
+                "raw_review_result": ReviewResult(
                     classification="no_findings",
                     summary="No findings.",
                     findings=[],
@@ -3476,8 +3478,23 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
             "CandidateStageResult",
             (),
             {
-                "candidate_result": None,
-                "review_result": ReviewResult(
+                "candidate_result": CandidateReviewResult(
+                    findings=[
+                        CandidateReviewFinding(
+                            candidate_id="candidate-1",
+                            severity="medium",
+                            file_path="src/service.py",
+                            title="Missing test coverage",
+                            evidence=(
+                                "The diff changes `value = 1` to `value = 2` "
+                                "without any test updates."
+                            ),
+                            explanation="The change alters behavior without test updates.",
+                            suggested_follow_up="Add a regression test.",
+                        )
+                    ]
+                ),
+                "raw_review_result": ReviewResult(
                     classification="findings_present",
                     summary="One medium-risk finding.",
                     findings=[
@@ -3501,21 +3518,19 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish",
-        lambda self, project_id, merge_request_iid, context, review_result, overlap_result: (
-            ReviewPublishResult(
-                note=type(
-                    "Note",
-                    (),
-                    {
-                        "id": 55,
-                        "web_url": (
-                            "https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
-                        ),
-                    },
-                )(),
-                body="summary",
-            )
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        lambda self, project_id, merge_request_iid, context, artifact: ReviewPublishResult(
+            note=type(
+                "Note",
+                (),
+                {
+                    "id": 55,
+                    "web_url": (
+                        "https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
+                    ),
+                },
+            )(),
+            body="summary",
         ),
     )
     monkeypatch.setattr(
@@ -3629,7 +3644,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
             (),
             {
                 "candidate_result": None,
-                "review_result": ReviewResult(
+                "raw_review_result": ReviewResult(
                     classification="no_findings",
                     summary="No findings.",
                     findings=[],
@@ -3641,30 +3656,50 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish",
-        lambda self, project_id, merge_request_iid, context, review_result, overlap_result: (
-            ReviewPublishResult(
-                note=type("Note", (), {"id": 55, "web_url": None})(),
-                body="summary",
-            )
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        lambda self, project_id, merge_request_iid, context, artifact: ReviewPublishResult(
+            note=type("Note", (), {"id": 55, "web_url": None})(),
+            body="summary",
         ),
     )
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
-        lambda self, project_id, merge_request, review_result: type(
+    observed: dict[str, object] = {}
+
+    def capture_dashboard_update(  # noqa: ANN001, ANN202
+        self,
+        project_id,
+        merge_request,
+        review_result,
+    ):
+        del self, project_id, merge_request
+        observed["dashboard_review_result"] = review_result
+        return type(
             "DashboardResult",
             (),
             {
                 "dashboard_issue_url": None,
                 "error_message": "Dashboard mirror failed: boom",
             },
-        )(),
+        )()
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
+        capture_dashboard_update,
     )
 
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
     assert "Dashboard mirror failed: boom" in summary.message
+    dashboard_review_result = observed["dashboard_review_result"]
+    assert isinstance(dashboard_review_result, ReviewResult)
+    assert dashboard_review_result.summary == "No actionable findings in this review pass."
+    state = StateStore(
+        tmp_path / ".zeroone-ops-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+    assert state.reviews["17:abc123"].summary == "No actionable findings in this review pass."
 
 
 def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailable(
@@ -3804,8 +3839,23 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
             "CandidateStageResult",
             (),
             {
-                "candidate_result": None,
-                "review_result": ReviewResult(
+                "candidate_result": CandidateReviewResult(
+                    findings=[
+                        CandidateReviewFinding(
+                            candidate_id="candidate-1",
+                            severity="medium",
+                            file_path="src/service.py",
+                            title="Missing test coverage",
+                            evidence=(
+                                "The diff changes `value = 1` to `value = 2` "
+                                "without any test updates."
+                            ),
+                            explanation="The change alters behavior without test updates.",
+                            suggested_follow_up="Add a regression test.",
+                        )
+                    ]
+                ),
+                "raw_review_result": ReviewResult(
                     classification="findings_present",
                     summary="One medium-risk finding.",
                     findings=[
@@ -3844,10 +3894,9 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         project_id,
         merge_request_iid,
         context,
-        review_result,
-        overlap_result,
+        artifact,
     ):
-        observed["overlap_result"] = overlap_result
+        observed["artifact"] = artifact
         return ReviewPublishResult(
             note=type(
                 "Note",
@@ -3863,7 +3912,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish",
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
         capture_publish,
     )
     monkeypatch.setattr(
@@ -3881,7 +3930,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
-    assert observed["overlap_result"] is None
+    assert observed["artifact"].follow_up_lines == []
     assert "Reviewed merge request !17 at def456." in summary.message
 
 
@@ -3967,7 +4016,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
             (),
             {
                 "candidate_result": None,
-                "review_result": ReviewResult(
+                "raw_review_result": ReviewResult(
                     classification="no_findings",
                     summary="No findings.",
                     findings=[],
@@ -3986,11 +4035,9 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         project_id,
         merge_request_iid,
         context,
-        review_result,
-        overlap_result,
+        artifact,
     ):
-        observed["review_result"] = review_result
-        observed["overlap_result"] = overlap_result
+        observed["artifact"] = artifact
         return ReviewPublishResult(
             note=type(
                 "Note",
@@ -4006,7 +4053,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish",
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
         capture_publish,
     )
     monkeypatch.setattr(
@@ -4025,8 +4072,9 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
 
     assert summary.status.value == "reviewed"
     assert "Reviewed merge request !17 at abc123." in summary.message
-    assert observed["review_result"].classification == "no_findings"
-    assert observed["overlap_result"] is None
+    assert observed["artifact"].classification == "no_findings"
+    assert observed["artifact"].summary == "No actionable findings in this review pass."
+    assert observed["artifact"].follow_up_lines == []
     assert "Review note:" in summary.message
 
 

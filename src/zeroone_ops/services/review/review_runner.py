@@ -13,6 +13,7 @@ from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 from zeroone_ops.services.review.mr_intake import MergeRequestIntakeService
+from zeroone_ops.services.review.review_artifact_builder import ReviewArtifactBuilder
 from zeroone_ops.services.review.review_candidate_service import ReviewCandidateService
 from zeroone_ops.services.review.review_context_builder import ReviewContextBuilder
 from zeroone_ops.services.review.review_dashboard_updater import (
@@ -147,7 +148,7 @@ class ReviewRunner:
         )
 
         candidate_stage_result = ReviewCandidateService(self.config).analyze(context)
-        if candidate_stage_result.review_result is None:
+        if candidate_stage_result.raw_review_result is None:
             return self.review_state_service.fail_review(
                 record=record,
                 error_message=f"[{self.config.execution_mode}] {candidate_stage_result.message}",
@@ -156,7 +157,7 @@ class ReviewRunner:
                     message=candidate_stage_result.message,
                 ),
             )
-        review_result = candidate_stage_result.review_result
+        review_result = candidate_stage_result.raw_review_result
 
         LOGGER.info(
             "review candidate stage completed",
@@ -182,6 +183,14 @@ class ReviewRunner:
         )
         review_result = reconciliation_result.review_result or review_result
         overlap_result = reconciliation_result.overlap_result
+        artifact_result = None
+        if reconciliation_result.reconciled_decision is not None:
+            artifact_result = ReviewArtifactBuilder().build(
+                reconciled_decision=reconciliation_result.reconciled_decision,
+                overlap_result=overlap_result,
+            )
+        if artifact_result is not None:
+            review_result = artifact_result.artifact.to_review_result()
 
         LOGGER.info(
             "review reconciliation completed",
@@ -201,6 +210,9 @@ class ReviewRunner:
                     else len(reconciliation_result.reconciled_decision.dropped_candidates)
                 ),
                 "has_overlap_result": overlap_result is not None,
+                "artifact_follow_up_line_count": (
+                    0 if artifact_result is None else len(artifact_result.artifact.follow_up_lines)
+                ),
             },
         )
         if context.prior_review_context is not None and overlap_result is None:
@@ -217,12 +229,24 @@ class ReviewRunner:
         note_url: str | None = None
         dashboard_warning: str | None = None
         if not active_dry_run:
-            publish_result = ReviewPublisher(self.review_client).publish(
+            if artifact_result is None:
+                return self.review_state_service.fail_review(
+                    record=record,
+                    error_message=(
+                        f"[{self.config.execution_mode}] "
+                        "Review artifact build failed before publish."
+                    ),
+                    failure=FailureDetails(
+                        stage=FailureStage.REVIEW_PUBLISH,
+                        message="Review artifact build failed before publish.",
+                    ),
+                )
+            publish_artifact = artifact_result.artifact
+            publish_result = ReviewPublisher(self.review_client).publish_artifact(
                 project_id=project_id,
                 merge_request_iid=context.mr_iid,
                 context=context,
-                review_result=review_result,
-                overlap_result=overlap_result,
+                artifact=publish_artifact,
             )
             if publish_result.error_message is not None:
                 return self.review_state_service.fail_review(

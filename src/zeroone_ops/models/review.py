@@ -310,12 +310,13 @@ class PublishableReviewArtifact(BaseModel):
         cls,
         decision: ReconciledReviewDecision,
         *,
+        summary: str | None = None,
         follow_up_lines: list[str] | None = None,
     ) -> PublishableReviewArtifact:
         """Build a publish-shaped artifact without changing reconciled review meaning."""
         return cls(
             classification=decision.review_classification,
-            summary=decision.decision_summary,
+            summary=decision.decision_summary if summary is None else summary,
             review_confidence=decision.confidence_level,
             review_confidence_reason=decision.decision_rationale,
             findings=[
@@ -334,6 +335,29 @@ class PublishableReviewArtifact(BaseModel):
                 for finding in decision.accepted_findings
             ],
             follow_up_lines=follow_up_lines or [],
+        )
+
+    def to_review_result(self) -> ReviewResult:
+        """Adapt the publish-shaped artifact back into the shared review-result shape."""
+        return ReviewResult(
+            classification=self.classification,
+            summary=self.summary,
+            review_confidence=self.review_confidence,
+            review_confidence_reason=self.review_confidence_reason,
+            findings=[
+                ReviewFinding(
+                    severity=finding.severity,
+                    file_path=finding.file_path,
+                    symbol=finding.symbol,
+                    issue_kind=finding.issue_kind,
+                    region_hint=finding.region_hint,
+                    title=finding.title,
+                    evidence=finding.evidence,
+                    explanation=finding.explanation,
+                    suggested_follow_up=finding.suggested_follow_up,
+                )
+                for finding in self.findings
+            ],
         )
 
 

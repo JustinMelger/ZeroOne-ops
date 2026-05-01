@@ -104,7 +104,7 @@ def build_candidate_stage_result() -> ReviewCandidateStageResult:
                 ),
             ]
         ),
-        review_result=ReviewResult(
+        raw_review_result=ReviewResult(
             classification="findings_present",
             summary="One medium-risk finding.",
             review_confidence=0.84,
@@ -187,7 +187,7 @@ def test_reconcile_returns_candidate_failure_when_no_authoritative_review_exists
         context=build_context(),
         candidate_stage_result=ReviewCandidateStageResult(
             candidate_result=None,
-            review_result=None,
+            raw_review_result=None,
             accepted_candidate_ids=(),
             dropped_candidates=(),
             message="LLM backend not configured for merge request review.",

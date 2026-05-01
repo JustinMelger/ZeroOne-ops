@@ -14,7 +14,6 @@ from zeroone_ops.models.review import (
     DroppedCandidate,
     MergeRequestReviewContext,
     ReviewFileContext,
-    ReviewFinding,
     ReviewResult,
 )
 from zeroone_ops.providers.llm_client import (
@@ -78,11 +77,6 @@ _ACTIONABLE_FOLLOW_UP_MARKERS = frozenset(
         "cover",
     }
 )
-_SEVERITY_RANK = {
-    "high": 0,
-    "medium": 1,
-    "low": 2,
-}
 
 
 @dataclass(frozen=True)
@@ -90,7 +84,7 @@ class ReviewCandidateStageResult:
     """Capture the explicit candidate-stage outcome for one review pass."""
 
     candidate_result: CandidateReviewResult | None
-    review_result: ReviewResult | None
+    raw_review_result: ReviewResult | None
     accepted_candidate_ids: tuple[str, ...]
     dropped_candidates: tuple[DroppedCandidate, ...]
     message: str
@@ -109,12 +103,12 @@ class ReviewCandidateService:
         self._llm_client_builder = llm_client_builder
 
     def analyze(self, context: MergeRequestReviewContext) -> ReviewCandidateStageResult:
-        """Generate candidate findings, then validate them into the current review result."""
+        """Generate candidate findings, then ground them without deciding final truth."""
         llm_client = self._build_llm_client()
         if llm_client is None:
             return ReviewCandidateStageResult(
                 candidate_result=None,
-                review_result=None,
+                raw_review_result=None,
                 accepted_candidate_ids=(),
                 dropped_candidates=(),
                 message="LLM backend not configured for merge request review.",
@@ -125,25 +119,21 @@ class ReviewCandidateService:
         except LLMClientError as error:
             return ReviewCandidateStageResult(
                 candidate_result=None,
-                review_result=None,
+                raw_review_result=None,
                 accepted_candidate_ids=(),
                 dropped_candidates=(),
                 message=f"Structured merge request review failed: {error}",
             )
 
         candidate_result = _candidate_review_result_from_review_result(raw_review_result)
-        authoritative_result, accepted_candidate_ids, dropped_candidates = (
-            _validated_review_result_from_candidates(
-                context=context,
-                candidate_result=candidate_result,
-                raw_review_result=raw_review_result,
-                max_findings=self.config.review.max_findings_per_review,
-            )
+        accepted_candidate_ids, dropped_candidates = _ground_candidate_findings(
+            context=context,
+            candidate_result=candidate_result,
         )
 
         return ReviewCandidateStageResult(
             candidate_result=candidate_result,
-            review_result=authoritative_result,
+            raw_review_result=raw_review_result,
             accepted_candidate_ids=tuple(accepted_candidate_ids),
             dropped_candidates=tuple(dropped_candidates),
             message=(
@@ -190,17 +180,12 @@ def _candidate_review_result_from_review_result(
     )
 
 
-def _validated_review_result_from_candidates(
+def _ground_candidate_findings(
     *,
     context: MergeRequestReviewContext,
     candidate_result: CandidateReviewResult,
-    raw_review_result: ReviewResult,
-    max_findings: int,
-) -> tuple[ReviewResult, list[str], list[DroppedCandidate]]:
-    """Ground candidate findings into the current authoritative review result."""
-    if raw_review_result.classification != "findings_present":
-        return raw_review_result, [], []
-
+) -> tuple[list[str], list[DroppedCandidate]]:
+    """Ground candidate findings without deciding final review truth."""
     reviewed_files = {
         changed_file.file_path: changed_file for changed_file in context.changed_files
     }
@@ -221,57 +206,8 @@ def _validated_review_result_from_candidates(
                 )
             )
 
-    if accepted_candidates:
-        ranked_candidates = sorted(
-            accepted_candidates,
-            key=lambda candidate: (
-                _SEVERITY_RANK[candidate.severity],
-                candidate.file_path,
-                candidate.title,
-            ),
-        )
-        limited_candidates = ranked_candidates[:max_findings]
-        accepted_candidate_ids = [candidate.candidate_id for candidate in limited_candidates]
-        return (
-            ReviewResult(
-                classification="findings_present",
-                summary=raw_review_result.summary,
-                review_confidence=raw_review_result.review_confidence,
-                review_confidence_reason=raw_review_result.review_confidence_reason,
-                findings=[
-                    _review_finding_from_candidate(candidate) for candidate in limited_candidates
-                ],
-            ),
-            accepted_candidate_ids,
-            dropped_candidates,
-        )
-
-    return (
-        ReviewResult(
-            classification="no_findings",
-            summary="No actionable findings after review validation.",
-            review_confidence=raw_review_result.review_confidence,
-            review_confidence_reason=raw_review_result.review_confidence_reason,
-            findings=[],
-        ),
-        [],
-        dropped_candidates,
-    )
-
-
-def _review_finding_from_candidate(candidate: CandidateReviewFinding) -> ReviewFinding:
-    """Convert one candidate back into the current authoritative review finding shape."""
-    return ReviewFinding(
-        severity=candidate.severity,
-        file_path=candidate.file_path,
-        symbol=candidate.symbol,
-        issue_kind=candidate.issue_kind,
-        region_hint=candidate.region_hint,
-        title=candidate.title,
-        evidence=candidate.evidence,
-        explanation=candidate.explanation,
-        suggested_follow_up=candidate.suggested_follow_up,
-    )
+    accepted_candidate_ids = [candidate.candidate_id for candidate in accepted_candidates]
+    return accepted_candidate_ids, dropped_candidates
 
 
 def _validate_candidate_finding(
