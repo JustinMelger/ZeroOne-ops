@@ -14,6 +14,9 @@ from zeroone_ops.services.dashboard.dashboard_policy_view_builder import Dashboa
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 from zeroone_ops.services.review.mr_intake import MergeRequestIntakeService
 from zeroone_ops.services.review.review_artifact_builder import ReviewArtifactBuilder
+from zeroone_ops.services.review.review_artifact_validator import (
+    ReviewArtifactValidator,
+)
 from zeroone_ops.services.review.review_candidate_service import ReviewCandidateService
 from zeroone_ops.services.review.review_context_builder import ReviewContextBuilder
 from zeroone_ops.services.review.review_dashboard_updater import (
@@ -184,13 +187,22 @@ class ReviewRunner:
         review_result = reconciliation_result.review_result or review_result
         overlap_result = reconciliation_result.overlap_result
         artifact_result = None
+        validation_result = None
         if reconciliation_result.reconciled_decision is not None:
             artifact_result = ReviewArtifactBuilder().build(
                 reconciled_decision=reconciliation_result.reconciled_decision,
                 overlap_result=overlap_result,
             )
+        publish_artifact = None
         if artifact_result is not None:
-            review_result = artifact_result.artifact.to_review_result()
+            validation_result = ReviewArtifactValidator().validate(artifact_result.artifact)
+            publish_artifact = artifact_result.artifact
+            if validation_result.status == "rejected":
+                publish_artifact = ReviewArtifactValidator().build_manual_review_only_fallback(
+                    artifact=artifact_result.artifact,
+                    validation_result=validation_result,
+                )
+            review_result = publish_artifact.to_review_result()
 
         LOGGER.info(
             "review reconciliation completed",
@@ -211,7 +223,13 @@ class ReviewRunner:
                 ),
                 "has_overlap_result": overlap_result is not None,
                 "artifact_follow_up_line_count": (
-                    0 if artifact_result is None else len(artifact_result.artifact.follow_up_lines)
+                    0 if publish_artifact is None else len(publish_artifact.follow_up_lines)
+                ),
+                "artifact_validation_status": (
+                    None if validation_result is None else validation_result.status
+                ),
+                "artifact_validation_issue_count": (
+                    0 if validation_result is None else len(validation_result.issues)
                 ),
             },
         )
@@ -241,7 +259,18 @@ class ReviewRunner:
                         message="Review artifact build failed before publish.",
                     ),
                 )
-            publish_artifact = artifact_result.artifact
+            if publish_artifact is None:  # pragma: no cover - defensive typing guard
+                return self.review_state_service.fail_review(
+                    record=record,
+                    error_message=(
+                        f"[{self.config.execution_mode}] "
+                        "Validated review artifact was unavailable before publish."
+                    ),
+                    failure=FailureDetails(
+                        stage=FailureStage.REVIEW_PUBLISH,
+                        message="Validated review artifact was unavailable before publish.",
+                    ),
+                )
             publish_result = ReviewPublisher(self.review_client).publish_artifact(
                 project_id=project_id,
                 merge_request_iid=context.mr_iid,

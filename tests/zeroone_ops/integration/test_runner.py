@@ -3702,6 +3702,173 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     assert state.reviews["17:abc123"].summary == "No actionable findings in this review pass."
 
 
+def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    merge_request = MergeRequestReviewCandidate(
+        iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        changes=[],
+    )
+    review_context = MergeRequestReviewContext(
+        mr_iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                diff="@@ -1,1 +1,1 @@",
+                start_line=1,
+                end_line=1,
+                content="   1: value = 1",
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
+        lambda self, state: type(
+            "Result",
+            (),
+            {
+                "selected_merge_request": merge_request,
+                "merge_request_count": 1,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
+        lambda self, merge_request, project_id: ReviewContextBuildResult(
+            context=review_context, message=""
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_candidate_service.ReviewCandidateService.analyze",
+        lambda self, context: type(
+            "CandidateStageResult",
+            (),
+            {
+                "candidate_result": CandidateReviewResult(
+                    findings=[
+                        CandidateReviewFinding(
+                            candidate_id="candidate-1",
+                            severity="medium",
+                            file_path="src/service.py",
+                            title="Missing test coverage",
+                            evidence=(
+                                "The diff changes `value = 1` to `value = 2` "
+                                "without any test updates."
+                            ),
+                            explanation="The change alters behavior without test updates.",
+                            suggested_follow_up="Add a regression test.",
+                        )
+                    ]
+                ),
+                "raw_review_result": ReviewResult(
+                    classification="findings_present",
+                    summary="No actionable findings in this review pass.",
+                    review_confidence_reason="The regression is visible in the diff.",
+                    findings=[
+                        ReviewFinding(
+                            severity="medium",
+                            file_path="src/service.py",
+                            title="Missing test coverage",
+                            evidence=(
+                                "The diff changes `value = 1` to `value = 2` "
+                                "without any test updates."
+                            ),
+                            explanation="The change alters behavior without test updates.",
+                            suggested_follow_up="Add a regression test.",
+                        )
+                    ],
+                ),
+                "accepted_candidate_ids": ("candidate-1",),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 1 candidates and accepted 1 findings.",
+            },
+        )(),
+    )
+
+    observed: dict[str, object] = {}
+
+    def capture_publish(  # noqa: ANN001, ANN202
+        self,
+        project_id,
+        merge_request_iid,
+        context,
+        artifact,
+    ):
+        observed["artifact"] = artifact
+        return ReviewPublishResult(
+            note=type("Note", (), {"id": 55, "web_url": None})(),
+            body="summary",
+        )
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        capture_publish,
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
+        lambda self, project_id, merge_request, review_result: type(
+            "DashboardResult",
+            (),
+            {
+                "dashboard_issue_url": None,
+                "error_message": None,
+            },
+        )(),
+    )
+
+    summary = review(dry_run=False)
+
+    assert summary.status.value == "reviewed"
+    artifact = observed["artifact"]
+    assert artifact.classification == "manual_review_only"
+    state = StateStore(
+        tmp_path / ".zeroone-ops-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+    assert state.reviews["17:abc123"].status == "manual_review_only"
+
+
 def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailable(
     tmp_path: Path,
     monkeypatch,

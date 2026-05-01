@@ -217,8 +217,7 @@ def test_reconcile_preserves_candidate_lineage_after_ranking_and_records_overflo
                         file_path="src/service.py",
                         title="Low-severity concern",
                         evidence=(
-                            "The diff changes `value = 1` to `value = 2` "
-                            "without test updates."
+                            "The diff changes `value = 1` to `value = 2` without test updates."
                         ),
                         explanation="Low priority concern.",
                         suggested_follow_up="Add a regression test.",
@@ -229,8 +228,7 @@ def test_reconcile_preserves_candidate_lineage_after_ranking_and_records_overflo
                         file_path="src/service.py",
                         title="High-severity concern",
                         evidence=(
-                            "The diff changes `value = 1` to `value = 2` "
-                            "without test updates."
+                            "The diff changes `value = 1` to `value = 2` without test updates."
                         ),
                         explanation="High priority concern.",
                         suggested_follow_up="Add a regression test.",

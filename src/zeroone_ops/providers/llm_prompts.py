@@ -29,7 +29,7 @@ _PROMPT_TEMPLATE_NAMES = frozenset(
     {
         "analyze_issue.txt",
         "generate_structured_edit.txt",
-        "review_merge_request.txt",
+        "review_candidate_merge_request.txt",
         "review_overlap_reconciliation.txt",
     }
 )
@@ -115,13 +115,13 @@ def _format_prior_review_feedback(context: IssueContext) -> str:
     )
 
 
-def build_review_prompt(context: MergeRequestReviewContext) -> str:
-    """Build the review prompt for one merge request."""
+def build_candidate_review_prompt(context: MergeRequestReviewContext) -> str:
+    """Build the candidate-generation review prompt for one merge request."""
     changed_files = "\n\n".join(
         _format_changed_file_context(changed_file) for changed_file in context.changed_files
     )
     return render_prompt_template(
-        "review_merge_request.txt",
+        "review_candidate_merge_request.txt",
         mr_iid=context.mr_iid,
         title=context.title,
         description=_format_untrusted_block(
@@ -135,6 +135,11 @@ def build_review_prompt(context: MergeRequestReviewContext) -> str:
         repository_guidance=_format_repository_guidance(context),
         changed_files=changed_files,
     )
+
+
+def build_review_prompt(context: MergeRequestReviewContext) -> str:
+    """Compatibility wrapper for the candidate-stage review prompt."""
+    return build_candidate_review_prompt(context)
 
 
 def build_review_overlap_prompt(packet: OverlapPacket) -> str:

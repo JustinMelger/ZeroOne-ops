@@ -34,6 +34,7 @@ from zeroone_ops.providers.llm_fixtures import (
 from zeroone_ops.providers.llm_prompts import (
     LLMPromptError,
     build_analysis_prompt,
+    build_candidate_review_prompt,
     build_review_overlap_prompt,
     build_review_prompt,
     build_structured_edit_prompt,
@@ -387,11 +388,13 @@ def test_build_review_prompt_uses_prompt_template() -> None:
         ],
     )
 
-    prompt = build_review_prompt(context)
+    prompt = build_candidate_review_prompt(context)
 
-    assert "Review the merge request and return structured JSON only." in prompt
+    assert "Generate candidate review findings for the merge request" in prompt
+    assert "This is the candidate-generation stage of the review pipeline." in prompt
+    assert "do not act like the final publishing authority" in prompt
     assert "thoughtful senior software engineer" in prompt
-    assert "REVIEW GOAL" in prompt
+    assert "CANDIDATE STAGE GOAL" in prompt
     assert "deterministic runtime errors" in prompt
     assert "leftover debug code affecting runtime" in prompt
     assert "unintended behavioral changes" in prompt
@@ -428,10 +431,10 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "reference the specific changed behavior" in prompt
     assert "identify the reviewed file or directly impacted visible consumer" in prompt
     assert "OUTPUT" in prompt
-    assert "1. What changed" in prompt
-    assert "2. Overall assessment" in prompt
-    assert "3. Risk level" in prompt
-    assert "4. Key reasoning" in prompt
+    assert "`summary`: concise candidate-stage assessment" in prompt
+    assert "`findings`: evidence-backed candidate findings only" in prompt
+    assert "Do not perform prior-review continuity decisions here." in prompt
+    assert "Do not try to decide final publish wording." in prompt
     assert "CLASSIFICATION" in prompt
     assert "`manual_review_only`: missing context prevents reliable judgment" in prompt
     assert "CONFIDENCE" in prompt
@@ -447,6 +450,8 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "<<BEGIN REPOSITORY GUIDANCE AGENT.md>>" in prompt
     assert "Remediation-authored context:\n(none)" in prompt
     assert "<<BEGIN UNTRUSTED Changed file: src/service.py>>" in prompt
+
+    assert build_review_prompt(context) == prompt
 
 
 def test_build_review_prompt_includes_preloaded_input_context_guardrail() -> None:
