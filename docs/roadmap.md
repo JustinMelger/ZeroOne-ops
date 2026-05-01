@@ -89,9 +89,16 @@ Implementation phases:
   - add tests that prove packaging changes do not alter classification or
     accepted findings
 - [ ] Phase 5: Validator Gate
+  - review the candidate-stage review prompt so it is optimized for
+    evidence-backed recall rather than final verdict authority
   - add a strict first validator focused on contradiction-heavy high-trust
     failure classes from the live feedback log
   - validate publish-shaped artifacts only, not as a second reconciler
+  - update the reconciliation / precision prompt so it reflects the new stage
+    responsibilities and does not behave like a second candidate-generation
+    pass
+  - rename stage services and files where needed so names reflect the new
+    responsibilities rather than older single-flow review terminology
   - support downgrade to `manual_review_only` when a trustworthy publish
     artifact cannot be produced
 - [ ] Phase 6: Bounded Repair Path
