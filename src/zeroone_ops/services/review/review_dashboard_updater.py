@@ -122,9 +122,7 @@ def _build_review_status_item(
     """Build a fallback standalone review-status dashboard item."""
     summary = _dashboard_review_display_summary(review_result)
     if review_result.classification == "manual_review_only":
-        follow_up_suffix = "".join(
-            f"\n{line}" for line in review_result.follow_up_lines if line
-        )
+        follow_up_suffix = "".join(f"\n{line}" for line in review_result.follow_up_lines if line)
         summary = (
             "Bot assessment was insufficient for a trustworthy review decision. "
             f"{review_result.summary}"

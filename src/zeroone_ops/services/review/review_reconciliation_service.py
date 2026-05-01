@@ -174,12 +174,8 @@ class ReviewReconciliationService:
                 candidate.title,
             ),
         )
-        retained_candidates = tuple(
-            ranked_candidates[: self.config.review.max_findings_per_review]
-        )
-        overflow_candidates = tuple(
-            ranked_candidates[self.config.review.max_findings_per_review :]
-        )
+        retained_candidates = tuple(ranked_candidates[: self.config.review.max_findings_per_review])
+        overflow_candidates = tuple(ranked_candidates[self.config.review.max_findings_per_review :])
         return _AuthoritativeReviewBuild(
             review_result=ReviewResult(
                 classification="findings_present",
