@@ -62,7 +62,7 @@ Shipped baseline:
 
 Implementation phases:
 
-- [ ] Phase 1: Stage Contracts And Decision Models
+- [x] Phase 1: Stage Contracts And Decision Models
   - define typed candidate, reconciled-decision, publish-artifact, and
     validator-result models
   - keep stage boundaries explicit so candidate generation does not regain
