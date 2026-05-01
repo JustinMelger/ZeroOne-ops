@@ -20,6 +20,10 @@ Shipped baseline:
 
 - dashboard-backed remediation with bounded structured-edit execution
 - remediation reconciliation for `mr_opened` items
+- dashboard-first operator policy with canonical severity and issue-class
+  control in the dashboard
+- dedicated `dashboard policy` workflow with bounded `/zeroone policy ...`
+  command processing and idempotent acknowledgement notes
 - merge request review with deterministic note publishing
 - GitLab-backed prior-review continuity for follow-up review notes
 - operator-managed remediation exclusions
@@ -34,6 +38,8 @@ Shipped baseline:
 ### 1. Rollout And Validation
 
 - validate the current review and remediation flows in live repositories
+- treat dashboard operator policy as a testing and hardening track rather than
+  a still-open implementation track
 - keep collecting real review examples, remediation outcomes, and operator
   friction points
 - prefer small bounded fixes over another architecture round while rollout
@@ -46,64 +52,20 @@ Shipped baseline:
 - track exclusion usage and repeated remediation skip patterns
 - treat these as the evidence base for later architecture work
 
-### 3. Dashboard Operator Policy
+### 3. Review Architecture Track
 
-- finish the operator-filter story so dashboard policy, exclusions, and
-  severity control stop being split across multiple surfaces
-- design the grouped dashboard policy model before implementing new interaction
-  paths
-- treat review-bot improvements as lower urgency than making remediation policy
-  product-shaped
+- use live review examples to drive the next architecture round
+- split review into clearer stages so finding generation, precision
+  reconciliation, and artifact validation stop being compressed into one flow
+- prefer contract-sharpening and explicit validator boundaries over broad new
+  review surface expansion
 
-Implementation phases:
+Planned direction:
 
-- [x] Phase 1: Versioned Read-Only Policy Surface
-- [x] add a document-level dashboard schema marker
-- [x] treat missing schema markers as legacy `v0` and migrate recognized dashboards on read
-- [x] render machine-owned `Automation Severity Policy` and `Excluded Issue Classes`
-      sections
-- [x] render a narrow grouped issue inventory for policy-relevant groups only
-- [x] show read-only policy status for readability
-- [x] show operator-facing status language:
-      `eligible for automation`, `excluded from automation`, `blocked by severity policy`, `blocked by safety guard`
-
-- [x] Phase 2: Dashboard Policy Action Parsing
-- [x] add a compact `Operator Policy Actions` legend to the dashboard
-- [x] introduce structured dashboard comment commands with a strict prefix such as
-      `/zeroone policy`
-- [x] add `dashboard_policy_action_service` to validate commands and reject malformed input safely
-- [x] keep raw checkbox edits and direct markdown edits non-authoritative
-
-- [x] Phase 3: Severity Policy Writes
-- [x] support bounded actions for enabling and disabling `low`, `medium`, and `high`
-- [x] seed dashboard severity policy once from config when no dashboard policy exists yet
-- [x] after seeding, make dashboard policy authoritative for remediation pickup
-- [x] re-render severity policy state from canonical dashboard policy
-
-- [x] Phase 4: Issue-Class Exclusion Writes
-- [x] support bounded actions for excluding and re-including grouped issue classes by `source + issue_key`
-- [x] keep exclusions repo-wide in the first version with no operator-facing scope
-- [x] re-render the `Excluded Issue Classes` section and grouped inventory from the canonical dashboard policy state
-- [x] make remediation intake apply dashboard-backed issue-class policy during pickup
-
-- [x] Phase 5: Dashboard-First Policy Authority
-- [x] reduce config severity to bootstrap/fallback semantics in operator docs and workflow expectations
-- [x] remove duplicate issue-class exclusion reads so dashboard policy is the only exclusion authority
-- [x] keep migration and rewrite behavior explicit for future dashboard schema changes
-
-- [ ] Phase 6: Dedicated Dashboard Policy Processing
-- [x] add a separate dashboard policy-action runner/command
-- [x] process strict `/zeroone policy ...` operator commands independently of remediation and reconciliation runs
-- [x] keep policy mutation, validation, and dashboard re-render in the dedicated policy workflow path
-- [x] preserve reconciliation as observed-state convergence only
-- [x] preserve remediation as policy-consuming, not policy-mutating
-- [x] rename `remediation.supported_severities` to `remediation.bootstrap_severities` and keep backward compatibility during migration
-
-- [ ] Phase 6b: Dashboard Policy Acknowledgements
-- [x] add bounded acknowledgement replies for accepted and rejected strict `/zeroone policy ...` note commands
-- [x] keep dashboard policy state authoritative while reply notes remain non-authoritative workflow feedback
-- [x] make acknowledgement publishing idempotent under full note replay
-- [x] avoid requiring operators to separately inspect pipeline execution before knowing whether a policy command was accepted
+- candidate review pass for evidence-backed finding generation
+- reconciliation / precision pass for overlap handling, deduplication, and
+  final accepted finding selection
+- validator / artifact consistency gate for contradictory review outputs
 
 ### 4. Cleanup
 
