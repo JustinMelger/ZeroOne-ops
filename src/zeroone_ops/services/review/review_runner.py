@@ -24,13 +24,10 @@ from zeroone_ops.services.review.review_gitlab_prior_context_service import (
 from zeroone_ops.services.review.review_gitlab_prior_note_parser import (
     ReviewGitLabPriorNoteParser,
 )
-from zeroone_ops.services.review.review_overlap_analysis_service import (
-    ReviewOverlapAnalysisService,
-)
-from zeroone_ops.services.review.review_overlap_packet_builder import (
-    OverlapPacketBuilder,
-)
 from zeroone_ops.services.review.review_publisher import ReviewPublisher
+from zeroone_ops.services.review.review_reconciliation_service import (
+    ReviewReconciliationService,
+)
 from zeroone_ops.services.review.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
 
@@ -179,47 +176,43 @@ class ReviewRunner:
             },
         )
 
-        overlap_result = None
-        overlap_packet = OverlapPacketBuilder().build(
+        reconciliation_result = ReviewReconciliationService(self.config).reconcile(
             context=context,
-            review_result=review_result,
+            candidate_stage_result=candidate_stage_result,
         )
-        if overlap_packet is not None:
-            overlap_analysis = ReviewOverlapAnalysisService(self.config).analyze(overlap_packet)
-            if overlap_analysis.overlap_result is not None:
-                overlap_result = overlap_analysis.overlap_result
-                LOGGER.info(
-                    "review overlap reconciliation completed",
-                    extra={
-                        "run_id": run_id,
-                        "mr_iid": context.mr_iid,
-                        "head_sha": context.head_sha,
-                        "prior_head_sha": overlap_result.prior_reviewed_head_sha,
-                        "resolution_count": len(overlap_result.resolutions),
-                    },
-                )
-            else:
-                LOGGER.warning(
-                    (
-                        "review overlap reconciliation unavailable; omitting continuity wording "
-                        f"[status={overlap_analysis.status} prior={overlap_packet.prior_head_sha} "
-                        f"curr={len(overlap_packet.current_findings)} "
-                        f"prev={len(overlap_packet.prior_findings)} "
-                        f"cand={len(overlap_packet.candidates)}] "
-                        f"{overlap_analysis.message}"
-                    ),
-                    extra={
-                        "run_id": run_id,
-                        "mr_iid": context.mr_iid,
-                        "head_sha": context.head_sha,
-                        "prior_head_sha": overlap_packet.prior_head_sha,
-                        "current_finding_count": len(overlap_packet.current_findings),
-                        "prior_finding_count": len(overlap_packet.prior_findings),
-                        "candidate_count": len(overlap_packet.candidates),
-                        "overlap_status": overlap_analysis.status,
-                        "overlap_message": overlap_analysis.message,
-                    },
-                )
+        review_result = reconciliation_result.review_result or review_result
+        overlap_result = reconciliation_result.overlap_result
+
+        LOGGER.info(
+            "review reconciliation completed",
+            extra={
+                "run_id": run_id,
+                "mr_iid": context.mr_iid,
+                "head_sha": context.head_sha,
+                "classification": review_result.classification,
+                "accepted_finding_count": (
+                    0
+                    if reconciliation_result.reconciled_decision is None
+                    else len(reconciliation_result.reconciled_decision.accepted_findings)
+                ),
+                "dropped_candidate_count": (
+                    0
+                    if reconciliation_result.reconciled_decision is None
+                    else len(reconciliation_result.reconciled_decision.dropped_candidates)
+                ),
+                "has_overlap_result": overlap_result is not None,
+            },
+        )
+        if context.prior_review_context is not None and overlap_result is None:
+            LOGGER.warning(
+                "review overlap reconciliation unavailable; omitting continuity wording",
+                extra={
+                    "run_id": run_id,
+                    "mr_iid": context.mr_iid,
+                    "head_sha": context.head_sha,
+                    "reconciliation_message": reconciliation_result.message,
+                },
+            )
 
         note_url: str | None = None
         dashboard_warning: str | None = None

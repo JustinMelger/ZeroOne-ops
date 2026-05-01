@@ -75,7 +75,7 @@ Implementation phases:
     evaluation
   - keep candidate output optimized for evidence-backed recall rather than
     final review wording
-- [ ] Phase 3: Reconciliation / Precision Stage
+- [x] Phase 3: Reconciliation / Precision Stage
   - adapt current overlap and structured-reconciliation behavior behind a new
     reconciliation-stage contract
   - make reconciliation the only stage that decides final review meaning,
