@@ -167,6 +167,7 @@ class ReviewResult(BaseModel):
     review_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     review_confidence_reason: str | None = None
     findings: list[ReviewFinding] = Field(default_factory=list)
+    follow_up_lines: list[str] = Field(default_factory=list)
 
 
 class DiffReference(BaseModel):
@@ -358,6 +359,7 @@ class PublishableReviewArtifact(BaseModel):
                 )
                 for finding in self.findings
             ],
+            follow_up_lines=list(self.follow_up_lines),
         )
 
 

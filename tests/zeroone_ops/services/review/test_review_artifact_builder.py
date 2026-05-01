@@ -91,3 +91,28 @@ def test_build_attaches_follow_up_lines_from_overlap_result() -> None:
         "An earlier concern from the last pass still appears unresolved.",
         "",
     ]
+
+
+def test_artifact_to_review_result_preserves_follow_up_lines() -> None:
+    artifact = (
+        ReviewArtifactBuilder()
+        .build(
+            reconciled_decision=build_decision(),
+            overlap_result=OverlapReconciliationResult(
+                prior_reviewed_head_sha="abc123",
+                resolutions=[
+                    OverlapResolution(
+                        outcome="still_unresolved",
+                        current_finding_index=0,
+                        prior_finding_index=0,
+                        related_prior_finding_indices=[0],
+                    )
+                ],
+            ),
+        )
+        .artifact
+    )
+
+    review_result = artifact.to_review_result()
+
+    assert review_result.follow_up_lines == artifact.follow_up_lines

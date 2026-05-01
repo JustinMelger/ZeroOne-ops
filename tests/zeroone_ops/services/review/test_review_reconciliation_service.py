@@ -198,3 +198,59 @@ def test_reconcile_returns_candidate_failure_when_no_authoritative_review_exists
     assert result.reconciled_decision is None
     assert result.overlap_result is None
     assert result.message == "LLM backend not configured for merge request review."
+
+
+def test_reconcile_preserves_candidate_lineage_after_ranking_and_records_overflow() -> None:
+    config = build_config().model_copy(
+        update={"review": build_config().review.model_copy(update={"max_findings_per_review": 1})}
+    )
+    service = ReviewReconciliationService(config)
+
+    result = service.reconcile(
+        context=build_context(),
+        candidate_stage_result=ReviewCandidateStageResult(
+            candidate_result=CandidateReviewResult(
+                findings=[
+                    CandidateReviewFinding(
+                        candidate_id="candidate-1",
+                        severity="low",
+                        file_path="src/service.py",
+                        title="Low-severity concern",
+                        evidence=(
+                            "The diff changes `value = 1` to `value = 2` "
+                            "without test updates."
+                        ),
+                        explanation="Low priority concern.",
+                        suggested_follow_up="Add a regression test.",
+                    ),
+                    CandidateReviewFinding(
+                        candidate_id="candidate-2",
+                        severity="high",
+                        file_path="src/service.py",
+                        title="High-severity concern",
+                        evidence=(
+                            "The diff changes `value = 1` to `value = 2` "
+                            "without test updates."
+                        ),
+                        explanation="High priority concern.",
+                        suggested_follow_up="Add a regression test.",
+                    ),
+                ]
+            ),
+            raw_review_result=ReviewResult(
+                classification="findings_present",
+                summary="Two findings.",
+                findings=[],
+            ),
+            accepted_candidate_ids=("candidate-1", "candidate-2"),
+            dropped_candidates=(),
+            message="Candidate review generated 2 candidates and accepted 2 findings.",
+        ),
+    )
+
+    assert result.reconciled_decision is not None
+    assert result.review_result is not None
+    assert result.review_result.findings[0].title == "High-severity concern"
+    assert result.reconciled_decision.accepted_findings[0].source_candidate_ids == ["candidate-2"]
+    assert result.reconciled_decision.dropped_candidates[0].candidate_id == "candidate-1"
+    assert result.reconciled_decision.dropped_candidates[0].drop_reason == "superseded"
