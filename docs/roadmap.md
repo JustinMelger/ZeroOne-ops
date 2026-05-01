@@ -68,7 +68,7 @@ Implementation phases:
   - keep stage boundaries explicit so candidate generation does not regain
     verdict authority
   - add boundary-focused tests for model contracts and handoff semantics
-- [ ] Phase 2: Candidate Review Stage
+- [x] Phase 2: Candidate Review Stage
   - evolve the current review analysis flow into an explicitly
     non-authoritative candidate generation stage
   - preserve candidate provenance and reconciliation outcome metadata for

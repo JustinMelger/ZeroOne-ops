@@ -13,7 +13,7 @@ from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 from zeroone_ops.services.review.mr_intake import MergeRequestIntakeService
-from zeroone_ops.services.review.review_analysis_service import ReviewAnalysisService
+from zeroone_ops.services.review.review_candidate_service import ReviewCandidateService
 from zeroone_ops.services.review.review_context_builder import ReviewContextBuilder
 from zeroone_ops.services.review.review_dashboard_updater import (
     ReviewDashboardUpdater,
@@ -149,32 +149,40 @@ class ReviewRunner:
             },
         )
 
-        analysis_result = ReviewAnalysisService(self.config).analyze(context)
-        if analysis_result.review_result is None:
+        candidate_stage_result = ReviewCandidateService(self.config).analyze(context)
+        if candidate_stage_result.review_result is None:
             return self.review_state_service.fail_review(
                 record=record,
-                error_message=f"[{self.config.execution_mode}] {analysis_result.message}",
+                error_message=f"[{self.config.execution_mode}] {candidate_stage_result.message}",
                 failure=FailureDetails(
                     stage=FailureStage.REVIEW_ANALYSIS,
-                    message=analysis_result.message,
+                    message=candidate_stage_result.message,
                 ),
             )
+        review_result = candidate_stage_result.review_result
 
         LOGGER.info(
-            "review analysis completed",
+            "review candidate stage completed",
             extra={
                 "run_id": run_id,
                 "mr_iid": context.mr_iid,
                 "head_sha": context.head_sha,
-                "classification": analysis_result.review_result.classification,
-                "finding_count": len(analysis_result.review_result.findings),
+                "candidate_count": (
+                    0
+                    if candidate_stage_result.candidate_result is None
+                    else len(candidate_stage_result.candidate_result.findings)
+                ),
+                "accepted_candidate_count": len(candidate_stage_result.accepted_candidate_ids),
+                "dropped_candidate_count": len(candidate_stage_result.dropped_candidates),
+                "classification": review_result.classification,
+                "finding_count": len(review_result.findings),
             },
         )
 
         overlap_result = None
         overlap_packet = OverlapPacketBuilder().build(
             context=context,
-            review_result=analysis_result.review_result,
+            review_result=review_result,
         )
         if overlap_packet is not None:
             overlap_analysis = ReviewOverlapAnalysisService(self.config).analyze(overlap_packet)
@@ -220,7 +228,7 @@ class ReviewRunner:
                 project_id=project_id,
                 merge_request_iid=context.mr_iid,
                 context=context,
-                review_result=analysis_result.review_result,
+                review_result=review_result,
                 overlap_result=overlap_result,
             )
             if publish_result.error_message is not None:
@@ -258,7 +266,7 @@ class ReviewRunner:
             ).update(
                 project_id=project_id,
                 merge_request=intake_result.selected_merge_request,
-                review_result=analysis_result.review_result,
+                review_result=review_result,
             )
             dashboard_warning = dashboard_update.error_message
             if dashboard_warning is None:
@@ -293,7 +301,7 @@ class ReviewRunner:
         summary = self.review_state_service.mark_reviewed(
             record=record,
             merge_request=intake_result.selected_merge_request,
-            review_result=analysis_result.review_result,
+            review_result=review_result,
             note_url=note_url,
             dry_run=active_dry_run,
         )

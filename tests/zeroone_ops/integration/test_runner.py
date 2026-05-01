@@ -3370,17 +3370,20 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_analysis_service.ReviewAnalysisService.analyze",
+        "zeroone_ops.services.review.review_candidate_service.ReviewCandidateService.analyze",
         lambda self, context: type(
-            "AnalysisResult",
+            "CandidateStageResult",
             (),
             {
+                "candidate_result": None,
                 "review_result": ReviewResult(
                     classification="no_findings",
                     summary="No findings.",
                     findings=[],
                 ),
-                "message": "Review classification: no_findings. Summary: No findings.",
+                "accepted_candidate_ids": (),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
             },
         )(),
     )
@@ -3468,11 +3471,12 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_analysis_service.ReviewAnalysisService.analyze",
+        "zeroone_ops.services.review.review_candidate_service.ReviewCandidateService.analyze",
         lambda self, context: type(
-            "AnalysisResult",
+            "CandidateStageResult",
             (),
             {
+                "candidate_result": None,
                 "review_result": ReviewResult(
                     classification="findings_present",
                     summary="One medium-risk finding.",
@@ -3490,9 +3494,9 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
                         )
                     ],
                 ),
-                "message": (
-                    "Review classification: findings_present. Summary: One medium-risk finding."
-                ),
+                "accepted_candidate_ids": ("candidate-1",),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 1 candidates and accepted 1 findings.",
             },
         )(),
     )
@@ -3619,17 +3623,20 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_analysis_service.ReviewAnalysisService.analyze",
+        "zeroone_ops.services.review.review_candidate_service.ReviewCandidateService.analyze",
         lambda self, context: type(
-            "AnalysisResult",
+            "CandidateStageResult",
             (),
             {
+                "candidate_result": None,
                 "review_result": ReviewResult(
                     classification="no_findings",
                     summary="No findings.",
                     findings=[],
                 ),
-                "message": "Review classification: no_findings. Summary: No findings.",
+                "accepted_candidate_ids": (),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
             },
         )(),
     )
@@ -3792,11 +3799,12 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_analysis_service.ReviewAnalysisService.analyze",
+        "zeroone_ops.services.review.review_candidate_service.ReviewCandidateService.analyze",
         lambda self, context: type(
-            "AnalysisResult",
+            "CandidateStageResult",
             (),
             {
+                "candidate_result": None,
                 "review_result": ReviewResult(
                     classification="findings_present",
                     summary="One medium-risk finding.",
@@ -3814,9 +3822,9 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
                         )
                     ],
                 ),
-                "message": (
-                    "Review classification: findings_present. Summary: One medium-risk finding."
-                ),
+                "accepted_candidate_ids": ("candidate-1",),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 1 candidates and accepted 1 findings.",
             },
         )(),
     )
@@ -3953,17 +3961,20 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_analysis_service.ReviewAnalysisService.analyze",
+        "zeroone_ops.services.review.review_candidate_service.ReviewCandidateService.analyze",
         lambda self, context: type(
-            "AnalysisResult",
+            "CandidateStageResult",
             (),
             {
+                "candidate_result": None,
                 "review_result": ReviewResult(
                     classification="no_findings",
                     summary="No findings.",
                     findings=[],
                 ),
-                "message": "Review classification: no_findings. Summary: No findings.",
+                "accepted_candidate_ids": (),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
             },
         )(),
     )
