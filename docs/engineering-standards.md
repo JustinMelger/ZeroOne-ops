@@ -168,3 +168,43 @@ As the codebase grows, prefer moving orchestration out of `runner.py` into focus
 - `PublishService`
 
 These are targets, not mandatory abstractions today. Add them when the current logic becomes large enough to justify the split.
+
+## 14. Workflow Boundary Discipline
+
+For multi-stage workflows such as dashboard policy processing, remediation, and pull request review:
+
+- Every operator-facing decision must have one authoritative write path.
+- Display surfaces may mirror authority, but must not become implicit control planes.
+- If multiple representations exist, code and docs must make the authoritative one explicit.
+
+For staged pipelines:
+
+- Each stage must have an explicit contract describing what it may decide and what it may not decide.
+- Candidate or discovery stages must not decide final truth.
+- Validation stages must not become a second reconciler.
+- Artifact-building or rendering stages must not change review or workflow meaning.
+
+For phased refactors:
+
+- Transitional adapters are allowed, but they must be tracked explicitly in the roadmap or design notes.
+- Transitional adapters must be removed before the implementation track is considered complete.
+- Do not allow compatibility paths to become permanent second workflows.
+
+For shared final outputs:
+
+- When a workflow produces a final publish-shaped artifact, downstream state, dashboard, and transport should derive from the same final artifact or the same final decision object.
+- Avoid separate summary-building paths for published output versus mirrored or persisted output.
+
+For implementation review:
+
+- Workflow-affecting changes should include a short boundary review.
+- The review should confirm:
+  - who owns final truth
+  - whether a second control path was introduced
+  - whether authority or stage ownership changed
+  - whether design and runbook docs need updating
+
+For stage evaluation metadata:
+
+- Preserve structured provenance only when it supports evaluation, auditing, or drop-reason analysis.
+- Do not accumulate free-form stage metadata without a clear measurement purpose.

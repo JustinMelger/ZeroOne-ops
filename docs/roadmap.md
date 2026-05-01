@@ -82,7 +82,7 @@ Implementation phases:
     final accepted findings, and continuity outcomes
   - add review-phase checks to prevent candidate-stage or artifact-builder
     authority drift
-- [ ] Phase 4: Artifact Builder
+- [x] Phase 4: Artifact Builder
   - introduce a dedicated artifact-building step that converts reconciled
     review meaning into publish-shaped output
   - keep presentation deterministic without changing review meaning
@@ -107,6 +107,12 @@ Implementation phases:
   - add same-SHA stability checks and contradiction-focused evaluator coverage
   - review each implementation phase for boundary erosion and pause when stage
     ownership becomes ambiguous
+  - remove transitional compatibility adapters once the staged pipeline is the
+    only real review path
+  - retire legacy `ReviewResult`-to-artifact adaptation from the publisher once
+    artifact building is fully authoritative
+  - remove compatibility-only runner and test seams that still assume the old
+    compressed review flow
 
 ### 4. Cleanup
 
