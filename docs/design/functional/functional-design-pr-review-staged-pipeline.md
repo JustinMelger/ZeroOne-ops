@@ -109,6 +109,7 @@ The candidate pass should:
 
 - analyze the merge request with broader evidence-first recall,
 - generate structured candidate findings,
+- preserve structured location fields when the visible evidence supports them,
 - allow more exploration than the final published artifact should,
 - avoid acting as the final verdict authority.
 
@@ -117,6 +118,15 @@ It should not:
 - publish the final review note,
 - own unresolved/new/resolved continuity decisions,
 - decide whether a contradictory final artifact is acceptable to publish.
+
+Structured location data at this stage should stay minimal and optional:
+
+- file path,
+- line or line range when confidently supported,
+- region hint or bounded evidence reference when exact line confidence is lower.
+
+If location is uncertain, the candidate output should leave it unset rather
+than guessing.
 
 ## 8. Reconciliation / Precision Pass
 
@@ -136,6 +146,63 @@ Expected responsibilities:
 - final survival of candidate findings,
 - final authority on whether the review is `no_findings`,
   `findings_present`, or `manual_review_only`.
+
+When implemented as an LLM-driven precision pass, this stage should remain
+candidate-bounded rather than turning into a second general-purpose reviewer.
+
+Expected precision-pass input shape:
+
+- the current reviewed diff and bounded supporting context,
+- the candidate finding set from the candidate stage,
+- prior-review context and overlap context when available,
+- clear instructions that candidate findings are the primary decision set.
+
+Expected precision-pass output shape:
+
+- which candidates survive,
+- which candidates are dropped,
+- the structured drop reason for each dropped candidate,
+- an optional short note for each dropped candidate explaining the specific
+  local fact that made that drop reason apply,
+- the final review classification,
+- bounded final reasoning for that classification,
+- structured finding location data when the issue is grounded enough to support
+  later inline-comment publishing.
+
+The final classification returned by the precision pass should remain
+first-class output, not something inferred later by packaging logic.
+
+`manual_review_only` should remain an allowed precision-pass outcome when the
+candidate set and visible context are still insufficient for a trustworthy
+final review decision.
+
+This should be treated as a reconciliation-owned classification outcome rather
+than a vague intermediate confidence signal to be reinterpreted later by app
+logic.
+
+Expected precision-pass restrictions:
+
+- it may accept, narrow, or drop candidate findings,
+- it may use prior context to decide unresolved, resolved, or new continuity
+  outcomes,
+- it must not rediscover the merge request from scratch,
+- it must not invent brand-new findings outside the candidate set in the first
+  implementation,
+- it must not silently expand scope beyond the bounded candidate evidence it
+  was asked to judge.
+
+This keeps the precision pass optimized for judgment and pruning rather than
+recall.
+
+Location data in the reconciled output should remain structured rather than
+rendered:
+
+- file path,
+- line or line range when confidently known,
+- evidence snippet or bounded reference when useful.
+
+That allows later app-owned output modes such as inline comments without making
+reconciliation itself responsible for transport or presentation.
 
 ## 9. Validator / Artifact Consistency Gate
 

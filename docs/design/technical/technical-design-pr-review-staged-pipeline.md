@@ -170,6 +170,7 @@ Recommended preserved metadata:
 - candidate category or finding type,
 - short evidence summary,
 - candidate confidence or uncertainty when present,
+- structured location fields when visible evidence supports them,
 - reconciliation outcome,
 - reconciliation drop reason code when dropped,
 - final published finding identifier when the candidate survives.
@@ -180,6 +181,16 @@ This should be enough to evaluate:
 - why candidates were dropped,
 - whether candidate quality is improving over time,
 - whether certain candidate classes are systematically weak or unstable.
+
+Recommended candidate location fields:
+
+- file path,
+- optional line or line range,
+- optional region hint,
+- optional bounded evidence reference.
+
+These should remain nullable when the candidate stage cannot support them
+confidently.
 
 ## 7. Reconciled Final Artifact Contract
 
@@ -202,6 +213,53 @@ Recommended boundary:
 - artifact building packages that result into publish-shaped form,
 - validator checks the publish-shaped artifact for contradiction and coherence
   before normal publish.
+
+When reconciliation becomes LLM-assisted rather than purely deterministic, the
+precision-pass prompt contract should stay candidate-bounded.
+
+Recommended prompt contract:
+
+- inputs should include:
+  - the candidate artifact,
+  - the current reviewed diff and bounded code context,
+  - prior-review and overlap context when available,
+  - explicit instructions that the candidate set is the primary search space
+    for final survival decisions
+- outputs should include:
+  - accepted candidate identifiers,
+  - dropped candidate identifiers,
+  - structured drop reasons from a fixed enum,
+  - optional short notes for dropped candidates when one precise local fact
+    helps explain why the enum applied,
+  - final classification,
+  - bounded decision rationale
+- the prompt should explicitly forbid:
+  - rediscovering the merge request from scratch,
+  - inventing brand-new findings outside the candidate set in the first
+    implementation,
+  - acting like the final artifact validator or note renderer
+
+Recommended output semantics:
+
+- use the fixed drop-reason enum as the primary machine-readable decision,
+- keep optional short notes brief and case-specific rather than free-form
+  essays,
+- allow the precision pass to return the final classification directly,
+- keep `manual_review_only` available in the output contract when visible
+  context is insufficient for a trustworthy decision.
+
+Recommended classification ownership:
+
+- allow the precision pass to emit `manual_review_only` directly when the
+  candidate set plus visible context are insufficient for a trustworthy final
+  decision,
+- do not replace that with a vague intermediary confidence signal that later
+  app logic must reinterpret,
+- keep validator-driven downgrade to `manual_review_only` as a separate later
+  publish-safety path rather than conflating it with reconciliation meaning.
+
+That contract is what keeps an LLM-driven precision pass from collapsing back
+into a second broad review pass.
 
 This keeps review judgment separate from presentation without deferring too
 much final meaning until the very end.
@@ -258,6 +316,18 @@ Recommended semantics:
 - it should not contain final markdown or note-template formatting,
 - it should preserve candidate-to-final provenance without carrying excessive
   internal candidate detail forward.
+- it should preserve validated structured location data for later output modes
+  such as inline comments, without making reconciliation responsible for
+  transport.
+
+Recommended rollout approach for the first LLM-assisted precision pass:
+
+- replace the current deterministic reconciliation path directly in the test
+  environment,
+- avoid carrying a dual reconciliation path during the first staged rollout,
+- keep validator fallback and boundary reviews tight so the replacement is
+  evaluated as one coherent workflow rather than as two drifting
+  implementations.
 
 ## 8. Publish-Shaped Artifact Contract
 

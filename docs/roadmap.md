@@ -88,19 +88,31 @@ Implementation phases:
   - keep presentation deterministic without changing review meaning
   - add tests that prove packaging changes do not alter classification or
     accepted findings
-- [ ] Phase 5: Validator Gate
+- [x] Phase 5a: Candidate Prompt And Validator Gate
   - review the candidate-stage review prompt so it is optimized for
     evidence-backed recall rather than final verdict authority
   - add a strict first validator focused on contradiction-heavy high-trust
     failure classes from the live feedback log
   - validate publish-shaped artifacts only, not as a second reconciler
-  - update the reconciliation / precision prompt so it reflects the new stage
-    responsibilities and does not behave like a second candidate-generation
-    pass
   - rename stage services and files where needed so names reflect the new
     responsibilities rather than older single-flow review terminology
   - support downgrade to `manual_review_only` when a trustworthy publish
     artifact cannot be produced
+- [ ] Phase 5b: LLM Precision Pass
+  - update the reconciliation / precision prompt so it reflects the new stage
+    responsibilities and does not behave like a second candidate-generation
+    pass
+  - implement the LLM-assisted precision pass as candidate-bounded judgment,
+    not as a second free-form merge-request review
+  - use a fixed drop-reason enum plus optional short, case-specific notes in
+    precision-pass output
+  - allow the precision pass to return final classification directly,
+    including `manual_review_only` when visible context is insufficient for a
+    trustworthy final decision
+  - preserve minimal structured location fields in candidate and reconciled
+    outputs for later app-owned output modes such as inline comments
+  - replace the current deterministic reconciliation path directly in the test
+    environment rather than carrying a dual path during first rollout
 - [ ] Phase 6: Bounded Repair Path
   - add artifact-level repair for narrow contradiction classes that can be
     corrected without changing reconciled review meaning
