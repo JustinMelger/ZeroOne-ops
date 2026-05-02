@@ -341,13 +341,7 @@ def _format_precision_prior_review_context(prior_pass: PriorReviewPass | None) -
     finding_lines = (
         "\n".join(
             [
-                "- "
-                + finding.summary
-                + (
-                    f" [symbol={finding.symbol}]"
-                    if finding.symbol
-                    else ""
-                )
+                "- " + finding.summary + (f" [symbol={finding.symbol}]" if finding.symbol else "")
                 for finding in prior_pass.findings
             ]
         )

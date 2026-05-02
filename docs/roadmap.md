@@ -98,7 +98,7 @@ Implementation phases:
     responsibilities rather than older single-flow review terminology
   - support downgrade to `manual_review_only` when a trustworthy publish
     artifact cannot be produced
-- [ ] Phase 5b: LLM Precision Pass
+- [x] Phase 5b: LLM Precision Pass
   - update the reconciliation / precision prompt so it reflects the new stage
     responsibilities and does not behave like a second candidate-generation
     pass
@@ -113,25 +113,30 @@ Implementation phases:
     outputs for later app-owned output modes such as inline comments
   - replace the current deterministic reconciliation path directly in the test
     environment rather than carrying a dual path during first rollout
-- [ ] Phase 6: Bounded Repair Path
-  - add artifact-level repair for narrow contradiction classes that can be
-    corrected without changing reconciled review meaning
-  - record repaired publish outcomes as workflow provenance rather than a new
-    operator-facing verdict class
-  - downgrade instead of repairing when coherence would require changing final
-    review truth
-- [ ] Phase 7: Evaluation And Hardening
-  - evaluate candidate-stage quality using preserved candidate metadata and
-    reconciliation outcomes
-  - add same-SHA stability checks and contradiction-focused evaluator coverage
-  - review each implementation phase for boundary erosion and pause when stage
-    ownership becomes ambiguous
+- [ ] Phase 6: Adapter Cleanup And Staged-Path Consolidation
   - remove transitional compatibility adapters once the staged pipeline is the
     only real review path
   - retire legacy `ReviewResult`-to-artifact adaptation from the publisher once
     artifact building is fully authoritative
   - remove compatibility-only runner and test seams that still assume the old
     compressed review flow
+  - confirm that candidate generation, precision, artifact building, and
+    validation each have a single active production path
+- [ ] Phase 7: Evaluation And Hardening
+  - evaluate candidate-stage quality using preserved candidate metadata and
+    reconciliation outcomes
+  - add same-SHA stability checks and contradiction-focused evaluator coverage
+  - review each implementation phase for boundary erosion and pause when stage
+    ownership becomes ambiguous
+- [ ] Phase 8: Bounded Repair Path
+  - add artifact-level repair for narrow contradiction classes that can be
+    corrected without changing reconciled review meaning
+  - design repair rules from real validator downgrade examples observed during
+    staged-pipeline testing rather than speculative cases
+  - record repaired publish outcomes as workflow provenance rather than a new
+    operator-facing verdict class
+  - downgrade instead of repairing when coherence would require changing final
+    review truth
 
 ### 4. Cleanup
 

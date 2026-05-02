@@ -920,8 +920,7 @@ def test_openai_review_precision_reconciliation_uses_high_reasoning() -> None:
                 review_classification="no_findings",
                 decision_summary="No grounded candidates survive precision review.",
                 decision_rationale=(
-                    "The grounded candidate set does not justify an actionable "
-                    "finding."
+                    "The grounded candidate set does not justify an actionable finding."
                 ),
                 confidence_level=0.88,
                 accepted_findings=[],

@@ -189,9 +189,7 @@ class ReviewReconciliationService:
         dropped_candidate_id_list = [
             candidate.candidate_id for candidate in precision_decision.dropped_candidates
         ]
-        dropped_candidate_ids = {
-            candidate_id for candidate_id in dropped_candidate_id_list
-        }
+        dropped_candidate_ids = {candidate_id for candidate_id in dropped_candidate_id_list}
         if not dropped_candidate_ids.issubset(active_candidate_ids):
             return self._invalid_precision_fallback(
                 context=context,
@@ -207,9 +205,7 @@ class ReviewReconciliationService:
         if accepted_source_ids & dropped_candidate_ids:
             return self._invalid_precision_fallback(
                 context=context,
-                message=(
-                    "Precision pass both retained and dropped the same grounded candidate."
-                ),
+                message=("Precision pass both retained and dropped the same grounded candidate."),
                 dropped_candidates=grounding_dropped_candidates,
             )
 
@@ -224,8 +220,7 @@ class ReviewReconciliationService:
             return self._invalid_precision_fallback(
                 context=context,
                 message=(
-                    "Precision pass returned accepted findings with a non-findings "
-                    "classification."
+                    "Precision pass returned accepted findings with a non-findings classification."
                 ),
                 dropped_candidates=grounding_dropped_candidates,
             )
@@ -234,10 +229,7 @@ class ReviewReconciliationService:
         if covered_candidate_ids != active_candidate_ids:
             return self._invalid_precision_fallback(
                 context=context,
-                message=(
-                    "Precision pass did not account for every grounded candidate "
-                    "explicitly."
-                ),
+                message=("Precision pass did not account for every grounded candidate explicitly."),
                 dropped_candidates=grounding_dropped_candidates,
             )
 
