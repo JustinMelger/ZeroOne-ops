@@ -64,3 +64,19 @@ def test_build_manual_review_only_fallback_preserves_follow_up_lines() -> None:
     assert fallback.classification == "manual_review_only"
     assert fallback.follow_up_lines == artifact.follow_up_lines
     assert "internally inconsistent artifact" in fallback.summary
+
+
+def test_validate_accepts_benign_no_findings_reasoning() -> None:
+    result = ReviewArtifactValidator().validate(
+        PublishableReviewArtifact(
+            classification="no_findings",
+            summary="No actionable findings in this review pass.",
+            review_confidence_reason=(
+                "The reviewed change is deterministic and behavior-preserving."
+            ),
+            findings=[],
+        )
+    )
+
+    assert result.status == "valid"
+    assert result.issues == []

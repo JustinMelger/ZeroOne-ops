@@ -13,7 +13,9 @@ from zeroone_ops.models.review import (
     ReviewResult,
 )
 from zeroone_ops.providers.llm_client import LLMClientError
-from zeroone_ops.services.review.review_candidate_service import ReviewCandidateService
+from zeroone_ops.services.review.review_candidate_generation_service import (
+    ReviewCandidateGenerationService,
+)
 
 
 def build_config() -> AppConfig:
@@ -69,7 +71,7 @@ class FakeReviewErrorClient:
 
 
 def test_analyze_returns_explicit_candidate_stage_result(monkeypatch) -> None:
-    service = ReviewCandidateService(build_config())
+    service = ReviewCandidateGenerationService(build_config())
     monkeypatch.setattr(
         service,
         "_build_llm_client",
@@ -103,7 +105,7 @@ def test_analyze_returns_explicit_candidate_stage_result(monkeypatch) -> None:
 
 
 def test_analyze_tracks_dropped_candidate_metadata(monkeypatch) -> None:
-    service = ReviewCandidateService(build_config())
+    service = ReviewCandidateGenerationService(build_config())
     monkeypatch.setattr(
         service,
         "_build_llm_client",
@@ -139,7 +141,7 @@ def test_analyze_tracks_dropped_candidate_metadata(monkeypatch) -> None:
 
 
 def test_analyze_reports_structured_review_failure(monkeypatch) -> None:
-    service = ReviewCandidateService(build_config())
+    service = ReviewCandidateGenerationService(build_config())
     monkeypatch.setattr(service, "_build_llm_client", lambda: FakeReviewErrorClient())
 
     result = service.analyze(build_context())

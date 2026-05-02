@@ -3372,7 +3372,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_service.ReviewCandidateService.analyze",
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -3473,7 +3473,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_service.ReviewCandidateService.analyze",
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -3638,7 +3638,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_service.ReviewCandidateService.analyze",
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -3778,7 +3778,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_service.ReviewCandidateService.analyze",
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -4001,7 +4001,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_service.ReviewCandidateService.analyze",
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -4177,7 +4177,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_service.ReviewCandidateService.analyze",
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),

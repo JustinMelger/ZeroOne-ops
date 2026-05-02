@@ -20,7 +20,7 @@ from zeroone_ops.models.review import (
     ReviewFinding,
     ReviewResult,
 )
-from zeroone_ops.services.review.review_candidate_service import (
+from zeroone_ops.services.review.review_candidate_generation_service import (
     ReviewCandidateStageResult,
 )
 from zeroone_ops.services.review.review_reconciliation_service import (
