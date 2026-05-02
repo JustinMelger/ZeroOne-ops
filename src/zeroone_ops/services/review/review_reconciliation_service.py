@@ -11,6 +11,7 @@ from zeroone_ops.models.review import (
     ContinuityStatus,
     DroppedCandidate,
     MergeRequestReviewContext,
+    OverlapPacket,
     OverlapReconciliationResult,
     PrecisionAcceptedFinding,
     PrecisionReviewDecision,
@@ -292,7 +293,7 @@ class ReviewReconciliationService:
         *,
         context: MergeRequestReviewContext,
         active_candidates: list[CandidateReviewFinding],
-    ):
+    ) -> OverlapPacket | None:
         """Build bounded overlap hints for the precision prompt when candidates exist."""
         if not active_candidates:
             return None

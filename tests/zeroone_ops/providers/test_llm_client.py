@@ -39,7 +39,6 @@ from zeroone_ops.providers.llm_prompts import (
     build_candidate_review_prompt,
     build_review_overlap_prompt,
     build_review_precision_prompt,
-    build_review_prompt,
     build_structured_edit_prompt,
     load_prompt_template,
     render_prompt_template,
@@ -454,10 +453,8 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "Remediation-authored context:\n(none)" in prompt
     assert "<<BEGIN UNTRUSTED Changed file: src/service.py>>" in prompt
 
-    assert build_review_prompt(context) == prompt
 
-
-def test_build_review_prompt_includes_preloaded_input_context_guardrail() -> None:
+def test_build_candidate_review_prompt_includes_preloaded_input_context_guardrail() -> None:
     context = MergeRequestReviewContext(
         mr_iid=370,
         title="refactor: preload vehicle menu ids",
@@ -486,7 +483,7 @@ def test_build_review_prompt_includes_preloaded_input_context_guardrail() -> Non
         ],
     )
 
-    prompt = build_review_prompt(context)
+    prompt = build_candidate_review_prompt(context)
 
     assert "Use the changed code and immediate local context as primary evidence." in prompt
     assert "Make the narrowest claim the visible code supports." in prompt
@@ -494,7 +491,7 @@ def test_build_review_prompt_includes_preloaded_input_context_guardrail() -> Non
     assert "Only report issues grounded in:" in prompt
 
 
-def test_build_review_prompt_renders_supporting_helper_context() -> None:
+def test_build_candidate_review_prompt_renders_supporting_helper_context() -> None:
     context = MergeRequestReviewContext(
         mr_iid=18,
         title="refactor: use helper",
@@ -525,7 +522,7 @@ def test_build_review_prompt_renders_supporting_helper_context() -> None:
         ],
     )
 
-    prompt = build_review_prompt(context)
+    prompt = build_candidate_review_prompt(context)
 
     assert "Supporting helper context:" in prompt
     assert "<<BEGIN UNTRUSTED Supporting helper: helper>>" in prompt
@@ -534,7 +531,7 @@ def test_build_review_prompt_renders_supporting_helper_context() -> None:
     assert "def helper" in prompt
 
 
-def test_build_review_prompt_includes_remediation_context_when_present() -> None:
+def test_build_candidate_review_prompt_includes_remediation_context_when_present() -> None:
     context = MergeRequestReviewContext(
         mr_iid=17,
         title="fix: add null guard",
@@ -570,7 +567,7 @@ def test_build_review_prompt_includes_remediation_context_when_present() -> None
         ],
     )
 
-    prompt = build_review_prompt(context)
+    prompt = build_candidate_review_prompt(context)
 
     assert "Remediation-authored context:" in prompt
     assert "Summary: Add a null guard before dereferencing the service result." in prompt
@@ -578,7 +575,7 @@ def test_build_review_prompt_includes_remediation_context_when_present() -> None
     assert "Validation: All validation commands passed." in prompt
 
 
-def test_build_review_prompt_omits_prior_review_context_even_when_present() -> None:
+def test_build_candidate_review_prompt_omits_prior_review_context_even_when_present() -> None:
     context = MergeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
@@ -617,7 +614,7 @@ def test_build_review_prompt_omits_prior_review_context_even_when_present() -> N
         ],
     )
 
-    prompt = build_review_prompt(context)
+    prompt = build_candidate_review_prompt(context)
 
     assert "Prior review context:" not in prompt
     assert "review `prior_review_context`" not in prompt

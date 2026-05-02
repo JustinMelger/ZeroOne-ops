@@ -113,7 +113,7 @@ Implementation phases:
     outputs for later app-owned output modes such as inline comments
   - replace the current deterministic reconciliation path directly in the test
     environment rather than carrying a dual path during first rollout
-- [ ] Phase 6: Adapter Cleanup And Staged-Path Consolidation
+- [x] Phase 6: Adapter Cleanup And Staged-Path Consolidation
   - remove transitional compatibility adapters once the staged pipeline is the
     only real review path
   - retire legacy `ReviewResult`-to-artifact adaptation from the publisher once

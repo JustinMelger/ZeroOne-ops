@@ -4,19 +4,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
 
 from zeroone_ops.models.gitlab import MergeRequestNote
 from zeroone_ops.models.review import (
     MergeRequestReviewContext,
-    OverlapReconciliationResult,
     PublishableReviewArtifact,
-    ReconciledReviewDecision,
-    ReviewResult,
 )
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_review_client import GitLabReviewClientProtocol
-from zeroone_ops.services.review.review_artifact_builder import ReviewArtifactBuilder
 
 
 @dataclass(frozen=True)
@@ -34,38 +29,6 @@ class ReviewPublisher:
     def __init__(self, review_client: GitLabReviewClientProtocol) -> None:
         """Initialize the review publisher."""
         self.review_client = review_client
-
-    def publish(
-        self,
-        *,
-        project_id: str,
-        merge_request_iid: int,
-        context: MergeRequestReviewContext,
-        review_result: ReviewResult,
-        overlap_result: OverlapReconciliationResult | None = None,
-    ) -> ReviewPublishResult:
-        """Publish one deterministic review summary note."""
-        artifact = _artifact_from_review_result(
-            review_result=review_result,
-            overlap_result=overlap_result,
-        )
-        body = self.render_artifact(
-            context=context,
-            artifact=artifact,
-        )
-        try:
-            note = self.review_client.create_merge_request_note(
-                project_id=project_id,
-                merge_request_iid=merge_request_iid,
-                body=body,
-            )
-        except GitLabClientError as error:
-            return ReviewPublishResult(
-                note=None,
-                body=body,
-                error_message=f"Review note publish failed: {error}",
-            )
-        return ReviewPublishResult(note=note, body=body)
 
     def publish_artifact(
         self,
@@ -93,20 +56,6 @@ class ReviewPublisher:
                 error_message=f"Review note publish failed: {error}",
             )
         return ReviewPublishResult(note=note, body=body)
-
-    def render_note(
-        self,
-        *,
-        context: MergeRequestReviewContext,
-        review_result: ReviewResult,
-        overlap_result: OverlapReconciliationResult | None = None,
-    ) -> str:
-        """Render one deterministic review note body from the legacy review result shape."""
-        artifact = _artifact_from_review_result(
-            review_result=review_result,
-            overlap_result=overlap_result,
-        )
-        return self.render_artifact(context=context, artifact=artifact)
 
     def render_artifact(
         self,
@@ -197,19 +146,6 @@ def _render_confidence_lines(artifact: PublishableReviewArtifact) -> list[str]:
     return lines
 
 
-def _artifact_from_review_result(
-    *,
-    review_result: ReviewResult,
-    overlap_result: OverlapReconciliationResult | None,
-) -> PublishableReviewArtifact:
-    """Adapt the legacy review-result path into the publish-shaped artifact shape."""
-    artifact_builder = ReviewArtifactBuilder()
-    return artifact_builder.build(
-        reconciled_decision=_reconciled_decision_from_review_result(review_result),
-        overlap_result=overlap_result,
-    ).artifact
-
-
 def _render_machine_safe_block(
     *,
     context: MergeRequestReviewContext,
@@ -241,17 +177,3 @@ def _render_machine_safe_block(
         json.dumps(payload, sort_keys=True, separators=(",", ":")),
         "-->",
     ]
-
-
-def _reconciled_decision_from_review_result(
-    review_result: ReviewResult,
-) -> ReconciledReviewDecision:
-    """Build a minimal reconciled decision adapter for legacy publisher calls."""
-    return ReconciledReviewDecision.from_review_result(
-        review_result,
-        prior_review_context_used=False,
-        same_sha_review=False,
-        repair_allowed=review_result.classification != "manual_review_only",
-        reconciled_at=datetime.now(UTC),
-        pipeline_version="review-legacy-adapter",
-    )

@@ -270,58 +270,6 @@ class ReconciledReviewDecision(BaseModel):
     pipeline_version: str
 
     @classmethod
-    def from_review_result(
-        cls,
-        review_result: ReviewResult,
-        *,
-        prior_review_context_used: bool,
-        same_sha_review: bool,
-        repair_allowed: bool,
-        reconciled_at: datetime,
-        pipeline_version: str,
-    ) -> ReconciledReviewDecision:
-        """Adapt the current review result into the staged reconciliation contract."""
-        accepted_findings = [
-            ReconciledFinding(
-                finding_id=f"finding-{index}",
-                severity=finding.severity,
-                file_path=finding.file_path,
-                line_start=finding.line_start,
-                line_end=finding.line_end,
-                symbol=finding.symbol,
-                issue_kind=finding.issue_kind,
-                region_hint=finding.region_hint,
-                title=finding.title,
-                summary=finding.title,
-                evidence=[finding.evidence],
-                diff_references=[
-                    DiffReference(
-                        file_path=finding.file_path,
-                        start_line=finding.line_start,
-                        end_line=finding.line_end,
-                    )
-                ],
-                file_paths=[finding.file_path],
-                why_it_matters=finding.explanation,
-                recommended_follow_up=finding.suggested_follow_up,
-            )
-            for index, finding in enumerate(review_result.findings, start=1)
-        ]
-        return cls(
-            review_classification=review_result.classification,
-            decision_summary=review_result.summary,
-            decision_rationale=review_result.review_confidence_reason or review_result.summary,
-            confidence_level=review_result.review_confidence,
-            accepted_findings=accepted_findings,
-            dropped_candidates=[],
-            prior_review_context_used=prior_review_context_used,
-            same_sha_review=same_sha_review,
-            repair_allowed=repair_allowed,
-            reconciled_at=reconciled_at,
-            pipeline_version=pipeline_version,
-        )
-
-    @classmethod
     def from_precision_decision(
         cls,
         precision_decision: PrecisionReviewDecision,

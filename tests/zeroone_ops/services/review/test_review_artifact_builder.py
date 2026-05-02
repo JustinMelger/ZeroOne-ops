@@ -3,39 +3,43 @@ from datetime import UTC, datetime
 from zeroone_ops.models.review import (
     OverlapReconciliationResult,
     OverlapResolution,
+    PrecisionAcceptedFinding,
+    PrecisionReviewDecision,
     ReconciledReviewDecision,
-    ReviewFinding,
-    ReviewResult,
 )
 from zeroone_ops.services.review.review_artifact_builder import ReviewArtifactBuilder
 
 
 def build_decision(classification: str = "findings_present") -> ReconciledReviewDecision:
-    findings = (
-        []
-        if classification != "findings_present"
-        else [
-            ReviewFinding(
-                severity="medium",
-                file_path="src/service.py",
-                title="Missing regression coverage",
-                evidence="The diff changes `value = 1` to `value = 2` without test updates.",
-                explanation="The branch behavior changes without regression coverage.",
-                suggested_follow_up="Add a regression test.",
-            )
-        ]
-    )
-    return ReconciledReviewDecision.from_review_result(
-        ReviewResult(
-            classification=classification,
-            summary=(
+    return ReconciledReviewDecision.from_precision_decision(
+        PrecisionReviewDecision(
+            review_classification=classification,
+            decision_summary=(
                 "One medium-risk finding."
                 if classification == "findings_present"
                 else "No findings."
             ),
-            review_confidence=0.84,
-            review_confidence_reason="The finding is grounded in the reviewed diff.",
-            findings=findings,
+            decision_rationale="The finding is grounded in the reviewed diff.",
+            confidence_level=0.84,
+            accepted_findings=(
+                []
+                if classification != "findings_present"
+                else [
+                    PrecisionAcceptedFinding(
+                        source_candidate_ids=["candidate-1"],
+                        severity="medium",
+                        file_path="src/service.py",
+                        title="Missing regression coverage",
+                        summary="Missing regression coverage",
+                        evidence=[
+                            "The diff changes `value = 1` to `value = 2` without test updates."
+                        ],
+                        why_it_matters=("The branch behavior changes without regression coverage."),
+                        recommended_follow_up="Add a regression test.",
+                    )
+                ]
+            ),
+            dropped_candidates=[],
         ),
         prior_review_context_used=False,
         same_sha_review=False,

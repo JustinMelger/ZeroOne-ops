@@ -140,11 +140,6 @@ def build_candidate_review_prompt(context: MergeRequestReviewContext) -> str:
     )
 
 
-def build_review_prompt(context: MergeRequestReviewContext) -> str:
-    """Compatibility wrapper for the candidate-stage review prompt."""
-    return build_candidate_review_prompt(context)
-
-
 def build_review_precision_prompt(
     context: MergeRequestReviewContext,
     *,

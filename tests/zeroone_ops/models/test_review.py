@@ -6,6 +6,8 @@ from zeroone_ops.models.review import (
     CandidateReviewFinding,
     CandidateReviewResult,
     DroppedCandidate,
+    PrecisionAcceptedFinding,
+    PrecisionReviewDecision,
     PublishableReviewArtifact,
     ReconciledReviewDecision,
     ReviewFinding,
@@ -59,11 +61,38 @@ def test_candidate_review_result_preserves_non_authoritative_provenance() -> Non
     )
 
 
-def test_reconciled_review_decision_from_review_result_preserves_review_meaning() -> None:
+def build_precision_decision() -> PrecisionReviewDecision:
     review_result = build_review_result()
+    finding = review_result.findings[0]
+    return PrecisionReviewDecision(
+        review_classification=review_result.classification,
+        decision_summary=review_result.summary,
+        decision_rationale=review_result.review_confidence_reason or review_result.summary,
+        confidence_level=review_result.review_confidence,
+        accepted_findings=[
+            PrecisionAcceptedFinding(
+                source_candidate_ids=[],
+                severity=finding.severity,
+                file_path=finding.file_path,
+                line_start=finding.line_start,
+                line_end=finding.line_end,
+                symbol=finding.symbol,
+                issue_kind=finding.issue_kind,
+                region_hint=finding.region_hint,
+                title=finding.title,
+                summary=finding.title,
+                evidence=[finding.evidence],
+                why_it_matters=finding.explanation,
+                recommended_follow_up=finding.suggested_follow_up,
+            )
+        ],
+        dropped_candidates=[],
+    )
 
-    decision = ReconciledReviewDecision.from_review_result(
-        review_result,
+
+def test_reconciled_review_decision_from_precision_decision_preserves_review_meaning() -> None:
+    decision = ReconciledReviewDecision.from_precision_decision(
+        build_precision_decision(),
         prior_review_context_used=True,
         same_sha_review=False,
         repair_allowed=True,
@@ -88,8 +117,8 @@ def test_reconciled_review_decision_from_review_result_preserves_review_meaning(
 
 
 def test_publishable_review_artifact_from_reconciled_decision_preserves_boundaries() -> None:
-    decision = ReconciledReviewDecision.from_review_result(
-        build_review_result(),
+    decision = ReconciledReviewDecision.from_precision_decision(
+        build_precision_decision(),
         prior_review_context_used=False,
         same_sha_review=True,
         repair_allowed=False,
@@ -127,8 +156,8 @@ def test_publishable_review_artifact_from_reconciled_decision_preserves_boundari
 
 def test_artifact_validation_result_can_capture_repair_or_rejection_outcomes() -> None:
     artifact = PublishableReviewArtifact.from_reconciled_decision(
-        ReconciledReviewDecision.from_review_result(
-            build_review_result(),
+        ReconciledReviewDecision.from_precision_decision(
+            build_precision_decision(),
             prior_review_context_used=False,
             same_sha_review=False,
             repair_allowed=True,
