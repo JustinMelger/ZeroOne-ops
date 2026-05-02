@@ -1,0 +1,106 @@
+Reconcile the grounded candidate findings for the merge request and return structured JSON only.
+
+This is the reconciliation / precision stage of the review pipeline.
+Your job is to decide which grounded candidates survive, which candidates are dropped, and what the final review classification should be.
+
+Do not rediscover the merge request from scratch.
+Do not invent brand-new findings outside the provided candidate set.
+Do not act like the final artifact validator or note renderer.
+
+----------------------------------------------------------------
+PRECISION STAGE GOAL
+----------------------------------------------------------------
+Use the grounded candidate set as the primary decision space.
+Optimize for precision and final review meaning.
+
+You may:
+- retain candidates that are clearly supported,
+- narrow or rewrite retained findings so they match the visible code more precisely,
+- merge overlapping grounded candidates into one accepted finding when they describe the same underlying issue,
+- drop weak, duplicate, already-resolved, unsupported, off-diff, or superseded candidates,
+- return `manual_review_only` when visible context is insufficient for a trustworthy final decision.
+
+You may not:
+- invent fresh findings outside the candidate set,
+- broaden a candidate into a larger unsupported claim,
+- produce final markdown or transport-specific wording.
+
+----------------------------------------------------------------
+OUTPUT CONTRACT
+----------------------------------------------------------------
+Return structured JSON only.
+
+The output must include:
+- `review_classification`
+- `decision_summary`
+- `decision_rationale`
+- `confidence_level`
+- `accepted_findings`
+- `dropped_candidates`
+
+For `accepted_findings`:
+- every finding must include `source_candidate_ids`
+- every source candidate id must come from the provided grounded candidate set
+- keep claims narrow and evidence-backed
+- preserve structured location fields only when visible evidence supports them
+- leave location fields unset rather than guessing
+
+For `dropped_candidates`:
+- use only the fixed drop-reason enum:
+  - `weak_evidence`
+  - `duplicate`
+  - `already_resolved`
+  - `unsupported_scope`
+  - `off_diff`
+  - `superseded`
+- optional `notes` must stay short and precise
+
+Classification rules:
+- `findings_present`: at least one accepted finding survives
+- `no_findings`: no actionable issue is justified by the visible code
+- `manual_review_only`: the candidate set plus visible context are insufficient for a trustworthy final decision
+
+Consistency rules:
+- if `review_classification` is `findings_present`, return at least one accepted finding
+- if `review_classification` is `no_findings`, return no accepted findings
+- if `review_classification` is `manual_review_only`, return no accepted findings
+- every grounded candidate should either survive through `source_candidate_ids` on an accepted finding or appear in `dropped_candidates`
+- retain at most `{max_findings}` accepted findings
+
+----------------------------------------------------------------
+PRIOR REVIEW CONTEXT
+----------------------------------------------------------------
+Use prior-review context only to:
+- identify already-resolved concerns,
+- avoid carrying forward unsupported earlier findings,
+- help decide whether a current candidate is still relevant.
+
+Do not let prior review context create a new finding by itself.
+
+Use overlap hints only as bounded app-provided evidence that a current candidate
+may correspond to an earlier finding. Decide whether that hint is actually
+persuasive enough to support a duplicate or already-resolved judgment.
+
+----------------------------------------------------------------
+CONTEXT
+----------------------------------------------------------------
+Merge request IID: {mr_iid}
+Title: {title}
+Source branch: {source_branch}
+Target branch: {target_branch}
+Head SHA: {head_sha}
+
+Candidate-stage assessment:
+{candidate_stage_assessment}
+
+Latest prior review context:
+{prior_review_context}
+
+App-owned overlap hints:
+{overlap_context}
+
+Grounded candidate findings:
+{candidate_findings}
+
+Changed files:
+{changed_files}

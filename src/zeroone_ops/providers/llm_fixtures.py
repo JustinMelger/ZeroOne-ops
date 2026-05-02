@@ -6,7 +6,11 @@ import json
 from pathlib import Path
 
 from zeroone_ops.models.analysis import IssueAnalysis, StructuredEditProposal
-from zeroone_ops.models.review import OverlapReconciliationResult, ReviewResult
+from zeroone_ops.models.review import (
+    OverlapReconciliationResult,
+    PrecisionReviewDecision,
+    ReviewResult,
+)
 
 
 class LLMFixtureError(RuntimeError):
@@ -47,6 +51,15 @@ def load_review_overlap_fixture(path: Path) -> OverlapReconciliationResult:
         return OverlapReconciliationResult.model_validate(payload)
     except Exception as error:
         raise LLMFixtureError("Invalid LLM review overlap fixture structure.") from error
+
+
+def load_review_precision_fixture(path: Path) -> PrecisionReviewDecision:
+    """Load a structured review precision result from a JSON fixture."""
+    payload = _load_fixture_payload(path, fixture_kind="review precision")
+    try:
+        return PrecisionReviewDecision.model_validate(payload)
+    except Exception as error:
+        raise LLMFixtureError("Invalid LLM review precision fixture structure.") from error
 
 
 def _load_fixture_payload(path: Path, *, fixture_kind: str) -> dict[str, object]:

@@ -40,7 +40,10 @@ class ReviewAnalysisService:
             self.config,
             llm_client_builder=self._build_llm_client,
         ).analyze(context)
-        reconciliation_result = ReviewReconciliationService(self.config).reconcile(
+        reconciliation_result = ReviewReconciliationService(
+            self.config,
+            llm_client_builder=self._build_llm_client,
+        ).reconcile(
             context=context,
             candidate_stage_result=candidate_stage_result,
         )

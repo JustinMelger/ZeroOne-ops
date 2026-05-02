@@ -166,6 +166,8 @@ def _candidate_review_result_from_review_result(
                 candidate_id=f"candidate-{index}",
                 severity=finding.severity,
                 file_path=finding.file_path,
+                line_start=finding.line_start,
+                line_end=finding.line_end,
                 symbol=finding.symbol,
                 issue_kind=finding.issue_kind,
                 region_hint=finding.region_hint,

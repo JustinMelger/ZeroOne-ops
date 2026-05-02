@@ -150,6 +150,8 @@ class ReviewFinding(BaseModel):
 
     severity: ReviewFindingSeverity
     file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
     symbol: str | None = None
     issue_kind: str | None = None
     region_hint: str | None = None
@@ -198,6 +200,8 @@ class ReconciledFinding(BaseModel):
     finding_id: str
     severity: ReviewFindingSeverity
     file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
     symbol: str | None = None
     issue_kind: str | None = None
     region_hint: str | None = None
@@ -219,6 +223,35 @@ class DroppedCandidate(BaseModel):
     candidate_id: str
     drop_reason: CandidateDropReason
     notes: str | None = None
+
+
+class PrecisionAcceptedFinding(BaseModel):
+    """Represent one accepted finding returned by the precision stage."""
+
+    source_candidate_ids: list[str] = Field(default_factory=list)
+    severity: ReviewFindingSeverity
+    file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
+    symbol: str | None = None
+    issue_kind: str | None = None
+    region_hint: str | None = None
+    title: str
+    summary: str
+    evidence: list[str] = Field(default_factory=list)
+    why_it_matters: str
+    recommended_follow_up: str | None = None
+
+
+class PrecisionReviewDecision(BaseModel):
+    """Represent the candidate-bounded precision-pass output."""
+
+    review_classification: ReviewClassification
+    decision_summary: str
+    decision_rationale: str
+    confidence_level: float | None = Field(default=None, ge=0.0, le=1.0)
+    accepted_findings: list[PrecisionAcceptedFinding] = Field(default_factory=list)
+    dropped_candidates: list[DroppedCandidate] = Field(default_factory=list)
 
 
 class ReconciledReviewDecision(BaseModel):
@@ -253,13 +286,21 @@ class ReconciledReviewDecision(BaseModel):
                 finding_id=f"finding-{index}",
                 severity=finding.severity,
                 file_path=finding.file_path,
+                line_start=finding.line_start,
+                line_end=finding.line_end,
                 symbol=finding.symbol,
                 issue_kind=finding.issue_kind,
                 region_hint=finding.region_hint,
                 title=finding.title,
                 summary=finding.title,
                 evidence=[finding.evidence],
-                diff_references=[DiffReference(file_path=finding.file_path)],
+                diff_references=[
+                    DiffReference(
+                        file_path=finding.file_path,
+                        start_line=finding.line_start,
+                        end_line=finding.line_end,
+                    )
+                ],
                 file_paths=[finding.file_path],
                 why_it_matters=finding.explanation,
                 recommended_follow_up=finding.suggested_follow_up,
@@ -280,12 +321,94 @@ class ReconciledReviewDecision(BaseModel):
             pipeline_version=pipeline_version,
         )
 
+    @classmethod
+    def from_precision_decision(
+        cls,
+        precision_decision: PrecisionReviewDecision,
+        *,
+        prior_review_context_used: bool,
+        same_sha_review: bool,
+        repair_allowed: bool,
+        reconciled_at: datetime,
+        pipeline_version: str,
+    ) -> ReconciledReviewDecision:
+        """Adapt the precision-pass output into the staged reconciliation contract."""
+        return cls(
+            review_classification=precision_decision.review_classification,
+            decision_summary=precision_decision.decision_summary,
+            decision_rationale=precision_decision.decision_rationale,
+            confidence_level=precision_decision.confidence_level,
+            accepted_findings=[
+                ReconciledFinding(
+                    finding_id=f"finding-{index}",
+                    severity=finding.severity,
+                    file_path=finding.file_path,
+                    line_start=finding.line_start,
+                    line_end=finding.line_end,
+                    symbol=finding.symbol,
+                    issue_kind=finding.issue_kind,
+                    region_hint=finding.region_hint,
+                    title=finding.title,
+                    summary=finding.summary,
+                    evidence=list(finding.evidence),
+                    diff_references=[
+                        DiffReference(
+                            file_path=finding.file_path,
+                            start_line=finding.line_start,
+                            end_line=finding.line_end,
+                        )
+                    ],
+                    file_paths=[finding.file_path],
+                    why_it_matters=finding.why_it_matters,
+                    recommended_follow_up=finding.recommended_follow_up,
+                    source_candidate_ids=list(finding.source_candidate_ids),
+                )
+                for index, finding in enumerate(
+                    precision_decision.accepted_findings,
+                    start=1,
+                )
+            ],
+            dropped_candidates=list(precision_decision.dropped_candidates),
+            prior_review_context_used=prior_review_context_used,
+            same_sha_review=same_sha_review,
+            repair_allowed=repair_allowed,
+            reconciled_at=reconciled_at,
+            pipeline_version=pipeline_version,
+        )
+
+    def to_review_result(self) -> ReviewResult:
+        """Adapt the reconciled decision into the shared review-result shape."""
+        return ReviewResult(
+            classification=self.review_classification,
+            summary=self.decision_summary,
+            review_confidence=self.confidence_level,
+            review_confidence_reason=self.decision_rationale,
+            findings=[
+                ReviewFinding(
+                    severity=finding.severity,
+                    file_path=finding.file_path,
+                    line_start=finding.line_start,
+                    line_end=finding.line_end,
+                    symbol=finding.symbol,
+                    issue_kind=finding.issue_kind,
+                    region_hint=finding.region_hint,
+                    title=finding.title,
+                    evidence=finding.evidence[0] if finding.evidence else "",
+                    explanation=finding.why_it_matters,
+                    suggested_follow_up=finding.recommended_follow_up or "",
+                )
+                for finding in self.accepted_findings
+            ],
+        )
+
 
 class PublishableReviewFinding(BaseModel):
     """Represent one publish-shaped review finding before markdown rendering."""
 
     severity: ReviewFindingSeverity
     file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
     symbol: str | None = None
     issue_kind: str | None = None
     region_hint: str | None = None
@@ -324,6 +447,8 @@ class PublishableReviewArtifact(BaseModel):
                 PublishableReviewFinding(
                     severity=finding.severity,
                     file_path=finding.file_path,
+                    line_start=finding.line_start,
+                    line_end=finding.line_end,
                     symbol=finding.symbol,
                     issue_kind=finding.issue_kind,
                     region_hint=finding.region_hint,
@@ -349,6 +474,8 @@ class PublishableReviewArtifact(BaseModel):
                 ReviewFinding(
                     severity=finding.severity,
                     file_path=finding.file_path,
+                    line_start=finding.line_start,
+                    line_end=finding.line_end,
                     symbol=finding.symbol,
                     issue_kind=finding.issue_kind,
                     region_hint=finding.region_hint,
