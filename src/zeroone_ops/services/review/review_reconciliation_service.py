@@ -15,7 +15,9 @@ from zeroone_ops.models.review import (
     ReviewFinding,
     ReviewResult,
 )
-from zeroone_ops.services.review.review_candidate_service import ReviewCandidateStageResult
+from zeroone_ops.services.review.review_candidate_generation_service import (
+    ReviewCandidateStageResult,
+)
 from zeroone_ops.services.review.review_overlap_analysis_service import (
     ReviewOverlapAnalysisService,
 )

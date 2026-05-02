@@ -90,7 +90,7 @@ class ReviewCandidateStageResult:
     message: str
 
 
-class ReviewCandidateService:
+class ReviewCandidateGenerationService:
     """Generate non-authoritative review candidates and ground them safely."""
 
     def __init__(

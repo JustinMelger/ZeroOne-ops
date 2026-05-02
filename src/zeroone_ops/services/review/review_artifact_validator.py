@@ -12,15 +12,20 @@ _NO_FINDINGS_PHRASES = (
     "no actionable findings",
     "no findings",
 )
-_ACTIONABLE_CONCERN_MARKERS = (
-    "regression",
-    "bug",
-    "break",
-    "broken",
-    "runtime error",
-    "missing validation",
+_ACTIONABLE_CONCERN_PHRASES = (
+    "actionable concern",
     "actionable issue",
-    "deterministic",
+    "deterministic runtime error",
+    "missing validation",
+    "this regression",
+    "the regression",
+    "this bug",
+    "the bug",
+    "runtime error",
+    "breaks runtime behavior",
+    "breaks behavior",
+    "breaks the",
+    "broken behavior",
 )
 
 
@@ -103,7 +108,7 @@ class ReviewArtifactValidator:
                 )
             ]
         if artifact.classification == "no_findings" and any(
-            marker in normalized_summary for marker in _ACTIONABLE_CONCERN_MARKERS
+            phrase in normalized_summary for phrase in _ACTIONABLE_CONCERN_PHRASES
         ):
             return [
                 ArtifactValidationIssue(
@@ -122,7 +127,7 @@ class ReviewArtifactValidator:
             return []
         normalized_reason = artifact.review_confidence_reason.lower()
         if artifact.classification == "no_findings" and any(
-            marker in normalized_reason for marker in _ACTIONABLE_CONCERN_MARKERS
+            phrase in normalized_reason for phrase in _ACTIONABLE_CONCERN_PHRASES
         ):
             return [
                 ArtifactValidationIssue(

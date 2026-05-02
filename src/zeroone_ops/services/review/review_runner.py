@@ -17,7 +17,9 @@ from zeroone_ops.services.review.review_artifact_builder import ReviewArtifactBu
 from zeroone_ops.services.review.review_artifact_validator import (
     ReviewArtifactValidator,
 )
-from zeroone_ops.services.review.review_candidate_service import ReviewCandidateService
+from zeroone_ops.services.review.review_candidate_generation_service import (
+    ReviewCandidateGenerationService,
+)
 from zeroone_ops.services.review.review_context_builder import ReviewContextBuilder
 from zeroone_ops.services.review.review_dashboard_updater import (
     ReviewDashboardUpdater,
@@ -150,7 +152,7 @@ class ReviewRunner:
             },
         )
 
-        candidate_stage_result = ReviewCandidateService(self.config).analyze(context)
+        candidate_stage_result = ReviewCandidateGenerationService(self.config).analyze(context)
         if candidate_stage_result.raw_review_result is None:
             return self.review_state_service.fail_review(
                 record=record,

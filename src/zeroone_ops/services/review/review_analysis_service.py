@@ -10,7 +10,9 @@ from zeroone_ops.models.review import (
     ReviewResult,
 )
 from zeroone_ops.providers.llm_client import FixtureLLMClient, OpenAILLMClient
-from zeroone_ops.services.review.review_candidate_service import ReviewCandidateService
+from zeroone_ops.services.review.review_candidate_generation_service import (
+    ReviewCandidateGenerationService,
+)
 from zeroone_ops.services.review.review_reconciliation_service import (
     ReviewReconciliationService,
 )
@@ -34,7 +36,7 @@ class ReviewAnalysisService:
 
     def analyze(self, context: MergeRequestReviewContext) -> ReviewAnalysisResult:
         """Analyze one merge request context through candidate and reconciliation stages."""
-        candidate_stage_result = ReviewCandidateService(
+        candidate_stage_result = ReviewCandidateGenerationService(
             self.config,
             llm_client_builder=self._build_llm_client,
         ).analyze(context)
