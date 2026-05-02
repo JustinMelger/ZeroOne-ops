@@ -20,6 +20,8 @@ from zeroone_ops.models.review import (
     CandidateReviewResult,
     MergeRequestReviewCandidate,
     MergeRequestReviewContext,
+    PrecisionAcceptedFinding,
+    PrecisionReviewDecision,
     PriorReviewFinding,
     PriorReviewPass,
     ReviewFileContext,
@@ -61,6 +63,69 @@ def build_dashboard_document(*, items: list[DashboardItem]) -> DashboardDocument
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
         title="AI Code Ops Work Queue",
         sections=sections,
+    )
+
+
+class _IntegrationPrecisionClient:
+    def review_precision_reconciliation(
+        self,
+        context: MergeRequestReviewContext,
+        *,
+        candidates: list[CandidateReviewFinding],
+        overlap_packet,
+        candidate_stage_summary: str,
+        candidate_stage_classification: str,
+        candidate_stage_rationale: str,
+        max_findings: int,
+    ) -> PrecisionReviewDecision:
+        del context, overlap_packet, max_findings
+        if candidate_stage_classification == "manual_review_only":
+            return PrecisionReviewDecision(
+                review_classification="manual_review_only",
+                decision_summary=candidate_stage_summary,
+                decision_rationale=candidate_stage_rationale,
+                accepted_findings=[],
+                dropped_candidates=[],
+            )
+        if not candidates:
+            return PrecisionReviewDecision(
+                review_classification="no_findings",
+                decision_summary="No actionable findings after review validation.",
+                decision_rationale=candidate_stage_rationale,
+                accepted_findings=[],
+                dropped_candidates=[],
+            )
+        return PrecisionReviewDecision(
+            review_classification="findings_present",
+            decision_summary=candidate_stage_summary,
+            decision_rationale=candidate_stage_rationale,
+            accepted_findings=[
+                PrecisionAcceptedFinding(
+                    source_candidate_ids=[candidate.candidate_id],
+                    severity=candidate.severity,
+                    file_path=candidate.file_path,
+                    line_start=candidate.line_start,
+                    line_end=candidate.line_end,
+                    symbol=candidate.symbol,
+                    issue_kind=candidate.issue_kind,
+                    region_hint=candidate.region_hint,
+                    title=candidate.title,
+                    summary=candidate.title,
+                    evidence=[candidate.evidence],
+                    why_it_matters=candidate.explanation,
+                    recommended_follow_up=candidate.suggested_follow_up,
+                )
+                for candidate in candidates
+            ],
+            dropped_candidates=[],
+        )
+
+
+def _install_review_precision_fake(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_reconciliation_service."
+        "ReviewReconciliationService._build_llm_client",
+        lambda self: _IntegrationPrecisionClient(),
     )
 
 
@@ -3301,6 +3366,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
 
 
 def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
@@ -3401,6 +3467,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
@@ -3566,6 +3633,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
@@ -3706,6 +3774,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
@@ -3873,6 +3942,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
@@ -4105,6 +4175,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
@@ -4246,6 +4317,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
 
 
 def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeypatch) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")

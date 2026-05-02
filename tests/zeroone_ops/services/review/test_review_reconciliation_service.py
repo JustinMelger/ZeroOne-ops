@@ -14,12 +14,15 @@ from zeroone_ops.models.review import (
     MergeRequestReviewContext,
     OverlapReconciliationResult,
     OverlapResolution,
+    PrecisionAcceptedFinding,
+    PrecisionReviewDecision,
     PriorReviewContext,
     PriorReviewPass,
     ReviewFileContext,
     ReviewFinding,
     ReviewResult,
 )
+from zeroone_ops.providers.llm_client import LLMClientError
 from zeroone_ops.services.review.review_candidate_generation_service import (
     ReviewCandidateStageResult,
 )
@@ -88,6 +91,8 @@ def build_candidate_stage_result() -> ReviewCandidateStageResult:
                     candidate_id="candidate-1",
                     severity="medium",
                     file_path="src/service.py",
+                    line_start=1,
+                    line_end=1,
                     title="Missing regression coverage",
                     evidence="The diff changes `value = 1` to `value = 2` without test updates.",
                     explanation="The branch behavior changes without regression coverage.",
@@ -96,19 +101,19 @@ def build_candidate_stage_result() -> ReviewCandidateStageResult:
                 CandidateReviewFinding(
                     candidate_id="candidate-2",
                     severity="medium",
-                    file_path="src/other.py",
-                    title="Dropped off-diff concern",
-                    evidence="The diff in src/other.py removes the only null check.",
-                    explanation="The change can dereference a nullable value.",
-                    suggested_follow_up="Restore the guard.",
+                    file_path="src/service.py",
+                    title="Duplicate framing of the same issue",
+                    evidence="The diff changes `value = 1` to `value = 2` without test updates.",
+                    explanation="This is the same behavior change described more loosely.",
+                    suggested_follow_up="Add a regression test.",
                 ),
             ]
         ),
         raw_review_result=ReviewResult(
             classification="findings_present",
-            summary="One medium-risk finding.",
+            summary="Two candidate findings.",
             review_confidence=0.84,
-            review_confidence_reason="The finding is grounded in the reviewed diff.",
+            review_confidence_reason="The candidate findings are grounded in the reviewed diff.",
             findings=[
                 ReviewFinding(
                     severity="medium",
@@ -120,14 +125,98 @@ def build_candidate_stage_result() -> ReviewCandidateStageResult:
                 )
             ],
         ),
-        accepted_candidate_ids=("candidate-1",),
+        accepted_candidate_ids=("candidate-1", "candidate-2"),
         dropped_candidates=(),
-        message="Candidate review generated 2 candidates and accepted 1 findings.",
+        message="Candidate review generated 2 candidates and accepted 2 findings.",
     )
 
 
-def test_reconcile_builds_final_decision_and_attaches_candidate_provenance(monkeypatch) -> None:
-    service = ReviewReconciliationService(build_config())
+class FakePrecisionLLMClient:
+    def __init__(self, decision: PrecisionReviewDecision) -> None:
+        self.decision = decision
+
+    def review_precision_reconciliation(
+        self,
+        context: MergeRequestReviewContext,
+        *,
+        candidates: list[CandidateReviewFinding],
+        overlap_packet,
+        candidate_stage_summary: str,
+        candidate_stage_classification: str,
+        candidate_stage_rationale: str,
+        max_findings: int,
+    ) -> PrecisionReviewDecision:
+        del (
+            context,
+            candidates,
+            overlap_packet,
+            candidate_stage_summary,
+            candidate_stage_classification,
+            candidate_stage_rationale,
+            max_findings,
+        )
+        return self.decision
+
+
+class FakePrecisionErrorClient:
+    def review_precision_reconciliation(
+        self,
+        context: MergeRequestReviewContext,
+        *,
+        candidates: list[CandidateReviewFinding],
+        overlap_packet,
+        candidate_stage_summary: str,
+        candidate_stage_classification: str,
+        candidate_stage_rationale: str,
+        max_findings: int,
+    ) -> PrecisionReviewDecision:
+        del (
+            context,
+            candidates,
+            overlap_packet,
+            candidate_stage_summary,
+            candidate_stage_classification,
+            candidate_stage_rationale,
+            max_findings,
+        )
+        raise LLMClientError("bad precision output")
+
+
+def test_reconcile_uses_precision_output_as_final_review_meaning(monkeypatch) -> None:
+    service = ReviewReconciliationService(
+        build_config(),
+        llm_client_builder=lambda: FakePrecisionLLMClient(
+            PrecisionReviewDecision(
+                review_classification="findings_present",
+                decision_summary="One medium-risk finding remains after precision review.",
+                decision_rationale="Candidate 2 duplicates candidate 1 and was dropped.",
+                confidence_level=0.79,
+                accepted_findings=[
+                    PrecisionAcceptedFinding(
+                        source_candidate_ids=["candidate-1"],
+                        severity="medium",
+                        file_path="src/service.py",
+                        line_start=1,
+                        line_end=1,
+                        title="Missing regression coverage",
+                        summary="A behavior change survives without matching test updates.",
+                        evidence=[
+                            "The diff changes `value = 1` to `value = 2` without test updates."
+                        ],
+                        why_it_matters="The branch behavior changes without regression coverage.",
+                        recommended_follow_up="Add a regression test.",
+                    )
+                ],
+                dropped_candidates=[
+                    {
+                        "candidate_id": "candidate-2",
+                        "drop_reason": "duplicate",
+                        "notes": "Overlaps candidate-1 on the same behavior change.",
+                    }
+                ],
+            )
+        ),
+    )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_reconciliation_service.now_utc",
         lambda: datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC),
@@ -146,27 +235,55 @@ def test_reconcile_builds_final_decision_and_attaches_candidate_provenance(monke
     assert result.review_result is not None
     assert result.reconciled_decision is not None
     assert result.review_result.classification == "findings_present"
-    assert result.reconciled_decision.review_classification == "findings_present"
+    assert result.review_result.summary == "One medium-risk finding remains after precision review."
+    assert result.review_result.findings[0].line_start == 1
     assert result.reconciled_decision.accepted_findings[0].source_candidate_ids == ["candidate-1"]
+    assert result.reconciled_decision.dropped_candidates[0].candidate_id == "candidate-2"
     assert result.reconciled_decision.reconciled_at == datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
 
 
-def test_reconcile_attaches_continuity_status_from_overlap_result(monkeypatch) -> None:
-    service = ReviewReconciliationService(build_config())
-    monkeypatch.setattr(
-        service,
-        "_reconcile_overlap",
-        lambda *, context, review_result: OverlapReconciliationResult(
-            prior_reviewed_head_sha="prior-sha",
-            resolutions=[
-                OverlapResolution(
-                    outcome="still_unresolved",
-                    current_finding_index=0,
-                    prior_finding_index=0,
-                    related_prior_finding_indices=[0],
-                )
-            ],
+def test_reconcile_attaches_continuity_status_from_overlap_result() -> None:
+    service = ReviewReconciliationService(
+        build_config(),
+        llm_client_builder=lambda: FakePrecisionLLMClient(
+            PrecisionReviewDecision(
+                review_classification="findings_present",
+                decision_summary="One finding persists.",
+                decision_rationale="The candidate remains grounded at the current SHA.",
+                accepted_findings=[
+                    PrecisionAcceptedFinding(
+                        source_candidate_ids=["candidate-1"],
+                        severity="medium",
+                        file_path="src/service.py",
+                        title="Missing regression coverage",
+                        summary="Coverage is still missing for the changed behavior.",
+                        evidence=[
+                            "The diff changes `value = 1` to `value = 2` without test updates."
+                        ],
+                        why_it_matters="The branch behavior changes without regression coverage.",
+                        recommended_follow_up="Add a regression test.",
+                    )
+                ],
+                dropped_candidates=[
+                    {
+                        "candidate_id": "candidate-2",
+                        "drop_reason": "duplicate",
+                        "notes": "Overlaps candidate-1 on the same behavior change.",
+                    }
+                ],
+            )
         ),
+    )
+    service._reconcile_overlap = lambda *, context, review_result: OverlapReconciliationResult(
+        prior_reviewed_head_sha="prior-sha",
+        resolutions=[
+            OverlapResolution(
+                outcome="still_unresolved",
+                current_finding_index=0,
+                prior_finding_index=0,
+                related_prior_finding_indices=[0],
+            )
+        ],
     )
 
     result = service.reconcile(
@@ -200,55 +317,106 @@ def test_reconcile_returns_candidate_failure_when_no_authoritative_review_exists
     assert result.message == "LLM backend not configured for merge request review."
 
 
-def test_reconcile_preserves_candidate_lineage_after_ranking_and_records_overflow() -> None:
-    config = build_config().model_copy(
-        update={"review": build_config().review.model_copy(update={"max_findings_per_review": 1})}
+def test_reconcile_returns_failure_when_precision_backend_errors() -> None:
+    service = ReviewReconciliationService(
+        build_config(),
+        llm_client_builder=lambda: FakePrecisionErrorClient(),
     )
-    service = ReviewReconciliationService(config)
 
     result = service.reconcile(
         context=build_context(),
-        candidate_stage_result=ReviewCandidateStageResult(
-            candidate_result=CandidateReviewResult(
-                findings=[
-                    CandidateReviewFinding(
-                        candidate_id="candidate-1",
-                        severity="low",
+        candidate_stage_result=build_candidate_stage_result(),
+    )
+
+    assert result.review_result is None
+    assert result.reconciled_decision is None
+    assert result.message == "Review precision reconciliation failed: bad precision output"
+
+
+def test_reconcile_downgrades_to_manual_review_when_precision_output_is_invalid() -> None:
+    service = ReviewReconciliationService(
+        build_config(),
+        llm_client_builder=lambda: FakePrecisionLLMClient(
+            PrecisionReviewDecision(
+                review_classification="no_findings",
+                decision_summary="No actionable findings.",
+                decision_rationale="Candidate coverage is ambiguous.",
+                accepted_findings=[
+                    PrecisionAcceptedFinding(
+                        source_candidate_ids=["candidate-1"],
+                        severity="medium",
                         file_path="src/service.py",
-                        title="Low-severity concern",
-                        evidence=(
-                            "The diff changes `value = 1` to `value = 2` without test updates."
-                        ),
-                        explanation="Low priority concern.",
-                        suggested_follow_up="Add a regression test.",
-                    ),
-                    CandidateReviewFinding(
-                        candidate_id="candidate-2",
-                        severity="high",
-                        file_path="src/service.py",
-                        title="High-severity concern",
-                        evidence=(
-                            "The diff changes `value = 1` to `value = 2` without test updates."
-                        ),
-                        explanation="High priority concern.",
-                        suggested_follow_up="Add a regression test.",
-                    ),
-                ]
-            ),
-            raw_review_result=ReviewResult(
-                classification="findings_present",
-                summary="Two findings.",
-                findings=[],
-            ),
-            accepted_candidate_ids=("candidate-1", "candidate-2"),
-            dropped_candidates=(),
-            message="Candidate review generated 2 candidates and accepted 2 findings.",
+                        title="Should not survive",
+                        summary="This should force fallback.",
+                        evidence=["The diff changes `value = 1` to `value = 2`."],
+                        why_it_matters="The precision output is inconsistent.",
+                    )
+                ],
+                dropped_candidates=[],
+            )
         ),
     )
 
-    assert result.reconciled_decision is not None
+    result = service.reconcile(
+        context=build_context(),
+        candidate_stage_result=build_candidate_stage_result(),
+    )
+
     assert result.review_result is not None
-    assert result.review_result.findings[0].title == "High-severity concern"
-    assert result.reconciled_decision.accepted_findings[0].source_candidate_ids == ["candidate-2"]
-    assert result.reconciled_decision.dropped_candidates[0].candidate_id == "candidate-1"
-    assert result.reconciled_decision.dropped_candidates[0].drop_reason == "superseded"
+    assert result.review_result.classification == "manual_review_only"
+    assert result.reconciled_decision is not None
+    assert result.reconciled_decision.decision_rationale == (
+        "Precision pass returned accepted findings with a non-findings classification."
+    )
+
+
+def test_reconcile_downgrades_when_precision_reuses_candidate_across_findings() -> None:
+    service = ReviewReconciliationService(
+        build_config(),
+        llm_client_builder=lambda: FakePrecisionLLMClient(
+            PrecisionReviewDecision(
+                review_classification="findings_present",
+                decision_summary="Two findings remain.",
+                decision_rationale="Both findings appear grounded.",
+                accepted_findings=[
+                    PrecisionAcceptedFinding(
+                        source_candidate_ids=["candidate-1"],
+                        severity="medium",
+                        file_path="src/service.py",
+                        title="First framing",
+                        summary="First framing.",
+                        evidence=["The diff changes `value = 1` to `value = 2`."],
+                        why_it_matters="Reason one.",
+                    ),
+                    PrecisionAcceptedFinding(
+                        source_candidate_ids=["candidate-1"],
+                        severity="medium",
+                        file_path="src/service.py",
+                        title="Second framing",
+                        summary="Second framing.",
+                        evidence=["The diff changes `value = 1` to `value = 2`."],
+                        why_it_matters="Reason two.",
+                    ),
+                ],
+                dropped_candidates=[
+                    {
+                        "candidate_id": "candidate-2",
+                        "drop_reason": "duplicate",
+                        "notes": "Overlaps candidate-1.",
+                    }
+                ],
+            )
+        ),
+    )
+
+    result = service.reconcile(
+        context=build_context(),
+        candidate_stage_result=build_candidate_stage_result(),
+    )
+
+    assert result.review_result is not None
+    assert result.review_result.classification == "manual_review_only"
+    assert result.reconciled_decision is not None
+    assert result.reconciled_decision.decision_rationale == (
+        "Precision pass assigned the same grounded candidate to multiple accepted findings."
+    )

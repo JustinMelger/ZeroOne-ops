@@ -7,7 +7,10 @@ from zeroone_ops.models.config import (
     ReviewConfig,
 )
 from zeroone_ops.models.review import (
+    CandidateReviewFinding,
     MergeRequestReviewContext,
+    PrecisionAcceptedFinding,
+    PrecisionReviewDecision,
     ReviewFileContext,
     ReviewFinding,
     ReviewResult,
@@ -98,11 +101,100 @@ class FakeReviewLLMClient:
         del context
         return self.review_result
 
+    def review_precision_reconciliation(
+        self,
+        context: MergeRequestReviewContext,
+        *,
+        candidates: list[CandidateReviewFinding],
+        overlap_packet,
+        candidate_stage_summary: str,
+        candidate_stage_classification: str,
+        candidate_stage_rationale: str,
+        max_findings: int,
+    ) -> PrecisionReviewDecision:
+        del context, overlap_packet, candidate_stage_summary, candidate_stage_classification
+        ranked_candidates = sorted(
+            candidates,
+            key=lambda candidate: (
+                _SEVERITY_RANK[candidate.severity],
+                candidate.file_path,
+                candidate.title,
+            ),
+        )
+        if not candidates:
+            return PrecisionReviewDecision(
+                review_classification="no_findings",
+                decision_summary="No actionable findings after review validation.",
+                decision_rationale=candidate_stage_rationale,
+                confidence_level=self.review_result.review_confidence,
+                accepted_findings=[],
+                dropped_candidates=[],
+            )
+        return PrecisionReviewDecision(
+            review_classification="findings_present",
+            decision_summary=self.review_result.summary,
+            decision_rationale=(
+                self.review_result.review_confidence_reason or self.review_result.summary
+            ),
+            confidence_level=self.review_result.review_confidence,
+            accepted_findings=[
+                PrecisionAcceptedFinding(
+                    source_candidate_ids=[candidate.candidate_id],
+                    severity=candidate.severity,
+                    file_path=candidate.file_path,
+                    line_start=candidate.line_start,
+                    line_end=candidate.line_end,
+                    symbol=candidate.symbol,
+                    issue_kind=candidate.issue_kind,
+                    region_hint=candidate.region_hint,
+                    title=candidate.title,
+                    summary=candidate.title,
+                    evidence=[candidate.evidence],
+                    why_it_matters=candidate.explanation,
+                    recommended_follow_up=candidate.suggested_follow_up,
+                )
+                for candidate in ranked_candidates[:max_findings]
+            ],
+            dropped_candidates=[
+                {
+                    "candidate_id": candidate.candidate_id,
+                    "drop_reason": "superseded",
+                    "notes": "Lower-priority candidate exceeded the retained finding cap.",
+                }
+                for candidate in ranked_candidates[max_findings:]
+            ],
+        )
+
 
 class FakeReviewErrorClient:
     def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
         del context
         raise LLMClientError("bad output")
+
+    def review_precision_reconciliation(
+        self,
+        context: MergeRequestReviewContext,
+        *,
+        candidates: list[CandidateReviewFinding],
+        overlap_packet,
+        candidate_stage_summary: str,
+        candidate_stage_classification: str,
+        candidate_stage_rationale: str,
+        max_findings: int,
+    ) -> PrecisionReviewDecision:
+        del (
+            context,
+            candidates,
+            overlap_packet,
+            candidate_stage_summary,
+            candidate_stage_classification,
+            candidate_stage_rationale,
+            max_findings,
+        )
+        raise LLMClientError("bad output")
+
+
+_SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
 
 
 def test_analyze_returns_structured_review_result(monkeypatch) -> None:
