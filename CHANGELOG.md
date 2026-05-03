@@ -5,6 +5,13 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.34.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.33.0...zeroone-ops-v0.34.0) (2026-05-03)
+
+
+### Features
+
+* review architecture split ([#154](https://github.com/JustinMelger/ZeroOne-ops/issues/154)) ([5097c31](https://github.com/JustinMelger/ZeroOne-ops/commit/5097c31d152a167dcd739717e65c5dbf70f7cad3))
+
 ## [0.33.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.32.0...zeroone-ops-v0.33.0) (2026-04-29)
 
 
