@@ -185,9 +185,7 @@ class ReviewRunner:
                     else len(candidate_stage_result.candidate_result.findings)
                 ),
                 "grounded_candidate_count": len(candidate_stage_result.accepted_candidate_ids),
-                "grounding_dropped_candidate_count": len(
-                    candidate_stage_result.dropped_candidates
-                ),
+                "grounding_dropped_candidate_count": len(candidate_stage_result.dropped_candidates),
                 "accepted_candidate_count": len(candidate_stage_result.accepted_candidate_ids),
                 "dropped_candidate_count": len(candidate_stage_result.dropped_candidates),
                 "classification": review_result.classification,
