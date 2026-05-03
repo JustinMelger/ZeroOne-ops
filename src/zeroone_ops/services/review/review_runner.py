@@ -5,8 +5,15 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import httpx
+
 from zeroone_ops.models.config import AppConfig
-from zeroone_ops.models.review import PriorReviewContext, ReviewResult
+from zeroone_ops.models.review import (
+    MergeRequestReviewCandidate,
+    PriorReviewContext,
+    PriorReviewPass,
+    ReviewResult,
+)
 from zeroone_ops.models.state import (
     FailureDetails,
     FailureStage,
@@ -15,6 +22,7 @@ from zeroone_ops.models.state import (
     ReviewRunDiagnostics,
     RunRecord,
 )
+from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
@@ -34,6 +42,7 @@ from zeroone_ops.services.review.review_dashboard_updater import (
 )
 from zeroone_ops.services.review.review_gitlab_prior_context_service import (
     ReviewGitLabPriorContextService,
+    extract_machine_safe_review_note_payload,
 )
 from zeroone_ops.services.review.review_gitlab_prior_note_parser import (
     ReviewGitLabPriorNoteParser,
@@ -48,6 +57,9 @@ from zeroone_ops.services.shared.run_state_service import RunSummary
 
 LOGGER = logging.getLogger(__name__)
 _UNRESOLVED_BOT_AUTHOR_USERNAME = object()
+_AUTHORITATIVE_REVIEW_CLASSIFICATIONS = frozenset(
+    {"no_findings", "findings_present", "manual_review_only"}
+)
 
 
 class ReviewRunner:
@@ -90,6 +102,24 @@ class ReviewRunner:
             return self.review_state_service.finish_no_review(
                 record=record,
                 message=f"[{self.config.execution_mode}] {intake_result.message}",
+            )
+
+        existing_review = self._load_same_sha_review_reference(
+            run_id=run_id,
+            project_id=project_id,
+            merge_request=intake_result.selected_merge_request,
+        )
+        if existing_review is not None:
+            summary = self.review_state_service.mark_same_sha_reused(
+                record=record,
+                merge_request=intake_result.selected_merge_request,
+                prior_classification=existing_review.classification,
+            )
+            return RunSummary(
+                run_id=summary.run_id,
+                status=summary.status,
+                message=f"[{self.config.execution_mode}] {summary.message}",
+                state_path=summary.state_path,
             )
 
         LOGGER.info(
@@ -560,6 +590,94 @@ class ReviewRunner:
             merge_request_iid=mr_iid,
             passes=[parse_result.prior_review_pass],
         )
+
+    def _load_same_sha_review_reference(
+        self,
+        *,
+        run_id: str,
+        project_id: str,
+        merge_request: MergeRequestReviewCandidate,
+    ) -> PriorReviewPass | None:
+        """Return the authoritative existing review reference for one MR SHA."""
+        review_state = self.review_state_service.state.reviews.get(
+            f"{merge_request.iid}:{merge_request.head_sha}"
+        )
+        if review_state is not None and _is_authoritative_review_classification(
+            review_state.status
+        ):
+            return PriorReviewPass(
+                reviewed_head_sha=review_state.head_sha,
+                classification=review_state.status,
+                findings_count=review_state.findings_count,
+                summary=review_state.summary,
+                note_url=review_state.note_url,
+                findings=[],
+            )
+
+        try:
+            notes = self.review_client.list_merge_request_notes(
+                project_id=project_id,
+                merge_request_iid=merge_request.iid,
+            )
+        except (GitLabClientError, httpx.HTTPError, OSError) as exc:
+            LOGGER.warning(
+                "review same-sha lookup via gitlab note failed; continuing without reuse",
+                extra={
+                    "run_id": run_id,
+                    "mr_iid": merge_request.iid,
+                    "head_sha": merge_request.head_sha,
+                    "error": str(exc),
+                },
+            )
+            return None
+        bot_author_username = self._resolve_prior_note_author_username(
+            run_id=run_id,
+            mr_iid=merge_request.iid,
+            current_head_sha=merge_request.head_sha,
+        )
+        if bot_author_username is None:
+            LOGGER.info(
+                "review same-sha gitlab note reuse disabled because bot username is unresolved",
+                extra={
+                    "run_id": run_id,
+                    "mr_iid": merge_request.iid,
+                    "head_sha": merge_request.head_sha,
+                },
+            )
+            return None
+        candidate_notes = []
+        for note in notes:
+            if note.author_username != bot_author_username:
+                continue
+            payload = extract_machine_safe_review_note_payload(note.body)
+            if payload is None:
+                continue
+            reviewed_head_sha = payload.get("reviewed_head_sha")
+            classification = payload.get("classification")
+            if reviewed_head_sha != merge_request.head_sha:
+                continue
+            if not isinstance(classification, str) or not _is_authoritative_review_classification(
+                classification
+            ):
+                continue
+            candidate_notes.append(note)
+        if not candidate_notes:
+            return None
+        selected_note = sorted(
+            candidate_notes,
+            key=lambda note: ((note.created_at or ""), note.id),
+            reverse=True,
+        )[0]
+        parse_result = self.prior_note_parser.parse_note(
+            note=selected_note,
+            expected_merge_request_iid=merge_request.iid,
+        )
+        return parse_result.prior_review_pass
+
+
+def _is_authoritative_review_classification(classification: str) -> bool:
+    """Return whether one review classification is authoritative for same-SHA reuse."""
+    return classification in _AUTHORITATIVE_REVIEW_CLASSIFICATIONS
 
 
 def _build_review_run_diagnostics(

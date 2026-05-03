@@ -14,6 +14,7 @@ from zeroone_ops.models.dashboard import (
     DashboardSection,
     empty_sections,
 )
+from zeroone_ops.models.gitlab import MergeRequestNote
 from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.models.review import (
     CandidateReviewFinding,
@@ -135,6 +136,7 @@ def test_dashboard_remediate_dry_run_returns_no_issue_summary(tmp_path: Path, mo
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
     (tmp_path / ".ai-sonar-bot.json").write_text(
         """
         {
@@ -180,6 +182,7 @@ def test_dashboard_reconcile_dry_run_returns_no_issue_summary(tmp_path: Path, mo
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
     (tmp_path / ".ai-sonar-bot.json").write_text(
         """
         {
@@ -227,6 +230,7 @@ def test_dashboard_policy_dry_run_returns_policy_processing_summary(
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
     (tmp_path / ".ai-sonar-bot.json").write_text(
         """
         {
@@ -274,6 +278,7 @@ def test_dashboard_reconcile_dry_run_selects_mr_opened_item(
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
     (tmp_path / ".ai-sonar-bot.json").write_text(
         """
         {
@@ -4341,6 +4346,7 @@ def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeyp
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
     (tmp_path / ".ai-sonar-bot.json").write_text(
         """
         {
@@ -4371,22 +4377,342 @@ def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeyp
     store.save(state)
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.list_open_merge_requests",
-        lambda self, project_id: [
-            MergeRequestReviewCandidate(
-                iid=17,
-                title="feat: review flow",
-                description="summary",
-                source_branch="feature/review",
-                target_branch="main",
-                web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
-                head_sha="abc123",
-                changes=[],
+        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
+        lambda self, project_id, merge_request_iid: MergeRequestReviewCandidate(
+            iid=17,
+            title="feat: review flow",
+            description="summary",
+            source_branch="feature/review",
+            target_branch="main",
+            web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+            head_sha="abc123",
+            changes=[],
+        ),
+    )
+
+    summary = review(dry_run=True)
+
+    assert summary.status.value == "reviewed"
+    assert "No new changes after the last review." in summary.message
+    assert "Earlier classification: no_findings." in summary.message
+
+
+def test_review_skips_unchanged_sha_revision_via_gitlab_note_fallback(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _install_review_precision_fake(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
+        lambda self, project_id, merge_request_iid: MergeRequestReviewCandidate(
+            iid=17,
+            title="feat: review flow",
+            description="summary",
+            source_branch="feature/review",
+            target_branch="main",
+            web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+            head_sha="abc123",
+            changes=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_current_user_username",
+        lambda self: "ai-sonar-bot",
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.list_merge_request_notes",
+        lambda self, project_id, merge_request_iid: [
+            MergeRequestNote(
+                id=55,
+                web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
+                author_username="ai-sonar-bot",
+                created_at="2026-05-03T10:00:00Z",
+                body=(
+                    "Hi,\n\nHere are your review notes.\n\n"
+                    "<!-- ai-sonar-bot:review-note:v1\n"
+                    '{"classification":"findings_present","findings":[],"findings_count":0,'
+                    '"reviewed_head_sha":"abc123","reviewed_merge_request_iid":17,'
+                    '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
+                    "-->"
+                ),
             )
         ],
     )
 
     summary = review(dry_run=True)
 
-    assert summary.status.value == "no_issue"
-    assert "already reviewed for their current head SHA" in summary.message
+    assert summary.status.value == "reviewed"
+    assert "No new changes after the last review." in summary.message
+    assert "Earlier classification: findings_present." in summary.message
+
+
+def test_review_skips_unchanged_sha_when_local_state_is_manual_review_only(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _install_review_precision_fake(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    store = StateStore(
+        tmp_path / ".zeroone-ops-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    )
+    state = AppState(repository=RepositoryState(base_branch="main"))
+    state.reviews["17:abc123"] = MergeRequestReviewState(
+        mr_iid=17,
+        head_sha="abc123",
+        status="manual_review_only",
+        last_run_id="run-1",
+    )
+    store.save(state)
+
+    monkeypatch.setattr(
+        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
+        lambda self, project_id, merge_request_iid: MergeRequestReviewCandidate(
+            iid=17,
+            title="feat: review flow",
+            description="summary",
+            source_branch="feature/review",
+            target_branch="main",
+            web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+            head_sha="abc123",
+            changes=[],
+        ),
+    )
+
+    summary = review(dry_run=True)
+
+    assert summary.status.value == "reviewed"
+    assert "No new changes after the last review." in summary.message
+    assert "Earlier classification: manual_review_only." in summary.message
+
+
+def test_review_skips_unchanged_sha_when_gitlab_note_is_manual_review_only(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _install_review_precision_fake(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
+        lambda self, project_id, merge_request_iid: MergeRequestReviewCandidate(
+            iid=17,
+            title="feat: review flow",
+            description="summary",
+            source_branch="feature/review",
+            target_branch="main",
+            web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+            head_sha="abc123",
+            changes=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_current_user_username",
+        lambda self: "ai-sonar-bot",
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.list_merge_request_notes",
+        lambda self, project_id, merge_request_iid: [
+            MergeRequestNote(
+                id=55,
+                web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
+                author_username="ai-sonar-bot",
+                created_at="2026-05-03T10:00:00Z",
+                body=(
+                    "Hi,\n\nHere are your review notes.\n\n"
+                    "<!-- ai-sonar-bot:review-note:v1\n"
+                    '{"classification":"manual_review_only","findings":[],"findings_count":0,'
+                    '"reviewed_head_sha":"abc123","reviewed_merge_request_iid":17,'
+                    '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
+                    "-->"
+                ),
+            )
+        ],
+    )
+    summary = review(dry_run=True)
+
+    assert summary.status.value == "reviewed"
+    assert "No new changes after the last review." in summary.message
+    assert "Earlier classification: manual_review_only." in summary.message
+
+
+def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresolved(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _install_review_precision_fake(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    merge_request = MergeRequestReviewCandidate(
+        iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        changes=[],
+    )
+    review_context = MergeRequestReviewContext(
+        mr_iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                diff="@@ -1,1 +1,1 @@",
+                start_line=1,
+                end_line=1,
+                content="   1: value = 1",
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
+        lambda self, state: type(
+            "Result",
+            (),
+            {
+                "selected_merge_request": merge_request,
+                "merge_request_count": 1,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_current_user_username",
+        lambda self: (_ for _ in ()).throw(RuntimeError("cannot resolve bot username")),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.list_merge_request_notes",
+        lambda self, project_id, merge_request_iid: [
+            MergeRequestNote(
+                id=55,
+                web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
+                author_username="someone-else",
+                created_at="2026-05-03T10:00:00Z",
+                body=(
+                    "Hi,\n\nHere are your review notes.\n\n"
+                    "<!-- ai-sonar-bot:review-note:v1\n"
+                    '{"classification":"findings_present","findings":[],"findings_count":0,'
+                    '"reviewed_head_sha":"abc123","reviewed_merge_request_iid":17,'
+                    '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
+                    "-->"
+                ),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
+        lambda self, merge_request, project_id: ReviewContextBuildResult(
+            context=review_context, message=""
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
+        lambda self, context: type(
+            "CandidateStageResult",
+            (),
+            {
+                "candidate_result": None,
+                "raw_review_result": ReviewResult(
+                    classification="no_findings",
+                    summary="No findings.",
+                    findings=[],
+                ),
+                "accepted_candidate_ids": (),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
+            },
+        )(),
+    )
+
+    summary = review(dry_run=True)
+
+    assert summary.status.value == "reviewed"
+    assert "No new changes after the last review." not in summary.message
+    assert "Dry-run skipped note publication." in summary.message

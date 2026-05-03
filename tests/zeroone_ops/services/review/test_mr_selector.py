@@ -58,3 +58,19 @@ def test_skip_reason_returns_already_reviewed_revision() -> None:
     reason = MergeRequestSelector().skip_reason(build_merge_request(17, "abc123"), state)
 
     assert reason == "already_reviewed_revision"
+
+
+def test_skip_reason_reuses_manual_review_only_state() -> None:
+    state = build_state()
+    state.reviews[build_review_revision_key(mr_iid=17, head_sha="abc123")] = (
+        MergeRequestReviewState(
+            mr_iid=17,
+            head_sha="abc123",
+            status="manual_review_only",
+            last_run_id="run-1",
+        )
+    )
+
+    reason = MergeRequestSelector().skip_reason(build_merge_request(17, "abc123"), state)
+
+    assert reason == "already_reviewed_revision"
