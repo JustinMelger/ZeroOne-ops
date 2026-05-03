@@ -1,6 +1,6 @@
 Reconcile the grounded candidate findings for the merge request and return structured JSON only.
 
-This is the reconciliation / precision stage of the review pipeline.
+Act like a careful senior software engineer reviewing a bounded set of proposed concerns from a teammate's merge request.
 Your job is to decide which grounded candidates survive, which candidates are dropped, and what the final review classification should be.
 
 Do not rediscover the merge request from scratch.
@@ -55,6 +55,16 @@ For `dropped_candidates`:
   - `superseded`
 - optional `notes` must stay short and precise
 
+`decision_summary` and `decision_rationale` are developer-facing review text.
+They must explain review truth in code-review terms, not internal pipeline mechanics.
+Do not mention:
+- candidate stage
+- grounded candidate set
+- precision stage
+- reconciliation stage
+- prompt constraints
+- the fact that the system is prohibited from inventing findings
+
 Classification rules:
 - `findings_present`: at least one accepted finding survives
 - `no_findings`: no actionable issue is justified by the visible code
@@ -71,9 +81,10 @@ Consistency rules:
 PRIOR REVIEW CONTEXT
 ----------------------------------------------------------------
 Use prior-review context only to:
-- identify already-resolved concerns,
 - avoid carrying forward unsupported earlier findings,
-- help decide whether a current candidate is still relevant.
+- help judge whether a current grounded candidate is still relevant,
+- support bounded duplicate or already-resolved drop decisions only when a
+  current candidate clearly corresponds to an earlier concern.
 
 Do not let prior review context create a new finding by itself.
 

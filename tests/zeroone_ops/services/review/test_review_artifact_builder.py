@@ -70,6 +70,51 @@ def test_build_sets_no_findings_summary_from_publish_shape() -> None:
     assert artifact.summary == "No actionable findings in this review pass."
 
 
+def test_build_rewrites_internal_no_findings_rationale_for_publish() -> None:
+    decision = build_decision("no_findings").model_copy(
+        update={
+            "decision_rationale": (
+                "The precision stage is bounded to the provided grounded candidate "
+                "set, which is empty."
+            )
+        }
+    )
+
+    artifact = ReviewArtifactBuilder().build(reconciled_decision=decision).artifact
+
+    assert artifact.review_confidence_reason is not None
+    assert "precision stage" not in artifact.review_confidence_reason.lower()
+    assert "grounded candidate set" not in artifact.review_confidence_reason.lower()
+    assert "supported-path regression" in artifact.review_confidence_reason
+
+
+def test_build_rewrites_internal_follow_up_no_findings_rationale_for_publish() -> None:
+    decision = build_decision("no_findings").model_copy(
+        update={
+            "decision_rationale": (
+                "There is not enough candidate-backed evidence to justify an "
+                "actionable finding."
+            )
+        }
+    )
+
+    artifact = (
+        ReviewArtifactBuilder()
+        .build(
+            reconciled_decision=decision,
+            overlap_result=OverlapReconciliationResult(
+                prior_reviewed_head_sha="abc123",
+                resolutions=[],
+            ),
+        )
+        .artifact
+    )
+
+    assert artifact.review_confidence_reason is not None
+    assert "candidate-backed evidence" not in artifact.review_confidence_reason.lower()
+    assert "earlier concern" in artifact.review_confidence_reason.lower()
+
+
 def test_build_attaches_follow_up_lines_from_overlap_result() -> None:
     artifact = (
         ReviewArtifactBuilder()

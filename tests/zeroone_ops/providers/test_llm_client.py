@@ -709,7 +709,7 @@ def test_build_review_precision_prompt_uses_candidate_bounded_contract() -> None
         max_findings=3,
     )
 
-    assert "This is the reconciliation / precision stage of the review pipeline." in prompt
+    assert "Act like a careful senior software engineer reviewing a bounded set" in prompt
     assert "Do not rediscover the merge request from scratch." in prompt
     assert "every grounded candidate should either survive" in prompt
     assert "retain at most `3` accepted findings" in prompt
@@ -949,4 +949,13 @@ def test_openai_review_precision_reconciliation_uses_high_reasoning() -> None:
     kwargs = parse.call_args.kwargs
     assert kwargs["reasoning"] == {"effort": "high"}
     assert kwargs["input"][0]["role"] == "system"
+    assert "careful senior software engineer" in kwargs["input"][0]["content"]
     assert "Judge only the provided grounded candidate set." in kwargs["input"][0]["content"]
+    assert kwargs["input"][1]["role"] == "user"
+    assert "Act like a careful senior software engineer" in kwargs["input"][1]["content"]
+    assert "They must explain review truth in code-review terms" in kwargs["input"][1]["content"]
+    assert "Do not mention:" in kwargs["input"][1]["content"]
+    assert (
+        "help judge whether a current grounded candidate is still relevant"
+        in kwargs["input"][1]["content"]
+    )

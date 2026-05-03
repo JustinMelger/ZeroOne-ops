@@ -128,6 +128,26 @@ Implementation phases:
   - add same-SHA stability checks and contradiction-focused evaluator coverage
   - review each implementation phase for boundary erosion and pause when stage
     ownership becomes ambiguous
+  - harden developer-facing clean-pass and follow-up wording so published
+    review notes do not leak internal staged-review concepts such as
+    `candidate`, `grounded candidate set`, or `precision stage`
+  - implementation plan:
+    - audit where clean-pass and follow-up explanation text currently comes
+      from across prompts, artifact building, and fallback wording
+    - update prompt guidance so clean-pass explanations stay in code-review
+      terms and explicitly avoid internal pipeline vocabulary
+    - tighten finding/output wording so published artifacts make the narrowest
+      supported claim and do not overstate response-body truth as HTTP response
+      semantics without direct evidence
+    - update artifact-builder and output-shaping defaults for:
+      - first-pass `no_findings`
+      - follow-up `no new actionable findings`
+      - earlier concern no longer appears present
+    - add tests that assert published notes stay developer-facing and do not
+      include internal staged-review terminology
+    - validate the `!176` / `!175` style examples after the wording changes to
+      confirm the published explanation matches review truth rather than
+      pipeline mechanics
 - [ ] Phase 8: Bounded Repair Path
   - add artifact-level repair for narrow contradiction classes that can be
     corrected without changing reconciled review meaning
