@@ -2,9 +2,23 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+ReviewClassification = Literal["no_findings", "findings_present", "manual_review_only"]
+ReviewFindingSeverity = Literal["high", "medium", "low"]
+ContinuityStatus = Literal["new", "unresolved"]
+CandidateDropReason = Literal[
+    "weak_evidence",
+    "duplicate",
+    "already_resolved",
+    "unsupported_scope",
+    "off_diff",
+    "superseded",
+]
+ArtifactValidationStatus = Literal["valid", "repaired", "rejected"]
 
 
 class MergeRequestChangedFile(BaseModel):
@@ -99,7 +113,7 @@ class PriorReviewPass(BaseModel):
     """Represent one bounded prior review pass on the same merge request."""
 
     reviewed_head_sha: str
-    classification: Literal["no_findings", "findings_present", "manual_review_only"]
+    classification: ReviewClassification
     findings_count: int
     summary: str | None = None
     note_url: str | None = None
@@ -134,8 +148,10 @@ class MergeRequestReviewContext(BaseModel):
 class ReviewFinding(BaseModel):
     """Represent one structured review finding."""
 
-    severity: Literal["high", "medium", "low"]
+    severity: ReviewFindingSeverity
     file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
     symbol: str | None = None
     issue_kind: str | None = None
     region_hint: str | None = None
@@ -148,11 +164,293 @@ class ReviewFinding(BaseModel):
 class ReviewResult(BaseModel):
     """Represent the structured result of one review pass."""
 
-    classification: Literal["no_findings", "findings_present", "manual_review_only"]
+    classification: ReviewClassification
     summary: str
     review_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     review_confidence_reason: str | None = None
     findings: list[ReviewFinding] = Field(default_factory=list)
+    follow_up_lines: list[str] = Field(default_factory=list)
+
+
+class DiffReference(BaseModel):
+    """Represent one bounded diff reference carried through review stages."""
+
+    file_path: str
+    start_line: int | None = None
+    end_line: int | None = None
+
+
+class CandidateReviewFinding(ReviewFinding):
+    """Represent one non-authoritative candidate-stage review finding."""
+
+    candidate_id: str
+    evidence_summary: str | None = None
+    uncertainty_summary: str | None = None
+
+
+class CandidateReviewResult(BaseModel):
+    """Represent the structured output of the candidate review stage."""
+
+    findings: list[CandidateReviewFinding] = Field(default_factory=list)
+
+
+class ReconciledFinding(BaseModel):
+    """Represent one accepted finding after reconciliation."""
+
+    finding_id: str
+    severity: ReviewFindingSeverity
+    file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
+    symbol: str | None = None
+    issue_kind: str | None = None
+    region_hint: str | None = None
+    title: str
+    summary: str
+    evidence: list[str] = Field(default_factory=list)
+    diff_references: list[DiffReference] = Field(default_factory=list)
+    file_paths: list[str] = Field(default_factory=list)
+    why_it_matters: str
+    recommended_follow_up: str | None = None
+    stable_identity: str | None = None
+    continuity_status: ContinuityStatus | None = None
+    source_candidate_ids: list[str] = Field(default_factory=list)
+
+
+class DroppedCandidate(BaseModel):
+    """Represent one candidate dropped during reconciliation."""
+
+    candidate_id: str
+    drop_reason: CandidateDropReason
+    notes: str | None = None
+
+
+class PrecisionAcceptedFinding(BaseModel):
+    """Represent one accepted finding returned by the precision stage."""
+
+    source_candidate_ids: list[str] = Field(default_factory=list)
+    severity: ReviewFindingSeverity
+    file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
+    symbol: str | None = None
+    issue_kind: str | None = None
+    region_hint: str | None = None
+    title: str
+    summary: str
+    evidence: list[str] = Field(default_factory=list)
+    why_it_matters: str
+    recommended_follow_up: str | None = None
+
+
+class PrecisionReviewDecision(BaseModel):
+    """Represent the candidate-bounded precision-pass output."""
+
+    review_classification: ReviewClassification
+    decision_summary: str
+    decision_rationale: str
+    confidence_level: float | None = Field(default=None, ge=0.0, le=1.0)
+    accepted_findings: list[PrecisionAcceptedFinding] = Field(default_factory=list)
+    dropped_candidates: list[DroppedCandidate] = Field(default_factory=list)
+
+
+class ReconciledReviewDecision(BaseModel):
+    """Represent final review meaning before artifact building."""
+
+    review_classification: ReviewClassification
+    decision_summary: str
+    decision_rationale: str
+    confidence_level: float | None = Field(default=None, ge=0.0, le=1.0)
+    accepted_findings: list[ReconciledFinding] = Field(default_factory=list)
+    dropped_candidates: list[DroppedCandidate] = Field(default_factory=list)
+    prior_review_context_used: bool = False
+    same_sha_review: bool = False
+    repair_allowed: bool = False
+    reconciled_at: datetime
+    pipeline_version: str
+
+    @classmethod
+    def from_precision_decision(
+        cls,
+        precision_decision: PrecisionReviewDecision,
+        *,
+        prior_review_context_used: bool,
+        same_sha_review: bool,
+        repair_allowed: bool,
+        reconciled_at: datetime,
+        pipeline_version: str,
+    ) -> ReconciledReviewDecision:
+        """Adapt the precision-pass output into the staged reconciliation contract."""
+        return cls(
+            review_classification=precision_decision.review_classification,
+            decision_summary=precision_decision.decision_summary,
+            decision_rationale=precision_decision.decision_rationale,
+            confidence_level=precision_decision.confidence_level,
+            accepted_findings=[
+                ReconciledFinding(
+                    finding_id=f"finding-{index}",
+                    severity=finding.severity,
+                    file_path=finding.file_path,
+                    line_start=finding.line_start,
+                    line_end=finding.line_end,
+                    symbol=finding.symbol,
+                    issue_kind=finding.issue_kind,
+                    region_hint=finding.region_hint,
+                    title=finding.title,
+                    summary=finding.summary,
+                    evidence=list(finding.evidence),
+                    diff_references=[
+                        DiffReference(
+                            file_path=finding.file_path,
+                            start_line=finding.line_start,
+                            end_line=finding.line_end,
+                        )
+                    ],
+                    file_paths=[finding.file_path],
+                    why_it_matters=finding.why_it_matters,
+                    recommended_follow_up=finding.recommended_follow_up,
+                    source_candidate_ids=list(finding.source_candidate_ids),
+                )
+                for index, finding in enumerate(
+                    precision_decision.accepted_findings,
+                    start=1,
+                )
+            ],
+            dropped_candidates=list(precision_decision.dropped_candidates),
+            prior_review_context_used=prior_review_context_used,
+            same_sha_review=same_sha_review,
+            repair_allowed=repair_allowed,
+            reconciled_at=reconciled_at,
+            pipeline_version=pipeline_version,
+        )
+
+    def to_review_result(self) -> ReviewResult:
+        """Adapt the reconciled decision into the shared review-result shape."""
+        return ReviewResult(
+            classification=self.review_classification,
+            summary=self.decision_summary,
+            review_confidence=self.confidence_level,
+            review_confidence_reason=self.decision_rationale,
+            findings=[
+                ReviewFinding(
+                    severity=finding.severity,
+                    file_path=finding.file_path,
+                    line_start=finding.line_start,
+                    line_end=finding.line_end,
+                    symbol=finding.symbol,
+                    issue_kind=finding.issue_kind,
+                    region_hint=finding.region_hint,
+                    title=finding.title,
+                    evidence=finding.evidence[0] if finding.evidence else "",
+                    explanation=finding.why_it_matters,
+                    suggested_follow_up=finding.recommended_follow_up or "",
+                )
+                for finding in self.accepted_findings
+            ],
+        )
+
+
+class PublishableReviewFinding(BaseModel):
+    """Represent one publish-shaped review finding before markdown rendering."""
+
+    severity: ReviewFindingSeverity
+    file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
+    symbol: str | None = None
+    issue_kind: str | None = None
+    region_hint: str | None = None
+    title: str
+    evidence: str
+    explanation: str
+    suggested_follow_up: str
+    continuity_status: ContinuityStatus | None = None
+
+
+class PublishableReviewArtifact(BaseModel):
+    """Represent publish-shaped review content before transport."""
+
+    classification: ReviewClassification
+    summary: str
+    review_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    review_confidence_reason: str | None = None
+    findings: list[PublishableReviewFinding] = Field(default_factory=list)
+    follow_up_lines: list[str] = Field(default_factory=list)
+
+    @classmethod
+    def from_reconciled_decision(
+        cls,
+        decision: ReconciledReviewDecision,
+        *,
+        summary: str | None = None,
+        follow_up_lines: list[str] | None = None,
+    ) -> PublishableReviewArtifact:
+        """Build a publish-shaped artifact without changing reconciled review meaning."""
+        return cls(
+            classification=decision.review_classification,
+            summary=decision.decision_summary if summary is None else summary,
+            review_confidence=decision.confidence_level,
+            review_confidence_reason=decision.decision_rationale,
+            findings=[
+                PublishableReviewFinding(
+                    severity=finding.severity,
+                    file_path=finding.file_path,
+                    line_start=finding.line_start,
+                    line_end=finding.line_end,
+                    symbol=finding.symbol,
+                    issue_kind=finding.issue_kind,
+                    region_hint=finding.region_hint,
+                    title=finding.title,
+                    evidence=finding.evidence[0] if finding.evidence else "",
+                    explanation=finding.why_it_matters,
+                    suggested_follow_up=finding.recommended_follow_up or "",
+                    continuity_status=finding.continuity_status,
+                )
+                for finding in decision.accepted_findings
+            ],
+            follow_up_lines=follow_up_lines or [],
+        )
+
+    def to_review_result(self) -> ReviewResult:
+        """Adapt the publish-shaped artifact back into the shared review-result shape."""
+        return ReviewResult(
+            classification=self.classification,
+            summary=self.summary,
+            review_confidence=self.review_confidence,
+            review_confidence_reason=self.review_confidence_reason,
+            findings=[
+                ReviewFinding(
+                    severity=finding.severity,
+                    file_path=finding.file_path,
+                    line_start=finding.line_start,
+                    line_end=finding.line_end,
+                    symbol=finding.symbol,
+                    issue_kind=finding.issue_kind,
+                    region_hint=finding.region_hint,
+                    title=finding.title,
+                    evidence=finding.evidence,
+                    explanation=finding.explanation,
+                    suggested_follow_up=finding.suggested_follow_up,
+                )
+                for finding in self.findings
+            ],
+            follow_up_lines=list(self.follow_up_lines),
+        )
+
+
+class ArtifactValidationIssue(BaseModel):
+    """Represent one validator-detected artifact issue."""
+
+    rule_id: str
+    message: str
+
+
+class ArtifactValidationResult(BaseModel):
+    """Represent the validator outcome for one publish-shaped artifact."""
+
+    status: ArtifactValidationStatus
+    issues: list[ArtifactValidationIssue] = Field(default_factory=list)
+    artifact: PublishableReviewArtifact | None = None
 
 
 class OverlapCandidate(BaseModel):

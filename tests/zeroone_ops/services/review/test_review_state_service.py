@@ -35,6 +35,7 @@ def build_review_result() -> ReviewResult:
     return ReviewResult(
         classification="findings_present",
         summary="One finding.",
+        follow_up_lines=["Follow-up review after the earlier bot pass on `abc123`."],
         review_confidence=0.76,
         review_confidence_reason="The finding is grounded in the reviewed diff.",
         findings=[
@@ -76,6 +77,9 @@ def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
     assert loaded.reviews["17:abc123"].status == "findings_present"
     assert loaded.reviews["17:abc123"].findings_count == 1
     assert loaded.reviews["17:abc123"].summary == "One finding."
+    assert loaded.reviews["17:abc123"].follow_up_lines == [
+        "Follow-up review after the earlier bot pass on `abc123`."
+    ]
     assert (
         loaded.reviews["17:abc123"].findings[0].identity
         == "src/service.py::ordering_regression::service-run::return-order"

@@ -118,6 +118,7 @@ class ReviewStateService:
                 last_run_id=record.run_id,
                 findings_count=len(review_result.findings),
                 summary=review_result.summary,
+                follow_up_lines=list(review_result.follow_up_lines),
                 findings=_build_prior_review_findings(review_result),
                 note_url=note_url,
             )

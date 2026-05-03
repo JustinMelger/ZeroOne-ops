@@ -16,8 +16,12 @@ from zeroone_ops.models.dashboard import (
 )
 from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.models.review import (
+    CandidateReviewFinding,
+    CandidateReviewResult,
     MergeRequestReviewCandidate,
     MergeRequestReviewContext,
+    PrecisionAcceptedFinding,
+    PrecisionReviewDecision,
     PriorReviewFinding,
     PriorReviewPass,
     ReviewFileContext,
@@ -59,6 +63,69 @@ def build_dashboard_document(*, items: list[DashboardItem]) -> DashboardDocument
         issue_url="https://gitlab.example.com/group/project/-/issues/11",
         title="AI Code Ops Work Queue",
         sections=sections,
+    )
+
+
+class _IntegrationPrecisionClient:
+    def review_precision_reconciliation(
+        self,
+        context: MergeRequestReviewContext,
+        *,
+        candidates: list[CandidateReviewFinding],
+        overlap_packet,
+        candidate_stage_summary: str,
+        candidate_stage_classification: str,
+        candidate_stage_rationale: str,
+        max_findings: int,
+    ) -> PrecisionReviewDecision:
+        del context, overlap_packet, max_findings
+        if candidate_stage_classification == "manual_review_only":
+            return PrecisionReviewDecision(
+                review_classification="manual_review_only",
+                decision_summary=candidate_stage_summary,
+                decision_rationale=candidate_stage_rationale,
+                accepted_findings=[],
+                dropped_candidates=[],
+            )
+        if not candidates:
+            return PrecisionReviewDecision(
+                review_classification="no_findings",
+                decision_summary="No actionable findings after review validation.",
+                decision_rationale=candidate_stage_rationale,
+                accepted_findings=[],
+                dropped_candidates=[],
+            )
+        return PrecisionReviewDecision(
+            review_classification="findings_present",
+            decision_summary=candidate_stage_summary,
+            decision_rationale=candidate_stage_rationale,
+            accepted_findings=[
+                PrecisionAcceptedFinding(
+                    source_candidate_ids=[candidate.candidate_id],
+                    severity=candidate.severity,
+                    file_path=candidate.file_path,
+                    line_start=candidate.line_start,
+                    line_end=candidate.line_end,
+                    symbol=candidate.symbol,
+                    issue_kind=candidate.issue_kind,
+                    region_hint=candidate.region_hint,
+                    title=candidate.title,
+                    summary=candidate.title,
+                    evidence=[candidate.evidence],
+                    why_it_matters=candidate.explanation,
+                    recommended_follow_up=candidate.suggested_follow_up,
+                )
+                for candidate in candidates
+            ],
+            dropped_candidates=[],
+        )
+
+
+def _install_review_precision_fake(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_reconciliation_service."
+        "ReviewReconciliationService._build_llm_client",
+        lambda self: _IntegrationPrecisionClient(),
     )
 
 
@@ -3299,6 +3366,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
 
 
 def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
@@ -3370,17 +3438,20 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_analysis_service.ReviewAnalysisService.analyze",
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
-            "AnalysisResult",
+            "CandidateStageResult",
             (),
             {
-                "review_result": ReviewResult(
+                "candidate_result": None,
+                "raw_review_result": ReviewResult(
                     classification="no_findings",
                     summary="No findings.",
                     findings=[],
                 ),
-                "message": "Review classification: no_findings. Summary: No findings.",
+                "accepted_candidate_ids": (),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
             },
         )(),
     )
@@ -3396,6 +3467,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
@@ -3468,12 +3540,28 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_analysis_service.ReviewAnalysisService.analyze",
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
-            "AnalysisResult",
+            "CandidateStageResult",
             (),
             {
-                "review_result": ReviewResult(
+                "candidate_result": CandidateReviewResult(
+                    findings=[
+                        CandidateReviewFinding(
+                            candidate_id="candidate-1",
+                            severity="medium",
+                            file_path="src/service.py",
+                            title="Missing test coverage",
+                            evidence=(
+                                "The diff changes `value = 1` to `value = 2` "
+                                "without any test updates."
+                            ),
+                            explanation="The change alters behavior without test updates.",
+                            suggested_follow_up="Add a regression test.",
+                        )
+                    ]
+                ),
+                "raw_review_result": ReviewResult(
                     classification="findings_present",
                     summary="One medium-risk finding.",
                     findings=[
@@ -3490,28 +3578,26 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
                         )
                     ],
                 ),
-                "message": (
-                    "Review classification: findings_present. Summary: One medium-risk finding."
-                ),
+                "accepted_candidate_ids": ("candidate-1",),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 1 candidates and accepted 1 findings.",
             },
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish",
-        lambda self, project_id, merge_request_iid, context, review_result, overlap_result: (
-            ReviewPublishResult(
-                note=type(
-                    "Note",
-                    (),
-                    {
-                        "id": 55,
-                        "web_url": (
-                            "https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
-                        ),
-                    },
-                )(),
-                body="summary",
-            )
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        lambda self, project_id, merge_request_iid, context, artifact: ReviewPublishResult(
+            note=type(
+                "Note",
+                (),
+                {
+                    "id": 55,
+                    "web_url": (
+                        "https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
+                    ),
+                },
+            )(),
+            body="summary",
         ),
     )
     monkeypatch.setattr(
@@ -3547,6 +3633,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
@@ -3619,28 +3706,211 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_analysis_service.ReviewAnalysisService.analyze",
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
-            "AnalysisResult",
+            "CandidateStageResult",
             (),
             {
-                "review_result": ReviewResult(
+                "candidate_result": None,
+                "raw_review_result": ReviewResult(
                     classification="no_findings",
                     summary="No findings.",
                     findings=[],
                 ),
-                "message": "Review classification: no_findings. Summary: No findings.",
+                "accepted_candidate_ids": (),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
             },
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish",
-        lambda self, project_id, merge_request_iid, context, review_result, overlap_result: (
-            ReviewPublishResult(
-                note=type("Note", (), {"id": 55, "web_url": None})(),
-                body="summary",
-            )
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        lambda self, project_id, merge_request_iid, context, artifact: ReviewPublishResult(
+            note=type("Note", (), {"id": 55, "web_url": None})(),
+            body="summary",
         ),
+    )
+    observed: dict[str, object] = {}
+
+    def capture_dashboard_update(  # noqa: ANN001, ANN202
+        self,
+        project_id,
+        merge_request,
+        review_result,
+    ):
+        del self, project_id, merge_request
+        observed["dashboard_review_result"] = review_result
+        return type(
+            "DashboardResult",
+            (),
+            {
+                "dashboard_issue_url": None,
+                "error_message": "Dashboard mirror failed: boom",
+            },
+        )()
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
+        capture_dashboard_update,
+    )
+
+    summary = review(dry_run=False)
+
+    assert summary.status.value == "reviewed"
+    assert "Dashboard mirror failed: boom" in summary.message
+    dashboard_review_result = observed["dashboard_review_result"]
+    assert isinstance(dashboard_review_result, ReviewResult)
+    assert dashboard_review_result.summary == "No actionable findings in this review pass."
+    state = StateStore(
+        tmp_path / ".zeroone-ops-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+    assert state.reviews["17:abc123"].summary == "No actionable findings in this review pass."
+
+
+def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _install_review_precision_fake(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / ".ai-sonar-bot.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    merge_request = MergeRequestReviewCandidate(
+        iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        changes=[],
+    )
+    review_context = MergeRequestReviewContext(
+        mr_iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                diff="@@ -1,1 +1,1 @@",
+                start_line=1,
+                end_line=1,
+                content="   1: value = 1",
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
+        lambda self, state: type(
+            "Result",
+            (),
+            {
+                "selected_merge_request": merge_request,
+                "merge_request_count": 1,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
+        lambda self, merge_request, project_id: ReviewContextBuildResult(
+            context=review_context, message=""
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
+        lambda self, context: type(
+            "CandidateStageResult",
+            (),
+            {
+                "candidate_result": CandidateReviewResult(
+                    findings=[
+                        CandidateReviewFinding(
+                            candidate_id="candidate-1",
+                            severity="medium",
+                            file_path="src/service.py",
+                            title="Missing test coverage",
+                            evidence=(
+                                "The diff changes `value = 1` to `value = 2` "
+                                "without any test updates."
+                            ),
+                            explanation="The change alters behavior without test updates.",
+                            suggested_follow_up="Add a regression test.",
+                        )
+                    ]
+                ),
+                "raw_review_result": ReviewResult(
+                    classification="findings_present",
+                    summary="No actionable findings in this review pass.",
+                    review_confidence_reason="The regression is visible in the diff.",
+                    findings=[
+                        ReviewFinding(
+                            severity="medium",
+                            file_path="src/service.py",
+                            title="Missing test coverage",
+                            evidence=(
+                                "The diff changes `value = 1` to `value = 2` "
+                                "without any test updates."
+                            ),
+                            explanation="The change alters behavior without test updates.",
+                            suggested_follow_up="Add a regression test.",
+                        )
+                    ],
+                ),
+                "accepted_candidate_ids": ("candidate-1",),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 1 candidates and accepted 1 findings.",
+            },
+        )(),
+    )
+
+    observed: dict[str, object] = {}
+
+    def capture_publish(  # noqa: ANN001, ANN202
+        self,
+        project_id,
+        merge_request_iid,
+        context,
+        artifact,
+    ):
+        observed["artifact"] = artifact
+        return ReviewPublishResult(
+            note=type("Note", (), {"id": 55, "web_url": None})(),
+            body="summary",
+        )
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        capture_publish,
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
@@ -3649,7 +3919,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
             (),
             {
                 "dashboard_issue_url": None,
-                "error_message": "Dashboard mirror failed: boom",
+                "error_message": None,
             },
         )(),
     )
@@ -3657,13 +3927,22 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
-    assert "Dashboard mirror failed: boom" in summary.message
+    artifact = observed["artifact"]
+    assert artifact.classification == "manual_review_only"
+    state = StateStore(
+        tmp_path / ".zeroone-ops-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    ).load()
+    assert state.reviews["17:abc123"].status == "manual_review_only"
 
 
 def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailable(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
@@ -3792,12 +4071,28 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_analysis_service.ReviewAnalysisService.analyze",
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
-            "AnalysisResult",
+            "CandidateStageResult",
             (),
             {
-                "review_result": ReviewResult(
+                "candidate_result": CandidateReviewResult(
+                    findings=[
+                        CandidateReviewFinding(
+                            candidate_id="candidate-1",
+                            severity="medium",
+                            file_path="src/service.py",
+                            title="Missing test coverage",
+                            evidence=(
+                                "The diff changes `value = 1` to `value = 2` "
+                                "without any test updates."
+                            ),
+                            explanation="The change alters behavior without test updates.",
+                            suggested_follow_up="Add a regression test.",
+                        )
+                    ]
+                ),
+                "raw_review_result": ReviewResult(
                     classification="findings_present",
                     summary="One medium-risk finding.",
                     findings=[
@@ -3814,9 +4109,9 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
                         )
                     ],
                 ),
-                "message": (
-                    "Review classification: findings_present. Summary: One medium-risk finding."
-                ),
+                "accepted_candidate_ids": ("candidate-1",),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 1 candidates and accepted 1 findings.",
             },
         )(),
     )
@@ -3836,10 +4131,9 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         project_id,
         merge_request_iid,
         context,
-        review_result,
-        overlap_result,
+        artifact,
     ):
-        observed["overlap_result"] = overlap_result
+        observed["artifact"] = artifact
         return ReviewPublishResult(
             note=type(
                 "Note",
@@ -3855,7 +4149,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish",
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
         capture_publish,
     )
     monkeypatch.setattr(
@@ -3873,7 +4167,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
-    assert observed["overlap_result"] is None
+    assert observed["artifact"].follow_up_lines == []
     assert "Reviewed merge request !17 at def456." in summary.message
 
 
@@ -3881,6 +4175,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
@@ -3953,17 +4248,20 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_analysis_service.ReviewAnalysisService.analyze",
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
-            "AnalysisResult",
+            "CandidateStageResult",
             (),
             {
-                "review_result": ReviewResult(
+                "candidate_result": None,
+                "raw_review_result": ReviewResult(
                     classification="no_findings",
                     summary="No findings.",
                     findings=[],
                 ),
-                "message": "Review classification: no_findings. Summary: No findings.",
+                "accepted_candidate_ids": (),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
             },
         )(),
     )
@@ -3975,11 +4273,9 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         project_id,
         merge_request_iid,
         context,
-        review_result,
-        overlap_result,
+        artifact,
     ):
-        observed["review_result"] = review_result
-        observed["overlap_result"] = overlap_result
+        observed["artifact"] = artifact
         return ReviewPublishResult(
             note=type(
                 "Note",
@@ -3995,7 +4291,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish",
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
         capture_publish,
     )
     monkeypatch.setattr(
@@ -4014,12 +4310,14 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
 
     assert summary.status.value == "reviewed"
     assert "Reviewed merge request !17 at abc123." in summary.message
-    assert observed["review_result"].classification == "no_findings"
-    assert observed["overlap_result"] is None
+    assert observed["artifact"].classification == "no_findings"
+    assert observed["artifact"].summary == "No actionable findings in this review pass."
+    assert observed["artifact"].follow_up_lines == []
     assert "Review note:" in summary.message
 
 
 def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeypatch) -> None:
+    _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")

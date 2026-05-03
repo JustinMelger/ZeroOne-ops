@@ -5,9 +5,17 @@
 This note captures the current trust-first review policy during the live
 testing window.
 
-The review bot still works from a bounded context packet rather than dynamic
-repo exploration. Until helper-following and other context-expansion phases
-land, the bot should behave conservatively when the visible code does not prove
+The review bot works from a bounded review context packet rather than open-ended
+repo exploration. The implementation now uses a staged review pipeline:
+
+- candidate generation
+- grounding
+- precision / reconciliation
+- overlap continuity classification
+- artifact validation
+
+Even with helper-following and other bounded context improvements now present,
+the bot should still behave conservatively when the visible code does not prove
 an issue.
 
 ## Core Strategy
@@ -21,6 +29,13 @@ an issue.
   issue and remaining uncertainty is limited
 - explain what missing context prevents confirmation instead of implying a
   hidden unresolved concern
+
+This is enforced not only by prompt wording, but also by stage boundaries:
+
+- candidate generation is exploratory and non-authoritative
+- grounding removes weak and off-boundary candidates
+- precision owns final review meaning
+- validator blocks contradictory publish artifacts
 
 ## Practical Rules
 
@@ -60,16 +75,24 @@ That is better than:
 - overstating a possible issue as a confirmed bug
 - returning `no_findings` while still hinting at a hidden concern
 
+The staged pipeline exists partly to preserve that trust:
+
+- candidate generation may explore possibilities
+- precision must prune back to what is actually justified
+- validator must reject contradictory final artifacts instead of publishing
+  them
+
 ## Expected Evolution
 
 This strategy is intentionally conservative while context is still bounded.
 
 Later phases should let the bot make stronger claims safely by improving the
-context packet, especially through:
+context packet and evaluation quality, especially through:
 
-- helper-following review context
-- better prior-review reconciliation
-- structured review context and reconciliation inputs
+- better live evaluation of candidate quality
+- improved precision-stage prompts and examples
+- bounded repair rules based on real contradiction cases
+- continued refinement of prior-review and continuity handling
 
 As those phases land, the bot should become more capable because it sees more
 of the truth, not because it was prompted to guess more aggressively.

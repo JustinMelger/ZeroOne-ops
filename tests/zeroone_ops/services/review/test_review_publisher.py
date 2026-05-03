@@ -3,14 +3,12 @@ import json
 from zeroone_ops.models.gitlab import MergeRequestNote
 from zeroone_ops.models.review import (
     MergeRequestReviewContext,
-    OverlapReconciliationResult,
-    OverlapResolution,
     PriorReviewContext,
     PriorReviewFinding,
     PriorReviewPass,
+    PublishableReviewArtifact,
+    PublishableReviewFinding,
     ReviewFileContext,
-    ReviewFinding,
-    ReviewResult,
 )
 from zeroone_ops.services.review.review_publisher import ReviewPublisher
 
@@ -189,29 +187,53 @@ class FakeGitLabReviewClient:
         )
 
 
-def test_render_note_formats_findings_present() -> None:
+def build_artifact(
+    *,
+    classification: str = "findings_present",
+    summary: str | None = None,
+    follow_up_lines: list[str] | None = None,
+) -> PublishableReviewArtifact:
+    findings = (
+        []
+        if classification != "findings_present"
+        else [
+            PublishableReviewFinding(
+                severity="medium",
+                file_path="src/service.py",
+                title="Missing test coverage",
+                evidence="The diff changes `value = 1` to `value = 2` without any test updates.",
+                explanation="The change alters branch behavior without test updates.",
+                suggested_follow_up="Add a regression test for the changed branch.",
+            )
+        ]
+    )
+    artifact_summary = summary
+    if artifact_summary is None:
+        artifact_summary = {
+            "findings_present": "One medium-risk finding.",
+            "no_findings": "No actionable findings in this review pass.",
+            "manual_review_only": "The diff is too broad to assess reliably in this pass.",
+        }[classification]
+    return PublishableReviewArtifact(
+        classification=classification,
+        summary=artifact_summary,
+        review_confidence=0.82 if classification == "findings_present" else 0.91,
+        review_confidence_reason=(
+            "The diff is small and the evidence is specific."
+            if classification == "findings_present"
+            else "The reviewed change is narrow and well supported."
+        ),
+        findings=findings,
+        follow_up_lines=follow_up_lines or [],
+    )
+
+
+def test_render_artifact_formats_findings_present() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
-    body = publisher.render_note(
+    body = publisher.render_artifact(
         context=build_context(),
-        review_result=ReviewResult(
-            classification="findings_present",
-            summary="One medium-risk finding.",
-            review_confidence=0.82,
-            review_confidence_reason="The diff is small and the evidence is specific.",
-            findings=[
-                ReviewFinding(
-                    severity="medium",
-                    file_path="src/service.py",
-                    title="Missing test coverage",
-                    evidence=(
-                        "The diff changes `value = 1` to `value = 2` without any test updates."
-                    ),
-                    explanation="The change alters branch behavior without test updates.",
-                    suggested_follow_up="Add a regression test for the changed branch.",
-                )
-            ],
-        ),
+        artifact=build_artifact(),
     )
 
     assert body.startswith("Hi,\n\nHere are your review notes.")
@@ -245,18 +267,12 @@ def test_render_note_formats_findings_present() -> None:
     ]
 
 
-def test_render_note_formats_no_findings() -> None:
+def test_render_artifact_formats_no_findings() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
-    body = publisher.render_note(
+    body = publisher.render_artifact(
         context=build_context(),
-        review_result=ReviewResult(
-            classification="no_findings",
-            summary="No findings.",
-            review_confidence=0.91,
-            review_confidence_reason="The reviewed change is narrow and well supported.",
-            findings=[],
-        ),
+        artifact=build_artifact(classification="no_findings"),
     )
 
     assert "No actionable findings in this review pass." in body
@@ -272,32 +288,15 @@ def test_render_note_formats_no_findings() -> None:
     assert payload["findings"] == []
 
 
-def test_publish_sends_rendered_note_body() -> None:
+def test_publish_artifact_sends_rendered_note_body() -> None:
     review_client = FakeGitLabReviewClient()
     publisher = ReviewPublisher(review_client)
 
-    result = publisher.publish(
+    result = publisher.publish_artifact(
         project_id="123",
         merge_request_iid=17,
         context=build_context(),
-        review_result=ReviewResult(
-            classification="findings_present",
-            summary="One medium-risk finding.",
-            review_confidence=0.82,
-            review_confidence_reason="The diff is small and the evidence is specific.",
-            findings=[
-                ReviewFinding(
-                    severity="medium",
-                    file_path="src/service.py",
-                    title="Missing test coverage",
-                    evidence=(
-                        "The diff changes `value = 1` to `value = 2` without any test updates."
-                    ),
-                    explanation="The change alters branch behavior without test updates.",
-                    suggested_follow_up="Add a regression test for the changed branch.",
-                )
-            ],
-        ),
+        artifact=build_artifact(),
     )
 
     assert result.note is not None
@@ -306,36 +305,17 @@ def test_publish_sends_rendered_note_body() -> None:
     assert "Missing test coverage" in review_client.published_body
 
 
-def test_render_note_prefers_normalized_overlap_result_when_available() -> None:
+def test_render_artifact_includes_follow_up_lines_when_available() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
-    body = publisher.render_note(
+    body = publisher.render_artifact(
         context=build_follow_up_context(),
-        review_result=ReviewResult(
-            classification="findings_present",
-            summary="One medium-risk finding.",
-            findings=[
-                ReviewFinding(
-                    severity="medium",
-                    file_path="src/service.py",
-                    title="Missing test coverage",
-                    evidence=(
-                        "The diff changes `value = 1` to `value = 2` without any test updates."
-                    ),
-                    explanation="The change alters branch behavior without test updates.",
-                    suggested_follow_up="Add a regression test for the changed branch.",
-                )
-            ],
-        ),
-        overlap_result=OverlapReconciliationResult(
-            prior_reviewed_head_sha="abc123",
-            resolutions=[
-                OverlapResolution(
-                    outcome="still_unresolved",
-                    current_finding_index=0,
-                    prior_finding_index=0,
-                )
-            ],
+        artifact=build_artifact(
+            follow_up_lines=[
+                "Follow-up review after the earlier bot pass on `abc123`.",
+                "An earlier concern from the last pass still appears unresolved.",
+                "",
+            ]
         ),
     )
 
@@ -343,36 +323,20 @@ def test_render_note_prefers_normalized_overlap_result_when_available() -> None:
     assert "An earlier concern from the last pass still appears unresolved." in body
 
 
-def test_render_note_uses_neutral_overlap_fallback_for_ambiguous_overlap() -> None:
+def test_render_artifact_uses_neutral_follow_up_wording_for_ambiguous_overlap() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
-    body = publisher.render_note(
+    body = publisher.render_artifact(
         context=build_follow_up_context(),
-        review_result=ReviewResult(
-            classification="findings_present",
-            summary="One medium-risk finding.",
-            findings=[
-                ReviewFinding(
-                    severity="medium",
-                    file_path="src/service.py",
-                    title="Missing test coverage",
-                    evidence=(
-                        "The diff changes `value = 1` to `value = 2` without any test updates."
-                    ),
-                    explanation="The change alters branch behavior without test updates.",
-                    suggested_follow_up="Add a regression test for the changed branch.",
-                )
-            ],
-        ),
-        overlap_result=OverlapReconciliationResult(
-            prior_reviewed_head_sha="abc123",
-            resolutions=[
-                OverlapResolution(
-                    outcome="overlap_ambiguous",
-                    current_finding_index=0,
-                    related_prior_finding_indices=[0],
-                )
-            ],
+        artifact=build_artifact(
+            follow_up_lines=[
+                "Follow-up review after the earlier bot pass on `abc123`.",
+                (
+                    "This pass may overlap with an earlier concern, but the overlap is "
+                    "not fully clear from the current changes."
+                ),
+                "",
+            ]
         ),
     )
 
@@ -382,59 +346,33 @@ def test_render_note_uses_neutral_overlap_fallback_for_ambiguous_overlap() -> No
     )
 
 
-def test_render_note_omits_follow_up_wording_when_overlap_result_is_missing() -> None:
+def test_render_artifact_omits_follow_up_wording_when_missing() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
-    body = publisher.render_note(
+    body = publisher.render_artifact(
         context=build_follow_up_context(),
-        review_result=ReviewResult(
-            classification="findings_present",
-            summary="One medium-risk finding.",
-            findings=[
-                ReviewFinding(
-                    severity="medium",
-                    file_path="src/service.py",
-                    title="Missing test coverage",
-                    evidence=(
-                        "The diff changes `value = 1` to `value = 2` without any test updates."
-                    ),
-                    explanation="The change alters branch behavior without test updates.",
-                    suggested_follow_up="Add a regression test for the changed branch.",
-                )
-            ],
-        ),
+        artifact=build_artifact(),
     )
 
     assert "Follow-up review after the earlier bot pass" not in body
     assert "still appears unresolved" not in body
 
 
-def test_render_note_keeps_manual_review_only_overlap_wording_conservative() -> None:
+def test_render_artifact_keeps_manual_review_only_overlap_wording_conservative() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
-    body = publisher.render_note(
+    body = publisher.render_artifact(
         context=build_follow_up_context(),
-        review_result=ReviewResult(
+        artifact=build_artifact(
             classification="manual_review_only",
             summary="The diff is too broad to assess reliably in this pass.",
-            findings=[],
-        ),
-        overlap_result=OverlapReconciliationResult(
-            prior_reviewed_head_sha="abc123",
-            resolutions=[
-                OverlapResolution(
-                    outcome="still_unresolved",
-                    current_finding_index=0,
-                    prior_finding_index=0,
+            follow_up_lines=[
+                "Follow-up review after the earlier bot pass on `abc123`.",
+                (
+                    "This pass may still relate to an earlier concern, but the current "
+                    "review was not confident enough to verify continuity fully."
                 ),
-                OverlapResolution(
-                    outcome="new_in_this_pass",
-                    current_finding_index=0,
-                ),
-                OverlapResolution(
-                    outcome="no_longer_present",
-                    prior_finding_index=0,
-                ),
+                "",
             ],
         ),
     )

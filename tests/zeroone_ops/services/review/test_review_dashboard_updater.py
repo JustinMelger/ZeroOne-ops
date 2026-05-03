@@ -77,6 +77,7 @@ def test_update_enriches_linked_remediation_item() -> None:
         review_result=ReviewResult(
             classification="findings_present",
             summary="Ordering changed in a shared path.",
+            follow_up_lines=["Follow-up review after the earlier bot pass on `abc123`."],
             review_confidence=0.78,
             review_confidence_reason="The diff shows a concrete behavior change.",
             findings=[],
@@ -92,6 +93,9 @@ def test_update_enriches_linked_remediation_item() -> None:
     assert item.review_status == "findings_present"
     assert item.review_findings_count == 0
     assert item.review_feedback_summary == "Ordering changed in a shared path."
+    assert item.review_follow_up_lines == [
+        "Follow-up review after the earlier bot pass on `abc123`."
+    ]
     assert item.review_confidence == 0.78
     assert item.review_confidence_reason == "The diff shows a concrete behavior change."
     assert item.reviewed_head_sha == "abc123"
@@ -110,6 +114,7 @@ def test_update_writes_fallback_review_status_item_when_no_link_exists() -> None
         review_result=ReviewResult(
             classification="findings_present",
             summary="One medium-risk finding.",
+            follow_up_lines=["Follow-up review after the earlier bot pass on `abc123`."],
             review_confidence=0.78,
             review_confidence_reason="The finding is grounded in a narrow changed diff.",
             findings=[],
@@ -126,6 +131,10 @@ def test_update_writes_fallback_review_status_item_when_no_link_exists() -> None
     assert item.review_status == "findings_present"
     assert item.review_findings_count == 0
     assert item.review_feedback_summary == "One medium-risk finding."
+    assert item.review_follow_up_lines == [
+        "Follow-up review after the earlier bot pass on `abc123`."
+    ]
+    assert "Follow-up review after the earlier bot pass on `abc123`." in item.summary
     assert "Review confidence: 0.78." in item.summary
 
 
@@ -161,6 +170,7 @@ def test_update_uses_clear_summary_for_manual_review_only() -> None:
         review_result=ReviewResult(
             classification="manual_review_only",
             summary="The available context was insufficient.",
+            follow_up_lines=["Follow-up review after the earlier bot pass on `abc123`."],
             review_confidence=0.31,
             review_confidence_reason="The diff is too broad for a reliable review judgment.",
             findings=[],
@@ -171,4 +181,5 @@ def test_update_uses_clear_summary_for_manual_review_only() -> None:
     item = dashboard_service.items[0]
     assert item.review_status == "manual_review_only"
     assert "Bot assessment was insufficient for a trustworthy review decision." in item.summary
+    assert "Follow-up review after the earlier bot pass on `abc123`." in item.summary
     assert "Review confidence: 0.31." in item.summary

@@ -11,10 +11,12 @@ from zeroone_ops.models.remediation import (
     remediation_profile_for,
 )
 from zeroone_ops.models.review import (
+    CandidateReviewFinding,
     MergeRequestReviewContext,
     OverlapCandidate,
     OverlapPacket,
     PriorReviewFinding,
+    PriorReviewPass,
     RemediationReviewContext,
     ReviewFileContext,
     ReviewFinding,
@@ -29,7 +31,8 @@ _PROMPT_TEMPLATE_NAMES = frozenset(
     {
         "analyze_issue.txt",
         "generate_structured_edit.txt",
-        "review_merge_request.txt",
+        "review_candidate_merge_request.txt",
+        "review_precision_reconciliation.txt",
         "review_overlap_reconciliation.txt",
     }
 )
@@ -115,13 +118,13 @@ def _format_prior_review_feedback(context: IssueContext) -> str:
     )
 
 
-def build_review_prompt(context: MergeRequestReviewContext) -> str:
-    """Build the review prompt for one merge request."""
+def build_candidate_review_prompt(context: MergeRequestReviewContext) -> str:
+    """Build the candidate-generation review prompt for one merge request."""
     changed_files = "\n\n".join(
         _format_changed_file_context(changed_file) for changed_file in context.changed_files
     )
     return render_prompt_template(
-        "review_merge_request.txt",
+        "review_candidate_merge_request.txt",
         mr_iid=context.mr_iid,
         title=context.title,
         description=_format_untrusted_block(
@@ -133,6 +136,60 @@ def build_review_prompt(context: MergeRequestReviewContext) -> str:
         head_sha=context.head_sha,
         remediation_context=_format_remediation_review_context(context.remediation_context),
         repository_guidance=_format_repository_guidance(context),
+        changed_files=changed_files,
+    )
+
+
+def build_review_precision_prompt(
+    context: MergeRequestReviewContext,
+    *,
+    candidates: list[CandidateReviewFinding],
+    overlap_packet: OverlapPacket | None,
+    candidate_stage_summary: str,
+    candidate_stage_classification: str,
+    candidate_stage_rationale: str,
+    max_findings: int,
+) -> str:
+    """Build the candidate-bounded precision-pass prompt for one merge request."""
+    changed_files = "\n\n".join(
+        _format_changed_file_context(changed_file) for changed_file in context.changed_files
+    )
+    candidate_block = (
+        "\n".join(_format_candidate_review_finding(candidate) for candidate in candidates)
+        if candidates
+        else "- (none)"
+    )
+    return render_prompt_template(
+        "review_precision_reconciliation.txt",
+        mr_iid=context.mr_iid,
+        title=context.title,
+        source_branch=context.source_branch,
+        target_branch=context.target_branch,
+        head_sha=context.head_sha,
+        max_findings=max_findings,
+        candidate_stage_assessment=_format_untrusted_block(
+            label="Candidate stage assessment",
+            content="\n".join(
+                [
+                    f"classification={candidate_stage_classification}",
+                    f"summary={candidate_stage_summary}",
+                    f"rationale={candidate_stage_rationale}",
+                ]
+            ),
+        ),
+        candidate_findings=_format_untrusted_block(
+            label="Grounded candidate findings",
+            content=candidate_block,
+        ),
+        prior_review_context=_format_precision_prior_review_context(
+            context.prior_review_context.passes[0]
+            if context.prior_review_context is not None and context.prior_review_context.passes
+            else None
+        ),
+        overlap_context=_format_precision_overlap_context(
+            overlap_packet,
+            candidates=candidates,
+        ),
         changed_files=changed_files,
     )
 
@@ -241,6 +298,104 @@ def _format_changed_file_context(changed_file: ReviewFileContext) -> str:
     return _format_untrusted_block(
         label=f"Changed file: {changed_file.file_path}",
         content="\n".join(content_parts),
+    )
+
+
+def _format_candidate_review_finding(candidate: CandidateReviewFinding) -> str:
+    """Render one grounded candidate finding for the precision prompt."""
+    location_parts = [
+        f"path={candidate.file_path}",
+        (
+            f"lines={candidate.line_start}-{candidate.line_end}"
+            if candidate.line_start is not None and candidate.line_end is not None
+            else None
+        ),
+        f"symbol={candidate.symbol}" if candidate.symbol else None,
+        f"issue_kind={candidate.issue_kind}" if candidate.issue_kind else None,
+        f"region_hint={candidate.region_hint}" if candidate.region_hint else None,
+    ]
+    visible_location_parts = [part for part in location_parts if part is not None]
+    return "\n".join(
+        [
+            f"- candidate_id={candidate.candidate_id}",
+            f"  severity={candidate.severity}",
+            f"  {'; '.join(visible_location_parts)}",
+            f"  title={candidate.title}",
+            f"  evidence={candidate.evidence}",
+            f"  explanation={candidate.explanation}",
+            f"  suggested_follow_up={candidate.suggested_follow_up}",
+        ]
+    )
+
+
+def _format_precision_prior_review_context(prior_pass: PriorReviewPass | None) -> str:
+    """Render a compact latest-prior-pass block for the precision prompt."""
+    if prior_pass is None:
+        return "(none)"
+
+    finding_lines = (
+        "\n".join(
+            [
+                "- " + finding.summary + (f" [symbol={finding.symbol}]" if finding.symbol else "")
+                for finding in prior_pass.findings
+            ]
+        )
+        if prior_pass.findings
+        else "- (none)"
+    )
+    return _format_untrusted_block(
+        label="Latest prior review pass",
+        content="\n".join(
+            [
+                f"reviewed_head_sha={prior_pass.reviewed_head_sha}",
+                f"classification={prior_pass.classification}",
+                f"findings_count={prior_pass.findings_count}",
+                f"summary={prior_pass.summary or '(none)'}",
+                "findings:",
+                finding_lines,
+            ]
+        ),
+    )
+
+
+def _format_precision_overlap_context(
+    overlap_packet: OverlapPacket | None,
+    *,
+    candidates: list[CandidateReviewFinding],
+) -> str:
+    """Render compact app-owned overlap hints for the precision prompt."""
+    if overlap_packet is None:
+        return "(none)"
+
+    overlap_lines: list[str] = []
+    for overlap_candidate in overlap_packet.candidates:
+        current_index = overlap_candidate.current_finding_index
+        prior_index = overlap_candidate.prior_finding_index
+        if current_index >= len(candidates) or prior_index >= len(overlap_packet.prior_findings):
+            continue
+        candidate = candidates[current_index]
+        prior_finding = overlap_packet.prior_findings[prior_index]
+        overlap_lines.append(
+            " - ".join(
+                [
+                    f"candidate_id={candidate.candidate_id}",
+                    f"prior_index={prior_index}",
+                    f"prior_summary={prior_finding.summary}",
+                    (
+                        "reasons="
+                        + (
+                            ", ".join(overlap_candidate.reasons)
+                            if overlap_candidate.reasons
+                            else "(none)"
+                        )
+                    ),
+                ]
+            )
+        )
+
+    return _format_untrusted_block(
+        label="App-owned overlap hints",
+        content="\n".join(overlap_lines) if overlap_lines else "- (none)",
     )
 
 

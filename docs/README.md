@@ -20,6 +20,12 @@ This folder is organized around two needs:
   - live examples and recurring review-bot failure patterns
 - [review-bot-judgment-strategy.md](review-bot-judgment-strategy.md)
   - current framing for review quality and judgment calibration
+- [review-flow-mermaid.md](review-flow-mermaid.md)
+  - current implemented staged review flow as a quick visual reference
+- [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)
+  - staged review pipeline behavior, guardrails, and rollout direction
+- [design/technical/technical-design-pr-review-staged-pipeline.md](design/technical/technical-design-pr-review-staged-pipeline.md)
+  - staged review pipeline contracts, boundaries, and implementation guidance
 
 ## Design Library
 
@@ -31,7 +37,9 @@ This folder is organized around two needs:
 Recommended entry points:
 
 - [design/functional/functional-design-pr-review.md](design/functional/functional-design-pr-review.md)
+- [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)
 - [design/technical/technical-design-pr-review.md](design/technical/technical-design-pr-review.md)
+- [design/technical/technical-design-pr-review-staged-pipeline.md](design/technical/technical-design-pr-review-staged-pipeline.md)
 - [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
 - [design/technical/technical-design-remediation-exclusions.md](design/technical/technical-design-remediation-exclusions.md)
 - [design/functional/functional-design-dashboard-operator-policy.md](design/functional/functional-design-dashboard-operator-policy.md)

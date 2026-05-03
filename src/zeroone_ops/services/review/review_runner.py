@@ -13,7 +13,13 @@ from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 from zeroone_ops.services.review.mr_intake import MergeRequestIntakeService
-from zeroone_ops.services.review.review_analysis_service import ReviewAnalysisService
+from zeroone_ops.services.review.review_artifact_builder import ReviewArtifactBuilder
+from zeroone_ops.services.review.review_artifact_validator import (
+    ReviewArtifactValidator,
+)
+from zeroone_ops.services.review.review_candidate_generation_service import (
+    ReviewCandidateGenerationService,
+)
 from zeroone_ops.services.review.review_context_builder import ReviewContextBuilder
 from zeroone_ops.services.review.review_dashboard_updater import (
     ReviewDashboardUpdater,
@@ -24,13 +30,10 @@ from zeroone_ops.services.review.review_gitlab_prior_context_service import (
 from zeroone_ops.services.review.review_gitlab_prior_note_parser import (
     ReviewGitLabPriorNoteParser,
 )
-from zeroone_ops.services.review.review_overlap_analysis_service import (
-    ReviewOverlapAnalysisService,
-)
-from zeroone_ops.services.review.review_overlap_packet_builder import (
-    OverlapPacketBuilder,
-)
 from zeroone_ops.services.review.review_publisher import ReviewPublisher
+from zeroone_ops.services.review.review_reconciliation_service import (
+    ReviewReconciliationService,
+)
 from zeroone_ops.services.review.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
 
@@ -149,79 +152,132 @@ class ReviewRunner:
             },
         )
 
-        analysis_result = ReviewAnalysisService(self.config).analyze(context)
-        if analysis_result.review_result is None:
+        candidate_stage_result = ReviewCandidateGenerationService(self.config).analyze(context)
+        if candidate_stage_result.raw_review_result is None:
             return self.review_state_service.fail_review(
                 record=record,
-                error_message=f"[{self.config.execution_mode}] {analysis_result.message}",
+                error_message=f"[{self.config.execution_mode}] {candidate_stage_result.message}",
                 failure=FailureDetails(
                     stage=FailureStage.REVIEW_ANALYSIS,
-                    message=analysis_result.message,
+                    message=candidate_stage_result.message,
                 ),
             )
+        review_result = candidate_stage_result.raw_review_result
 
         LOGGER.info(
-            "review analysis completed",
+            "review candidate stage completed",
             extra={
                 "run_id": run_id,
                 "mr_iid": context.mr_iid,
                 "head_sha": context.head_sha,
-                "classification": analysis_result.review_result.classification,
-                "finding_count": len(analysis_result.review_result.findings),
+                "candidate_count": (
+                    0
+                    if candidate_stage_result.candidate_result is None
+                    else len(candidate_stage_result.candidate_result.findings)
+                ),
+                "accepted_candidate_count": len(candidate_stage_result.accepted_candidate_ids),
+                "dropped_candidate_count": len(candidate_stage_result.dropped_candidates),
+                "classification": review_result.classification,
+                "finding_count": len(review_result.findings),
             },
         )
 
-        overlap_result = None
-        overlap_packet = OverlapPacketBuilder().build(
+        reconciliation_result = ReviewReconciliationService(self.config).reconcile(
             context=context,
-            review_result=analysis_result.review_result,
+            candidate_stage_result=candidate_stage_result,
         )
-        if overlap_packet is not None:
-            overlap_analysis = ReviewOverlapAnalysisService(self.config).analyze(overlap_packet)
-            if overlap_analysis.overlap_result is not None:
-                overlap_result = overlap_analysis.overlap_result
-                LOGGER.info(
-                    "review overlap reconciliation completed",
-                    extra={
-                        "run_id": run_id,
-                        "mr_iid": context.mr_iid,
-                        "head_sha": context.head_sha,
-                        "prior_head_sha": overlap_result.prior_reviewed_head_sha,
-                        "resolution_count": len(overlap_result.resolutions),
-                    },
+        review_result = reconciliation_result.review_result or review_result
+        overlap_result = reconciliation_result.overlap_result
+        artifact_result = None
+        validation_result = None
+        if reconciliation_result.reconciled_decision is not None:
+            artifact_result = ReviewArtifactBuilder().build(
+                reconciled_decision=reconciliation_result.reconciled_decision,
+                overlap_result=overlap_result,
+            )
+        publish_artifact = None
+        if artifact_result is not None:
+            validation_result = ReviewArtifactValidator().validate(artifact_result.artifact)
+            publish_artifact = artifact_result.artifact
+            if validation_result.status == "rejected":
+                publish_artifact = ReviewArtifactValidator().build_manual_review_only_fallback(
+                    artifact=artifact_result.artifact,
+                    validation_result=validation_result,
                 )
-            else:
-                LOGGER.warning(
-                    (
-                        "review overlap reconciliation unavailable; omitting continuity wording "
-                        f"[status={overlap_analysis.status} prior={overlap_packet.prior_head_sha} "
-                        f"curr={len(overlap_packet.current_findings)} "
-                        f"prev={len(overlap_packet.prior_findings)} "
-                        f"cand={len(overlap_packet.candidates)}] "
-                        f"{overlap_analysis.message}"
-                    ),
-                    extra={
-                        "run_id": run_id,
-                        "mr_iid": context.mr_iid,
-                        "head_sha": context.head_sha,
-                        "prior_head_sha": overlap_packet.prior_head_sha,
-                        "current_finding_count": len(overlap_packet.current_findings),
-                        "prior_finding_count": len(overlap_packet.prior_findings),
-                        "candidate_count": len(overlap_packet.candidates),
-                        "overlap_status": overlap_analysis.status,
-                        "overlap_message": overlap_analysis.message,
-                    },
-                )
+            review_result = publish_artifact.to_review_result()
+
+        LOGGER.info(
+            "review reconciliation completed",
+            extra={
+                "run_id": run_id,
+                "mr_iid": context.mr_iid,
+                "head_sha": context.head_sha,
+                "classification": review_result.classification,
+                "accepted_finding_count": (
+                    0
+                    if reconciliation_result.reconciled_decision is None
+                    else len(reconciliation_result.reconciled_decision.accepted_findings)
+                ),
+                "dropped_candidate_count": (
+                    0
+                    if reconciliation_result.reconciled_decision is None
+                    else len(reconciliation_result.reconciled_decision.dropped_candidates)
+                ),
+                "has_overlap_result": overlap_result is not None,
+                "artifact_follow_up_line_count": (
+                    0 if publish_artifact is None else len(publish_artifact.follow_up_lines)
+                ),
+                "artifact_validation_status": (
+                    None if validation_result is None else validation_result.status
+                ),
+                "artifact_validation_issue_count": (
+                    0 if validation_result is None else len(validation_result.issues)
+                ),
+            },
+        )
+        if context.prior_review_context is not None and overlap_result is None:
+            LOGGER.warning(
+                "review overlap reconciliation unavailable; omitting continuity wording",
+                extra={
+                    "run_id": run_id,
+                    "mr_iid": context.mr_iid,
+                    "head_sha": context.head_sha,
+                    "reconciliation_message": reconciliation_result.message,
+                },
+            )
 
         note_url: str | None = None
         dashboard_warning: str | None = None
         if not active_dry_run:
-            publish_result = ReviewPublisher(self.review_client).publish(
+            if artifact_result is None:
+                return self.review_state_service.fail_review(
+                    record=record,
+                    error_message=(
+                        f"[{self.config.execution_mode}] "
+                        "Review artifact build failed before publish."
+                    ),
+                    failure=FailureDetails(
+                        stage=FailureStage.REVIEW_PUBLISH,
+                        message="Review artifact build failed before publish.",
+                    ),
+                )
+            if publish_artifact is None:  # pragma: no cover - defensive typing guard
+                return self.review_state_service.fail_review(
+                    record=record,
+                    error_message=(
+                        f"[{self.config.execution_mode}] "
+                        "Validated review artifact was unavailable before publish."
+                    ),
+                    failure=FailureDetails(
+                        stage=FailureStage.REVIEW_PUBLISH,
+                        message="Validated review artifact was unavailable before publish.",
+                    ),
+                )
+            publish_result = ReviewPublisher(self.review_client).publish_artifact(
                 project_id=project_id,
                 merge_request_iid=context.mr_iid,
                 context=context,
-                review_result=analysis_result.review_result,
-                overlap_result=overlap_result,
+                artifact=publish_artifact,
             )
             if publish_result.error_message is not None:
                 return self.review_state_service.fail_review(
@@ -258,7 +314,7 @@ class ReviewRunner:
             ).update(
                 project_id=project_id,
                 merge_request=intake_result.selected_merge_request,
-                review_result=analysis_result.review_result,
+                review_result=review_result,
             )
             dashboard_warning = dashboard_update.error_message
             if dashboard_warning is None:
@@ -293,7 +349,7 @@ class ReviewRunner:
         summary = self.review_state_service.mark_reviewed(
             record=record,
             merge_request=intake_result.selected_merge_request,
-            review_result=analysis_result.review_result,
+            review_result=review_result,
             note_url=note_url,
             dry_run=active_dry_run,
         )

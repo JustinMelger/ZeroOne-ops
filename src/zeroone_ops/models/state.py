@@ -158,6 +158,7 @@ class MergeRequestReviewState(BaseModel):
     last_run_id: str
     findings_count: int = 0
     summary: str | None = None
+    follow_up_lines: list[str] = Field(default_factory=list)
     findings: list[PriorReviewFindingState] = Field(default_factory=list)
     note_url: str | None = None
     updated_at: datetime = Field(default_factory=utc_now)

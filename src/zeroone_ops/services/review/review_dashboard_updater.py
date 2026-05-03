@@ -105,6 +105,7 @@ def _build_updated_remediation_item(
             "review_status": review_result.classification,
             "review_findings_count": len(review_result.findings),
             "review_feedback_summary": review_result.summary,
+            "review_follow_up_lines": list(review_result.follow_up_lines),
             "review_feedback_updated_at": datetime.now(UTC),
             "review_confidence": review_result.review_confidence,
             "review_confidence_reason": review_result.review_confidence_reason,
@@ -119,11 +120,13 @@ def _build_review_status_item(
     review_result: ReviewResult,
 ) -> DashboardItem:
     """Build a fallback standalone review-status dashboard item."""
-    summary = review_result.summary
+    summary = _dashboard_review_display_summary(review_result)
     if review_result.classification == "manual_review_only":
+        follow_up_suffix = "".join(f"\n{line}" for line in review_result.follow_up_lines if line)
         summary = (
             "Bot assessment was insufficient for a trustworthy review decision. "
             f"{review_result.summary}"
+            f"{follow_up_suffix}"
         )
     if review_result.review_confidence is not None:
         confidence_summary = f" Review confidence: {review_result.review_confidence:.2f}."
@@ -147,8 +150,16 @@ def _build_review_status_item(
         review_status=review_result.classification,
         review_findings_count=len(review_result.findings),
         review_feedback_summary=review_result.summary,
+        review_follow_up_lines=list(review_result.follow_up_lines),
         review_feedback_updated_at=datetime.now(UTC),
         review_confidence=review_result.review_confidence,
         review_confidence_reason=review_result.review_confidence_reason,
         commit_sha=merge_request.head_sha,
     )
+
+
+def _dashboard_review_display_summary(review_result: ReviewResult) -> str:
+    """Build the dashboard-visible review summary from shared final review output."""
+    parts = [review_result.summary]
+    parts.extend(line for line in review_result.follow_up_lines if line)
+    return "\n".join(parts)
