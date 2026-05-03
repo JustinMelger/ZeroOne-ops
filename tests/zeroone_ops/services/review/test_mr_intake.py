@@ -62,12 +62,8 @@ def test_select_merge_request_requires_ci_merge_request_iid(monkeypatch) -> None
 
     assert result.selected_merge_request is None
     assert result.merge_request_count == 0
-    assert (
-        result.message
-        == (
-            "No merge request selected. Review runs are only supported for "
-            "CI-triggered merge requests."
-        )
+    assert result.message == (
+        "No merge request selected. Review runs are only supported for CI-triggered merge requests."
     )
 
 
