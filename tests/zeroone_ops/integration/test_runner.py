@@ -3627,6 +3627,16 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         sonarqube_project_key=None,
     ).load()
     assert state.reviews["17:abc123"].status == "findings_present"
+    assert state.runs[-1].review_diagnostics is not None
+    diagnostics = state.runs[-1].review_diagnostics
+    assert diagnostics.reviewed_head_sha == "abc123"
+    assert diagnostics.candidate_findings[0].candidate_id == "candidate-1"
+    assert diagnostics.grounding_accepted_candidate_ids == ["candidate-1"]
+    assert diagnostics.precision_accepted_candidate_ids == ["candidate-1"]
+    assert diagnostics.final_published_finding_summaries == [
+        "src/service.py: Missing test coverage"
+    ]
+    assert diagnostics.final_classification == "findings_present"
 
 
 def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
@@ -3768,6 +3778,14 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         sonarqube_project_key=None,
     ).load()
     assert state.reviews["17:abc123"].summary == "No actionable findings in this review pass."
+    assert state.runs[-1].review_diagnostics is not None
+    diagnostics = state.runs[-1].review_diagnostics
+    assert diagnostics.reviewed_head_sha == "abc123"
+    assert diagnostics.candidate_findings == []
+    assert diagnostics.grounding_accepted_candidate_ids == []
+    assert diagnostics.precision_accepted_candidate_ids == []
+    assert diagnostics.final_published_finding_summaries == []
+    assert diagnostics.final_classification == "no_findings"
 
 
 def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_only(

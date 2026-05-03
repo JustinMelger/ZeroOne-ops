@@ -84,6 +84,39 @@ class FailureDetails(BaseModel):
     stderr_excerpt: str | None = None
 
 
+class ReviewDiagnosticCandidate(BaseModel):
+    """Represent one bounded candidate-stage finding for run diagnostics."""
+
+    candidate_id: str
+    title: str
+    file_path: str
+
+
+class ReviewDiagnosticDroppedCandidate(BaseModel):
+    """Represent one bounded dropped-candidate record for run diagnostics."""
+
+    candidate_id: str
+    drop_reason: str
+    notes: str | None = None
+
+
+class ReviewRunDiagnostics(BaseModel):
+    """Represent bounded staged-review diagnostics for one internal run."""
+
+    reviewed_head_sha: str
+    candidate_findings: list[ReviewDiagnosticCandidate] = Field(default_factory=list)
+    grounding_accepted_candidate_ids: list[str] = Field(default_factory=list)
+    grounding_dropped_candidates: list[ReviewDiagnosticDroppedCandidate] = Field(
+        default_factory=list
+    )
+    precision_accepted_candidate_ids: list[str] = Field(default_factory=list)
+    precision_dropped_candidates: list[ReviewDiagnosticDroppedCandidate] = Field(
+        default_factory=list
+    )
+    final_published_finding_summaries: list[str] = Field(default_factory=list)
+    final_classification: str
+
+
 class RunRecord(BaseModel):
     """Represent a single execution record.
 
@@ -111,6 +144,7 @@ class RunRecord(BaseModel):
     updated_at: datetime
     error_message: str | None = None
     failure: FailureDetails | None = None
+    review_diagnostics: ReviewRunDiagnostics | None = None
 
 
 class IssueState(BaseModel):

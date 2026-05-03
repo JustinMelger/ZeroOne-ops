@@ -58,6 +58,7 @@ Suggested status values:
 | 2026-05-03 | !112 / 6240d3b6d9386bb4af0c72bfd7a3277fc600fa4b | Response-body truth overstated as HTTP response semantics | no | The finding was valid, but the published wording said the aggregate endpoint could yield an overall 200 response when the stronger visible claim is that the returned health payload/body can still report success | prompt + artifact builder | tracking | This should be phrased as a false healthy signal in the response body unless the review has direct evidence that the framework response status is also being set incorrectly. |
 | 2026-05-03 | !112 / 6240d3b6d9386bb4af0c72bfd7a3277fc600fa4b rerun | No-findings explanation leaks pipeline internals | no | Rerun published a clean pass with precision-stage and grounded-candidate wording visible to developers even though those are internal control-path concepts | prompt + artifact builder | tracking | Same family as the other internal-language issue, but useful as a direct rerun example on a real merge request. |
 | 2026-05-03 | !112 / 6240d3b6d9386bb4af0c72bfd7a3277fc600fa4b rerun | Same-SHA valid concern dropped on rerun | no | Earlier review found a valid health-endpoint issue on this exact SHA, but a later rerun on the same commit collapsed to `no_findings`, which is worse than the older continuity-only naming drift | prompt + context + code | tracking | Treat this as a stronger same-SHA regression example: the valid concern was not merely renamed or matched poorly, it disappeared from the grounded candidate set and final review entirely. |
+| 2026-05-03 | !112 / 6240d3b6d9386bb4af0c72bfd7a3277fc600fa4b rerun | Same-SHA materially different accepted finding | no | Different reruns on the same commit surfaced different primary health-check defects instead of stabilizing on one accepted finding set | prompt + context + code | tracking | One rerun concluded the aggregate `/health` endpoint still reports HTTP 200 on dependency failure, while another accepted the ClickHouse empty-result concern. That second concern was checked and is not valid, so this appears to be a precision-stage false-positive selection problem on the same SHA rather than only wording drift. |
 
 ## Pattern Notes
 
@@ -157,6 +158,14 @@ Suggested status values:
   - track same-SHA drift separately from changed-SHA continuity during testing
   - distinguish continuity-only wording drift from more serious cases where a
     previously valid concern disappears entirely on a rerun of the same SHA
+  - also distinguish cases where the accepted finding set shifts to a
+    materially different concern on the same SHA
+  - note that only prior accepted findings are currently persisted across runs;
+    previously dropped candidates are not, so rejected concerns can reappear as
+    apparently new candidates on later reruns
+  - note that same-SHA prior accepted findings are not yet anchoring precision
+    strongly enough, so reruns can still switch to a different accepted concern
+    instead of treating the earlier accepted finding as the stability default
   - tighten validator or prompt behavior further if live reruns still drift too
     much
 

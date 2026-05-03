@@ -41,6 +41,7 @@ class ReviewReconciliationResult:
 
     review_result: ReviewResult | None
     reconciled_decision: ReconciledReviewDecision | None
+    precision_decision: PrecisionReviewDecision | None
     overlap_result: OverlapReconciliationResult | None
     message: str
 
@@ -69,6 +70,7 @@ class ReviewReconciliationService:
             return ReviewReconciliationResult(
                 review_result=None,
                 reconciled_decision=None,
+                precision_decision=None,
                 overlap_result=None,
                 message=candidate_stage_result.message,
             )
@@ -78,6 +80,7 @@ class ReviewReconciliationService:
             return ReviewReconciliationResult(
                 review_result=None,
                 reconciled_decision=None,
+                precision_decision=None,
                 overlap_result=None,
                 message="LLM backend not configured for review reconciliation.",
             )
@@ -111,6 +114,7 @@ class ReviewReconciliationService:
             return ReviewReconciliationResult(
                 review_result=None,
                 reconciled_decision=None,
+                precision_decision=None,
                 overlap_result=None,
                 message=f"Review precision reconciliation failed: {error}",
             )
@@ -132,6 +136,7 @@ class ReviewReconciliationService:
         return ReviewReconciliationResult(
             review_result=review_result,
             reconciled_decision=reconciled_decision,
+            precision_decision=precision_decision,
             overlap_result=overlap_result,
             message=(
                 f"Reconciled review classification: {review_result.classification}. "

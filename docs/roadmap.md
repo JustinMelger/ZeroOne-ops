@@ -126,6 +126,8 @@ Implementation phases:
   - evaluate candidate-stage quality using preserved candidate metadata and
     reconciliation outcomes
   - add same-SHA stability checks and contradiction-focused evaluator coverage
+  - improve staged-review observability so same-SHA reruns can be compared at
+    the candidate, grounding, precision, and final-artifact layers
   - review each implementation phase for boundary erosion and pause when stage
     ownership becomes ambiguous
   - harden developer-facing clean-pass and follow-up wording so published
@@ -148,6 +150,13 @@ Implementation phases:
     - validate the `!176` / `!175` style examples after the wording changes to
       confirm the published explanation matches review truth rather than
       pipeline mechanics
+    - add structured per-run diagnostics for:
+      - candidate-stage findings
+      - grounding accept/drop decisions
+      - precision accept/drop decisions
+      - final published findings
+    - use those diagnostics to distinguish candidate drift, grounding drift,
+      and precision-selection drift on same-SHA reruns
 - [ ] Phase 8: Bounded Repair Path
   - add artifact-level repair for narrow contradiction classes that can be
     corrected without changing reconciled review meaning
