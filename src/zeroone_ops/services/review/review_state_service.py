@@ -140,6 +140,28 @@ class ReviewStateService:
             state_path=self.state_store.path,
         )
 
+    def mark_same_sha_reused(
+        self,
+        *,
+        record: RunRecord,
+        merge_request: MergeRequestReviewCandidate,
+        prior_classification: str | None,
+    ) -> RunSummary:
+        """Persist an operational same-SHA reuse outcome and return the summary."""
+        record.status = RunStatus.REVIEWED
+        record.updated_at = utc_now()
+        self.state_store.save(self.state)
+        message = f"Reviewed merge request !{merge_request.iid} at {merge_request.head_sha}. "
+        message += "No new changes after the last review."
+        if prior_classification is not None:
+            message += f" Earlier classification: {prior_classification}."
+        return RunSummary(
+            run_id=record.run_id,
+            status=record.status,
+            message=message,
+            state_path=self.state_store.path,
+        )
+
     def _trim_prior_reviews_for_merge_request(self, mr_iid: int) -> None:
         """Keep only the most recent bounded review passes for one MR."""
         if self.max_prior_review_passes <= 0:

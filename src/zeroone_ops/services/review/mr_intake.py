@@ -29,6 +29,7 @@ class MergeRequestIntakeResult:
     selected_merge_request: MergeRequestReviewCandidate | None
     merge_request_count: int
     message: str
+    selected_skip_reason: str | None = None
 
 
 class MergeRequestIntakeService:
@@ -47,40 +48,51 @@ class MergeRequestIntakeService:
         """Fetch open merge requests and select one candidate."""
         try:
             gitlab_config = load_gitlab_connection_config()
-            merge_request_iid = load_current_merge_request_iid()
         except SettingsError:
             return MergeRequestIntakeResult(
                 selected_merge_request=None,
                 merge_request_count=0,
                 message="No merge request selected. GitLab credentials not configured.",
+                selected_skip_reason=None,
+            )
+        try:
+            merge_request_iid = load_current_merge_request_iid()
+        except SettingsError:
+            return MergeRequestIntakeResult(
+                selected_merge_request=None,
+                merge_request_count=0,
+                message="No merge request selected. CI merge request IID is invalid.",
+                selected_skip_reason=None,
+            )
+        if merge_request_iid is None:
+            return MergeRequestIntakeResult(
+                selected_merge_request=None,
+                merge_request_count=0,
+                message=(
+                    "No merge request selected. Review runs are only supported for "
+                    "CI-triggered merge requests."
+                ),
+                selected_skip_reason=None,
             )
 
         review_client = self.review_client or GitLabReviewClient(gitlab_config)
-        if merge_request_iid is not None:
-            LOGGER.info(
-                "review intake targeting merge request from CI context",
-                extra={"mr_iid": merge_request_iid},
+        LOGGER.info(
+            "review intake targeting merge request from CI context",
+            extra={"mr_iid": merge_request_iid},
+        )
+        merge_requests = [
+            review_client.get_merge_request(
+                project_id=gitlab_config.project_id,
+                merge_request_iid=merge_request_iid,
             )
-            merge_requests = [
-                review_client.get_merge_request(
-                    project_id=gitlab_config.project_id,
-                    merge_request_iid=merge_request_iid,
-                )
-            ]
-        else:
-            merge_requests = review_client.list_open_merge_requests(
-                project_id=gitlab_config.project_id
-            )
-            LOGGER.info(
-                "review intake listed open merge requests",
-                extra={"merge_request_count": len(merge_requests)},
-            )
+        ]
         merge_request_count = len(merge_requests)
         if not merge_requests:
             return MergeRequestIntakeResult(
                 selected_merge_request=None,
                 merge_request_count=0,
                 message="No reviewable GitLab merge request found in the configured project.",
+                selected_skip_reason=None,
             )
         selected_merge_request = self.selector.select(merge_requests, state)
         if selected_merge_request is None:
@@ -97,6 +109,14 @@ class MergeRequestIntakeService:
                             "reason": reason,
                         },
                     )
+            if skip_reason_counts.get("already_reviewed_revision", 0) == merge_request_count:
+                selected_merge_request = merge_requests[0]
+                return MergeRequestIntakeResult(
+                    selected_merge_request=selected_merge_request,
+                    merge_request_count=merge_request_count,
+                    message="",
+                    selected_skip_reason="already_reviewed_revision",
+                )
             return MergeRequestIntakeResult(
                 selected_merge_request=None,
                 merge_request_count=merge_request_count,
@@ -104,6 +124,7 @@ class MergeRequestIntakeService:
                     merge_request_count=merge_request_count,
                     skip_reason_counts=skip_reason_counts,
                 ),
+                selected_skip_reason=None,
             )
         LOGGER.info(
             "selected merge request for review",
@@ -118,6 +139,7 @@ class MergeRequestIntakeService:
             selected_merge_request=selected_merge_request,
             merge_request_count=merge_request_count,
             message="",
+            selected_skip_reason=None,
         )
 
     def _build_no_merge_request_message(

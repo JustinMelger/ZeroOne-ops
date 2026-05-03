@@ -49,7 +49,7 @@ def build_state() -> AppState:
     return AppState(repository=RepositoryState(base_branch="main"))
 
 
-def test_select_merge_request_returns_first_open_candidate(monkeypatch) -> None:
+def test_select_merge_request_requires_ci_merge_request_iid(monkeypatch) -> None:
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
@@ -60,16 +60,18 @@ def test_select_merge_request_returns_first_open_candidate(monkeypatch) -> None:
         )
     ).select_merge_request(state=build_state())
 
-    assert result.selected_merge_request is not None
-    assert result.selected_merge_request.iid == 17
-    assert result.merge_request_count == 2
-    assert result.message == ""
+    assert result.selected_merge_request is None
+    assert result.merge_request_count == 0
+    assert result.message == (
+        "No merge request selected. Review runs are only supported for CI-triggered merge requests."
+    )
 
 
-def test_select_merge_request_returns_message_when_no_open_candidates(monkeypatch) -> None:
+def test_select_merge_request_reports_invalid_ci_merge_request_iid(monkeypatch) -> None:
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "abc")
 
     result = MergeRequestIntakeService(
         review_client=FakeGitLabReviewClient([])
@@ -77,7 +79,7 @@ def test_select_merge_request_returns_message_when_no_open_candidates(monkeypatc
 
     assert result.selected_merge_request is None
     assert result.merge_request_count == 0
-    assert "No reviewable GitLab merge request found" in result.message
+    assert result.message == "No merge request selected. CI merge request IID is invalid."
 
 
 def test_select_merge_request_reports_missing_gitlab_credentials(
@@ -97,10 +99,13 @@ def test_select_merge_request_reports_missing_gitlab_credentials(
     assert result.message == "No merge request selected. GitLab credentials not configured."
 
 
-def test_select_merge_request_skips_already_reviewed_revision(monkeypatch) -> None:
+def test_select_merge_request_reports_already_reviewed_revision_for_targeted_ci_mr(
+    monkeypatch,
+) -> None:
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
     state = build_state()
     state.reviews[build_review_revision_key(mr_iid=17, head_sha="sha-17")] = (
         MergeRequestReviewState(
@@ -116,7 +121,8 @@ def test_select_merge_request_skips_already_reviewed_revision(monkeypatch) -> No
     ).select_merge_request(state=state)
 
     assert result.selected_merge_request is not None
-    assert result.selected_merge_request.iid == 18
+    assert result.selected_merge_request.iid == 17
+    assert result.selected_skip_reason == "already_reviewed_revision"
 
 
 def test_select_merge_request_reports_when_all_open_mrs_are_already_reviewed(
@@ -125,6 +131,7 @@ def test_select_merge_request_reports_when_all_open_mrs_are_already_reviewed(
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
     state = build_state()
     state.reviews[build_review_revision_key(mr_iid=17, head_sha="sha-17")] = (
         MergeRequestReviewState(
@@ -139,9 +146,35 @@ def test_select_merge_request_reports_when_all_open_mrs_are_already_reviewed(
         review_client=FakeGitLabReviewClient([build_merge_request(17)])
     ).select_merge_request(state=state)
 
-    assert result.selected_merge_request is None
+    assert result.selected_merge_request is not None
+    assert result.selected_merge_request.iid == 17
     assert result.merge_request_count == 1
-    assert "already reviewed for their current head SHA" in result.message
+    assert result.message == ""
+    assert result.selected_skip_reason == "already_reviewed_revision"
+
+
+def test_select_merge_request_skips_manual_review_only_revision(monkeypatch) -> None:
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
+    state = build_state()
+    state.reviews[build_review_revision_key(mr_iid=17, head_sha="sha-17")] = (
+        MergeRequestReviewState(
+            mr_iid=17,
+            head_sha="sha-17",
+            status="manual_review_only",
+            last_run_id="run-1",
+        )
+    )
+
+    result = MergeRequestIntakeService(
+        review_client=FakeGitLabReviewClient([build_merge_request(17)])
+    ).select_merge_request(state=state)
+
+    assert result.selected_merge_request is not None
+    assert result.selected_merge_request.iid == 17
+    assert result.selected_skip_reason == "already_reviewed_revision"
 
 
 def test_select_merge_request_prefers_triggering_merge_request_iid_in_ci(monkeypatch) -> None:

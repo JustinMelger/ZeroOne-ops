@@ -10,7 +10,11 @@ It is intended as a quick reference for:
 
 ```mermaid
 flowchart TD
-    A[MR Intake] --> B[Review Context Builder]
+    A[MR Intake] --> A1{Authoritative same-SHA review exists?}
+    A1 -->|yes| A2[App-owned reuse response]
+    A2 --> A3[Persist run record only]
+    A3 --> U[Operator-visible dashboard state]
+    A1 -->|no| B[Review Context Builder]
 
     B --> C[Candidate Generation Stage]
     C --> C1[LLM candidate prompt]
@@ -67,6 +71,7 @@ flowchart TD
   are the current LLM-assisted stages.
 - `grounding`, `normalization`, `artifact building`, `validation`, `state persistence`,
   and `dashboard mirroring` are app-owned.
+- Same-SHA reuse is an app-owned operational early exit, not a new review pass.
 - The precision stage owns final review meaning.
 - The validator owns publish safety, not review truth.
 - Repair is intentionally not implemented yet; current validator fallback is

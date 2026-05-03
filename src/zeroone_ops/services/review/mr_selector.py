@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from zeroone_ops.models.review import MergeRequestReviewCandidate
-from zeroone_ops.models.state import AppState
+from zeroone_ops.models.state import AppState, MergeRequestReviewState
+
+_AUTHORITATIVE_REVIEW_STATUSES = frozenset(
+    {"no_findings", "findings_present", "manual_review_only"}
+)
 
 
 def build_review_revision_key(*, mr_iid: int, head_sha: str) -> str:
@@ -36,6 +40,12 @@ class MergeRequestSelector:
             mr_iid=merge_request.iid,
             head_sha=merge_request.head_sha,
         )
-        if dedup_key in state.reviews:
+        review_state = state.reviews.get(dedup_key)
+        if review_state is not None and _is_successful_review_state(review_state):
             return "already_reviewed_revision"
         return None
+
+
+def _is_successful_review_state(review_state: MergeRequestReviewState) -> bool:
+    """Return whether one persisted review state is authoritative for same-SHA reuse."""
+    return review_state.status in _AUTHORITATIVE_REVIEW_STATUSES
