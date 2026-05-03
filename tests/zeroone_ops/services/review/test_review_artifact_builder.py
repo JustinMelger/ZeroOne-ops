@@ -92,8 +92,7 @@ def test_build_rewrites_internal_follow_up_no_findings_rationale_for_publish() -
     decision = build_decision("no_findings").model_copy(
         update={
             "decision_rationale": (
-                "There is not enough candidate-backed evidence to justify an "
-                "actionable finding."
+                "There is not enough candidate-backed evidence to justify an actionable finding."
             )
         }
     )

@@ -92,9 +92,7 @@ def _artifact_confidence_reason(
         return decision_rationale
 
     lowered_rationale = decision_rationale.lower()
-    if not any(
-        marker in lowered_rationale for marker in _INTERNAL_PIPELINE_RATIONALE_MARKERS
-    ):
+    if not any(marker in lowered_rationale for marker in _INTERNAL_PIPELINE_RATIONALE_MARKERS):
         return decision_rationale
 
     if overlap_result is not None:
