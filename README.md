@@ -1,8 +1,13 @@
 # ZeroOne Ops
 
-AI-powered code maintenance and remediation.
+An AI-assisted engineering workflow system for code review, static-analysis
+remediation, and operator-controlled automation.
 
-Automate the detection, review, and fixing of code issues.
+ZeroOne Ops coordinates multiple bounded workflows instead of relying on one
+opaque agent. It reviews merge requests, runs staged LLM-assisted review and
+continuity checks, mirrors outcomes into a GitLab-native dashboard, picks up
+eligible remediation work, generates and validates bounded fixes, and keeps the
+whole flow inspectable through explicit operator policy and workflow state.
 
 Naming note:
 
@@ -12,18 +17,21 @@ Naming note:
 
 ## Current Scope
 
-The current v1 scope includes:
+Today the project includes:
 
 - SonarQube issue intake and selection
 - dashboard-backed remediation and reconciliation workflows
-- GitLab merge request review
+- GitLab merge request review with staged candidate, precision, and continuity
+  handling
 - focused code-context gathering and LLM-backed analysis
 - patch generation, validation, and MR creation in CI mode
+- operator-controlled policy handling through strict dashboard commands
+- bounded local state and machine-safe GitLab note persistence for continuity
 - a conservative single-file remediation boundary for safety
 
 This repository is in an active testing and hardening period. The main goal is
-stable operator workflows and useful review quality, not broad feature
-expansion.
+stable operator workflows, trustworthy review quality, and clear automation
+boundaries, not broad feature expansion.
 
 ## Quick Start
 
