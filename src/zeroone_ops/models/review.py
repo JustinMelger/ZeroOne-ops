@@ -383,6 +383,7 @@ class PublishableReviewArtifact(BaseModel):
         decision: ReconciledReviewDecision,
         *,
         summary: str | None = None,
+        review_confidence_reason: str | None = None,
         follow_up_lines: list[str] | None = None,
     ) -> PublishableReviewArtifact:
         """Build a publish-shaped artifact without changing reconciled review meaning."""
@@ -390,7 +391,11 @@ class PublishableReviewArtifact(BaseModel):
             classification=decision.review_classification,
             summary=decision.decision_summary if summary is None else summary,
             review_confidence=decision.confidence_level,
-            review_confidence_reason=decision.decision_rationale,
+            review_confidence_reason=(
+                decision.decision_rationale
+                if review_confidence_reason is None
+                else review_confidence_reason
+            ),
             findings=[
                 PublishableReviewFinding(
                     severity=finding.severity,

@@ -53,6 +53,11 @@ Suggested status values:
 | 2026-04-22 |  | No-findings summary/reason still describes regression | no | Implemented validator downgrade and staged precision flow from this feedback; repair remains intentionally deferred until testing produces concrete cases | validator + code | implemented | Treat this as a reconciliation-owned consistency failure: downgrade or repair instead of publishing a normal clean-pass review. |
 | 2026-04-23 | !389 / 1798e8ee4eed806c1e7b4cda27ff8d854573165a | No-findings summary/reason still describes regression | no | Implemented as part of the staged review and validator work; use future live examples to decide whether bounded repair is needed | validator + code | implemented | Another live occurrence of the same contradiction class: the model appears to detect a concern internally but still publishes a clean-pass verdict. |
 | 2026-04-23 | !390 / 193968676c7295e058ad2d0da17f4c47f83705c1 | No-findings summary/reason still describes regression | no | Implemented as part of the staged review and validator work; future testing should confirm whether downgrade alone is sufficient before repair is added | validator + code | implemented | Count as the same reconciliation-validator need: the concern was present in the rationale but suppressed by final packaging/classification. |
+| 2026-05-03 | !176 / 9449d598c0275ab0aa6052c3d4ad9470e599384b and !175 / b1c6c87bfaeeade8f59a17e9e1d6ce1aefe3d27b | No-findings explanation leaks pipeline internals | no | Review truth was fine, but the published clean-pass reasoning explained candidate-bounded precision mechanics instead of speaking in developer-facing code-review terms | prompt + artifact builder | tracking | Example: `The precision stage is bounded to the supplied candidate set` and `The grounded candidate set is empty` are internally true but poor operator-facing explanations. |
+| 2026-05-03 | !176 / ec42036e45009d2a4167c267c0015b7b41e19874 | Prior concern incorrectly counted as new | no | Follow-up review said one earlier concern no longer appeared present while also claiming 2 new concerns, even though one of the two accepted findings was exactly the earlier unresolved concern | context + code | tracking | The next follow-up pass matched the surviving concern correctly, so the continuity/overlap path is close but still misclassifies some retained findings as newly introduced. |
+| 2026-05-03 | !112 / 6240d3b6d9386bb4af0c72bfd7a3277fc600fa4b | Response-body truth overstated as HTTP response semantics | no | The finding was valid, but the published wording said the aggregate endpoint could yield an overall 200 response when the stronger visible claim is that the returned health payload/body can still report success | prompt + artifact builder | tracking | This should be phrased as a false healthy signal in the response body unless the review has direct evidence that the framework response status is also being set incorrectly. |
+| 2026-05-03 | !112 / 6240d3b6d9386bb4af0c72bfd7a3277fc600fa4b rerun | No-findings explanation leaks pipeline internals | no | Rerun published a clean pass with precision-stage and grounded-candidate wording visible to developers even though those are internal control-path concepts | prompt + artifact builder | tracking | Same family as the other internal-language issue, but useful as a direct rerun example on a real merge request. |
+| 2026-05-03 | !112 / 6240d3b6d9386bb4af0c72bfd7a3277fc600fa4b rerun | Same-SHA valid concern dropped on rerun | no | Earlier review found a valid health-endpoint issue on this exact SHA, but a later rerun on the same commit collapsed to `no_findings`, which is worse than the older continuity-only naming drift | prompt + context + code | tracking | Treat this as a stronger same-SHA regression example: the valid concern was not merely renamed or matched poorly, it disappeared from the grounded candidate set and final review entirely. |
 
 ## Pattern Notes
 
@@ -150,6 +155,8 @@ Suggested status values:
   - implemented staged candidate/precision/validator separation to reduce
     compressed stochastic drift
   - track same-SHA drift separately from changed-SHA continuity during testing
+  - distinguish continuity-only wording drift from more serious cases where a
+    previously valid concern disappears entirely on a rerun of the same SHA
   - tighten validator or prompt behavior further if live reruns still drift too
     much
 
@@ -197,3 +204,37 @@ Suggested status values:
   - implemented staged precision plus validator downgrade to
     `manual_review_only`
   - keep collecting live contradiction examples before adding bounded repair
+
+### No-Findings Explanation Leaks Pipeline Internals
+
+- Typical shape:
+  - the published clean-pass review is correct, but the confidence reason
+    explains internal staged-review mechanics instead of developer-facing review
+    truth
+- Preferred response:
+  - keep pipeline-mechanics explanations in telemetry/debug surfaces, not the
+    published review note
+  - tighten prompt or artifact-builder wording so clean-pass explanations talk
+    about the current diff and earlier concerns in code-review terms
+
+### Response-Body Truth Overstated As HTTP Response Semantics
+
+- Typical shape:
+  - the review finding is valid, but the published wording overstates
+    transport-level behavior such as HTTP status when the visible code more
+    directly supports only a claim about the response payload/body
+- Preferred response:
+  - prefer the narrowest supported wording in published findings
+  - keep response-body, return-value, and HTTP-status semantics distinct unless
+    the visible code clearly proves all of them
+
+### Prior Concern Incorrectly Counted As New
+
+- Typical shape:
+  - a follow-up review correctly keeps a prior concern alive, but continuity
+    wording still counts it as a newly introduced concern instead of matching
+    it to the earlier pass
+- Preferred response:
+  - keep hardening overlap/continuity matching with real examples
+  - check whether the mismatch came from overlap candidate construction,
+    precision interpretation of overlap hints, or later continuity attachment

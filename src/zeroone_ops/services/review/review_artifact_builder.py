@@ -10,6 +10,17 @@ from zeroone_ops.models.review import (
     ReconciledReviewDecision,
 )
 
+_INTERNAL_PIPELINE_RATIONALE_MARKERS = (
+    "candidate stage",
+    "grounded candidate set",
+    "grounded candidate findings",
+    "precision stage",
+    "reconciliation stage",
+    "candidate-backed evidence",
+    "provided candidate set",
+    "supplied candidate set",
+)
+
 
 @dataclass(frozen=True)
 class ReviewArtifactBuildResult:
@@ -34,6 +45,11 @@ class ReviewArtifactBuilder:
             summary=_artifact_summary(
                 classification=reconciled_decision.review_classification,
                 decision_summary=reconciled_decision.decision_summary,
+                overlap_result=overlap_result,
+            ),
+            review_confidence_reason=_artifact_confidence_reason(
+                classification=reconciled_decision.review_classification,
+                decision_rationale=reconciled_decision.decision_rationale,
                 overlap_result=overlap_result,
             ),
             follow_up_lines=_render_follow_up_lines(
@@ -63,6 +79,34 @@ def _artifact_summary(
             return "No new actionable findings since the last reviewed SHA."
         return "No actionable findings in this review pass."
     return decision_summary
+
+
+def _artifact_confidence_reason(
+    *,
+    classification: str,
+    decision_rationale: str,
+    overlap_result: OverlapReconciliationResult | None,
+) -> str:
+    """Return a developer-facing confidence reason for the publish artifact."""
+    if classification != "no_findings":
+        return decision_rationale
+
+    lowered_rationale = decision_rationale.lower()
+    if not any(marker in lowered_rationale for marker in _INTERNAL_PIPELINE_RATIONALE_MARKERS):
+        return decision_rationale
+
+    if overlap_result is not None:
+        return (
+            "The current diff does not show a remaining actionable issue from the "
+            "earlier concern, and I did not see concrete evidence of a new "
+            "supported-path regression in this pass."
+        )
+
+    return (
+        "The reviewed changes appear internally consistent, and I did not see "
+        "concrete evidence in the visible code of a remaining supported-path "
+        "regression or deterministic failure introduced by this merge request."
+    )
 
 
 def _render_follow_up_lines(
