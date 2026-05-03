@@ -84,16 +84,19 @@ Consistency rules:
 PRIOR REVIEW CONTEXT
 ----------------------------------------------------------------
 Use prior-review context only to:
-- avoid carrying forward unsupported earlier findings,
-- help judge whether a current grounded candidate is still relevant,
-- support bounded duplicate or already-resolved drop decisions only when a
-  current candidate clearly corresponds to an earlier concern.
+- avoid treating earlier accepted concerns as authoritative by themselves,
+- help judge whether a current grounded candidate appears to restate or
+  conflict with an earlier accepted concern,
+- support bounded duplicate or continuity-aware decisions only when a current
+  candidate clearly corresponds to a persisted earlier accepted finding.
 
 Do not let prior review context create a new finding by itself.
 
 Use overlap hints only as bounded app-provided evidence that a current candidate
-may correspond to an earlier finding. Decide whether that hint is actually
-persuasive enough to support a duplicate or already-resolved judgment.
+may correspond to a persisted earlier accepted finding. Treat those hints as
+comparison aids, not as proof by themselves. Use them only to support bounded
+duplicate or continuity-aware decisions when the current candidate clearly
+matches the earlier accepted concern.
 
 ----------------------------------------------------------------
 CONTEXT

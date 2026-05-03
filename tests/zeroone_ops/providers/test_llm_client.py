@@ -734,6 +734,7 @@ def test_build_review_precision_prompt_uses_candidate_bounded_contract() -> None
     assert "lines=1-1" in prompt
     assert "Latest prior review context:" in prompt
     assert "App-owned overlap hints:" in prompt
+    assert "comparison aids, not as proof by themselves" in prompt
     assert "reasons=same_file, title_overlap" in prompt
     assert "Missing test coverage" in prompt
 
@@ -981,6 +982,6 @@ def test_openai_review_precision_reconciliation_uses_high_reasoning() -> None:
     assert "They must explain review truth in code-review terms" in kwargs["input"][1]["content"]
     assert "Do not mention:" in kwargs["input"][1]["content"]
     assert (
-        "help judge whether a current grounded candidate is still relevant"
+        "help judge whether a current grounded candidate appears to restate or"
         in kwargs["input"][1]["content"]
     )

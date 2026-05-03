@@ -478,6 +478,64 @@ The runner should report clearly whether:
 - the run downgraded to `manual_review_only`,
 - the run failed before a trustworthy artifact existed.
 
+### 12.1 Same-SHA Default Short-Circuit
+
+The runner should treat an already-reviewed MR revision as a short-circuit
+case, not as a normal rerun case.
+
+Recommended behavior:
+
+1. before running candidate generation, look up whether persisted review state
+   already contains an authoritative review for:
+   - the same merge-request IID
+   - the same head SHA
+2. if such a review exists, skip candidate generation, precision, overlap,
+   artifact building, and validator work
+3. return an app-owned "already reviewed" outcome that references the existing
+   stored review result
+
+Recommended user-facing shape:
+
+- keep the message short and operational, for example:
+  - `No new changes after the last review.`
+- optionally append the earlier classification in compact form,
+  for example `Earlier classification: findings_present.`
+- do not require the earlier note URL in the first implementation
+
+Recommended source of truth:
+
+- use persisted local review state first when it is available and trustworthy,
+- use the latest authoritative machine-safe GitLab review note for the same MR
+  SHA when local state is unavailable or ephemeral,
+- treat GitLab machine-safe note lookup as a normal durable path in CI-style
+  environments rather than only as an edge-case recovery path.
+
+Successful-review requirement:
+
+- apply the same-SHA short-circuit only when the earlier persisted review was a
+  successful authoritative review result,
+- do not short-circuit failed or incomplete earlier runs,
+- allow those runs to enter the normal staged review path again.
+
+Important non-goal:
+
+- the "already reviewed" response must not be serialized as a new authoritative
+  review artifact for continuity,
+- it should not contain a normal machine-safe review-note payload that would
+  make later changed-SHA continuity treat it as a fresh review pass.
+
+This keeps repeated unchanged-SHA runs deterministic and prevents unnecessary
+review drift on identical code while still preserving explicit rerun support as
+possible later operator tooling.
+
+Runner/state semantics:
+
+- write a new run record for the same-SHA short-circuit outcome so operators
+  can still see that a review workflow executed,
+- do not persist that run as a new review pass for continuity purposes,
+- keep future force-rerun support optional; a normal code push remains the main
+  way to trigger a new authoritative review.
+
 ## 13. Observability
 
 The staged pipeline should log enough stage-level information to make review
@@ -486,16 +544,67 @@ behavior diagnosable without exposing hidden chain-of-thought detail.
 Recommended metrics or summary fields:
 
 - candidate finding count,
+- candidate finding identifiers/titles for diagnostic comparison,
+- grounding accepted candidate identifiers,
+- grounding dropped candidate identifiers with drop reasons,
 - reconciled accepted finding count,
+- reconciled accepted source candidate identifiers,
+- reconciled dropped candidate identifiers with drop reasons,
 - artifact-builder output shape/version when relevant,
 - validator rejection count or rule type,
 - repair attempted yes/no,
 - final published classification,
+- final published finding identifiers/titles,
 - same-SHA rerun outcome category when relevant.
 
 Stage-aware observability is important because the main quality goal is no
 longer only "did review run," but also "where did weak review behavior enter
 the pipeline."
+
+Recommended observability contract:
+
+- record a bounded per-run diagnostic artifact for internal use only,
+- keep it separate from developer-facing MR notes and bounded machine-safe
+  publish payloads,
+- use it to compare same-SHA reruns across:
+  - candidate generation drift,
+  - grounding drift,
+  - precision selection drift,
+  - final artifact drift.
+
+Suggested per-run diagnostic shape:
+
+```python
+class ReviewRunDiagnostics(BaseModel):
+    reviewed_head_sha: str
+    candidate_findings: list[DiagnosticCandidate]
+    grounding_accepted_candidate_ids: list[str]
+    grounding_dropped_candidates: list[DroppedCandidate]
+    precision_accepted_candidate_ids: list[str]
+    precision_dropped_candidates: list[DroppedCandidate]
+    final_published_finding_summaries: list[str]
+    final_classification: ReviewClassification
+```
+
+Suggested usage:
+
+- compare repeated runs on the same SHA before changing prompts or stage logic,
+- identify whether a concern disappeared during candidate generation,
+  grounding, or precision,
+- identify whether a grounded-but-invalid concern was incorrectly promoted by
+  precision.
+
+Current limitation:
+
+- cross-run continuity memory is currently anchored only on previously accepted
+  findings stored in the machine-safe review note payload,
+- previously dropped candidates are not persisted across runs,
+- so a concern that was deliberately dropped on one run can reappear as an
+  apparently new candidate on a later rerun of the same SHA.
+
+That limitation is acceptable for the current rollout, but it should remain
+visible during same-SHA hardening because it constrains what precision can know
+from prior persisted review state.
 
 ## 14. Evaluation Inputs
 

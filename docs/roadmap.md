@@ -126,6 +126,8 @@ Implementation phases:
   - evaluate candidate-stage quality using preserved candidate metadata and
     reconciliation outcomes
   - add same-SHA stability checks and contradiction-focused evaluator coverage
+  - improve staged-review observability so same-SHA reruns can be compared at
+    the candidate, grounding, precision, and final-artifact layers
   - review each implementation phase for boundary erosion and pause when stage
     ownership becomes ambiguous
   - harden developer-facing clean-pass and follow-up wording so published
@@ -148,6 +150,30 @@ Implementation phases:
     - validate the `!176` / `!175` style examples after the wording changes to
       confirm the published explanation matches review truth rather than
       pipeline mechanics
+    - add structured per-run diagnostics for:
+      - candidate-stage findings
+      - grounding accept/drop decisions
+      - precision accept/drop decisions
+      - final published findings
+    - use those diagnostics to distinguish candidate drift, grounding drift,
+      and precision-selection drift on same-SHA reruns
+  - same-SHA hardening phases:
+    - [x] Phase 7a: Staged Review Observability
+      - persist bounded per-run staged-review diagnostics on internal review
+        run records
+      - add simple stage-count logging for candidate, grounding, precision,
+        and final published findings
+      - use the new diagnostics to classify same-SHA drift before changing
+        review behavior
+    - [ ] Phase 7b: Same-SHA Review Reuse
+      - short-circuit unchanged MR SHAs by default when a successful
+        authoritative review already exists
+      - return a short app-owned operational response such as
+        `No new changes after the last review.`
+      - treat this as an operator-visible run outcome, but not as a new review
+        pass for continuity purposes
+      - use local persisted review state when available and machine-safe
+        GitLab review notes as the durable CI fallback
 - [ ] Phase 8: Bounded Repair Path
   - add artifact-level repair for narrow contradiction classes that can be
     corrected without changing reconciled review meaning

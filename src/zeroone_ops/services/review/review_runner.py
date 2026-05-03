@@ -6,8 +6,15 @@ import logging
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
-from zeroone_ops.models.review import PriorReviewContext
-from zeroone_ops.models.state import FailureDetails, FailureStage, RunRecord
+from zeroone_ops.models.review import PriorReviewContext, ReviewResult
+from zeroone_ops.models.state import (
+    FailureDetails,
+    FailureStage,
+    ReviewDiagnosticCandidate,
+    ReviewDiagnosticDroppedCandidate,
+    ReviewRunDiagnostics,
+    RunRecord,
+)
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
@@ -19,6 +26,7 @@ from zeroone_ops.services.review.review_artifact_validator import (
 )
 from zeroone_ops.services.review.review_candidate_generation_service import (
     ReviewCandidateGenerationService,
+    ReviewCandidateStageResult,
 )
 from zeroone_ops.services.review.review_context_builder import ReviewContextBuilder
 from zeroone_ops.services.review.review_dashboard_updater import (
@@ -32,6 +40,7 @@ from zeroone_ops.services.review.review_gitlab_prior_note_parser import (
 )
 from zeroone_ops.services.review.review_publisher import ReviewPublisher
 from zeroone_ops.services.review.review_reconciliation_service import (
+    ReviewReconciliationResult,
     ReviewReconciliationService,
 )
 from zeroone_ops.services.review.review_state_service import ReviewStateService
@@ -175,6 +184,8 @@ class ReviewRunner:
                     if candidate_stage_result.candidate_result is None
                     else len(candidate_stage_result.candidate_result.findings)
                 ),
+                "grounded_candidate_count": len(candidate_stage_result.accepted_candidate_ids),
+                "grounding_dropped_candidate_count": len(candidate_stage_result.dropped_candidates),
                 "accepted_candidate_count": len(candidate_stage_result.accepted_candidate_ids),
                 "dropped_candidate_count": len(candidate_stage_result.dropped_candidates),
                 "classification": review_result.classification,
@@ -213,6 +224,19 @@ class ReviewRunner:
                 "mr_iid": context.mr_iid,
                 "head_sha": context.head_sha,
                 "classification": review_result.classification,
+                "precision_accepted_candidate_count": (
+                    0
+                    if reconciliation_result.precision_decision is None
+                    else sum(
+                        len(finding.source_candidate_ids)
+                        for finding in reconciliation_result.precision_decision.accepted_findings
+                    )
+                ),
+                "precision_dropped_candidate_count": (
+                    0
+                    if reconciliation_result.precision_decision is None
+                    else len(reconciliation_result.precision_decision.dropped_candidates)
+                ),
                 "accepted_finding_count": (
                     0
                     if reconciliation_result.reconciled_decision is None
@@ -227,6 +251,7 @@ class ReviewRunner:
                 "artifact_follow_up_line_count": (
                     0 if publish_artifact is None else len(publish_artifact.follow_up_lines)
                 ),
+                "final_published_finding_count": len(review_result.findings),
                 "artifact_validation_status": (
                     None if validation_result is None else validation_result.status
                 ),
@@ -346,6 +371,12 @@ class ReviewRunner:
                 },
             )
 
+        record.review_diagnostics = _build_review_run_diagnostics(
+            head_sha=context.head_sha,
+            candidate_stage_result=candidate_stage_result,
+            reconciliation_result=reconciliation_result,
+            review_result=review_result,
+        )
         summary = self.review_state_service.mark_reviewed(
             record=record,
             merge_request=intake_result.selected_merge_request,
@@ -529,3 +560,65 @@ class ReviewRunner:
             merge_request_iid=mr_iid,
             passes=[parse_result.prior_review_pass],
         )
+
+
+def _build_review_run_diagnostics(
+    *,
+    head_sha: str,
+    candidate_stage_result: ReviewCandidateStageResult,
+    reconciliation_result: ReviewReconciliationResult,
+    review_result: ReviewResult,
+) -> ReviewRunDiagnostics:
+    """Build one bounded staged-review diagnostics record for internal use."""
+    candidate_findings = (
+        []
+        if candidate_stage_result.candidate_result is None
+        else [
+            ReviewDiagnosticCandidate(
+                candidate_id=finding.candidate_id,
+                title=finding.title,
+                file_path=finding.file_path,
+            )
+            for finding in candidate_stage_result.candidate_result.findings
+        ]
+    )
+    precision_accepted_candidate_ids = (
+        []
+        if reconciliation_result.precision_decision is None
+        else [
+            candidate_id
+            for finding in reconciliation_result.precision_decision.accepted_findings
+            for candidate_id in finding.source_candidate_ids
+        ]
+    )
+    precision_dropped_candidates = (
+        []
+        if reconciliation_result.precision_decision is None
+        else [
+            ReviewDiagnosticDroppedCandidate(
+                candidate_id=candidate.candidate_id,
+                drop_reason=candidate.drop_reason,
+                notes=candidate.notes,
+            )
+            for candidate in reconciliation_result.precision_decision.dropped_candidates
+        ]
+    )
+    return ReviewRunDiagnostics(
+        reviewed_head_sha=head_sha,
+        candidate_findings=candidate_findings,
+        grounding_accepted_candidate_ids=list(candidate_stage_result.accepted_candidate_ids),
+        grounding_dropped_candidates=[
+            ReviewDiagnosticDroppedCandidate(
+                candidate_id=candidate.candidate_id,
+                drop_reason=candidate.drop_reason,
+                notes=candidate.notes,
+            )
+            for candidate in candidate_stage_result.dropped_candidates
+        ],
+        precision_accepted_candidate_ids=precision_accepted_candidate_ids,
+        precision_dropped_candidates=precision_dropped_candidates,
+        final_published_finding_summaries=[
+            f"{finding.file_path}: {finding.title}" for finding in review_result.findings
+        ],
+        final_classification=review_result.classification,
+    )
