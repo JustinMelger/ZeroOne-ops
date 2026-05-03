@@ -78,6 +78,12 @@ As a maintainer, I want candidate generation, precision decisions, and
 consistency checks to have distinct responsibilities, so later improvements can
 be targeted without turning one service into a catch-all review engine.
 
+### 5.4 Stable Same-SHA Behavior
+
+As a developer, I want an unchanged merge-request SHA to reuse the earlier
+review result by default, so rerunning the pipeline does not create a second
+stochastic review for identical code.
+
 ## 6. Staged Product Model
 
 The recommended review pipeline should separate into three stages:
@@ -258,6 +264,42 @@ Expected product behavior:
 - internal tracking should distinguish normal publish from repaired publish,
 - repair frequency should remain inspectable for later quality work without
   introducing a second visible review surface.
+
+## 11. Same-SHA Reuse Behavior
+
+By default, the staged review workflow should not produce a fresh review for a
+merge-request SHA that was already reviewed successfully.
+
+Expected behavior:
+
+- if the current MR head SHA has not changed and an authoritative review for
+  that SHA already exists, the runner should reuse that result rather than
+  rerunning candidate generation, precision, overlap, and validation
+- the user-facing response should be app-owned and operational, for example:
+  `No new changes after the last review.`
+- the response may include the earlier classification in a compact form, such
+  as `findings_present` or `no_findings`, but it does not need to include the
+  earlier note URL
+
+Important boundary:
+
+- the "already reviewed" response is not a new review pass
+- it must not replace the earlier accepted findings for that SHA
+- it must not become input to prior-review continuity on later changed-SHA
+  reviews
+
+This keeps same-SHA stability simple:
+
+- changed SHA -> run a fresh review
+- unchanged SHA -> reuse the existing review by default
+
+The same-SHA skip should apply only when the earlier review completed
+successfully. Failed or incomplete earlier runs should remain eligible for a
+normal rerun.
+
+Intentional same-SHA reruns can remain a later explicit exception path, but
+they should not be the normal product behavior. A future force-rerun mechanism
+is optional rather than required for the first implementation.
 
 ## 11. Evidence Inputs For The Design
 
