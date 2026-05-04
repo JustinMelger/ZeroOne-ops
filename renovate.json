@@ -8,7 +8,7 @@
   ],
   "timezone": "Europe/Amsterdam",
   "schedule": [
-    "before 6am every weekday"
+    "before 9am every weekday"
   ],
   "minimumReleaseAge": "14 days",
   "rangeStrategy": "bump",
