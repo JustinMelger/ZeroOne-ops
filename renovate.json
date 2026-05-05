@@ -10,7 +10,6 @@
   "schedule": [
     "before 9am every weekday"
   ],
-  "minimumReleaseAge": "14 days",
   "rangeStrategy": "bump",
   "dependencyDashboard": true,
   "separateMajorMinor": false,
@@ -25,6 +24,7 @@
         "patch",
         "minor"
       ],
+      "minimumReleaseAge": "14 days",
       "groupName": "python dependencies"
     },
     {
@@ -35,6 +35,7 @@
       "matchDepTypes": [
         "devDependencies"
       ],
+      "minimumReleaseAge": "14 days",
       "groupName": "python dev dependencies"
     },
     {

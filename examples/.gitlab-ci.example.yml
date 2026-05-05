@@ -37,7 +37,7 @@ zeroone_ops_dashboard:
     # SONARQUBE_PROJECT_KEY
     # GITLAB_TOKEN
   script:
-    - uv run --project /opt/zeroone-ops zeroone-ops dashboard sonar
+    - zeroone-ops dashboard sonar
 
 # Dedicated dashboard policy processing.
 # Keep this separate so operator-issued policy commands do not depend on
@@ -55,7 +55,7 @@ zeroone_ops_dashboard_policy:
     # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
   script:
-    - uv run --project /opt/zeroone-ops zeroone-ops dashboard policy
+    - zeroone-ops dashboard policy
 
 # Dashboard-backed remediation workflow.
 # Keep this separate from discovery, but run it after dashboard sync in the
@@ -82,6 +82,8 @@ zeroone_ops_dashboard_remediate:
     # GITLAB_TOKEN
     # OPENAI_API_KEY
   before_script:
+    - export GIT_CONFIG_GLOBAL="/tmp/gitconfig-${CI_JOB_ID}"
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
     - git config user.name "$GIT_AUTHOR_NAME"
     - git config user.email "$GIT_AUTHOR_EMAIL"
     - set +x
@@ -89,7 +91,9 @@ zeroone_ops_dashboard_remediate:
       git remote set-url origin
       "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
   script:
-    - uv run --project /opt/zeroone-ops zeroone-ops dashboard remediate
+    - zeroone-ops dashboard remediate
+  after_script:
+    - rm -f "$GIT_CONFIG_GLOBAL"
 
 # Dashboard reconciliation workflow.
 # Keep this as a separate later lifecycle job rather than chaining it directly
@@ -107,7 +111,7 @@ zeroone_ops_dashboard_reconcile:
     # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
   script:
-    - uv run --project /opt/zeroone-ops zeroone-ops dashboard reconcile
+    - zeroone-ops dashboard reconcile
 
 # Merge request review workflow.
 # Prefer the merge_request_event manual trigger for the first smoke test so the
@@ -122,5 +126,10 @@ zeroone_ops_review:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_REVIEW == "true"'
       when: manual
     - when: never
+  before_script:
+    - export GIT_CONFIG_GLOBAL="/tmp/gitconfig-${CI_JOB_ID}"
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
   script:
-    - uv run --project /opt/zeroone-ops zeroone-ops review
+    - zeroone-ops review
+  after_script:
+    - rm -f "$GIT_CONFIG_GLOBAL"

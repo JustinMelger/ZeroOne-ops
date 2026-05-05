@@ -84,7 +84,7 @@ def test_sync_dashboard_sonar_dry_run_reports_eligible_issue_count(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
     monkeypatch.setenv("SONARQUBE_TOKEN", "token")
     monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
@@ -93,7 +93,7 @@ def test_sync_dashboard_sonar_dry_run_reports_eligible_issue_count(
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -124,7 +124,7 @@ def test_sync_dashboard_sonar_ci_mode_publishes_dashboard_summary(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
     monkeypatch.setenv("SONARQUBE_TOKEN", "token")
     monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
@@ -133,7 +133,7 @@ def test_sync_dashboard_sonar_ci_mode_publishes_dashboard_summary(
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -174,14 +174,14 @@ def test_sync_dashboard_sonar_reports_no_eligible_issues_in_ci_mode(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
     monkeypatch.setenv("SONARQUBE_TOKEN", "token")
     monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",

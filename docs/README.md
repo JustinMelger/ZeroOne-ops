@@ -16,6 +16,8 @@ This folder is organized around two needs:
 
 ## Active Reference
 
+- [dashboard-feedback-log.md](dashboard-feedback-log.md)
+  - live examples and recurring dashboard/operator workflow failure patterns
 - [review-bot-feedback-log.md](review-bot-feedback-log.md)
   - live examples and recurring review-bot failure patterns
 - [review-bot-judgment-strategy.md](review-bot-judgment-strategy.md)
