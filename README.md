@@ -193,7 +193,8 @@ docker run --rm \
 
 The image keeps the installed bot in `/opt/zeroone-ops` and uses `/workspace`
 as the repository root, so mounting another repository does not hide the bot's
-virtual environment.
+virtual environment. The published runtime image uses a multi-stage build and
+runs as a non-root user.
 
 GitHub release automation uses `release-please` plus the publish workflow.
 Stable release tags now follow the `zeroone-ops-vX.Y.Z` pattern.
