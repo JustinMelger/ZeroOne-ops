@@ -37,7 +37,7 @@ RUN groupadd --gid 10001 zeroone \
     && chown -R zeroone:zeroone /workspace \
     && git config --system --add safe.directory /workspace
 
-COPY --from=builder /opt/zeroone-ops /opt/zeroone-ops
+COPY --from=builder --chown=zeroone:zeroone /opt/zeroone-ops /opt/zeroone-ops
 
 WORKDIR /workspace
 
