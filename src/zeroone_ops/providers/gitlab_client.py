@@ -94,7 +94,18 @@ def _parse_json_response(response: httpx.Response) -> dict[str, Any] | list[Any]
     try:
         response.raise_for_status()
     except httpx.HTTPStatusError as error:
-        message = f"GitLab request failed with status {error.response.status_code}."
+        status_code = error.response.status_code
+        if status_code == 401:
+            message = (
+                "GitLab request failed with status 401. The GitLab token is invalid or expired."
+            )
+        elif status_code == 403:
+            message = (
+                "GitLab request failed with status 403. "
+                "The GitLab token does not have permission for this action."
+            )
+        else:
+            message = f"GitLab request failed with status {status_code}."
         raise GitLabClientError(message) from error
 
     try:
