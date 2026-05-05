@@ -132,12 +132,12 @@ def _install_review_precision_fake(monkeypatch) -> None:
 
 def test_dashboard_remediate_dry_run_returns_no_issue_summary(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -178,12 +178,12 @@ def test_dashboard_remediate_dry_run_returns_no_issue_summary(tmp_path: Path, mo
 
 def test_dashboard_reconcile_dry_run_returns_no_issue_summary(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -226,12 +226,12 @@ def test_dashboard_policy_dry_run_returns_policy_processing_summary(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -274,12 +274,12 @@ def test_dashboard_reconcile_dry_run_selects_mr_opened_item(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -370,11 +370,11 @@ def test_dashboard_reconcile_live_run_requires_ci_mode(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -400,11 +400,11 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -523,11 +523,11 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -669,11 +669,11 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -792,11 +792,11 @@ def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -922,11 +922,11 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -1051,11 +1051,11 @@ def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -1143,11 +1143,11 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -1267,11 +1267,11 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -1382,11 +1382,11 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -1557,11 +1557,11 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
 
 def test_dashboard_remediate_live_run_requires_ci_mode(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -1605,11 +1605,11 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -1794,11 +1794,11 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -1979,13 +1979,13 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -2129,11 +2129,11 @@ def test_dashboard_remediate_fails_when_mr_opened_update_cannot_persist(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -2345,11 +2345,11 @@ def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -2559,11 +2559,11 @@ def test_dashboard_remediate_ci_failure_marks_dashboard_failed(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -2753,11 +2753,11 @@ def test_dashboard_remediate_ci_rejection_marks_dashboard_rejected(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -2940,11 +2940,11 @@ def test_dashboard_remediate_ci_manual_analysis_marks_dashboard_rejected(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -3130,14 +3130,14 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     (tmp_path / "src").mkdir()
     target_file = tmp_path / "src" / "service.py"
     target_file.write_text("value = 1\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -3373,13 +3373,13 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
 def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -3474,13 +3474,13 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -3650,13 +3650,13 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -3799,13 +3799,13 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -3967,13 +3967,13 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -4200,13 +4200,13 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -4342,12 +4342,12 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
 def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeypatch) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -4402,12 +4402,12 @@ def test_review_skips_unchanged_sha_revision_via_gitlab_note_fallback(
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -4471,12 +4471,12 @@ def test_review_skips_unchanged_sha_when_local_state_is_manual_review_only(
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -4531,12 +4531,12 @@ def test_review_skips_unchanged_sha_when_gitlab_note_is_manual_review_only(
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     monkeypatch.setenv("CI_MERGE_REQUEST_IID", "17")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",
@@ -4599,13 +4599,13 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AI_SONAR_BOT_CONFIG", str(tmp_path / ".ai-sonar-bot.json"))
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
     monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "base_branch": "main",

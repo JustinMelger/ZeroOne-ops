@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 
 from zeroone_ops.models.config import GitLabConnectionConfig
-from zeroone_ops.providers.gitlab_client import GitLabClient
+from zeroone_ops.providers.gitlab_client import GitLabClient, GitLabClientError
 
 
 def build_config() -> GitLabConnectionConfig:
@@ -103,3 +104,45 @@ def test_find_open_merge_request_normalizes_existing_merge_request() -> None:
     assert mr is not None
     assert mr.iid == 9
     assert mr.web_url == "https://gitlab.example.com/group/project/-/merge_requests/9"
+
+
+def test_find_open_merge_request_reports_invalid_or_expired_token_on_401() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/projects/123/merge_requests"
+        return httpx.Response(401, json={"message": "401 Unauthorized"})
+
+    client = GitLabClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    with pytest.raises(GitLabClientError, match="invalid or expired"):
+        client.find_open_merge_request(
+            project_id="123",
+            source_branch="zeroone-ops/ax-1/service",
+            target_branch="main",
+        )
+
+
+def test_find_open_merge_request_reports_permission_problem_on_403() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/projects/123/merge_requests"
+        return httpx.Response(403, json={"message": "403 Forbidden"})
+
+    client = GitLabClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    with pytest.raises(GitLabClientError, match="does not have permission"):
+        client.find_open_merge_request(
+            project_id="123",
+            source_branch="zeroone-ops/ax-1/service",
+            target_branch="main",
+        )

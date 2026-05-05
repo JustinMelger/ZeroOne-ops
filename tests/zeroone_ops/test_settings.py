@@ -257,14 +257,13 @@ def test_settings_load_runner_state_metadata_overrides(tmp_path: Path, monkeypat
     assert load_sonarqube_project_key_override() == "project-key"
 
 
-def test_settings_fall_back_to_legacy_config_names(tmp_path: Path, monkeypatch) -> None:
+def test_settings_load_default_zeroone_ops_config(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("ZEROONE_OPS_CONFIG", raising=False)
-    monkeypatch.delenv("AI_SONAR_BOT_CONFIG", raising=False)
     monkeypatch.delenv("ZEROONE_OPS_EXECUTION_MODE", raising=False)
-    monkeypatch.setenv("AI_SONAR_BOT_EXECUTION_MODE", "local")
+    monkeypatch.setenv("ZEROONE_OPS_EXECUTION_MODE", "local")
 
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
           "execution_mode": "ci",
@@ -284,27 +283,28 @@ def test_settings_fall_back_to_legacy_config_names(tmp_path: Path, monkeypatch) 
     assert config.base_branch == "main"
 
 
-def test_settings_prefer_zeroone_ops_config_when_both_exist(tmp_path: Path, monkeypatch) -> None:
+def test_settings_use_explicit_zeroone_ops_config_path(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / "custom.zeroone-ops.json"))
 
     (tmp_path / ".zeroone-ops.json").write_text(
         """
         {
-          "base_branch": "main",
+          "base_branch": "default",
           "gitlab": {
-            "target_branch": "main",
+            "target_branch": "default",
             "labels": []
           }
         }
         """.strip(),
         encoding="utf-8",
     )
-    (tmp_path / ".ai-sonar-bot.json").write_text(
+    (tmp_path / "custom.zeroone-ops.json").write_text(
         """
         {
-          "base_branch": "legacy",
+          "base_branch": "custom",
           "gitlab": {
-            "target_branch": "legacy",
+            "target_branch": "custom",
             "labels": []
           }
         }
@@ -314,4 +314,4 @@ def test_settings_prefer_zeroone_ops_config_when_both_exist(tmp_path: Path, monk
 
     config = load_config()
 
-    assert config.base_branch == "main"
+    assert config.base_branch == "custom"
