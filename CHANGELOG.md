@@ -5,6 +5,13 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.35.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.34.2...zeroone-ops-v0.35.0) (2026-05-05)
+
+
+### Features
+
+* multistage build + sec docker ([#163](https://github.com/JustinMelger/ZeroOne-ops/issues/163)) ([f40f9db](https://github.com/JustinMelger/ZeroOne-ops/commit/f40f9dbe4e8b77342ec1f80fcca40d75106df79a))
+
 ## [0.34.2](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.34.1...zeroone-ops-v0.34.2) (2026-05-03)
 
 
