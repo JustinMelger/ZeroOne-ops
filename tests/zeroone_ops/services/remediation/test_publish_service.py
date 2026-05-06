@@ -109,3 +109,14 @@ def test_publish_service_uses_generic_profile_for_unknown_source() -> None:
     assert "## Remediation Target" in description
     assert "- Source: `Remediation`" in description
     assert "- Item reference: `job-1`" in description
+
+
+def test_publish_service_builds_conventional_commit_merge_request_title() -> None:
+    service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
+
+    title = service.build_mr_title(
+        selected_issue=build_issue(),
+        proposed_title="patch service please",
+    )
+
+    assert title == "fix: remediate python:S2259 in service.py"

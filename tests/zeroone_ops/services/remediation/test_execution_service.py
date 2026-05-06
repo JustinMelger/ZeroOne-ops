@@ -256,7 +256,8 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
     )
 
     def capture_create(self, project_id, source_branch, target_branch, title, description, labels):
-        del self, project_id, source_branch, target_branch, title, labels
+        del self, project_id, source_branch, target_branch, labels
+        captured["title"] = title
         captured["description"] = description
 
         return MergeRequestInfo(
@@ -275,6 +276,7 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
     assert result.failure is None
     assert result.mr_action == "created"
     assert result.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/10"
+    assert captured["title"] == "fix: remediate python:S2259 in service.py"
     assert captured["description"] == "\n".join(
         [
             "## Summary",
