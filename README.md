@@ -13,7 +13,7 @@ Naming note:
 
 - product brand: `ZeroOne Ops`
 - technical release and image slug: `zeroone-ops`
-- legacy compatibility aliases still work for config and environment variables during the transition, but operator-facing examples now use the `ZeroOne Ops` names everywhere.
+- operator-facing examples use the `ZeroOne Ops` names everywhere
 
 ## Current Scope
 
