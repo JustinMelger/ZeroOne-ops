@@ -5,6 +5,18 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.37.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.36.0...zeroone-ops-v0.37.0) (2026-05-06)
+
+
+### Features
+
+* feedback dashboard + remediation ([#170](https://github.com/JustinMelger/ZeroOne-ops/issues/170)) ([0c0040a](https://github.com/JustinMelger/ZeroOne-ops/commit/0c0040af337dd5de61d50692e328b81657dcbd27))
+
+
+### Bug Fixes
+
+* docs, pip sec past uv ([#168](https://github.com/JustinMelger/ZeroOne-ops/issues/168)) ([bb8ab80](https://github.com/JustinMelger/ZeroOne-ops/commit/bb8ab804b439875d5b1ed68dd427485c4e459e52))
+
 ## [0.36.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.35.0...zeroone-ops-v0.36.0) (2026-05-05)
 
 
