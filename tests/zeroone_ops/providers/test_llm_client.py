@@ -201,6 +201,7 @@ def test_build_analysis_prompt_uses_prompt_template() -> None:
     assert "This workflow supports low-risk fixes that stay within one file." in prompt
     assert "Small coordinated edits inside that file are allowed" in prompt
     assert "an import plus a type hint" in prompt
+    assert "Match existing repository conventions for type hints and docstrings" in prompt
     assert "Code snippet:\ndef bad_name():\n    return 1\n" in prompt
 
 
@@ -287,6 +288,8 @@ def test_build_structured_edit_prompt_uses_prompt_template() -> None:
         "Use multiple edits only when they are tightly coupled parts of the same local fix."
         in prompt
     )
+    assert "follow existing repository conventions for type hints and docstrings" in prompt
+    assert "Prefer matching surrounding code style over introducing generic boilerplate." in prompt
     assert "Good same-file multi-edit examples:" in prompt
     assert "File path: src/service.py" in prompt
 

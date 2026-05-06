@@ -38,8 +38,8 @@ Suggested status values:
 
 | Date | Item / Run | Pattern | Valid? | Assessment | Action | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-05-05 | Failed dashboard remediation/reconciliation items after GitLab token expiry | `Investigate Failure` recovery path is unclear for operators | yes | The failed state is understandable, but the operator-facing dashboard does not yet make it clear how to recover when failure was caused by infrastructure or credential issues such as an expired GitLab token | dashboard wording + docs + policy | tracking | Example: multiple items remain in `Investigate Failure` after a token outage, and the operator needs a clear reset/retry story instead of guessing whether to edit state, rerun reconciliation, or wait for automation. |
-| 2026-05-05 | Retry-eligible and failed dashboard items | Retry explanation is not yet a first-class operator surface | yes | Operators can see retry-relevant state today, but the dashboard does not yet explain retryability and block reasons as clearly or intentionally as policy commands explain policy changes | dashboard wording + policy + docs | tracking | A lightweight explanation surface should likely come before any reset/requeue command so operators first understand why an item is blocked, retryable, or failed. |
+| 2026-05-05 | Failed dashboard remediation/reconciliation items after GitLab token expiry | `Investigate Failure` recovery path is unclear for operators | yes | The first dashboard wording pass is now in place: failed items can surface clearer retry-eligible and retry-blocked wording, but the broader operator recovery story is still incomplete for infrastructure failures such as expired GitLab tokens | dashboard wording + docs + policy | tracking | Example: multiple items remain in `Investigate Failure` after a token outage, and the operator still needs a clearer reset/retry story instead of guessing whether to edit state, rerun reconciliation, or wait for automation. |
+| 2026-05-05 | Retry-eligible and failed dashboard items | Retry explanation is not yet a first-class operator surface | yes | The dashboard now distinguishes retry-eligible and retry-blocked failed items more clearly in visible wording, but the explanation surface is still not as intentional or complete as the policy command surface | dashboard wording + policy + docs | tracking | A lightweight explanation surface should still come before any reset/requeue command so operators understand why an item is blocked, retryable, or failed. |
 | 2026-05-05 | Merge requests with multiple review passes | Repeated MR reviews are not grouped clearly on the dashboard | yes | When one merge request receives multiple review passes, the dashboard still presents them as separate review entries instead of one grouped MR-centric review history, which makes repeated-review state harder to scan | dashboard wording + rendering | tracking | Operators should be able to understand the latest review state plus compact continuity outcomes for one MR without mentally joining several separate review rows. |
 
 ## Pattern Notes
@@ -54,6 +54,8 @@ Suggested status values:
     item cleanly
 - Preferred response:
   - make the failure reason more explicit in dashboard-visible state
+  - keep iterating after the first wording pass so operational failures such as
+    expired credentials have a clearer recovery story
   - explain whether the item is retryable, blocked, or needs operator action
   - document the recommended recovery path for common failure classes such as
     credential expiry or temporary API access failures
@@ -67,8 +69,8 @@ Suggested status values:
     block reasons, but operators do not yet have a crisp, intentional surface
     for understanding why an item can retry, cannot retry, or needs review
 - Preferred response:
-  - make retry explanation more explicit in dashboard rendering and operator
-    guidance
+  - continue improving retry explanation in dashboard rendering and operator
+    guidance after the first wording pass
   - prefer explanation-first improvements before adding new reset/requeue
     commands
   - if later needed, add a bounded retry-explanation operator command before

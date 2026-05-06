@@ -22,6 +22,8 @@ Return guidance:
 - Prefer `auto_fixable` only when the fix can stay within one repository file.
 - Same-file coordinated edits are acceptable when they are narrowly coupled, for example an import plus a type hint.
 - Prefer `manual` when the fix likely needs multiple files, symbol-wide changes, or broader behavioral reasoning.
+- If the safest local fix would introduce a new helper or function, prefer repo-style code over generic defaults.
+- Match existing repository conventions for type hints and docstrings when adding new functions.
 
 Code snippet:
 {code_snippet}

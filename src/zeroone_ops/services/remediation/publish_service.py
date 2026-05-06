@@ -6,6 +6,7 @@ This module owns branch push and GitLab merge request publication.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from zeroone_ops.models.analysis import ValidationResult
 from zeroone_ops.models.config import AppConfig
@@ -79,7 +80,10 @@ class PublishService:
                 project_id=gitlab_config.project_id,
                 source_branch=branch_name,
                 target_branch=self.config.gitlab.target_branch,
-                title=mr_title,
+                title=self.build_mr_title(
+                    selected_issue=selected_issue,
+                    proposed_title=mr_title,
+                ),
                 description=self.build_mr_description(
                     selected_issue=selected_issue,
                     validation_result=validation_result,
@@ -94,6 +98,26 @@ class PublishService:
             mr_url=created_mr.web_url,
             mr_action="created",
         )
+
+    def build_mr_title(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        proposed_title: str,
+    ) -> str:
+        """Build a conventional-commit-style merge request title.
+
+        Args:
+            selected_issue: Selected remediation execution target.
+            proposed_title: LLM-proposed merge request title.
+
+        Returns:
+            A deterministic conventional-commit-style title.
+        """
+        del proposed_title
+        issue_summary = selected_issue.rule_id or selected_issue.source_ref
+        file_name = Path(selected_issue.file_path).name
+        return f"fix: remediate {issue_summary} in {file_name}"
 
     def build_mr_description(
         self,

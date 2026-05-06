@@ -276,6 +276,69 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
     assert "Simplify boolean comparison" in body
 
 
+def test_rendered_dashboard_body_surfaces_retry_eligible_failure_guidance() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[
+                    build_item(item_id="sonar:failed", status="failed").model_copy(
+                        update={
+                            "retry_eligible": True,
+                            "log_excerpt": "GitLab token was expired during publish.",
+                        }
+                    )
+                ],
+            ),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    assert "Retry Auto-fix" in body
+    assert "Retry eligible. GitLab token was expired during publish." in body
+
+
+def test_rendered_dashboard_body_surfaces_retry_blocked_failure_guidance() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[
+                    build_item(item_id="sonar:failed", status="failed").model_copy(
+                        update={
+                            "retry_eligible": False,
+                            "retry_block_reason": "Latest review outcome requires manual review.",
+                            "log_excerpt": "Remediation merge request was closed without merge.",
+                        }
+                    )
+                ],
+            ),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    assert "Review Retry Blocker" in body
+    assert "Retry blocked: Latest review outcome requires manual review." in body
+
+
 def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() -> None:
     renderer = DashboardRenderer()
 
