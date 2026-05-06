@@ -104,7 +104,7 @@ jobs:
 
       - name: Run pip-audit
         run: |
-          uv run pip-audit --ignore-vuln CVE-2026-3219
+          uv run pip-audit
 
       - name: Run Bandit
         run: |
