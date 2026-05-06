@@ -38,8 +38,8 @@ Suggested status values:
 
 | Date | Item / Run | Pattern | Valid? | Assessment | Action | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-05-06 | Remediation-created merge requests | Auto-created remediation PR titles should follow conventional commit style | yes | Bot-opened remediation merge requests should use clearer standardized titles so human reviewers can scan intent and change type quickly | remediation logic + docs | tracking | Prefer conventional-commit-shaped MR titles instead of ad hoc summaries when the bot opens remediation changes. |
-| 2026-05-06 | Remediation-created code | Generated functions should follow repo type-hint and docstring conventions | yes | When remediation introduces new functions, the generated code should match repository standards for type hints and docstrings instead of leaving style mismatches for humans to clean up | prompt + validation + docs | tracking | This should likely be driven by prompt guidance plus validation against existing repo conventions or explicit config. |
+| 2026-05-06 | Remediation-created merge requests | Auto-created remediation PR titles should follow conventional commit style | yes | Bot-opened remediation merge requests now use a deterministic conventional-commit-style title derived from the remediation target instead of depending on ad hoc model wording | remediation logic + docs | implemented | Current format is `fix: remediate <rule-or-source-ref> in <filename>`. |
+| 2026-05-06 | Remediation-created code | Generated functions should follow repo type-hint and docstring conventions | yes | Remediation prompt guidance now explicitly tells the model to follow existing repository conventions for type hints and docstrings when it introduces new helpers or functions | prompt + validation + docs | implemented | This is prompt-contract hardening first; later repo-aware validation or config support can still be added if live fixes keep drifting. |
 
 ## Pattern Notes
 
@@ -51,8 +51,8 @@ Suggested status values:
   - the title does not match the repository's expected conventional-commit
     naming style
 - Preferred response:
-  - standardize remediation-created MR titles around a configurable or
-    repository-aligned conventional-commit pattern
+  - implemented deterministic remediation-created MR titles around a
+    conventional-commit-style pattern
   - keep the title human-review-friendly while still machine-consistent
 
 ### Generated Functions Should Match Repo Type-Hint And Docstring Conventions
@@ -62,7 +62,6 @@ Suggested status values:
   - the generated code works, but misses repository-standard type hints,
     docstrings, or both
 - Preferred response:
-  - make prompt guidance and validation more explicit about matching repo code
-    conventions
+  - implemented clearer prompt guidance about matching repo code conventions
   - prefer repo-aware generation over generic style defaults
   - later, consider config-backed or lightweight convention-detection support
