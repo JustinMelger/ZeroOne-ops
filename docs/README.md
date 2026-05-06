@@ -18,6 +18,8 @@ This folder is organized around two needs:
 
 - [dashboard-feedback-log.md](dashboard-feedback-log.md)
   - live examples and recurring dashboard/operator workflow failure patterns
+- [remediation-feedback-log.md](remediation-feedback-log.md)
+  - live examples and recurring remediation-quality and remediation-handoff patterns
 - [review-bot-feedback-log.md](review-bot-feedback-log.md)
   - live examples and recurring review-bot failure patterns
 - [review-bot-judgment-strategy.md](review-bot-judgment-strategy.md)

@@ -1,13 +1,13 @@
 # Dashboard Feedback Log
 
-Use this log during live testing to capture concrete dashboard and remediation
-workflow outcomes, group them by operator-facing pattern, and decide whether
-the right response is dashboard wording, policy behavior, remediation logic, or
-documentation.
+Use this log during live testing to capture concrete dashboard and
+dashboard-adjacent operator workflow outcomes, group them by operator-facing
+pattern, and decide whether the right response is dashboard wording, policy
+behavior, reconciliation, or documentation.
 
 ## How To Use
 
-For each notable dashboard or remediation outcome, add one row with:
+For each notable dashboard or operator-surface outcome, add one row with:
 
 - the dashboard item, merge request, or run reference
 - whether the outcome itself was correct
