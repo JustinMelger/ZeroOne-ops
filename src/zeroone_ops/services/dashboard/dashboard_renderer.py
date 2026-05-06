@@ -521,6 +521,16 @@ class DashboardRenderer:
         if review_note is not None:
             return self._compact_note(review_note)
         note = item.log_excerpt if item.status == "failed" and item.log_excerpt else item.summary
+        if item.status == "failed":
+            parts: list[str] = []
+            if item.retry_eligible is True:
+                parts.append("Retry eligible.")
+            elif item.retry_block_reason:
+                parts.append(f"Retry blocked: {item.retry_block_reason}")
+            if note:
+                parts.append(note)
+            if parts:
+                return self._compact_note(" ".join(parts))
         return self._humanize_workflow_summary(item, note)
 
     def _render_in_flight_summary(self, item: DashboardItem) -> str:
@@ -593,6 +603,10 @@ class DashboardRenderer:
         are the exception and need operator investigation.
         """
         if item.status == "failed":
+            if item.retry_eligible is True:
+                return "Retry Auto-fix"
+            if item.retry_block_reason:
+                return "Review Retry Blocker"
             return "Investigate Failure"
         return "Queue Auto-fix"
 
