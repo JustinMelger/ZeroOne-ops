@@ -28,7 +28,7 @@ check:
     just test
 
 run:
-    uv run ai-sonar-bot run
+    uv run zeroone-ops dashboard remediate
 
 run-dry:
-    uv run ai-sonar-bot run --dry-run
+    uv run zeroone-ops dashboard remediate --dry-run
