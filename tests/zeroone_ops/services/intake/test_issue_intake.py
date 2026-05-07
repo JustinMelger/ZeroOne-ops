@@ -139,6 +139,54 @@ def test_select_issue_returns_message_when_no_fixture_issue_matches(tmp_path: Pa
     assert "with unsupported severity" in result.message
 
 
+def test_collect_dashboard_sync_issues_does_not_filter_by_remediation_severity(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    fixture_path = tmp_path / "issues.json"
+    fixture_path.write_text(
+        """
+        {
+          "issues": [
+            {
+              "key": "LOW",
+              "rule": "python:S1481",
+              "severity": "MINOR",
+              "type": "CODE_SMELL",
+              "status": "OPEN",
+              "message": "Low severity",
+              "component": "sample-project:src/service.py",
+              "project": "sample-project",
+              "line": 1
+            },
+            {
+              "key": "HIGH",
+              "rule": "python:S2259",
+              "severity": "CRITICAL",
+              "type": "BUG",
+              "status": "OPEN",
+              "message": "High severity",
+              "component": "sample-project:src/service.py",
+              "project": "sample-project",
+              "line": 2
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = IssueIntakeService(
+        repo_root=tmp_path,
+        config=build_config(mock_sonar_issues_path=fixture_path),
+    ).collect_dashboard_sync_issues(dry_run=True, run_id="run-1")
+
+    assert result.message == ""
+    assert result.issue_count == 2
+    assert [issue.key for issue in result.issues] == ["LOW", "HIGH"]
+
+
 def test_select_issue_skips_state_tracked_in_progress_issue_and_moves_to_next(
     tmp_path: Path,
 ) -> None:
