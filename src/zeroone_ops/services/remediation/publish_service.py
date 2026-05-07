@@ -8,7 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from zeroone_ops.models.analysis import ValidationResult
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import (
     RemediationExecutionTarget,
@@ -55,7 +54,6 @@ class PublishService:
         self,
         *,
         selected_issue: RemediationExecutionTarget,
-        validation_result: ValidationResult | None,
         branch_name: str,
         mr_title: str,
         mr_description: str,
@@ -86,7 +84,6 @@ class PublishService:
                 ),
                 description=self.build_mr_description(
                     selected_issue=selected_issue,
-                    validation_result=validation_result,
                     change_summary=mr_description,
                 ),
                 labels=self.config.gitlab.labels,
@@ -123,17 +120,11 @@ class PublishService:
         self,
         *,
         selected_issue: RemediationExecutionTarget,
-        validation_result: ValidationResult | None,
         change_summary: str,
     ) -> str:
         """Build a deterministic merge request description."""
         profile = remediation_profile_for(selected_issue)
         issue_line = str(selected_issue.line) if selected_issue.line is not None else "n/a"
-        validation_summary = (
-            validation_result.summary
-            if validation_result is not None
-            else "Validation did not run."
-        )
         return "\n".join(
             [
                 "## Summary",
@@ -148,9 +139,6 @@ class PublishService:
                 f"- File: `{selected_issue.file_path}`",
                 f"- Line: `{issue_line}`",
                 f"- Message: {selected_issue.message}",
-                "",
-                "## Validation",
-                f"- {validation_summary}",
                 "",
                 "## Notes",
                 profile.diff_note,

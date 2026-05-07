@@ -1,4 +1,3 @@
-from zeroone_ops.models.analysis import ValidationResult
 from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
@@ -53,11 +52,6 @@ def test_publish_service_builds_deterministic_description() -> None:
 
     description = service.build_mr_description(
         selected_issue=build_issue(),
-        validation_result=ValidationResult(
-            passed=True,
-            results=[],
-            summary="All validation commands passed.",
-        ),
         change_summary="summary",
     )
 
@@ -75,9 +69,6 @@ def test_publish_service_builds_deterministic_description() -> None:
             "- File: `src/service.py`",
             "- Line: `1`",
             "- Message: Fixture issue",
-            "",
-            "## Validation",
-            "- All validation commands passed.",
             "",
             "## Notes",
             "- Diff was rendered by the bot from a structured edit proposal.",
@@ -97,11 +88,6 @@ def test_publish_service_uses_generic_profile_for_unknown_source() -> None:
             status="open",
             message="Test suite is failing.",
             file_path="src/service.py",
-        ),
-        validation_result=ValidationResult(
-            passed=True,
-            results=[],
-            summary="All validation commands passed.",
         ),
         change_summary="summary",
     )

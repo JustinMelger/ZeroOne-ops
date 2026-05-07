@@ -292,9 +292,6 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
             "- Line: `1`",
             "- Message: Fixture issue",
             "",
-            "## Validation",
-            "- All validation commands passed.",
-            "",
             "## Notes",
             "- Diff was rendered by the bot from a structured edit proposal.",
         ]
