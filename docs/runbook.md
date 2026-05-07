@@ -315,6 +315,8 @@ For a lower-cost review setup:
 - keep the review job manual on merge request pipelines
 - rely on `CI_MERGE_REQUEST_IID` so the bot reviews only the current merge request
 - set `review.max_changed_files` conservatively, for example `5`
+- treat `review.supported_paths` as an optional allowlist; if it is omitted or
+  empty, the review workflow considers all non-ignored changed paths in scope
 - set `review.ignored_paths` for generated or otherwise low-value areas
 - keep `review.max_findings_per_review` low so only the highest-signal findings are published
 - keep `review.skip_draft_merge_requests` enabled

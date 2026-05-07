@@ -116,7 +116,7 @@ def test_sync_dashboard_sonar_dry_run_reports_eligible_issue_count(
     summary = sync_dashboard_sonar(dry_run=True)
 
     assert summary.status.value == "synced"
-    assert "Dry-run found 1 eligible SonarQube issues for dashboard sync." in summary.message
+    assert "Dry-run found 1 SonarQube issues for dashboard sync." in summary.message
 
 
 def test_sync_dashboard_sonar_ci_mode_publishes_dashboard_summary(
@@ -165,7 +165,7 @@ def test_sync_dashboard_sonar_ci_mode_publishes_dashboard_summary(
     summary = sync_dashboard_sonar(dry_run=False)
 
     assert summary.status.value == "synced"
-    assert "Synced 2 eligible SonarQube issues to the dashboard." in summary.message
+    assert "Synced 2 SonarQube issues to the dashboard." in summary.message
     assert "https://gitlab.example.com/group/project/-/issues/11" in summary.message
 
 

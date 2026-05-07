@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from zeroone_ops.models.analysis import IssueContext, ValidationResult
+from zeroone_ops.models.analysis import IssueContext
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.state import FailureDetails, FailureStage, RunStatus
@@ -251,7 +251,6 @@ class ExecutionService:
 
         publish_result = self._publish_branch_and_create_mr(
             selected_issue=selected_issue,
-            validation_result=analysis_result.validation_result,
             branch_name=branch_name or "",
             mr_title=patch.mr_title,
             mr_description=patch.mr_description,
@@ -291,7 +290,6 @@ class ExecutionService:
         self,
         *,
         selected_issue: RemediationExecutionTarget,
-        validation_result: ValidationResult | None,
         branch_name: str,
         mr_title: str,
         mr_description: str,
@@ -299,7 +297,6 @@ class ExecutionService:
         """Delegate publish behavior to the dedicated publish service."""
         return self.publish_service.publish(
             selected_issue=selected_issue,
-            validation_result=validation_result,
             branch_name=branch_name,
             mr_title=mr_title,
             mr_description=mr_description,

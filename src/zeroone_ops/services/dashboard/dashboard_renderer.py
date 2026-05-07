@@ -242,7 +242,7 @@ class DashboardRenderer:
         lines: list[str] = ["### Overview", ""]
         lines.extend(self._render_workflow_overview_table(items))
         lines.extend(["", "### Needs Attention", ""])
-        attention_items = [item for item in items if item.status in {"open", "failed"}]
+        attention_items = [item for item in items if item.status in {"open", "failed", "rejected"}]
         if attention_items:
             lines.extend(self._render_workflow_attention_table(attention_items))
         else:
@@ -520,7 +520,11 @@ class DashboardRenderer:
         review_note = self._render_review_note(item)
         if review_note is not None:
             return self._compact_note(review_note)
-        note = item.log_excerpt if item.status == "failed" and item.log_excerpt else item.summary
+        note = (
+            item.log_excerpt
+            if item.status in {"failed", "rejected"} and item.log_excerpt
+            else item.summary
+        )
         if item.status == "failed":
             parts: list[str] = []
             if item.retry_eligible is True:
@@ -608,6 +612,11 @@ class DashboardRenderer:
             if item.retry_block_reason:
                 return "Review Retry Blocker"
             return "Investigate Failure"
+        if item.status == "rejected":
+            lower_note = (item.log_excerpt or item.summary).lower()
+            if "manual review" in lower_note:
+                return "Review Manually"
+            return "Review Rejection"
         return "Queue Auto-fix"
 
     def _needs_attention(self, item: DashboardItem) -> bool:

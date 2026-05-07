@@ -54,7 +54,7 @@ class Validator:
                 return ValidationResult(
                     passed=False,
                     results=results,
-                    summary=(f"Validation failed: {command} (exit code {result.exit_code})."),
+                    summary=_build_failure_summary(command=command, result=result),
                 )
         return ValidationResult(
             passed=True,
@@ -115,3 +115,26 @@ def _coerce_output(value: bytes | str | None) -> str:
     if isinstance(value, bytes):
         return value.decode("utf-8", errors="replace")
     return value
+
+
+def _build_failure_summary(*, command: str, result: ValidationCommandResult) -> str:
+    """Build a clearer failure summary for validation command failures."""
+    execution_issue = _describe_execution_issue(result)
+    if execution_issue is not None:
+        return (
+            f"Validation could not run: {command}. {execution_issue} "
+            f"(exit code {result.exit_code})."
+        )
+    return f"Validation failed: {command} (exit code {result.exit_code})."
+
+
+def _describe_execution_issue(result: ValidationCommandResult) -> str | None:
+    """Describe common command-execution failures in operator-facing language."""
+    stderr = result.stderr.lower()
+    if result.exit_code == 124:
+        return "The command timed out"
+    if result.exit_code == 127 or "command not found" in stderr:
+        return "The configured validation command is not available in the current environment"
+    if result.exit_code == 126 or "permission denied" in stderr:
+        return "The configured validation command is not executable in the current environment"
+    return None

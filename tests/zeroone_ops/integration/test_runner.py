@@ -36,7 +36,13 @@ from zeroone_ops.models.state import (
     RepositoryState,
 )
 from zeroone_ops.providers.gitlab_client import GitLabClientError
-from zeroone_ops.runner import dashboard_policy, dashboard_reconcile, dashboard_remediate, review
+from zeroone_ops.runner import (
+    dashboard_policy,
+    dashboard_reconcile,
+    dashboard_remediate,
+    review,
+    sync_dashboard_sonar,
+)
 from zeroone_ops.services.dashboard.dashboard_service import DashboardPolicyProcessResult
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
 from zeroone_ops.services.review.review_context_builder import (
@@ -219,6 +225,75 @@ def test_dashboard_reconcile_dry_run_returns_no_issue_summary(tmp_path: Path, mo
 
     assert summary.status.value == "no_issue"
     assert "No reconciliation-ready dashboard item found." in summary.message
+
+
+def test_sync_dashboard_sonar_dry_run_collects_broad_inventory_not_remediation_severity(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    fixture_path = tmp_path / "issues.json"
+    fixture_path.write_text(
+        """
+        {
+          "issues": [
+            {
+              "key": "LOW",
+              "rule": "python:S1481",
+              "severity": "MINOR",
+              "type": "CODE_SMELL",
+              "status": "OPEN",
+              "message": "Low severity",
+              "component": "sample-project:src/service.py",
+              "project": "sample-project",
+              "line": 1
+            },
+            {
+              "key": "HIGH",
+              "rule": "python:S2259",
+              "severity": "CRITICAL",
+              "type": "BUG",
+              "status": "OPEN",
+              "message": "High severity",
+              "component": "sample-project:src/service.py",
+              "project": "sample-project",
+              "line": 2
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    (tmp_path / ".zeroone-ops.json").write_text(
+        f"""
+        {{
+          "base_branch": "main",
+          "validation_commands": [],
+          "remediation": {{
+            "bootstrap_severities": ["LOW"]
+          }},
+          "gitlab": {{
+            "target_branch": "main",
+            "labels": []
+          }},
+          "sonarqube": {{
+            "mock_issues_path": "{fixture_path}"
+          }}
+        }}
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    summary = sync_dashboard_sonar(dry_run=True)
+
+    assert summary.status.value == "synced"
+    assert "Dry-run found 2 SonarQube issues for dashboard sync." in summary.message
 
 
 def test_dashboard_policy_dry_run_returns_policy_processing_summary(

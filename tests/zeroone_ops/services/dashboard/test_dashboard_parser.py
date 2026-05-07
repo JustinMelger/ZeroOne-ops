@@ -197,6 +197,47 @@ def test_rendered_dashboard_body_keeps_new_workflow_layout_when_empty() -> None:
     assert "\n## Completed\n" not in body
 
 
+def test_rendered_dashboard_body_keeps_manual_review_rejection_visible_in_needs_attention() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[
+                    build_item(item_id="sonar:manual", status="rejected").model_copy(
+                        update={
+                            "log_excerpt": (
+                                "Patch generation skipped because manual review is required."
+                            )
+                        }
+                    )
+                ],
+            ),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(
+                key="merge_requests_opened",
+                title="Merge Requests Opened",
+                items=[],
+            ),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(
+                key="rejected_or_ignored",
+                title="Rejected Or Ignored",
+                items=[],
+            ),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    assert "`sonar:manual`" in body
+    assert "Review Manually" in body
+    assert "manual review is required" in body
+
+
 def test_rendered_review_section_uses_specialized_review_summary_layout() -> None:
     renderer = DashboardRenderer()
     review_item = DashboardItem(

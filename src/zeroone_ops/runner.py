@@ -141,13 +141,11 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
     active_dry_run = dry_run or config.dry_run
 
     intake_service = IssueIntakeService(repo_root=repo_root, config=config)
-    collection = intake_service.collect_eligible_issues(
-        state=state,
+    collection = intake_service.collect_dashboard_sync_issues(
         dry_run=active_dry_run,
         run_id=run_id,
-        allow_remote_duplicate_lookup=not active_dry_run,
     )
-    if not collection.eligible_issues:
+    if not collection.issues:
         return RunSummary(
             run_id=run_id,
             status=collection_message_status(collection.message),
@@ -159,8 +157,8 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
             run_id=run_id,
             status=collection_message_status("synced"),
             message=(
-                f"[{config.execution_mode}] Dry-run found {len(collection.eligible_issues)} "
-                "eligible SonarQube issues for dashboard sync."
+                f"[{config.execution_mode}] Dry-run found {len(collection.issues)} "
+                "SonarQube issues for dashboard sync."
             ),
             state_path=state_store.path,
         )
@@ -176,13 +174,13 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
         )
     ).sync(
         project_id=gitlab_config.project_id,
-        issues=collection.eligible_issues,
+        issues=collection.issues,
     )
     return RunSummary(
         run_id=run_id,
         status=collection_message_status("synced"),
         message=(
-            f"[{config.execution_mode}] Synced {sync_result.synced_count} eligible "
+            f"[{config.execution_mode}] Synced {sync_result.synced_count} "
             f"SonarQube issues to the dashboard. Dashboard: {sync_result.dashboard_issue_url}"
         ),
         state_path=state_store.path,
