@@ -311,6 +311,73 @@ At minimum, operators should be able to tell:
 The workflow should prefer explicit recovery rules over leaving stale
 `in_progress` items ambiguous forever.
 
+## 12.3 Failed-Item Recovery Model
+
+The workflow should distinguish between:
+
+- diagnosis state
+  - the item failed and the operator still needs to understand why
+- recovery-ready state
+  - the cause is understood and the next action is clear enough to present as a
+    workflow step
+
+`Investigate Failure` should therefore be treated as a diagnosis-oriented
+operator state, not as the final answer for what happens next.
+
+The first recovery model should stay narrow and support these broad classes:
+
+- operational failure
+  - example: expired token, inaccessible GitLab metadata, missing tool in CI
+- validation failure
+  - example: tests fail, lint fails, type checks fail
+- policy or review block
+  - example: retry blocked by latest review outcome
+- manual follow-up outcome
+  - example: remediation analysis decides manual review is required
+
+The dashboard should later make the likely recovery path clearer for each
+class:
+
+- operational failure
+  - fix environment or credentials, then rerun the relevant workflow
+- validation failure
+  - inspect whether the generated patch is wrong or the repo command/tooling is
+    misconfigured
+- policy or review block
+  - leave blocked until the governing policy or review state changes
+- manual follow-up outcome
+  - route to explicit human follow-up rather than automation retry
+
+The first implementation does not need a full operator command surface yet, but
+it should define the state semantics clearly enough that later retry or reset
+actions are not invented ad hoc in dashboard rendering.
+
+Large legacy repositories also need bounded presentation behavior. Once the
+workflow board is split into clearer buckets, the dashboard should later define
+how many items each operator-facing section shows by default and how hidden
+overflow is summarized.
+
+Recommended later direction:
+
+- show only the most relevant subset in each workflow bucket
+- preserve aggregate counts in the overview so operators still understand total
+  backlog size
+- make overflow visible through summary text such as "N more items not shown"
+  rather than silently truncating the board
+- prefer bucket-specific limits after the board structure is clarified instead
+  of one global cap across all workflow items
+
+Monorepo scaling should also be investigated later. If one repository contains
+multiple distinct applications or domains with large independent backlogs, one
+repo-global dashboard may become too noisy even with better buckets and capped
+tables.
+
+Later options may include:
+
+- grouping workflow sections by scoped repo area
+- path- or component-aware summaries
+- or one dashboard issue per configured repo scope instead of one global board
+
 ## 13. Human Interaction Model
 
 Humans should be able to:
@@ -318,10 +385,17 @@ Humans should be able to:
 - inspect all remediation-ready items on the dashboard,
 - see which item is currently in progress,
 - follow the merge request link for an opened remediation,
+- understand whether a failed item needs investigation, retry, blocked follow-up,
+  or manual handling,
 - mark items ignored or rejected later when command-style controls are added.
 
 The first implementation should remain machine-managed by default, with human
 inspection and merge-request review as the main oversight mechanism.
+
+Later operator controls should move items only through explicit state
+transitions. In particular, an inspected failure should not become retryable
+just because it was viewed; it should become retryable only when the failure
+class and recovery rule support that transition.
 
 ## 14. Migration Model
 

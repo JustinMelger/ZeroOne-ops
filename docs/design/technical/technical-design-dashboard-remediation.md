@@ -519,6 +519,119 @@ Traceability requirements for reconciliation:
 
 Scheduling guidance:
 
+### 9.7 Failure Classification And Recovery Transitions
+
+The dashboard-remediation model should separate:
+
+- failure classification
+  - why automation could not continue
+- operator-facing recovery transition
+  - what state the item should move to after the failure is understood
+
+The first technical model should keep using the existing lifecycle states, but
+it should treat the following concepts as distinct:
+
+- `failed`
+  - remediation could not complete and the item needs diagnosis
+- `retry_eligible`
+  - a bounded machine-readable signal that automation may try again once the
+    relevant blocker is resolved
+- `retry_block_reason`
+  - a bounded operator-facing explanation for why the item should not retry
+- `rejected`
+  - automation should not continue for this attempt or item under the current
+    conditions
+
+Recommended first recovery classes:
+
+- operational execution failure
+  - examples: invalid or expired token, GitLab API access failure, missing `uv`
+    or other tool in CI
+- validation failure
+  - examples: `pytest`, `ruff`, or other configured repo commands fail after a
+    patch is applied
+- policy or review block
+  - examples: retry limit reached, latest review requires manual review,
+    remediation excluded by policy
+- manual-follow-up classification
+  - examples: analysis decides the issue is not suitable for bounded automatic
+    remediation
+
+The first implementation should keep transition ownership conservative:
+
+- remediation runner:
+  - may move `open -> in_progress`
+  - may move `in_progress -> failed`
+  - may move `in_progress -> rejected`
+  - may attach failure details, retry eligibility, and retry block reason
+- dashboard reconciliation:
+  - may later reopen or keep blocked items only when an explicit recovery rule
+    applies
+- operator-facing rendering:
+  - must not invent new machine states
+  - may present clearer next-step labels derived from the stored fields
+
+Recovery should not be encoded as free-form dashboard prose alone. The source
+of truth should remain structured dashboard item fields plus typed failure
+details already captured in local run state.
+
+### 9.8 Future Retry Reset / Requeue Semantics
+
+If a later operator-facing retry or reset action is introduced, it should be
+designed around explicit transitions rather than loose markdown editing.
+
+Recommended guardrails:
+
+- an operator action should not directly mark an item retryable unless the
+  underlying blocker has a supported recovery rule
+- "investigated" is not enough by itself to imply retry readiness
+- retry should remain bounded by retry count and review/policy gates
+- manual-follow-up outcomes should remain visible without being mixed into the
+  same queue as automation-ready work
+
+This means a later retry/reset surface should answer:
+
+- what failure class was this item in
+- what recovery rule applies
+- who or what is allowed to move it back toward `open` or retry-ready
+- whether the transition is performed by reconciliation, operator action, or a
+  future dedicated maintenance workflow
+
+### 9.9 Future Workflow Board Display Limits
+
+Large repositories may produce far more workflow items than a single dashboard
+table should render verbosely.
+
+Once the workflow board is split into clearer operator-facing buckets, the
+renderer should later support bounded per-section display behavior.
+
+Recommended direction:
+
+- keep aggregate counts in the overview table for all relevant lifecycle
+  states
+- render only the highest-value subset in each workflow section
+- show explicit overflow summaries such as "375 more items not shown"
+- avoid one flat global limit that mixes automation-ready items with
+  human-follow-up items
+
+Likely implementation shape later:
+
+- per-section renderer limits owned by dashboard config or renderer settings,
+  not operator policy
+- deterministic ordering before truncation
+- overflow summary rows or short notes rendered by the dashboard renderer
+- parser compatibility preserved by keeping the underlying machine-readable item
+  details stable even if the human-facing summary tables are capped
+
+Monorepos may require a stronger scaling model than capped sections alone.
+Later investigation should consider whether the dashboard architecture should
+support:
+
+- path- or component-aware grouping inside one board
+- scoped producer routing by repo area
+- or multiple dashboard issues per repository, keyed by configured area or
+  domain, once one global issue becomes too noisy for operator use
+
 - run as a scheduled CI job and allow manual triggering for operator recovery
 - keep the first version CI-only, like live remediation
 - process one dashboard issue per run and prefer deterministic summaries over
