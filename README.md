@@ -1,5 +1,7 @@
 # ZeroOne Ops
 
+Structured AI workflows for software maintenance.
+
 An AI-assisted engineering workflow system for code review, static-analysis
 remediation, and operator-controlled automation.
 
@@ -24,7 +26,7 @@ Today the project includes:
 - GitLab merge request review with staged candidate, precision, and continuity
   handling
 - focused code-context gathering and LLM-backed analysis
-- patch generation, validation, and MR creation in CI mode
+- patch generation, bounded execution, and MR creation in CI mode
 - operator-controlled policy handling through strict dashboard commands
 - bounded local state and machine-safe GitLab note persistence for continuity
 - a conservative single-file remediation boundary for safety
@@ -58,7 +60,7 @@ just architecture
 
 - sync SonarQube findings into the dashboard
 - select one supported item per run
-- generate and validate a bounded fix
+- generate a bounded fix
 - create or reuse a GitLab merge request in CI mode
 - expose read-only operator policy state in the dashboard with strict
   `/zeroone policy ...` comment commands for policy actions
@@ -217,14 +219,14 @@ published `zeroone-ops` image while keeping the current runtime command names.
 Local mode:
 
 - creates a branch
-- applies and validates the patch
+- applies the patch
 - can request interactive approval before commit
 - does not create a merge request unless you switch to CI mode
 
 CI mode:
 
 - creates a branch
-- applies and validates the patch
+- applies the patch
 - pushes the branch
 - creates or reuses a GitLab merge request
 - never blocks for terminal approval
@@ -238,7 +240,8 @@ Use these docs for the deeper operational details:
   and smoke-test recipes
 - [docs/roadmap.md](docs/roadmap.md) for current build, hardening, and rebrand
   sequencing
-- [docs/design/functional/functional-design-pr-review.md](docs/design/functional/functional-design-pr-review.md)
-  and [docs/design/technical/technical-design-pr-review.md](docs/design/technical/technical-design-pr-review.md)
-  for the review workflow design
+- [docs/design/functional/functional-design.md](docs/design/functional/functional-design.md)
+  and [docs/design/technical/technical-design.md](docs/design/technical/technical-design.md)
+  for the broader functional and technical design surfaces across review,
+  remediation, dashboard, and operator workflows
 - [future_plans.md](future_plans.md) for post-v1 ideas
