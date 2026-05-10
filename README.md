@@ -1,5 +1,10 @@
 # ZeroOne Ops
 
+[![Quality](https://github.com/JustinMelger/ZeroOne-ops/actions/workflows/quality.yml/badge.svg)](https://github.com/JustinMelger/ZeroOne-ops/actions/workflows/quality.yml)
+[![Release Please](https://github.com/JustinMelger/ZeroOne-ops/actions/workflows/release-please.yml/badge.svg)](https://github.com/JustinMelger/ZeroOne-ops/actions/workflows/release-please.yml)
+![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
+
 Structured AI workflows for software maintenance.
 
 An AI-assisted engineering workflow system for code review, static-analysis
