@@ -11,11 +11,14 @@ continuity checks, mirrors outcomes into a GitLab-native dashboard, picks up
 eligible remediation work, generates and validates bounded fixes, and keeps the
 whole flow inspectable through explicit operator policy and workflow state.
 
-Naming note:
+## Why This Exists
 
-- product brand: `ZeroOne Ops`
-- technical release and image slug: `zeroone-ops`
-- operator-facing examples use the `ZeroOne Ops` names everywhere
+ZeroOne Ops exists to explore how AI can assist developers in their existing
+workflow by reducing review overhead and automating follow-up on
+static-analysis findings. It also aims to provide a more inspectable and
+operator-controlled alternative to fragmented SaaS coding assistants, so teams
+can keep automation boundaries, governance, and model usage explicit inside
+their own engineering workflow.
 
 ## Current Scope
 
@@ -31,9 +34,22 @@ Today the project includes:
 - bounded local state and machine-safe GitLab note persistence for continuity
 - a conservative single-file remediation boundary for safety
 
-This repository is in an active testing and hardening period. The main goal is
-stable operator workflows, trustworthy review quality, and clear automation
-boundaries, not broad feature expansion.
+The project is now in iterative hardening and refinement, with a focus on
+operator workflows, review quality, and clear automation boundaries.
+
+## System Flow
+
+```mermaid
+flowchart TD
+    A[SonarQube / Producers] --> B[GitLab Dashboard]
+    B --> C[Dashboard Remediation]
+    C --> D[GitLab Merge Request]
+    D --> E[Staged MR Review]
+    E --> D
+    D --> F[Dashboard Reconciliation]
+    B --> G[Dashboard Policy Processing]
+    G --> B
+```
 
 ## Quick Start
 
