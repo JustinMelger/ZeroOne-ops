@@ -48,11 +48,10 @@ flowchart TD
     A[SonarQube / Producers] --> B[GitLab Dashboard]
     B --> C[Dashboard Remediation]
     C --> D[GitLab Merge Request]
-    D --> E[Staged MR Review]
-    E --> D
+    D <--> E[Staged MR Review]
     D --> F[Dashboard Reconciliation]
-    B --> G[Dashboard Policy Processing]
-    G --> B
+    F --> B
+    B <--> G[Dashboard Policy Processing]
 ```
 
 ## Quick Start
