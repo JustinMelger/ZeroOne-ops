@@ -260,4 +260,3 @@ Use these docs for the deeper operational details:
   and [docs/design/technical/technical-design.md](docs/design/technical/technical-design.md)
   for the broader functional and technical design surfaces across review,
   remediation, dashboard, and operator workflows
-- [future_plans.md](future_plans.md) for post-v1 ideas
