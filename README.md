@@ -49,6 +49,7 @@ flowchart TD
     B --> C[Dashboard Remediation]
     C --> D[GitLab Merge Request]
     D <--> E[Staged MR Review]
+    B --> F[Dashboard Reconciliation]
     D --> F[Dashboard Reconciliation]
     F --> B
     B <--> G[Dashboard Policy Processing]
