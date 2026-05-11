@@ -316,7 +316,8 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
 
     assert "| Item | File | Priority | Next Step | Summary |" in body
     assert "Investigate Failure" in body
-    assert "Simplify boolean comparison" in body
+    assert "Investigate environment or tooling failure before rerun." in body
+    assert "Merge request metadata is inaccessible from GitLab." in body
 
 
 def test_rendered_dashboard_body_surfaces_retry_eligible_failure_guidance() -> None:
@@ -347,7 +348,8 @@ def test_rendered_dashboard_body_surfaces_retry_eligible_failure_guidance() -> N
     )
 
     assert "Retry Auto-fix" in body
-    assert "Retry eligible. GitLab token was expired during publish." in body
+    assert "Retry ready after fixing the blocker." in body
+    assert "GitLab token was expired during publish." in body
 
 
 def test_rendered_dashboard_body_surfaces_retry_blocked_failure_guidance() -> None:
@@ -379,7 +381,10 @@ def test_rendered_dashboard_body_surfaces_retry_blocked_failure_guidance() -> No
     )
 
     assert "Review Retry Blocker" in body
-    assert "Retry blocked: Latest review outcome requires manual review." in body
+    assert (
+        "Blocked until review or policy changes: "
+        "Latest review outcome requires manual review." in body
+    )
 
 
 def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() -> None:

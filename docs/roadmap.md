@@ -92,7 +92,7 @@ as one broad rewrite.
 - keep the first implementation renderer-derived from existing lifecycle
   states rather than introducing new persisted board-only state
 
-- [ ] Phase 2: Recovery Explanation
+- [x] Phase 2: Recovery Explanation
 
 - improve row-level wording so failed, blocked, and manual-follow-up items
   explain their likely next step more directly

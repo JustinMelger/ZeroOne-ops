@@ -549,16 +549,43 @@ class DashboardRenderer:
             else item.summary
         )
         if item.status == "failed":
-            parts: list[str] = []
-            if item.retry_eligible is True:
-                parts.append("Retry eligible.")
-            elif item.retry_block_reason:
-                parts.append(f"Retry blocked: {item.retry_block_reason}")
-            if note:
-                parts.append(note)
-            if parts:
-                return self._compact_note(" ".join(parts))
+            return self._render_failure_recovery_summary(item, note)
         return self._humanize_workflow_summary(item, note)
+
+    def _render_failure_recovery_summary(self, item: DashboardItem, note: str | None) -> str:
+        """Render one recovery-oriented summary for failed workflow items."""
+        parts: list[str] = []
+        if item.retry_eligible is True:
+            parts.append("Retry ready after fixing the blocker.")
+        elif item.retry_block_reason:
+            parts.append(f"Blocked until review or policy changes: {item.retry_block_reason}")
+        elif self._looks_operational_failure(note):
+            parts.append("Investigate environment or tooling failure before rerun.")
+        else:
+            parts.append("Investigate failure and decide the next recovery path.")
+        if note:
+            parts.append(note)
+        return self._compact_note(" ".join(parts))
+
+    def _looks_operational_failure(self, note: str | None) -> bool:
+        """Return whether one note looks like an environment or tooling failure."""
+        if not note:
+            return False
+        lower = note.lower()
+        markers = (
+            "token",
+            "credential",
+            "gitlab",
+            "inaccessible",
+            "timeout",
+            "timed out",
+            "not available",
+            "not executable",
+            "command could not run",
+            "environment",
+            "tool",
+        )
+        return any(marker in lower for marker in markers)
 
     def _render_in_flight_summary(self, item: DashboardItem) -> str:
         """Render one compact in-flight summary."""
