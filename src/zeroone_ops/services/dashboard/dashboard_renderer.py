@@ -17,6 +17,14 @@ from zeroone_ops.models.dashboard import (
     DashboardSeverityPolicyEntry,
 )
 
+WORKFLOW_BUCKET_DISPLAY_LIMITS: dict[str, int] = {
+    "queue_auto_fix": 10,
+    "needs_review": 10,
+    "in_flight": 10,
+    "completed": 10,
+    "dismissed": 10,
+}
+
 
 class DashboardRenderer:
     """Render deterministic dashboard markdown."""
@@ -188,10 +196,16 @@ class DashboardRenderer:
             return []
         lines = [f"## {section.title}", ""]
         if section.key == "open_candidates":
-            lines.extend(self._render_workflow_section(workflow_items))
+            workflow_lines, visible_items, hidden_items = self._render_workflow_section(
+                workflow_items
+            )
+            lines.extend(workflow_lines)
             lines.append("")
-            for item in workflow_items:
+            for item in visible_items:
                 lines.extend(self._render_item(item))
+                lines.append("")
+            if hidden_items:
+                lines.extend(self._render_hidden_workflow_items_block(hidden_items))
                 lines.append("")
             return lines
         if not section.items:
@@ -237,37 +251,89 @@ class DashboardRenderer:
             ),
         )
 
-    def _render_workflow_section(self, items: list[DashboardItem]) -> list[str]:
+    def _render_workflow_section(
+        self,
+        items: list[DashboardItem],
+    ) -> tuple[list[str], list[DashboardItem], list[DashboardItem]]:
         """Render the human-facing overview for remediation and reconciliation workflow items."""
         lines: list[str] = ["### Overview", ""]
+        visible_items: list[DashboardItem] = []
         lines.extend(self._render_workflow_overview_table(items))
         lines.extend(["", "### Queue Auto-fix", ""])
         queue_items = [item for item in items if item.status == "open"]
         if queue_items:
-            lines.extend(self._render_workflow_queue_table(queue_items))
+            limit = self._bucket_limit("queue_auto_fix")
+            visible_items.extend(queue_items[:limit])
+            lines.extend(
+                self._render_bucket_with_overflow(
+                    self._render_workflow_queue_table(queue_items[:limit]),
+                    total_count=len(queue_items),
+                    visible_count=min(len(queue_items), limit),
+                )
+            )
         else:
             lines.append("No items.")
         lines.extend(["", "### Needs Review", ""])
         review_items = [item for item in items if item.status == "failed"]
         if review_items:
-            lines.extend(self._render_workflow_review_table(review_items))
+            limit = self._bucket_limit("needs_review")
+            visible_items.extend(review_items[:limit])
+            lines.extend(
+                self._render_bucket_with_overflow(
+                    self._render_workflow_review_table(review_items[:limit]),
+                    total_count=len(review_items),
+                    visible_count=min(len(review_items), limit),
+                )
+            )
         else:
             lines.append("No items.")
         lines.extend(["", "### In Flight", ""])
         in_flight_items = [item for item in items if item.status in {"in_progress", "mr_opened"}]
         if in_flight_items:
-            lines.extend(self._render_in_flight_table(in_flight_items))
+            limit = self._bucket_limit("in_flight")
+            visible_items.extend(in_flight_items[:limit])
+            lines.extend(
+                self._render_bucket_with_overflow(
+                    self._render_in_flight_table(in_flight_items[:limit]),
+                    total_count=len(in_flight_items),
+                    visible_count=min(len(in_flight_items), limit),
+                )
+            )
         else:
             lines.append("No items.")
         lines.extend(["", "### Completed", ""])
         completed_items = [item for item in items if item.status == "done"]
         if completed_items:
-            lines.extend(self._render_completed_table(completed_items))
+            limit = self._bucket_limit("completed")
+            visible_items.extend(completed_items[:limit])
+            lines.extend(
+                self._render_bucket_with_overflow(
+                    self._render_completed_table(completed_items[:limit]),
+                    total_count=len(completed_items),
+                    visible_count=min(len(completed_items), limit),
+                )
+            )
+        else:
+            lines.append("No items.")
+        lines.extend(["", "### Dismissed", ""])
+        dismissed_items = [item for item in items if item.status in {"rejected", "ignored"}]
+        if dismissed_items:
+            limit = self._bucket_limit("dismissed")
+            visible_items.extend(dismissed_items[:limit])
+            lines.extend(
+                self._render_bucket_with_overflow(
+                    self._render_dismissed_table(dismissed_items[:limit]),
+                    total_count=len(dismissed_items),
+                    visible_count=min(len(dismissed_items), limit),
+                )
+            )
         else:
             lines.append("No items.")
         lines.extend(["", "### Work Type Breakdown", ""])
         lines.extend(self._render_work_type_breakdown_table(items))
-        return lines
+        visible_ids = {item.id for item in visible_items}
+        hidden_items = [item for item in items if item.id not in visible_ids]
+        return lines, visible_items, hidden_items
 
     def _render_workflow_overview_table(self, items: list[DashboardItem]) -> list[str]:
         """Render one compact metrics table for workflow items."""
@@ -350,6 +416,22 @@ class DashboardRenderer:
             )
         return lines
 
+    def _render_dismissed_table(self, items: list[DashboardItem]) -> list[str]:
+        """Render dismissed or intentionally excluded workflow items."""
+        lines = [
+            "| Item | Status | Priority | Summary |",
+            "|---|---|---|---|",
+        ]
+        for item in items:
+            lines.append(
+                "| "
+                f"{self._render_workflow_item_label(item)} | "
+                f"{self._render_workflow_status(item)} | "
+                f"{self._render_priority(item)} | "
+                f"{self._render_completed_summary(item)} |"
+            )
+        return lines
+
     def _render_work_type_breakdown_table(self, items: list[DashboardItem]) -> list[str]:
         """Render a compact breakdown of repeated work patterns."""
         workflow_items = [item for item in items if item.type != "review_status"]
@@ -369,6 +451,38 @@ class DashboardRenderer:
         for label, count in sorted_counts[:8]:
             lines.append(f"| {label} | {count} |")
         return lines
+
+    def _bucket_limit(self, bucket_key: str) -> int:
+        """Return the visible display limit for one workflow bucket."""
+        return WORKFLOW_BUCKET_DISPLAY_LIMITS[bucket_key]
+
+    def _render_bucket_with_overflow(
+        self,
+        rendered_lines: list[str],
+        *,
+        total_count: int,
+        visible_count: int,
+    ) -> list[str]:
+        """Render one bucket table plus an explicit overflow note when needed."""
+        lines = list(rendered_lines)
+        hidden_count = total_count - visible_count
+        if hidden_count > 0:
+            lines.append(f"_{hidden_count} more items not shown._")
+        return lines
+
+    def _render_hidden_workflow_items_block(self, items: list[DashboardItem]) -> list[str]:
+        """Render compact machine state for workflow items hidden by summary caps."""
+        payload = [item.model_dump(mode="json", exclude_none=True) for item in items]
+        return [
+            "<details>",
+            "<summary><code>zeroone-workflow-hidden-items</code> machine state</summary>",
+            "",
+            "```json",
+            json.dumps(payload, indent=2, sort_keys=True),
+            "```",
+            "",
+            "</details>",
+        ]
 
     def _render_merge_request_review_section(self, items: list[DashboardItem]) -> list[str]:
         """Render the human-facing review overview for merge request reviews."""

@@ -227,6 +227,8 @@ def test_load_or_create_migrates_legacy_dashboard_to_current_schema() -> None:
         "No items.\n\n"
         "### Completed\n\n"
         "No items.\n\n"
+        "### Dismissed\n\n"
+        "No items.\n\n"
         "### Work Type Breakdown\n\n"
         "No items.\n"
     )

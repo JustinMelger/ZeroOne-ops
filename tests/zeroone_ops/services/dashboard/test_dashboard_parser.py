@@ -156,6 +156,7 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     assert "Simplify boolean comparison" in body
     assert "### In Flight" in body
     assert "### Completed" in body
+    assert "### Dismissed" in body
     assert "### Work Type Breakdown" in body
     assert "<details>" in body
     assert "<summary><code>sonar:1</code> details</summary>" in body
@@ -193,6 +194,7 @@ def test_rendered_dashboard_body_keeps_new_workflow_layout_when_empty() -> None:
     assert "### Needs Review" in body
     assert "### In Flight" in body
     assert "### Completed" in body
+    assert "### Dismissed" in body
     assert "### Work Type Breakdown" in body
     assert "## In Progress" not in body
     assert "## Merge Requests Opened" not in body
@@ -236,6 +238,8 @@ def test_manual_review_rejection_stays_out_of_active_workflow_tables() -> None:
     )
 
     assert "<summary><code>sonar:manual</code> details</summary>" in body
+    assert "### Dismissed" in body
+    assert "⚪ Rejected" in body
     assert "Review Manually" not in body
     assert "manual review is required" in body
 
@@ -469,6 +473,78 @@ def test_render_hides_legacy_empty_workflow_sections_when_combined_view_is_prese
     assert "## Recent Failures" not in body
 
 
+def test_rendered_workflow_bucket_shows_overflow_note_when_capped() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[
+                    build_item(item_id=f"sonar:{index:02d}", status="open").model_copy(
+                        update={"source_reference": f"issue-{index}"}
+                    )
+                    for index in range(12)
+                ],
+            ),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    assert "| 12 | 0 | 0 | 0 | 0 |" in body
+    assert "_2 more items not shown._" in body
+    assert "`sonar:09`" in body
+    assert "`sonar:10`" not in body
+    assert "`sonar:11`" not in body
+    assert "zeroone-workflow-hidden-items" in body
+
+
+def test_parse_round_trips_hidden_workflow_items_from_machine_block() -> None:
+    renderer = DashboardRenderer()
+    parser = DashboardParser()
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[
+                    build_item(item_id=f"sonar:{index:02d}", status="open").model_copy(
+                        update={"source_reference": f"issue-{index}"}
+                    )
+                    for index in range(12)
+                ],
+            ),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    ids = {item.id for item in document.sections[0].items}
+    assert len(ids) == 12
+    assert {"sonar:10", "sonar:11"} <= ids
+
+
 def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table() -> None:
     renderer = DashboardRenderer()
 
@@ -679,6 +755,10 @@ No items.
 No items.
 
 ### Completed
+
+No items.
+
+### Dismissed
 
 No items.
 
@@ -1042,6 +1122,10 @@ No items.
 
 No items.
 
+### Dismissed
+
+No items.
+
 ### Work Type Breakdown
 
 No items.
@@ -1137,6 +1221,10 @@ No items.
 No items.
 
 ### Completed
+
+No items.
+
+### Dismissed
 
 No items.
 

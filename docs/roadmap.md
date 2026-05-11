@@ -100,14 +100,14 @@ as one broad rewrite.
   separate bucket
 - prefer clearer explanation before adding mutable retry or reset controls
 
-- [ ] Phase 3: Dismissed Work Separation
+- [x] Phase 3: Dismissed Work Separation
 
 - keep `rejected` and `ignored` out of the active operator queue
 - render them later as dismissed/history-oriented outcomes instead of mixing
   them with active human follow-up work
 - preserve visibility without polluting the main action board
 
-- [ ] Phase 4: Display Limits And Overflow
+- [x] Phase 4: Display Limits And Overflow
 
 - add per-bucket display limits once the board split is in place
 - preserve aggregate counts in the overview
