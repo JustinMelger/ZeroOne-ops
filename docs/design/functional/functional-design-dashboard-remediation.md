@@ -378,6 +378,91 @@ Later options may include:
 - path- or component-aware summaries
 - or one dashboard issue per configured repo scope instead of one global board
 
+## 12.4 Operator Workflow Board Model
+
+The operator-facing workflow board should stop treating one mixed
+`Needs Attention` table as the primary surface for all active work.
+
+The later board design should instead present a small set of clearer buckets:
+
+- `Queue Auto-fix`
+  - remediation-ready items the bot can pick up now
+- `Needs Review`
+  - items that require human investigation, manual follow-up, or blocked-state
+    interpretation before automation should continue
+- `In Flight`
+  - items currently being processed or already represented by an active merge
+    request
+- `Completed`
+  - recently resolved items that no longer require operator action
+
+The workflow board should stay operator-oriented rather than source-oriented.
+Its main job is to answer:
+
+- what can automation act on now,
+- what needs a human decision,
+- what is already moving,
+- what has recently finished.
+
+Recommended first bucket mapping:
+
+- `Queue Auto-fix`
+  - `open`
+- `Needs Review`
+  - `failed`
+  - later any explicitly blocked state that still requires a human recovery
+    decision
+- `In Flight`
+  - `in_progress`
+  - `mr_opened`
+- `Completed`
+  - `done`
+  - show only the most recent completed items on the workflow board
+
+Dismissed outcomes should stay visible, but they should not share the same
+bucket as active human follow-up work.
+
+Recommended later handling:
+
+- `rejected`
+  - treat as dismissed or out of scope for the current attempt rather than as
+    active operator review work
+- `ignored`
+  - treat as intentionally excluded work, typically driven by policy or
+    explicit automation scope choices
+- later render a separate `Rejected / Ignored` or `Dismissed` bucket if
+  operators still need lightweight visibility into those outcomes without
+  polluting the active workflow board
+
+This board split should not change the underlying lifecycle model by itself.
+It is primarily a clearer presentation model over the existing dashboard item
+states.
+
+The first board redesign should also preserve visible transition intent:
+
+- when remediation selects an item:
+  - it moves from `Queue Auto-fix` to `In Flight`
+- when remediation opens a merge request:
+  - it remains in `In Flight`
+- when reconciliation decides work should retry later:
+  - it moves back to `Queue Auto-fix`
+- when a later operator action explicitly requeues a reviewed item:
+  - it may also move back to `Queue Auto-fix`
+- when remediation or reconciliation produces a failure that still needs human
+  interpretation:
+  - it moves to `Needs Review`
+- when the issue is truly resolved:
+  - it moves to `Completed`
+
+`Investigate Failure` should remain a next-step label inside `Needs Review`,
+not a bucket of its own. The board should emphasize the kind of operator
+attention required, while the row wording explains the likely next recovery
+path.
+
+The first board redesign should prefer explanation and structure over adding
+new mutable operator controls. A later phase can add retry, reset, or requeue
+commands once the board semantics and recovery explanations are stable.
+
 ## 13. Human Interaction Model
 
 Humans should be able to:

@@ -77,6 +77,60 @@ Shipped baseline:
   maintainer clarity
 - keep these slices behavior-neutral unless a real rollout issue is being fixed
 
+### 5. Dashboard Workflow Hardening
+
+Treat the dashboard redesign as a sequence of small operator-facing slices, not
+as one broad rewrite.
+
+- [x] Phase 1: Workflow Board Split
+
+- replace the mixed `Needs Attention` view with clearer buckets:
+  - `Queue Auto-fix`
+  - `Needs Review`
+  - `In Flight`
+  - `Completed`
+- keep the first implementation renderer-derived from existing lifecycle
+  states rather than introducing new persisted board-only state
+
+- [ ] Phase 2: Recovery Explanation
+
+- improve row-level wording so failed, blocked, and manual-follow-up items
+  explain their likely next step more directly
+- keep `Investigate Failure` as a diagnosis label inside `Needs Review`, not a
+  separate bucket
+- prefer clearer explanation before adding mutable retry or reset controls
+
+- [ ] Phase 3: Dismissed Work Separation
+
+- keep `rejected` and `ignored` out of the active operator queue
+- render them later as dismissed/history-oriented outcomes instead of mixing
+  them with active human follow-up work
+- preserve visibility without polluting the main action board
+
+- [ ] Phase 4: Display Limits And Overflow
+
+- add per-bucket display limits once the board split is in place
+- preserve aggregate counts in the overview
+- show explicit overflow summaries such as `N more items not shown`
+
+- [ ] Phase 5: Large-Repo Scanability
+
+- add deterministic ordering and grouping for high-volume repositories
+- prefer file- and path-oriented grouping before considering multi-dashboard
+  monorepo splits
+- use real operator feedback to decide whether a later `Blocked` bucket earns
+  its own place
+
+- [ ] Phase 6: Review History Grouping
+
+- group repeated review passes by merge request instead of treating each pass
+  as the primary dashboard row
+- show the latest review state as the main visible row
+- attach compact continuity summaries such as unresolved, new, or no longer
+  present once that projection is trustworthy enough to present
+- keep the first implementation renderer-derived rather than introducing a new
+  persisted grouped-review storage model
+
 ## Recently Completed
 
 - operator-facing rebrand to `ZeroOne Ops`

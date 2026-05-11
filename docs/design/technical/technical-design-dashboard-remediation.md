@@ -575,7 +575,108 @@ Recovery should not be encoded as free-form dashboard prose alone. The source
 of truth should remain structured dashboard item fields plus typed failure
 details already captured in local run state.
 
-### 9.8 Future Retry Reset / Requeue Semantics
+### 9.8 Operator Workflow Board Buckets
+
+The dashboard renderer should evolve from one mixed `Needs Attention` table to
+an explicit workflow-board projection over existing dashboard item states.
+
+Recommended first operator buckets:
+
+- `Queue Auto-fix`
+- `Needs Review`
+- `In Flight`
+- `Completed`
+
+Recommended first state-to-bucket mapping:
+
+- `Queue Auto-fix`
+  - `open`
+- `Needs Review`
+  - `failed`
+- `In Flight`
+  - `in_progress`
+  - `mr_opened`
+- `Completed`
+  - `done`
+
+Dismissed outcomes should not be mixed into active review work by default.
+
+Recommended later treatment:
+
+- `rejected`
+  - treat as dismissed or out of scope for the current attempt
+- `ignored`
+  - treat as intentionally excluded work, typically driven by policy or
+    explicit automation scope
+- if operators still need visibility into those outcomes, render them in a
+  later `Rejected / Ignored` or `Dismissed` bucket rather than in
+  `Needs Review`
+
+The first implementation should keep this as a renderer concern rather than a
+new persisted state taxonomy. The underlying dashboard item lifecycle can stay
+status-based while the board projection groups those statuses into more useful
+operator buckets.
+
+Recommended renderer responsibilities:
+
+- build one workflow-board projection from canonical item statuses
+- preserve existing section-level storage for broader history and retention
+- render bucket-specific tables with row counts and overflow summaries
+- continue showing next-step wording inside each row rather than encoding those
+  labels as separate machine states
+
+Recommended row-label behavior:
+
+- `Investigate Failure`
+  - label for failed items whose cause is not yet resolved
+- `Retry Auto-fix`
+  - label for failed items with a supported retry path
+- `Review Retry Blocker`
+  - label for blocked items where a human must interpret the blocker
+- `Review Manually`
+  - label for manual-follow-up outcomes
+
+### 9.9 Bucket Transition Rules
+
+The first board projection should follow the existing lifecycle transitions
+without inventing new workflow-only states.
+
+Recommended transition view:
+
+- `open -> in_progress`
+  - move item from `Queue Auto-fix` to `In Flight`
+- `in_progress -> mr_opened`
+  - keep item in `In Flight`
+- `mr_opened -> open`
+  - move item from `In Flight` back to `Queue Auto-fix`
+- `in_progress|mr_opened -> failed`
+  - move item into `Needs Review`
+- `in_progress -> rejected`
+  - move item into the later dismissed-history projection rather than the
+    active operator queue
+- `mr_opened -> done`
+  - move item into `Completed`
+
+If later lifecycle states are added for clearer blocked or dismissed outcomes,
+they should first be mapped into one of these operator buckets before changing
+the visible board structure again.
+
+Recommended future extension:
+
+- `Blocked`
+  - introduce as a separate bucket only when policy-blocked or review-blocked
+    items become common enough that folding them into `Needs Review` harms
+    scanability
+
+Requeue ownership should stay conservative in the first implementation:
+
+- reconciliation may move an item back toward `open` when an explicit recovery
+  rule supports it
+- a later operator action surface may also requeue items deliberately
+- the first phase should prioritize explanation and board structure before
+  introducing mutable retry or reset commands
+
+### 9.10 Future Retry Reset / Requeue Semantics
 
 If a later operator-facing retry or reset action is introduced, it should be
 designed around explicit transitions rather than loose markdown editing.
@@ -597,7 +698,7 @@ This means a later retry/reset surface should answer:
 - whether the transition is performed by reconciliation, operator action, or a
   future dedicated maintenance workflow
 
-### 9.9 Future Workflow Board Display Limits
+### 9.11 Future Workflow Board Display Limits
 
 Large repositories may produce far more workflow items than a single dashboard
 table should render verbosely.
@@ -609,10 +710,14 @@ Recommended direction:
 
 - keep aggregate counts in the overview table for all relevant lifecycle
   states
+- keep `Completed` limited to recent visible items while broader retention
+  remains available underneath
 - render only the highest-value subset in each workflow section
 - show explicit overflow summaries such as "375 more items not shown"
 - avoid one flat global limit that mixes automation-ready items with
   human-follow-up items
+- prefer deterministic file- or path-oriented grouping when very large
+  repositories make one flat bucket hard to scan
 
 Likely implementation shape later:
 

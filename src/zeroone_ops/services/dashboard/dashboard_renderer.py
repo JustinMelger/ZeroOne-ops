@@ -220,8 +220,8 @@ class DashboardRenderer:
             for item in section.items
         ]
         status_order = {
-            "failed": 0,
-            "open": 1,
+            "open": 0,
+            "failed": 1,
             "in_progress": 2,
             "mr_opened": 3,
             "rejected": 4,
@@ -241,10 +241,16 @@ class DashboardRenderer:
         """Render the human-facing overview for remediation and reconciliation workflow items."""
         lines: list[str] = ["### Overview", ""]
         lines.extend(self._render_workflow_overview_table(items))
-        lines.extend(["", "### Needs Attention", ""])
-        attention_items = [item for item in items if item.status in {"open", "failed", "rejected"}]
-        if attention_items:
-            lines.extend(self._render_workflow_attention_table(attention_items))
+        lines.extend(["", "### Queue Auto-fix", ""])
+        queue_items = [item for item in items if item.status == "open"]
+        if queue_items:
+            lines.extend(self._render_workflow_queue_table(queue_items))
+        else:
+            lines.append("No items.")
+        lines.extend(["", "### Needs Review", ""])
+        review_items = [item for item in items if item.status == "failed"]
+        if review_items:
+            lines.extend(self._render_workflow_review_table(review_items))
         else:
             lines.append("No items.")
         lines.extend(["", "### In Flight", ""])
@@ -279,8 +285,25 @@ class DashboardRenderer:
             ),
         ]
 
-    def _render_workflow_attention_table(self, items: list[DashboardItem]) -> list[str]:
-        """Render the focused queue of workflow items that need operator attention."""
+    def _render_workflow_queue_table(self, items: list[DashboardItem]) -> list[str]:
+        """Render the focused queue of workflow items ready for automation."""
+        lines = [
+            "| Item | File | Priority | Next Step | Summary |",
+            "|---|---|---|---|---|",
+        ]
+        for item in items:
+            lines.append(
+                "| "
+                f"{self._render_workflow_item_label(item)} | "
+                f"{self._render_workflow_file(item)} | "
+                f"{self._render_priority(item)} | "
+                f"{self._render_suggested_action(item)} | "
+                f"{self._render_workflow_summary(item)} |"
+            )
+        return lines
+
+    def _render_workflow_review_table(self, items: list[DashboardItem]) -> list[str]:
+        """Render workflow items that currently need human review or investigation."""
         lines = [
             "| Item | File | Priority | Next Step | Summary |",
             "|---|---|---|---|---|",

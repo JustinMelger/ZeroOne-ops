@@ -202,7 +202,7 @@ class DashboardParser:
     def _is_supported_workflow_summary_content(self, content: str) -> bool:
         """Return whether remaining content is a supported workflow summary layout."""
         blocks = self._summary_blocks(content)
-        if len(blocks) != 10:
+        if len(blocks) != 12:
             return False
         if blocks[0] != ["### Overview"]:
             return False
@@ -212,7 +212,7 @@ class DashboardParser:
             separator="|---|---|---|---|---|",
         ):
             return False
-        if blocks[2] != ["### Needs Attention"]:
+        if blocks[2] != ["### Queue Auto-fix"]:
             return False
         if blocks[3] != ["No items."] and not self._matches_table(
             blocks[3],
@@ -220,28 +220,36 @@ class DashboardParser:
             separator="|---|---|---|---|---|",
         ):
             return False
-        if blocks[4] != ["### In Flight"]:
+        if blocks[4] != ["### Needs Review"]:
             return False
         if blocks[5] != ["No items."] and not self._matches_table(
             blocks[5],
+            header="| Item | File | Priority | Next Step | Summary |",
+            separator="|---|---|---|---|---|",
+        ):
+            return False
+        if blocks[6] != ["### In Flight"]:
+            return False
+        if blocks[7] != ["No items."] and not self._matches_table(
+            blocks[7],
             header="| Item | Status | Priority | Review Summary |",
             separator="|---|---|---|---|",
         ):
             return False
-        if blocks[6] != ["### Completed"]:
+        if blocks[8] != ["### Completed"]:
             return False
-        if blocks[7] != ["No items."] and not self._matches_table(
-            blocks[7],
+        if blocks[9] != ["No items."] and not self._matches_table(
+            blocks[9],
             header="| Item | Priority | Summary |",
             separator="|---|---|---|",
         ):
             return False
-        if blocks[8] != ["### Work Type Breakdown"]:
+        if blocks[10] != ["### Work Type Breakdown"]:
             return False
-        if blocks[9] == ["No items."]:
+        if blocks[11] == ["No items."]:
             return True
         return self._matches_table(
-            blocks[9],
+            blocks[11],
             header="| Work Type | Count |",
             separator="|---|---|",
         )

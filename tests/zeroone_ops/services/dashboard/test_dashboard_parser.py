@@ -147,7 +147,8 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     assert "### Overview" in body
     assert "| Open | In progress | MR opened | Failed | Done |" in body
     assert "| 1 | 0 | 0 | 0 | 0 |" in body
-    assert "### Needs Attention" in body
+    assert "### Queue Auto-fix" in body
+    assert "### Needs Review" in body
     assert "| Item | File | Priority | Next Step | Summary |" in body
     assert "`sonar:1`" in body
     assert "`service.py`" in body
@@ -188,7 +189,8 @@ def test_rendered_dashboard_body_keeps_new_workflow_layout_when_empty() -> None:
     assert "### Overview" in body
     assert "| Open | In progress | MR opened | Failed | Done |" in body
     assert "| 0 | 0 | 0 | 0 | 0 |" in body
-    assert "### Needs Attention" in body
+    assert "### Queue Auto-fix" in body
+    assert "### Needs Review" in body
     assert "### In Flight" in body
     assert "### Completed" in body
     assert "### Work Type Breakdown" in body
@@ -197,7 +199,7 @@ def test_rendered_dashboard_body_keeps_new_workflow_layout_when_empty() -> None:
     assert "\n## Completed\n" not in body
 
 
-def test_rendered_dashboard_body_keeps_manual_review_rejection_visible_in_needs_attention() -> None:
+def test_manual_review_rejection_stays_out_of_active_workflow_tables() -> None:
     renderer = DashboardRenderer()
 
     body = renderer.render(
@@ -233,8 +235,8 @@ def test_rendered_dashboard_body_keeps_manual_review_rejection_visible_in_needs_
         ],
     )
 
-    assert "`sonar:manual`" in body
-    assert "Review Manually" in body
+    assert "<summary><code>sonar:manual</code> details</summary>" in body
+    assert "Review Manually" not in body
     assert "manual review is required" in body
 
 
@@ -420,7 +422,8 @@ def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() ->
     assert "### Overview" in body
     assert "| Open | In progress | MR opened | Failed | Done |" in body
     assert "| 1 | 1 | 1 | 0 | 0 |" in body
-    assert "### Needs Attention" in body
+    assert "### Queue Auto-fix" in body
+    assert "### Needs Review" in body
     assert "| Item | File | Priority | Next Step | Summary |" in body
     assert "### In Flight" in body
     assert "| Item | Status | Priority | Review Summary |" in body
@@ -655,12 +658,16 @@ def test_parse_accepts_summary_table_followed_by_multiple_item_blocks() -> None:
 |---|---|---|---|---|
 | 2 | 0 | 0 | 0 | 0 |
 
-### Needs Attention
+### Queue Auto-fix
 
 | Item | File | Priority | Next Step | Summary |
 |---|---|---|---|---|
 | `sonar:1` | `service.py` | Low | Queue Auto-fix | Simplify boolean comparison |
 | `sonar:2` | `other.py` | Medium | Queue Auto-fix | Remove unused variable |
+
+### Needs Review
+
+No items.
 
 ### In Flight
 
@@ -903,6 +910,7 @@ def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:
     )
 
     assert "### Needs Attention" in body
+    assert "### All Reviews" in body
     assert "No items." in body
     assert "| !42 | ✅ No findings | 0 | - | 🟢 Low | No findings. | `abc123` |" in body
     assert '"review_status": "no_findings"' in body
@@ -1013,7 +1021,11 @@ and do not mutate operator policy.
 |---|---|---|---|---|
 | 0 | 0 | 0 | 0 | 0 |
 
-### Needs Attention
+### Queue Auto-fix
+
+No items.
+
+### Needs Review
 
 No items.
 
@@ -1107,7 +1119,11 @@ and do not mutate operator policy.
 |---|---|---|---|---|
 | 0 | 0 | 0 | 0 | 0 |
 
-### Needs Attention
+### Queue Auto-fix
+
+No items.
+
+### Needs Review
 
 No items.
 
