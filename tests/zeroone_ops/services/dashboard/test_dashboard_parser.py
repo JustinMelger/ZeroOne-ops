@@ -1290,10 +1290,7 @@ def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:
     assert "### Needs Attention" in body
     assert "### Review History" in body
     assert "No items." in body
-    assert (
-        "| !42 | 1 | ✅ No findings | 0 | - | 🟢 Low | No findings. | `abc123` |"
-        in body
-    )
+    assert "| !42 | 1 | ✅ No findings | 0 | - | 🟢 Low | No findings. | `abc123` |" in body
     assert '"review_status": "no_findings"' in body
     assert '"file":' not in body
     assert '"rule":' not in body

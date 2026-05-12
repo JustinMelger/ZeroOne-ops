@@ -681,9 +681,7 @@ class DashboardRenderer:
         """Render one grouped summary line for repeated merge-request reviews."""
         item = group.latest_item
         note = item.review_feedback_summary or item.summary
-        prefix = (
-            f"{group.pass_count} passes. " if group.pass_count > 1 else ""
-        )
+        prefix = f"{group.pass_count} passes. " if group.pass_count > 1 else ""
         return self._compact_note(f"{prefix}{note}")
 
     def _short_sha(self, sha: str | None) -> str:
