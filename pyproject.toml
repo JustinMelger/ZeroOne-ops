@@ -12,6 +12,7 @@ dependencies = [
   "pydantic>=2.11.3",
   "python-dotenv>=1.0.1",
   "typer>=0.16.0",
+  "urllib3==2.7.0",
 ]
 
 [project.optional-dependencies]
@@ -50,6 +51,11 @@ include = [
 [tool.uv]
 default-groups = ["dev"]
 exclude-newer = "14 days"
+
+[tool.uv.exclude-newer-package]
+# Temporary security override for urllib3 2.7.0; remove once it falls within
+# the global exclude-newer window.
+urllib3 = "2026-05-08T00:00:00Z"
 
 [dependency-groups]
 dev = [
