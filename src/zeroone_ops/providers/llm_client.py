@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import mlflow
 import mlflow.openai as mlflow_openai
@@ -360,7 +361,8 @@ def _configure_mlflow_openai_autologging(config: OpenAIConnectionConfig) -> None
             mlflow.set_tracking_uri(config.mlflow_tracking_uri)
         if config.mlflow_experiment_name:
             mlflow.set_experiment(config.mlflow_experiment_name)
-        mlflow_openai.autolog()
+        autolog = cast(Callable[[], None], mlflow_openai.autolog)
+        autolog()
     except Exception:
         LOGGER.warning(
             "MLflow OpenAI autologging setup failed; continuing without tracing.",
