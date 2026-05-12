@@ -20,6 +20,16 @@ Shipped baseline:
 
 - dashboard-backed remediation with bounded structured-edit execution
 - remediation reconciliation for `mr_opened` items
+- dashboard workflow board with renderer-derived buckets for:
+  - `Queue Auto-fix`
+  - `Needs Review`
+  - `In Flight`
+  - `Completed`
+  - `Dismissed`
+- recovery-oriented dashboard wording for failed and blocked items
+- per-bucket display limits with explicit overflow summaries
+- deterministic file/path-oriented workflow ordering for large repositories
+- MR-scoped grouped review history with latest-pass projection
 - dashboard-first operator policy with canonical severity and issue-class
   control in the dashboard
 - dedicated `dashboard policy` workflow with bounded `/zeroone policy ...`
@@ -76,6 +86,21 @@ Shipped baseline:
 - continue small codebase and docs cleanup where it improves operator or
   maintainer clarity
 - keep these slices behavior-neutral unless a real rollout issue is being fixed
+
+### 5. Dashboard Workflow Hardening
+
+The first dashboard hardening pass is now shipped.
+
+Next feedback-driven refinements:
+
+- decide whether a later `Blocked` bucket earns its own place from real
+  operator usage instead of adding empty buckets preemptively
+- improve grouped review-history continuity summaries once unresolved/new/no
+  longer present projection is trustworthy enough to surface
+- consider later configurable bucket limits if operators need tuning beyond the
+  current renderer-owned defaults
+- continue preferring explanation and scanability improvements before adding
+  mutable retry or reset commands
 
 ## Recently Completed
 

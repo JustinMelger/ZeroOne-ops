@@ -43,6 +43,15 @@ _POLICY_STATE_BLOCK_PATTERN = re.compile(
     ),
     re.DOTALL,
 )
+_HIDDEN_WORKFLOW_ITEMS_BLOCK_PATTERN = re.compile(
+    (
+        r"<details>\n"
+        r"<summary><code>zeroone-workflow-hidden-items</code> machine state</summary>\n\n"
+        r"```json\n(?P<payload>.*?)\n```\n\n"
+        r"</details>"
+    ),
+    re.DOTALL,
+)
 
 
 class DashboardParser:
@@ -115,10 +124,15 @@ class DashboardParser:
     def _parse_section_items(self, section_key: str, content: str) -> list[DashboardItem]:
         if not content or content == "No items.":
             return []
-        matches = list(_ITEM_BLOCK_PATTERN.finditer(content))
+        hidden_items: list[DashboardItem] = []
+        normalized_content = content
+        if section_key == "open_candidates":
+            hidden_items = self._extract_hidden_workflow_items(content)
+            normalized_content = _HIDDEN_WORKFLOW_ITEMS_BLOCK_PATTERN.sub("", content).strip()
+        matches = list(_ITEM_BLOCK_PATTERN.finditer(normalized_content))
         if not matches:
-            if self._is_supported_summary_content(section_key, content):
-                return []
+            if self._is_supported_summary_content(section_key, normalized_content):
+                return hidden_items
             raise DashboardParseError("Dashboard section did not contain parseable item blocks.")
         parsed: list[DashboardItem] = []
         normalized_blocks: list[str] = []
@@ -133,12 +147,12 @@ class DashboardParser:
                 raise DashboardParseError("Dashboard item heading ID did not match JSON payload.")
             parsed.append(item)
             normalized_blocks.append(match.group(0))
-        remaining = content
+        remaining = normalized_content
         for block in normalized_blocks:
             remaining = remaining.replace(block, "", 1)
         if not self._is_supported_summary_content(section_key, remaining):
             raise DashboardParseError("Dashboard section contained unsupported free-form content.")
-        return parsed
+        return self._merge_items_by_id(parsed, hidden_items)
 
     def _is_supported_summary_content(self, section_key: str, content: str) -> bool:
         """Return whether remaining section content is a supported summary table."""
@@ -181,28 +195,56 @@ class DashboardParser:
             blocks[1],
             header="| Reviews | Needs attention | Findings total | High priority |",
             separator="|---|---|---|---|",
+        ) and not self._matches_table(
+            blocks[1],
+            header="| MRs | Needs attention | Findings total | High priority |",
+            separator="|---|---|---|---|",
         ):
             return False
         if blocks[2] != ["### Needs Attention"]:
             return False
-        if blocks[3] != ["No items."] and not self._matches_table(
-            blocks[3],
+        if blocks[3] != ["No items."] and not self._matches_review_attention_table(blocks[3]):
+            return False
+        if blocks[4] not in (["### All Reviews"], ["### Review History"]):
+            return False
+        return self._matches_review_history_table(blocks[5])
+
+    def _matches_review_attention_table(self, lines: list[str]) -> bool:
+        """Return whether lines match one supported review attention table layout."""
+        return self._matches_table(
+            lines,
             header="| MR | Outcome | Findings | Confidence | Priority | Summary |",
             separator="|---|---|---|---|---|---|",
-        ):
-            return False
-        if blocks[4] != ["### All Reviews"]:
-            return False
+        ) or self._matches_table(
+            lines,
+            header=(
+                "| MR | Passes | Outcome | Findings | Confidence | Priority | "
+                "Summary | Reviewed SHA |"
+            ),
+            separator="|---|---|---|---|---|---|---|---|",
+        )
+
+    def _matches_review_history_table(self, lines: list[str]) -> bool:
+        """Return whether lines match one supported grouped or ungrouped review history table."""
         return self._matches_table(
-            blocks[5],
+            lines,
             header="| MR | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |",
             separator="|---|---|---|---|---|---|---|",
+        ) or self._matches_table(
+            lines,
+            header=(
+                "| MR | Passes | Outcome | Findings | Confidence | Priority | "
+                "Summary | Reviewed SHA |"
+            ),
+            separator="|---|---|---|---|---|---|---|---|",
         )
 
     def _is_supported_workflow_summary_content(self, content: str) -> bool:
         """Return whether remaining content is a supported workflow summary layout."""
         blocks = self._summary_blocks(content)
-        if len(blocks) != 10:
+        if len(blocks) == 12:
+            return self._matches_legacy_workflow_summary_layout(blocks)
+        if len(blocks) != 14:
             return False
         if blocks[0] != ["### Overview"]:
             return False
@@ -212,36 +254,140 @@ class DashboardParser:
             separator="|---|---|---|---|---|",
         ):
             return False
-        if blocks[2] != ["### Needs Attention"]:
+        if blocks[2] != ["### Queue Auto-fix"]:
             return False
-        if blocks[3] != ["No items."] and not self._matches_table(
+        if blocks[3] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
             blocks[3],
-            header="| Item | File | Priority | Next Step | Summary |",
+            variants=[
+                ("| Item | File | Priority | Next Step | Summary |", "|---|---|---|---|---|"),
+                (
+                    "| Item | Area | File | Priority | Next Step | Summary |",
+                    "|---|---|---|---|---|---|",
+                ),
+            ],
+        ):
+            return False
+        if blocks[4] != ["### Needs Review"]:
+            return False
+        if blocks[5] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
+            blocks[5],
+            variants=[
+                ("| Item | File | Priority | Next Step | Summary |", "|---|---|---|---|---|"),
+                (
+                    "| Item | Area | File | Priority | Next Step | Summary |",
+                    "|---|---|---|---|---|---|",
+                ),
+            ],
+        ):
+            return False
+        if blocks[6] != ["### In Flight"]:
+            return False
+        if blocks[7] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
+            blocks[7],
+            variants=[
+                ("| Item | Status | Priority | Review Summary |", "|---|---|---|---|"),
+                (
+                    "| Item | Area | Status | Priority | Review Summary |",
+                    "|---|---|---|---|---|",
+                ),
+            ],
+        ):
+            return False
+        if blocks[8] != ["### Completed"]:
+            return False
+        if blocks[9] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
+            blocks[9],
+            variants=[
+                ("| Item | Priority | Summary |", "|---|---|---|"),
+                ("| Item | Area | Priority | Summary |", "|---|---|---|---|"),
+            ],
+        ):
+            return False
+        if blocks[10] != ["### Dismissed"]:
+            return False
+        if blocks[11] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
+            blocks[11],
+            variants=[
+                ("| Item | Status | Priority | Summary |", "|---|---|---|---|"),
+                ("| Item | Area | Status | Priority | Summary |", "|---|---|---|---|---|"),
+            ],
+        ):
+            return False
+        if blocks[12] != ["### Work Type Breakdown"]:
+            return False
+        if blocks[13] == ["No items."]:
+            return True
+        return self._matches_table(
+            blocks[13],
+            header="| Work Type | Count |",
+            separator="|---|---|",
+        )
+
+    def _matches_legacy_workflow_summary_layout(self, blocks: list[list[str]]) -> bool:
+        """Return whether blocks match the pre-dismissed workflow summary layout."""
+        if blocks[0] != ["### Overview"]:
+            return False
+        if not self._matches_table(
+            blocks[1],
+            header="| Open | In progress | MR opened | Failed | Done |",
             separator="|---|---|---|---|---|",
         ):
             return False
-        if blocks[4] != ["### In Flight"]:
+        if blocks[2] != ["### Queue Auto-fix"]:
             return False
-        if blocks[5] != ["No items."] and not self._matches_table(
+        if blocks[3] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
+            blocks[3],
+            variants=[
+                ("| Item | File | Priority | Next Step | Summary |", "|---|---|---|---|---|"),
+                (
+                    "| Item | Area | File | Priority | Next Step | Summary |",
+                    "|---|---|---|---|---|---|",
+                ),
+            ],
+        ):
+            return False
+        if blocks[4] != ["### Needs Review"]:
+            return False
+        if blocks[5] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
             blocks[5],
-            header="| Item | Status | Priority | Review Summary |",
-            separator="|---|---|---|---|",
+            variants=[
+                ("| Item | File | Priority | Next Step | Summary |", "|---|---|---|---|---|"),
+                (
+                    "| Item | Area | File | Priority | Next Step | Summary |",
+                    "|---|---|---|---|---|---|",
+                ),
+            ],
         ):
             return False
-        if blocks[6] != ["### Completed"]:
+        if blocks[6] != ["### In Flight"]:
             return False
-        if blocks[7] != ["No items."] and not self._matches_table(
+        if blocks[7] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
             blocks[7],
-            header="| Item | Priority | Summary |",
-            separator="|---|---|---|",
+            variants=[
+                ("| Item | Status | Priority | Review Summary |", "|---|---|---|---|"),
+                (
+                    "| Item | Area | Status | Priority | Review Summary |",
+                    "|---|---|---|---|---|",
+                ),
+            ],
         ):
             return False
-        if blocks[8] != ["### Work Type Breakdown"]:
+        if blocks[8] != ["### Completed"]:
             return False
-        if blocks[9] == ["No items."]:
+        if blocks[9] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
+            blocks[9],
+            variants=[
+                ("| Item | Priority | Summary |", "|---|---|---|"),
+                ("| Item | Area | Priority | Summary |", "|---|---|---|---|"),
+            ],
+        ):
+            return False
+        if blocks[10] != ["### Work Type Breakdown"]:
+            return False
+        if blocks[11] == ["No items."]:
             return True
         return self._matches_table(
-            blocks[9],
+            blocks[11],
             header="| Work Type | Count |",
             separator="|---|---|",
         )
@@ -269,6 +415,68 @@ class DashboardParser:
         if lines[0] != header or lines[1] != separator:
             return False
         return all(line.startswith("| ") and line.endswith(" |") for line in lines[2:])
+
+    def _matches_table_with_optional_overflow(
+        self,
+        lines: list[str],
+        *,
+        header: str,
+        separator: str,
+    ) -> bool:
+        """Return whether lines are one supported table plus an optional overflow note."""
+        if self._matches_table(lines, header=header, separator=separator):
+            return True
+        if len(lines) < 4:
+            return False
+        if not self._is_overflow_note(lines[-1]):
+            return False
+        return self._matches_table(lines[:-1], header=header, separator=separator)
+
+    def _matches_table_variant_with_optional_overflow(
+        self,
+        lines: list[str],
+        *,
+        variants: list[tuple[str, str]],
+    ) -> bool:
+        """Return whether lines match any supported table variant with optional overflow."""
+        return any(
+            self._matches_table_with_optional_overflow(
+                lines,
+                header=header,
+                separator=separator,
+            )
+            for header, separator in variants
+        )
+
+    def _is_overflow_note(self, line: str) -> bool:
+        """Return whether one line is a supported workflow overflow summary note."""
+        return bool(re.fullmatch(r"_[0-9]+ more items not shown\._", line))
+
+    def _extract_hidden_workflow_items(self, content: str) -> list[DashboardItem]:
+        """Return hidden workflow items persisted in the compact machine-state block."""
+        match = _HIDDEN_WORKFLOW_ITEMS_BLOCK_PATTERN.search(content)
+        if match is None:
+            return []
+        try:
+            payload = json.loads(match.group("payload"))
+        except json.JSONDecodeError as error:
+            raise DashboardParseError(
+                "Hidden workflow items block contained invalid JSON."
+            ) from error
+        if not isinstance(payload, list):
+            raise DashboardParseError("Hidden workflow items block must contain a JSON list.")
+        return [DashboardItem.model_validate(item) for item in payload]
+
+    def _merge_items_by_id(
+        self,
+        visible_items: list[DashboardItem],
+        hidden_items: list[DashboardItem],
+    ) -> list[DashboardItem]:
+        """Merge visible and hidden workflow items by item ID, preferring visible items."""
+        merged = {item.id: item for item in hidden_items}
+        for item in visible_items:
+            merged[item.id] = item
+        return list(merged.values())
 
     def _redistribute_workflow_items(
         self,

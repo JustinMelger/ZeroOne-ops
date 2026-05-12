@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from zeroone_ops.models.dashboard import (
     CURRENT_DASHBOARD_SCHEMA_VERSION,
@@ -16,6 +18,14 @@ from zeroone_ops.models.dashboard import (
     DashboardSection,
     DashboardSeverityPolicyEntry,
 )
+
+WORKFLOW_BUCKET_DISPLAY_LIMITS: dict[str, int] = {
+    "queue_auto_fix": 10,
+    "needs_review": 10,
+    "in_flight": 10,
+    "completed": 10,
+    "dismissed": 10,
+}
 
 
 class DashboardRenderer:
@@ -49,8 +59,13 @@ class DashboardRenderer:
             )
         )
         workflow_items = self._workflow_items(sections)
+        review_projection_items = self._review_projection_items(sections)
         for section in sections:
-            rendered = self._render_section(section, workflow_items=workflow_items)
+            rendered = self._render_section(
+                section,
+                workflow_items=workflow_items,
+                review_projection_items=review_projection_items,
+            )
             if rendered:
                 lines.extend(rendered)
         return "\n".join(lines).rstrip() + "\n"
@@ -177,6 +192,7 @@ class DashboardRenderer:
         section: DashboardSection,
         *,
         workflow_items: list[DashboardItem],
+        review_projection_items: list[DashboardItem],
     ) -> list[str]:
         if section.key in {
             "in_progress",
@@ -188,21 +204,27 @@ class DashboardRenderer:
             return []
         lines = [f"## {section.title}", ""]
         if section.key == "open_candidates":
-            lines.extend(self._render_workflow_section(workflow_items))
+            workflow_lines, visible_items, hidden_items = self._render_workflow_section(
+                workflow_items
+            )
+            lines.extend(workflow_lines)
             lines.append("")
-            for item in workflow_items:
+            for item in visible_items:
+                lines.extend(self._render_item(item))
+                lines.append("")
+            if hidden_items:
+                lines.extend(self._render_hidden_workflow_items_block(hidden_items))
+                lines.append("")
+            return lines
+        if section.key == "merge_request_reviews":
+            lines.extend(self._render_merge_request_review_section(review_projection_items))
+            lines.append("")
+            for item in section.items:
                 lines.extend(self._render_item(item))
                 lines.append("")
             return lines
         if not section.items:
             lines.extend(["No items.", ""])
-            return lines
-        if section.key == "merge_request_reviews":
-            lines.extend(self._render_merge_request_review_section(section.items))
-            lines.append("")
-            for item in section.items:
-                lines.extend(self._render_item(item))
-                lines.append("")
             return lines
         lines.extend(self._render_summary_table(section.items))
         lines.append("")
@@ -220,8 +242,8 @@ class DashboardRenderer:
             for item in section.items
         ]
         status_order = {
-            "failed": 0,
-            "open": 1,
+            "open": 0,
+            "failed": 1,
             "in_progress": 2,
             "mr_opened": 3,
             "rejected": 4,
@@ -232,36 +254,114 @@ class DashboardRenderer:
             items,
             key=lambda item: (
                 status_order.get(item.status, 99),
+                self._workflow_area_key(item),
+                self._workflow_file_key(item),
                 item.priority,
                 item.id,
             ),
         )
 
-    def _render_workflow_section(self, items: list[DashboardItem]) -> list[str]:
+    def _review_projection_items(self, sections: list[DashboardSection]) -> list[DashboardItem]:
+        """Return all items that should contribute to the MR review projection."""
+        items = [
+            item
+            for section in sections
+            for item in section.items
+            if item.review_status is not None or item.type == "review_status"
+        ]
+        return sorted(
+            items,
+            key=lambda item: (
+                self._review_sort_key(item),
+                self._review_group_key(item),
+                item.id,
+            ),
+            reverse=True,
+        )
+
+    def _render_workflow_section(
+        self,
+        items: list[DashboardItem],
+    ) -> tuple[list[str], list[DashboardItem], list[DashboardItem]]:
         """Render the human-facing overview for remediation and reconciliation workflow items."""
         lines: list[str] = ["### Overview", ""]
+        visible_items: list[DashboardItem] = []
         lines.extend(self._render_workflow_overview_table(items))
-        lines.extend(["", "### Needs Attention", ""])
-        attention_items = [item for item in items if item.status in {"open", "failed", "rejected"}]
-        if attention_items:
-            lines.extend(self._render_workflow_attention_table(attention_items))
+        lines.extend(["", "### Queue Auto-fix", ""])
+        queue_items = [item for item in items if item.status == "open"]
+        if queue_items:
+            limit = self._bucket_limit("queue_auto_fix")
+            visible_items.extend(queue_items[:limit])
+            lines.extend(
+                self._render_bucket_with_overflow(
+                    self._render_workflow_queue_table(queue_items[:limit]),
+                    total_count=len(queue_items),
+                    visible_count=min(len(queue_items), limit),
+                )
+            )
+        else:
+            lines.append("No items.")
+        lines.extend(["", "### Needs Review", ""])
+        review_items = [item for item in items if item.status == "failed"]
+        if review_items:
+            limit = self._bucket_limit("needs_review")
+            visible_items.extend(review_items[:limit])
+            lines.extend(
+                self._render_bucket_with_overflow(
+                    self._render_workflow_review_table(review_items[:limit]),
+                    total_count=len(review_items),
+                    visible_count=min(len(review_items), limit),
+                )
+            )
         else:
             lines.append("No items.")
         lines.extend(["", "### In Flight", ""])
         in_flight_items = [item for item in items if item.status in {"in_progress", "mr_opened"}]
         if in_flight_items:
-            lines.extend(self._render_in_flight_table(in_flight_items))
+            limit = self._bucket_limit("in_flight")
+            visible_items.extend(in_flight_items[:limit])
+            lines.extend(
+                self._render_bucket_with_overflow(
+                    self._render_in_flight_table(in_flight_items[:limit]),
+                    total_count=len(in_flight_items),
+                    visible_count=min(len(in_flight_items), limit),
+                )
+            )
         else:
             lines.append("No items.")
         lines.extend(["", "### Completed", ""])
         completed_items = [item for item in items if item.status == "done"]
         if completed_items:
-            lines.extend(self._render_completed_table(completed_items))
+            limit = self._bucket_limit("completed")
+            visible_items.extend(completed_items[:limit])
+            lines.extend(
+                self._render_bucket_with_overflow(
+                    self._render_completed_table(completed_items[:limit]),
+                    total_count=len(completed_items),
+                    visible_count=min(len(completed_items), limit),
+                )
+            )
+        else:
+            lines.append("No items.")
+        lines.extend(["", "### Dismissed", ""])
+        dismissed_items = [item for item in items if item.status in {"rejected", "ignored"}]
+        if dismissed_items:
+            limit = self._bucket_limit("dismissed")
+            visible_items.extend(dismissed_items[:limit])
+            lines.extend(
+                self._render_bucket_with_overflow(
+                    self._render_dismissed_table(dismissed_items[:limit]),
+                    total_count=len(dismissed_items),
+                    visible_count=min(len(dismissed_items), limit),
+                )
+            )
         else:
             lines.append("No items.")
         lines.extend(["", "### Work Type Breakdown", ""])
         lines.extend(self._render_work_type_breakdown_table(items))
-        return lines
+        visible_ids = {item.id for item in visible_items}
+        hidden_items = [item for item in items if item.id not in visible_ids]
+        return lines, visible_items, hidden_items
 
     def _render_workflow_overview_table(self, items: list[DashboardItem]) -> list[str]:
         """Render one compact metrics table for workflow items."""
@@ -279,16 +379,35 @@ class DashboardRenderer:
             ),
         ]
 
-    def _render_workflow_attention_table(self, items: list[DashboardItem]) -> list[str]:
-        """Render the focused queue of workflow items that need operator attention."""
+    def _render_workflow_queue_table(self, items: list[DashboardItem]) -> list[str]:
+        """Render the focused queue of workflow items ready for automation."""
         lines = [
-            "| Item | File | Priority | Next Step | Summary |",
-            "|---|---|---|---|---|",
+            "| Item | Area | File | Priority | Next Step | Summary |",
+            "|---|---|---|---|---|---|",
         ]
         for item in items:
             lines.append(
                 "| "
                 f"{self._render_workflow_item_label(item)} | "
+                f"{self._render_workflow_area(item)} | "
+                f"{self._render_workflow_file(item)} | "
+                f"{self._render_priority(item)} | "
+                f"{self._render_suggested_action(item)} | "
+                f"{self._render_workflow_summary(item)} |"
+            )
+        return lines
+
+    def _render_workflow_review_table(self, items: list[DashboardItem]) -> list[str]:
+        """Render workflow items that currently need human review or investigation."""
+        lines = [
+            "| Item | Area | File | Priority | Next Step | Summary |",
+            "|---|---|---|---|---|---|",
+        ]
+        for item in items:
+            lines.append(
+                "| "
+                f"{self._render_workflow_item_label(item)} | "
+                f"{self._render_workflow_area(item)} | "
                 f"{self._render_workflow_file(item)} | "
                 f"{self._render_priority(item)} | "
                 f"{self._render_suggested_action(item)} | "
@@ -299,13 +418,14 @@ class DashboardRenderer:
     def _render_in_flight_table(self, items: list[DashboardItem]) -> list[str]:
         """Render the in-flight workflow queue."""
         lines = [
-            "| Item | Status | Priority | Review Summary |",
-            "|---|---|---|---|",
+            "| Item | Area | Status | Priority | Review Summary |",
+            "|---|---|---|---|---|",
         ]
         for item in items:
             lines.append(
                 "| "
                 f"{self._render_workflow_item_label(item)} | "
+                f"{self._render_workflow_area(item)} | "
                 f"{self._render_workflow_status(item)} | "
                 f"{self._render_priority(item)} | "
                 f"{self._render_in_flight_summary(item)} |"
@@ -315,13 +435,31 @@ class DashboardRenderer:
     def _render_completed_table(self, items: list[DashboardItem]) -> list[str]:
         """Render the completed workflow queue."""
         lines = [
-            "| Item | Priority | Summary |",
-            "|---|---|---|",
+            "| Item | Area | Priority | Summary |",
+            "|---|---|---|---|",
         ]
         for item in items:
             lines.append(
                 "| "
                 f"{self._render_workflow_item_label(item)} | "
+                f"{self._render_workflow_area(item)} | "
+                f"{self._render_priority(item)} | "
+                f"{self._render_completed_summary(item)} |"
+            )
+        return lines
+
+    def _render_dismissed_table(self, items: list[DashboardItem]) -> list[str]:
+        """Render dismissed or intentionally excluded workflow items."""
+        lines = [
+            "| Item | Area | Status | Priority | Summary |",
+            "|---|---|---|---|---|",
+        ]
+        for item in items:
+            lines.append(
+                "| "
+                f"{self._render_workflow_item_label(item)} | "
+                f"{self._render_workflow_area(item)} | "
+                f"{self._render_workflow_status(item)} | "
                 f"{self._render_priority(item)} | "
                 f"{self._render_completed_summary(item)} |"
             )
@@ -347,65 +485,103 @@ class DashboardRenderer:
             lines.append(f"| {label} | {count} |")
         return lines
 
-    def _render_merge_request_review_section(self, items: list[DashboardItem]) -> list[str]:
-        """Render the human-facing review overview for merge request reviews."""
-        lines: list[str] = ["### Overview", ""]
-        lines.extend(self._render_review_overview_table(items))
-        lines.extend(["", "### Needs Attention", ""])
-        attention_items = [item for item in items if self._needs_attention(item)]
-        if attention_items:
-            lines.extend(self._render_review_attention_table(attention_items))
-        else:
-            lines.append("No items.")
-        lines.extend(["", "### All Reviews", ""])
-        lines.extend(self._render_all_reviews_table(items))
+    def _bucket_limit(self, bucket_key: str) -> int:
+        """Return the visible display limit for one workflow bucket."""
+        return WORKFLOW_BUCKET_DISPLAY_LIMITS[bucket_key]
+
+    def _render_bucket_with_overflow(
+        self,
+        rendered_lines: list[str],
+        *,
+        total_count: int,
+        visible_count: int,
+    ) -> list[str]:
+        """Render one bucket table plus an explicit overflow note when needed."""
+        lines = list(rendered_lines)
+        hidden_count = total_count - visible_count
+        if hidden_count > 0:
+            lines.append(f"_{hidden_count} more items not shown._")
         return lines
 
-    def _render_review_overview_table(self, items: list[DashboardItem]) -> list[str]:
-        """Render one compact metrics table for merge request reviews."""
-        total_reviews = len(items)
-        needs_attention = sum(1 for item in items if self._needs_attention(item))
-        findings_total = sum(item.review_findings_count or 0 for item in items)
-        high_priority = sum(1 for item in items if item.priority.lower() == "high")
+    def _render_hidden_workflow_items_block(self, items: list[DashboardItem]) -> list[str]:
+        """Render compact machine state for workflow items hidden by summary caps."""
+        payload = [item.model_dump(mode="json", exclude_none=True) for item in items]
         return [
-            "| Reviews | Needs attention | Findings total | High priority |",
+            "<details>",
+            "<summary><code>zeroone-workflow-hidden-items</code> machine state</summary>",
+            "",
+            "```json",
+            json.dumps(payload, indent=2, sort_keys=True),
+            "```",
+            "",
+            "</details>",
+        ]
+
+    def _render_merge_request_review_section(self, items: list[DashboardItem]) -> list[str]:
+        """Render the human-facing review overview for merge request reviews."""
+        groups = self._group_review_items(items)
+        lines: list[str] = ["### Overview", ""]
+        lines.extend(self._render_review_overview_table(groups))
+        lines.extend(["", "### Needs Attention", ""])
+        attention_groups = [group for group in groups if self._needs_attention(group.latest_item)]
+        if attention_groups:
+            lines.extend(self._render_review_attention_table(attention_groups))
+        else:
+            lines.append("No items.")
+        lines.extend(["", "### Review History", ""])
+        lines.extend(self._render_all_reviews_table(groups))
+        return lines
+
+    def _render_review_overview_table(self, groups: list[_ReviewGroup]) -> list[str]:
+        """Render one compact metrics table for merge request reviews."""
+        total_reviews = len(groups)
+        needs_attention = sum(1 for group in groups if self._needs_attention(group.latest_item))
+        findings_total = sum(group.latest_item.review_findings_count or 0 for group in groups)
+        high_priority = sum(1 for group in groups if group.latest_item.priority.lower() == "high")
+        return [
+            "| MRs | Needs attention | Findings total | High priority |",
             "|---|---|---|---|",
             f"| {total_reviews} | {needs_attention} | {findings_total} | {high_priority} |",
         ]
 
-    def _render_review_attention_table(self, items: list[DashboardItem]) -> list[str]:
+    def _render_review_attention_table(self, groups: list[_ReviewGroup]) -> list[str]:
         """Render the focused attention queue for merge request reviews."""
         lines = [
-            "| MR | Outcome | Findings | Confidence | Priority | Summary |",
-            "|---|---|---|---|---|---|",
+            "| MR | Passes | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |",
+            "|---|---|---|---|---|---|---|---|",
         ]
-        for item in items:
+        for group in groups:
+            item = group.latest_item
             lines.append(
                 "| "
                 f"{self._render_merge_request_label(item)} | "
+                f"{group.pass_count} | "
                 f"{self._render_review_outcome(item)} | "
                 f"{item.review_findings_count or 0} | "
                 f"{self._render_review_confidence(item)} | "
                 f"{self._render_priority(item)} | "
-                f"{self._render_review_summary(item)} |"
+                f"{self._render_grouped_review_summary(group)} | "
+                f"`{self._short_sha(item.reviewed_head_sha)}` |"
             )
         return lines
 
-    def _render_all_reviews_table(self, items: list[DashboardItem]) -> list[str]:
-        """Render the full merge request review history table."""
+    def _render_all_reviews_table(self, groups: list[_ReviewGroup]) -> list[str]:
+        """Render grouped merge-request review history."""
         lines = [
-            "| MR | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |",
-            "|---|---|---|---|---|---|---|",
+            "| MR | Passes | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |",
+            "|---|---|---|---|---|---|---|---|",
         ]
-        for item in items:
+        for group in groups:
+            item = group.latest_item
             lines.append(
                 "| "
                 f"{self._render_merge_request_label(item)} | "
+                f"{group.pass_count} | "
                 f"{self._render_review_outcome(item)} | "
                 f"{item.review_findings_count or 0} | "
                 f"{self._render_review_confidence(item)} | "
                 f"{self._render_priority(item)} | "
-                f"{self._render_review_summary(item)} | "
+                f"{self._render_grouped_review_summary(group)} | "
                 f"`{self._short_sha(item.reviewed_head_sha)}` |"
             )
         return lines
@@ -501,6 +677,13 @@ class DashboardRenderer:
         note = item.review_feedback_summary or item.summary
         return self._compact_note(note)
 
+    def _render_grouped_review_summary(self, group: _ReviewGroup) -> str:
+        """Render one grouped summary line for repeated merge-request reviews."""
+        item = group.latest_item
+        note = item.review_feedback_summary or item.summary
+        prefix = f"{group.pass_count} passes. " if group.pass_count > 1 else ""
+        return self._compact_note(f"{prefix}{note}")
+
     def _short_sha(self, sha: str | None) -> str:
         """Render one short SHA or placeholder."""
         if not sha:
@@ -526,16 +709,43 @@ class DashboardRenderer:
             else item.summary
         )
         if item.status == "failed":
-            parts: list[str] = []
-            if item.retry_eligible is True:
-                parts.append("Retry eligible.")
-            elif item.retry_block_reason:
-                parts.append(f"Retry blocked: {item.retry_block_reason}")
-            if note:
-                parts.append(note)
-            if parts:
-                return self._compact_note(" ".join(parts))
+            return self._render_failure_recovery_summary(item, note)
         return self._humanize_workflow_summary(item, note)
+
+    def _render_failure_recovery_summary(self, item: DashboardItem, note: str | None) -> str:
+        """Render one recovery-oriented summary for failed workflow items."""
+        parts: list[str] = []
+        if item.retry_eligible is True:
+            parts.append("Retry ready after fixing the blocker.")
+        elif item.retry_block_reason:
+            parts.append(f"Blocked until review or policy changes: {item.retry_block_reason}")
+        elif self._looks_operational_failure(note):
+            parts.append("Investigate environment or tooling failure before rerun.")
+        else:
+            parts.append("Investigate failure and decide the next recovery path.")
+        if note:
+            parts.append(note)
+        return self._compact_note(" ".join(parts))
+
+    def _looks_operational_failure(self, note: str | None) -> bool:
+        """Return whether one note looks like an environment or tooling failure."""
+        if not note:
+            return False
+        lower = note.lower()
+        markers = (
+            "token",
+            "credential",
+            "gitlab",
+            "inaccessible",
+            "timeout",
+            "timed out",
+            "not available",
+            "not executable",
+            "command could not run",
+            "environment",
+            "tool",
+        )
+        return any(marker in lower for marker in markers)
 
     def _render_in_flight_summary(self, item: DashboardItem) -> str:
         """Render one compact in-flight summary."""
@@ -558,9 +768,28 @@ class DashboardRenderer:
             return "-"
         return f"`{item.file.rsplit('/', maxsplit=1)[-1]}`"
 
+    def _render_workflow_area(self, item: DashboardItem) -> str:
+        """Render one compact area label derived from the item's file path."""
+        return f"`{self._workflow_area_key(item)}`"
+
     def _render_suggested_action(self, item: DashboardItem) -> str:
         """Render one compact suggested-action label."""
         return self._next_step(item)
+
+    def _workflow_area_key(self, item: DashboardItem) -> str:
+        """Return one deterministic area key for scanability and grouping."""
+        if not item.file:
+            return "-"
+        parts = [part for part in item.file.split("/") if part]
+        if len(parts) <= 1:
+            return parts[0] if parts else "-"
+        if len(parts) == 2:
+            return parts[0]
+        return "/".join(parts[:2])
+
+    def _workflow_file_key(self, item: DashboardItem) -> str:
+        """Return one deterministic file key for workflow ordering."""
+        return item.file or ""
 
     def _work_type_label(self, item: DashboardItem) -> str:
         """Render one compact grouping label for workflow breakdowns."""
@@ -623,6 +852,49 @@ class DashboardRenderer:
         """Return whether one review item should appear in the attention queue."""
         return item.review_status in {"findings_present", "manual_review_only"}
 
+    def _group_review_items(self, items: list[DashboardItem]) -> list[_ReviewGroup]:
+        """Group repeated review items by merge request and keep the latest pass primary."""
+        grouped: dict[str, list[DashboardItem]] = {}
+        for item in items:
+            grouped.setdefault(self._review_group_key(item), []).append(item)
+        groups = [self._build_review_group(group_items) for group_items in grouped.values()]
+        return sorted(
+            groups,
+            key=lambda group: (
+                self._review_sort_key(group.latest_item),
+                self._review_group_key(group.latest_item),
+            ),
+            reverse=True,
+        )
+
+    def _review_group_key(self, item: DashboardItem) -> str:
+        """Return the grouping key for merge-request review items."""
+        if item.merge_request_url:
+            return item.merge_request_url
+        if item.merge_request_iid is not None:
+            return f"mr:{item.merge_request_iid}"
+        return item.source_reference
+
+    def _build_review_group(self, items: list[DashboardItem]) -> _ReviewGroup:
+        """Build one grouped review projection from repeated passes."""
+        latest_item = max(items, key=self._review_sort_key)
+        return _ReviewGroup(latest_item=latest_item, pass_count=len(items))
+
+    def _review_sort_key(
+        self,
+        item: DashboardItem,
+    ) -> tuple[int, datetime, int, datetime, str, str]:
+        """Return one deterministic sort key for review projection recency."""
+        min_datetime = datetime.min.replace(tzinfo=UTC)
+        return (
+            1 if item.review_feedback_updated_at is not None else 0,
+            item.review_feedback_updated_at or min_datetime,
+            1 if item.status_updated_at is not None else 0,
+            item.status_updated_at or min_datetime,
+            item.reviewed_head_sha or "",
+            item.id,
+        )
+
     def _status_marker(self, status: str) -> str:
         """Return one lightweight marker for a workflow status."""
         markers = {
@@ -676,3 +948,11 @@ class DashboardRenderer:
             policy_state=document.policy_state,
             policy_view=document.policy_view,
         )
+
+
+@dataclass(frozen=True)
+class _ReviewGroup:
+    """Represent one grouped review-history row for a merge request."""
+
+    latest_item: DashboardItem
+    pass_count: int
