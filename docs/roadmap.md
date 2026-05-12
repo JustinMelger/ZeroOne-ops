@@ -113,7 +113,7 @@ as one broad rewrite.
 - preserve aggregate counts in the overview
 - show explicit overflow summaries such as `N more items not shown`
 
-- [ ] Phase 5: Large-Repo Scanability
+- [x] Phase 5: Large-Repo Scanability
 
 - add deterministic ordering and grouping for high-volume repositories
 - prefer file- and path-oriented grouping before considering multi-dashboard

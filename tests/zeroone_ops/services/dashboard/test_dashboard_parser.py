@@ -149,7 +149,7 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     assert "| 1 | 0 | 0 | 0 | 0 |" in body
     assert "### Queue Auto-fix" in body
     assert "### Needs Review" in body
-    assert "| Item | File | Priority | Next Step | Summary |" in body
+    assert "| Item | Area | File | Priority | Next Step | Summary |" in body
     assert "`sonar:1`" in body
     assert "`service.py`" in body
     assert "Queue Auto-fix" in body
@@ -318,7 +318,7 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
         ],
     )
 
-    assert "| Item | File | Priority | Next Step | Summary |" in body
+    assert "| Item | Area | File | Priority | Next Step | Summary |" in body
     assert "Investigate Failure" in body
     assert "Investigate environment or tooling failure before rerun." in body
     assert "Merge request metadata is inaccessible from GitLab." in body
@@ -433,9 +433,9 @@ def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() ->
     assert "| 1 | 1 | 1 | 0 | 0 |" in body
     assert "### Queue Auto-fix" in body
     assert "### Needs Review" in body
-    assert "| Item | File | Priority | Next Step | Summary |" in body
+    assert "| Item | Area | File | Priority | Next Step | Summary |" in body
     assert "### In Flight" in body
-    assert "| Item | Status | Priority | Review Summary |" in body
+    assert "| Item | Area | Status | Priority | Review Summary |" in body
     assert "### Completed" in body
     assert "### Work Type Breakdown" in body
     assert "`sonar:open`" in body
@@ -504,6 +504,42 @@ def test_rendered_workflow_bucket_shows_overflow_note_when_capped() -> None:
     assert "`sonar:10`" not in body
     assert "`sonar:11`" not in body
     assert "zeroone-workflow-hidden-items" in body
+
+
+def test_workflow_queue_orders_items_by_area_and_file() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[
+                    build_item(item_id="sonar:z", status="open").model_copy(
+                        update={"file": "src/beta/zeta.py", "source_reference": "issue-z"}
+                    ),
+                    build_item(item_id="sonar:a", status="open").model_copy(
+                        update={"file": "apps/api/alpha.py", "source_reference": "issue-a"}
+                    ),
+                    build_item(item_id="sonar:b", status="open").model_copy(
+                        update={"file": "apps/api/beta.py", "source_reference": "issue-b"}
+                    ),
+                ],
+            ),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    alpha_index = body.index("`sonar:a`")
+    beta_index = body.index("`sonar:b`")
+    zeta_index = body.index("`sonar:z`")
+    assert alpha_index < beta_index < zeta_index
 
 
 def test_parse_round_trips_hidden_workflow_items_from_machine_block() -> None:
@@ -741,10 +777,10 @@ def test_parse_accepts_summary_table_followed_by_multiple_item_blocks() -> None:
 
 ### Queue Auto-fix
 
-| Item | File | Priority | Next Step | Summary |
-|---|---|---|---|---|
-| `sonar:1` | `service.py` | Low | Queue Auto-fix | Simplify boolean comparison |
-| `sonar:2` | `other.py` | Medium | Queue Auto-fix | Remove unused variable |
+| Item | Area | File | Priority | Next Step | Summary |
+|---|---|---|---|---|---|
+| `sonar:1` | `src` | `service.py` | Low | Queue Auto-fix | Simplify boolean comparison |
+| `sonar:2` | `src` | `other.py` | Medium | Queue Auto-fix | Remove unused variable |
 
 ### Needs Review
 

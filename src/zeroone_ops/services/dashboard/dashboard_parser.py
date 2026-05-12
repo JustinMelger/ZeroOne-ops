@@ -232,40 +232,40 @@ class DashboardParser:
             return False
         if blocks[3] != ["No items."] and not self._matches_table_with_optional_overflow(
             blocks[3],
-            header="| Item | File | Priority | Next Step | Summary |",
-            separator="|---|---|---|---|---|",
+            header="| Item | Area | File | Priority | Next Step | Summary |",
+            separator="|---|---|---|---|---|---|",
         ):
             return False
         if blocks[4] != ["### Needs Review"]:
             return False
         if blocks[5] != ["No items."] and not self._matches_table_with_optional_overflow(
             blocks[5],
-            header="| Item | File | Priority | Next Step | Summary |",
-            separator="|---|---|---|---|---|",
+            header="| Item | Area | File | Priority | Next Step | Summary |",
+            separator="|---|---|---|---|---|---|",
         ):
             return False
         if blocks[6] != ["### In Flight"]:
             return False
         if blocks[7] != ["No items."] and not self._matches_table_with_optional_overflow(
             blocks[7],
-            header="| Item | Status | Priority | Review Summary |",
-            separator="|---|---|---|---|",
+            header="| Item | Area | Status | Priority | Review Summary |",
+            separator="|---|---|---|---|---|",
         ):
             return False
         if blocks[8] != ["### Completed"]:
             return False
         if blocks[9] != ["No items."] and not self._matches_table_with_optional_overflow(
             blocks[9],
-            header="| Item | Priority | Summary |",
-            separator="|---|---|---|",
+            header="| Item | Area | Priority | Summary |",
+            separator="|---|---|---|---|",
         ):
             return False
         if blocks[10] != ["### Dismissed"]:
             return False
         if blocks[11] != ["No items."] and not self._matches_table_with_optional_overflow(
             blocks[11],
-            header="| Item | Status | Priority | Summary |",
-            separator="|---|---|---|---|",
+            header="| Item | Area | Status | Priority | Summary |",
+            separator="|---|---|---|---|---|",
         ):
             return False
         if blocks[12] != ["### Work Type Breakdown"]:
@@ -292,32 +292,32 @@ class DashboardParser:
             return False
         if blocks[3] != ["No items."] and not self._matches_table_with_optional_overflow(
             blocks[3],
-            header="| Item | File | Priority | Next Step | Summary |",
-            separator="|---|---|---|---|---|",
+            header="| Item | Area | File | Priority | Next Step | Summary |",
+            separator="|---|---|---|---|---|---|",
         ):
             return False
         if blocks[4] != ["### Needs Review"]:
             return False
         if blocks[5] != ["No items."] and not self._matches_table_with_optional_overflow(
             blocks[5],
-            header="| Item | File | Priority | Next Step | Summary |",
-            separator="|---|---|---|---|---|",
+            header="| Item | Area | File | Priority | Next Step | Summary |",
+            separator="|---|---|---|---|---|---|",
         ):
             return False
         if blocks[6] != ["### In Flight"]:
             return False
         if blocks[7] != ["No items."] and not self._matches_table_with_optional_overflow(
             blocks[7],
-            header="| Item | Status | Priority | Review Summary |",
-            separator="|---|---|---|---|",
+            header="| Item | Area | Status | Priority | Review Summary |",
+            separator="|---|---|---|---|---|",
         ):
             return False
         if blocks[8] != ["### Completed"]:
             return False
         if blocks[9] != ["No items."] and not self._matches_table_with_optional_overflow(
             blocks[9],
-            header="| Item | Priority | Summary |",
-            separator="|---|---|---|",
+            header="| Item | Area | Priority | Summary |",
+            separator="|---|---|---|---|",
         ):
             return False
         if blocks[10] != ["### Work Type Breakdown"]:

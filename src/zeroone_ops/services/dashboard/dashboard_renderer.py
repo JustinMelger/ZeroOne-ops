@@ -246,6 +246,8 @@ class DashboardRenderer:
             items,
             key=lambda item: (
                 status_order.get(item.status, 99),
+                self._workflow_area_key(item),
+                self._workflow_file_key(item),
                 item.priority,
                 item.id,
             ),
@@ -354,13 +356,14 @@ class DashboardRenderer:
     def _render_workflow_queue_table(self, items: list[DashboardItem]) -> list[str]:
         """Render the focused queue of workflow items ready for automation."""
         lines = [
-            "| Item | File | Priority | Next Step | Summary |",
-            "|---|---|---|---|---|",
+            "| Item | Area | File | Priority | Next Step | Summary |",
+            "|---|---|---|---|---|---|",
         ]
         for item in items:
             lines.append(
                 "| "
                 f"{self._render_workflow_item_label(item)} | "
+                f"{self._render_workflow_area(item)} | "
                 f"{self._render_workflow_file(item)} | "
                 f"{self._render_priority(item)} | "
                 f"{self._render_suggested_action(item)} | "
@@ -371,13 +374,14 @@ class DashboardRenderer:
     def _render_workflow_review_table(self, items: list[DashboardItem]) -> list[str]:
         """Render workflow items that currently need human review or investigation."""
         lines = [
-            "| Item | File | Priority | Next Step | Summary |",
-            "|---|---|---|---|---|",
+            "| Item | Area | File | Priority | Next Step | Summary |",
+            "|---|---|---|---|---|---|",
         ]
         for item in items:
             lines.append(
                 "| "
                 f"{self._render_workflow_item_label(item)} | "
+                f"{self._render_workflow_area(item)} | "
                 f"{self._render_workflow_file(item)} | "
                 f"{self._render_priority(item)} | "
                 f"{self._render_suggested_action(item)} | "
@@ -388,13 +392,14 @@ class DashboardRenderer:
     def _render_in_flight_table(self, items: list[DashboardItem]) -> list[str]:
         """Render the in-flight workflow queue."""
         lines = [
-            "| Item | Status | Priority | Review Summary |",
-            "|---|---|---|---|",
+            "| Item | Area | Status | Priority | Review Summary |",
+            "|---|---|---|---|---|",
         ]
         for item in items:
             lines.append(
                 "| "
                 f"{self._render_workflow_item_label(item)} | "
+                f"{self._render_workflow_area(item)} | "
                 f"{self._render_workflow_status(item)} | "
                 f"{self._render_priority(item)} | "
                 f"{self._render_in_flight_summary(item)} |"
@@ -404,13 +409,14 @@ class DashboardRenderer:
     def _render_completed_table(self, items: list[DashboardItem]) -> list[str]:
         """Render the completed workflow queue."""
         lines = [
-            "| Item | Priority | Summary |",
-            "|---|---|---|",
+            "| Item | Area | Priority | Summary |",
+            "|---|---|---|---|",
         ]
         for item in items:
             lines.append(
                 "| "
                 f"{self._render_workflow_item_label(item)} | "
+                f"{self._render_workflow_area(item)} | "
                 f"{self._render_priority(item)} | "
                 f"{self._render_completed_summary(item)} |"
             )
@@ -419,13 +425,14 @@ class DashboardRenderer:
     def _render_dismissed_table(self, items: list[DashboardItem]) -> list[str]:
         """Render dismissed or intentionally excluded workflow items."""
         lines = [
-            "| Item | Status | Priority | Summary |",
-            "|---|---|---|---|",
+            "| Item | Area | Status | Priority | Summary |",
+            "|---|---|---|---|---|",
         ]
         for item in items:
             lines.append(
                 "| "
                 f"{self._render_workflow_item_label(item)} | "
+                f"{self._render_workflow_area(item)} | "
                 f"{self._render_workflow_status(item)} | "
                 f"{self._render_priority(item)} | "
                 f"{self._render_completed_summary(item)} |"
@@ -722,9 +729,26 @@ class DashboardRenderer:
             return "-"
         return f"`{item.file.rsplit('/', maxsplit=1)[-1]}`"
 
+    def _render_workflow_area(self, item: DashboardItem) -> str:
+        """Render one compact area label derived from the item's file path."""
+        return f"`{self._workflow_area_key(item)}`"
+
     def _render_suggested_action(self, item: DashboardItem) -> str:
         """Render one compact suggested-action label."""
         return self._next_step(item)
+
+    def _workflow_area_key(self, item: DashboardItem) -> str:
+        """Return one deterministic area key for scanability and grouping."""
+        if not item.file:
+            return "-"
+        parts = [part for part in item.file.split("/") if part]
+        if len(parts) <= 1:
+            return parts[0] if parts else "-"
+        return "/".join(parts[:2])
+
+    def _workflow_file_key(self, item: DashboardItem) -> str:
+        """Return one deterministic file key for workflow ordering."""
+        return item.file or ""
 
     def _work_type_label(self, item: DashboardItem) -> str:
         """Render one compact grouping label for workflow breakdowns."""
