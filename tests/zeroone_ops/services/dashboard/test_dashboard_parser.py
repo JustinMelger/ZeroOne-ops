@@ -275,21 +275,194 @@ def test_rendered_review_section_uses_specialized_review_summary_layout() -> Non
     )
 
     assert "### Overview" in body
-    assert "| Reviews | Needs attention | Findings total | High priority |" in body
+    assert "| MRs | Needs attention | Findings total | High priority |" in body
     assert "| 1 | 1 | 3 | 1 |" in body
     assert "### Needs Attention" in body
-    assert "| MR | Outcome | Findings | Confidence | Priority | Summary |" in body
+    assert (
+        "| MR | Passes | Outcome | Findings | Confidence | Priority | Summary | "
+        "Reviewed SHA |" in body
+    )
     assert "[!363](https://gitlab.example.com/group/project/-/merge_requests/363)" in body
     assert "⚠️ Findings present" in body
     assert (
         "| [!363](https://gitlab.example.com/group/project/-/merge_requests/363) | "
-        "⚠️ Findings present | 3 | - | 🔴 High | "
+        "1 | ⚠️ Findings present | 3 | - | 🔴 High | "
         "License logic change with visible redirect impact. | `abc123de` |" in body
     )
     assert "License logic change with visible redirect impact." in body
-    assert "### All Reviews" in body
-    assert "| MR | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |" in body
+    assert "### Review History" in body
+    assert (
+        "| MR | Passes | Outcome | Findings | Confidence | Priority | Summary | "
+        "Reviewed SHA |" in body
+    )
     assert "`abc123de`" in body
+
+
+def test_rendered_review_section_groups_repeated_passes_by_merge_request() -> None:
+    renderer = DashboardRenderer()
+    review_items = [
+        DashboardItem(
+            id="mr-review:363:aaa111bbb222",
+            source="pull_request_review",
+            type="review_status",
+            status="done",
+            title="Review status for !363",
+            summary="Earlier summary.",
+            priority="high",
+            source_reference="https://gitlab.example.com/group/project/-/merge_requests/363",
+            merge_request_iid=363,
+            merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/363",
+            reviewed_head_sha="aaa111bbb222",
+            review_status="findings_present",
+            review_findings_count=2,
+            review_feedback_summary="Earlier findings still present.",
+            review_feedback_updated_at=datetime(2026, 5, 11, 8, 0, tzinfo=UTC),
+        ),
+        DashboardItem(
+            id="mr-review:363:ccc333ddd444",
+            source="pull_request_review",
+            type="review_status",
+            status="done",
+            title="Review status for !363",
+            summary="Latest summary.",
+            priority="high",
+            source_reference="https://gitlab.example.com/group/project/-/merge_requests/363",
+            merge_request_iid=363,
+            merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/363",
+            reviewed_head_sha="ccc333ddd444",
+            review_status="findings_present",
+            review_findings_count=1,
+            review_feedback_summary="Latest findings summary.",
+            review_feedback_updated_at=datetime(2026, 5, 11, 9, 0, tzinfo=UTC),
+        ),
+    ]
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[
+            DashboardSection(
+                key="merge_request_reviews",
+                title="Merge Request Reviews",
+                items=review_items,
+            )
+        ],
+    )
+
+    assert "| 1 | 1 | 1 | 1 |" in body
+    assert "2 passes. Latest findings summary." in body
+    assert body.count("[!363](https://gitlab.example.com/group/project/-/merge_requests/363)") >= 2
+    assert (
+        "| [!363](https://gitlab.example.com/group/project/-/merge_requests/363) | "
+        "2 | ⚠️ Findings present | 1 | - | 🔴 High | "
+        "2 passes. Latest findings summary. | `ccc333dd` |" in body
+    )
+    assert "<summary><code>mr-review:363:aaa111bbb222</code> details</summary>" in body
+    assert "<summary><code>mr-review:363:ccc333ddd444</code> details</summary>" in body
+
+
+def test_rendered_review_section_projects_linked_remediation_review_metadata() -> None:
+    renderer = DashboardRenderer()
+    remediation_review_item = build_item(item_id="sonar:reviewed", status="mr_opened").model_copy(
+        update={
+            "merge_request_iid": 77,
+            "merge_request_url": "https://gitlab.example.com/group/project/-/merge_requests/77",
+            "reviewed_head_sha": "def456ghi789",
+            "review_status": "findings_present",
+            "review_findings_count": 2,
+            "review_feedback_summary": "Latest linked remediation review summary.",
+            "review_feedback_updated_at": datetime(2026, 5, 12, 9, 30, tzinfo=UTC),
+        }
+    )
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[],
+            ),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(
+                key="merge_requests_opened",
+                title="Merge Requests Opened",
+                items=[remediation_review_item],
+            ),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(
+                key="merge_request_reviews",
+                title="Merge Request Reviews",
+                items=[],
+            ),
+            DashboardSection(
+                key="rejected_or_ignored",
+                title="Rejected Or Ignored",
+                items=[],
+            ),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+    )
+
+    assert "| MRs | Needs attention | Findings total | High priority |" in body
+    assert "| 1 | 1 | 2 | 0 |" in body
+    assert "### Review History" in body
+    assert "[!77](https://gitlab.example.com/group/project/-/merge_requests/77)" in body
+    assert "Latest linked remediation review summary." in body
+    assert "`def456gh`" in body
+
+
+def test_rendered_review_section_prefers_status_updated_at_when_review_timestamp_missing() -> None:
+    renderer = DashboardRenderer()
+    review_items = [
+        DashboardItem(
+            id="mr-review:88:aaa111",
+            source="pull_request_review",
+            type="review_status",
+            status="done",
+            title="Review status for !88",
+            summary="Older summary.",
+            priority="low",
+            source_reference="https://gitlab.example.com/group/project/-/merge_requests/88",
+            merge_request_iid=88,
+            merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/88",
+            reviewed_head_sha="aaa111bbb222",
+            review_status="findings_present",
+            review_findings_count=2,
+            review_feedback_summary="Older fallback summary.",
+            status_updated_at=datetime(2026, 5, 11, 8, 0, tzinfo=UTC),
+        ),
+        DashboardItem(
+            id="mr-review:88:ccc333",
+            source="pull_request_review",
+            type="review_status",
+            status="done",
+            title="Review status for !88",
+            summary="Newer summary.",
+            priority="low",
+            source_reference="https://gitlab.example.com/group/project/-/merge_requests/88",
+            merge_request_iid=88,
+            merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/88",
+            reviewed_head_sha="ccc333ddd444",
+            review_status="findings_present",
+            review_findings_count=1,
+            review_feedback_summary="Newer fallback summary.",
+            status_updated_at=datetime(2026, 5, 11, 9, 0, tzinfo=UTC),
+        ),
+    ]
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[
+            DashboardSection(
+                key="merge_request_reviews",
+                title="Merge Request Reviews",
+                items=review_items,
+            )
+        ],
+    )
+
+    assert "2 passes. Newer fallback summary." in body
+    assert "`ccc333dd`" in body
 
 
 def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> None:
@@ -1115,9 +1288,12 @@ def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:
     )
 
     assert "### Needs Attention" in body
-    assert "### All Reviews" in body
+    assert "### Review History" in body
     assert "No items." in body
-    assert "| !42 | ✅ No findings | 0 | - | 🟢 Low | No findings. | `abc123` |" in body
+    assert (
+        "| !42 | 1 | ✅ No findings | 0 | - | 🟢 Low | No findings. | `abc123` |"
+        in body
+    )
     assert '"review_status": "no_findings"' in body
     assert '"file":' not in body
     assert '"rule":' not in body

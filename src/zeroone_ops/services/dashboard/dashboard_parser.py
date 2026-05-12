@@ -195,22 +195,48 @@ class DashboardParser:
             blocks[1],
             header="| Reviews | Needs attention | Findings total | High priority |",
             separator="|---|---|---|---|",
+        ) and not self._matches_table(
+            blocks[1],
+            header="| MRs | Needs attention | Findings total | High priority |",
+            separator="|---|---|---|---|",
         ):
             return False
         if blocks[2] != ["### Needs Attention"]:
             return False
-        if blocks[3] != ["No items."] and not self._matches_table(
-            blocks[3],
+        if blocks[3] != ["No items."] and not self._matches_review_attention_table(blocks[3]):
+            return False
+        if blocks[4] not in (["### All Reviews"], ["### Review History"]):
+            return False
+        return self._matches_review_history_table(blocks[5])
+
+    def _matches_review_attention_table(self, lines: list[str]) -> bool:
+        """Return whether lines match one supported review attention table layout."""
+        return self._matches_table(
+            lines,
             header="| MR | Outcome | Findings | Confidence | Priority | Summary |",
             separator="|---|---|---|---|---|---|",
-        ):
-            return False
-        if blocks[4] != ["### All Reviews"]:
-            return False
+        ) or self._matches_table(
+            lines,
+            header=(
+                "| MR | Passes | Outcome | Findings | Confidence | Priority | "
+                "Summary | Reviewed SHA |"
+            ),
+            separator="|---|---|---|---|---|---|---|---|",
+        )
+
+    def _matches_review_history_table(self, lines: list[str]) -> bool:
+        """Return whether lines match one supported grouped or ungrouped review history table."""
         return self._matches_table(
-            blocks[5],
+            lines,
             header="| MR | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |",
             separator="|---|---|---|---|---|---|---|",
+        ) or self._matches_table(
+            lines,
+            header=(
+                "| MR | Passes | Outcome | Findings | Confidence | Priority | "
+                "Summary | Reviewed SHA |"
+            ),
+            separator="|---|---|---|---|---|---|---|---|",
         )
 
     def _is_supported_workflow_summary_content(self, content: str) -> bool:

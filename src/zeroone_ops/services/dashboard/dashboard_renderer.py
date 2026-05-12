@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from zeroone_ops.models.dashboard import (
     CURRENT_DASHBOARD_SCHEMA_VERSION,
@@ -57,8 +59,13 @@ class DashboardRenderer:
             )
         )
         workflow_items = self._workflow_items(sections)
+        review_projection_items = self._review_projection_items(sections)
         for section in sections:
-            rendered = self._render_section(section, workflow_items=workflow_items)
+            rendered = self._render_section(
+                section,
+                workflow_items=workflow_items,
+                review_projection_items=review_projection_items,
+            )
             if rendered:
                 lines.extend(rendered)
         return "\n".join(lines).rstrip() + "\n"
@@ -185,6 +192,7 @@ class DashboardRenderer:
         section: DashboardSection,
         *,
         workflow_items: list[DashboardItem],
+        review_projection_items: list[DashboardItem],
     ) -> list[str]:
         if section.key in {
             "in_progress",
@@ -208,15 +216,15 @@ class DashboardRenderer:
                 lines.extend(self._render_hidden_workflow_items_block(hidden_items))
                 lines.append("")
             return lines
-        if not section.items:
-            lines.extend(["No items.", ""])
-            return lines
         if section.key == "merge_request_reviews":
-            lines.extend(self._render_merge_request_review_section(section.items))
+            lines.extend(self._render_merge_request_review_section(review_projection_items))
             lines.append("")
             for item in section.items:
                 lines.extend(self._render_item(item))
                 lines.append("")
+            return lines
+        if not section.items:
+            lines.extend(["No items.", ""])
             return lines
         lines.extend(self._render_summary_table(section.items))
         lines.append("")
@@ -251,6 +259,24 @@ class DashboardRenderer:
                 item.priority,
                 item.id,
             ),
+        )
+
+    def _review_projection_items(self, sections: list[DashboardSection]) -> list[DashboardItem]:
+        """Return all items that should contribute to the MR review projection."""
+        items = [
+            item
+            for section in sections
+            for item in section.items
+            if item.review_status is not None or item.type == "review_status"
+        ]
+        return sorted(
+            items,
+            key=lambda item: (
+                self._review_sort_key(item),
+                self._review_group_key(item),
+                item.id,
+            ),
+            reverse=True,
         )
 
     def _render_workflow_section(
@@ -493,63 +519,69 @@ class DashboardRenderer:
 
     def _render_merge_request_review_section(self, items: list[DashboardItem]) -> list[str]:
         """Render the human-facing review overview for merge request reviews."""
+        groups = self._group_review_items(items)
         lines: list[str] = ["### Overview", ""]
-        lines.extend(self._render_review_overview_table(items))
+        lines.extend(self._render_review_overview_table(groups))
         lines.extend(["", "### Needs Attention", ""])
-        attention_items = [item for item in items if self._needs_attention(item)]
-        if attention_items:
-            lines.extend(self._render_review_attention_table(attention_items))
+        attention_groups = [group for group in groups if self._needs_attention(group.latest_item)]
+        if attention_groups:
+            lines.extend(self._render_review_attention_table(attention_groups))
         else:
             lines.append("No items.")
-        lines.extend(["", "### All Reviews", ""])
-        lines.extend(self._render_all_reviews_table(items))
+        lines.extend(["", "### Review History", ""])
+        lines.extend(self._render_all_reviews_table(groups))
         return lines
 
-    def _render_review_overview_table(self, items: list[DashboardItem]) -> list[str]:
+    def _render_review_overview_table(self, groups: list[_ReviewGroup]) -> list[str]:
         """Render one compact metrics table for merge request reviews."""
-        total_reviews = len(items)
-        needs_attention = sum(1 for item in items if self._needs_attention(item))
-        findings_total = sum(item.review_findings_count or 0 for item in items)
-        high_priority = sum(1 for item in items if item.priority.lower() == "high")
+        total_reviews = len(groups)
+        needs_attention = sum(1 for group in groups if self._needs_attention(group.latest_item))
+        findings_total = sum(group.latest_item.review_findings_count or 0 for group in groups)
+        high_priority = sum(1 for group in groups if group.latest_item.priority.lower() == "high")
         return [
-            "| Reviews | Needs attention | Findings total | High priority |",
+            "| MRs | Needs attention | Findings total | High priority |",
             "|---|---|---|---|",
             f"| {total_reviews} | {needs_attention} | {findings_total} | {high_priority} |",
         ]
 
-    def _render_review_attention_table(self, items: list[DashboardItem]) -> list[str]:
+    def _render_review_attention_table(self, groups: list[_ReviewGroup]) -> list[str]:
         """Render the focused attention queue for merge request reviews."""
         lines = [
-            "| MR | Outcome | Findings | Confidence | Priority | Summary |",
-            "|---|---|---|---|---|---|",
+            "| MR | Passes | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |",
+            "|---|---|---|---|---|---|---|---|",
         ]
-        for item in items:
+        for group in groups:
+            item = group.latest_item
             lines.append(
                 "| "
                 f"{self._render_merge_request_label(item)} | "
+                f"{group.pass_count} | "
                 f"{self._render_review_outcome(item)} | "
                 f"{item.review_findings_count or 0} | "
                 f"{self._render_review_confidence(item)} | "
                 f"{self._render_priority(item)} | "
-                f"{self._render_review_summary(item)} |"
+                f"{self._render_grouped_review_summary(group)} | "
+                f"`{self._short_sha(item.reviewed_head_sha)}` |"
             )
         return lines
 
-    def _render_all_reviews_table(self, items: list[DashboardItem]) -> list[str]:
-        """Render the full merge request review history table."""
+    def _render_all_reviews_table(self, groups: list[_ReviewGroup]) -> list[str]:
+        """Render grouped merge-request review history."""
         lines = [
-            "| MR | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |",
-            "|---|---|---|---|---|---|---|",
+            "| MR | Passes | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |",
+            "|---|---|---|---|---|---|---|---|",
         ]
-        for item in items:
+        for group in groups:
+            item = group.latest_item
             lines.append(
                 "| "
                 f"{self._render_merge_request_label(item)} | "
+                f"{group.pass_count} | "
                 f"{self._render_review_outcome(item)} | "
                 f"{item.review_findings_count or 0} | "
                 f"{self._render_review_confidence(item)} | "
                 f"{self._render_priority(item)} | "
-                f"{self._render_review_summary(item)} | "
+                f"{self._render_grouped_review_summary(group)} | "
                 f"`{self._short_sha(item.reviewed_head_sha)}` |"
             )
         return lines
@@ -644,6 +676,15 @@ class DashboardRenderer:
         """Render one compact human-facing summary for merge request reviews."""
         note = item.review_feedback_summary or item.summary
         return self._compact_note(note)
+
+    def _render_grouped_review_summary(self, group: _ReviewGroup) -> str:
+        """Render one grouped summary line for repeated merge-request reviews."""
+        item = group.latest_item
+        note = item.review_feedback_summary or item.summary
+        prefix = (
+            f"{group.pass_count} passes. " if group.pass_count > 1 else ""
+        )
+        return self._compact_note(f"{prefix}{note}")
 
     def _short_sha(self, sha: str | None) -> str:
         """Render one short SHA or placeholder."""
@@ -813,6 +854,49 @@ class DashboardRenderer:
         """Return whether one review item should appear in the attention queue."""
         return item.review_status in {"findings_present", "manual_review_only"}
 
+    def _group_review_items(self, items: list[DashboardItem]) -> list[_ReviewGroup]:
+        """Group repeated review items by merge request and keep the latest pass primary."""
+        grouped: dict[str, list[DashboardItem]] = {}
+        for item in items:
+            grouped.setdefault(self._review_group_key(item), []).append(item)
+        groups = [self._build_review_group(group_items) for group_items in grouped.values()]
+        return sorted(
+            groups,
+            key=lambda group: (
+                self._review_sort_key(group.latest_item),
+                self._review_group_key(group.latest_item),
+            ),
+            reverse=True,
+        )
+
+    def _review_group_key(self, item: DashboardItem) -> str:
+        """Return the grouping key for merge-request review items."""
+        if item.merge_request_url:
+            return item.merge_request_url
+        if item.merge_request_iid is not None:
+            return f"mr:{item.merge_request_iid}"
+        return item.source_reference
+
+    def _build_review_group(self, items: list[DashboardItem]) -> _ReviewGroup:
+        """Build one grouped review projection from repeated passes."""
+        latest_item = max(items, key=self._review_sort_key)
+        return _ReviewGroup(latest_item=latest_item, pass_count=len(items))
+
+    def _review_sort_key(
+        self,
+        item: DashboardItem,
+    ) -> tuple[int, datetime, int, datetime, str, str]:
+        """Return one deterministic sort key for review projection recency."""
+        min_datetime = datetime.min.replace(tzinfo=UTC)
+        return (
+            1 if item.review_feedback_updated_at is not None else 0,
+            item.review_feedback_updated_at or min_datetime,
+            1 if item.status_updated_at is not None else 0,
+            item.status_updated_at or min_datetime,
+            item.reviewed_head_sha or "",
+            item.id,
+        )
+
     def _status_marker(self, status: str) -> str:
         """Return one lightweight marker for a workflow status."""
         markers = {
@@ -866,3 +950,11 @@ class DashboardRenderer:
             policy_state=document.policy_state,
             policy_view=document.policy_view,
         )
+
+
+@dataclass(frozen=True)
+class _ReviewGroup:
+    """Represent one grouped review-history row for a merge request."""
+
+    latest_item: DashboardItem
+    pass_count: int
