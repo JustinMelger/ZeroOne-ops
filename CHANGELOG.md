@@ -5,6 +5,21 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.38.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.37.1...zeroone-ops-v0.38.0) (2026-05-12)
+
+
+### Features
+
+* auto mlflow foundation  ([#177](https://github.com/JustinMelger/ZeroOne-ops/issues/177)) ([5e93c42](https://github.com/JustinMelger/ZeroOne-ops/commit/5e93c423cd75200f0e900fd21e8f4756637f9b0e))
+* dashboard buckets ([#176](https://github.com/JustinMelger/ZeroOne-ops/issues/176)) ([6923616](https://github.com/JustinMelger/ZeroOne-ops/commit/692361666595be240696986c884cd4f2a06bdf57))
+
+
+### Documentation
+
+* add short system flow ([#174](https://github.com/JustinMelger/ZeroOne-ops/issues/174)) ([59ae1a8](https://github.com/JustinMelger/ZeroOne-ops/commit/59ae1a8953292adfc19d4521f568431203837c91))
+* reconcilation flow ([#175](https://github.com/JustinMelger/ZeroOne-ops/issues/175)) ([6f77d23](https://github.com/JustinMelger/ZeroOne-ops/commit/6f77d23e11f6733dd4acea2fa4c8e33adf116744))
+* update readme ([9a9461e](https://github.com/JustinMelger/ZeroOne-ops/commit/9a9461ef7440320aefc3145e173dc7f06dd68aa3))
+
 ## [0.37.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.37.0...zeroone-ops-v0.37.1) (2026-05-07)
 
 
