@@ -310,6 +310,21 @@ Recommended settings:
 For review-only jobs, branch push credentials are not required because the
 workflow only reads merge requests and writes merge request notes.
 
+Optional MLflow tracing can be enabled in CI for OpenAI-backed runs. Keep this
+off by default unless a reachable tracking server is configured for the
+environment.
+
+Recommended CI variables for a first review-tracing rollout:
+
+- `ZEROONE_MLFLOW_ENABLED=true`
+- `MLFLOW_TRACKING_URI=https://mlflow.example.internal`
+- `MLFLOW_EXPERIMENT_NAME=zeroone-ops-review`
+- `MLFLOW_HTTP_REQUEST_TIMEOUT=5`
+- `MLFLOW_HTTP_REQUEST_MAX_RETRIES=1`
+
+The timeout and retry settings are especially useful in CI so an unreachable
+MLflow server does not stall review or remediation runs for too long.
+
 For a lower-cost review setup:
 
 - keep the review job manual on merge request pipelines

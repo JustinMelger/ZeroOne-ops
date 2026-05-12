@@ -14,6 +14,15 @@ stages:
     GIT_DEPTH: "0"
     GITLAB_URL: "https://${CI_SERVER_HOST}"
     OPENAI_MODEL: "gpt-5.4-mini"
+    # Optional MLflow tracing. Enable only when a reachable tracking server is
+    # configured for this environment.
+    # ZEROONE_MLFLOW_ENABLED: "true"
+    # MLFLOW_TRACKING_URI: "https://mlflow.example.internal"
+    # MLFLOW_EXPERIMENT_NAME: "zeroone-ops-review"
+    # Keep request settings tight in CI so an unreachable tracking server does
+    # not stall review or remediation runs for too long.
+    # MLFLOW_HTTP_REQUEST_TIMEOUT: "5"
+    # MLFLOW_HTTP_REQUEST_MAX_RETRIES: "1"
     # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
     # OPENAI_API_KEY
@@ -116,6 +125,9 @@ zeroone_ops_dashboard_reconcile:
 # Merge request review workflow.
 # Prefer the merge_request_event manual trigger for the first smoke test so the
 # bot reviews only the current merge request through CI_MERGE_REQUEST_IID.
+# If MLflow tracing is enabled, this is the best first job to point at a shared
+# tracking server because it exercises the staged review flow without changing
+# repository state.
 zeroone_ops_review:
   extends: .zeroone_ops_base
   stage: zeroone-ops-review

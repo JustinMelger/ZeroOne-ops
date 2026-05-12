@@ -34,6 +34,8 @@ Shipped baseline:
   control in the dashboard
 - dedicated `dashboard policy` workflow with bounded `/zeroone policy ...`
   command processing and idempotent acknowledgement notes
+- optional MLflow OpenAI autologging for LLM tracing, enabled through
+  environment configuration
 - merge request review with deterministic note publishing
 - staged review pipeline with candidate generation, precision judgment,
   continuity handling, artifact building, validator gating, same-SHA reuse,
@@ -115,7 +117,7 @@ Next feedback-driven refinements:
 - service-test-domain cleanup
 - internal package rename to `zeroone_ops`
 
-## Post-V1
+## Future Tracks
 
 These are important, but intentionally not part of the immediate rollout phase.
 
@@ -135,8 +137,6 @@ These are important, but intentionally not part of the immediate rollout phase.
 
 ### Broader Workflow Expansion
 
-- medium-complexity remediation expansion once current low-risk boundaries stay
-  stable
 - additional remediation producers such as pipeline-failure and security-scan
   inputs
 - dashboard readability and grouped review-history improvements where they help

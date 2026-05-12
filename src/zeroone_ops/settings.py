@@ -177,6 +177,10 @@ def load_openai_connection_config() -> OpenAIConnectionConfig:
         api_key=required["OPENAI_API_KEY"] or "",
         model=required["OPENAI_MODEL"] or "",
         base_url=os.environ.get("OPENAI_BASE_URL"),
+        mlflow_enabled=(os.environ.get("ZEROONE_MLFLOW_ENABLED") or "").lower()
+        in {"1", "true", "yes", "on"},
+        mlflow_tracking_uri=os.environ.get("MLFLOW_TRACKING_URI"),
+        mlflow_experiment_name=os.environ.get("MLFLOW_EXPERIMENT_NAME"),
     )
 
 

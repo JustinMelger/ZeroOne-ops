@@ -26,6 +26,7 @@ from zeroone_ops.models.review import (
     ReviewHelperContext,
     ReviewResult,
 )
+from zeroone_ops.providers import llm_client
 from zeroone_ops.providers.llm_client import FixtureLLMClient, OpenAILLMClient
 from zeroone_ops.providers.llm_fixtures import (
     load_analysis_fixture,
@@ -988,3 +989,61 @@ def test_openai_review_precision_reconciliation_uses_high_reasoning() -> None:
         "help judge whether a current grounded candidate appears to restate or"
         in kwargs["input"][1]["content"]
     )
+
+
+def test_openai_client_enables_optional_mlflow_autologging(monkeypatch) -> None:
+    calls: list[tuple[str, str | None]] = []
+
+    monkeypatch.setattr(llm_client, "_MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED", False)
+    monkeypatch.setattr(
+        llm_client.mlflow,
+        "set_tracking_uri",
+        lambda uri: calls.append(("tracking_uri", uri)),
+    )
+    monkeypatch.setattr(
+        llm_client.mlflow,
+        "set_experiment",
+        lambda name: calls.append(("experiment", name)),
+    )
+    monkeypatch.setattr(
+        llm_client.mlflow_openai,
+        "autolog",
+        lambda: calls.append(("autolog", None)),
+    )
+
+    OpenAILLMClient(
+        config=OpenAIConnectionConfig(
+            api_key="test-key",
+            model="gpt-test",
+            mlflow_enabled=True,
+            mlflow_tracking_uri="http://localhost:5000",
+            mlflow_experiment_name="zeroone-ops-review",
+        ),
+        solution_output_path=None,
+    )
+
+    assert calls == [
+        ("tracking_uri", "http://localhost:5000"),
+        ("experiment", "zeroone-ops-review"),
+        ("autolog", None),
+    ]
+
+
+def test_openai_client_continues_when_mlflow_setup_fails(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(llm_client, "_MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED", False)
+
+    def fail_autolog() -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(llm_client.mlflow_openai, "autolog", fail_autolog)
+
+    OpenAILLMClient(
+        config=OpenAIConnectionConfig(
+            api_key="test-key",
+            model="gpt-test",
+            mlflow_enabled=True,
+        ),
+        solution_output_path=None,
+    )
+
+    assert "setup failed; continuing without tracing" in caplog.text.lower()

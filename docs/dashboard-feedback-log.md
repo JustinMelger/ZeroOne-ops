@@ -39,8 +39,8 @@ Suggested status values:
 | Date | Item / Run | Pattern | Valid? | Assessment | Action | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-05-05 | Failed dashboard remediation/reconciliation items after GitLab token expiry | `Investigate Failure` recovery path is unclear for operators | yes | The dashboard now surfaces clearer recovery-oriented wording for retry-ready, retry-blocked, and likely operational failures, but a richer operator reset/requeue surface is still deferred | dashboard wording + docs + policy | implemented | Current board wording improves failure diagnosis; later explicit reset/requeue controls can still be added if operators keep needing manual recovery help after outages. |
-| 2026-05-05 | Retry-eligible and failed dashboard items | Retry explanation is not yet a first-class operator surface | yes | The dashboard now distinguishes retry-eligible and retry-blocked failed items in the main workflow board, so explanation is materially better even though no separate command surface exists yet | dashboard wording + policy + docs | implemented | Explanation-first improvements shipped before any mutable reset/requeue command surface. |
-| 2026-05-05 | Merge requests with multiple review passes | Repeated MR reviews are not grouped clearly on the dashboard | yes | The dashboard now groups repeated review passes by MR and shows the latest review state as the main visible row, while keeping richer continuity summaries as a later refinement | dashboard wording + rendering | implemented | Compact unresolved/new/no-longer-present continuity summaries are still deferred until the projection is trustworthy enough to surface. |
+| 2026-05-05 | Retry-eligible and failed dashboard items | Retry explanation should be more intentional for operators | yes | The dashboard now distinguishes retry-eligible and retry-blocked failed items in the main workflow board, so explanation is materially better even though no separate command surface exists yet | dashboard wording + policy + docs | implemented | Explanation-first improvements shipped before any mutable reset/requeue command surface. |
+| 2026-05-05 | Merge requests with multiple review passes | Repeated MR reviews should collapse into one clearer MR-centric history | yes | The dashboard now groups repeated review passes by MR and shows the latest review state as the main visible row, while keeping richer continuity summaries as a later refinement | dashboard wording + rendering | implemented | Compact unresolved/new/no-longer-present continuity summaries are still deferred until the projection is trustworthy enough to surface. |
 | 2026-05-07 | Manual-review-only remediation outcome visibility on workflow board | `Needs Attention` is mixing automation queue items with human-follow-up items | yes | The workflow board is now split into clearer buckets such as `Queue Auto-fix`, `Needs Review`, `In Flight`, `Completed`, and `Dismissed`, so manual-follow-up items no longer disappear or pollute the main automation queue | dashboard rendering + wording | implemented | A later `Blocked` bucket can still be considered if real operator usage shows it would improve scanability. |
 | 2026-05-07 | Failed workflow items after operator inspection | `Investigate Failure` does not yet imply a clear next recovery action | yes | The board now makes the likely next step clearer through retry-ready, retry-blocked, and investigation-oriented wording, but future mutable operator actions are still intentionally deferred | dashboard wording + policy + docs | implemented | The operator surface now answers “what likely happened next?” better than before; later reset/requeue controls can build on that clearer explanation model. |
 
@@ -62,7 +62,7 @@ Suggested status values:
   - later, consider a more explicit reset/requeue operator path if manual
     recovery remains too ambiguous
 
-### Retry Explanation Is Not Yet A First-Class Operator Surface
+### Retry Explanation Should Be More Intentional For Operators
 
 - Typical shape:
   - the dashboard carries retry-related state such as retry eligibility or
@@ -75,7 +75,7 @@ Suggested status values:
   - if later needed, add a bounded retry-explanation operator command before
     adding mutable retry-reset actions
 
-### Repeated MR Reviews Are Not Grouped Clearly
+### Repeated MR Reviews Should Collapse Into One Clearer MR-Centric History
 
 - Typical shape:
   - one merge request receives multiple review passes, but the dashboard shows
@@ -104,7 +104,7 @@ Suggested status values:
   - make the workflow surface distinguish between automation-ready items and
     human-follow-up items instead of merging them under one broad label
 
-### `Investigate Failure` Does Not Yet Imply A Clear Recovery Path
+### `Investigate Failure` Should Point More Clearly Toward Recovery
 
 - Typical shape:
   - a workflow item fails for an operational or validation reason

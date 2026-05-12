@@ -107,11 +107,17 @@ class OpenAIConnectionConfig(BaseModel):
         api_key: OpenAI API key.
         model: OpenAI model identifier.
         base_url: Optional override for the API base URL.
+        mlflow_enabled: Whether MLflow OpenAI autologging should be enabled.
+        mlflow_tracking_uri: Optional MLflow tracking URI.
+        mlflow_experiment_name: Optional MLflow experiment name.
     """
 
     api_key: str
     model: str
     base_url: str | None = None
+    mlflow_enabled: bool = False
+    mlflow_tracking_uri: str | None = None
+    mlflow_experiment_name: str | None = None
 
 
 class StateConfig(BaseModel):
