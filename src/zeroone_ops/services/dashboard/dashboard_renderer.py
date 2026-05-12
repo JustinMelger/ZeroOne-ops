@@ -744,6 +744,8 @@ class DashboardRenderer:
         parts = [part for part in item.file.split("/") if part]
         if len(parts) <= 1:
             return parts[0] if parts else "-"
+        if len(parts) == 2:
+            return parts[0]
         return "/".join(parts[:2])
 
     def _workflow_file_key(self, item: DashboardItem) -> str:

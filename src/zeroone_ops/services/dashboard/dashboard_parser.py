@@ -230,42 +230,61 @@ class DashboardParser:
             return False
         if blocks[2] != ["### Queue Auto-fix"]:
             return False
-        if blocks[3] != ["No items."] and not self._matches_table_with_optional_overflow(
+        if blocks[3] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
             blocks[3],
-            header="| Item | Area | File | Priority | Next Step | Summary |",
-            separator="|---|---|---|---|---|---|",
+            variants=[
+                ("| Item | File | Priority | Next Step | Summary |", "|---|---|---|---|---|"),
+                (
+                    "| Item | Area | File | Priority | Next Step | Summary |",
+                    "|---|---|---|---|---|---|",
+                ),
+            ],
         ):
             return False
         if blocks[4] != ["### Needs Review"]:
             return False
-        if blocks[5] != ["No items."] and not self._matches_table_with_optional_overflow(
+        if blocks[5] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
             blocks[5],
-            header="| Item | Area | File | Priority | Next Step | Summary |",
-            separator="|---|---|---|---|---|---|",
+            variants=[
+                ("| Item | File | Priority | Next Step | Summary |", "|---|---|---|---|---|"),
+                (
+                    "| Item | Area | File | Priority | Next Step | Summary |",
+                    "|---|---|---|---|---|---|",
+                ),
+            ],
         ):
             return False
         if blocks[6] != ["### In Flight"]:
             return False
-        if blocks[7] != ["No items."] and not self._matches_table_with_optional_overflow(
+        if blocks[7] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
             blocks[7],
-            header="| Item | Area | Status | Priority | Review Summary |",
-            separator="|---|---|---|---|---|",
+            variants=[
+                ("| Item | Status | Priority | Review Summary |", "|---|---|---|---|"),
+                (
+                    "| Item | Area | Status | Priority | Review Summary |",
+                    "|---|---|---|---|---|",
+                ),
+            ],
         ):
             return False
         if blocks[8] != ["### Completed"]:
             return False
-        if blocks[9] != ["No items."] and not self._matches_table_with_optional_overflow(
+        if blocks[9] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
             blocks[9],
-            header="| Item | Area | Priority | Summary |",
-            separator="|---|---|---|---|",
+            variants=[
+                ("| Item | Priority | Summary |", "|---|---|---|"),
+                ("| Item | Area | Priority | Summary |", "|---|---|---|---|"),
+            ],
         ):
             return False
         if blocks[10] != ["### Dismissed"]:
             return False
-        if blocks[11] != ["No items."] and not self._matches_table_with_optional_overflow(
+        if blocks[11] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
             blocks[11],
-            header="| Item | Area | Status | Priority | Summary |",
-            separator="|---|---|---|---|---|",
+            variants=[
+                ("| Item | Status | Priority | Summary |", "|---|---|---|---|"),
+                ("| Item | Area | Status | Priority | Summary |", "|---|---|---|---|---|"),
+            ],
         ):
             return False
         if blocks[12] != ["### Work Type Breakdown"]:
@@ -290,34 +309,51 @@ class DashboardParser:
             return False
         if blocks[2] != ["### Queue Auto-fix"]:
             return False
-        if blocks[3] != ["No items."] and not self._matches_table_with_optional_overflow(
+        if blocks[3] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
             blocks[3],
-            header="| Item | Area | File | Priority | Next Step | Summary |",
-            separator="|---|---|---|---|---|---|",
+            variants=[
+                ("| Item | File | Priority | Next Step | Summary |", "|---|---|---|---|---|"),
+                (
+                    "| Item | Area | File | Priority | Next Step | Summary |",
+                    "|---|---|---|---|---|---|",
+                ),
+            ],
         ):
             return False
         if blocks[4] != ["### Needs Review"]:
             return False
-        if blocks[5] != ["No items."] and not self._matches_table_with_optional_overflow(
+        if blocks[5] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
             blocks[5],
-            header="| Item | Area | File | Priority | Next Step | Summary |",
-            separator="|---|---|---|---|---|---|",
+            variants=[
+                ("| Item | File | Priority | Next Step | Summary |", "|---|---|---|---|---|"),
+                (
+                    "| Item | Area | File | Priority | Next Step | Summary |",
+                    "|---|---|---|---|---|---|",
+                ),
+            ],
         ):
             return False
         if blocks[6] != ["### In Flight"]:
             return False
-        if blocks[7] != ["No items."] and not self._matches_table_with_optional_overflow(
+        if blocks[7] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
             blocks[7],
-            header="| Item | Area | Status | Priority | Review Summary |",
-            separator="|---|---|---|---|---|",
+            variants=[
+                ("| Item | Status | Priority | Review Summary |", "|---|---|---|---|"),
+                (
+                    "| Item | Area | Status | Priority | Review Summary |",
+                    "|---|---|---|---|---|",
+                ),
+            ],
         ):
             return False
         if blocks[8] != ["### Completed"]:
             return False
-        if blocks[9] != ["No items."] and not self._matches_table_with_optional_overflow(
+        if blocks[9] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
             blocks[9],
-            header="| Item | Area | Priority | Summary |",
-            separator="|---|---|---|---|",
+            variants=[
+                ("| Item | Priority | Summary |", "|---|---|---|"),
+                ("| Item | Area | Priority | Summary |", "|---|---|---|---|"),
+            ],
         ):
             return False
         if blocks[10] != ["### Work Type Breakdown"]:
@@ -369,6 +405,22 @@ class DashboardParser:
         if not self._is_overflow_note(lines[-1]):
             return False
         return self._matches_table(lines[:-1], header=header, separator=separator)
+
+    def _matches_table_variant_with_optional_overflow(
+        self,
+        lines: list[str],
+        *,
+        variants: list[tuple[str, str]],
+    ) -> bool:
+        """Return whether lines match any supported table variant with optional overflow."""
+        return any(
+            self._matches_table_with_optional_overflow(
+                lines,
+                header=header,
+                separator=separator,
+            )
+            for header, separator in variants
+        )
 
     def _is_overflow_note(self, line: str) -> bool:
         """Return whether one line is a supported workflow overflow summary note."""

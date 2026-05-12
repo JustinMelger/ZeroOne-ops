@@ -540,6 +540,90 @@ def test_workflow_queue_orders_items_by_area_and_file() -> None:
     beta_index = body.index("`sonar:b`")
     zeta_index = body.index("`sonar:z`")
     assert alpha_index < beta_index < zeta_index
+    assert "`apps/api`" in body
+    assert "`src/beta`" in body
+
+
+def test_parse_accepts_legacy_workflow_summary_without_area_column() -> None:
+    parser = DashboardParser()
+    body = """# AI Code Ops Work Queue
+
+## Open Candidates
+
+### Overview
+
+| Open | In progress | MR opened | Failed | Done |
+|---|---|---|---|---|
+| 1 | 0 | 0 | 0 | 0 |
+
+### Queue Auto-fix
+
+| Item | File | Priority | Next Step | Summary |
+|---|---|---|---|---|
+| `sonar:1` | `service.py` | Low | Queue Auto-fix | Simplify boolean comparison |
+
+### Needs Review
+
+No items.
+
+### In Flight
+
+No items.
+
+### Completed
+
+No items.
+
+### Work Type Breakdown
+
+| Work Type | Count |
+|---|---|
+| Simplify boolean comparison | 1 |
+
+<details>
+<summary><code>sonar:1</code> details</summary>
+
+```json
+{
+  "id": "sonar:1",
+  "source": "sonarqube",
+  "type": "code_smell_fix",
+  "status": "open",
+  "title": "Simplify boolean comparison",
+  "summary": "Replace explicit boolean equality with direct truthiness.",
+  "priority": "low",
+  "source_reference": "issue-1",
+  "file": "src/service.py",
+  "line": 42,
+  "rule": "python:S1125",
+  "severity": "LOW"
+}
+```
+
+</details>
+
+## Merge Request Reviews
+
+No items.
+
+## Rejected Or Ignored
+
+No items.
+
+## Recent Failures
+
+No items.
+"""
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert [item.id for item in document.sections[0].items] == ["sonar:1"]
 
 
 def test_parse_round_trips_hidden_workflow_items_from_machine_block() -> None:
