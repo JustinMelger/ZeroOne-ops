@@ -20,6 +20,16 @@ Shipped baseline:
 
 - dashboard-backed remediation with bounded structured-edit execution
 - remediation reconciliation for `mr_opened` items
+- dashboard workflow board with renderer-derived buckets for:
+  - `Queue Auto-fix`
+  - `Needs Review`
+  - `In Flight`
+  - `Completed`
+  - `Dismissed`
+- recovery-oriented dashboard wording for failed and blocked items
+- per-bucket display limits with explicit overflow summaries
+- deterministic file/path-oriented workflow ordering for large repositories
+- MR-scoped grouped review history with latest-pass projection
 - dashboard-first operator policy with canonical severity and issue-class
   control in the dashboard
 - dedicated `dashboard policy` workflow with bounded `/zeroone policy ...`
@@ -79,57 +89,18 @@ Shipped baseline:
 
 ### 5. Dashboard Workflow Hardening
 
-Treat the dashboard redesign as a sequence of small operator-facing slices, not
-as one broad rewrite.
+The first dashboard hardening pass is now shipped.
 
-- [x] Phase 1: Workflow Board Split
+Next feedback-driven refinements:
 
-- replace the mixed `Needs Attention` view with clearer buckets:
-  - `Queue Auto-fix`
-  - `Needs Review`
-  - `In Flight`
-  - `Completed`
-- keep the first implementation renderer-derived from existing lifecycle
-  states rather than introducing new persisted board-only state
-
-- [x] Phase 2: Recovery Explanation
-
-- improve row-level wording so failed, blocked, and manual-follow-up items
-  explain their likely next step more directly
-- keep `Investigate Failure` as a diagnosis label inside `Needs Review`, not a
-  separate bucket
-- prefer clearer explanation before adding mutable retry or reset controls
-
-- [x] Phase 3: Dismissed Work Separation
-
-- keep `rejected` and `ignored` out of the active operator queue
-- render them later as dismissed/history-oriented outcomes instead of mixing
-  them with active human follow-up work
-- preserve visibility without polluting the main action board
-
-- [x] Phase 4: Display Limits And Overflow
-
-- add per-bucket display limits once the board split is in place
-- preserve aggregate counts in the overview
-- show explicit overflow summaries such as `N more items not shown`
-
-- [x] Phase 5: Large-Repo Scanability
-
-- add deterministic ordering and grouping for high-volume repositories
-- prefer file- and path-oriented grouping before considering multi-dashboard
-  monorepo splits
-- use real operator feedback to decide whether a later `Blocked` bucket earns
-  its own place
-
-- [ ] Phase 6: Review History Grouping
-
-- group repeated review passes by merge request instead of treating each pass
-  as the primary dashboard row
-- show the latest review state as the main visible row
-- attach compact continuity summaries such as unresolved, new, or no longer
-  present once that projection is trustworthy enough to present
-- keep the first implementation renderer-derived rather than introducing a new
-  persisted grouped-review storage model
+- decide whether a later `Blocked` bucket earns its own place from real
+  operator usage instead of adding empty buckets preemptively
+- improve grouped review-history continuity summaries once unresolved/new/no
+  longer present projection is trustworthy enough to surface
+- consider later configurable bucket limits if operators need tuning beyond the
+  current renderer-owned defaults
+- continue preferring explanation and scanability improvements before adding
+  mutable retry or reset commands
 
 ## Recently Completed
 
