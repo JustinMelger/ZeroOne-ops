@@ -177,6 +177,23 @@ export OPENAI_API_KEY=...
 export OPENAI_MODEL=gpt-4.1-mini
 ```
 
+Optional MLflow tracing is available for OpenAI-backed runs. It is off by
+default and can be enabled with environment variables such as:
+
+```bash
+export ZEROONE_MLFLOW_ENABLED=true
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_EXPERIMENT_NAME=zeroone-ops-review
+```
+
+For CI use, prefer tighter MLflow request settings so an unreachable tracking
+server does not slow a run down for too long:
+
+```bash
+export MLFLOW_HTTP_REQUEST_TIMEOUT=5
+export MLFLOW_HTTP_REQUEST_MAX_RETRIES=1
+```
+
 For v1 safety, remediation only accepts structured edits that touch exactly one
 file.
 
