@@ -94,33 +94,35 @@ rather than on adding more operator-facing board features first.
 - identify any remaining parser paths that still require summary markdown for
   canonical meaning
 
-- [ ] Phase 2: Summary Parsing Reduction
+- [x] Phase 2: Summary Parsing Reduction
 
 - reduce parser dependence on human-readable summary headings, columns, and
   bucket wording wherever structured blocks already carry the same meaning
 - keep summary parsing focused on compatibility and sanity checks instead of
   primary state recovery
 
-- [ ] Phase 3: Projection-Only Renderer Contract
+- [x] Phase 3: Projection-Only Renderer Contract
 
 - keep renderer output projection-only so workflow buckets, review history, and
   overview tables remain replaceable views over canonical state
 - avoid introducing new renderer-owned meaning that must round-trip through
   markdown summaries
 
-- [ ] Phase 4: Historical Dashboard Fixtures
+- [x] Phase 4: Historical Dashboard Fixtures
 
 - add historical live-dashboard fixtures for real parse regressions and older
   shipped layouts
 - use them to prove safe parse, normalize, and rewrite behavior across schema
   evolution
 
-- [ ] Phase 5: Migration Hardening Review
+- [ ] Phase 5: Machine Manifest Integrity Contract
 
-- review whether the parser, renderer, and `DashboardService.load_or_create()`
-  boundary now behave like a safe dashboard migration layer
-- decide whether remaining compatibility gaps still justify later explicit
-  versioned migration steps
+- add a top-level machine-managed dashboard manifest for integrity checks such
+  as section counts or projection counts
+- validate canonical structured item state against that manifest on load instead
+  of re-tightening parser dependence on markdown summaries
+- use that manifest to make dashboard rewrite safety more explicit without
+  turning human-readable tables back into a source of truth
 
 ### 5. Cleanup
 

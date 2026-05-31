@@ -806,6 +806,20 @@ The practical goal is that the dashboard should remain recoverable even if a
 future summary layout is replaced entirely, as long as the structured blocks
 remain intact.
 
+Recommended later integrity direction:
+
+- add one top-level machine-managed dashboard manifest block
+- keep that manifest focused on integrity metadata such as section counts,
+  workflow projection counts, or similar canonical totals
+- validate structured item recovery against the manifest on load
+- avoid reintroducing tight markdown coupling by using the manifest, not the
+  human-readable summary tables, for stronger integrity checks
+
+This would preserve the design principle more cleanly than trying to infer
+state loss from changing markdown projections. It keeps the integrity contract
+inside machine-managed state while allowing summary layouts to evolve more
+freely.
+
 ## 10. Migration Strategy
 
 The rollout should stay dashboard-first before live launch.
