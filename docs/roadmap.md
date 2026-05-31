@@ -83,13 +83,52 @@ Shipped baseline:
 - keep bounded repair parked as a later option only if live validator
   downgrade patterns prove there are narrow safe repair classes
 
-### 4. Cleanup
+### 4. Dashboard Schema Hardening
+
+The next dashboard work should focus on making future renderer changes safer
+rather than on adding more operator-facing board features first.
+
+- [x] Phase 1: Structured Blocks As Recovery Truth
+
+- make structured dashboard blocks sufficient for workflow-state recovery
+- identify any remaining parser paths that still require summary markdown for
+  canonical meaning
+
+- [ ] Phase 2: Summary Parsing Reduction
+
+- reduce parser dependence on human-readable summary headings, columns, and
+  bucket wording wherever structured blocks already carry the same meaning
+- keep summary parsing focused on compatibility and sanity checks instead of
+  primary state recovery
+
+- [ ] Phase 3: Projection-Only Renderer Contract
+
+- keep renderer output projection-only so workflow buckets, review history, and
+  overview tables remain replaceable views over canonical state
+- avoid introducing new renderer-owned meaning that must round-trip through
+  markdown summaries
+
+- [ ] Phase 4: Historical Dashboard Fixtures
+
+- add historical live-dashboard fixtures for real parse regressions and older
+  shipped layouts
+- use them to prove safe parse, normalize, and rewrite behavior across schema
+  evolution
+
+- [ ] Phase 5: Migration Hardening Review
+
+- review whether the parser, renderer, and `DashboardService.load_or_create()`
+  boundary now behave like a safe dashboard migration layer
+- decide whether remaining compatibility gaps still justify later explicit
+  versioned migration steps
+
+### 5. Cleanup
 
 - continue small codebase and docs cleanup where it improves operator or
   maintainer clarity
 - keep these slices behavior-neutral unless a real rollout issue is being fixed
 
-### 5. Dashboard Workflow Hardening
+### 6. Dashboard Workflow Refinement
 
 The first dashboard hardening pass is now shipped.
 

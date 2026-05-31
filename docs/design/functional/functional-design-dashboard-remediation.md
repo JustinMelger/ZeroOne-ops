@@ -495,7 +495,38 @@ The first version should therefore keep ownership simple:
   separate reconciliation concern,
 - remediation no longer depends on a separate direct Sonar execution path.
 
-## 15. Success Criteria
+## 15. Dashboard Schema Evolution Hardening
+
+The dashboard body should now be treated as a versioned operator surface rather
+than as incidental markdown owned only by the latest renderer.
+
+Operator-facing summaries should remain useful and readable, but they should be
+understood as projections over canonical machine-readable state.
+
+Recommended functional rules:
+
+- stable machine-readable blocks remain the source of truth for workflow items
+  and structured metadata
+- human-readable workflow tables and summaries may evolve, but they should not
+  become the only place where machine-managed meaning lives
+- dashboard changes should prefer additive evolution, such as optional sections,
+  optional columns, or new machine blocks, over abrupt shape replacement
+- live upgrades should preserve operator continuity where possible instead of
+  forcing dashboard recreation as the default recovery path
+- unsupported or ambiguous older layouts should fail conservatively rather than
+  silently dropping workflow meaning
+
+This matters because the dashboard is now both:
+
+- a machine-managed workflow surface, and
+- an operator-visible control plane that may survive across multiple renderer
+  versions.
+
+Future renderer improvements should therefore be evaluated not only on whether
+the new layout reads better, but also on whether older live dashboards can be
+loaded, normalized, and safely rewritten into the newer presentation.
+
+## 16. Success Criteria
 
 The dashboard-backed remediation workflow is successful when:
 
@@ -507,7 +538,7 @@ The dashboard-backed remediation workflow is successful when:
 - unsupported or unsafe items are skipped cleanly instead of being forced
   through remediation.
 
-## 16. Dashboard Contract Growth
+## 17. Dashboard Contract Growth
 
 The first item contract is intentionally narrow, but the platform direction now
 includes future producers beyond SonarQube.
@@ -523,7 +554,7 @@ clear about:
 This avoids turning one flat item model into an overloaded bucket of optional
 fields as more workflow types are added.
 
-## 17. Traceability Expectations
+## 18. Traceability Expectations
 
 Operators should be able to correlate one remediation attempt across:
 
@@ -533,7 +564,7 @@ Operators should be able to correlate one remediation attempt across:
 - commit SHA,
 - merge request URL.
 
-## 18. Advisory Remediation Confidence
+## 19. Advisory Remediation Confidence
 
 The remediation workflow may later expose an advisory confidence signal to help
 operators understand how likely the bot thinks it can produce a safe and
