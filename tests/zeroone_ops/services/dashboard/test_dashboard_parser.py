@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from pathlib import Path
 
 from zeroone_ops.models.dashboard import DashboardItem, DashboardSection
 from zeroone_ops.services.dashboard.dashboard_parser import (
@@ -6,6 +7,8 @@ from zeroone_ops.services.dashboard.dashboard_parser import (
     DashboardParser,
 )
 from zeroone_ops.services.dashboard.dashboard_renderer import DashboardRenderer
+
+FIXTURES_DIR = Path(__file__).with_name("fixtures")
 
 
 def build_item(*, item_id: str, status: str = "open") -> DashboardItem:
@@ -1246,18 +1249,201 @@ No items.
 No items.
 """
 
-    try:
-        parser.parse(
-            issue_id=10,
-            issue_iid=11,
-            issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            title="AI Code Ops Work Queue",
-            body=body,
-        )
-    except DashboardParseError as error:
-        assert "unsupported free-form content" in str(error)
-    else:
-        raise AssertionError("Expected DashboardParseError for malformed summary table.")
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert document.items_by_id()["sonar:1"].id == "sonar:1"
+
+
+def test_parse_accepts_unknown_projection_layout_when_item_blocks_are_valid() -> None:
+    parser = DashboardParser()
+    body = """# AI Code Ops Work Queue
+
+## Open Candidates
+
+### Future Queue
+
+| Item | Bucket | Confidence | Summary |
+|---|---|---|---|
+| `sonar:1` | Ready | 0.90 | Simplify boolean comparison |
+
+<details>
+<summary><code>sonar:1</code> details</summary>
+
+```json
+{
+  "id": "sonar:1",
+  "source": "sonarqube",
+  "type": "code_smell_fix",
+  "status": "open",
+  "title": "Simplify boolean comparison",
+  "summary": "Replace explicit boolean equality with direct truthiness.",
+  "priority": "low",
+  "source_reference": "issue-1"
+}
+```
+
+</details>
+
+## In Progress
+
+No items.
+
+## Merge Requests Opened
+
+No items.
+
+## Completed
+
+No items.
+
+## Merge Request Reviews
+
+No items.
+
+## Rejected Or Ignored
+
+No items.
+
+## Recent Failures
+
+No items.
+"""
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert document.items_by_id()["sonar:1"].status == "open"
+
+
+def test_parse_accepts_unknown_projection_layout_without_item_blocks() -> None:
+    parser = DashboardParser()
+    body = """# AI Code Ops Work Queue
+
+## Open Candidates
+
+### Future Queue
+
+| Item | Bucket | Confidence | Summary |
+|---|---|---|---|
+| `sonar:1` | Ready | 0.90 | Simplify boolean comparison |
+
+## In Progress
+
+No items.
+
+## Merge Requests Opened
+
+No items.
+
+## Completed
+
+No items.
+
+## Merge Request Reviews
+
+### Future Review Projection
+
+| MR | Queue | Summary |
+|---|---|---|
+| [!77](https://gitlab.example.com/group/project/-/merge_requests/77) | Review | Follow-up summary |
+
+## Rejected Or Ignored
+
+No items.
+
+## Recent Failures
+
+No items.
+"""
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert document.sections[0].items == []
+    assert document.items_by_id() == {}
+
+
+def test_parse_accepts_legacy_dashboard_fixture() -> None:
+    parser = DashboardParser()
+    body = (FIXTURES_DIR / "legacy_workflow_with_dismissed.md").read_text()
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert document.schema_version == 0
+    assert document.items_by_id() == {}
+
+
+def test_parse_accepts_legacy_pre_dismissed_workflow_fixture_with_items() -> None:
+    parser = DashboardParser()
+    body = (FIXTURES_DIR / "legacy_workflow_pre_dismissed_with_items.md").read_text()
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    items = document.items_by_id()
+    assert items["sonar:1"].status == "open"
+    assert items["sonar:2"].status == "in_progress"
+
+
+def test_parse_accepts_legacy_pre_area_workflow_fixture_with_items() -> None:
+    parser = DashboardParser()
+    body = (FIXTURES_DIR / "legacy_workflow_pre_area_with_items.md").read_text()
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    items = document.items_by_id()
+    assert items["sonar:3"].status == "open"
+    assert items["sonar:4"].status == "failed"
+
+
+def test_parse_accepts_legacy_review_history_fixture_with_items() -> None:
+    parser = DashboardParser()
+    body = (FIXTURES_DIR / "legacy_review_history_with_items.md").read_text()
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    items = document.items_by_id()
+    assert items["mr-review:77:abc123def456"].review_status == "findings_present"
+    assert items["mr-review:77:abc123def456"].review_findings_count == 2
 
 
 def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:

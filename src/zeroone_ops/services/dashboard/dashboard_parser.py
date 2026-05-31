@@ -131,7 +131,7 @@ class DashboardParser:
             normalized_content = _HIDDEN_WORKFLOW_ITEMS_BLOCK_PATTERN.sub("", content).strip()
         matches = list(_ITEM_BLOCK_PATTERN.finditer(normalized_content))
         if not matches:
-            if self._is_supported_summary_content(section_key, normalized_content):
+            if self._is_tolerated_projection_content(normalized_content):
                 return hidden_items
             raise DashboardParseError("Dashboard section did not contain parseable item blocks.")
         parsed: list[DashboardItem] = []
@@ -150,302 +150,24 @@ class DashboardParser:
         remaining = normalized_content
         for block in normalized_blocks:
             remaining = remaining.replace(block, "", 1)
-        if not self._is_supported_summary_content(section_key, remaining):
+        if not self._is_tolerated_projection_content(remaining):
             raise DashboardParseError("Dashboard section contained unsupported free-form content.")
         return self._merge_items_by_id(parsed, hidden_items)
 
-    def _is_supported_summary_content(self, section_key: str, content: str) -> bool:
-        """Return whether remaining section content is a supported summary table."""
+    def _is_tolerated_projection_content(self, content: str) -> bool:
+        """Return whether remaining content looks like projection text, not free-form prose."""
         stripped = content.strip()
         if not stripped:
             return True
-        if section_key == "merge_request_reviews":
-            return self._is_supported_review_summary_content(stripped)
-        if section_key == "open_candidates":
-            return self._is_supported_workflow_summary_content(stripped)
-        return self._is_supported_generic_summary_content(stripped)
-
-    def _is_supported_generic_summary_content(self, content: str) -> bool:
-        """Return whether remaining content is a supported generic summary table."""
-        lines = [line.strip() for line in content.splitlines() if line.strip()]
-        if len(lines) < 2:
-            return False
-        supported_headers = {
-            (
-                "| ID | Source | Type | File | Rule | Status | Priority |",
-                "|---|---|---|---|---|---|---|",
-            ),
-            (
-                "| ID | Source | Type | File | Rule | Status | Priority | Note |",
-                "|---|---|---|---|---|---|---|---|",
-            ),
-        }
-        if (lines[0], lines[1]) not in supported_headers:
-            return False
-        return all(line.startswith("| ") and line.endswith(" |") for line in lines[2:])
-
-    def _is_supported_review_summary_content(self, content: str) -> bool:
-        """Return whether remaining content is a supported review summary layout."""
-        blocks = self._summary_blocks(content)
-        if len(blocks) != 6:
-            return False
-        if blocks[0] != ["### Overview"]:
-            return False
-        if not self._matches_table(
-            blocks[1],
-            header="| Reviews | Needs attention | Findings total | High priority |",
-            separator="|---|---|---|---|",
-        ) and not self._matches_table(
-            blocks[1],
-            header="| MRs | Needs attention | Findings total | High priority |",
-            separator="|---|---|---|---|",
-        ):
-            return False
-        if blocks[2] != ["### Needs Attention"]:
-            return False
-        if blocks[3] != ["No items."] and not self._matches_review_attention_table(blocks[3]):
-            return False
-        if blocks[4] not in (["### All Reviews"], ["### Review History"]):
-            return False
-        return self._matches_review_history_table(blocks[5])
-
-    def _matches_review_attention_table(self, lines: list[str]) -> bool:
-        """Return whether lines match one supported review attention table layout."""
-        return self._matches_table(
-            lines,
-            header="| MR | Outcome | Findings | Confidence | Priority | Summary |",
-            separator="|---|---|---|---|---|---|",
-        ) or self._matches_table(
-            lines,
-            header=(
-                "| MR | Passes | Outcome | Findings | Confidence | Priority | "
-                "Summary | Reviewed SHA |"
-            ),
-            separator="|---|---|---|---|---|---|---|---|",
-        )
-
-    def _matches_review_history_table(self, lines: list[str]) -> bool:
-        """Return whether lines match one supported grouped or ungrouped review history table."""
-        return self._matches_table(
-            lines,
-            header="| MR | Outcome | Findings | Confidence | Priority | Summary | Reviewed SHA |",
-            separator="|---|---|---|---|---|---|---|",
-        ) or self._matches_table(
-            lines,
-            header=(
-                "| MR | Passes | Outcome | Findings | Confidence | Priority | "
-                "Summary | Reviewed SHA |"
-            ),
-            separator="|---|---|---|---|---|---|---|---|",
-        )
-
-    def _is_supported_workflow_summary_content(self, content: str) -> bool:
-        """Return whether remaining content is a supported workflow summary layout."""
-        blocks = self._summary_blocks(content)
-        if len(blocks) == 12:
-            return self._matches_legacy_workflow_summary_layout(blocks)
-        if len(blocks) != 14:
-            return False
-        if blocks[0] != ["### Overview"]:
-            return False
-        if not self._matches_table(
-            blocks[1],
-            header="| Open | In progress | MR opened | Failed | Done |",
-            separator="|---|---|---|---|---|",
-        ):
-            return False
-        if blocks[2] != ["### Queue Auto-fix"]:
-            return False
-        if blocks[3] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
-            blocks[3],
-            variants=[
-                ("| Item | File | Priority | Next Step | Summary |", "|---|---|---|---|---|"),
-                (
-                    "| Item | Area | File | Priority | Next Step | Summary |",
-                    "|---|---|---|---|---|---|",
-                ),
-            ],
-        ):
-            return False
-        if blocks[4] != ["### Needs Review"]:
-            return False
-        if blocks[5] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
-            blocks[5],
-            variants=[
-                ("| Item | File | Priority | Next Step | Summary |", "|---|---|---|---|---|"),
-                (
-                    "| Item | Area | File | Priority | Next Step | Summary |",
-                    "|---|---|---|---|---|---|",
-                ),
-            ],
-        ):
-            return False
-        if blocks[6] != ["### In Flight"]:
-            return False
-        if blocks[7] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
-            blocks[7],
-            variants=[
-                ("| Item | Status | Priority | Review Summary |", "|---|---|---|---|"),
-                (
-                    "| Item | Area | Status | Priority | Review Summary |",
-                    "|---|---|---|---|---|",
-                ),
-            ],
-        ):
-            return False
-        if blocks[8] != ["### Completed"]:
-            return False
-        if blocks[9] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
-            blocks[9],
-            variants=[
-                ("| Item | Priority | Summary |", "|---|---|---|"),
-                ("| Item | Area | Priority | Summary |", "|---|---|---|---|"),
-            ],
-        ):
-            return False
-        if blocks[10] != ["### Dismissed"]:
-            return False
-        if blocks[11] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
-            blocks[11],
-            variants=[
-                ("| Item | Status | Priority | Summary |", "|---|---|---|---|"),
-                ("| Item | Area | Status | Priority | Summary |", "|---|---|---|---|---|"),
-            ],
-        ):
-            return False
-        if blocks[12] != ["### Work Type Breakdown"]:
-            return False
-        if blocks[13] == ["No items."]:
+        lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+        if not lines:
             return True
-        return self._matches_table(
-            blocks[13],
-            header="| Work Type | Count |",
-            separator="|---|---|",
-        )
-
-    def _matches_legacy_workflow_summary_layout(self, blocks: list[list[str]]) -> bool:
-        """Return whether blocks match the pre-dismissed workflow summary layout."""
-        if blocks[0] != ["### Overview"]:
-            return False
-        if not self._matches_table(
-            blocks[1],
-            header="| Open | In progress | MR opened | Failed | Done |",
-            separator="|---|---|---|---|---|",
-        ):
-            return False
-        if blocks[2] != ["### Queue Auto-fix"]:
-            return False
-        if blocks[3] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
-            blocks[3],
-            variants=[
-                ("| Item | File | Priority | Next Step | Summary |", "|---|---|---|---|---|"),
-                (
-                    "| Item | Area | File | Priority | Next Step | Summary |",
-                    "|---|---|---|---|---|---|",
-                ),
-            ],
-        ):
-            return False
-        if blocks[4] != ["### Needs Review"]:
-            return False
-        if blocks[5] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
-            blocks[5],
-            variants=[
-                ("| Item | File | Priority | Next Step | Summary |", "|---|---|---|---|---|"),
-                (
-                    "| Item | Area | File | Priority | Next Step | Summary |",
-                    "|---|---|---|---|---|---|",
-                ),
-            ],
-        ):
-            return False
-        if blocks[6] != ["### In Flight"]:
-            return False
-        if blocks[7] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
-            blocks[7],
-            variants=[
-                ("| Item | Status | Priority | Review Summary |", "|---|---|---|---|"),
-                (
-                    "| Item | Area | Status | Priority | Review Summary |",
-                    "|---|---|---|---|---|",
-                ),
-            ],
-        ):
-            return False
-        if blocks[8] != ["### Completed"]:
-            return False
-        if blocks[9] != ["No items."] and not self._matches_table_variant_with_optional_overflow(
-            blocks[9],
-            variants=[
-                ("| Item | Priority | Summary |", "|---|---|---|"),
-                ("| Item | Area | Priority | Summary |", "|---|---|---|---|"),
-            ],
-        ):
-            return False
-        if blocks[10] != ["### Work Type Breakdown"]:
-            return False
-        if blocks[11] == ["No items."]:
-            return True
-        return self._matches_table(
-            blocks[11],
-            header="| Work Type | Count |",
-            separator="|---|---|",
-        )
-
-    def _summary_blocks(self, content: str) -> list[list[str]]:
-        """Split one summary-content string into normalized blocks."""
-        blocks: list[list[str]] = []
-        current: list[str] = []
-        for raw_line in content.splitlines():
-            line = raw_line.strip()
-            if not line:
-                if current:
-                    blocks.append(current)
-                    current = []
-                continue
-            current.append(line)
-        if current:
-            blocks.append(current)
-        return blocks
-
-    def _matches_table(self, lines: list[str], *, header: str, separator: str) -> bool:
-        """Return whether normalized lines match one supported markdown table."""
-        if len(lines) < 2:
-            return False
-        if lines[0] != header or lines[1] != separator:
-            return False
-        return all(line.startswith("| ") and line.endswith(" |") for line in lines[2:])
-
-    def _matches_table_with_optional_overflow(
-        self,
-        lines: list[str],
-        *,
-        header: str,
-        separator: str,
-    ) -> bool:
-        """Return whether lines are one supported table plus an optional overflow note."""
-        if self._matches_table(lines, header=header, separator=separator):
-            return True
-        if len(lines) < 4:
-            return False
-        if not self._is_overflow_note(lines[-1]):
-            return False
-        return self._matches_table(lines[:-1], header=header, separator=separator)
-
-    def _matches_table_variant_with_optional_overflow(
-        self,
-        lines: list[str],
-        *,
-        variants: list[tuple[str, str]],
-    ) -> bool:
-        """Return whether lines match any supported table variant with optional overflow."""
-        return any(
-            self._matches_table_with_optional_overflow(
-                lines,
-                header=header,
-                separator=separator,
-            )
-            for header, separator in variants
+        return all(
+            line == "No items."
+            or line.startswith("### ")
+            or (line.startswith("|") and line.endswith("|"))
+            or self._is_overflow_note(line)
+            for line in lines
         )
 
     def _is_overflow_note(self, line: str) -> bool:
