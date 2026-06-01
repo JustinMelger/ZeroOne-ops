@@ -115,7 +115,7 @@ rather than on adding more operator-facing board features first.
 - use them to prove safe parse, normalize, and rewrite behavior across schema
   evolution
 
-- [ ] Phase 5: Machine Manifest Integrity Contract
+- [x] Phase 5: Machine Manifest Integrity Contract
 
 - add a top-level machine-managed dashboard manifest for integrity checks such
   as section counts or projection counts

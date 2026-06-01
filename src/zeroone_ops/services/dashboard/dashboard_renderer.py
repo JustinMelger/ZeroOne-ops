@@ -13,10 +13,12 @@ from zeroone_ops.models.dashboard import (
     DashboardIssueClassExclusionEntry,
     DashboardIssueClassInventoryEntry,
     DashboardItem,
+    DashboardManifest,
     DashboardPolicyState,
     DashboardPolicyView,
     DashboardSection,
     DashboardSeverityPolicyEntry,
+    build_dashboard_manifest,
 )
 
 WORKFLOW_BUCKET_DISPLAY_LIMITS: dict[str, int] = {
@@ -51,6 +53,8 @@ class DashboardRenderer:
             "Machine-managed remediation and review items for this repository.",
             "",
         ]
+        lines.extend(self._render_manifest_block(build_dashboard_manifest(sections)))
+        lines.append("")
         policy_view = policy_view or DashboardPolicyView()
         lines.extend(
             self._render_policy_sections(
@@ -69,6 +73,20 @@ class DashboardRenderer:
             if rendered:
                 lines.extend(rendered)
         return "\n".join(lines).rstrip() + "\n"
+
+    def _render_manifest_block(self, manifest: DashboardManifest) -> list[str]:
+        """Render the canonical machine-managed dashboard integrity manifest."""
+        payload = manifest.model_dump(mode="json", exclude_none=True)
+        return [
+            "<details>",
+            "<summary><code>zeroone-dashboard-manifest</code> machine state</summary>",
+            "",
+            "```json",
+            json.dumps(payload, indent=2, sort_keys=True),
+            "```",
+            "",
+            "</details>",
+        ]
 
     def _render_policy_sections(
         self,

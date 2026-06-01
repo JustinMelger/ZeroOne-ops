@@ -232,9 +232,10 @@ def test_load_or_create_migrates_legacy_dashboard_to_current_schema() -> None:
 
     document = service.load_or_create(project_id="123")
 
-    assert document.schema_version == 1
+    assert document.schema_version == 2
     assert client.updated_issue is not None
-    assert "<!-- zeroone-ops:dashboard-schema:v1 -->" in client.updated_issue.description
+    assert "<!-- zeroone-ops:dashboard-schema:v2 -->" in client.updated_issue.description
+    assert "zeroone-dashboard-manifest" in client.updated_issue.description
     assert "## Automation Severity Policy" in client.updated_issue.description
 
 

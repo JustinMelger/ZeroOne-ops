@@ -11,9 +11,11 @@ from zeroone_ops.models.dashboard import (
     SECTION_TITLES,
     DashboardDocument,
     DashboardItem,
+    DashboardManifest,
     DashboardPolicyState,
     DashboardPolicyView,
     DashboardSection,
+    build_dashboard_manifest,
     section_key_for_item,
 )
 
@@ -38,6 +40,15 @@ _POLICY_STATE_BLOCK_PATTERN = re.compile(
     (
         r"<details>\n"
         r"<summary><code>zeroone-policy-state</code> machine state</summary>\n\n"
+        r"```json\n(?P<payload>.*?)\n```\n\n"
+        r"</details>"
+    ),
+    re.DOTALL,
+)
+_MANIFEST_BLOCK_PATTERN = re.compile(
+    (
+        r"<details>\n"
+        r"<summary><code>zeroone-dashboard-manifest</code> machine state</summary>\n\n"
         r"```json\n(?P<payload>.*?)\n```\n\n"
         r"</details>"
     ),
@@ -75,6 +86,12 @@ class DashboardParser:
             content = self._extract_section_content(body, section.title)
             section.items = self._parse_section_items(section.key, content)
         sections = self._redistribute_workflow_items(sections)
+        manifest = self._extract_manifest(body)
+        self._validate_manifest(
+            manifest=manifest,
+            sections=sections,
+            schema_version=schema_version,
+        )
         return DashboardDocument(
             issue_id=issue_id,
             issue_iid=issue_iid,
@@ -82,6 +99,7 @@ class DashboardParser:
             title=title,
             sections=sections,
             schema_version=schema_version,
+            manifest=build_dashboard_manifest(sections),
             policy_state=self._extract_policy_state(body),
             policy_view=DashboardPolicyView(),
         )
@@ -110,6 +128,39 @@ class DashboardParser:
                 "Dashboard schema version is newer than this parser supports."
             )
         return version
+
+    def _extract_manifest(self, body: str) -> DashboardManifest | None:
+        """Return the canonical dashboard manifest when present."""
+        match = _MANIFEST_BLOCK_PATTERN.search(body)
+        if match is None:
+            return None
+        try:
+            payload = json.loads(match.group("payload"))
+        except json.JSONDecodeError as error:
+            raise DashboardParseError(
+                "Dashboard manifest block contained invalid JSON."
+            ) from error
+        return DashboardManifest.model_validate(payload)
+
+    def _validate_manifest(
+        self,
+        *,
+        manifest: DashboardManifest | None,
+        sections: list[DashboardSection],
+        schema_version: int,
+    ) -> None:
+        """Validate canonical recovered state against the dashboard manifest when required."""
+        if schema_version < CURRENT_DASHBOARD_SCHEMA_VERSION:
+            return
+        if manifest is None:
+            raise DashboardParseError(
+                "Current-schema dashboard is missing the dashboard manifest block."
+            )
+        expected_manifest = build_dashboard_manifest(sections)
+        if manifest != expected_manifest:
+            raise DashboardParseError(
+                "Dashboard manifest did not match the recovered structured state."
+            )
 
     def _extract_section_content(self, body: str, section_title: str) -> str:
         pattern = re.compile(

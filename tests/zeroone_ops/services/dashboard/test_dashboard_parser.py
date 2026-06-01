@@ -161,6 +161,7 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     assert "### Completed" in body
     assert "### Dismissed" in body
     assert "### Work Type Breakdown" in body
+    assert "zeroone-dashboard-manifest" in body
     assert "<details>" in body
     assert "<summary><code>sonar:1</code> details</summary>" in body
 
@@ -1536,7 +1537,8 @@ def test_rendered_dashboard_body_includes_schema_marker_and_policy_sections() ->
         sections=[DashboardSection(key="open_candidates", title="Open Candidates", items=[])],
     )
 
-    assert "<!-- zeroone-ops:dashboard-schema:v1 -->" in body
+    assert "<!-- zeroone-ops:dashboard-schema:v2 -->" in body
+    assert "zeroone-dashboard-manifest" in body
     assert "## Automation Severity Policy" in body
     assert "## Excluded Issue Classes" in body
     assert "## Issue Class Inventory" in body
@@ -1750,3 +1752,183 @@ def test_parse_treats_missing_schema_marker_as_legacy_v0() -> None:
     )
 
     assert document.schema_version == 0
+
+
+def test_parse_rejects_current_schema_dashboard_without_manifest() -> None:
+    parser = DashboardParser()
+    body = """<!-- zeroone-ops:dashboard-schema:v2 -->
+
+Machine-managed remediation and review items for this repository.
+
+## Automation Severity Policy
+
+| Severity | Automation Status | Reason |
+|---|---|---|
+| `low` | eligible for automation | - |
+| `medium` | eligible for automation | - |
+| `high` | blocked by severity policy | configured default |
+
+## Excluded Issue Classes
+
+No items.
+
+## Issue Class Inventory
+
+No items.
+
+## Operator Policy Actions
+
+Use strict dashboard issue comments with the exact `/zeroone policy` prefix.
+
+| Action | Command |
+|---|---|
+
+Direct markdown edits and raw checkbox changes in this dashboard are display-only
+and do not mutate operator policy.
+
+## Open Candidates
+
+### Overview
+
+| Open | In progress | MR opened | Failed | Done |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+
+### Queue Auto-fix
+
+No items.
+
+### Needs Review
+
+No items.
+
+### In Flight
+
+No items.
+
+### Completed
+
+No items.
+
+### Dismissed
+
+No items.
+
+### Work Type Breakdown
+
+No items.
+"""
+
+    try:
+        parser.parse(
+            issue_id=10,
+            issue_iid=11,
+            issue_url="https://gitlab.example.com/group/project/-/issues/11",
+            title="AI Code Ops Work Queue",
+            body=body,
+        )
+    except DashboardParseError as error:
+        assert "missing the dashboard manifest block" in str(error)
+    else:
+        raise AssertionError("Expected DashboardParseError for missing dashboard manifest.")
+
+
+def test_parse_rejects_manifest_mismatch() -> None:
+    parser = DashboardParser()
+    body = """<!-- zeroone-ops:dashboard-schema:v2 -->
+
+Machine-managed remediation and review items for this repository.
+
+<details>
+<summary><code>zeroone-dashboard-manifest</code> machine state</summary>
+
+```json
+{
+  "review_projection_item_count": 0,
+  "section_item_counts": {
+    "completed": 0,
+    "in_progress": 0,
+    "merge_request_reviews": 0,
+    "merge_requests_opened": 0,
+    "open_candidates": 99,
+    "recent_failures": 0,
+    "rejected_or_ignored": 0
+  },
+  "total_item_count": 99,
+  "workflow_item_count": 99
+}
+```
+
+</details>
+
+## Automation Severity Policy
+
+| Severity | Automation Status | Reason |
+|---|---|---|
+| `low` | eligible for automation | - |
+| `medium` | eligible for automation | - |
+| `high` | blocked by severity policy | configured default |
+
+## Excluded Issue Classes
+
+No items.
+
+## Issue Class Inventory
+
+No items.
+
+## Operator Policy Actions
+
+Use strict dashboard issue comments with the exact `/zeroone policy` prefix.
+
+| Action | Command |
+|---|---|
+
+Direct markdown edits and raw checkbox changes in this dashboard are display-only
+and do not mutate operator policy.
+
+## Open Candidates
+
+### Overview
+
+| Open | In progress | MR opened | Failed | Done |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+
+### Queue Auto-fix
+
+No items.
+
+### Needs Review
+
+No items.
+
+### In Flight
+
+No items.
+
+### Completed
+
+No items.
+
+### Dismissed
+
+No items.
+
+### Work Type Breakdown
+
+No items.
+"""
+
+    try:
+        parser.parse(
+            issue_id=10,
+            issue_iid=11,
+            issue_url="https://gitlab.example.com/group/project/-/issues/11",
+            title="AI Code Ops Work Queue",
+            body=body,
+        )
+    except DashboardParseError as error:
+        assert "manifest did not match" in str(error)
+    else:
+        raise AssertionError("Expected DashboardParseError for manifest mismatch.")
