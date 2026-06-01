@@ -1,7 +1,12 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from zeroone_ops.models.dashboard import DashboardItem, DashboardSection
+from zeroone_ops.models.dashboard import (
+    DashboardItem,
+    DashboardPolicyState,
+    DashboardSection,
+    DashboardSeverityPolicyStateEntry,
+)
 from zeroone_ops.services.dashboard.dashboard_parser import (
     DashboardParseError,
     DashboardParser,
@@ -840,6 +845,56 @@ def test_parse_round_trips_hidden_workflow_items_from_machine_block() -> None:
     ids = {item.id for item in document.sections[0].items}
     assert len(ids) == 12
     assert {"sonar:10", "sonar:11"} <= ids
+
+
+def test_render_prefers_policy_eligible_queue_items_under_bucket_cap() -> None:
+    renderer = DashboardRenderer()
+    blocked_items = [
+        build_item(item_id=f"sonar:block-{index}").model_copy(
+            update={
+                "file": f"src/a_block_{index}.py",
+                "source_reference": f"issue-block-{index}",
+                "automation_severity": "high",
+                "severity": "HIGH",
+            }
+        )
+        for index in range(10)
+    ]
+    eligible_item = build_item(item_id="sonar:eligible").model_copy(
+        update={
+            "file": "src/z_eligible.py",
+            "source_reference": "issue-eligible",
+            "automation_severity": "low",
+            "severity": "LOW",
+        }
+    )
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[*blocked_items, eligible_item],
+            ),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+        policy_state=DashboardPolicyState(
+            severity_policy=[
+                DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
+                DashboardSeverityPolicyStateEntry(severity="medium", enabled=False),
+                DashboardSeverityPolicyStateEntry(severity="high", enabled=False),
+            ]
+        ),
+    )
+
+    assert "| `sonar:eligible` | `src` | `z_eligible.py` |" in body
+    assert "_1 more items not shown._" in body
 
 
 def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table() -> None:

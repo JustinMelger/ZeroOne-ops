@@ -63,7 +63,10 @@ class DashboardRenderer:
                 policy_state or DashboardPolicyState(),
             )
         )
-        workflow_items = self._workflow_items(sections)
+        workflow_items = self._workflow_items(
+            sections,
+            policy_state=policy_state or DashboardPolicyState(),
+        )
         review_projection_items = self._review_projection_items(sections)
         for section in sections:
             rendered = self._render_section(
@@ -252,7 +255,12 @@ class DashboardRenderer:
             lines.append("")
         return lines
 
-    def _workflow_items(self, sections: list[DashboardSection]) -> list[DashboardItem]:
+    def _workflow_items(
+        self,
+        sections: list[DashboardSection],
+        *,
+        policy_state: DashboardPolicyState,
+    ) -> list[DashboardItem]:
         """Return all non-review workflow items in deterministic display order."""
         items = [
             item
@@ -273,12 +281,30 @@ class DashboardRenderer:
             items,
             key=lambda item: (
                 status_order.get(item.status, 99),
+                self._workflow_policy_rank(item, policy_state=policy_state),
                 self._workflow_area_key(item),
                 self._workflow_file_key(item),
                 item.priority,
                 item.id,
             ),
         )
+
+    def _workflow_policy_rank(
+        self,
+        item: DashboardItem,
+        *,
+        policy_state: DashboardPolicyState,
+    ) -> int:
+        """Return one display rank that prefers policy-eligible items under bucket caps."""
+        if not policy_state.severity_policy:
+            return 0
+        enabled = {
+            entry.severity.lower() for entry in policy_state.severity_policy if entry.enabled
+        }
+        automation_severity = (item.automation_severity or item.severity or "").lower()
+        if not automation_severity:
+            return 0
+        return 0 if automation_severity in enabled else 1
 
     def _review_projection_items(self, sections: list[DashboardSection]) -> list[DashboardItem]:
         """Return all items that should contribute to the MR review projection."""
