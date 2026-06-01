@@ -1740,6 +1740,7 @@ def test_parse_treats_missing_schema_marker_as_legacy_v0() -> None:
     body = renderer.render(
         title="AI Code Ops Work Queue",
         sections=[DashboardSection(key="open_candidates", title="Open Candidates", items=[])],
+        schema_version=1,
     )
     legacy_body = "\n".join(body.splitlines()[2:]) + "\n"
 
@@ -1754,7 +1755,7 @@ def test_parse_treats_missing_schema_marker_as_legacy_v0() -> None:
     assert document.schema_version == 0
 
 
-def test_parse_rejects_current_schema_dashboard_without_manifest() -> None:
+def test_parse_accepts_current_schema_dashboard_without_manifest_for_transition() -> None:
     parser = DashboardParser()
     body = """<!-- zeroone-ops:dashboard-schema:v2 -->
 
@@ -1819,18 +1820,16 @@ No items.
 No items.
 """
 
-    try:
-        parser.parse(
-            issue_id=10,
-            issue_iid=11,
-            issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            title="AI Code Ops Work Queue",
-            body=body,
-        )
-    except DashboardParseError as error:
-        assert "missing the dashboard manifest block" in str(error)
-    else:
-        raise AssertionError("Expected DashboardParseError for missing dashboard manifest.")
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert document.schema_version == 2
+    assert document.sections[0].items == []
 
 
 def test_parse_rejects_manifest_mismatch() -> None:
@@ -1844,7 +1843,6 @@ Machine-managed remediation and review items for this repository.
 
 ```json
 {
-  "review_projection_item_count": 0,
   "section_item_counts": {
     "completed": 0,
     "in_progress": 0,
@@ -1932,3 +1930,114 @@ No items.
         assert "manifest did not match" in str(error)
     else:
         raise AssertionError("Expected DashboardParseError for manifest mismatch.")
+
+
+def test_parse_rejects_manifest_era_dashboard_without_schema_marker() -> None:
+    parser = DashboardParser()
+    body = """Machine-managed remediation and review items for this repository.
+
+<details>
+<summary><code>zeroone-dashboard-manifest</code> machine state</summary>
+
+```json
+{
+  "section_item_counts": {
+    "completed": 0,
+    "in_progress": 0,
+    "merge_request_reviews": 0,
+    "merge_requests_opened": 0,
+    "open_candidates": 0,
+    "recent_failures": 0,
+    "rejected_or_ignored": 0
+  },
+  "total_item_count": 0,
+  "workflow_item_count": 0
+}
+```
+
+</details>
+
+## Automation Severity Policy
+
+| Severity | Automation Status | Reason |
+|---|---|---|
+| `low` | eligible for automation | - |
+| `medium` | eligible for automation | - |
+| `high` | blocked by severity policy | configured default |
+
+## Excluded Issue Classes
+
+No items.
+
+## Issue Class Inventory
+
+No items.
+
+## Operator Policy Actions
+
+Use strict dashboard issue comments with the exact `/zeroone policy` prefix.
+
+| Action | Command |
+|---|---|
+
+Direct markdown edits and raw checkbox changes in this dashboard are display-only
+and do not mutate operator policy.
+
+## Open Candidates
+
+### Overview
+
+| Open | In progress | MR opened | Failed | Done |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+
+### Queue Auto-fix
+
+No items.
+
+### Needs Review
+
+No items.
+
+### In Flight
+
+No items.
+
+### Completed
+
+No items.
+
+### Dismissed
+
+No items.
+
+### Work Type Breakdown
+
+No items.
+"""
+
+    try:
+        parser.parse(
+            issue_id=10,
+            issue_iid=11,
+            issue_url="https://gitlab.example.com/group/project/-/issues/11",
+            title="AI Code Ops Work Queue",
+            body=body,
+        )
+    except DashboardParseError as error:
+        assert "schema marker was missing" in str(error)
+    else:
+        raise AssertionError("Expected DashboardParseError for missing schema marker.")
+
+
+def test_render_older_schema_version_does_not_emit_manifest_block() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[DashboardSection(key="open_candidates", title="Open Candidates", items=[])],
+        schema_version=1,
+    )
+
+    assert "<!-- zeroone-ops:dashboard-schema:v1 -->" in body
+    assert "zeroone-dashboard-manifest" not in body

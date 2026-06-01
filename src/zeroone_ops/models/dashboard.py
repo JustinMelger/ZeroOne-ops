@@ -132,7 +132,6 @@ class DashboardManifest(BaseModel):
 
     section_item_counts: dict[DashboardSectionKey, int] = Field(default_factory=dict)
     workflow_item_count: int = 0
-    review_projection_item_count: int = 0
     total_item_count: int = 0
 
 
@@ -235,16 +234,9 @@ def build_dashboard_manifest(sections: list[DashboardSection]) -> DashboardManif
     workflow_item_count = sum(
         count for key, count in section_item_counts.items() if key != "merge_request_reviews"
     )
-    review_projection_item_count = sum(
-        1
-        for section in sections
-        for item in section.items
-        if item.review_status is not None or item.type == "review_status"
-    )
     total_item_count = sum(section_item_counts.values())
     return DashboardManifest(
         section_item_counts=section_item_counts,
         workflow_item_count=workflow_item_count,
-        review_projection_item_count=review_projection_item_count,
         total_item_count=total_item_count,
     )

@@ -53,8 +53,9 @@ class DashboardRenderer:
             "Machine-managed remediation and review items for this repository.",
             "",
         ]
-        lines.extend(self._render_manifest_block(build_dashboard_manifest(sections)))
-        lines.append("")
+        if schema_version >= 2:
+            lines.extend(self._render_manifest_block(build_dashboard_manifest(sections)))
+            lines.append("")
         policy_view = policy_view or DashboardPolicyView()
         lines.extend(
             self._render_policy_sections(

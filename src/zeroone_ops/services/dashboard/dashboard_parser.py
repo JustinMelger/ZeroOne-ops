@@ -118,9 +118,13 @@ class DashboardParser:
         return DashboardPolicyState.model_validate(payload)
 
     def _extract_schema_version(self, body: str) -> int:
-        """Return the dashboard schema version or legacy v0 when missing."""
+        """Return the dashboard schema version or legacy v0 when safely missing."""
         match = _SCHEMA_MARKER_PATTERN.search(body)
         if match is None:
+            if _MANIFEST_BLOCK_PATTERN.search(body) is not None:
+                raise DashboardParseError(
+                    "Dashboard schema marker was missing from a manifest-era dashboard."
+                )
             return 0
         version = int(match.group("version"))
         if version > CURRENT_DASHBOARD_SCHEMA_VERSION:
@@ -149,13 +153,9 @@ class DashboardParser:
         sections: list[DashboardSection],
         schema_version: int,
     ) -> None:
-        """Validate canonical recovered state against the dashboard manifest when required."""
-        if schema_version < CURRENT_DASHBOARD_SCHEMA_VERSION:
+        """Validate canonical recovered state against the dashboard manifest when present."""
+        if manifest is None or schema_version < CURRENT_DASHBOARD_SCHEMA_VERSION:
             return
-        if manifest is None:
-            raise DashboardParseError(
-                "Current-schema dashboard is missing the dashboard manifest block."
-            )
         expected_manifest = build_dashboard_manifest(sections)
         if manifest != expected_manifest:
             raise DashboardParseError(
