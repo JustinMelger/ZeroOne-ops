@@ -141,9 +141,7 @@ class DashboardParser:
         try:
             payload = json.loads(match.group("payload"))
         except json.JSONDecodeError as error:
-            raise DashboardParseError(
-                "Dashboard manifest block contained invalid JSON."
-            ) from error
+            raise DashboardParseError("Dashboard manifest block contained invalid JSON.") from error
         return DashboardManifest.model_validate(payload)
 
     def _validate_manifest(
