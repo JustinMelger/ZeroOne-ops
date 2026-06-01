@@ -7,9 +7,6 @@
     "dependencies"
   ],
   "timezone": "Europe/Amsterdam",
-  "schedule": [
-    "before 9am every weekday"
-  ],
   "rangeStrategy": "bump",
   "dependencyDashboard": true,
   "separateMajorMinor": false,
