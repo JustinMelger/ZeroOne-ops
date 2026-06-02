@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from zeroone_ops.models.dashboard import (
     DashboardIssueClassInventoryEntry,
     DashboardItem,
@@ -10,6 +12,8 @@ from zeroone_ops.services.dashboard.dashboard_service import (
     DashboardPolicyProcessResult,
     DashboardService,
 )
+
+FIXTURES_DIR = Path(__file__).with_name("fixtures")
 
 
 def build_item(
@@ -212,26 +216,7 @@ class FakePolicyViewBuilder:
 
 
 def test_load_or_create_migrates_legacy_dashboard_to_current_schema() -> None:
-    legacy_body = (
-        "Machine-managed remediation and review items for this repository.\n\n"
-        "## Open Candidates\n\n"
-        "### Overview\n\n"
-        "| Open | In progress | MR opened | Failed | Done |\n"
-        "|---|---|---|---|---|\n"
-        "| 0 | 0 | 0 | 0 | 0 |\n\n"
-        "### Queue Auto-fix\n\n"
-        "No items.\n\n"
-        "### Needs Review\n\n"
-        "No items.\n\n"
-        "### In Flight\n\n"
-        "No items.\n\n"
-        "### Completed\n\n"
-        "No items.\n\n"
-        "### Dismissed\n\n"
-        "No items.\n\n"
-        "### Work Type Breakdown\n\n"
-        "No items.\n"
-    )
+    legacy_body = (FIXTURES_DIR / "legacy_workflow_with_dismissed.md").read_text()
     existing_issue = GitLabIssueInfo(
         id=10,
         iid=11,
@@ -247,10 +232,37 @@ def test_load_or_create_migrates_legacy_dashboard_to_current_schema() -> None:
 
     document = service.load_or_create(project_id="123")
 
-    assert document.schema_version == 1
+    assert document.schema_version == 2
     assert client.updated_issue is not None
-    assert "<!-- zeroone-ops:dashboard-schema:v1 -->" in client.updated_issue.description
+    assert "<!-- zeroone-ops:dashboard-schema:v2 -->" in client.updated_issue.description
+    assert "zeroone-dashboard-manifest" in client.updated_issue.description
     assert "## Automation Severity Policy" in client.updated_issue.description
+
+
+def test_load_or_create_rewrites_legacy_pre_area_dashboard_fixture_with_items() -> None:
+    legacy_body = (FIXTURES_DIR / "legacy_workflow_pre_area_with_items.md").read_text()
+    existing_issue = GitLabIssueInfo(
+        id=10,
+        iid=11,
+        web_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        description=legacy_body,
+    )
+    client = FakeDashboardClient(existing_issue=existing_issue)
+    service = DashboardService(
+        client,
+        policy_view_builder=FakePolicyViewBuilder(),
+    )
+
+    document = service.load_or_create(project_id="123")
+
+    assert document.items_by_id()["sonar:3"].status == "open"
+    assert document.items_by_id()["sonar:4"].status == "failed"
+    assert client.updated_issue is not None
+    assert (
+        "| Item | Area | File | Priority | Next Step | Summary |"
+        in client.updated_issue.description
+    )
 
 
 def test_load_or_create_does_not_replay_severity_policy_actions_from_issue_notes() -> None:

@@ -1,11 +1,19 @@
 from datetime import UTC, datetime
+from pathlib import Path
 
-from zeroone_ops.models.dashboard import DashboardItem, DashboardSection
+from zeroone_ops.models.dashboard import (
+    DashboardItem,
+    DashboardPolicyState,
+    DashboardSection,
+    DashboardSeverityPolicyStateEntry,
+)
 from zeroone_ops.services.dashboard.dashboard_parser import (
     DashboardParseError,
     DashboardParser,
 )
 from zeroone_ops.services.dashboard.dashboard_renderer import DashboardRenderer
+
+FIXTURES_DIR = Path(__file__).with_name("fixtures")
 
 
 def build_item(*, item_id: str, status: str = "open") -> DashboardItem:
@@ -158,6 +166,7 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     assert "### Completed" in body
     assert "### Dismissed" in body
     assert "### Work Type Breakdown" in body
+    assert "zeroone-dashboard-manifest" in body
     assert "<details>" in body
     assert "<summary><code>sonar:1</code> details</summary>" in body
 
@@ -838,6 +847,56 @@ def test_parse_round_trips_hidden_workflow_items_from_machine_block() -> None:
     assert {"sonar:10", "sonar:11"} <= ids
 
 
+def test_render_prefers_policy_eligible_queue_items_under_bucket_cap() -> None:
+    renderer = DashboardRenderer()
+    blocked_items = [
+        build_item(item_id=f"sonar:block-{index}").model_copy(
+            update={
+                "file": f"src/a_block_{index}.py",
+                "source_reference": f"issue-block-{index}",
+                "automation_severity": "high",
+                "severity": "HIGH",
+            }
+        )
+        for index in range(10)
+    ]
+    eligible_item = build_item(item_id="sonar:eligible").model_copy(
+        update={
+            "file": "src/z_eligible.py",
+            "source_reference": "issue-eligible",
+            "automation_severity": "low",
+            "severity": "LOW",
+        }
+    )
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[
+            DashboardSection(
+                key="open_candidates",
+                title="Open Candidates",
+                items=[*blocked_items, eligible_item],
+            ),
+            DashboardSection(key="in_progress", title="In Progress", items=[]),
+            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(key="completed", title="Completed", items=[]),
+            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
+            DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
+        ],
+        policy_state=DashboardPolicyState(
+            severity_policy=[
+                DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
+                DashboardSeverityPolicyStateEntry(severity="medium", enabled=False),
+                DashboardSeverityPolicyStateEntry(severity="high", enabled=False),
+            ]
+        ),
+    )
+
+    assert "| `sonar:eligible` | `src` | `z_eligible.py` |" in body
+    assert "_1 more items not shown._" in body
+
+
 def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table() -> None:
     renderer = DashboardRenderer()
 
@@ -1246,18 +1305,201 @@ No items.
 No items.
 """
 
-    try:
-        parser.parse(
-            issue_id=10,
-            issue_iid=11,
-            issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            title="AI Code Ops Work Queue",
-            body=body,
-        )
-    except DashboardParseError as error:
-        assert "unsupported free-form content" in str(error)
-    else:
-        raise AssertionError("Expected DashboardParseError for malformed summary table.")
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert document.items_by_id()["sonar:1"].id == "sonar:1"
+
+
+def test_parse_accepts_unknown_projection_layout_when_item_blocks_are_valid() -> None:
+    parser = DashboardParser()
+    body = """# AI Code Ops Work Queue
+
+## Open Candidates
+
+### Future Queue
+
+| Item | Bucket | Confidence | Summary |
+|---|---|---|---|
+| `sonar:1` | Ready | 0.90 | Simplify boolean comparison |
+
+<details>
+<summary><code>sonar:1</code> details</summary>
+
+```json
+{
+  "id": "sonar:1",
+  "source": "sonarqube",
+  "type": "code_smell_fix",
+  "status": "open",
+  "title": "Simplify boolean comparison",
+  "summary": "Replace explicit boolean equality with direct truthiness.",
+  "priority": "low",
+  "source_reference": "issue-1"
+}
+```
+
+</details>
+
+## In Progress
+
+No items.
+
+## Merge Requests Opened
+
+No items.
+
+## Completed
+
+No items.
+
+## Merge Request Reviews
+
+No items.
+
+## Rejected Or Ignored
+
+No items.
+
+## Recent Failures
+
+No items.
+"""
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert document.items_by_id()["sonar:1"].status == "open"
+
+
+def test_parse_accepts_unknown_projection_layout_without_item_blocks() -> None:
+    parser = DashboardParser()
+    body = """# AI Code Ops Work Queue
+
+## Open Candidates
+
+### Future Queue
+
+| Item | Bucket | Confidence | Summary |
+|---|---|---|---|
+| `sonar:1` | Ready | 0.90 | Simplify boolean comparison |
+
+## In Progress
+
+No items.
+
+## Merge Requests Opened
+
+No items.
+
+## Completed
+
+No items.
+
+## Merge Request Reviews
+
+### Future Review Projection
+
+| MR | Queue | Summary |
+|---|---|---|
+| [!77](https://gitlab.example.com/group/project/-/merge_requests/77) | Review | Follow-up summary |
+
+## Rejected Or Ignored
+
+No items.
+
+## Recent Failures
+
+No items.
+"""
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert document.sections[0].items == []
+    assert document.items_by_id() == {}
+
+
+def test_parse_accepts_legacy_dashboard_fixture() -> None:
+    parser = DashboardParser()
+    body = (FIXTURES_DIR / "legacy_workflow_with_dismissed.md").read_text()
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert document.schema_version == 0
+    assert document.items_by_id() == {}
+
+
+def test_parse_accepts_legacy_pre_dismissed_workflow_fixture_with_items() -> None:
+    parser = DashboardParser()
+    body = (FIXTURES_DIR / "legacy_workflow_pre_dismissed_with_items.md").read_text()
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    items = document.items_by_id()
+    assert items["sonar:1"].status == "open"
+    assert items["sonar:2"].status == "in_progress"
+
+
+def test_parse_accepts_legacy_pre_area_workflow_fixture_with_items() -> None:
+    parser = DashboardParser()
+    body = (FIXTURES_DIR / "legacy_workflow_pre_area_with_items.md").read_text()
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    items = document.items_by_id()
+    assert items["sonar:3"].status == "open"
+    assert items["sonar:4"].status == "failed"
+
+
+def test_parse_accepts_legacy_review_history_fixture_with_items() -> None:
+    parser = DashboardParser()
+    body = (FIXTURES_DIR / "legacy_review_history_with_items.md").read_text()
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    items = document.items_by_id()
+    assert items["mr-review:77:abc123def456"].review_status == "findings_present"
+    assert items["mr-review:77:abc123def456"].review_findings_count == 2
 
 
 def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:
@@ -1350,7 +1592,8 @@ def test_rendered_dashboard_body_includes_schema_marker_and_policy_sections() ->
         sections=[DashboardSection(key="open_candidates", title="Open Candidates", items=[])],
     )
 
-    assert "<!-- zeroone-ops:dashboard-schema:v1 -->" in body
+    assert "<!-- zeroone-ops:dashboard-schema:v2 -->" in body
+    assert "zeroone-dashboard-manifest" in body
     assert "## Automation Severity Policy" in body
     assert "## Excluded Issue Classes" in body
     assert "## Issue Class Inventory" in body
@@ -1552,6 +1795,7 @@ def test_parse_treats_missing_schema_marker_as_legacy_v0() -> None:
     body = renderer.render(
         title="AI Code Ops Work Queue",
         sections=[DashboardSection(key="open_candidates", title="Open Candidates", items=[])],
+        schema_version=1,
     )
     legacy_body = "\n".join(body.splitlines()[2:]) + "\n"
 
@@ -1564,3 +1808,291 @@ def test_parse_treats_missing_schema_marker_as_legacy_v0() -> None:
     )
 
     assert document.schema_version == 0
+
+
+def test_parse_accepts_current_schema_dashboard_without_manifest_for_transition() -> None:
+    parser = DashboardParser()
+    body = """<!-- zeroone-ops:dashboard-schema:v2 -->
+
+Machine-managed remediation and review items for this repository.
+
+## Automation Severity Policy
+
+| Severity | Automation Status | Reason |
+|---|---|---|
+| `low` | eligible for automation | - |
+| `medium` | eligible for automation | - |
+| `high` | blocked by severity policy | configured default |
+
+## Excluded Issue Classes
+
+No items.
+
+## Issue Class Inventory
+
+No items.
+
+## Operator Policy Actions
+
+Use strict dashboard issue comments with the exact `/zeroone policy` prefix.
+
+| Action | Command |
+|---|---|
+
+Direct markdown edits and raw checkbox changes in this dashboard are display-only
+and do not mutate operator policy.
+
+## Open Candidates
+
+### Overview
+
+| Open | In progress | MR opened | Failed | Done |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+
+### Queue Auto-fix
+
+No items.
+
+### Needs Review
+
+No items.
+
+### In Flight
+
+No items.
+
+### Completed
+
+No items.
+
+### Dismissed
+
+No items.
+
+### Work Type Breakdown
+
+No items.
+"""
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert document.schema_version == 2
+    assert document.sections[0].items == []
+
+
+def test_parse_rejects_manifest_mismatch() -> None:
+    parser = DashboardParser()
+    body = """<!-- zeroone-ops:dashboard-schema:v2 -->
+
+Machine-managed remediation and review items for this repository.
+
+<details>
+<summary><code>zeroone-dashboard-manifest</code> machine state</summary>
+
+```json
+{
+  "section_item_counts": {
+    "completed": 0,
+    "in_progress": 0,
+    "merge_request_reviews": 0,
+    "merge_requests_opened": 0,
+    "open_candidates": 99,
+    "recent_failures": 0,
+    "rejected_or_ignored": 0
+  },
+  "total_item_count": 99,
+  "workflow_item_count": 99
+}
+```
+
+</details>
+
+## Automation Severity Policy
+
+| Severity | Automation Status | Reason |
+|---|---|---|
+| `low` | eligible for automation | - |
+| `medium` | eligible for automation | - |
+| `high` | blocked by severity policy | configured default |
+
+## Excluded Issue Classes
+
+No items.
+
+## Issue Class Inventory
+
+No items.
+
+## Operator Policy Actions
+
+Use strict dashboard issue comments with the exact `/zeroone policy` prefix.
+
+| Action | Command |
+|---|---|
+
+Direct markdown edits and raw checkbox changes in this dashboard are display-only
+and do not mutate operator policy.
+
+## Open Candidates
+
+### Overview
+
+| Open | In progress | MR opened | Failed | Done |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+
+### Queue Auto-fix
+
+No items.
+
+### Needs Review
+
+No items.
+
+### In Flight
+
+No items.
+
+### Completed
+
+No items.
+
+### Dismissed
+
+No items.
+
+### Work Type Breakdown
+
+No items.
+"""
+
+    try:
+        parser.parse(
+            issue_id=10,
+            issue_iid=11,
+            issue_url="https://gitlab.example.com/group/project/-/issues/11",
+            title="AI Code Ops Work Queue",
+            body=body,
+        )
+    except DashboardParseError as error:
+        assert "manifest did not match" in str(error)
+    else:
+        raise AssertionError("Expected DashboardParseError for manifest mismatch.")
+
+
+def test_parse_rejects_manifest_era_dashboard_without_schema_marker() -> None:
+    parser = DashboardParser()
+    body = """Machine-managed remediation and review items for this repository.
+
+<details>
+<summary><code>zeroone-dashboard-manifest</code> machine state</summary>
+
+```json
+{
+  "section_item_counts": {
+    "completed": 0,
+    "in_progress": 0,
+    "merge_request_reviews": 0,
+    "merge_requests_opened": 0,
+    "open_candidates": 0,
+    "recent_failures": 0,
+    "rejected_or_ignored": 0
+  },
+  "total_item_count": 0,
+  "workflow_item_count": 0
+}
+```
+
+</details>
+
+## Automation Severity Policy
+
+| Severity | Automation Status | Reason |
+|---|---|---|
+| `low` | eligible for automation | - |
+| `medium` | eligible for automation | - |
+| `high` | blocked by severity policy | configured default |
+
+## Excluded Issue Classes
+
+No items.
+
+## Issue Class Inventory
+
+No items.
+
+## Operator Policy Actions
+
+Use strict dashboard issue comments with the exact `/zeroone policy` prefix.
+
+| Action | Command |
+|---|---|
+
+Direct markdown edits and raw checkbox changes in this dashboard are display-only
+and do not mutate operator policy.
+
+## Open Candidates
+
+### Overview
+
+| Open | In progress | MR opened | Failed | Done |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+
+### Queue Auto-fix
+
+No items.
+
+### Needs Review
+
+No items.
+
+### In Flight
+
+No items.
+
+### Completed
+
+No items.
+
+### Dismissed
+
+No items.
+
+### Work Type Breakdown
+
+No items.
+"""
+
+    try:
+        parser.parse(
+            issue_id=10,
+            issue_iid=11,
+            issue_url="https://gitlab.example.com/group/project/-/issues/11",
+            title="AI Code Ops Work Queue",
+            body=body,
+        )
+    except DashboardParseError as error:
+        assert "schema marker was missing" in str(error)
+    else:
+        raise AssertionError("Expected DashboardParseError for missing schema marker.")
+
+
+def test_render_older_schema_version_does_not_emit_manifest_block() -> None:
+    renderer = DashboardRenderer()
+
+    body = renderer.render(
+        title="AI Code Ops Work Queue",
+        sections=[DashboardSection(key="open_candidates", title="Open Candidates", items=[])],
+        schema_version=1,
+    )
+
+    assert "<!-- zeroone-ops:dashboard-schema:v1 -->" in body
+    assert "zeroone-dashboard-manifest" not in body

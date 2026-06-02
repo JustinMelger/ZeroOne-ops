@@ -742,6 +742,84 @@ support:
 - process one dashboard issue per run and prefer deterministic summaries over
   background polling
 
+### 9.12 Dashboard Schema Evolution Hardening
+
+The dashboard renderer and parser should now assume that live dashboard bodies
+may outlast any one formatting revision.
+
+Design principle:
+
+- GitLab markdown remains the operator UI
+- structured dashboard blocks remain the canonical workflow state
+- human-readable summaries are projections that may evolve without changing
+  stored meaning
+
+The safer technical model is:
+
+- stable machine-readable dashboard blocks are canonical
+- human-readable workflow tables are projections over that canonical state
+- parser compatibility should be maintained across current and prior live
+  layouts rather than assuming renderer and parser always change in lockstep
+
+Recommended technical rules:
+
+- keep an explicit schema marker or versioned machine block contract whenever
+  the dashboard shape changes materially
+- prefer additive changes, such as optional sections, optional columns, or new
+  machine blocks, over destructive renames or abrupt summary replacement
+- parse older live bodies into the current in-memory dashboard model before
+  rewriting them in the newest format
+- keep summary parsing tolerant and secondary so machine-readable recovery does
+  not depend on exact markdown headings or table wording
+- treat unsupported or ambiguous shapes as conservative failures rather than as
+  opportunities for best-effort guessing
+
+The migration path should therefore be deliberate:
+
+1. parse older dashboard bodies as long as they still match a supported live
+   layout
+2. normalize them into the canonical in-memory dashboard model
+3. rewrite them using the latest renderer format
+
+Regression coverage should also keep representative historical dashboard bodies
+as fixtures so renderer or parser changes prove:
+
+- older live layouts still load safely
+- current layouts still round-trip correctly
+- capped or projected summary views do not lose canonical machine state
+
+Recommended incremental hardening path:
+
+1. ensure every workflow item can be recovered from structured dashboard blocks
+   alone
+2. reduce parser dependence on human-readable summary headings, columns, and
+   bucket wording wherever structured blocks already carry the same meaning
+3. keep the renderer projection-only so overview tables, workflow buckets, and
+   review-history summaries are always derived from canonical structured state
+4. treat summary parsing increasingly as compatibility and sanity-check logic
+   rather than as the primary recovery path
+5. add historical live-dashboard fixtures for every real parse regression so
+   schema evolution hardening is driven by observed failures instead of memory
+   alone
+
+The practical goal is that the dashboard should remain recoverable even if a
+future summary layout is replaced entirely, as long as the structured blocks
+remain intact.
+
+Recommended later integrity direction:
+
+- add one top-level machine-managed dashboard manifest block
+- keep that manifest focused on integrity metadata such as section counts,
+  workflow projection counts, or similar canonical totals
+- validate structured item recovery against the manifest on load
+- avoid reintroducing tight markdown coupling by using the manifest, not the
+  human-readable summary tables, for stronger integrity checks
+
+This would preserve the design principle more cleanly than trying to infer
+state loss from changing markdown projections. It keeps the integrity contract
+inside machine-managed state while allowing summary layouts to evolve more
+freely.
+
 ## 10. Migration Strategy
 
 The rollout should stay dashboard-first before live launch.

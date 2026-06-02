@@ -83,13 +83,54 @@ Shipped baseline:
 - keep bounded repair parked as a later option only if live validator
   downgrade patterns prove there are narrow safe repair classes
 
-### 4. Cleanup
+### 4. Dashboard Schema Hardening
+
+The next dashboard work should focus on making future renderer changes safer
+rather than on adding more operator-facing board features first.
+
+- [x] Phase 1: Structured Blocks As Recovery Truth
+
+- make structured dashboard blocks sufficient for workflow-state recovery
+- identify any remaining parser paths that still require summary markdown for
+  canonical meaning
+
+- [x] Phase 2: Summary Parsing Reduction
+
+- reduce parser dependence on human-readable summary headings, columns, and
+  bucket wording wherever structured blocks already carry the same meaning
+- keep summary parsing focused on compatibility and sanity checks instead of
+  primary state recovery
+
+- [x] Phase 3: Projection-Only Renderer Contract
+
+- keep renderer output projection-only so workflow buckets, review history, and
+  overview tables remain replaceable views over canonical state
+- avoid introducing new renderer-owned meaning that must round-trip through
+  markdown summaries
+
+- [x] Phase 4: Historical Dashboard Fixtures
+
+- add historical live-dashboard fixtures for real parse regressions and older
+  shipped layouts
+- use them to prove safe parse, normalize, and rewrite behavior across schema
+  evolution
+
+- [x] Phase 5: Machine Manifest Integrity Contract
+
+- add a top-level machine-managed dashboard manifest for integrity checks such
+  as section counts or projection counts
+- validate canonical structured item state against that manifest on load instead
+  of re-tightening parser dependence on markdown summaries
+- use that manifest to make dashboard rewrite safety more explicit without
+  turning human-readable tables back into a source of truth
+
+### 5. Cleanup
 
 - continue small codebase and docs cleanup where it improves operator or
   maintainer clarity
 - keep these slices behavior-neutral unless a real rollout issue is being fixed
 
-### 5. Dashboard Workflow Hardening
+### 6. Dashboard Workflow Refinement
 
 The first dashboard hardening pass is now shipped.
 

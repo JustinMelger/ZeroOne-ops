@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-CURRENT_DASHBOARD_SCHEMA_VERSION = 1
+CURRENT_DASHBOARD_SCHEMA_VERSION = 2
 DASHBOARD_SCHEMA_MARKER = (
     f"<!-- zeroone-ops:dashboard-schema:v{CURRENT_DASHBOARD_SCHEMA_VERSION} -->"
 )
@@ -127,6 +127,14 @@ class DashboardPolicyState(BaseModel):
     issue_class_exclusions: list[DashboardIssueClassPolicyStateEntry] = Field(default_factory=list)
 
 
+class DashboardManifest(BaseModel):
+    """Represent the machine-managed dashboard integrity manifest."""
+
+    section_item_counts: dict[DashboardSectionKey, int] = Field(default_factory=dict)
+    workflow_item_count: int = 0
+    total_item_count: int = 0
+
+
 class DashboardItem(BaseModel):
     """Represent one structured dashboard item."""
 
@@ -189,6 +197,7 @@ class DashboardDocument(BaseModel):
     title: str
     sections: list[DashboardSection]
     schema_version: int = CURRENT_DASHBOARD_SCHEMA_VERSION
+    manifest: DashboardManifest | None = None
     policy_state: DashboardPolicyState = Field(default_factory=DashboardPolicyState)
     policy_view: DashboardPolicyView = Field(default_factory=DashboardPolicyView)
 
@@ -217,3 +226,17 @@ def section_key_for_item(item: DashboardItem) -> DashboardSectionKey:
 def empty_sections() -> list[DashboardSection]:
     """Build empty sections in deterministic order."""
     return [DashboardSection(key=key, title=SECTION_TITLES[key], items=[]) for key in SECTION_ORDER]
+
+
+def build_dashboard_manifest(sections: list[DashboardSection]) -> DashboardManifest:
+    """Build the canonical dashboard integrity manifest from sections."""
+    section_item_counts = {section.key: len(section.items) for section in sections}
+    workflow_item_count = sum(
+        count for key, count in section_item_counts.items() if key != "merge_request_reviews"
+    )
+    total_item_count = sum(section_item_counts.values())
+    return DashboardManifest(
+        section_item_counts=section_item_counts,
+        workflow_item_count=workflow_item_count,
+        total_item_count=total_item_count,
+    )
