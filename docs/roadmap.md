@@ -83,54 +83,54 @@ Shipped baseline:
 - keep bounded repair parked as a later option only if live validator
   downgrade patterns prove there are narrow safe repair classes
 
-### 4. Dashboard Schema Hardening
+#### Review Hardening Slices
 
-The next dashboard work should focus on making future renderer changes safer
-rather than on adding more operator-facing board features first.
+- [ ] Phase 1: Stable Finding Identity Hardening
 
-- [x] Phase 1: Structured Blocks As Recovery Truth
+- strengthen repeated-finding continuity across review passes
+- reduce duplicates caused by wording drift before expanding publish surfaces
 
-- make structured dashboard blocks sufficient for workflow-state recovery
-- identify any remaining parser paths that still require summary markdown for
-  canonical meaning
+- [ ] Phase 2: Published Output Hygiene
 
-- [x] Phase 2: Summary Parsing Reduction
+- tighten precision-stage prompts so published findings stay concise and
+  operator-facing
+- reduce overlong review text without treating it as a validator failure class
 
-- reduce parser dependence on human-readable summary headings, columns, and
-  bucket wording wherever structured blocks already carry the same meaning
-- keep summary parsing focused on compatibility and sanity checks instead of
-  primary state recovery
+- [ ] Phase 3: Persist Review Location And Comment Metadata
 
-- [x] Phase 3: Projection-Only Renderer Contract
+- extend persisted review state with the location and inline-comment metadata
+  needed for continuity-safe reuse
+- keep the summary note as the authoritative review-pass record
 
-- keep renderer output projection-only so workflow buckets, review history, and
-  overview tables remain replaceable views over canonical state
-- avoid introducing new renderer-owned meaning that must round-trip through
-  markdown summaries
+- [ ] Phase 4: Identity And Duplicate-Comment Checks
 
-- [x] Phase 4: Historical Dashboard Fixtures
+- reuse canonical finding identity for inline-comment continuity checks
+- avoid posting a second near-duplicate inline comment when the same finding
+  already has a trusted anchor on the latest relevant authoritative pass
 
-- add historical live-dashboard fixtures for real parse regressions and older
-  shipped layouts
-- use them to prove safe parse, normalize, and rewrite behavior across schema
-  evolution
+- [ ] Phase 5: Trusted Location Validation
 
-- [x] Phase 5: Machine Manifest Integrity Contract
+- enforce the trusted/weak/untrusted location rubric in application code
+- allow inline publication only for trusted locations
 
-- add a top-level machine-managed dashboard manifest for integrity checks such
-  as section counts or projection counts
-- validate canonical structured item state against that manifest on load instead
-  of re-tightening parser dependence on markdown summaries
-- use that manifest to make dashboard rewrite safety more explicit without
-  turning human-readable tables back into a source of truth
+- [ ] Phase 6: Config Flag And Disabled-By-Default Rollout
 
-### 5. Cleanup
+- add a review config flag for inline comments
+- keep it off by default in repo config so implementation can ship before
+  default enablement
+
+- [ ] Phase 7: Shadow Validation And Live Enablement
+
+- validate the behavior on real review runs before broad enablement
+- enable per repo only after identity and location trust look good in practice
+
+### 4. Cleanup
 
 - continue small codebase and docs cleanup where it improves operator or
   maintainer clarity
 - keep these slices behavior-neutral unless a real rollout issue is being fixed
 
-### 6. Dashboard Workflow Refinement
+### 5. Dashboard Workflow Refinement
 
 The first dashboard hardening pass is now shipped.
 
@@ -157,6 +157,12 @@ Next feedback-driven refinements:
 - service-domain cleanup
 - service-test-domain cleanup
 - internal package rename to `zeroone_ops`
+- dashboard schema hardening:
+  - structured-block recovery truth
+  - summary parsing reduction
+  - projection-only renderer contract
+  - historical dashboard fixtures
+  - machine manifest integrity contract
 
 ## Future Tracks
 

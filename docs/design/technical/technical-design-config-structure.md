@@ -103,6 +103,7 @@ Keep review-specific behavior here:
 - draft-MR handling
 - prior-review retry/feedback limits
 - supported/ignored review paths
+- later review publish-surface flags such as inline-comment enablement
 
 ### `remediation`
 
@@ -233,7 +234,8 @@ Why:
     "supported_paths": ["src/", "app/"],
     "ignored_paths": ["src/generated/"],
     "skip_draft_merge_requests": true,
-    "max_review_feedback_retries": 1
+    "max_review_feedback_retries": 1,
+    "inline_comments_enabled": false
   },
   "remediation": {
     "bootstrap_severities": ["LOW", "MEDIUM", "HIGH"],
@@ -257,6 +259,28 @@ Why:
 - add nested `remediation` and `sonarqube` config models
 - teach settings loading to accept both old flat keys and new nested keys
 - prefer nested keys when both are present
+
+## 12. Review Inline Comment Feature Flag
+
+If inline comments are added later, they should be gated by repo config inside
+the existing `review` block rather than by a separate ad hoc runtime flag.
+
+Recommended field:
+
+- `review.inline_comments_enabled`
+
+Recommended first behavior:
+
+- default `false`
+- when `false`, publish summary notes only
+- when `true`, allow inline comments only for findings whose locations pass the
+  trusted-location validation checks
+
+This keeps:
+
+- the implementation shippable before broad enablement
+- rollout controllable per repository
+- summary-note-authoritative behavior unchanged by default
 
 ### Phase 2: Internal Usage Cleanup
 
