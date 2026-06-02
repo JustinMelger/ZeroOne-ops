@@ -60,10 +60,8 @@ Authority note:
 - operators should change ongoing severity policy through strict
   `/zeroone policy ...` dashboard comments
 
-Legacy flat keys still work during migration, but new repository rollouts
-should use the nested shape. Legacy nested or flat `supported_severities`
-still load during migration, but new repository rollouts should use
-`bootstrap_severities`.
+Compatibility aliases still work during migration, but new repository
+rollouts should use the nested shape and `bootstrap_severities`.
 
 The bot currently excludes rename-style issues by design. Rename changes need
 symbol-reference safety checks that are not part of v1 yet.

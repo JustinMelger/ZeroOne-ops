@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from zeroone_ops.models.analysis import IssueAnalysis, PatchProposal, StructuredEditProposal
-from zeroone_ops.providers.llm_client import _write_solution_file
+from zeroone_ops.utils.solution_artifacts import write_solution_artifact
 
 
 class SolutionArtifactService:
@@ -36,7 +36,7 @@ class SolutionArtifactService:
         """Persist issue analysis when artifact output is enabled."""
         if self.output_path is None:
             return
-        _write_solution_file(
+        write_solution_artifact(
             self.output_path,
             issue_key=issue_key,
             analysis=analysis,
@@ -46,7 +46,7 @@ class SolutionArtifactService:
         """Persist rendered patch metadata when artifact output is enabled."""
         if self.output_path is None:
             return
-        _write_solution_file(
+        write_solution_artifact(
             self.output_path,
             issue_key=issue_key,
             patch=patch,
@@ -62,7 +62,7 @@ class SolutionArtifactService:
         """Persist structured edit data when artifact output is enabled."""
         if self.output_path is None:
             return
-        _write_solution_file(
+        write_solution_artifact(
             self.output_path,
             issue_key=issue_key,
             structured_edit=structured_edit,
@@ -72,7 +72,7 @@ class SolutionArtifactService:
         """Persist manual-classification rejection when artifact output is enabled."""
         if self.output_path is None:
             return
-        _write_solution_file(
+        write_solution_artifact(
             self.output_path,
             issue_key=issue_key,
             decision="rejected",

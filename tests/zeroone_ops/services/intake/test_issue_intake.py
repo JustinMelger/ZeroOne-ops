@@ -25,7 +25,7 @@ def build_config(
         validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
-            supported_severities=["MAJOR"],
+            bootstrap_severities=["MAJOR"],
             analysis=AnalysisConfig(),
         ),
         gitlab=GitLabConfig(target_branch="main"),

@@ -1,10 +1,10 @@
 from pathlib import Path
 
 from zeroone_ops.models.analysis import AnalysisClassification, IssueAnalysis, PatchProposal
-from zeroone_ops.providers.llm_client import _write_solution_file
+from zeroone_ops.utils.solution_artifacts import write_solution_artifact
 
 
-def test_write_solution_file_persists_analysis_and_patch(tmp_path: Path) -> None:
+def test_write_solution_artifact_persists_analysis_and_patch(tmp_path: Path) -> None:
     output_path = tmp_path / "artifacts" / "openai-solution.json"
     analysis = IssueAnalysis(
         issue_key="AX1",
@@ -23,8 +23,8 @@ def test_write_solution_file_persists_analysis_and_patch(tmp_path: Path) -> None
         mr_description="summary",
     )
 
-    _write_solution_file(output_path, issue_key="AX1", analysis=analysis)
-    _write_solution_file(output_path, issue_key="AX1", patch=patch)
+    write_solution_artifact(output_path, issue_key="AX1", analysis=analysis)
+    write_solution_artifact(output_path, issue_key="AX1", patch=patch)
 
     payload = output_path.read_text(encoding="utf-8")
 
@@ -34,7 +34,7 @@ def test_write_solution_file_persists_analysis_and_patch(tmp_path: Path) -> None
     assert '"mr_title": "fix: update service"' in payload
 
 
-def test_write_solution_file_can_record_rejection_and_clear_patch(tmp_path: Path) -> None:
+def test_write_solution_artifact_can_record_rejection_and_clear_patch(tmp_path: Path) -> None:
     output_path = tmp_path / "artifacts" / "openai-solution.json"
     patch = PatchProposal(
         issue_key="AX1",
@@ -45,8 +45,8 @@ def test_write_solution_file_can_record_rejection_and_clear_patch(tmp_path: Path
         mr_description="summary",
     )
 
-    _write_solution_file(output_path, issue_key="AX1", patch=patch)
-    _write_solution_file(
+    write_solution_artifact(output_path, issue_key="AX1", patch=patch)
+    write_solution_artifact(
         output_path,
         issue_key="AX1",
         decision="rejected",

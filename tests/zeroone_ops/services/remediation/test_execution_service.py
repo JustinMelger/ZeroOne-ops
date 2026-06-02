@@ -24,10 +24,10 @@ def build_config(*, execution_mode: str = "local") -> AppConfig:
         validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
-            supported_severities=["MAJOR"],
+            bootstrap_severities=["MAJOR"],
             analysis=AnalysisConfig(),
         ),
-        gitlab=GitLabConfig(target_branch="main", labels=["ai-sonar-bot"]),
+        gitlab=GitLabConfig(target_branch="main", labels=["zeroone-ops"]),
     )
 
 

@@ -76,7 +76,7 @@ class PublishService:
                 )
             created_mr = merge_request_service.create(
                 project_id=gitlab_config.project_id,
-                source_branch=branch_name,
+                source_branch=pushed_branch,
                 target_branch=self.config.gitlab.target_branch,
                 title=self.build_mr_title(
                     selected_issue=selected_issue,
@@ -91,7 +91,7 @@ class PublishService:
         except (BranchManagerError, GitLabClientError, RuntimeError) as error:
             return PublishResult(error_message=f"Publish failed: {error}")
         return PublishResult(
-            branch_name=branch_name,
+            branch_name=pushed_branch,
             mr_url=created_mr.web_url,
             mr_action="created",
         )
