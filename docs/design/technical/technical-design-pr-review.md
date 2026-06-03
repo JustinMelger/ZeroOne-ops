@@ -444,23 +444,55 @@ class MergeRequestReviewState(BaseModel):
     updated_at: datetime
 ```
 
-Later inline-comment support should persist bounded comment metadata in a
-GitLab-backed recoverable form rather than treating comment text as continuity
-state.
+Later inline-comment support should persist bounded comment metadata in the
+authoritative summary note's machine-safe payload rather than treating comment
+text as continuity state.
 
-Suggested first shape:
+Recommended first embedded contract:
 
-```python
-class InlineReviewCommentState(BaseModel):
-    comment_id: str
-    comment_url: str | None = None
-    authoritative_note_id: int
-    reviewed_head_sha: str
-    finding_identity: str
-    file_path: str
-    line_start: int | None = None
-    line_end: int | None = None
+```json
+{
+  "reviewed_head_sha": "abc123",
+  "note_id": 456,
+  "findings": [
+    {
+      "number": 1,
+      "identity": "src/service.py::null-check-missing",
+      "file_path": "src/service.py",
+      "line_start": 42,
+      "line_end": 42,
+      "region_hint": "guard clause before parse",
+      "inline_comment": {
+        "comment_id": "789",
+        "comment_url": "https://gitlab.example.com/...",
+        "status": "published",
+        "anchor_file_path": "src/service.py",
+        "anchor_line_start": 42,
+        "anchor_line_end": 42
+      }
+    }
+  ]
+}
 ```
+
+Recommended modeling rules:
+
+- inline comment metadata is nested under each finding, not stored in a
+  separate global registry
+- each finding carries zero or one inline comment metadata block in the first
+  version
+- canonical finding `identity` remains the reuse and deduplication key
+- published anchor fields are stored separately from the finding's current
+  location fields so later anchor drift is easier to reason about
+
+Important distinction:
+
+- finding identity answers whether this is the same underlying concern
+- inline anchor answers whether the earlier inline comment location is still
+  reusable
+
+The same finding identity may survive across passes even when the trusted line
+range or diff anchor shifts.
 
 This keeps inline comments subordinate to:
 
@@ -472,8 +504,14 @@ Recommended persistence rule:
 
 - the authoritative summary note's machine-safe payload should remain the
   recoverable source of truth in CI-backed runs
-- local review state may cache the same metadata later, but should not be the
-  only place continuity-critical inline-comment metadata lives
+- local review state should mirror the same inline-comment metadata so the
+  system can move that state to another backend later without changing the
+  continuity contract
+- local review state must not be the only place continuity-critical
+  inline-comment metadata lives
+- developer-resolved inline comments may be observed later as advisory context,
+  but they must not by themselves clear or resolve a finding without a new
+  review pass over the code
 
 ## 9. Review Hardening Extension
 
@@ -485,6 +523,7 @@ pipeline while tightening three contracts:
 - summary note remains authoritative
 - inline comments are additive
 - only trusted diff-anchored findings may publish inline
+- inline comments should be shorter and tighter than summary-note findings
 - weakly anchored findings remain summary-only
 - inline comments do not become separate continuity authorities
 - every inline comment belongs to the same reviewed SHA and authoritative
@@ -514,6 +553,28 @@ Recommended first duplicate-avoidance rule:
 - prefer summary-note continuity wording unless the earlier anchor is no longer
   valid and a new trusted anchor is available
 
+Recommended first anchor-reuse order:
+
+1. same canonical finding identity
+2. same file and same local region, such as `region_hint`, symbol, or clearly
+   equivalent code area
+3. overlapping line range or only small line drift from the earlier anchor
+
+If that sequence breaks at identity, region, or materially different line
+placement, the earlier inline anchor should not be reused automatically.
+
+Recommended first inline-comment wording shape:
+
+- one compact concern
+- one short why-it-matters sentence when needed
+- optional very short follow-up hint
+
+Avoid:
+
+- long explanatory paragraphs
+- repeated context already present in the summary note
+- internal reasoning or meta-commentary
+
 ### 9.3 Output Hygiene Boundary
 
 The first response to overlong published review text should be prompt-level
@@ -538,20 +599,20 @@ Recommended first behavior:
 - do not treat overlong-but-otherwise-valid review text as a validator failure
   class in the first rollout
 
-### 9.4 Shadow-Mode Rollout
+### 9.4 Feature-Flagged Test Rollout
 
-Before broad enablement, inline-comment publication should support a shadow
-mode.
+Before broad enablement, inline-comment publication should be exercised in a
+feature-flagged test deployment.
 
-Recommended shadow-mode behavior:
+Recommended first behavior:
 
-- compute whether a finding would qualify for inline publication
-- compute whether the comment would be reused or newly created
-- publish the authoritative summary note only
-- log or persist the trust and reuse decision for evaluation
+- keep `review.inline_comments_enabled` off by default
+- enable it only in a bounded test deployment or repository first
+- log trusted versus weak anchor decisions
+- log whether a finding reused an earlier inline comment or created a new one
 
-This gives real-run evidence without turning the first rollout into visible
-comment spam.
+This keeps rollout simple while still giving enough real-run evidence to judge
+anchor trust and duplicate-comment behavior.
 
 ## 9. Review Note Design
 

@@ -276,6 +276,7 @@ Recommended transport rule:
 
 - `trusted` -> inline comment may be published
 - `weak` or `untrusted` -> summary-note rendering only
+- inline comments should use a stricter brevity rule than summary-note findings
 
 The application should prefer under-publishing inline comments over posting a
 comment on the wrong line.
@@ -307,26 +308,30 @@ Follow-up publish check:
 - if so, avoid posting a duplicate inline comment by default
 - only publish a new inline comment when the previous anchor is no longer
   suitable and the new pass has a newly trusted location
+- same identity does not automatically mean the earlier inline anchor is still
+  reusable; anchor reuse should be checked separately from finding continuity
+- first reuse check order should be:
+  - identity
+  - region
+  - line drift
+- if a developer marked the earlier inline comment resolved, treat that as an
+  advisory signal only; the next review pass still decides whether the concern
+  is actually resolved
 
-### 6.3 Shadow-Mode Validation
+### 6.3 Feature-Flagged Test Validation
 
-The first rollout should support a shadow mode for inline comments.
+The first rollout should use a feature-flagged test deployment rather than a
+separate shadow mode.
 
-In shadow mode, the publish path should still:
+In that test rollout, the publish path should still log:
 
-- evaluate trusted versus weak location status
-- decide whether a finding would reuse or create an inline comment
-- associate that hypothetical comment with the authoritative summary note,
-  reviewed SHA, and canonical finding identity
-- keep those decisions recoverable from GitLab-backed machine-managed review
-  state when they become continuity-relevant later
+- trusted versus weak location status
+- whether a finding reused or created an inline comment
+- the authoritative summary note, reviewed SHA, and canonical finding identity
+  attached to that decision
 
-But it should publish:
-
-- the authoritative summary note only
-
-This keeps real-run validation available before the feature flag is enabled on
-live repositories.
+This keeps real-run validation available without introducing an additional
+operating mode beyond the feature flag.
 
 ## 7. Reconciled Final Artifact Contract
 
@@ -708,6 +713,8 @@ Recommended observability contract:
 - record a bounded per-run diagnostic artifact for internal use only,
 - keep it separate from developer-facing MR notes and bounded machine-safe
   publish payloads,
+- emit compact structured diagnostic lines in CI logs so feature-flagged test
+  rollouts can be inspected without extra tooling,
 - use it to compare same-SHA reruns across:
   - candidate generation drift,
   - grounding drift,
@@ -724,8 +731,29 @@ class ReviewRunDiagnostics(BaseModel):
     grounding_dropped_candidates: list[DroppedCandidate]
     precision_accepted_candidate_ids: list[str]
     precision_dropped_candidates: list[DroppedCandidate]
+    inline_comment_decisions: list[InlineCommentDecision]
     final_published_finding_summaries: list[str]
     final_classification: ReviewClassification
+```
+
+Suggested inline-comment decision shape:
+
+```python
+class InlineCommentDecision(BaseModel):
+    finding_identity: str
+    severity: ReviewFindingSeverity
+    file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
+    region_hint: str | None = None
+    inline_comments_enabled: bool
+    location_trust: Literal["trusted", "weak", "untrusted"]
+    existing_inline_comment_found: bool
+    anchor_reuse_decision: Literal["reuse", "new", "summary_only"]
+    anchor_reuse_reason: str
+    authoritative_note_id: int | None = None
+    existing_comment_id: str | None = None
+    new_comment_id: str | None = None
 ```
 
 Suggested usage:
@@ -734,7 +762,9 @@ Suggested usage:
 - identify whether a concern disappeared during candidate generation,
   grounding, or precision,
 - identify whether a grounded-but-invalid concern was incorrectly promoted by
-  precision.
+  precision,
+- inspect trusted vs weak anchor decisions and reused vs new inline-comment
+  outcomes during feature-flagged test rollouts.
 
 Current limitation:
 

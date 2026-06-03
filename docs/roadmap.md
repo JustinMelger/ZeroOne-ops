@@ -119,9 +119,12 @@ Shipped baseline:
 - keep it off by default in repo config so implementation can ship before
   default enablement
 
-- [ ] Phase 7: Shadow Validation And Live Enablement
+- [ ] Phase 7: Test Deployment Validation And Live Enablement
 
-- validate the behavior on real review runs before broad enablement
+- validate the behavior in a feature-flagged test deployment before broad
+  enablement
+- log trusted vs weak anchor decisions and reused vs new inline-comment
+  outcomes for evaluation
 - enable per repo only after identity and location trust look good in practice
 
 ### 4. Cleanup
