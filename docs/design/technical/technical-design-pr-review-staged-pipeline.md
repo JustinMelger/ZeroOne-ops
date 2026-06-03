@@ -277,6 +277,8 @@ Recommended transport rule:
 - `trusted` -> inline comment may be published
 - `weak` or `untrusted` -> summary-note rendering only
 - inline comments should use a stricter brevity rule than summary-note findings
+- first-version inline publication should stay limited to trusted `medium` /
+  `high` findings
 
 The application should prefer under-publishing inline comments over posting a
 comment on the wrong line.
@@ -314,6 +316,8 @@ Follow-up publish check:
   - identity
   - region
   - line drift
+- the first version should treat line drift as reusable only when the ranges
+  overlap or move by at most 3 lines
 - if a developer marked the earlier inline comment resolved, treat that as an
   advisory signal only; the next review pass still decides whether the concern
   is actually resolved
@@ -329,6 +333,7 @@ In that test rollout, the publish path should still log:
 - whether a finding reused or created an inline comment
 - the authoritative summary note, reviewed SHA, and canonical finding identity
   attached to that decision
+- one compact run-level inline-comment summary
 
 This keeps real-run validation available without introducing an additional
 operating mode beyond the feature flag.
@@ -755,6 +760,16 @@ class InlineCommentDecision(BaseModel):
     existing_comment_id: str | None = None
     new_comment_id: str | None = None
 ```
+
+Recommended first logging shape in CI:
+
+- one structured `InlineCommentDecision` line per evaluated finding
+- one compact per-run summary with:
+  - candidates considered
+  - comments published
+  - comments reused
+  - comments skipped for untrusted location
+  - comments skipped for severity threshold
 
 Suggested usage:
 

@@ -68,6 +68,8 @@ def test_parse_note_rebuilds_findings_present_pass() -> None:
     assert result.prior_review_pass.note_url is not None
     assert result.prior_review_pass.findings[0].summary == "src/service.py: Missing test coverage"
     assert result.prior_review_pass.findings[0].severity == "medium"
+    assert result.prior_review_pass.findings[0].file_path == "src/service.py"
+    assert result.prior_review_pass.findings[0].title == "Missing test coverage"
     assert result.prior_review_pass.findings[0].identity == (
         "src/service.py::coverage_gap::service-run::changed-branch"
     )

@@ -85,7 +85,7 @@ Shipped baseline:
 
 #### Review Hardening Slices
 
-- [ ] Phase 1: Stable Finding Identity Hardening
+- [x] Phase 1: Stable Finding Identity Hardening
 
 - strengthen repeated-finding continuity across review passes
 - reduce duplicates caused by wording drift before expanding publish surfaces
@@ -107,11 +107,13 @@ Shipped baseline:
 - reuse canonical finding identity for inline-comment continuity checks
 - avoid posting a second near-duplicate inline comment when the same finding
   already has a trusted anchor on the latest relevant authoritative pass
+- keep inline publication to one comment max per finding in the first version
 
 - [ ] Phase 5: Trusted Location Validation
 
 - enforce the trusted/weak/untrusted location rubric in application code
-- allow inline publication only for trusted locations
+- allow inline publication only for trusted `medium` / `high` findings
+- reuse anchors only when line ranges overlap or drift by at most 3 lines
 
 - [ ] Phase 6: Config Flag And Disabled-By-Default Rollout
 
@@ -125,6 +127,9 @@ Shipped baseline:
   enablement
 - log trusted vs weak anchor decisions and reused vs new inline-comment
   outcomes for evaluation
+- keep diagnostics compact in CI:
+  - one structured decision line per finding
+  - one run-level summary line
 - enable per repo only after identity and location trust look good in practice
 
 ### 4. Cleanup

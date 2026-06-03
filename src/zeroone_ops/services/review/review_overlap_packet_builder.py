@@ -93,7 +93,7 @@ class OverlapPacketBuilder:
             (index, prior_finding)
             for index, prior_finding in enumerate(prior_findings)
             if prior_finding.legacy_identity is None
-            and self._prior_finding_key(prior_finding.summary) == current_key
+            and self._prior_finding_key(prior_finding) == current_key
         ]
         if exact_key_matches:
             return exact_key_matches
@@ -141,7 +141,7 @@ class OverlapPacketBuilder:
             return ["legacy_identity"]
         if (
             prior_finding.legacy_identity is None
-            and self._prior_finding_key(prior_finding.summary) == current_key
+            and self._prior_finding_key(prior_finding) == current_key
         ):
             return ["exact_summary_key"]
 
@@ -201,25 +201,34 @@ class OverlapPacketBuilder:
             self._normalize_finding_text(summary),
         )
 
-    def _prior_finding_key(self, summary: str) -> tuple[str, str, str] | None:
-        """Build a conservative key for one persisted prior finding summary."""
-        parsed = self._split_prior_summary(summary)
-        if parsed is None:
+    def _prior_finding_key(self, finding: PriorReviewFinding) -> tuple[str, str, str] | None:
+        """Build a conservative key for one persisted prior finding."""
+        file_path = finding.file_path
+        title = finding.title
+        if file_path is None or title is None:
+            parsed = self._split_prior_summary(finding.summary)
+            if parsed is None:
+                return None
+            file_path, title = parsed
+        if not file_path.strip() or not title.strip():
             return None
-        file_path, title = parsed
         return (
             file_path.strip().lower(),
             title.strip().lower(),
-            self._normalize_finding_text(summary),
+            self._normalize_finding_text(f"{file_path}: {title}"),
         )
 
     def _prior_file_path(self, finding: PriorReviewFinding) -> str | None:
         """Extract the normalized file path from one prior finding summary."""
+        if finding.file_path is not None:
+            return finding.file_path
         parsed = self._split_prior_summary(finding.summary)
         return parsed[0] if parsed is not None else None
 
     def _prior_title(self, finding: PriorReviewFinding) -> str | None:
         """Extract the normalized title from one prior finding summary."""
+        if finding.title is not None:
+            return finding.title
         parsed = self._split_prior_summary(finding.summary)
         return parsed[1] if parsed is not None else None
 

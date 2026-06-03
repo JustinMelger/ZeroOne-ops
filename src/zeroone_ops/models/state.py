@@ -178,6 +178,8 @@ class PriorReviewFindingState(BaseModel):
     legacy_identity: str | None = None
     summary: str
     severity: str | None = None
+    file_path: str | None = None
+    title: str | None = None
     symbol: str | None = None
     issue_kind: str | None = None
     region_hint: str | None = None

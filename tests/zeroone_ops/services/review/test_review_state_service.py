@@ -89,6 +89,8 @@ def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
     )
     assert loaded.reviews["17:abc123"].findings[0].summary == "src/service.py: Ordering regression"
     assert loaded.reviews["17:abc123"].findings[0].severity == "medium"
+    assert loaded.reviews["17:abc123"].findings[0].file_path == "src/service.py"
+    assert loaded.reviews["17:abc123"].findings[0].title == "Ordering regression"
     assert loaded.reviews["17:abc123"].findings[0].symbol == "Service.run"
     assert loaded.reviews["17:abc123"].findings[0].issue_kind == "ordering_regression"
     assert loaded.reviews["17:abc123"].findings[0].region_hint == "return-order"
@@ -221,6 +223,8 @@ def test_load_prior_review_context_returns_recent_passes_for_same_mr(tmp_path) -
     assert (
         prior_review_context.passes[0].findings[0].summary == "src/service.py: Ordering regression"
     )
+    assert prior_review_context.passes[0].findings[0].file_path == "src/service.py"
+    assert prior_review_context.passes[0].findings[0].title == "Ordering regression"
     assert prior_review_context.passes[0].findings[0].symbol == "Service.run"
     assert prior_review_context.passes[0].findings[0].issue_kind == "ordering_regression"
     assert prior_review_context.passes[0].findings[0].region_hint == "return-order"
@@ -278,12 +282,20 @@ def test_mark_reviewed_persists_canonical_identity_with_human_summary(tmp_path) 
         "bnl_app/functions/vehicle_functions.py: "
         "Unconditional exception breaks vehicle detail retrieval"
     )
+    assert loaded.reviews["17:abc123"].findings[0].file_path == (
+        "bnl_app/functions/vehicle_functions.py"
+    )
+    assert loaded.reviews["17:abc123"].findings[0].title == (
+        "Unconditional exception breaks vehicle detail retrieval"
+    )
     assert loaded.reviews["17:abc123"].findings[1].identity == (
         "src/service.py::coverage_gap::service-run"
     )
     assert loaded.reviews["17:abc123"].findings[1].summary == (
         "src/service.py: Missing test coverage"
     )
+    assert loaded.reviews["17:abc123"].findings[1].file_path == "src/service.py"
+    assert loaded.reviews["17:abc123"].findings[1].title == "Missing test coverage"
     assert loaded.reviews["17:abc123"].findings[0].symbol == "get_vehicle_details_short"
     assert loaded.reviews["17:abc123"].findings[0].issue_kind == "unconditional_exception"
     assert loaded.reviews["17:abc123"].findings[0].region_hint == "function-entry"
@@ -312,6 +324,8 @@ def test_load_prior_review_context_preserves_mixed_new_and_legacy_finding_state(
                 identity="src/service.py::order-regress",
                 summary="src/service.py: Ordering regression",
                 severity="medium",
+                file_path="src/service.py",
+                title="Ordering regression",
                 symbol="Service.run",
                 issue_kind="ordering_regression",
                 region_hint="return-order",
@@ -338,6 +352,8 @@ def test_load_prior_review_context_preserves_mixed_new_and_legacy_finding_state(
     assert (
         prior_review_context.passes[0].findings[0].summary == "src/service.py: Ordering regression"
     )
+    assert prior_review_context.passes[0].findings[0].file_path == "src/service.py"
+    assert prior_review_context.passes[0].findings[0].title == "Ordering regression"
     assert prior_review_context.passes[0].findings[0].symbol == "Service.run"
     assert prior_review_context.passes[0].findings[0].issue_kind == "ordering_regression"
     assert prior_review_context.passes[0].findings[0].region_hint == "return-order"

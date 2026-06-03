@@ -204,3 +204,43 @@ def test_build_overlap_packet_preserves_ambiguous_same_file_candidates() -> None
             "reasons": ["same_file"],
         },
     ]
+
+
+def test_build_overlap_packet_uses_structured_prior_fields_without_summary_parsing() -> None:
+    prior_finding = _vehicle_details_finding()
+    prior_pass = PriorReviewPass(
+        reviewed_head_sha="prior-sha",
+        classification="findings_present",
+        findings_count=1,
+        summary="Earlier review state.",
+        findings=[
+            PriorReviewFinding(
+                identity=build_review_finding_identity(prior_finding),
+                legacy_identity=build_legacy_review_finding_identity(prior_finding),
+                summary="non parseable prior summary",
+                severity=prior_finding.severity,
+                file_path=prior_finding.file_path,
+                title=prior_finding.title,
+                symbol=prior_finding.symbol,
+                issue_kind=prior_finding.issue_kind,
+                region_hint=prior_finding.region_hint,
+            )
+        ],
+    )
+    packet = OverlapPacketBuilder().build(
+        context=_build_context(prior_pass=prior_pass),
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One finding.",
+            findings=[_vehicle_details_finding()],
+        ),
+    )
+
+    assert packet is not None
+    assert [candidate.model_dump() for candidate in packet.candidates] == [
+        {
+            "current_finding_index": 0,
+            "prior_finding_index": 0,
+            "reasons": ["canonical_identity"],
+        }
+    ]

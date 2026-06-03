@@ -157,6 +157,8 @@ def _parse_prior_review_finding(payload: object) -> PriorReviewFinding | None:
         legacy_identity=build_legacy_review_finding_identity(synthetic_finding),
         summary=summary,
         severity=severity,
+        file_path=file_path,
+        title=title,
         symbol=symbol,
         issue_kind=issue_kind,
         region_hint=region_hint,

@@ -552,13 +552,15 @@ Recommended first duplicate-avoidance rule:
   inline comment by default
 - prefer summary-note continuity wording unless the earlier anchor is no longer
   valid and a new trusted anchor is available
+- publish at most one inline comment per finding in the first version
 
 Recommended first anchor-reuse order:
 
 1. same canonical finding identity
 2. same file and same local region, such as `region_hint`, symbol, or clearly
    equivalent code area
-3. overlapping line range or only small line drift from the earlier anchor
+3. overlapping line range or line drift of at most 3 lines from the earlier
+   anchor
 
 If that sequence breaks at identity, region, or materially different line
 placement, the earlier inline anchor should not be reused automatically.
@@ -610,6 +612,11 @@ Recommended first behavior:
 - enable it only in a bounded test deployment or repository first
 - log trusted versus weak anchor decisions
 - log whether a finding reused an earlier inline comment or created a new one
+- keep inline comments limited to trusted `medium` / `high` findings in the
+  first rollout
+- keep CI diagnostics compact:
+  - one structured inline-comment decision per finding
+  - one run-level inline-comment summary
 
 This keeps rollout simple while still giving enough real-run evidence to judge
 anchor trust and duplicate-comment behavior.
