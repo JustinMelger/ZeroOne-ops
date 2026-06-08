@@ -238,6 +238,7 @@ class ReconciledFinding(BaseModel):
     stable_identity: str | None = None
     legacy_identity: str | None = None
     continuity_status: ContinuityStatus | None = None
+    inline_comment: PriorReviewInlineComment | None = None
     source_candidate_ids: list[str] = Field(default_factory=list)
 
 
