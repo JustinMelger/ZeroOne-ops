@@ -737,8 +737,7 @@ def test_build_review_precision_prompt_uses_candidate_bounded_contract() -> None
     assert "`decision_summary`: overall review outcome only, in 1-2 short sentences" in prompt
     assert "`decision_summary` must not restate each accepted finding one by one" in prompt
     assert (
-        "accepted finding `summary`: one short local concern statement for that finding"
-        in prompt
+        "accepted finding `summary`: one short local concern statement for that finding" in prompt
     )
     assert "accepted finding `why_it_matters`: only the consequence or risk, briefly" in prompt
     assert "accepted finding `recommended_follow_up`: one short next step only" in prompt

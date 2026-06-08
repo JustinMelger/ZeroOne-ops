@@ -15,6 +15,7 @@ class SupportsReviewFindingIdentity(Protocol):
     symbol: str | None
     region_hint: str | None
 
+
 _IDENTITY_STOP_TOKENS = frozenset({"always", "make"})
 _IDENTITY_TOKEN_ALIASES = {
     "breaks": "fail",
