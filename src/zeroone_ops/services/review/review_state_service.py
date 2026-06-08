@@ -8,7 +8,9 @@ from zeroone_ops.models.review import (
     MergeRequestReviewCandidate,
     PriorReviewContext,
     PriorReviewFinding,
+    PriorReviewInlineComment,
     PriorReviewPass,
+    PublishableReviewArtifact,
     ReviewResult,
 )
 from zeroone_ops.models.state import (
@@ -16,6 +18,7 @@ from zeroone_ops.models.state import (
     FailureDetails,
     MergeRequestReviewState,
     PriorReviewFindingState,
+    PriorReviewInlineCommentState,
     RunRecord,
     RunStatus,
     utc_now,
@@ -100,6 +103,8 @@ class ReviewStateService:
         record: RunRecord,
         merge_request: MergeRequestReviewCandidate,
         review_result: ReviewResult,
+        artifact: PublishableReviewArtifact | None,
+        note_id: int | None,
         note_url: str | None,
         dry_run: bool,
     ) -> RunSummary:
@@ -116,10 +121,21 @@ class ReviewStateService:
                 head_sha=merge_request.head_sha,
                 status=review_result.classification,
                 last_run_id=record.run_id,
-                findings_count=len(review_result.findings),
-                summary=review_result.summary,
-                follow_up_lines=list(review_result.follow_up_lines),
-                findings=_build_prior_review_findings(review_result),
+                findings_count=(
+                    len(artifact.findings) if artifact is not None else len(review_result.findings)
+                ),
+                summary=artifact.summary if artifact is not None else review_result.summary,
+                follow_up_lines=(
+                    list(artifact.follow_up_lines)
+                    if artifact is not None
+                    else list(review_result.follow_up_lines)
+                ),
+                findings=(
+                    _build_prior_review_findings_from_artifact(artifact)
+                    if artifact is not None
+                    else _build_prior_review_findings_from_review_result(review_result)
+                ),
+                note_id=note_id,
                 note_url=note_url,
             )
             self._trim_prior_reviews_for_merge_request(merge_request.iid)
@@ -211,6 +227,7 @@ class ReviewStateService:
                     classification=review_state.status,
                     findings_count=review_state.findings_count,
                     summary=review_state.summary,
+                    note_id=review_state.note_id,
                     note_url=review_state.note_url,
                     findings=[
                         PriorReviewFinding(
@@ -219,10 +236,24 @@ class ReviewStateService:
                             summary=finding.summary,
                             severity=finding.severity,
                             file_path=finding.file_path,
+                            line_start=finding.line_start,
+                            line_end=finding.line_end,
                             title=finding.title,
                             symbol=finding.symbol,
                             issue_kind=finding.issue_kind,
                             region_hint=finding.region_hint,
+                            inline_comment=(
+                                None
+                                if finding.inline_comment is None
+                                else PriorReviewInlineComment(
+                                    comment_id=finding.inline_comment.comment_id,
+                                    comment_url=finding.inline_comment.comment_url,
+                                    status=finding.inline_comment.status,
+                                    anchor_file_path=finding.inline_comment.anchor_file_path,
+                                    anchor_line_start=finding.inline_comment.anchor_line_start,
+                                    anchor_line_end=finding.inline_comment.anchor_line_end,
+                                )
+                            ),
                         )
                         for finding in review_state.findings
                     ],
@@ -232,7 +263,7 @@ class ReviewStateService:
         )
 
 
-def _build_prior_review_findings(
+def _build_prior_review_findings_from_review_result(
     review_result: ReviewResult,
 ) -> list[PriorReviewFindingState]:
     """Normalize bounded persisted prior-review finding summaries."""
@@ -245,10 +276,48 @@ def _build_prior_review_findings(
                 summary=f"{finding.file_path}: {finding.title}",
                 severity=finding.severity,
                 file_path=finding.file_path,
+                line_start=finding.line_start,
+                line_end=finding.line_end,
                 title=finding.title,
                 symbol=finding.symbol,
                 issue_kind=finding.issue_kind,
                 region_hint=finding.region_hint,
+            )
+        )
+    return normalized_findings
+
+
+def _build_prior_review_findings_from_artifact(
+    artifact: PublishableReviewArtifact,
+) -> list[PriorReviewFindingState]:
+    """Mirror publish-shaped findings into persisted prior-review state."""
+    normalized_findings: list[PriorReviewFindingState] = []
+    for finding in artifact.findings:
+        normalized_findings.append(
+            PriorReviewFindingState(
+                identity=finding.stable_identity,
+                legacy_identity=finding.legacy_identity,
+                summary=f"{finding.file_path}: {finding.title}",
+                severity=finding.severity,
+                file_path=finding.file_path,
+                line_start=finding.line_start,
+                line_end=finding.line_end,
+                title=finding.title,
+                symbol=finding.symbol,
+                issue_kind=finding.issue_kind,
+                region_hint=finding.region_hint,
+                inline_comment=(
+                    None
+                    if finding.inline_comment is None
+                    else PriorReviewInlineCommentState(
+                        comment_id=finding.inline_comment.comment_id,
+                        comment_url=finding.inline_comment.comment_url,
+                        status=finding.inline_comment.status,
+                        anchor_file_path=finding.inline_comment.anchor_file_path,
+                        anchor_line_start=finding.inline_comment.anchor_line_start,
+                        anchor_line_end=finding.inline_comment.anchor_line_end,
+                    )
+                ),
             )
         )
     return normalized_findings

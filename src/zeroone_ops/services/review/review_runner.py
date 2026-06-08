@@ -301,6 +301,7 @@ class ReviewRunner:
                 },
             )
 
+        note_id: int | None = None
         note_url: str | None = None
         dashboard_warning: str | None = None
         if not active_dry_run:
@@ -346,6 +347,7 @@ class ReviewRunner:
                     ),
                 )
             if publish_result.note is not None:
+                note_id = publish_result.note.id
                 note_url = publish_result.note.web_url
                 LOGGER.info(
                     "review note published",
@@ -411,6 +413,8 @@ class ReviewRunner:
             record=record,
             merge_request=intake_result.selected_merge_request,
             review_result=review_result,
+            artifact=publish_artifact if not active_dry_run else None,
+            note_id=note_id,
             note_url=note_url,
             dry_run=active_dry_run,
         )

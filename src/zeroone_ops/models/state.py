@@ -179,10 +179,24 @@ class PriorReviewFindingState(BaseModel):
     summary: str
     severity: str | None = None
     file_path: str | None = None
+    line_start: int | None = None
+    line_end: int | None = None
     title: str | None = None
     symbol: str | None = None
     issue_kind: str | None = None
     region_hint: str | None = None
+    inline_comment: PriorReviewInlineCommentState | None = None
+
+
+class PriorReviewInlineCommentState(BaseModel):
+    """Represent persisted inline-comment continuity metadata for one finding."""
+
+    comment_id: str
+    comment_url: str | None = None
+    status: Literal["published", "shadow", "superseded"]
+    anchor_file_path: str
+    anchor_line_start: int | None = None
+    anchor_line_end: int | None = None
 
 
 class MergeRequestReviewState(BaseModel):
@@ -196,6 +210,7 @@ class MergeRequestReviewState(BaseModel):
     summary: str | None = None
     follow_up_lines: list[str] = Field(default_factory=list)
     findings: list[PriorReviewFindingState] = Field(default_factory=list)
+    note_id: int | None = None
     note_url: str | None = None
     updated_at: datetime = Field(default_factory=utc_now)
 

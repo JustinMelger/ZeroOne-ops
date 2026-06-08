@@ -90,13 +90,13 @@ Shipped baseline:
 - strengthen repeated-finding continuity across review passes
 - reduce duplicates caused by wording drift before expanding publish surfaces
 
-- [ ] Phase 2: Published Output Hygiene
+- [x] Phase 2: Published Output Hygiene
 
 - tighten precision-stage prompts so published findings stay concise and
   operator-facing
 - reduce overlong review text without treating it as a validator failure class
 
-- [ ] Phase 3: Persist Review Location And Comment Metadata
+- [x] Phase 3: Persist Review Location And Comment Metadata
 
 - extend persisted review state with the location and inline-comment metadata
   needed for continuity-safe reuse

@@ -5,6 +5,7 @@ from zeroone_ops.models.review import (
     MergeRequestReviewContext,
     PriorReviewContext,
     PriorReviewFinding,
+    PriorReviewInlineComment,
     PriorReviewPass,
     PublishableReviewArtifact,
     PublishableReviewFinding,
@@ -200,6 +201,10 @@ def build_artifact(
             PublishableReviewFinding(
                 severity="medium",
                 file_path="src/service.py",
+                line_start=1,
+                line_end=1,
+                stable_identity="src/service.py::coverage-miss-test",
+                legacy_identity="src/service.py::coverage-miss-test",
                 title="Missing test coverage",
                 evidence="The diff changes `value = 1` to `value = 2` without any test updates.",
                 explanation="The change alters branch behavior without test updates.",
@@ -258,6 +263,11 @@ def test_render_artifact_formats_findings_present() -> None:
         {
             "file_path": "src/service.py",
             "issue_kind": None,
+            "identity": "src/service.py::coverage-miss-test",
+            "inline_comment": None,
+            "legacy_identity": "src/service.py::coverage-miss-test",
+            "line_end": 1,
+            "line_start": 1,
             "region_hint": None,
             "severity": "medium",
             "summary": "src/service.py: Missing test coverage",
@@ -303,6 +313,50 @@ def test_publish_artifact_sends_rendered_note_body() -> None:
     assert result.note.id == 55
     assert review_client.published_body is not None
     assert "Missing test coverage" in review_client.published_body
+
+
+def test_render_artifact_embeds_inline_comment_metadata_when_present() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_context(),
+        artifact=PublishableReviewArtifact(
+            classification="findings_present",
+            summary="One medium-risk finding.",
+            findings=[
+                PublishableReviewFinding(
+                    severity="medium",
+                    file_path="src/service.py",
+                    line_start=4,
+                    line_end=4,
+                    stable_identity="src/service.py::coverage-miss-test",
+                    legacy_identity="src/service.py::coverage-miss-test",
+                    title="Missing test coverage",
+                    evidence="The diff changes `value = 1` to `value = 2` without tests.",
+                    explanation="The change alters branch behavior without regression coverage.",
+                    suggested_follow_up="Add a regression test.",
+                    inline_comment=PriorReviewInlineComment(
+                        comment_id="789",
+                        comment_url="https://gitlab.example.com/comment/789",
+                        status="published",
+                        anchor_file_path="src/service.py",
+                        anchor_line_start=4,
+                        anchor_line_end=4,
+                    ),
+                )
+            ],
+        ),
+    )
+
+    payload = extract_machine_safe_payload(body)
+    assert payload["findings"][0]["inline_comment"] == {
+        "anchor_file_path": "src/service.py",
+        "anchor_line_end": 4,
+        "anchor_line_start": 4,
+        "comment_id": "789",
+        "comment_url": "https://gitlab.example.com/comment/789",
+        "status": "published",
+    }
 
 
 def test_render_artifact_includes_follow_up_lines_when_available() -> None:

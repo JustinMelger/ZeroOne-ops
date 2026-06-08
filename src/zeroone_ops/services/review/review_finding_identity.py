@@ -3,8 +3,17 @@
 from __future__ import annotations
 
 import re
+from typing import Protocol
 
-from zeroone_ops.models.review import ReviewFinding
+
+class SupportsReviewFindingIdentity(Protocol):
+    """Represent the bounded finding fields needed for canonical identity building."""
+
+    file_path: str
+    title: str
+    issue_kind: str | None
+    symbol: str | None
+    region_hint: str | None
 
 _IDENTITY_STOP_TOKENS = frozenset({"always", "make"})
 _IDENTITY_TOKEN_ALIASES = {
@@ -24,7 +33,7 @@ _IDENTITY_TOKEN_ALIASES = {
 }
 
 
-def build_review_finding_identity(finding: ReviewFinding) -> str:
+def build_review_finding_identity(finding: SupportsReviewFindingIdentity) -> str:
     """Build a canonical machine-facing identity for one review finding."""
     normalized_path = re.sub(r"\s+", "", finding.file_path.strip().lower())
     subject_parts = [
@@ -38,7 +47,7 @@ def build_review_finding_identity(finding: ReviewFinding) -> str:
     return f"{normalized_path}::{normalized_subject}"
 
 
-def build_legacy_review_finding_identity(finding: ReviewFinding) -> str:
+def build_legacy_review_finding_identity(finding: SupportsReviewFindingIdentity) -> str:
     """Build the legacy title-derived identity for compatibility matching."""
     normalized_path = re.sub(r"\s+", "", finding.file_path.strip().lower())
     return f"{normalized_path}::{_normalize_title_subject(finding.title)}"

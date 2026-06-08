@@ -161,13 +161,29 @@ def _render_machine_safe_block(
         "findings_count": len(artifact.findings),
         "findings": [
             {
+                "identity": finding.stable_identity,
+                "legacy_identity": finding.legacy_identity,
                 "summary": f"{finding.file_path}: {finding.title}",
                 "severity": finding.severity,
                 "file_path": finding.file_path,
+                "line_start": finding.line_start,
+                "line_end": finding.line_end,
                 "title": finding.title,
                 "symbol": finding.symbol,
                 "issue_kind": finding.issue_kind,
                 "region_hint": finding.region_hint,
+                "inline_comment": (
+                    None
+                    if finding.inline_comment is None
+                    else {
+                        "comment_id": finding.inline_comment.comment_id,
+                        "comment_url": finding.inline_comment.comment_url,
+                        "status": finding.inline_comment.status,
+                        "anchor_file_path": finding.inline_comment.anchor_file_path,
+                        "anchor_line_start": finding.inline_comment.anchor_line_start,
+                        "anchor_line_end": finding.inline_comment.anchor_line_end,
+                    }
+                ),
             }
             for finding in artifact.findings
         ],

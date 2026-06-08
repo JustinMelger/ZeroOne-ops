@@ -7,6 +7,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from zeroone_ops.services.review.review_finding_identity import (
+    build_legacy_review_finding_identity,
+    build_review_finding_identity,
+)
+
 ReviewClassification = Literal["no_findings", "findings_present", "manual_review_only"]
 ReviewFindingSeverity = Literal["high", "medium", "low"]
 ContinuityStatus = Literal["new", "unresolved"]
@@ -19,6 +24,7 @@ CandidateDropReason = Literal[
     "superseded",
 ]
 ArtifactValidationStatus = Literal["valid", "repaired", "rejected"]
+InlineCommentStatus = Literal["published", "shadow", "superseded"]
 
 
 class MergeRequestChangedFile(BaseModel):
@@ -105,10 +111,24 @@ class PriorReviewFinding(BaseModel):
     summary: str
     severity: str | None = None
     file_path: str | None = None
+    line_start: int | None = None
+    line_end: int | None = None
     title: str | None = None
     symbol: str | None = None
     issue_kind: str | None = None
     region_hint: str | None = None
+    inline_comment: PriorReviewInlineComment | None = None
+
+
+class PriorReviewInlineComment(BaseModel):
+    """Represent bounded inline-comment continuity metadata for one finding."""
+
+    comment_id: str
+    comment_url: str | None = None
+    status: InlineCommentStatus
+    anchor_file_path: str
+    anchor_line_start: int | None = None
+    anchor_line_end: int | None = None
 
 
 class PriorReviewPass(BaseModel):
@@ -118,6 +138,7 @@ class PriorReviewPass(BaseModel):
     classification: ReviewClassification
     findings_count: int
     summary: str | None = None
+    note_id: int | None = None
     note_url: str | None = None
     findings: list[PriorReviewFinding] = Field(default_factory=list)
 
@@ -215,6 +236,7 @@ class ReconciledFinding(BaseModel):
     why_it_matters: str
     recommended_follow_up: str | None = None
     stable_identity: str | None = None
+    legacy_identity: str | None = None
     continuity_status: ContinuityStatus | None = None
     source_candidate_ids: list[str] = Field(default_factory=list)
 
@@ -283,12 +305,25 @@ class ReconciledReviewDecision(BaseModel):
         pipeline_version: str,
     ) -> ReconciledReviewDecision:
         """Adapt the precision-pass output into the staged reconciliation contract."""
-        return cls(
-            review_classification=precision_decision.review_classification,
-            decision_summary=precision_decision.decision_summary,
-            decision_rationale=precision_decision.decision_rationale,
-            confidence_level=precision_decision.confidence_level,
-            accepted_findings=[
+        accepted_findings: list[ReconciledFinding] = []
+        for index, finding in enumerate(
+            precision_decision.accepted_findings,
+            start=1,
+        ):
+            scaffold = ReviewFinding(
+                severity=finding.severity,
+                file_path=finding.file_path,
+                line_start=finding.line_start,
+                line_end=finding.line_end,
+                symbol=finding.symbol,
+                issue_kind=finding.issue_kind,
+                region_hint=finding.region_hint,
+                title=finding.title,
+                evidence=finding.evidence[0] if finding.evidence else "",
+                explanation=finding.why_it_matters,
+                suggested_follow_up=finding.recommended_follow_up or "",
+            )
+            accepted_findings.append(
                 ReconciledFinding(
                     finding_id=f"finding-{index}",
                     severity=finding.severity,
@@ -311,13 +346,17 @@ class ReconciledReviewDecision(BaseModel):
                     file_paths=[finding.file_path],
                     why_it_matters=finding.why_it_matters,
                     recommended_follow_up=finding.recommended_follow_up,
+                    stable_identity=build_review_finding_identity(scaffold),
+                    legacy_identity=build_legacy_review_finding_identity(scaffold),
                     source_candidate_ids=list(finding.source_candidate_ids),
                 )
-                for index, finding in enumerate(
-                    precision_decision.accepted_findings,
-                    start=1,
-                )
-            ],
+            )
+        return cls(
+            review_classification=precision_decision.review_classification,
+            decision_summary=precision_decision.decision_summary,
+            decision_rationale=precision_decision.decision_rationale,
+            confidence_level=precision_decision.confidence_level,
+            accepted_findings=accepted_findings,
             dropped_candidates=list(precision_decision.dropped_candidates),
             prior_review_context_used=prior_review_context_used,
             same_sha_review=same_sha_review,
@@ -366,7 +405,10 @@ class PublishableReviewFinding(BaseModel):
     evidence: str
     explanation: str
     suggested_follow_up: str
+    stable_identity: str | None = None
+    legacy_identity: str | None = None
     continuity_status: ContinuityStatus | None = None
+    inline_comment: PriorReviewInlineComment | None = None
 
 
 class PublishableReviewArtifact(BaseModel):
@@ -411,7 +453,10 @@ class PublishableReviewArtifact(BaseModel):
                     evidence=finding.evidence[0] if finding.evidence else "",
                     explanation=finding.why_it_matters,
                     suggested_follow_up=finding.recommended_follow_up or "",
+                    stable_identity=finding.stable_identity,
+                    legacy_identity=finding.legacy_identity,
                     continuity_status=finding.continuity_status,
+                    inline_comment=finding.inline_comment,
                 )
                 for finding in decision.accepted_findings
             ],

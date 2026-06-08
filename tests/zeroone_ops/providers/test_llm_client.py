@@ -733,6 +733,15 @@ def test_build_review_precision_prompt_uses_candidate_bounded_contract() -> None
     assert "Do not rediscover the merge request from scratch." in prompt
     assert "every grounded candidate should either survive" in prompt
     assert "retain at most `3` accepted findings" in prompt
+    assert "Keep role separation tight so the final review does not repeat itself:" in prompt
+    assert "`decision_summary`: overall review outcome only, in 1-2 short sentences" in prompt
+    assert "`decision_summary` must not restate each accepted finding one by one" in prompt
+    assert (
+        "accepted finding `summary`: one short local concern statement for that finding"
+        in prompt
+    )
+    assert "accepted finding `why_it_matters`: only the consequence or risk, briefly" in prompt
+    assert "accepted finding `recommended_follow_up`: one short next step only" in prompt
     assert "<<BEGIN UNTRUSTED Grounded candidate findings>>" in prompt
     assert "candidate_id=candidate-1" in prompt
     assert "lines=1-1" in prompt

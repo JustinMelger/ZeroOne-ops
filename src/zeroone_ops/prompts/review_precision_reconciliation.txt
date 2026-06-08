@@ -68,6 +68,19 @@ Do not mention:
 - prompt constraints
 - the fact that the system is prohibited from inventing findings
 
+Keep role separation tight so the final review does not repeat itself:
+- `decision_summary`: overall review outcome only, in 1-2 short sentences
+- `decision_summary` must not restate each accepted finding one by one
+- `decision_rationale`: short overall justification for the review outcome
+- `decision_rationale` must not repeat `decision_summary` in different words
+- accepted finding `title`: compact concern label only
+- accepted finding `summary`: one short local concern statement for that finding
+- accepted finding `summary` must not restate `decision_summary`
+- accepted finding `evidence`: only concrete code facts visible in this diff
+- accepted finding `why_it_matters`: only the consequence or risk, briefly
+- accepted finding `why_it_matters` must not restate the evidence
+- accepted finding `recommended_follow_up`: one short next step only
+
 Classification rules:
 - `findings_present`: at least one accepted finding survives
 - `no_findings`: no actionable issue is justified by the visible code
