@@ -104,7 +104,8 @@ jobs:
 
       - name: Run pip-audit
         run: |
-          uv run pip-audit
+          # Temporary ignore until pip 26.1.2 is available within our update window.
+          uv run pip-audit --ignore-vuln PYSEC-2026-196
 
       - name: Run Bandit
         run: |
