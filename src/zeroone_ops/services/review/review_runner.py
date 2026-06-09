@@ -250,10 +250,10 @@ class ReviewRunner:
                 )
             inline_comment_continuity_result = (
                 ReviewInlineCommentContinuityService().apply_if_enabled(
-                context=context,
-                artifact=publish_artifact,
-                enabled=self.config.review.inline_comments_enabled,
-            )
+                    context=context,
+                    artifact=publish_artifact,
+                    enabled=self.config.review.inline_comments_enabled,
+                )
             )
             publish_artifact = inline_comment_continuity_result.artifact
             review_result = publish_artifact.to_review_result()

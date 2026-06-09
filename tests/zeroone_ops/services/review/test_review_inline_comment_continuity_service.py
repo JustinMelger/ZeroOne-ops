@@ -325,7 +325,9 @@ def test_apply_does_not_reuse_inline_comment_when_local_region_differs() -> None
     artifact = build_artifact().model_copy(
         update={
             "findings": [
-                build_artifact().findings[0].model_copy(
+                build_artifact()
+                .findings[0]
+                .model_copy(
                     update={
                         "region_hint": "different-branch",
                         "symbol": "Service.other",
@@ -392,7 +394,7 @@ def test_apply_does_not_reuse_inline_comment_when_multiple_nearby_hunks_compete(
                     full_file_included=True,
                     truncated=False,
                 )
-            ]
+            ],
         }
     )
 
