@@ -12,12 +12,12 @@ from zeroone_ops.models.review import (
     PriorReviewPass,
     ReviewFinding,
 )
+from zeroone_ops.services.review.review_gitlab_prior_context_service import (
+    extract_machine_safe_review_note_payload,
+)
 from zeroone_ops.utils.review_finding_identity import (
     build_legacy_review_finding_identity,
     build_review_finding_identity,
-)
-from zeroone_ops.services.review.review_gitlab_prior_context_service import (
-    extract_machine_safe_review_note_payload,
 )
 
 _VALID_CLASSIFICATIONS = frozenset({"no_findings", "findings_present", "manual_review_only"})
