@@ -36,7 +36,10 @@ def build_context(
                 diff="@@ -10,1 +12,2 @@",
                 start_line=10,
                 end_line=14,
-                content="  12: value = transform(value)",
+                content=(
+                    "  12: changed_branch = transform(value)\n"
+                    "  13: return changed_branch  # Service.run"
+                ),
                 full_file_included=True,
                 truncated=False,
             )
@@ -60,11 +63,25 @@ def build_artifact() -> PublishableReviewArtifact:
                 issue_kind="coverage_gap",
                 region_hint="changed-branch",
                 title="Missing regression coverage",
-                evidence="The diff changes a branch without matching test updates.",
+                evidence=(
+                    "The diff changes `changed_branch = transform(value)` without "
+                    "matching test updates."
+                ),
                 explanation="The branch behavior changes without regression coverage.",
                 suggested_follow_up="Add a regression test.",
             )
         ],
+    )
+
+
+def build_inline_comment() -> PriorReviewInlineComment:
+    return PriorReviewInlineComment(
+        comment_id="789",
+        comment_url="https://gitlab.example.com/comment/789",
+        status="published",
+        anchor_file_path="src/service.py",
+        anchor_line_start=12,
+        anchor_line_end=13,
     )
 
 
@@ -100,14 +117,7 @@ def test_apply_reuses_published_inline_comment_from_latest_prior_pass() -> None:
                     findings=[
                         build_prior_finding(
                             identity="src/service.py::coverage_gap::service-run::changed-branch",
-                            inline_comment=PriorReviewInlineComment(
-                                comment_id="789",
-                                comment_url="https://gitlab.example.com/comment/789",
-                                status="published",
-                                anchor_file_path="src/service.py",
-                                anchor_line_start=12,
-                                anchor_line_end=13,
-                            ),
+                            inline_comment=build_inline_comment(),
                         )
                     ],
                 )
@@ -132,13 +142,13 @@ def test_apply_uses_latest_prior_pass_only_for_duplicate_comment_reuse() -> None
                     findings=[
                         build_prior_finding(
                             identity="src/service.py::different::identity",
-                            inline_comment=PriorReviewInlineComment(
-                                comment_id="latest",
-                                comment_url=None,
-                                status="published",
-                                anchor_file_path="src/service.py",
-                                anchor_line_start=20,
-                                anchor_line_end=20,
+                            inline_comment=build_inline_comment().model_copy(
+                                update={
+                                    "comment_id": "latest",
+                                    "comment_url": None,
+                                    "anchor_line_start": 20,
+                                    "anchor_line_end": 20,
+                                }
                             ),
                         )
                     ],
@@ -150,13 +160,8 @@ def test_apply_uses_latest_prior_pass_only_for_duplicate_comment_reuse() -> None
                     findings=[
                         build_prior_finding(
                             identity="src/service.py::coverage_gap::service-run::changed-branch",
-                            inline_comment=PriorReviewInlineComment(
-                                comment_id="older",
-                                comment_url=None,
-                                status="published",
-                                anchor_file_path="src/service.py",
-                                anchor_line_start=12,
-                                anchor_line_end=13,
+                            inline_comment=build_inline_comment().model_copy(
+                                update={"comment_id": "older", "comment_url": None}
                             ),
                         )
                     ],
@@ -220,3 +225,174 @@ def test_apply_does_not_reuse_superseded_or_override_existing_inline_comment() -
     assert result.reused_inline_comment_count == 0
     assert result.artifact.findings[0].inline_comment is not None
     assert result.artifact.findings[0].inline_comment.comment_id == "current"
+
+
+def test_apply_does_not_reuse_inline_comment_for_low_severity_finding() -> None:
+    artifact = build_artifact().model_copy(
+        update={"findings": [build_artifact().findings[0].model_copy(update={"severity": "low"})]}
+    )
+    finding_identity = artifact.findings[0].stable_identity or ""
+
+    result = ReviewInlineCommentContinuityService().apply(
+        context=build_context(
+            prior_passes=[
+                PriorReviewPass(
+                    reviewed_head_sha="abc123",
+                    classification="findings_present",
+                    findings_count=1,
+                    findings=[
+                        build_prior_finding(
+                            identity=finding_identity,
+                            inline_comment=build_inline_comment(),
+                        )
+                    ],
+                )
+            ]
+        ),
+        artifact=artifact,
+    )
+
+    assert result.reused_inline_comment_count == 0
+    assert result.artifact.findings[0].inline_comment is None
+
+
+def test_apply_does_not_reuse_inline_comment_for_weak_location() -> None:
+    artifact = build_artifact().model_copy(
+        update={
+            "findings": [
+                build_artifact().findings[0].model_copy(update={"line_start": 40, "line_end": 41})
+            ]
+        }
+    )
+    finding_identity = artifact.findings[0].stable_identity or ""
+
+    result = ReviewInlineCommentContinuityService().apply(
+        context=build_context(
+            prior_passes=[
+                PriorReviewPass(
+                    reviewed_head_sha="abc123",
+                    classification="findings_present",
+                    findings_count=1,
+                    findings=[
+                        build_prior_finding(
+                            identity=finding_identity,
+                            inline_comment=build_inline_comment(),
+                        )
+                    ],
+                )
+            ]
+        ),
+        artifact=artifact,
+    )
+
+    assert result.reused_inline_comment_count == 0
+    assert result.artifact.findings[0].inline_comment is None
+
+
+def test_apply_does_not_reuse_inline_comment_when_anchor_drift_is_too_large() -> None:
+    result = ReviewInlineCommentContinuityService().apply(
+        context=build_context(
+            prior_passes=[
+                PriorReviewPass(
+                    reviewed_head_sha="abc123",
+                    classification="findings_present",
+                    findings_count=1,
+                    findings=[
+                        build_prior_finding(
+                            identity="src/service.py::coverage_gap::service-run::changed-branch",
+                            inline_comment=build_inline_comment().model_copy(
+                                update={"anchor_line_start": 30, "anchor_line_end": 31}
+                            ),
+                        )
+                    ],
+                )
+            ]
+        ),
+        artifact=build_artifact(),
+    )
+
+    assert result.reused_inline_comment_count == 0
+    assert result.artifact.findings[0].inline_comment is None
+
+
+def test_apply_does_not_reuse_inline_comment_when_local_region_differs() -> None:
+    artifact = build_artifact().model_copy(
+        update={
+            "findings": [
+                build_artifact().findings[0].model_copy(
+                    update={
+                        "region_hint": "different-branch",
+                        "symbol": "Service.other",
+                        "title": "Different branch regression",
+                    }
+                )
+            ]
+        }
+    )
+
+    result = ReviewInlineCommentContinuityService().apply(
+        context=build_context(
+            prior_passes=[
+                PriorReviewPass(
+                    reviewed_head_sha="abc123",
+                    classification="findings_present",
+                    findings_count=1,
+                    findings=[
+                        build_prior_finding(
+                            identity="src/service.py::coverage_gap::service-run::changed-branch",
+                            inline_comment=build_inline_comment(),
+                        )
+                    ],
+                )
+            ]
+        ),
+        artifact=artifact,
+    )
+
+    assert result.reused_inline_comment_count == 0
+    assert result.artifact.findings[0].inline_comment is None
+
+
+def test_apply_does_not_reuse_inline_comment_when_multiple_nearby_hunks_compete() -> None:
+    ambiguous_context = build_context().model_copy(
+        update={
+            "prior_review_context": PriorReviewContext(
+                merge_request_iid=17,
+                passes=[
+                    PriorReviewPass(
+                        reviewed_head_sha="abc123",
+                        classification="findings_present",
+                        findings_count=1,
+                        findings=[
+                            build_prior_finding(
+                                identity="src/service.py::coverage_gap::service-run::changed-branch",
+                                inline_comment=build_inline_comment(),
+                            )
+                        ],
+                    )
+                ],
+            ),
+            "changed_files": [
+                ReviewFileContext(
+                    file_path="src/service.py",
+                    diff="@@ -10,1 +12,1 @@\n@@ -20,1 +14,1 @@",
+                    start_line=10,
+                    end_line=14,
+                    content=(
+                        "  12: changed_branch = transform(value)\n"
+                        "  13: return changed_branch  # Service.run"
+                    ),
+                    full_file_included=True,
+                    truncated=False,
+                )
+            ]
+        }
+    )
+
+    result = ReviewInlineCommentContinuityService().apply(
+        context=ambiguous_context,
+        artifact=build_artifact(),
+    )
+
+    assert result.reused_inline_comment_count == 0
+    assert result.artifact.findings[0].inline_comment is None

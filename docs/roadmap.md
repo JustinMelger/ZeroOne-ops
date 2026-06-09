@@ -109,7 +109,7 @@ Shipped baseline:
   already has a trusted anchor on the latest relevant authoritative pass
 - keep inline publication to one comment max per finding in the first version
 
-- [ ] Phase 5: Trusted Location Validation
+- [x] Phase 5: Trusted Location Validation
 
 - enforce the trusted/weak/untrusted location rubric in application code
 - allow inline publication only for trusted `medium` / `high` findings
