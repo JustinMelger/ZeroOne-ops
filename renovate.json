@@ -9,9 +9,22 @@
   "timezone": "Europe/Amsterdam",
   "rangeStrategy": "bump",
   "dependencyDashboard": true,
-  "separateMajorMinor": false,
+  "prCreation": "immediate",
+  "prHourlyLimit": 0,
   "prConcurrentLimit": 5,
+  "separateMajorMinor": false,
   "packageRules": [
+    {
+      "matchManagers": [
+        "pep621",
+        "uv"
+      ],
+      "matchDepNames": [
+        "python"
+      ],
+      "groupName": "python runtime",
+      "separateMajorMinor": true
+    },
     {
       "matchManagers": [
         "pep621",
@@ -20,6 +33,9 @@
       "matchUpdateTypes": [
         "patch",
         "minor"
+      ],
+      "excludePackageNames": [
+        "python"
       ],
       "minimumReleaseAge": "14 days",
       "groupName": "python dependencies"
@@ -31,6 +47,9 @@
       ],
       "matchDepTypes": [
         "devDependencies"
+      ],
+      "excludePackageNames": [
+        "python"
       ],
       "minimumReleaseAge": "14 days",
       "groupName": "python dev dependencies"
