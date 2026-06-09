@@ -33,6 +33,18 @@ class InlineCommentContinuityResult:
 class ReviewInlineCommentContinuityService:
     """Prepare publish artifacts to reuse prior inline-comment continuity safely."""
 
+    def apply_if_enabled(
+        self,
+        *,
+        enabled: bool,
+        context: MergeRequestReviewContext,
+        artifact: PublishableReviewArtifact,
+    ) -> InlineCommentContinuityResult:
+        """Apply inline-comment continuity only when the feature flag is enabled."""
+        if not enabled:
+            return InlineCommentContinuityResult(artifact=artifact)
+        return self.apply(context=context, artifact=artifact)
+
     def apply(
         self,
         *,

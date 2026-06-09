@@ -53,6 +53,7 @@ class ReviewConfig(BaseModel):
     max_findings_per_review: int = 3
     max_prior_review_passes: int = 2
     max_review_feedback_retries: int = 1
+    inline_comments_enabled: bool = False
     supported_paths: list[str] = Field(default_factory=list)
     ignored_paths: list[str] = Field(default_factory=list)
     skip_draft_merge_requests: bool = True

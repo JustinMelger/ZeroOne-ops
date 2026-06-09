@@ -107,7 +107,8 @@ def build_prior_finding(
 
 
 def test_apply_reuses_published_inline_comment_from_latest_prior_pass() -> None:
-    result = ReviewInlineCommentContinuityService().apply(
+    result = ReviewInlineCommentContinuityService().apply_if_enabled(
+        enabled=True,
         context=build_context(
             prior_passes=[
                 PriorReviewPass(
@@ -132,7 +133,8 @@ def test_apply_reuses_published_inline_comment_from_latest_prior_pass() -> None:
 
 
 def test_apply_uses_latest_prior_pass_only_for_duplicate_comment_reuse() -> None:
-    result = ReviewInlineCommentContinuityService().apply(
+    result = ReviewInlineCommentContinuityService().apply_if_enabled(
+        enabled=True,
         context=build_context(
             prior_passes=[
                 PriorReviewPass(
@@ -196,7 +198,8 @@ def test_apply_does_not_reuse_superseded_or_override_existing_inline_comment() -
             ]
         }
     )
-    result = ReviewInlineCommentContinuityService().apply(
+    result = ReviewInlineCommentContinuityService().apply_if_enabled(
+        enabled=True,
         context=build_context(
             prior_passes=[
                 PriorReviewPass(
@@ -233,7 +236,8 @@ def test_apply_does_not_reuse_inline_comment_for_low_severity_finding() -> None:
     )
     finding_identity = artifact.findings[0].stable_identity or ""
 
-    result = ReviewInlineCommentContinuityService().apply(
+    result = ReviewInlineCommentContinuityService().apply_if_enabled(
+        enabled=True,
         context=build_context(
             prior_passes=[
                 PriorReviewPass(
@@ -266,7 +270,8 @@ def test_apply_does_not_reuse_inline_comment_for_weak_location() -> None:
     )
     finding_identity = artifact.findings[0].stable_identity or ""
 
-    result = ReviewInlineCommentContinuityService().apply(
+    result = ReviewInlineCommentContinuityService().apply_if_enabled(
+        enabled=True,
         context=build_context(
             prior_passes=[
                 PriorReviewPass(
@@ -290,7 +295,8 @@ def test_apply_does_not_reuse_inline_comment_for_weak_location() -> None:
 
 
 def test_apply_does_not_reuse_inline_comment_when_anchor_drift_is_too_large() -> None:
-    result = ReviewInlineCommentContinuityService().apply(
+    result = ReviewInlineCommentContinuityService().apply_if_enabled(
+        enabled=True,
         context=build_context(
             prior_passes=[
                 PriorReviewPass(
@@ -330,7 +336,8 @@ def test_apply_does_not_reuse_inline_comment_when_local_region_differs() -> None
         }
     )
 
-    result = ReviewInlineCommentContinuityService().apply(
+    result = ReviewInlineCommentContinuityService().apply_if_enabled(
+        enabled=True,
         context=build_context(
             prior_passes=[
                 PriorReviewPass(
@@ -389,10 +396,38 @@ def test_apply_does_not_reuse_inline_comment_when_multiple_nearby_hunks_compete(
         }
     )
 
-    result = ReviewInlineCommentContinuityService().apply(
+    result = ReviewInlineCommentContinuityService().apply_if_enabled(
+        enabled=True,
         context=ambiguous_context,
         artifact=build_artifact(),
     )
 
     assert result.reused_inline_comment_count == 0
     assert result.artifact.findings[0].inline_comment is None
+
+
+def test_apply_if_enabled_leaves_artifact_unchanged_when_flag_is_disabled() -> None:
+    artifact = build_artifact()
+
+    result = ReviewInlineCommentContinuityService().apply_if_enabled(
+        enabled=False,
+        context=build_context(
+            prior_passes=[
+                PriorReviewPass(
+                    reviewed_head_sha="abc123",
+                    classification="findings_present",
+                    findings_count=1,
+                    findings=[
+                        build_prior_finding(
+                            identity="src/service.py::coverage_gap::service-run::changed-branch",
+                            inline_comment=build_inline_comment(),
+                        )
+                    ],
+                )
+            ]
+        ),
+        artifact=artifact,
+    )
+
+    assert result.reused_inline_comment_count == 0
+    assert result.artifact == artifact

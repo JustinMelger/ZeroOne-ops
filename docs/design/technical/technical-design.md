@@ -455,25 +455,34 @@ Example `examples/.zeroone-ops.json`:
 ```json
 {
   "base_branch": "main",
-  "branch_prefix": "ai-sonar",
+  "branch_prefix": "zeroone-ops",
   "execution_mode": "ci",
   "dry_run": false,
-  "max_retry_count": 1,
-  "bootstrap_severities": ["BLOCKER", "CRITICAL", "MAJOR"],
-  "bootstrap_severities": ["LOW", "MEDIUM", "HIGH"],
   "validation_commands": [
     "uv run pytest",
     "uv run mypy src",
     "uv run ruff check .",
     "uv run ruff format --check ."
   ],
-  "analysis": {
-    "context_lines_before": 40,
-    "context_lines_after": 40,
-    "max_file_bytes": 200000
-  },
   "approval": {
     "required": true
+  },
+  "review": {
+    "max_changed_files": 5,
+    "max_findings_per_review": 3,
+    "max_prior_review_passes": 2,
+    "max_context_lines_before": 30,
+    "max_context_lines_after": 30,
+    "inline_comments_enabled": false
+  },
+  "remediation": {
+    "bootstrap_severities": ["LOW", "MEDIUM", "HIGH"],
+    "max_retry_count": 1,
+    "analysis": {
+      "context_lines_before": 40,
+      "context_lines_after": 40,
+      "max_file_bytes": 200000
+    }
   },
   "gitlab": {
     "target_branch": "main",

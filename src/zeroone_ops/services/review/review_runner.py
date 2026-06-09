@@ -248,9 +248,12 @@ class ReviewRunner:
                     artifact=artifact_result.artifact,
                     validation_result=validation_result,
                 )
-            inline_comment_continuity_result = ReviewInlineCommentContinuityService().apply(
+            inline_comment_continuity_result = (
+                ReviewInlineCommentContinuityService().apply_if_enabled(
                 context=context,
                 artifact=publish_artifact,
+                enabled=self.config.review.inline_comments_enabled,
+            )
             )
             publish_artifact = inline_comment_continuity_result.artifact
             review_result = publish_artifact.to_review_result()

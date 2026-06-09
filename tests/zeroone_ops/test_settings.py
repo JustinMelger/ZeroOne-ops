@@ -141,6 +141,31 @@ def test_settings_load_helper_following_review_config(tmp_path: Path, monkeypatc
     assert config.review.max_followed_helpers_per_function == 2
     assert config.review.max_followed_helper_lines == 80
     assert config.review.max_followed_helper_lines_per_review == 160
+    assert config.review.inline_comments_enabled is False
+
+
+def test_settings_load_inline_comments_review_flag(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "review": {
+            "inline_comments_enabled": true
+          },
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.review.inline_comments_enabled is True
 
 
 def test_settings_load_nested_remediation_and_sonarqube_config(

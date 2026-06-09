@@ -115,7 +115,7 @@ Shipped baseline:
 - allow inline publication only for trusted `medium` / `high` findings
 - reuse anchors only when line ranges overlap or drift by at most 3 lines
 
-- [ ] Phase 6: Config Flag And Disabled-By-Default Rollout
+- [x] Phase 6: Config Flag And Disabled-By-Default Rollout
 
 - add a review config flag for inline comments
 - keep it off by default in repo config so implementation can ship before
