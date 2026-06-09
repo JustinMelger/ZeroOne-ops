@@ -8,10 +8,13 @@ from zeroone_ops.models.review import (
     ReconciledReviewDecision,
 )
 from zeroone_ops.services.review.review_artifact_builder import ReviewArtifactBuilder
+from zeroone_ops.services.review.review_reconciled_decision_builder import (
+    build_reconciled_review_decision,
+)
 
 
 def build_decision(classification: str = "findings_present") -> ReconciledReviewDecision:
-    return ReconciledReviewDecision.from_precision_decision(
+    return build_reconciled_review_decision(
         PrecisionReviewDecision(
             review_classification=classification,
             decision_summary=(

@@ -12,7 +12,7 @@ from zeroone_ops.models.review import (
     PriorReviewPass,
     ReviewFinding,
 )
-from zeroone_ops.services.review.review_finding_identity import (
+from zeroone_ops.utils.review_finding_identity import (
     build_legacy_review_finding_identity,
     build_review_finding_identity,
 )

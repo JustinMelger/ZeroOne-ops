@@ -412,8 +412,7 @@ class ReviewRunner:
         summary = self.review_state_service.mark_reviewed(
             record=record,
             merge_request=intake_result.selected_merge_request,
-            review_result=review_result,
-            artifact=publish_artifact if not active_dry_run else None,
+            artifact=publish_artifact,
             note_id=note_id,
             note_url=note_url,
             dry_run=active_dry_run,

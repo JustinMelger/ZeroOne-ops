@@ -11,7 +11,6 @@ from zeroone_ops.models.review import (
     PriorReviewInlineComment,
     PriorReviewPass,
     PublishableReviewArtifact,
-    ReviewResult,
 )
 from zeroone_ops.models.state import (
     AppState,
@@ -24,10 +23,6 @@ from zeroone_ops.models.state import (
     utc_now,
 )
 from zeroone_ops.services.review.mr_selector import build_review_revision_key
-from zeroone_ops.services.review.review_finding_identity import (
-    build_legacy_review_finding_identity,
-    build_review_finding_identity,
-)
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.shared.state_store import StateStore
 
@@ -102,8 +97,7 @@ class ReviewStateService:
         *,
         record: RunRecord,
         merge_request: MergeRequestReviewCandidate,
-        review_result: ReviewResult,
-        artifact: PublishableReviewArtifact | None,
+        artifact: PublishableReviewArtifact,
         note_id: int | None,
         note_url: str | None,
         dry_run: bool,
@@ -119,31 +113,21 @@ class ReviewStateService:
             self.state.reviews[dedup_key] = MergeRequestReviewState(
                 mr_iid=merge_request.iid,
                 head_sha=merge_request.head_sha,
-                status=review_result.classification,
+                status=artifact.classification,
                 last_run_id=record.run_id,
-                findings_count=(
-                    len(artifact.findings) if artifact is not None else len(review_result.findings)
-                ),
-                summary=artifact.summary if artifact is not None else review_result.summary,
-                follow_up_lines=(
-                    list(artifact.follow_up_lines)
-                    if artifact is not None
-                    else list(review_result.follow_up_lines)
-                ),
-                findings=(
-                    _build_prior_review_findings_from_artifact(artifact)
-                    if artifact is not None
-                    else _build_prior_review_findings_from_review_result(review_result)
-                ),
+                findings_count=len(artifact.findings),
+                summary=artifact.summary,
+                follow_up_lines=list(artifact.follow_up_lines),
+                findings=_build_prior_review_findings_from_artifact(artifact),
                 note_id=note_id,
                 note_url=note_url,
             )
             self._trim_prior_reviews_for_merge_request(merge_request.iid)
         self.state_store.save(self.state)
-        summary_clause = _review_classification_summary(review_result)
+        summary_clause = _review_classification_summary(artifact)
         base_message = (
             f"Reviewed merge request !{merge_request.iid} at {merge_request.head_sha}. "
-            f"Classification: {review_result.classification}. {summary_clause}"
+            f"Classification: {artifact.classification}. {summary_clause}"
         )
         if dry_run:
             base_message = f"{base_message} Dry-run skipped note publication."
@@ -263,30 +247,6 @@ class ReviewStateService:
         )
 
 
-def _build_prior_review_findings_from_review_result(
-    review_result: ReviewResult,
-) -> list[PriorReviewFindingState]:
-    """Normalize bounded persisted prior-review finding summaries."""
-    normalized_findings: list[PriorReviewFindingState] = []
-    for finding in review_result.findings:
-        normalized_findings.append(
-            PriorReviewFindingState(
-                identity=build_review_finding_identity(finding),
-                legacy_identity=build_legacy_review_finding_identity(finding),
-                summary=f"{finding.file_path}: {finding.title}",
-                severity=finding.severity,
-                file_path=finding.file_path,
-                line_start=finding.line_start,
-                line_end=finding.line_end,
-                title=finding.title,
-                symbol=finding.symbol,
-                issue_kind=finding.issue_kind,
-                region_hint=finding.region_hint,
-            )
-        )
-    return normalized_findings
-
-
 def _build_prior_review_findings_from_artifact(
     artifact: PublishableReviewArtifact,
 ) -> list[PriorReviewFindingState]:
@@ -323,11 +283,10 @@ def _build_prior_review_findings_from_artifact(
     return normalized_findings
 
 
-def _review_classification_summary(review_result: ReviewResult) -> str:
+def _review_classification_summary(artifact: PublishableReviewArtifact) -> str:
     """Return one operator-facing review outcome summary."""
-    if review_result.classification == "manual_review_only":
+    if artifact.classification == "manual_review_only":
         return (
-            "Bot assessment was insufficient for a trustworthy review decision. "
-            f"{review_result.summary}"
+            f"Bot assessment was insufficient for a trustworthy review decision. {artifact.summary}"
         )
-    return review_result.summary
+    return artifact.summary
