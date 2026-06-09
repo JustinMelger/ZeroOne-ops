@@ -47,6 +47,9 @@ from zeroone_ops.services.review.review_gitlab_prior_context_service import (
 from zeroone_ops.services.review.review_gitlab_prior_note_parser import (
     ReviewGitLabPriorNoteParser,
 )
+from zeroone_ops.services.review.review_inline_comment_continuity_service import (
+    ReviewInlineCommentContinuityService,
+)
 from zeroone_ops.services.review.review_publisher import ReviewPublisher
 from zeroone_ops.services.review.review_reconciliation_service import (
     ReviewReconciliationResult,
@@ -245,6 +248,11 @@ class ReviewRunner:
                     artifact=artifact_result.artifact,
                     validation_result=validation_result,
                 )
+            inline_comment_continuity_result = ReviewInlineCommentContinuityService().apply(
+                context=context,
+                artifact=publish_artifact,
+            )
+            publish_artifact = inline_comment_continuity_result.artifact
             review_result = publish_artifact.to_review_result()
 
         LOGGER.info(
@@ -287,6 +295,11 @@ class ReviewRunner:
                 ),
                 "artifact_validation_issue_count": (
                     0 if validation_result is None else len(validation_result.issues)
+                ),
+                "reused_inline_comment_count": (
+                    0
+                    if artifact_result is None
+                    else inline_comment_continuity_result.reused_inline_comment_count
                 ),
             },
         )
@@ -401,6 +414,19 @@ class ReviewRunner:
                     "mr_iid": context.mr_iid,
                     "head_sha": context.head_sha,
                 },
+            )
+
+        if publish_artifact is None:  # pragma: no cover - defensive typing guard
+            return self.review_state_service.fail_review(
+                record=record,
+                error_message=(
+                    f"[{self.config.execution_mode}] "
+                    "Validated review artifact was unavailable before state persistence."
+                ),
+                failure=FailureDetails(
+                    stage=FailureStage.REVIEW_PUBLISH,
+                    message="Validated review artifact was unavailable before state persistence.",
+                ),
             )
 
         record.review_diagnostics = _build_review_run_diagnostics(

@@ -102,7 +102,7 @@ Shipped baseline:
   needed for continuity-safe reuse
 - keep the summary note as the authoritative review-pass record
 
-- [ ] Phase 4: Identity And Duplicate-Comment Checks
+- [x] Phase 4: Identity And Duplicate-Comment Checks
 
 - reuse canonical finding identity for inline-comment continuity checks
 - avoid posting a second near-duplicate inline comment when the same finding
