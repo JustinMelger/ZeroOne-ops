@@ -196,9 +196,7 @@ def test_mark_reviewed_preserves_continuity_metadata_contract_end_to_end(tmp_pat
                     region_hint="changed-branch",
                     title="Missing regression coverage",
                     summary="Missing regression coverage",
-                    evidence=[
-                        "The diff changes a branch without matching test updates."
-                    ],
+                    evidence=["The diff changes a branch without matching test updates."],
                     why_it_matters="The branch behavior changes without regression coverage.",
                     recommended_follow_up="Add a regression test.",
                 )
