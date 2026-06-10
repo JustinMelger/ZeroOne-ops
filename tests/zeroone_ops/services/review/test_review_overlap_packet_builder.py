@@ -121,6 +121,37 @@ def _unstructured_vehicle_variant() -> ReviewFinding:
     )
 
 
+def _vehicle_types_prior_finding() -> ReviewFinding:
+    return ReviewFinding(
+        severity="high",
+        file_path="core/external_clients/vehicle_lookup_service.py",
+        symbol="extract_banner_details / get_general_info_group_vi_version",
+        issue_kind="deterministic_runtime_error",
+        region_hint="Vehicle-based detail helpers",
+        title="Vehicle-based detail helpers assume `vehicle.types` is non-empty and can crash",
+        evidence="The helper reads `vehicle.types[0]` fields directly.",
+        explanation="Valid empty-list inputs can raise `IndexError`.",
+        suggested_follow_up="Guard the first type lookup or use empty defaults.",
+    )
+
+
+def _vehicle_types_current_wording_drift() -> ReviewFinding:
+    return ReviewFinding(
+        severity="high",
+        file_path="core/external_clients/vehicle_lookup_service.py",
+        symbol="extract_banner_details / get_general_info_group_vi_version",
+        issue_kind="deterministic_runtime_error",
+        region_hint="new Vehicle-based banner/general-info helpers",
+        title=(
+            "Vehicle-based detail helpers index `vehicle.types[0]` without checking "
+            "for an empty list"
+        ),
+        evidence="The helper reads `vehicle.types[0].brand`, `logo`, and code directly.",
+        explanation="Valid empty-list inputs can still raise `IndexError`.",
+        suggested_follow_up="Guard the first type lookup or use empty defaults.",
+    )
+
+
 def test_build_overlap_packet_returns_none_without_prior_pass() -> None:
     packet = OverlapPacketBuilder().build(
         context=_build_context(),
@@ -242,5 +273,29 @@ def test_build_overlap_packet_uses_structured_prior_fields_without_summary_parsi
             "current_finding_index": 0,
             "prior_finding_index": 0,
             "reasons": ["canonical_identity"],
+        }
+    ]
+
+
+def test_build_overlap_packet_keeps_same_symbol_and_issue_kind_despite_region_wording_drift() -> (
+    None
+):
+    packet = OverlapPacketBuilder().build(
+        context=_build_context(
+            prior_pass=_build_prior_pass(findings=[_vehicle_types_prior_finding()])
+        ),
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One finding.",
+            findings=[_vehicle_types_current_wording_drift()],
+        ),
+    )
+
+    assert packet is not None
+    assert [candidate.model_dump() for candidate in packet.candidates] == [
+        {
+            "current_finding_index": 0,
+            "prior_finding_index": 0,
+            "reasons": ["same_file", "symbol", "issue_kind", "title_overlap"],
         }
     ]

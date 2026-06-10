@@ -3664,29 +3664,34 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
             },
         )(),
     )
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
-        lambda self,
+
+    def publish_artifact_stub(  # noqa: ANN001, ANN202
+        self,
         project_id,
         merge_request_iid,
         context,
         artifact,
-        inline_comment_decisions=None: (
-            ReviewPublishResult(
-                note=type(
-                    "Note",
-                    (),
-                    {
-                        "id": 55,
-                        "web_url": (
-                            "https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
-                        ),
-                    },
-                )(),
-                body="summary",
-                artifact=artifact,
-            )
-        ),
+        inline_comment_decisions=None,
+    ):
+        del self, project_id, merge_request_iid, context, inline_comment_decisions
+        return ReviewPublishResult(
+            note=type(
+                "Note",
+                (),
+                {
+                    "id": 55,
+                    "web_url": (
+                        "https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
+                    ),
+                },
+            )(),
+            body="summary",
+            artifact=artifact,
+        )
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        publish_artifact_stub,
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
@@ -3822,20 +3827,25 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
             },
         )(),
     )
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
-        lambda self,
+
+    def publish_artifact_stub(  # noqa: ANN001, ANN202
+        self,
         project_id,
         merge_request_iid,
         context,
         artifact,
-        inline_comment_decisions=None: (
-            ReviewPublishResult(
-                note=type("Note", (), {"id": 55, "web_url": None})(),
-                body="summary",
-                artifact=artifact,
-            )
-        ),
+        inline_comment_decisions=None,
+    ):
+        del self, project_id, merge_request_iid, context, inline_comment_decisions
+        return ReviewPublishResult(
+            note=type("Note", (), {"id": 55, "web_url": None})(),
+            body="summary",
+            artifact=artifact,
+        )
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        publish_artifact_stub,
     )
     observed: dict[str, object] = {}
 

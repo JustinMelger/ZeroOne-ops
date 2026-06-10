@@ -117,10 +117,10 @@ class OverlapPacketBuilder:
             field_name="issue_kind",
             expected_value=current_finding.issue_kind,
         )
-        narrowed_candidates = self._narrow_candidates_by_field(
+        narrowed_candidates = self._soft_narrow_candidates_by_region(
             narrowed_candidates,
-            field_name="region_hint",
-            expected_value=current_finding.region_hint,
+            expected_region_hint=current_finding.region_hint,
+            current_title=current_finding.title,
         )
         return narrowed_candidates
 
@@ -190,6 +190,41 @@ class OverlapPacketBuilder:
         ]
         if candidates_with_structured_value:
             return []
+        return candidates
+
+    def _soft_narrow_candidates_by_region(
+        self,
+        candidates: list[tuple[int, PriorReviewFinding]],
+        *,
+        expected_region_hint: str | None,
+        current_title: str,
+    ) -> list[tuple[int, PriorReviewFinding]]:
+        """Prefer region matches without discarding same-issue candidates on wording drift."""
+        if expected_region_hint is None:
+            return candidates
+
+        exact_region_matches = [
+            candidate
+            for candidate in candidates
+            if candidate[1].region_hint == expected_region_hint
+        ]
+        if exact_region_matches:
+            return exact_region_matches
+
+        title_overlap_matches = [
+            candidate
+            for candidate in candidates
+            if (
+                self._prior_title(candidate[1]) is not None
+                and self._titles_look_like_same_finding(
+                    current_title,
+                    self._prior_title(candidate[1]) or "",
+                )
+            )
+        ]
+        if title_overlap_matches:
+            return title_overlap_matches
+
         return candidates
 
     def _current_finding_key(self, finding: ReviewFinding) -> tuple[str, str, str]:

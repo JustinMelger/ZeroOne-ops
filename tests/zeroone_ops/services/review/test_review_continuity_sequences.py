@@ -338,6 +338,37 @@ def _cache_guard_finding_low_wording_drift() -> ReviewFinding:
     )
 
 
+def _vehicle_types_prior_finding() -> ReviewFinding:
+    return ReviewFinding(
+        severity="high",
+        file_path="core/external_clients/vehicle_lookup_service.py",
+        symbol="extract_banner_details / get_general_info_group_vi_version",
+        issue_kind="deterministic_runtime_error",
+        region_hint="Vehicle-based detail helpers",
+        title="Vehicle-based detail helpers assume `vehicle.types` is non-empty and can crash",
+        evidence="The helper reads `vehicle.types[0]` fields directly.",
+        explanation="Valid empty-list inputs can raise `IndexError`.",
+        suggested_follow_up="Guard the first type lookup or use empty defaults.",
+    )
+
+
+def _vehicle_types_current_wording_drift() -> ReviewFinding:
+    return ReviewFinding(
+        severity="high",
+        file_path="core/external_clients/vehicle_lookup_service.py",
+        symbol="extract_banner_details / get_general_info_group_vi_version",
+        issue_kind="deterministic_runtime_error",
+        region_hint="new Vehicle-based banner/general-info helpers",
+        title=(
+            "Vehicle-based detail helpers index `vehicle.types[0]` without checking "
+            "for an empty list"
+        ),
+        evidence="The helper reads `vehicle.types[0].brand`, `logo`, and code directly.",
+        explanation="Valid empty-list inputs can still raise `IndexError`.",
+        suggested_follow_up="Guard the first type lookup or use empty defaults.",
+    )
+
+
 def test_valueerror_sequence_tracks_still_unresolved_new_and_resolved_findings() -> None:
     pass1_findings = [_cylinder_finding()]
 
@@ -511,6 +542,22 @@ def test_same_symbol_severity_and_wording_drift_stays_still_unresolved() -> None
         findings=[_cache_guard_finding_low_wording_drift()],
     )
     assert pass2_still == ["src/cache.py: Cache key builder no longer guards missing tenant id"]
+    assert pass2_new == []
+    assert pass2_resolved == []
+    assert pass2_ambiguous == []
+
+
+def test_vehicle_types_continuity_survives_region_and_title_wording_drift() -> None:
+    pass2_still, pass2_new, pass2_resolved, pass2_ambiguous = _reconcile_sequence(
+        head_sha="vehicle-types-pass-2",
+        prior_pass=_build_prior_pass("vehicle-types-pass-1", [_vehicle_types_prior_finding()]),
+        findings=[_vehicle_types_current_wording_drift()],
+    )
+
+    assert pass2_still == [
+        "core/external_clients/vehicle_lookup_service.py: "
+        "Vehicle-based detail helpers assume `vehicle.types` is non-empty and can crash"
+    ]
     assert pass2_new == []
     assert pass2_resolved == []
     assert pass2_ambiguous == []

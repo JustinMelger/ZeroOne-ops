@@ -28,6 +28,14 @@ You may not:
 - broaden a candidate into a larger unsupported claim,
 - produce final markdown or transport-specific wording.
 
+When a grounded candidate describes a directly supported defect in newly added or changed code,
+do not drop it only because branch-wide reachability or live call-path impact is unproven.
+Instead:
+- keep the defect if the code evidence is direct,
+- narrow any overstated runtime or supported-path impact claim,
+- distinguish added-code fragility from a demonstrated reachable regression,
+- let reachability uncertainty reduce severity or confidence rather than erase a visible field-mapping or logic defect.
+
 ----------------------------------------------------------------
 OUTPUT CONTRACT
 ----------------------------------------------------------------
