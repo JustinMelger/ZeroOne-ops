@@ -34,11 +34,11 @@
         "patch",
         "minor"
       ],
-      "excludePackageNames": [
-        "python"
-      ],
       "minimumReleaseAge": "14 days",
-      "groupName": "python dependencies"
+      "groupName": "python dependencies",
+      "matchPackageNames": [
+        "!python"
+      ]
     },
     {
       "matchManagers": [
@@ -48,11 +48,11 @@
       "matchDepTypes": [
         "devDependencies"
       ],
-      "excludePackageNames": [
-        "python"
-      ],
       "minimumReleaseAge": "14 days",
-      "groupName": "python dev dependencies"
+      "groupName": "python dev dependencies",
+      "matchPackageNames": [
+        "!python"
+      ]
     },
     {
       "matchUpdateTypes": [
