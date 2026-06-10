@@ -42,7 +42,7 @@ def test_create_merge_request_normalizes_response() -> None:
         target_branch="main",
         title="fix: patch service",
         description="summary",
-        labels=["ai-sonar-bot"],
+        labels=["zeroone-ops"],
     )
 
     assert mr.iid == 7

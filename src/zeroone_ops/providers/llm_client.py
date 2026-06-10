@@ -6,12 +6,11 @@ an LLM provider.
 
 from __future__ import annotations
 
-import json
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import mlflow
 import mlflow.openai as mlflow_openai
@@ -20,7 +19,6 @@ from openai import OpenAI
 from zeroone_ops.models.analysis import (
     IssueAnalysis,
     IssueContext,
-    PatchProposal,
     StructuredEditProposal,
 )
 from zeroone_ops.models.config import OpenAIConnectionConfig
@@ -48,7 +46,7 @@ from zeroone_ops.providers.llm_prompts import (
     build_review_precision_prompt,
     build_structured_edit_prompt,
 )
-from zeroone_ops.utils.files import ensure_parent
+from zeroone_ops.utils.solution_artifacts import write_solution_artifact
 
 LOGGER = logging.getLogger(__name__)
 _MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED = False
@@ -188,7 +186,7 @@ class OpenAILLMClient(LLMClient):
             raise LLMClientError("OpenAI issue analysis did not return parsed output.")
         analysis = response.output_parsed
         if self.solution_output_path is not None:
-            _write_solution_file(
+            write_solution_artifact(
                 self.solution_output_path,
                 issue_key=issue.source_ref,
                 analysis=analysis,
@@ -499,64 +497,3 @@ class FixtureLLMClient(LLMClient):
             return load_review_precision_fixture(self.review_precision_fixture_path)
         except LLMFixtureError as error:
             raise LLMClientError(str(error)) from error
-
-
-def _write_solution_file(
-    path: Path,
-    *,
-    issue_key: str,
-    analysis: IssueAnalysis | None = None,
-    structured_edit: StructuredEditProposal | None = None,
-    patch: PatchProposal | None = None,
-    decision: str | None = None,
-    rejection_reason: str | None = None,
-    clear_patch: bool = False,
-) -> None:
-    """Write OpenAI outputs to a local JSON file.
-
-    Args:
-        path: Output file path.
-        issue_key: SonarQube issue key.
-        analysis: Optional structured issue analysis.
-        structured_edit: Optional structured edit proposal.
-        patch: Optional structured patch proposal.
-        decision: Optional decision for the solution artifact.
-        rejection_reason: Optional rejection reason for the solution artifact.
-        clear_patch: Whether to remove any existing patch from the artifact.
-    """
-    ensure_parent(path)
-    payload = _load_existing_solution(path)
-    payload["issue_key"] = issue_key
-    if analysis is not None:
-        payload["analysis"] = analysis.model_dump(mode="json")
-    if structured_edit is not None:
-        payload["structured_edit"] = structured_edit.model_dump(mode="json")
-    if clear_patch:
-        payload.pop("patch", None)
-    if patch is not None:
-        payload["patch"] = patch.model_dump(mode="json")
-    if decision is not None:
-        payload["decision"] = decision
-    if rejection_reason is not None:
-        payload["rejection_reason"] = rejection_reason
-    elif decision != "rejected":
-        payload.pop("rejection_reason", None)
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-
-
-def _load_existing_solution(path: Path) -> dict[str, Any]:
-    """Load an existing solution file if present.
-
-    Args:
-        path: Output file path.
-
-    Returns:
-        Existing JSON payload, or an empty dictionary.
-    """
-    if not path.exists():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
-    return payload if isinstance(payload, dict) else {}

@@ -117,6 +117,15 @@ For new persisted entries:
 - reserve the legacy fallback for older persisted review history without
   identity
 
+The same identity-first rule should later gate:
+
+- inline comment reuse
+- repeated finding threading
+- follow-up summary wording
+
+Those publish surfaces should reuse canonical identity rather than creating a
+second presentation-owned matching scheme.
+
 ## Rendering Boundaries
 
 The review publisher should continue to render follow-up wording from human

@@ -19,6 +19,7 @@ from zeroone_ops.models.state import (
     FailureStage,
     ReviewDiagnosticCandidate,
     ReviewDiagnosticDroppedCandidate,
+    ReviewInlineCommentDecision,
     ReviewRunDiagnostics,
     RunRecord,
 )
@@ -46,6 +47,9 @@ from zeroone_ops.services.review.review_gitlab_prior_context_service import (
 )
 from zeroone_ops.services.review.review_gitlab_prior_note_parser import (
     ReviewGitLabPriorNoteParser,
+)
+from zeroone_ops.services.review.review_inline_comment_continuity_service import (
+    ReviewInlineCommentContinuityService,
 )
 from zeroone_ops.services.review.review_publisher import ReviewPublisher
 from zeroone_ops.services.review.review_reconciliation_service import (
@@ -245,6 +249,14 @@ class ReviewRunner:
                     artifact=artifact_result.artifact,
                     validation_result=validation_result,
                 )
+            inline_comment_continuity_result = (
+                ReviewInlineCommentContinuityService().apply_if_enabled(
+                    context=context,
+                    artifact=publish_artifact,
+                    enabled=self.config.review.inline_comments_enabled,
+                )
+            )
+            publish_artifact = inline_comment_continuity_result.artifact
             review_result = publish_artifact.to_review_result()
 
         LOGGER.info(
@@ -288,6 +300,16 @@ class ReviewRunner:
                 "artifact_validation_issue_count": (
                     0 if validation_result is None else len(validation_result.issues)
                 ),
+                "reused_inline_comment_count": (
+                    0
+                    if artifact_result is None
+                    else inline_comment_continuity_result.reused_inline_comment_count
+                ),
+                "inline_comment_decision_count": (
+                    0
+                    if artifact_result is None
+                    else len(inline_comment_continuity_result.decisions)
+                ),
             },
         )
         if context.prior_review_context is not None and overlap_result is None:
@@ -301,8 +323,11 @@ class ReviewRunner:
                 },
             )
 
+        note_id: int | None = None
         note_url: str | None = None
         dashboard_warning: str | None = None
+        publish_warning: str | None = None
+        publish_result = None
         if not active_dry_run:
             if artifact_result is None:
                 return self.review_state_service.fail_review(
@@ -333,6 +358,7 @@ class ReviewRunner:
                 merge_request_iid=context.mr_iid,
                 context=context,
                 artifact=publish_artifact,
+                inline_comment_decisions=inline_comment_continuity_result.decisions,
             )
             if publish_result.error_message is not None:
                 return self.review_state_service.fail_review(
@@ -346,7 +372,11 @@ class ReviewRunner:
                     ),
                 )
             if publish_result.note is not None:
+                note_id = publish_result.note.id
                 note_url = publish_result.note.web_url
+                publish_artifact = publish_result.artifact
+                review_result = publish_artifact.to_review_result()
+                publish_warning = publish_result.warning_message
                 LOGGER.info(
                     "review note published",
                     extra={
@@ -357,6 +387,16 @@ class ReviewRunner:
                         "note_url": publish_result.note.web_url,
                     },
                 )
+                if publish_warning is not None:
+                    LOGGER.warning(
+                        "review inline comment transport warning",
+                        extra={
+                            "run_id": run_id,
+                            "mr_iid": context.mr_iid,
+                            "head_sha": context.head_sha,
+                            "warning": publish_warning,
+                        },
+                    )
             dashboard_update = ReviewDashboardUpdater(
                 DashboardService(
                     self.dashboard_client,
@@ -401,16 +441,50 @@ class ReviewRunner:
                 },
             )
 
+        if publish_artifact is None:  # pragma: no cover - defensive typing guard
+            return self.review_state_service.fail_review(
+                record=record,
+                error_message=(
+                    f"[{self.config.execution_mode}] "
+                    "Validated review artifact was unavailable before state persistence."
+                ),
+                failure=FailureDetails(
+                    stage=FailureStage.REVIEW_PUBLISH,
+                    message="Validated review artifact was unavailable before state persistence.",
+                ),
+            )
+
+        inline_comment_decisions = (
+            []
+            if active_dry_run
+            else (
+                publish_result.inline_comment_decisions
+                if publish_result is not None and publish_result.inline_comment_decisions
+                else inline_comment_continuity_result.decisions
+            )
+        )
+        _log_inline_comment_rollout(
+            run_id=run_id,
+            mr_iid=context.mr_iid,
+            head_sha=context.head_sha,
+            inline_comments_enabled=self.config.review.inline_comments_enabled,
+            inline_comment_transport_enabled=(
+                self.config.review.inline_comments_enabled and not active_dry_run
+            ),
+            decisions=inline_comment_decisions,
+        )
         record.review_diagnostics = _build_review_run_diagnostics(
             head_sha=context.head_sha,
             candidate_stage_result=candidate_stage_result,
             reconciliation_result=reconciliation_result,
             review_result=review_result,
+            inline_comment_decisions=inline_comment_decisions,
         )
         summary = self.review_state_service.mark_reviewed(
             record=record,
             merge_request=intake_result.selected_merge_request,
-            review_result=review_result,
+            artifact=publish_artifact,
+            note_id=note_id,
             note_url=note_url,
             dry_run=active_dry_run,
         )
@@ -419,8 +493,16 @@ class ReviewRunner:
             status=summary.status,
             message=(
                 f"[{self.config.execution_mode}] {summary.message}"
-                if dashboard_warning is None
-                else f"[{self.config.execution_mode}] {summary.message} {dashboard_warning}"
+                if publish_warning is None and dashboard_warning is None
+                else " ".join(
+                    part
+                    for part in (
+                        f"[{self.config.execution_mode}] {summary.message}",
+                        publish_warning,
+                        dashboard_warning,
+                    )
+                    if part
+                )
             ),
             state_path=summary.state_path,
         )
@@ -686,6 +768,7 @@ def _build_review_run_diagnostics(
     candidate_stage_result: ReviewCandidateStageResult,
     reconciliation_result: ReviewReconciliationResult,
     review_result: ReviewResult,
+    inline_comment_decisions: list[ReviewInlineCommentDecision],
 ) -> ReviewRunDiagnostics:
     """Build one bounded staged-review diagnostics record for internal use."""
     candidate_findings = (
@@ -735,8 +818,95 @@ def _build_review_run_diagnostics(
         ],
         precision_accepted_candidate_ids=precision_accepted_candidate_ids,
         precision_dropped_candidates=precision_dropped_candidates,
+        inline_comment_decisions=inline_comment_decisions,
         final_published_finding_summaries=[
             f"{finding.file_path}: {finding.title}" for finding in review_result.findings
         ],
         final_classification=review_result.classification,
+    )
+
+
+def _log_inline_comment_rollout(
+    *,
+    run_id: str,
+    mr_iid: int,
+    head_sha: str,
+    inline_comments_enabled: bool,
+    inline_comment_transport_enabled: bool,
+    decisions: list[ReviewInlineCommentDecision],
+) -> None:
+    """Emit compact CI-visible rollout diagnostics for inline-comment continuity."""
+    if not decisions:
+        LOGGER.info(
+            "review inline comment rollout summary",
+            extra={
+                "run_id": run_id,
+                "mr_iid": mr_iid,
+                "head_sha": head_sha,
+                "inline_comments_enabled": inline_comments_enabled,
+                "inline_comment_transport_enabled": inline_comment_transport_enabled,
+                "inline_comment_decision_count": 0,
+                "inline_comment_reuse_count": 0,
+                "inline_comment_new_candidate_count": 0,
+                "inline_comment_summary_only_count": 0,
+                "inline_comment_trusted_count": 0,
+                "inline_comment_weak_count": 0,
+                "inline_comment_untrusted_count": 0,
+            },
+        )
+        return
+
+    for decision in decisions:
+        LOGGER.info(
+            "review inline comment decision",
+            extra={
+                "run_id": run_id,
+                "mr_iid": mr_iid,
+                "head_sha": head_sha,
+                "finding_identity": decision.finding_identity,
+                "severity": decision.severity,
+                "file_path": decision.file_path,
+                "line_start": decision.line_start,
+                "line_end": decision.line_end,
+                "region_hint": decision.region_hint,
+                "inline_comments_enabled": decision.inline_comments_enabled,
+                "inline_comment_transport_enabled": inline_comment_transport_enabled,
+                "location_trust": decision.location_trust,
+                "existing_inline_comment_found": decision.existing_inline_comment_found,
+                "anchor_reuse_decision": decision.anchor_reuse_decision,
+                "anchor_reuse_reason": decision.anchor_reuse_reason,
+                "authoritative_note_id": decision.authoritative_note_id,
+                "existing_comment_id": decision.existing_comment_id,
+                "new_comment_id": decision.new_comment_id,
+            },
+        )
+
+    LOGGER.info(
+        "review inline comment rollout summary",
+        extra={
+            "run_id": run_id,
+            "mr_iid": mr_iid,
+            "head_sha": head_sha,
+            "inline_comments_enabled": inline_comments_enabled,
+            "inline_comment_transport_enabled": inline_comment_transport_enabled,
+            "inline_comment_decision_count": len(decisions),
+            "inline_comment_reuse_count": sum(
+                1 for decision in decisions if decision.anchor_reuse_decision == "reuse"
+            ),
+            "inline_comment_new_candidate_count": sum(
+                1 for decision in decisions if decision.anchor_reuse_decision == "new"
+            ),
+            "inline_comment_summary_only_count": sum(
+                1 for decision in decisions if decision.anchor_reuse_decision == "summary_only"
+            ),
+            "inline_comment_trusted_count": sum(
+                1 for decision in decisions if decision.location_trust == "trusted"
+            ),
+            "inline_comment_weak_count": sum(
+                1 for decision in decisions if decision.location_trust == "weak"
+            ),
+            "inline_comment_untrusted_count": sum(
+                1 for decision in decisions if decision.location_trust == "untrusted"
+            ),
+        },
     )

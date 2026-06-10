@@ -26,7 +26,7 @@ def build_config() -> AppConfig:
         validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
-            supported_severities=["LOW"],
+            bootstrap_severities=["LOW"],
             analysis=AnalysisConfig(),
         ),
         review=ReviewConfig(),

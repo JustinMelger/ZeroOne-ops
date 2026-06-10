@@ -69,6 +69,11 @@ def test_get_merge_request_normalizes_changes_response() -> None:
                 "sha": "abc123",
                 "draft": False,
                 "author": {"username": "justin"},
+                "diff_refs": {
+                    "base_sha": "base123",
+                    "start_sha": "start123",
+                    "head_sha": "abc123",
+                },
                 "changes": [
                     {
                         "old_path": "src/old.py",
@@ -93,6 +98,8 @@ def test_get_merge_request_normalizes_changes_response() -> None:
     merge_request = client.get_merge_request(project_id="123", merge_request_iid=17)
 
     assert merge_request.iid == 17
+    assert merge_request.diff_refs is not None
+    assert merge_request.diff_refs.base_sha == "base123"
     assert len(merge_request.changes) == 1
     assert merge_request.changes[0].new_path == "src/new.py"
     assert merge_request.changes[0].renamed_file is True
@@ -121,6 +128,7 @@ def test_create_merge_request_note_normalizes_response() -> None:
     note = client.create_merge_request_note(project_id="123", merge_request_iid=17, body="summary")
 
     assert note.id == 55
+    assert note.web_url is not None
     assert note.web_url.endswith("#note_55")
 
 
@@ -148,6 +156,53 @@ def test_create_merge_request_note_allows_missing_web_url() -> None:
 
     assert note.id == 56
     assert note.web_url is None
+
+
+def test_create_merge_request_inline_comment_normalizes_discussion_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/projects/123/merge_requests/17/discussions"
+        assert request.method == "POST"
+        body = request.content.decode()
+        assert "position%5Bbase_sha%5D=base123" in body
+        assert "position%5Bnew_line%5D=7" in body
+        return httpx.Response(
+            201,
+            json={
+                "notes": [
+                    {
+                        "id": 91,
+                        "web_url": (
+                            "https://gitlab.example.com/group/project/-/merge_requests/17#note_91"
+                        ),
+                        "body": "inline body",
+                    }
+                ]
+            },
+        )
+
+    client = GitLabReviewClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    note = client.create_merge_request_inline_comment(
+        project_id="123",
+        merge_request_iid=17,
+        body="inline body",
+        base_sha="base123",
+        start_sha="start123",
+        head_sha="head123",
+        old_path="src/service.py",
+        new_path="src/service.py",
+        new_line=7,
+    )
+
+    assert note.id == 91
+    assert note.web_url is not None
+    assert note.web_url.endswith("#note_91")
 
 
 def test_list_merge_request_notes_normalizes_response() -> None:

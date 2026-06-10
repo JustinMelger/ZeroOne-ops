@@ -79,6 +79,14 @@ Follow-up reconciliation should prefer:
 This keeps backward compatibility while moving the steady-state behavior onto a
 more stable machine-facing format.
 
+The same precedence should also guide later publish behavior:
+
+- stable identity first
+- wording second
+
+That keeps inline comments and repeated review notes from splitting one concern
+into multiple visible threads just because the human phrasing drifted.
+
 ### 4. Backward compatibility
 
 Existing persisted review state without a stable identity must continue to work.

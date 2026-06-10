@@ -9,7 +9,11 @@ import httpx
 
 from zeroone_ops.models.config import GitLabConnectionConfig
 from zeroone_ops.models.gitlab import GitLabMergeRequestState, MergeRequestNote
-from zeroone_ops.models.review import MergeRequestChangedFile, MergeRequestReviewCandidate
+from zeroone_ops.models.review import (
+    MergeRequestChangedFile,
+    MergeRequestDiffRefs,
+    MergeRequestReviewCandidate,
+)
 from zeroone_ops.providers.gitlab_client import GitLabClientError, _parse_json_response
 
 
@@ -43,6 +47,31 @@ class GitLabReviewClientProtocol(Protocol):
         body: str,
     ) -> MergeRequestNote:
         """Publish one merge request note."""
+
+    def update_merge_request_note(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+        note_id: int,
+        body: str,
+    ) -> MergeRequestNote:
+        """Update one merge request note."""
+
+    def create_merge_request_inline_comment(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+        body: str,
+        base_sha: str,
+        start_sha: str,
+        head_sha: str,
+        old_path: str,
+        new_path: str,
+        new_line: int,
+    ) -> MergeRequestNote:
+        """Publish one merge-request inline comment discussion."""
 
     def list_merge_request_notes(
         self,
@@ -134,6 +163,61 @@ class GitLabReviewClient:
             raise GitLabClientError("Unexpected GitLab merge request note payload.")
         return _normalize_merge_request_note(payload)
 
+    def update_merge_request_note(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+        note_id: int,
+        body: str,
+    ) -> MergeRequestNote:
+        """Update one merge request note."""
+        encoded_project_id = quote_plus(project_id)
+        response = self._http_client.put(
+            f"/api/v4/projects/{encoded_project_id}/merge_requests/{merge_request_iid}/notes/{note_id}",
+            data={"body": body},
+        )
+        payload = _parse_json_response(response)
+        if not isinstance(payload, dict):
+            raise GitLabClientError("Unexpected GitLab merge request note update payload.")
+        return _normalize_merge_request_note(payload)
+
+    def create_merge_request_inline_comment(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+        body: str,
+        base_sha: str,
+        start_sha: str,
+        head_sha: str,
+        old_path: str,
+        new_path: str,
+        new_line: int,
+    ) -> MergeRequestNote:
+        """Publish one inline merge-request discussion note."""
+        encoded_project_id = quote_plus(project_id)
+        response = self._http_client.post(
+            f"/api/v4/projects/{encoded_project_id}/merge_requests/{merge_request_iid}/discussions",
+            data={
+                "body": body,
+                "position[position_type]": "text",
+                "position[base_sha]": base_sha,
+                "position[start_sha]": start_sha,
+                "position[head_sha]": head_sha,
+                "position[old_path]": old_path,
+                "position[new_path]": new_path,
+                "position[new_line]": str(new_line),
+            },
+        )
+        payload = _parse_json_response(response)
+        if not isinstance(payload, dict):
+            raise GitLabClientError("Unexpected GitLab merge request discussion payload.")
+        notes = payload.get("notes")
+        if not isinstance(notes, list) or not notes or not isinstance(notes[0], dict):
+            raise GitLabClientError("Unexpected GitLab merge request discussion notes payload.")
+        return _normalize_merge_request_note(notes[0])
+
     def list_merge_request_notes(
         self,
         *,
@@ -188,6 +272,7 @@ def _normalize_review_candidate(payload: dict[str, Any]) -> MergeRequestReviewCa
     description = payload.get("description")
     author_payload = payload.get("author")
     changes_payload = payload.get("changes", [])
+    diff_refs_payload = payload.get("diff_refs")
 
     if not isinstance(iid, int) or not isinstance(title, str):
         raise GitLabClientError("Unexpected GitLab merge request structure.")
@@ -211,6 +296,7 @@ def _normalize_review_candidate(payload: dict[str, Any]) -> MergeRequestReviewCa
 
     if not isinstance(changes_payload, list):
         raise GitLabClientError("Unexpected GitLab merge request changes structure.")
+    diff_refs = _normalize_diff_refs(diff_refs_payload)
 
     return MergeRequestReviewCandidate(
         iid=iid,
@@ -222,6 +308,7 @@ def _normalize_review_candidate(payload: dict[str, Any]) -> MergeRequestReviewCa
         head_sha=head_sha,
         draft=draft,
         author_username=author_username,
+        diff_refs=diff_refs,
         changes=[
             _normalize_changed_file(change)
             for change in changes_payload
@@ -253,6 +340,24 @@ def _normalize_changed_file(payload: dict[str, Any]) -> MergeRequestChangedFile:
         deleted_file=deleted_file,
         new_file=new_file,
         renamed_file=renamed_file,
+    )
+
+
+def _normalize_diff_refs(payload: object) -> MergeRequestDiffRefs | None:
+    """Normalize optional GitLab diff refs for inline comment positioning."""
+    if payload is None:
+        return None
+    if not isinstance(payload, dict):
+        raise GitLabClientError("Unexpected GitLab merge request diff refs structure.")
+    base_sha = payload.get("base_sha")
+    start_sha = payload.get("start_sha")
+    head_sha = payload.get("head_sha")
+    if not all(isinstance(value, str) for value in (base_sha, start_sha, head_sha)):
+        raise GitLabClientError("Unexpected GitLab merge request diff refs payload.")
+    return MergeRequestDiffRefs(
+        base_sha=str(base_sha),
+        start_sha=str(start_sha),
+        head_sha=str(head_sha),
     )
 
 

@@ -7,12 +7,12 @@ from zeroone_ops.models.review import (
     ReviewFinding,
     ReviewResult,
 )
-from zeroone_ops.services.review.review_finding_identity import (
-    build_legacy_review_finding_identity,
-    build_review_finding_identity,
-)
 from zeroone_ops.services.review.review_overlap_packet_builder import (
     OverlapPacketBuilder,
+)
+from zeroone_ops.utils.review_finding_identity import (
+    build_legacy_review_finding_identity,
+    build_review_finding_identity,
 )
 
 
@@ -121,6 +121,37 @@ def _unstructured_vehicle_variant() -> ReviewFinding:
     )
 
 
+def _vehicle_types_prior_finding() -> ReviewFinding:
+    return ReviewFinding(
+        severity="high",
+        file_path="core/external_clients/vehicle_lookup_service.py",
+        symbol="extract_banner_details / get_general_info_group_vi_version",
+        issue_kind="deterministic_runtime_error",
+        region_hint="Vehicle-based detail helpers",
+        title="Vehicle-based detail helpers assume `vehicle.types` is non-empty and can crash",
+        evidence="The helper reads `vehicle.types[0]` fields directly.",
+        explanation="Valid empty-list inputs can raise `IndexError`.",
+        suggested_follow_up="Guard the first type lookup or use empty defaults.",
+    )
+
+
+def _vehicle_types_current_wording_drift() -> ReviewFinding:
+    return ReviewFinding(
+        severity="high",
+        file_path="core/external_clients/vehicle_lookup_service.py",
+        symbol="extract_banner_details / get_general_info_group_vi_version",
+        issue_kind="deterministic_runtime_error",
+        region_hint="new Vehicle-based banner/general-info helpers",
+        title=(
+            "Vehicle-based detail helpers index `vehicle.types[0]` without checking "
+            "for an empty list"
+        ),
+        evidence="The helper reads `vehicle.types[0].brand`, `logo`, and code directly.",
+        explanation="Valid empty-list inputs can still raise `IndexError`.",
+        suggested_follow_up="Guard the first type lookup or use empty defaults.",
+    )
+
+
 def test_build_overlap_packet_returns_none_without_prior_pass() -> None:
     packet = OverlapPacketBuilder().build(
         context=_build_context(),
@@ -203,4 +234,68 @@ def test_build_overlap_packet_preserves_ambiguous_same_file_candidates() -> None
             "prior_finding_index": 1,
             "reasons": ["same_file"],
         },
+    ]
+
+
+def test_build_overlap_packet_uses_structured_prior_fields_without_summary_parsing() -> None:
+    prior_finding = _vehicle_details_finding()
+    prior_pass = PriorReviewPass(
+        reviewed_head_sha="prior-sha",
+        classification="findings_present",
+        findings_count=1,
+        summary="Earlier review state.",
+        findings=[
+            PriorReviewFinding(
+                identity=build_review_finding_identity(prior_finding),
+                legacy_identity=build_legacy_review_finding_identity(prior_finding),
+                summary="non parseable prior summary",
+                severity=prior_finding.severity,
+                file_path=prior_finding.file_path,
+                title=prior_finding.title,
+                symbol=prior_finding.symbol,
+                issue_kind=prior_finding.issue_kind,
+                region_hint=prior_finding.region_hint,
+            )
+        ],
+    )
+    packet = OverlapPacketBuilder().build(
+        context=_build_context(prior_pass=prior_pass),
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One finding.",
+            findings=[_vehicle_details_finding()],
+        ),
+    )
+
+    assert packet is not None
+    assert [candidate.model_dump() for candidate in packet.candidates] == [
+        {
+            "current_finding_index": 0,
+            "prior_finding_index": 0,
+            "reasons": ["canonical_identity"],
+        }
+    ]
+
+
+def test_build_overlap_packet_keeps_same_symbol_and_issue_kind_despite_region_wording_drift() -> (
+    None
+):
+    packet = OverlapPacketBuilder().build(
+        context=_build_context(
+            prior_pass=_build_prior_pass(findings=[_vehicle_types_prior_finding()])
+        ),
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One finding.",
+            findings=[_vehicle_types_current_wording_drift()],
+        ),
+    )
+
+    assert packet is not None
+    assert [candidate.model_dump() for candidate in packet.candidates] == [
+        {
+            "current_finding_index": 0,
+            "prior_finding_index": 0,
+            "reasons": ["same_file", "symbol", "issue_kind", "title_overlap"],
+        }
     ]

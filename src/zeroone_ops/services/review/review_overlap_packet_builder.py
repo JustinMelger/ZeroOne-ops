@@ -12,7 +12,7 @@ from zeroone_ops.models.review import (
     ReviewFinding,
     ReviewResult,
 )
-from zeroone_ops.services.review.review_finding_identity import (
+from zeroone_ops.utils.review_finding_identity import (
     build_legacy_review_finding_identity,
     build_review_finding_identity,
 )
@@ -93,7 +93,7 @@ class OverlapPacketBuilder:
             (index, prior_finding)
             for index, prior_finding in enumerate(prior_findings)
             if prior_finding.legacy_identity is None
-            and self._prior_finding_key(prior_finding.summary) == current_key
+            and self._prior_finding_key(prior_finding) == current_key
         ]
         if exact_key_matches:
             return exact_key_matches
@@ -117,10 +117,10 @@ class OverlapPacketBuilder:
             field_name="issue_kind",
             expected_value=current_finding.issue_kind,
         )
-        narrowed_candidates = self._narrow_candidates_by_field(
+        narrowed_candidates = self._soft_narrow_candidates_by_region(
             narrowed_candidates,
-            field_name="region_hint",
-            expected_value=current_finding.region_hint,
+            expected_region_hint=current_finding.region_hint,
+            current_title=current_finding.title,
         )
         return narrowed_candidates
 
@@ -141,7 +141,7 @@ class OverlapPacketBuilder:
             return ["legacy_identity"]
         if (
             prior_finding.legacy_identity is None
-            and self._prior_finding_key(prior_finding.summary) == current_key
+            and self._prior_finding_key(prior_finding) == current_key
         ):
             return ["exact_summary_key"]
 
@@ -192,6 +192,41 @@ class OverlapPacketBuilder:
             return []
         return candidates
 
+    def _soft_narrow_candidates_by_region(
+        self,
+        candidates: list[tuple[int, PriorReviewFinding]],
+        *,
+        expected_region_hint: str | None,
+        current_title: str,
+    ) -> list[tuple[int, PriorReviewFinding]]:
+        """Prefer region matches without discarding same-issue candidates on wording drift."""
+        if expected_region_hint is None:
+            return candidates
+
+        exact_region_matches = [
+            candidate
+            for candidate in candidates
+            if candidate[1].region_hint == expected_region_hint
+        ]
+        if exact_region_matches:
+            return exact_region_matches
+
+        title_overlap_matches = [
+            candidate
+            for candidate in candidates
+            if (
+                self._prior_title(candidate[1]) is not None
+                and self._titles_look_like_same_finding(
+                    current_title,
+                    self._prior_title(candidate[1]) or "",
+                )
+            )
+        ]
+        if title_overlap_matches:
+            return title_overlap_matches
+
+        return candidates
+
     def _current_finding_key(self, finding: ReviewFinding) -> tuple[str, str, str]:
         """Build a conservative key for one current finding."""
         summary = f"{finding.file_path}: {finding.title}"
@@ -201,25 +236,34 @@ class OverlapPacketBuilder:
             self._normalize_finding_text(summary),
         )
 
-    def _prior_finding_key(self, summary: str) -> tuple[str, str, str] | None:
-        """Build a conservative key for one persisted prior finding summary."""
-        parsed = self._split_prior_summary(summary)
-        if parsed is None:
+    def _prior_finding_key(self, finding: PriorReviewFinding) -> tuple[str, str, str] | None:
+        """Build a conservative key for one persisted prior finding."""
+        file_path = finding.file_path
+        title = finding.title
+        if file_path is None or title is None:
+            parsed = self._split_prior_summary(finding.summary)
+            if parsed is None:
+                return None
+            file_path, title = parsed
+        if not file_path.strip() or not title.strip():
             return None
-        file_path, title = parsed
         return (
             file_path.strip().lower(),
             title.strip().lower(),
-            self._normalize_finding_text(summary),
+            self._normalize_finding_text(f"{file_path}: {title}"),
         )
 
     def _prior_file_path(self, finding: PriorReviewFinding) -> str | None:
         """Extract the normalized file path from one prior finding summary."""
+        if finding.file_path is not None:
+            return finding.file_path
         parsed = self._split_prior_summary(finding.summary)
         return parsed[0] if parsed is not None else None
 
     def _prior_title(self, finding: PriorReviewFinding) -> str | None:
         """Extract the normalized title from one prior finding summary."""
+        if finding.title is not None:
+            return finding.title
         parsed = self._split_prior_summary(finding.summary)
         return parsed[1] if parsed is not None else None
 

@@ -8,8 +8,11 @@ from dataclasses import dataclass
 from zeroone_ops.models.gitlab import MergeRequestNote
 from zeroone_ops.models.review import (
     MergeRequestReviewContext,
+    PriorReviewInlineComment,
     PublishableReviewArtifact,
+    PublishableReviewFinding,
 )
+from zeroone_ops.models.state import ReviewInlineCommentDecision
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_review_client import GitLabReviewClientProtocol
 
@@ -20,6 +23,9 @@ class ReviewPublishResult:
 
     note: MergeRequestNote | None
     body: str
+    artifact: PublishableReviewArtifact
+    inline_comment_decisions: list[ReviewInlineCommentDecision] | None = None
+    warning_message: str | None = None
     error_message: str | None = None
 
 
@@ -37,6 +43,7 @@ class ReviewPublisher:
         merge_request_iid: int,
         context: MergeRequestReviewContext,
         artifact: PublishableReviewArtifact,
+        inline_comment_decisions: list[ReviewInlineCommentDecision] | None = None,
     ) -> ReviewPublishResult:
         """Publish one note from a publish-shaped review artifact."""
         body = self.render_artifact(
@@ -53,9 +60,132 @@ class ReviewPublisher:
             return ReviewPublishResult(
                 note=None,
                 body=body,
+                artifact=artifact,
+                inline_comment_decisions=inline_comment_decisions or [],
                 error_message=f"Review note publish failed: {error}",
             )
-        return ReviewPublishResult(note=note, body=body)
+        artifact_to_publish, updated_decisions = self._publish_inline_comments(
+            project_id=project_id,
+            merge_request_iid=merge_request_iid,
+            context=context,
+            artifact=artifact,
+            inline_comment_decisions=inline_comment_decisions or [],
+        )
+        warning_messages: list[str] = []
+        warning_messages.extend(_collect_inline_transport_warnings(updated_decisions))
+        updated_decisions = [
+            decision.model_copy(update={"authoritative_note_id": note.id})
+            for decision in updated_decisions
+        ]
+        if artifact_to_publish != artifact:
+            updated_body = self.render_artifact(
+                context=context,
+                artifact=artifact_to_publish,
+            )
+            try:
+                note = self.review_client.update_merge_request_note(
+                    project_id=project_id,
+                    merge_request_iid=merge_request_iid,
+                    note_id=note.id,
+                    body=updated_body,
+                )
+                body = updated_body
+            except GitLabClientError:
+                warning_messages.append(
+                    "Inline comments were published, but updating the authoritative review note "
+                    "failed. GitLab-backed continuity metadata for those inline comments is "
+                    "incomplete, but local mirrored continuity was preserved."
+                )
+        return ReviewPublishResult(
+            note=note,
+            body=body,
+            artifact=artifact_to_publish,
+            inline_comment_decisions=updated_decisions,
+            warning_message=(
+                None if not warning_messages else " ".join(dict.fromkeys(warning_messages))
+            ),
+        )
+
+    def _publish_inline_comments(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+        context: MergeRequestReviewContext,
+        artifact: PublishableReviewArtifact,
+        inline_comment_decisions: list[ReviewInlineCommentDecision],
+    ) -> tuple[PublishableReviewArtifact, list[ReviewInlineCommentDecision]]:
+        """Publish bounded inline comments before the authoritative summary note."""
+        if not inline_comment_decisions or context.diff_refs is None:
+            return artifact, inline_comment_decisions
+
+        decision_by_key = {
+            _decision_key(decision): decision for decision in inline_comment_decisions
+        }
+        updated_decisions: list[ReviewInlineCommentDecision] = []
+        updated_findings: list[PublishableReviewFinding] = []
+        for finding in artifact.findings:
+            decision = decision_by_key.get(_finding_key(finding))
+            if decision is None or decision.anchor_reuse_decision != "new":
+                updated_findings.append(finding)
+                if decision is not None:
+                    updated_decisions.append(decision)
+                continue
+
+            position = _resolve_inline_position(context=context, finding=finding)
+            if position is None:
+                updated_findings.append(finding)
+                updated_decisions.append(
+                    decision.model_copy(
+                        update={
+                            "anchor_reuse_decision": "summary_only",
+                            "anchor_reuse_reason": "inline_position_unavailable",
+                        }
+                    )
+                )
+                continue
+
+            try:
+                note = self.review_client.create_merge_request_inline_comment(
+                    project_id=project_id,
+                    merge_request_iid=merge_request_iid,
+                    body=_render_inline_comment_body(finding),
+                    base_sha=context.diff_refs.base_sha,
+                    start_sha=context.diff_refs.start_sha,
+                    head_sha=context.diff_refs.head_sha,
+                    old_path=position.old_path,
+                    new_path=position.new_path,
+                    new_line=position.new_line,
+                )
+            except GitLabClientError:
+                updated_findings.append(finding)
+                updated_decisions.append(
+                    decision.model_copy(
+                        update={
+                            "anchor_reuse_decision": "summary_only",
+                            "anchor_reuse_reason": "inline_publish_failed",
+                        }
+                    )
+                )
+                continue
+
+            inline_comment = PriorReviewInlineComment(
+                comment_id=str(note.id),
+                comment_url=note.web_url,
+                status="published",
+                anchor_file_path=finding.file_path,
+                anchor_line_start=finding.line_start,
+                anchor_line_end=finding.line_end,
+            )
+            updated_findings.append(finding.model_copy(update={"inline_comment": inline_comment}))
+            updated_decisions.append(decision.model_copy(update={"new_comment_id": str(note.id)}))
+
+        if updated_findings == artifact.findings:
+            return artifact, updated_decisions or inline_comment_decisions
+        return (
+            artifact.model_copy(update={"findings": updated_findings}),
+            updated_decisions or inline_comment_decisions,
+        )
 
     def render_artifact(
         self,
@@ -146,6 +276,84 @@ def _render_confidence_lines(artifact: PublishableReviewArtifact) -> list[str]:
     return lines
 
 
+@dataclass(frozen=True)
+class _InlinePosition:
+    old_path: str
+    new_path: str
+    new_line: int
+
+
+def _resolve_inline_position(
+    *,
+    context: MergeRequestReviewContext,
+    finding: PublishableReviewFinding,
+) -> _InlinePosition | None:
+    """Resolve one GitLab inline discussion position from review context."""
+    if finding.line_start is None:
+        return None
+    changed_file = next(
+        (item for item in context.changed_files if item.file_path == finding.file_path),
+        None,
+    )
+    if changed_file is None:
+        return None
+    old_path = changed_file.old_path or changed_file.file_path
+    new_path = changed_file.new_path or changed_file.file_path
+    return _InlinePosition(old_path=old_path, new_path=new_path, new_line=finding.line_start)
+
+
+def _render_inline_comment_body(finding: PublishableReviewFinding) -> str:
+    """Render one short inline comment body."""
+    concern = _ensure_terminal_punctuation(finding.title)
+    why_it_matters = _first_sentence(finding.explanation)
+    if not why_it_matters or why_it_matters == concern:
+        return concern
+    return f"{concern}\n\n{why_it_matters}"
+
+
+def _ensure_terminal_punctuation(text: str) -> str:
+    """Ensure one short rendered sentence ends with terminal punctuation."""
+    stripped = text.strip()
+    if not stripped:
+        return ""
+    if stripped[-1] in ".!?":
+        return stripped
+    return f"{stripped}."
+
+
+def _first_sentence(text: str) -> str:
+    """Return one short first sentence for inline-comment brevity."""
+    stripped = text.strip()
+    if not stripped:
+        return ""
+    for marker in (". ", "! ", "? "):
+        if marker in stripped:
+            return _ensure_terminal_punctuation(stripped.split(marker, 1)[0])
+    return _ensure_terminal_punctuation(stripped)
+
+
+def _finding_key(finding: PublishableReviewFinding) -> tuple[str | None, str, int | None, str]:
+    """Build one stable lookup key for a publish finding."""
+    return (
+        finding.stable_identity,
+        finding.file_path,
+        finding.line_start,
+        finding.region_hint or "",
+    )
+
+
+def _decision_key(
+    decision: ReviewInlineCommentDecision,
+) -> tuple[str | None, str, int | None, str]:
+    """Build one stable lookup key for an inline-comment decision."""
+    return (
+        decision.finding_identity,
+        decision.file_path,
+        decision.line_start,
+        decision.region_hint or "",
+    )
+
+
 def _render_machine_safe_block(
     *,
     context: MergeRequestReviewContext,
@@ -161,13 +369,29 @@ def _render_machine_safe_block(
         "findings_count": len(artifact.findings),
         "findings": [
             {
+                "identity": finding.stable_identity,
+                "legacy_identity": finding.legacy_identity,
                 "summary": f"{finding.file_path}: {finding.title}",
                 "severity": finding.severity,
                 "file_path": finding.file_path,
+                "line_start": finding.line_start,
+                "line_end": finding.line_end,
                 "title": finding.title,
                 "symbol": finding.symbol,
                 "issue_kind": finding.issue_kind,
                 "region_hint": finding.region_hint,
+                "inline_comment": (
+                    None
+                    if finding.inline_comment is None
+                    else {
+                        "comment_id": finding.inline_comment.comment_id,
+                        "comment_url": finding.inline_comment.comment_url,
+                        "status": finding.inline_comment.status,
+                        "anchor_file_path": finding.inline_comment.anchor_file_path,
+                        "anchor_line_start": finding.inline_comment.anchor_line_start,
+                        "anchor_line_end": finding.inline_comment.anchor_line_end,
+                    }
+                ),
             }
             for finding in artifact.findings
         ],
@@ -177,3 +401,19 @@ def _render_machine_safe_block(
         json.dumps(payload, sort_keys=True, separators=(",", ":")),
         "-->",
     ]
+
+
+def _collect_inline_transport_warnings(
+    decisions: list[ReviewInlineCommentDecision],
+) -> list[str]:
+    """Return operator-visible warnings for inline-comment transport failures."""
+    warnings: list[str] = []
+    failed_publish_count = sum(
+        1 for decision in decisions if decision.anchor_reuse_reason == "inline_publish_failed"
+    )
+    if failed_publish_count:
+        warnings.append(
+            "One or more inline comments could not be published to GitLab. "
+            f"Failed inline comments: {failed_publish_count}."
+        )
+    return warnings

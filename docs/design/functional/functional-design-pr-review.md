@@ -303,6 +303,36 @@ containing:
 When no findings exist, the bot may publish a short “no findings in this pass”
 note or skip publishing based on configuration.
 
+### 10.6.1 Output Hygiene
+
+Published review output should stay concise, evidence-backed, and focused on
+the merge request.
+
+The bot should not publish:
+
+- internal reasoning or chain-of-thought style text
+- long free-form analysis dumps
+- vague process commentary that is not actionable for the MR author
+
+The intended note shape remains:
+
+- short summary
+- bounded numbered findings
+- clear evidence and follow-up guidance
+
+### 10.6.2 Inline Comment Eligibility
+
+Later inline comments should be treated as an additive publish surface, not as
+the default output contract.
+
+Functional rule:
+
+- trusted diff location -> inline comment may be published
+- weak or ambiguous location -> finding stays in the summary note only
+
+The bot should prefer missing an inline comment over posting a comment on the
+wrong line or hunk.
+
 ### 10.7 Deduplication
 
 The bot must not post the same review repeatedly for the same merge request SHA.
@@ -311,6 +341,10 @@ The v1 dedup key should include:
 
 - GitLab merge request ID
 - current head commit SHA
+
+Repeated finding continuity should also prefer stable machine identity over
+human wording drift, so the same underlying concern is not republished as a
+brand-new thread just because the title or explanation changed slightly.
 
 ### 10.8 Failure Handling
 

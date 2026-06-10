@@ -9,9 +9,11 @@ from zeroone_ops.models.review import (
     PrecisionAcceptedFinding,
     PrecisionReviewDecision,
     PublishableReviewArtifact,
-    ReconciledReviewDecision,
     ReviewFinding,
     ReviewResult,
+)
+from zeroone_ops.services.review.review_reconciled_decision_builder import (
+    build_reconciled_review_decision,
 )
 
 
@@ -91,7 +93,7 @@ def build_precision_decision() -> PrecisionReviewDecision:
 
 
 def test_reconciled_review_decision_from_precision_decision_preserves_review_meaning() -> None:
-    decision = ReconciledReviewDecision.from_precision_decision(
+    decision = build_reconciled_review_decision(
         build_precision_decision(),
         prior_review_context_used=True,
         same_sha_review=False,
@@ -117,7 +119,7 @@ def test_reconciled_review_decision_from_precision_decision_preserves_review_mea
 
 
 def test_publishable_review_artifact_from_reconciled_decision_preserves_boundaries() -> None:
-    decision = ReconciledReviewDecision.from_precision_decision(
+    decision = build_reconciled_review_decision(
         build_precision_decision(),
         prior_review_context_used=False,
         same_sha_review=True,
@@ -156,7 +158,7 @@ def test_publishable_review_artifact_from_reconciled_decision_preserves_boundari
 
 def test_artifact_validation_result_can_capture_repair_or_rejection_outcomes() -> None:
     artifact = PublishableReviewArtifact.from_reconciled_decision(
-        ReconciledReviewDecision.from_precision_decision(
+        build_reconciled_review_decision(
             build_precision_decision(),
             prior_review_context_used=False,
             same_sha_review=False,

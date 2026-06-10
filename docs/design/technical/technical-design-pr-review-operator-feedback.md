@@ -142,6 +142,12 @@ that authoritative review note.
 
 The intake step should not scan all MR comments for fuzzy matches.
 
+Inline comments should never become independent feedback authorities.
+
+Even if inline comments are added later for trusted findings, structured
+operator feedback should remain summary-note-only and should not be parsed from
+inline comment replies.
+
 ### 6.3 Strict parser
 
 Accepted command shape should be allowlisted.

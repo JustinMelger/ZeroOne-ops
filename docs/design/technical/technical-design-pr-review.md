@@ -269,6 +269,15 @@ Responsibilities:
 The publisher also owns the machine-safe continuity block used for later
 GitLab-backed prior-review parsing.
 
+Hardening direction for later review-bot work:
+
+- keep the summary note as the authoritative review artifact
+- publish inline comments only when finding anchoring is trusted
+- enforce compact operator-facing output even if internal staged analysis is
+  richer
+- keep continuity tied to canonical finding identity rather than presentation
+  wording
+
 ### 6.12 `services/review_state_service.py`
 
 Responsibilities:
@@ -322,6 +331,9 @@ Optional:
 - `ZEROONE_OPS_LOG_LEVEL`
 - `ZEROONE_OPS_BASE_BRANCH`
 
+Inline-comment enablement should remain repo-config-driven rather than
+environment-driven.
+
 ### 7.3 Runtime Config File
 
 Example review-specific config shape:
@@ -335,6 +347,7 @@ Example review-specific config shape:
     "max_context_lines_before": 30,
     "max_context_lines_after": 30,
     "publish_no_findings_note": true,
+    "inline_comments_enabled": false,
     "supported_paths": ["src/", "app/"],
     "ignored_paths": ["src/generated/"],
     "skip_draft_merge_requests": true
@@ -359,6 +372,9 @@ Recommended repo-level review noise controls:
   surfaces the highest-signal issues first
 - `publish_no_findings_note`: control whether no-findings runs publish a merge
   request note at all
+- `inline_comments_enabled`: keep inline-comment publication disabled by
+  default until identity continuity and location trust have been validated on
+  real review runs
 
 ## 8. Data Model Design
 
@@ -398,6 +414,15 @@ class ReviewFinding(BaseModel):
     suggested_follow_up: str
 ```
 
+Later publish-focused validation should also enforce:
+
+- bounded explanation length
+- no internal-analysis phrasing in operator-visible fields
+- optional trusted location metadata for inline-comment publication
+
+That location metadata should remain optional so summary-note publishing does
+not depend on inline-comment readiness.
+
 ### 8.4 Review Result Model
 
 ```python
@@ -418,6 +443,183 @@ class MergeRequestReviewState(BaseModel):
     note_url: str | None = None
     updated_at: datetime
 ```
+
+Later inline-comment support should persist bounded comment metadata in the
+authoritative summary note's machine-safe payload rather than treating comment
+text as continuity state.
+
+Recommended first embedded contract:
+
+```json
+{
+  "reviewed_head_sha": "abc123",
+  "note_id": 456,
+  "findings": [
+    {
+      "number": 1,
+      "identity": "src/service.py::null-check-missing",
+      "file_path": "src/service.py",
+      "line_start": 42,
+      "line_end": 42,
+      "region_hint": "guard clause before parse",
+      "inline_comment": {
+        "comment_id": "789",
+        "comment_url": "https://gitlab.example.com/...",
+        "status": "published",
+        "anchor_file_path": "src/service.py",
+        "anchor_line_start": 42,
+        "anchor_line_end": 42
+      }
+    }
+  ]
+}
+```
+
+Recommended modeling rules:
+
+- inline comment metadata is nested under each finding, not stored in a
+  separate global registry
+- each finding carries zero or one inline comment metadata block in the first
+  version
+- canonical finding `identity` remains the reuse and deduplication key
+- published anchor fields are stored separately from the finding's current
+  location fields so later anchor drift is easier to reason about
+
+Important distinction:
+
+- finding identity answers whether this is the same underlying concern
+- inline anchor answers whether the earlier inline comment location is still
+  reusable
+
+The same finding identity may survive across passes even when the trusted line
+range or diff anchor shifts.
+
+This keeps inline comments subordinate to:
+
+- the authoritative summary note
+- the reviewed SHA
+- the canonical finding identity
+
+Recommended persistence rule:
+
+- the authoritative summary note's machine-safe payload should remain the
+  recoverable source of truth in CI-backed runs
+- local review state should mirror the same inline-comment metadata so the
+  system can move that state to another backend later without changing the
+  continuity contract
+- local review state must not be the only place continuity-critical
+  inline-comment metadata lives
+- developer-resolved inline comments may be observed later as advisory context,
+  but they must not by themselves clear or resolve a finding without a new
+  review pass over the code
+
+## 9. Review Hardening Extension
+
+The next review-bot hardening slices should preserve the current staged review
+pipeline while tightening three contracts:
+
+### 9.1 Inline Comment Contract
+
+- summary note remains authoritative
+- inline comments are additive
+- only trusted diff-anchored findings may publish inline
+- inline comments should be shorter and tighter than summary-note findings
+- weakly anchored findings remain summary-only
+- inline comments do not become separate continuity authorities
+- every inline comment belongs to the same reviewed SHA and authoritative
+  summary note as the finding that produced it
+- follow-up publication should check whether the same canonical finding
+  identity already has an inline comment on the relevant prior authoritative
+  pass before posting another one
+
+### 9.2 Identity-First Continuity
+
+Repeated-review continuity should prefer stable app-owned finding identity
+before any wording-based fallback.
+
+That same identity should later support:
+
+- repeated finding threading
+- inline comment reuse
+- follow-up note wording
+
+without introducing a second presentation-owned matching scheme.
+
+Recommended first duplicate-avoidance rule:
+
+- if the same canonical finding identity already has a trusted inline comment
+  on the latest relevant authoritative pass, do not post a second near-duplicate
+  inline comment by default
+- prefer summary-note continuity wording unless the earlier anchor is no longer
+  valid and a new trusted anchor is available
+- publish at most one inline comment per finding in the first version
+
+Recommended first anchor-reuse order:
+
+1. same canonical finding identity
+2. same file and same local region, such as `region_hint`, symbol, or clearly
+   equivalent code area
+3. overlapping line range or line drift of at most 3 lines from the earlier
+   anchor
+
+If that sequence breaks at identity, region, or materially different line
+placement, the earlier inline anchor should not be reused automatically.
+
+Recommended first inline-comment wording shape:
+
+- one compact concern
+- one short why-it-matters sentence when needed
+- optional very short follow-up hint
+
+Avoid:
+
+- long explanatory paragraphs
+- repeated context already present in the summary note
+- internal reasoning or meta-commentary
+
+### 9.3 Output Hygiene Boundary
+
+The first response to overlong published review text should be prompt-level
+tightening in the precision stage, not a validator-style rejection path.
+
+The main target is review text that turns into:
+
+- long internal analysis dumps
+- implementation chatter not useful to the MR author
+- vague unsupported assertions
+
+The intended contract is:
+
+- internal staged reasoning may be richer
+- persisted published review output should stay compact and review-safe
+
+Recommended first behavior:
+
+- tighten the precision-stage prompt so findings stay concise and
+  operator-facing
+- use light later shaping only if simple length cleanup is still needed
+- do not treat overlong-but-otherwise-valid review text as a validator failure
+  class in the first rollout
+
+### 9.4 Feature-Flagged Test Rollout
+
+Before broad enablement, inline-comment publication should be exercised in a
+feature-flagged test deployment.
+
+Recommended first behavior:
+
+- keep `review.inline_comments_enabled` off by default
+- enable it only in a bounded test deployment or repository first
+- log trusted versus weak anchor decisions
+- log whether a finding reused an earlier inline comment or created a new one
+- keep inline comments limited to trusted `medium` / `high` findings in the
+  first rollout
+- keep CI diagnostics compact:
+  - one structured inline-comment decision per finding
+  - one run-level inline-comment summary
+
+This keeps rollout simple while still giving enough real-run evidence to judge
+anchor trust and duplicate-comment behavior.
 
 ## 9. Review Note Design
 

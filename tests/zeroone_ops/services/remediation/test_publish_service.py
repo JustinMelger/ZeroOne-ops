@@ -3,8 +3,10 @@ from zeroone_ops.models.config import (
     AppConfig,
     ApprovalConfig,
     GitLabConfig,
+    GitLabConnectionConfig,
     RemediationConfig,
 )
+from zeroone_ops.models.gitlab import MergeRequestInfo
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.services.remediation.publish_service import PublishService
 
@@ -16,10 +18,10 @@ def build_config() -> AppConfig:
         validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
-            supported_severities=["MAJOR"],
+            bootstrap_severities=["MAJOR"],
             analysis=AnalysisConfig(),
         ),
-        gitlab=GitLabConfig(target_branch="main", labels=["ai-sonar-bot"]),
+        gitlab=GitLabConfig(target_branch="main", labels=["zeroone-ops"]),
     )
 
 
@@ -106,3 +108,53 @@ def test_publish_service_builds_conventional_commit_merge_request_title() -> Non
     )
 
     assert title == "fix: remediate python:S2259 in service.py"
+
+
+def test_publish_service_uses_pushed_branch_consistently(monkeypatch) -> None:
+    service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
+    captured: dict[str, str] = {}
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.remediation.publish_service.load_gitlab_connection_config",
+        lambda: GitLabConnectionConfig(
+            url="https://gitlab.example.com",
+            token="token",
+            project_id="group/project",
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.remediation.publish_service.MergeRequestService.find_open",
+        lambda self, project_id, source_branch, target_branch: None,
+    )
+
+    def capture_create(
+        self,
+        project_id: str,
+        source_branch: str,
+        target_branch: str,
+        title: str,
+        description: str,
+        labels: list[str],
+    ) -> MergeRequestInfo:
+        del self, project_id, target_branch, title, description, labels
+        captured["source_branch"] = source_branch
+        return MergeRequestInfo(
+            iid=17,
+            web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+            title="fix: remediate python:S2259 in service.py",
+        )
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.remediation.publish_service.MergeRequestService.create",
+        capture_create,
+    )
+
+    result = service.publish(
+        selected_issue=build_issue(),
+        branch_name="caller-branch-name",
+        mr_title="ignored",
+        mr_description="summary",
+    )
+
+    assert captured["source_branch"] == "zeroone-ops/fix"
+    assert result.branch_name == "zeroone-ops/fix"

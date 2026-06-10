@@ -36,7 +36,7 @@ def build_config(
         validation_commands=validation_commands or [],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
-            supported_severities=["MAJOR"],
+            bootstrap_severities=["MAJOR"],
             max_retry_count=max_retry_count,
             analysis=AnalysisConfig(
                 context_lines_before=1,

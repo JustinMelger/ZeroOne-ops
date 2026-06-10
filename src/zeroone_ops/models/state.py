@@ -100,6 +100,25 @@ class ReviewDiagnosticDroppedCandidate(BaseModel):
     notes: str | None = None
 
 
+class ReviewInlineCommentDecision(BaseModel):
+    """Represent one bounded inline-comment decision for rollout diagnostics."""
+
+    finding_identity: str | None = None
+    severity: str
+    file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
+    region_hint: str | None = None
+    inline_comments_enabled: bool
+    location_trust: Literal["trusted", "weak", "untrusted"]
+    existing_inline_comment_found: bool
+    anchor_reuse_decision: Literal["reuse", "new", "summary_only"]
+    anchor_reuse_reason: str
+    authoritative_note_id: int | None = None
+    existing_comment_id: str | None = None
+    new_comment_id: str | None = None
+
+
 class ReviewRunDiagnostics(BaseModel):
     """Represent bounded staged-review diagnostics for one internal run."""
 
@@ -113,6 +132,7 @@ class ReviewRunDiagnostics(BaseModel):
     precision_dropped_candidates: list[ReviewDiagnosticDroppedCandidate] = Field(
         default_factory=list
     )
+    inline_comment_decisions: list[ReviewInlineCommentDecision] = Field(default_factory=list)
     final_published_finding_summaries: list[str] = Field(default_factory=list)
     final_classification: str
 
@@ -178,9 +198,25 @@ class PriorReviewFindingState(BaseModel):
     legacy_identity: str | None = None
     summary: str
     severity: str | None = None
+    file_path: str | None = None
+    line_start: int | None = None
+    line_end: int | None = None
+    title: str | None = None
     symbol: str | None = None
     issue_kind: str | None = None
     region_hint: str | None = None
+    inline_comment: PriorReviewInlineCommentState | None = None
+
+
+class PriorReviewInlineCommentState(BaseModel):
+    """Represent persisted inline-comment continuity metadata for one finding."""
+
+    comment_id: str
+    comment_url: str | None = None
+    status: Literal["published", "shadow", "superseded"]
+    anchor_file_path: str
+    anchor_line_start: int | None = None
+    anchor_line_end: int | None = None
 
 
 class MergeRequestReviewState(BaseModel):
@@ -194,6 +230,7 @@ class MergeRequestReviewState(BaseModel):
     summary: str | None = None
     follow_up_lines: list[str] = Field(default_factory=list)
     findings: list[PriorReviewFindingState] = Field(default_factory=list)
+    note_id: int | None = None
     note_url: str | None = None
     updated_at: datetime = Field(default_factory=utc_now)
 

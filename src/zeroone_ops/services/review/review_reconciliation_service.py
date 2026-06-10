@@ -31,6 +31,9 @@ from zeroone_ops.services.review.review_overlap_analysis_service import (
     ReviewOverlapAnalysisService,
 )
 from zeroone_ops.services.review.review_overlap_packet_builder import OverlapPacketBuilder
+from zeroone_ops.services.review.review_reconciled_decision_builder import (
+    build_reconciled_review_decision,
+)
 from zeroone_ops.settings import SettingsError, load_openai_connection_config
 from zeroone_ops.utils.clock import now_utc
 
@@ -240,7 +243,7 @@ class ReviewReconciliationService:
             )
 
         truncated_precision_decision = self._truncate_precision_findings(precision_decision)
-        reconciled_decision = ReconciledReviewDecision.from_precision_decision(
+        reconciled_decision = build_reconciled_review_decision(
             truncated_precision_decision,
             prior_review_context_used=bool(
                 context.prior_review_context and context.prior_review_context.passes

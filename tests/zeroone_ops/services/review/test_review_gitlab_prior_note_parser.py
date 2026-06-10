@@ -43,13 +43,25 @@ def build_payload(
 
 def build_finding_payload() -> dict[str, object]:
     return {
+        "identity": "src/service.py::coverage_gap::service-run::changed-branch",
+        "legacy_identity": "src/service.py::coverage-miss-test",
         "summary": "src/service.py: Missing test coverage",
         "severity": "medium",
         "file_path": "src/service.py",
+        "line_start": 12,
+        "line_end": 13,
         "title": "Missing test coverage",
         "symbol": "Service.run",
         "issue_kind": "coverage_gap",
         "region_hint": "changed-branch",
+        "inline_comment": {
+            "comment_id": "789",
+            "comment_url": "https://gitlab.example.com/comment/789",
+            "status": "published",
+            "anchor_file_path": "src/service.py",
+            "anchor_line_start": 12,
+            "anchor_line_end": 13,
+        },
     }
 
 
@@ -65,15 +77,23 @@ def test_parse_note_rebuilds_findings_present_pass() -> None:
     assert result.prior_review_pass.reviewed_head_sha == "abc123"
     assert result.prior_review_pass.classification == "findings_present"
     assert result.prior_review_pass.findings_count == 1
+    assert result.prior_review_pass.note_id == 55
     assert result.prior_review_pass.note_url is not None
     assert result.prior_review_pass.findings[0].summary == "src/service.py: Missing test coverage"
     assert result.prior_review_pass.findings[0].severity == "medium"
+    assert result.prior_review_pass.findings[0].file_path == "src/service.py"
+    assert result.prior_review_pass.findings[0].line_start == 12
+    assert result.prior_review_pass.findings[0].line_end == 13
+    assert result.prior_review_pass.findings[0].title == "Missing test coverage"
     assert result.prior_review_pass.findings[0].identity == (
         "src/service.py::coverage_gap::service-run::changed-branch"
     )
     assert result.prior_review_pass.findings[0].legacy_identity == (
         "src/service.py::coverage-miss-test"
     )
+    assert result.prior_review_pass.findings[0].inline_comment is not None
+    assert result.prior_review_pass.findings[0].inline_comment.comment_id == "789"
+    assert result.prior_review_pass.findings[0].inline_comment.anchor_line_start == 12
 
 
 def test_parse_note_rebuilds_no_findings_pass() -> None:
@@ -127,3 +147,17 @@ def test_parse_note_rejects_mismatched_findings_count() -> None:
     assert result.message == (
         "Selected note machine-safe payload findings count does not match findings."
     )
+
+
+def test_parse_note_rejects_mismatched_supplied_identity() -> None:
+    parser = ReviewGitLabPriorNoteParser()
+    finding = build_finding_payload()
+    finding["identity"] = "src/service.py::different-identity"
+
+    result = parser.parse_note(
+        note=build_note(build_payload(findings=[finding])),
+        expected_merge_request_iid=17,
+    )
+
+    assert result.prior_review_pass is None
+    assert result.message == "Selected note machine-safe payload has an invalid finding entry."

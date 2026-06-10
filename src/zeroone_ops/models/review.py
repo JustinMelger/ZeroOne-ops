@@ -19,6 +19,15 @@ CandidateDropReason = Literal[
     "superseded",
 ]
 ArtifactValidationStatus = Literal["valid", "repaired", "rejected"]
+InlineCommentStatus = Literal["published", "shadow", "superseded"]
+
+
+class MergeRequestDiffRefs(BaseModel):
+    """Represent GitLab diff refs needed for inline comment anchoring."""
+
+    base_sha: str
+    start_sha: str
+    head_sha: str
 
 
 class MergeRequestChangedFile(BaseModel):
@@ -44,6 +53,7 @@ class MergeRequestReviewCandidate(BaseModel):
     head_sha: str
     draft: bool = False
     author_username: str | None = None
+    diff_refs: MergeRequestDiffRefs | None = None
     changes: list[MergeRequestChangedFile] = Field(default_factory=list)
 
 
@@ -51,6 +61,8 @@ class ReviewFileContext(BaseModel):
     """Represent one changed file plus bounded local source context."""
 
     file_path: str
+    old_path: str | None = None
+    new_path: str | None = None
     diff: str | None = None
     start_line: int
     end_line: int
@@ -104,9 +116,25 @@ class PriorReviewFinding(BaseModel):
     legacy_identity: str | None = None
     summary: str
     severity: str | None = None
+    file_path: str | None = None
+    line_start: int | None = None
+    line_end: int | None = None
+    title: str | None = None
     symbol: str | None = None
     issue_kind: str | None = None
     region_hint: str | None = None
+    inline_comment: PriorReviewInlineComment | None = None
+
+
+class PriorReviewInlineComment(BaseModel):
+    """Represent bounded inline-comment continuity metadata for one finding."""
+
+    comment_id: str
+    comment_url: str | None = None
+    status: InlineCommentStatus
+    anchor_file_path: str
+    anchor_line_start: int | None = None
+    anchor_line_end: int | None = None
 
 
 class PriorReviewPass(BaseModel):
@@ -116,6 +144,7 @@ class PriorReviewPass(BaseModel):
     classification: ReviewClassification
     findings_count: int
     summary: str | None = None
+    note_id: int | None = None
     note_url: str | None = None
     findings: list[PriorReviewFinding] = Field(default_factory=list)
 
@@ -139,6 +168,7 @@ class MergeRequestReviewContext(BaseModel):
     head_sha: str
     draft: bool = False
     author_username: str | None = None
+    diff_refs: MergeRequestDiffRefs | None = None
     remediation_context: RemediationReviewContext | None = None
     prior_review_context: PriorReviewContext | None = None
     repository_guidance: list[RepositoryGuidanceContext] = Field(default_factory=list)
@@ -213,7 +243,9 @@ class ReconciledFinding(BaseModel):
     why_it_matters: str
     recommended_follow_up: str | None = None
     stable_identity: str | None = None
+    legacy_identity: str | None = None
     continuity_status: ContinuityStatus | None = None
+    inline_comment: PriorReviewInlineComment | None = None
     source_candidate_ids: list[str] = Field(default_factory=list)
 
 
@@ -269,61 +301,6 @@ class ReconciledReviewDecision(BaseModel):
     reconciled_at: datetime
     pipeline_version: str
 
-    @classmethod
-    def from_precision_decision(
-        cls,
-        precision_decision: PrecisionReviewDecision,
-        *,
-        prior_review_context_used: bool,
-        same_sha_review: bool,
-        repair_allowed: bool,
-        reconciled_at: datetime,
-        pipeline_version: str,
-    ) -> ReconciledReviewDecision:
-        """Adapt the precision-pass output into the staged reconciliation contract."""
-        return cls(
-            review_classification=precision_decision.review_classification,
-            decision_summary=precision_decision.decision_summary,
-            decision_rationale=precision_decision.decision_rationale,
-            confidence_level=precision_decision.confidence_level,
-            accepted_findings=[
-                ReconciledFinding(
-                    finding_id=f"finding-{index}",
-                    severity=finding.severity,
-                    file_path=finding.file_path,
-                    line_start=finding.line_start,
-                    line_end=finding.line_end,
-                    symbol=finding.symbol,
-                    issue_kind=finding.issue_kind,
-                    region_hint=finding.region_hint,
-                    title=finding.title,
-                    summary=finding.summary,
-                    evidence=list(finding.evidence),
-                    diff_references=[
-                        DiffReference(
-                            file_path=finding.file_path,
-                            start_line=finding.line_start,
-                            end_line=finding.line_end,
-                        )
-                    ],
-                    file_paths=[finding.file_path],
-                    why_it_matters=finding.why_it_matters,
-                    recommended_follow_up=finding.recommended_follow_up,
-                    source_candidate_ids=list(finding.source_candidate_ids),
-                )
-                for index, finding in enumerate(
-                    precision_decision.accepted_findings,
-                    start=1,
-                )
-            ],
-            dropped_candidates=list(precision_decision.dropped_candidates),
-            prior_review_context_used=prior_review_context_used,
-            same_sha_review=same_sha_review,
-            repair_allowed=repair_allowed,
-            reconciled_at=reconciled_at,
-            pipeline_version=pipeline_version,
-        )
-
     def to_review_result(self) -> ReviewResult:
         """Adapt the reconciled decision into the shared review-result shape."""
         return ReviewResult(
@@ -364,7 +341,10 @@ class PublishableReviewFinding(BaseModel):
     evidence: str
     explanation: str
     suggested_follow_up: str
+    stable_identity: str | None = None
+    legacy_identity: str | None = None
     continuity_status: ContinuityStatus | None = None
+    inline_comment: PriorReviewInlineComment | None = None
 
 
 class PublishableReviewArtifact(BaseModel):
@@ -409,7 +389,10 @@ class PublishableReviewArtifact(BaseModel):
                     evidence=finding.evidence[0] if finding.evidence else "",
                     explanation=finding.why_it_matters,
                     suggested_follow_up=finding.recommended_follow_up or "",
+                    stable_identity=finding.stable_identity,
+                    legacy_identity=finding.legacy_identity,
                     continuity_status=finding.continuity_status,
+                    inline_comment=finding.inline_comment,
                 )
                 for finding in decision.accepted_findings
             ],

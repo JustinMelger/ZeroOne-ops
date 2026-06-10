@@ -19,7 +19,7 @@ def build_config(*, max_file_bytes: int = 200_000) -> AppConfig:
         validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
-            supported_severities=["LOW"],
+            bootstrap_severities=["LOW"],
             analysis=AnalysisConfig(max_file_bytes=max_file_bytes),
         ),
         gitlab=GitLabConfig(target_branch="main"),

@@ -17,8 +17,9 @@
     "max_prior_review_passes": 2,
     "max_context_lines_before": 30,
     "max_context_lines_after": 30,
+    "inline_comments_enabled": false,
     "_comment_supported_paths": "Optional allowlist. If omitted or empty, review considers all non-ignored changed paths.",
-        "supported_paths": ["src/", "app/"],
+    "supported_paths": ["src/", "app/"],
     "ignored_paths": ["src/generated/"],
     "skip_draft_merge_requests": true,
     "max_review_feedback_retries": 1

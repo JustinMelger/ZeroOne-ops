@@ -192,6 +192,152 @@ Recommended candidate location fields:
 These should remain nullable when the candidate stage cannot support them
 confidently.
 
+### 6.1 Hardening Ownership By Stage
+
+The next review-bot hardening work should map to stages like this:
+
+- candidate / discovery stage
+  - surface high-recall candidate concerns
+  - attach optional location hints when visible evidence supports them
+  - do not make final publish-surface decisions here
+- precision / reconciliation stage
+  - decide which candidates survive
+  - normalize and validate identity-relevant finding inputs
+  - decide whether location evidence is strong enough to trust later for
+    inline-comment publication
+  - keep final finding meaning concise and bounded
+- artifact builder / publisher stage
+  - decide inline comment versus summary-only transport from trusted final
+    location data
+  - enforce output hygiene for operator-visible text
+  - keep internal analysis detail out of the final published artifact
+
+That keeps:
+
+- discovery broad and evidence-seeking
+- precision responsible for truth and trusted finding identity
+- publisher responsible for transport choice and operator-safe rendering
+
+### 6.1.1 Boundary Guardrails
+
+The implementation should keep these boundaries explicit:
+
+- summary note authority vs inline comments
+  - the summary note remains the authoritative review-pass record
+  - inline comments stay subordinate transport only
+- precision vs publisher
+  - precision decides what is true, what survives, and whether location trust
+    is sufficient
+  - publisher chooses transport and final rendering without re-judging findings
+- GitLab-backed continuity vs local cache
+  - CI-safe continuity must be recoverable from GitLab-backed machine-managed
+    review state
+  - local review state may cache but must not be the only continuity source
+- identity vs wording
+  - canonical finding identity owns reuse and deduplication
+  - note text and inline comment text must not become the real matching key
+- review surface vs dashboard surface
+  - merge request notes and inline comments remain the review conversation
+  - dashboard mirroring stays compact and should not replay full inline comment
+    content
+
+### 6.2 Trusted Location Evidence
+
+Location evidence should be considered trusted only when the final finding can
+be anchored to a specific changed location with low ambiguity.
+
+Recommended trust checks:
+
+1. the finding points to a changed file in the reviewed merge request
+2. the proposed line or range maps to a changed hunk or clearly adjacent
+   changed context
+3. the cited evidence is visibly present near that location
+4. the finding is locally scoped to one clear region rather than a broad
+   file-level concern
+5. there is no equally plausible competing nearby anchor
+
+Recommended trust levels:
+
+- `trusted`
+  - changed file
+  - changed hunk or clearly local changed context
+  - visible evidence
+  - one unambiguous anchor
+- `weak`
+  - likely correct file
+  - approximate location only
+  - evidence present but not cleanly tied to one anchor
+- `untrusted`
+  - off-diff concern
+  - file-level concern only
+  - missing or conflicting anchors
+
+Recommended transport rule:
+
+- `trusted` -> inline comment may be published
+- `weak` or `untrusted` -> summary-note rendering only
+- inline comments should use a stricter brevity rule than summary-note findings
+- first-version inline publication should stay limited to trusted `medium` /
+  `high` findings
+
+The application should prefer under-publishing inline comments over posting a
+comment on the wrong line.
+
+Authoritative continuity rule:
+
+- the summary note for one reviewed SHA remains the authoritative review-pass
+  record
+- inline comments are subordinate finding transports attached to that same pass
+- inline comments must not create their own independent continuity or feedback
+  authority
+
+That means later publish state should be able to answer:
+
+- which authoritative summary note and reviewed SHA an inline comment belongs to
+- which canonical finding identity produced that inline comment
+
+without inferring continuity from inline comment text alone
+
+For CI-safe continuity, that mapping should be recoverable from GitLab-backed
+machine-managed review state rather than relying only on local persisted review
+state.
+
+Follow-up publish check:
+
+- when a later review pass keeps the same canonical finding identity, the
+  publish path should check whether that identity already has an inline comment
+  on the latest relevant authoritative pass
+- if so, avoid posting a duplicate inline comment by default
+- only publish a new inline comment when the previous anchor is no longer
+  suitable and the new pass has a newly trusted location
+- same identity does not automatically mean the earlier inline anchor is still
+  reusable; anchor reuse should be checked separately from finding continuity
+- first reuse check order should be:
+  - identity
+  - region
+  - line drift
+- the first version should treat line drift as reusable only when the ranges
+  overlap or move by at most 3 lines
+- if a developer marked the earlier inline comment resolved, treat that as an
+  advisory signal only; the next review pass still decides whether the concern
+  is actually resolved
+
+### 6.3 Feature-Flagged Test Validation
+
+The first rollout should use a feature-flagged test deployment rather than a
+separate shadow mode.
+
+In that test rollout, the publish path should still log:
+
+- trusted versus weak location status
+- whether a finding reused or created an inline comment
+- the authoritative summary note, reviewed SHA, and canonical finding identity
+  attached to that decision
+- one compact run-level inline-comment summary
+
+This keeps real-run validation available without introducing an additional
+operating mode beyond the feature flag.
+
 ## 7. Reconciled Final Artifact Contract
 
 The reconciliation stage should output a structured final review decision
@@ -341,6 +487,12 @@ Suggested responsibilities:
 - package accepted findings for the note template,
 - carry through final classification and continuity outcomes unchanged,
 - avoid changing review meaning during formatting.
+
+Later publish-mode decisions should also live here:
+
+- summary-only versus inline comment transport
+- compact rendering of repeated findings
+- trimming or rejecting long internal-analysis text before publish
 
 The artifact builder is not a second judge. It is a packaging boundary.
 
@@ -566,6 +718,8 @@ Recommended observability contract:
 - record a bounded per-run diagnostic artifact for internal use only,
 - keep it separate from developer-facing MR notes and bounded machine-safe
   publish payloads,
+- emit compact structured diagnostic lines in CI logs so feature-flagged test
+  rollouts can be inspected without extra tooling,
 - use it to compare same-SHA reruns across:
   - candidate generation drift,
   - grounding drift,
@@ -582,9 +736,40 @@ class ReviewRunDiagnostics(BaseModel):
     grounding_dropped_candidates: list[DroppedCandidate]
     precision_accepted_candidate_ids: list[str]
     precision_dropped_candidates: list[DroppedCandidate]
+    inline_comment_decisions: list[InlineCommentDecision]
     final_published_finding_summaries: list[str]
     final_classification: ReviewClassification
 ```
+
+Suggested inline-comment decision shape:
+
+```python
+class InlineCommentDecision(BaseModel):
+    finding_identity: str
+    severity: ReviewFindingSeverity
+    file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
+    region_hint: str | None = None
+    inline_comments_enabled: bool
+    location_trust: Literal["trusted", "weak", "untrusted"]
+    existing_inline_comment_found: bool
+    anchor_reuse_decision: Literal["reuse", "new", "summary_only"]
+    anchor_reuse_reason: str
+    authoritative_note_id: int | None = None
+    existing_comment_id: str | None = None
+    new_comment_id: str | None = None
+```
+
+Recommended first logging shape in CI:
+
+- one structured `InlineCommentDecision` line per evaluated finding
+- one compact per-run summary with:
+  - candidates considered
+  - comments published
+  - comments reused
+  - comments skipped for untrusted location
+  - comments skipped for severity threshold
 
 Suggested usage:
 
@@ -592,7 +777,9 @@ Suggested usage:
 - identify whether a concern disappeared during candidate generation,
   grounding, or precision,
 - identify whether a grounded-but-invalid concern was incorrectly promoted by
-  precision.
+  precision,
+- inspect trusted vs weak anchor decisions and reused vs new inline-comment
+  outcomes during feature-flagged test rollouts.
 
 Current limitation:
 
