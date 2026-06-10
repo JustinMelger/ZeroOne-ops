@@ -3666,7 +3666,12 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
-        lambda self, project_id, merge_request_iid, context, artifact, inline_comment_decisions=None: (
+        lambda self,
+        project_id,
+        merge_request_iid,
+        context,
+        artifact,
+        inline_comment_decisions=None: (
             ReviewPublishResult(
                 note=type(
                     "Note",
@@ -3819,7 +3824,12 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
-        lambda self, project_id, merge_request_iid, context, artifact, inline_comment_decisions=None: (
+        lambda self,
+        project_id,
+        merge_request_iid,
+        context,
+        artifact,
+        inline_comment_decisions=None: (
             ReviewPublishResult(
                 note=type("Note", (), {"id": 55, "web_url": None})(),
                 body="summary",
