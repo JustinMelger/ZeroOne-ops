@@ -128,6 +128,9 @@ def test_apply_reuses_published_inline_comment_from_latest_prior_pass() -> None:
     )
 
     assert result.reused_inline_comment_count == 1
+    assert len(result.decisions) == 1
+    assert result.decisions[0].anchor_reuse_decision == "reuse"
+    assert result.decisions[0].anchor_reuse_reason == "existing_anchor_reused"
     assert result.artifact.findings[0].inline_comment is not None
     assert result.artifact.findings[0].inline_comment.comment_id == "789"
 
@@ -174,6 +177,8 @@ def test_apply_uses_latest_prior_pass_only_for_duplicate_comment_reuse() -> None
     )
 
     assert result.reused_inline_comment_count == 0
+    assert result.decisions[0].anchor_reuse_decision == "new"
+    assert result.decisions[0].anchor_reuse_reason == "trusted_new_anchor"
     assert result.artifact.findings[0].inline_comment is None
 
 
@@ -257,6 +262,8 @@ def test_apply_does_not_reuse_inline_comment_for_low_severity_finding() -> None:
     )
 
     assert result.reused_inline_comment_count == 0
+    assert result.decisions[0].anchor_reuse_decision == "summary_only"
+    assert result.decisions[0].anchor_reuse_reason == "severity_not_supported"
     assert result.artifact.findings[0].inline_comment is None
 
 
@@ -291,6 +298,8 @@ def test_apply_does_not_reuse_inline_comment_for_weak_location() -> None:
     )
 
     assert result.reused_inline_comment_count == 0
+    assert result.decisions[0].anchor_reuse_decision == "summary_only"
+    assert result.decisions[0].anchor_reuse_reason == "location_weak"
     assert result.artifact.findings[0].inline_comment is None
 
 
@@ -318,6 +327,8 @@ def test_apply_does_not_reuse_inline_comment_when_anchor_drift_is_too_large() ->
     )
 
     assert result.reused_inline_comment_count == 0
+    assert result.decisions[0].anchor_reuse_decision == "new"
+    assert result.decisions[0].anchor_reuse_reason == "prior_anchor_not_reusable"
     assert result.artifact.findings[0].inline_comment is None
 
 
@@ -359,6 +370,8 @@ def test_apply_does_not_reuse_inline_comment_when_local_region_differs() -> None
     )
 
     assert result.reused_inline_comment_count == 0
+    assert result.decisions[0].anchor_reuse_decision == "new"
+    assert result.decisions[0].anchor_reuse_reason == "prior_anchor_not_reusable"
     assert result.artifact.findings[0].inline_comment is None
 
 
@@ -433,3 +446,4 @@ def test_apply_if_enabled_leaves_artifact_unchanged_when_flag_is_disabled() -> N
 
     assert result.reused_inline_comment_count == 0
     assert result.artifact == artifact
+    assert result.decisions == []

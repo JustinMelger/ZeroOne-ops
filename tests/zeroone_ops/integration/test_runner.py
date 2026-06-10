@@ -3666,18 +3666,21 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
-        lambda self, project_id, merge_request_iid, context, artifact: ReviewPublishResult(
-            note=type(
-                "Note",
-                (),
-                {
-                    "id": 55,
-                    "web_url": (
-                        "https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
-                    ),
-                },
-            )(),
-            body="summary",
+        lambda self, project_id, merge_request_iid, context, artifact, inline_comment_decisions=None: (
+            ReviewPublishResult(
+                note=type(
+                    "Note",
+                    (),
+                    {
+                        "id": 55,
+                        "web_url": (
+                            "https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
+                        ),
+                    },
+                )(),
+                body="summary",
+                artifact=artifact,
+            )
         ),
     )
     monkeypatch.setattr(
@@ -3713,6 +3716,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     assert diagnostics.candidate_findings[0].candidate_id == "candidate-1"
     assert diagnostics.grounding_accepted_candidate_ids == ["candidate-1"]
     assert diagnostics.precision_accepted_candidate_ids == ["candidate-1"]
+    assert diagnostics.inline_comment_decisions == []
     assert diagnostics.final_published_finding_summaries == [
         "src/service.py: Missing test coverage"
     ]
@@ -3815,9 +3819,12 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
-        lambda self, project_id, merge_request_iid, context, artifact: ReviewPublishResult(
-            note=type("Note", (), {"id": 55, "web_url": None})(),
-            body="summary",
+        lambda self, project_id, merge_request_iid, context, artifact, inline_comment_decisions=None: (
+            ReviewPublishResult(
+                note=type("Note", (), {"id": 55, "web_url": None})(),
+                body="summary",
+                artifact=artifact,
+            )
         ),
     )
     observed: dict[str, object] = {}
@@ -3864,6 +3871,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     assert diagnostics.candidate_findings == []
     assert diagnostics.grounding_accepted_candidate_ids == []
     assert diagnostics.precision_accepted_candidate_ids == []
+    assert diagnostics.inline_comment_decisions == []
     assert diagnostics.final_published_finding_summaries == []
     assert diagnostics.final_classification == "no_findings"
 
@@ -3999,11 +4007,14 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
         merge_request_iid,
         context,
         artifact,
+        inline_comment_decisions=None,
     ):
         observed["artifact"] = artifact
+        observed["inline_comment_decisions"] = inline_comment_decisions
         return ReviewPublishResult(
             note=type("Note", (), {"id": 55, "web_url": None})(),
             body="summary",
+            artifact=artifact,
         )
 
     monkeypatch.setattr(
@@ -4230,8 +4241,10 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         merge_request_iid,
         context,
         artifact,
+        inline_comment_decisions=None,
     ):
         observed["artifact"] = artifact
+        observed["inline_comment_decisions"] = inline_comment_decisions
         return ReviewPublishResult(
             note=type(
                 "Note",
@@ -4244,6 +4257,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
                 },
             )(),
             body="summary",
+            artifact=artifact,
         )
 
     monkeypatch.setattr(
@@ -4372,8 +4386,10 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         merge_request_iid,
         context,
         artifact,
+        inline_comment_decisions=None,
     ):
         observed["artifact"] = artifact
+        observed["inline_comment_decisions"] = inline_comment_decisions
         return ReviewPublishResult(
             note=type(
                 "Note",
@@ -4386,6 +4402,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
                 },
             )(),
             body="summary",
+            artifact=artifact,
         )
 
     monkeypatch.setattr(

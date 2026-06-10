@@ -125,8 +125,8 @@ Shipped baseline:
 
 - validate the behavior in a feature-flagged test deployment before broad
   enablement
-- log trusted vs weak anchor decisions and reused vs new inline-comment
-  outcomes for evaluation
+- keep compact CI diagnostics for trusted vs weak anchor decisions and reused
+  vs new inline-comment outcomes during rollout
 - keep diagnostics compact in CI:
   - one structured decision line per finding
   - one run-level summary line

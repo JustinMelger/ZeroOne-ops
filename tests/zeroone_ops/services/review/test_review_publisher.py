@@ -1,7 +1,10 @@
 import json
+from typing import cast
 
-from zeroone_ops.models.gitlab import MergeRequestNote
+from zeroone_ops.models.gitlab import GitLabMergeRequestState, MergeRequestNote
 from zeroone_ops.models.review import (
+    MergeRequestDiffRefs,
+    MergeRequestReviewCandidate,
     MergeRequestReviewContext,
     PriorReviewContext,
     PriorReviewFinding,
@@ -9,8 +12,11 @@ from zeroone_ops.models.review import (
     PriorReviewPass,
     PublishableReviewArtifact,
     PublishableReviewFinding,
+    ReviewClassification,
     ReviewFileContext,
 )
+from zeroone_ops.models.state import ReviewInlineCommentDecision
+from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.services.review.review_publisher import ReviewPublisher
 
 
@@ -19,7 +25,7 @@ def extract_machine_safe_payload(body: str) -> dict[str, object]:
     end_marker = "\n-->"
     start = body.index(start_marker) + len(start_marker)
     end = body.index(end_marker, start)
-    return json.loads(body[start:end])
+    return cast(dict[str, object], json.loads(body[start:end]))
 
 
 def build_context() -> MergeRequestReviewContext:
@@ -31,9 +37,16 @@ def build_context() -> MergeRequestReviewContext:
         target_branch="main",
         web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
         head_sha="abc123",
+        diff_refs=MergeRequestDiffRefs(
+            base_sha="base123",
+            start_sha="start123",
+            head_sha="abc123",
+        ),
         changed_files=[
             ReviewFileContext(
                 file_path="src/service.py",
+                old_path="src/service.py",
+                new_path="src/service.py",
                 diff="@@ -1,1 +1,1 @@",
                 start_line=1,
                 end_line=1,
@@ -172,6 +185,10 @@ def build_variant_title_follow_up_context() -> MergeRequestReviewContext:
 class FakeGitLabReviewClient:
     def __init__(self) -> None:
         self.published_body: str | None = None
+        self.inline_comments: list[tuple[str, int]] = []
+        self.updated_body: str | None = None
+        self.fail_inline_publish = False
+        self.fail_note_update = False
 
     def create_merge_request_note(
         self,
@@ -187,10 +204,74 @@ class FakeGitLabReviewClient:
             web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
         )
 
+    def list_open_merge_requests(self, *, project_id: str) -> list[MergeRequestReviewCandidate]:
+        del project_id
+        raise NotImplementedError
+
+    def get_merge_request(
+        self, *, project_id: str, merge_request_iid: int
+    ) -> MergeRequestReviewCandidate:
+        del project_id, merge_request_iid
+        raise NotImplementedError
+
+    def get_merge_request_state(
+        self, *, project_id: str, merge_request_iid: int
+    ) -> GitLabMergeRequestState:
+        del project_id, merge_request_iid
+        raise NotImplementedError
+
+    def list_merge_request_notes(
+        self, *, project_id: str, merge_request_iid: int
+    ) -> list[MergeRequestNote]:
+        del project_id, merge_request_iid
+        raise NotImplementedError
+
+    def get_current_user_username(self) -> str:
+        return "zeroone-ops"
+
+    def update_merge_request_note(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+        note_id: int,
+        body: str,
+    ) -> MergeRequestNote:
+        del project_id, merge_request_iid, note_id
+        if self.fail_note_update:
+            raise GitLabClientError("update failed")
+        self.updated_body = body
+        return MergeRequestNote(
+            id=55,
+            web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
+        )
+
+    def create_merge_request_inline_comment(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+        body: str,
+        base_sha: str,
+        start_sha: str,
+        head_sha: str,
+        old_path: str,
+        new_path: str,
+        new_line: int,
+    ) -> MergeRequestNote:
+        del project_id, merge_request_iid, base_sha, start_sha, head_sha, old_path, new_path
+        if self.fail_inline_publish:
+            raise GitLabClientError("inline failed")
+        self.inline_comments.append((body, new_line))
+        return MergeRequestNote(
+            id=789,
+            web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_789",
+        )
+
 
 def build_artifact(
     *,
-    classification: str = "findings_present",
+    classification: ReviewClassification = "findings_present",
     summary: str | None = None,
     follow_up_lines: list[str] | None = None,
 ) -> PublishableReviewArtifact:
@@ -313,6 +394,117 @@ def test_publish_artifact_sends_rendered_note_body() -> None:
     assert result.note.id == 55
     assert review_client.published_body is not None
     assert "Missing test coverage" in review_client.published_body
+    assert result.artifact is not None
+    assert result.artifact.findings[0].inline_comment is None
+
+
+def test_publish_artifact_creates_inline_comment_after_summary_note_when_requested() -> None:
+    review_client = FakeGitLabReviewClient()
+    publisher = ReviewPublisher(review_client)
+    artifact = build_artifact()
+
+    result = publisher.publish_artifact(
+        project_id="123",
+        merge_request_iid=17,
+        context=build_context(),
+        artifact=artifact,
+        inline_comment_decisions=[
+            ReviewInlineCommentDecision(
+                finding_identity=artifact.findings[0].stable_identity,
+                severity=artifact.findings[0].severity,
+                file_path=artifact.findings[0].file_path,
+                line_start=artifact.findings[0].line_start,
+                line_end=artifact.findings[0].line_end,
+                region_hint=artifact.findings[0].region_hint,
+                inline_comments_enabled=True,
+                location_trust="trusted",
+                existing_inline_comment_found=False,
+                anchor_reuse_decision="new",
+                anchor_reuse_reason="trusted_new_anchor",
+            )
+        ],
+    )
+
+    assert review_client.inline_comments
+    assert review_client.inline_comments[0][1] == 1
+    assert review_client.inline_comments[0][0] == (
+        "Missing test coverage.\n\nThe change alters branch behavior without test updates."
+    )
+    assert result.artifact is not None
+    assert result.artifact.findings[0].inline_comment is not None
+    assert result.artifact.findings[0].inline_comment.comment_id == "789"
+    assert result.inline_comment_decisions is not None
+    assert result.warning_message is None
+
+
+def test_publish_artifact_surfaces_inline_comment_publish_warning() -> None:
+    review_client = FakeGitLabReviewClient()
+    review_client.fail_inline_publish = True
+    publisher = ReviewPublisher(review_client)
+    artifact = build_artifact()
+
+    result = publisher.publish_artifact(
+        project_id="123",
+        merge_request_iid=17,
+        context=build_context(),
+        artifact=artifact,
+        inline_comment_decisions=[
+            ReviewInlineCommentDecision(
+                finding_identity=artifact.findings[0].stable_identity,
+                severity=artifact.findings[0].severity,
+                file_path=artifact.findings[0].file_path,
+                line_start=artifact.findings[0].line_start,
+                line_end=artifact.findings[0].line_end,
+                region_hint=artifact.findings[0].region_hint,
+                inline_comments_enabled=True,
+                location_trust="trusted",
+                existing_inline_comment_found=False,
+                anchor_reuse_decision="new",
+                anchor_reuse_reason="trusted_new_anchor",
+            )
+        ],
+    )
+
+    assert result.note is not None
+    assert result.warning_message is not None
+    assert "could not be published" in result.warning_message
+    assert result.artifact.findings[0].inline_comment is None
+
+
+def test_publish_artifact_surfaces_authoritative_note_update_warning() -> None:
+    review_client = FakeGitLabReviewClient()
+    review_client.fail_note_update = True
+    publisher = ReviewPublisher(review_client)
+    artifact = build_artifact()
+
+    result = publisher.publish_artifact(
+        project_id="123",
+        merge_request_iid=17,
+        context=build_context(),
+        artifact=artifact,
+        inline_comment_decisions=[
+            ReviewInlineCommentDecision(
+                finding_identity=artifact.findings[0].stable_identity,
+                severity=artifact.findings[0].severity,
+                file_path=artifact.findings[0].file_path,
+                line_start=artifact.findings[0].line_start,
+                line_end=artifact.findings[0].line_end,
+                region_hint=artifact.findings[0].region_hint,
+                inline_comments_enabled=True,
+                location_trust="trusted",
+                existing_inline_comment_found=False,
+                anchor_reuse_decision="new",
+                anchor_reuse_reason="trusted_new_anchor",
+            )
+        ],
+    )
+
+    assert result.note is not None
+    assert result.warning_message is not None
+    assert "updating the authoritative review note failed" in result.warning_message
+    assert "local mirrored continuity was preserved" in result.warning_message
+    assert result.artifact.findings[0].inline_comment is not None
+    assert result.artifact.findings[0].inline_comment.comment_id == "789"
 
 
 def test_render_artifact_embeds_inline_comment_metadata_when_present() -> None:
@@ -349,7 +541,8 @@ def test_render_artifact_embeds_inline_comment_metadata_when_present() -> None:
     )
 
     payload = extract_machine_safe_payload(body)
-    assert payload["findings"][0]["inline_comment"] == {
+    findings = cast(list[dict[str, object]], payload["findings"])
+    assert findings[0]["inline_comment"] == {
         "anchor_file_path": "src/service.py",
         "anchor_line_end": 4,
         "anchor_line_start": 4,

@@ -24,10 +24,11 @@
     "max_prior_review_passes": 2,
     "max_context_lines_before": 30,
     "max_context_lines_after": 30,
-        "supported_paths": ["src/", "app/"],
+    "supported_paths": ["src/", "app/"],
     "ignored_paths": ["src/generated/"],
     "skip_draft_merge_requests": true,
-    "max_review_feedback_retries": 1
+    "max_review_feedback_retries": 1,
+    "inline_comments_enabled": true
   },
   "remediation": {
     "bootstrap_severities": ["LOW"],

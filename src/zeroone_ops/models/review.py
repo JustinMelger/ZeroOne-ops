@@ -22,6 +22,14 @@ ArtifactValidationStatus = Literal["valid", "repaired", "rejected"]
 InlineCommentStatus = Literal["published", "shadow", "superseded"]
 
 
+class MergeRequestDiffRefs(BaseModel):
+    """Represent GitLab diff refs needed for inline comment anchoring."""
+
+    base_sha: str
+    start_sha: str
+    head_sha: str
+
+
 class MergeRequestChangedFile(BaseModel):
     """Represent a changed file in a merge request."""
 
@@ -45,6 +53,7 @@ class MergeRequestReviewCandidate(BaseModel):
     head_sha: str
     draft: bool = False
     author_username: str | None = None
+    diff_refs: MergeRequestDiffRefs | None = None
     changes: list[MergeRequestChangedFile] = Field(default_factory=list)
 
 
@@ -52,6 +61,8 @@ class ReviewFileContext(BaseModel):
     """Represent one changed file plus bounded local source context."""
 
     file_path: str
+    old_path: str | None = None
+    new_path: str | None = None
     diff: str | None = None
     start_line: int
     end_line: int
@@ -157,6 +168,7 @@ class MergeRequestReviewContext(BaseModel):
     head_sha: str
     draft: bool = False
     author_username: str | None = None
+    diff_refs: MergeRequestDiffRefs | None = None
     remediation_context: RemediationReviewContext | None = None
     prior_review_context: PriorReviewContext | None = None
     repository_guidance: list[RepositoryGuidanceContext] = Field(default_factory=list)

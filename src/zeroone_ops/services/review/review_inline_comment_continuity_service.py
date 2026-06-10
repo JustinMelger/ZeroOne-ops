@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from zeroone_ops.models.review import (
@@ -14,8 +14,10 @@ from zeroone_ops.models.review import (
     PublishableReviewFinding,
     ReviewFileContext,
 )
+from zeroone_ops.models.state import ReviewInlineCommentDecision
 
 LocationTrust = Literal["trusted", "weak", "untrusted"]
+AnchorReuseDecision = Literal["reuse", "new", "summary_only"]
 _SUPPORTED_INLINE_SEVERITIES = frozenset({"high", "medium"})
 _MAX_REUSABLE_LINE_DRIFT = 3
 _HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
@@ -28,6 +30,7 @@ class InlineCommentContinuityResult:
 
     artifact: PublishableReviewArtifact
     reused_inline_comment_count: int = 0
+    decisions: list[ReviewInlineCommentDecision] = field(default_factory=list)
 
 
 class ReviewInlineCommentContinuityService:
@@ -56,34 +59,49 @@ class ReviewInlineCommentContinuityService:
             return InlineCommentContinuityResult(artifact=artifact)
 
         latest_pass = _latest_prior_pass(context)
-        if latest_pass is None:
-            return InlineCommentContinuityResult(artifact=artifact)
-
-        prior_findings_by_identity = _published_prior_findings_by_identity(latest_pass)
-        if not prior_findings_by_identity:
-            return InlineCommentContinuityResult(artifact=artifact)
+        prior_findings_by_identity = (
+            {} if latest_pass is None else _published_prior_findings_by_identity(latest_pass)
+        )
 
         reused_inline_comment_count = 0
+        decisions: list[ReviewInlineCommentDecision] = []
         updated_findings: list[PublishableReviewFinding] = []
         for finding in artifact.findings:
-            if finding.inline_comment is not None or finding.stable_identity is None:
-                updated_findings.append(finding)
-                continue
+            prior_finding = (
+                None
+                if finding.stable_identity is None
+                else prior_findings_by_identity.get(finding.stable_identity)
+            )
+            location_trust = _location_trust(context=context, finding=finding)
+            decision, reason = _decision_for_finding(
+                finding=finding,
+                prior_finding=prior_finding,
+                location_trust=location_trust,
+            )
+            decisions.append(
+                ReviewInlineCommentDecision(
+                    finding_identity=finding.stable_identity,
+                    severity=finding.severity,
+                    file_path=finding.file_path,
+                    line_start=finding.line_start,
+                    line_end=finding.line_end,
+                    region_hint=finding.region_hint,
+                    inline_comments_enabled=True,
+                    location_trust=location_trust,
+                    existing_inline_comment_found=prior_finding is not None,
+                    anchor_reuse_decision=decision,
+                    anchor_reuse_reason=reason,
+                    authoritative_note_id=None if latest_pass is None else latest_pass.note_id,
+                    existing_comment_id=(
+                        None
+                        if prior_finding is None or prior_finding.inline_comment is None
+                        else prior_finding.inline_comment.comment_id
+                    ),
+                    new_comment_id=None,
+                )
+            )
 
-            if finding.severity not in _SUPPORTED_INLINE_SEVERITIES:
-                updated_findings.append(finding)
-                continue
-
-            if _location_trust(context=context, finding=finding) != "trusted":
-                updated_findings.append(finding)
-                continue
-
-            prior_finding = prior_findings_by_identity.get(finding.stable_identity)
-            if prior_finding is None or prior_finding.inline_comment is None:
-                updated_findings.append(finding)
-                continue
-
-            if not _anchor_is_reusable(current_finding=finding, prior_finding=prior_finding):
+            if decision != "reuse" or prior_finding is None or prior_finding.inline_comment is None:
                 updated_findings.append(finding)
                 continue
 
@@ -93,11 +111,36 @@ class ReviewInlineCommentContinuityService:
             )
 
         if reused_inline_comment_count == 0:
-            return InlineCommentContinuityResult(artifact=artifact)
+            return InlineCommentContinuityResult(artifact=artifact, decisions=decisions)
         return InlineCommentContinuityResult(
             artifact=artifact.model_copy(update={"findings": updated_findings}),
             reused_inline_comment_count=reused_inline_comment_count,
+            decisions=decisions,
         )
+
+
+def _decision_for_finding(
+    *,
+    finding: PublishableReviewFinding,
+    prior_finding: PriorReviewFinding | None,
+    location_trust: LocationTrust,
+) -> tuple[AnchorReuseDecision, str]:
+    """Return the bounded inline-comment continuity decision for one finding."""
+    if finding.inline_comment is not None:
+        return ("summary_only", "current_inline_comment_already_present")
+    if finding.stable_identity is None:
+        return ("summary_only", "missing_stable_identity")
+    if finding.severity not in _SUPPORTED_INLINE_SEVERITIES:
+        return ("summary_only", "severity_not_supported")
+    if location_trust == "untrusted":
+        return ("summary_only", "location_untrusted")
+    if location_trust == "weak":
+        return ("summary_only", "location_weak")
+    if prior_finding is None or prior_finding.inline_comment is None:
+        return ("new", "trusted_new_anchor")
+    if not _anchor_is_reusable(current_finding=finding, prior_finding=prior_finding):
+        return ("new", "prior_anchor_not_reusable")
+    return ("reuse", "existing_anchor_reused")
 
 
 def _latest_prior_pass(context: MergeRequestReviewContext) -> PriorReviewPass | None:
