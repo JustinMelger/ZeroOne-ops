@@ -1184,7 +1184,7 @@ wheels = [
 
 [[package]]
 name = "zeroone-ops"
-version = "0.38.1"
+version = "0.39.0"
 source = { editable = "." }
 dependencies = [
     { name = "gitpython" },

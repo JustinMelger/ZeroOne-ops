@@ -1004,7 +1004,7 @@ def test_openai_review_precision_reconciliation_uses_high_reasoning() -> None:
 
 
 def test_openai_client_enables_optional_mlflow_autologging(monkeypatch) -> None:
-    calls: list[tuple[str, str | None]] = []
+    calls: list[tuple[str, object]] = []
 
     monkeypatch.setattr(llm_client, "_MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED", False)
     monkeypatch.setattr(
@@ -1020,7 +1020,7 @@ def test_openai_client_enables_optional_mlflow_autologging(monkeypatch) -> None:
     monkeypatch.setattr(
         llm_client.mlflow_openai,
         "autolog",
-        lambda: calls.append(("autolog", None)),
+        lambda **kwargs: calls.append(("autolog", kwargs)),
     )
 
     OpenAILLMClient(
@@ -1037,7 +1037,7 @@ def test_openai_client_enables_optional_mlflow_autologging(monkeypatch) -> None:
     assert calls == [
         ("tracking_uri", "http://localhost:5000"),
         ("experiment", "zeroone-ops-review"),
-        ("autolog", None),
+        ("autolog", {"silent": True, "log_traces": True}),
     ]
 
 

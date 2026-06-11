@@ -41,6 +41,9 @@ from zeroone_ops.services.review.review_context_builder import ReviewContextBuil
 from zeroone_ops.services.review.review_dashboard_updater import (
     ReviewDashboardUpdater,
 )
+from zeroone_ops.services.review.review_finalization_service import (
+    ReviewFinalizationService,
+)
 from zeroone_ops.services.review.review_gitlab_prior_context_service import (
     ReviewGitLabPriorContextService,
     extract_machine_safe_review_note_payload,
@@ -323,122 +326,16 @@ class ReviewRunner:
                 },
             )
 
-        note_id: int | None = None
-        note_url: str | None = None
-        dashboard_warning: str | None = None
-        publish_warning: str | None = None
-        publish_result = None
-        if not active_dry_run:
-            if artifact_result is None:
-                return self.review_state_service.fail_review(
-                    record=record,
-                    error_message=(
-                        f"[{self.config.execution_mode}] "
-                        "Review artifact build failed before publish."
-                    ),
-                    failure=FailureDetails(
-                        stage=FailureStage.REVIEW_PUBLISH,
-                        message="Review artifact build failed before publish.",
-                    ),
-                )
-            if publish_artifact is None:  # pragma: no cover - defensive typing guard
-                return self.review_state_service.fail_review(
-                    record=record,
-                    error_message=(
-                        f"[{self.config.execution_mode}] "
-                        "Validated review artifact was unavailable before publish."
-                    ),
-                    failure=FailureDetails(
-                        stage=FailureStage.REVIEW_PUBLISH,
-                        message="Validated review artifact was unavailable before publish.",
-                    ),
-                )
-            publish_result = ReviewPublisher(self.review_client).publish_artifact(
-                project_id=project_id,
-                merge_request_iid=context.mr_iid,
-                context=context,
-                artifact=publish_artifact,
-                inline_comment_decisions=inline_comment_continuity_result.decisions,
-            )
-            if publish_result.error_message is not None:
-                return self.review_state_service.fail_review(
-                    record=record,
-                    error_message=(
-                        f"[{self.config.execution_mode}] {publish_result.error_message}"
-                    ),
-                    failure=FailureDetails(
-                        stage=FailureStage.REVIEW_PUBLISH,
-                        message=publish_result.error_message,
-                    ),
-                )
-            if publish_result.note is not None:
-                note_id = publish_result.note.id
-                note_url = publish_result.note.web_url
-                publish_artifact = publish_result.artifact
-                review_result = publish_artifact.to_review_result()
-                publish_warning = publish_result.warning_message
-                LOGGER.info(
-                    "review note published",
-                    extra={
-                        "run_id": run_id,
-                        "mr_iid": context.mr_iid,
-                        "head_sha": context.head_sha,
-                        "note_id": publish_result.note.id,
-                        "note_url": publish_result.note.web_url,
-                    },
-                )
-                if publish_warning is not None:
-                    LOGGER.warning(
-                        "review inline comment transport warning",
-                        extra={
-                            "run_id": run_id,
-                            "mr_iid": context.mr_iid,
-                            "head_sha": context.head_sha,
-                            "warning": publish_warning,
-                        },
-                    )
-            dashboard_update = ReviewDashboardUpdater(
-                DashboardService(
-                    self.dashboard_client,
-                    policy_view_builder=DashboardPolicyViewBuilder(
-                        repo_root=self.repo_root,
-                        config=self.config,
-                        state=self.review_state_service.state,
-                    ),
-                )
-            ).update(
-                project_id=project_id,
-                merge_request=intake_result.selected_merge_request,
-                review_result=review_result,
-            )
-            dashboard_warning = dashboard_update.error_message
-            if dashboard_warning is None:
-                LOGGER.info(
-                    "review dashboard mirrored",
-                    extra={
-                        "run_id": run_id,
-                        "mr_iid": context.mr_iid,
-                        "head_sha": context.head_sha,
-                        "dashboard_issue_url": dashboard_update.dashboard_issue_url,
-                    },
-                )
-            else:
-                LOGGER.warning(
-                    "review dashboard mirror warning",
-                    extra={
-                        "run_id": run_id,
-                        "mr_iid": context.mr_iid,
-                        "head_sha": context.head_sha,
-                    },
-                )
-        else:
-            LOGGER.info(
-                "review dry-run skipped publication",
-                extra={
-                    "run_id": run_id,
-                    "mr_iid": context.mr_iid,
-                    "head_sha": context.head_sha,
-                },
+        if artifact_result is None:
+            return self.review_state_service.fail_review(
+                record=record,
+                error_message=(
+                    f"[{self.config.execution_mode}] Review artifact build failed before publish."
+                ),
+                failure=FailureDetails(
+                    stage=FailureStage.REVIEW_PUBLISH,
+                    message="Review artifact build failed before publish.",
+                ),
             )
 
         if publish_artifact is None:  # pragma: no cover - defensive typing guard
@@ -454,15 +351,47 @@ class ReviewRunner:
                 ),
             )
 
-        inline_comment_decisions = (
-            []
-            if active_dry_run
-            else (
-                publish_result.inline_comment_decisions
-                if publish_result is not None and publish_result.inline_comment_decisions
-                else inline_comment_continuity_result.decisions
-            )
+        finalization_result = ReviewFinalizationService(
+            review_publisher=ReviewPublisher(self.review_client),
+            dashboard_updater=ReviewDashboardUpdater(
+                DashboardService(
+                    self.dashboard_client,
+                    policy_view_builder=DashboardPolicyViewBuilder(
+                        repo_root=self.repo_root,
+                        config=self.config,
+                        state=self.review_state_service.state,
+                    ),
+                )
+            ),
+        ).finalize(
+            run_id=run_id,
+            project_id=project_id,
+            active_dry_run=active_dry_run,
+            merge_request=intake_result.selected_merge_request,
+            context=context,
+            artifact=publish_artifact,
+            inline_comment_decisions=inline_comment_continuity_result.decisions,
         )
+        if finalization_result.error_message is not None:
+            return self.review_state_service.fail_review(
+                record=record,
+                error_message=(
+                    f"[{self.config.execution_mode}] {finalization_result.error_message}"
+                ),
+                failure=FailureDetails(
+                    stage=FailureStage.REVIEW_PUBLISH,
+                    message=finalization_result.error_message,
+                ),
+            )
+
+        publish_artifact = finalization_result.artifact
+        review_result = finalization_result.review_result
+        note_id = finalization_result.note_id
+        note_url = finalization_result.note_url
+        publish_warning = finalization_result.publish_warning
+        dashboard_warning = finalization_result.dashboard_warning
+
+        inline_comment_decisions = finalization_result.inline_comment_decisions
         _log_inline_comment_rollout(
             run_id=run_id,
             mr_iid=context.mr_iid,
