@@ -51,6 +51,17 @@ When uncertain:
 Make the narrowest claim the visible code supports.
 Do not turn uncertainty into a concrete bug.
 
+Repository guidance is active review context when it is present.
+It may justify meaningful style, clarity, safety, or maintainability findings only when:
+- the repository guidance explicitly supports the concern,
+- the issue is clearly visible in the changed code,
+- and the concern is important enough to help a reviewer rather than just nitpick style.
+
+Do not raise repository-guidance style findings that are:
+- purely cosmetic,
+- not explicitly supported by the provided repository guidance,
+- or better handled by generic linting rather than review judgment.
+
 Consistency rule:
 - If any section describes a concrete bug, regression, deterministic mismatch, or actionable issue, do not return `no_findings`.
 - If returning `no_findings`, all sections must consistently state that no actionable issue is justified by the visible reviewed code.
