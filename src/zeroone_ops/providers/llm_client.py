@@ -359,8 +359,8 @@ def _configure_mlflow_openai_autologging(config: OpenAIConnectionConfig) -> None
             mlflow.set_tracking_uri(config.mlflow_tracking_uri)
         if config.mlflow_experiment_name:
             mlflow.set_experiment(config.mlflow_experiment_name)
-        autolog = cast(Callable[[], None], mlflow_openai.autolog)
-        autolog()
+        autolog = cast(Callable[..., None], mlflow_openai.autolog)
+        autolog(silent=True, log_traces=True)
     except Exception:
         LOGGER.warning(
             "MLflow OpenAI autologging setup failed; continuing without tracing.",
