@@ -128,3 +128,36 @@ def test_reconcile_overlap_packet_marks_multiple_candidates_as_ambiguous() -> No
             "related_prior_finding_indices": [0, 1],
         }
     ]
+
+
+def test_reconcile_overlap_packet_deduplicates_repeated_single_prior_candidate() -> None:
+    result = OverlapReconciliationService().reconcile(
+        packet=OverlapPacket(
+            merge_request_iid=122,
+            current_head_sha="current",
+            prior_head_sha="prior",
+            current_findings=[_current_finding("Current issue")],
+            prior_findings=[_prior_finding("Prior issue")],
+            candidates=[
+                OverlapCandidate(
+                    current_finding_index=0,
+                    prior_finding_index=0,
+                    reasons=["same_file", "symbol"],
+                ),
+                OverlapCandidate(
+                    current_finding_index=0,
+                    prior_finding_index=0,
+                    reasons=["issue_kind", "title_overlap"],
+                ),
+            ],
+        )
+    )
+
+    assert [resolution.model_dump() for resolution in result.resolutions] == [
+        {
+            "outcome": "still_unresolved",
+            "current_finding_index": 0,
+            "prior_finding_index": 0,
+            "related_prior_finding_indices": [0],
+        }
+    ]

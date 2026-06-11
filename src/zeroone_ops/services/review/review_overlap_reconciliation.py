@@ -17,12 +17,17 @@ class OverlapReconciliationService:
         candidate_indices_by_current: dict[int, list[int]] = {}
         candidate_currents_by_prior: dict[int, list[int]] = {}
         for candidate in packet.candidates:
-            candidate_indices_by_current.setdefault(candidate.current_finding_index, []).append(
-                candidate.prior_finding_index
+            current_candidates = candidate_indices_by_current.setdefault(
+                candidate.current_finding_index, []
             )
-            candidate_currents_by_prior.setdefault(candidate.prior_finding_index, []).append(
-                candidate.current_finding_index
+            if candidate.prior_finding_index not in current_candidates:
+                current_candidates.append(candidate.prior_finding_index)
+
+            prior_currents = candidate_currents_by_prior.setdefault(
+                candidate.prior_finding_index, []
             )
+            if candidate.current_finding_index not in prior_currents:
+                prior_currents.append(candidate.current_finding_index)
 
         resolutions: list[OverlapResolution] = []
         consumed_prior_indices: set[int] = set()

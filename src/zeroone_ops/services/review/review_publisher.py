@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 
 from zeroone_ops.models.gitlab import MergeRequestNote
@@ -11,10 +12,13 @@ from zeroone_ops.models.review import (
     PriorReviewInlineComment,
     PublishableReviewArtifact,
     PublishableReviewFinding,
+    ReviewFileContext,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_review_client import GitLabReviewClientProtocol
+
+_HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
 @dataclass(frozen=True)
@@ -299,7 +303,51 @@ def _resolve_inline_position(
         return None
     old_path = changed_file.old_path or changed_file.file_path
     new_path = changed_file.new_path or changed_file.file_path
-    return _InlinePosition(old_path=old_path, new_path=new_path, new_line=finding.line_start)
+    new_line = _best_inline_line(changed_file=changed_file, finding=finding)
+    return _InlinePosition(old_path=old_path, new_path=new_path, new_line=new_line)
+
+
+def _best_inline_line(
+    *,
+    changed_file: ReviewFileContext,
+    finding: PublishableReviewFinding,
+) -> int:
+    """Pick the most specific changed line within the finding range when possible."""
+    if finding.line_start is None:
+        raise ValueError("Inline positions require finding.line_start.")
+    if finding.line_end is None:
+        return finding.line_start
+
+    finding_start = finding.line_start
+    finding_end = finding.line_end
+    if changed_file.diff is None:
+        return finding.line_start
+    overlapping_hunks = [
+        hunk_range
+        for hunk_range in _changed_hunk_ranges(changed_file.diff)
+        if not (finding_end < hunk_range[0] or finding_start > hunk_range[1])
+    ]
+    if not overlapping_hunks:
+        return finding.line_start
+
+    latest_changed_line = max(
+        min(finding_end, hunk_end) for _hunk_start, hunk_end in overlapping_hunks
+    )
+    return latest_changed_line
+
+
+def _changed_hunk_ranges(diff_text: str) -> list[tuple[int, int]]:
+    """Extract new-side changed hunk ranges from one unified diff."""
+    hunk_ranges: list[tuple[int, int]] = []
+    for line in diff_text.splitlines():
+        match = _HUNK_HEADER_PATTERN.match(line)
+        if match is None:
+            continue
+        start = int(match.group(1))
+        count = int(match.group(2) or "1")
+        end = start if count <= 0 else start + count - 1
+        hunk_ranges.append((start, end))
+    return hunk_ranges
 
 
 def _render_inline_comment_body(finding: PublishableReviewFinding) -> str:

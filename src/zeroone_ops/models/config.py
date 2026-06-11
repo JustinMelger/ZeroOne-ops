@@ -65,10 +65,13 @@ class GitLabConfig(BaseModel):
     Attributes:
         target_branch: Merge request target branch.
         labels: Labels to attach to created merge requests.
+        merge_request_assignee_username: Optional GitLab username to assign
+            created remediation merge requests to.
     """
 
     target_branch: str
     labels: list[str] = Field(default_factory=list)
+    merge_request_assignee_username: str | None = None
 
 
 class GitLabConnectionConfig(BaseModel):

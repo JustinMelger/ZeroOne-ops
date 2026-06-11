@@ -220,7 +220,8 @@ Why:
   ],
   "gitlab": {
     "target_branch": "main",
-    "labels": ["zeroone-ops", "sonarqube"]
+    "labels": ["zeroone-ops", "sonarqube"],
+    "merge_request_assignee_username": "justin"
   },
   "state": {
     "path": ".zeroone-ops-state.json"
@@ -281,6 +282,22 @@ This keeps:
 - the implementation shippable before broad enablement
 - rollout controllable per repository
 - summary-note-authoritative behavior unchanged by default
+
+## 13. Remediation Merge Request Assignee
+
+Remediation merge requests may optionally be assigned through the existing
+`gitlab` block.
+
+Recommended field:
+
+- `gitlab.merge_request_assignee_username`
+
+Recommended first behavior:
+
+- default `null`
+- when set, resolve the GitLab username at MR-create time
+- assign only newly created remediation merge requests
+- keep reviewer handling out of scope for the first version
 
 ### Phase 2: Internal Usage Cleanup
 

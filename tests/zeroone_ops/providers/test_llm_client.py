@@ -417,6 +417,20 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "Treat the MR description as background only." in prompt
     assert "Only report issues grounded in:" in prompt
     assert "Always report deterministic runtime errors." in prompt
+    assert "Repository guidance is active review context when it is present." in prompt
+    assert "It may justify style, clarity, safety, or maintainability findings" in prompt
+    assert "the repository guidance explicitly supports the concern" in prompt
+    assert "the issue is clearly visible in the changed code" in prompt
+    assert (
+        "materially affects readability, maintainability, safety, or correctness confidence"
+        in prompt
+    )
+    assert "Do not raise repository-guidance style findings that are:" in prompt
+    assert "purely cosmetic" in prompt
+    assert "better handled by generic linting rather than review judgment" in prompt
+    assert "When a repository-guidance style or quality concern is valid:" in prompt
+    assert "prefer low severity by default" in prompt
+    assert "increase severity only when the same visible issue also creates" in prompt
     assert "Consistency rule:" in prompt
     assert "do not return `no_findings`" in prompt
     assert "REGRESSION CLAIMS" in prompt

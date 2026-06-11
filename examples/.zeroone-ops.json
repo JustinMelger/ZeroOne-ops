@@ -38,7 +38,9 @@
   },
   "gitlab": {
     "target_branch": "main",
-    "labels": ["zeroone-ops", "sonarqube"]
+    "labels": ["zeroone-ops", "sonarqube"],
+    "_comment_merge_request_assignee_username": "Optional GitLab username to assign remediation merge requests to.",
+    "merge_request_assignee_username": "justin"
   },
   "state": {
     "path": ".zeroone-ops-state.json"

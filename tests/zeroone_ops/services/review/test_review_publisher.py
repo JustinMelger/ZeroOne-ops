@@ -58,6 +58,40 @@ def build_context() -> MergeRequestReviewContext:
     )
 
 
+def build_multiline_context() -> MergeRequestReviewContext:
+    return MergeRequestReviewContext(
+        mr_iid=17,
+        title="feat: review flow",
+        description="summary",
+        source_branch="feature/review",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        head_sha="abc123",
+        diff_refs=MergeRequestDiffRefs(
+            base_sha="base123",
+            start_sha="start123",
+            head_sha="abc123",
+        ),
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -73,3 +73,3 @@",
+                start_line=73,
+                end_line=75,
+                content=(
+                    "  73: raw_vehicle_id = vehicle.get('vehicle_id')\n"
+                    "  74: normalized_vehicle_id = raw_vehicle_id.strip()\n"
+                    "  75: return lookup_articles(normalized_vehicle_id)\n"
+                ),
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+
 def build_follow_up_context() -> MergeRequestReviewContext:
     return build_context().model_copy(
         update={
@@ -505,6 +539,57 @@ def test_publish_artifact_surfaces_authoritative_note_update_warning() -> None:
     assert "local mirrored continuity was preserved" in result.warning_message
     assert result.artifact.findings[0].inline_comment is not None
     assert result.artifact.findings[0].inline_comment.comment_id == "789"
+
+
+def test_publish_artifact_prefers_latest_changed_line_within_finding_range() -> None:
+    review_client = FakeGitLabReviewClient()
+    publisher = ReviewPublisher(review_client)
+    artifact = PublishableReviewArtifact(
+        classification="findings_present",
+        summary="One medium-risk finding.",
+        findings=[
+            PublishableReviewFinding(
+                severity="medium",
+                file_path="src/service.py",
+                line_start=73,
+                line_end=75,
+                stable_identity="src/service.py::vehicle-id-normalization",
+                legacy_identity="src/service.py::vehicle-id-normalization",
+                title="VLAPI vehicle_id is not normalized before article lookup",
+                evidence="The normalized value is only made concrete at the later lookup step.",
+                explanation=(
+                    "The wrong value shape reaches article lookup when normalization "
+                    "is inconsistent."
+                ),
+                suggested_follow_up="Normalize the derived vehicle id before lookup.",
+            )
+        ],
+    )
+
+    publisher.publish_artifact(
+        project_id="123",
+        merge_request_iid=17,
+        context=build_multiline_context(),
+        artifact=artifact,
+        inline_comment_decisions=[
+            ReviewInlineCommentDecision(
+                finding_identity=artifact.findings[0].stable_identity,
+                severity=artifact.findings[0].severity,
+                file_path=artifact.findings[0].file_path,
+                line_start=artifact.findings[0].line_start,
+                line_end=artifact.findings[0].line_end,
+                region_hint=artifact.findings[0].region_hint,
+                inline_comments_enabled=True,
+                location_trust="trusted",
+                existing_inline_comment_found=False,
+                anchor_reuse_decision="new",
+                anchor_reuse_reason="trusted_new_anchor",
+            )
+        ],
+    )
+
+    assert review_client.inline_comments
+    assert review_client.inline_comments[0][1] == 75
 
 
 def test_render_artifact_embeds_inline_comment_metadata_when_present() -> None:
