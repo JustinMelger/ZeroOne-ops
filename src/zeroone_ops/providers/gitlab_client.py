@@ -73,7 +73,7 @@ class GitLabClient:
     ) -> MergeRequestInfo:
         """Create a merge request in GitLab."""
         encoded_project_id = quote_plus(project_id)
-        payload: dict[str, str] = {
+        request_data: dict[str, str] = {
             "source_branch": source_branch,
             "target_branch": target_branch,
             "title": title,
@@ -82,15 +82,15 @@ class GitLabClient:
             "remove_source_branch": "true",
         }
         if assignee_id is not None:
-            payload["assignee_id"] = str(assignee_id)
+            request_data["assignee_id"] = str(assignee_id)
         response = self._http_client.post(
             f"/api/v4/projects/{encoded_project_id}/merge_requests",
-            data=payload,
+            data=request_data,
         )
-        payload = _parse_json_response(response)
-        if not isinstance(payload, dict):
+        response_payload = _parse_json_response(response)
+        if not isinstance(response_payload, dict):
             raise GitLabClientError("Unexpected GitLab response payload.")
-        return _normalize_merge_request(payload)
+        return _normalize_merge_request(response_payload)
 
     def update_merge_request_assignee(
         self,

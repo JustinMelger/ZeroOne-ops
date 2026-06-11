@@ -320,6 +320,8 @@ def _best_inline_line(
 
     finding_start = finding.line_start
     finding_end = finding.line_end
+    if changed_file.diff is None:
+        return finding.line_start
     overlapping_hunks = [
         hunk_range
         for hunk_range in _changed_hunk_ranges(changed_file.diff)
