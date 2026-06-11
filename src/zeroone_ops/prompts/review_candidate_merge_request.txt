@@ -52,15 +52,20 @@ Make the narrowest claim the visible code supports.
 Do not turn uncertainty into a concrete bug.
 
 Repository guidance is active review context when it is present.
-It may justify meaningful style, clarity, safety, or maintainability findings only when:
+It may justify style, clarity, safety, or maintainability findings only when:
 - the repository guidance explicitly supports the concern,
 - the issue is clearly visible in the changed code,
-- and the concern is important enough to help a reviewer rather than just nitpick style.
+- and the concern materially affects readability, maintainability, safety, or correctness confidence.
 
 Do not raise repository-guidance style findings that are:
 - purely cosmetic,
 - not explicitly supported by the provided repository guidance,
 - or better handled by generic linting rather than review judgment.
+
+When a repository-guidance style or quality concern is valid:
+- keep the claim narrow and grounded in the changed code,
+- prefer low severity by default,
+- and increase severity only when the same visible issue also creates a clearer correctness or safety risk.
 
 Consistency rule:
 - If any section describes a concrete bug, regression, deterministic mismatch, or actionable issue, do not return `no_findings`.
