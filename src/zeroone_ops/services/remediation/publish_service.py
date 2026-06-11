@@ -62,13 +62,24 @@ class PublishService:
         try:
             gitlab_config = load_gitlab_connection_config()
             pushed_branch = self.branch_manager.push_current_branch()
-            merge_request_service = MergeRequestService(GitLabClient(gitlab_config))
+            gitlab_client = GitLabClient(gitlab_config)
+            merge_request_service = MergeRequestService(gitlab_client)
+            assignee_id: int | None = None
+            assignee_username = self.config.gitlab.merge_request_assignee_username
+            if assignee_username is not None:
+                assignee_id = gitlab_client.find_user_id_by_username(assignee_username)
             existing_mr = merge_request_service.find_open(
                 project_id=gitlab_config.project_id,
                 source_branch=pushed_branch,
                 target_branch=self.config.gitlab.target_branch,
             )
             if existing_mr is not None:
+                if assignee_id is not None:
+                    merge_request_service.assign(
+                        project_id=gitlab_config.project_id,
+                        merge_request_iid=existing_mr.iid,
+                        assignee_id=assignee_id,
+                    )
                 return PublishResult(
                     branch_name=pushed_branch,
                     mr_url=existing_mr.web_url,
@@ -87,6 +98,7 @@ class PublishService:
                     change_summary=mr_description,
                 ),
                 labels=self.config.gitlab.labels,
+                assignee_id=assignee_id,
             )
         except (BranchManagerError, GitLabClientError, RuntimeError) as error:
             return PublishResult(error_message=f"Publish failed: {error}")

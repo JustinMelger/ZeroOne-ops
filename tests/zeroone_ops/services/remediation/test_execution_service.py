@@ -255,8 +255,17 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
         fake_find_open_none,
     )
 
-    def capture_create(self, project_id, source_branch, target_branch, title, description, labels):
-        del self, project_id, source_branch, target_branch, labels
+    def capture_create(
+        self,
+        project_id,
+        source_branch,
+        target_branch,
+        title,
+        description,
+        labels,
+        assignee_id=None,
+    ):
+        del self, project_id, source_branch, target_branch, labels, assignee_id
         captured["title"] = title
         captured["description"] = description
 

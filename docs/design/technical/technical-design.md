@@ -486,7 +486,8 @@ Example `examples/.zeroone-ops.json`:
   },
   "gitlab": {
     "target_branch": "main",
-    "labels": ["zeroone-ops", "sonarqube"]
+    "labels": ["zeroone-ops", "sonarqube"],
+    "merge_request_assignee_username": "justin"
   },
   "state": {
     "path": ".zeroone-ops-state.json"

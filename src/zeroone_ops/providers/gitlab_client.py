@@ -69,24 +69,62 @@ class GitLabClient:
         title: str,
         description: str,
         labels: list[str] | None = None,
+        assignee_id: int | None = None,
     ) -> MergeRequestInfo:
         """Create a merge request in GitLab."""
         encoded_project_id = quote_plus(project_id)
+        payload: dict[str, str] = {
+            "source_branch": source_branch,
+            "target_branch": target_branch,
+            "title": title,
+            "description": description,
+            "labels": ",".join(labels or []),
+            "remove_source_branch": "true",
+        }
+        if assignee_id is not None:
+            payload["assignee_id"] = str(assignee_id)
         response = self._http_client.post(
             f"/api/v4/projects/{encoded_project_id}/merge_requests",
-            data={
-                "source_branch": source_branch,
-                "target_branch": target_branch,
-                "title": title,
-                "description": description,
-                "labels": ",".join(labels or []),
-                "remove_source_branch": "true",
-            },
+            data=payload,
         )
         payload = _parse_json_response(response)
         if not isinstance(payload, dict):
             raise GitLabClientError("Unexpected GitLab response payload.")
         return _normalize_merge_request(payload)
+
+    def update_merge_request_assignee(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+        assignee_id: int,
+    ) -> None:
+        """Assign an existing merge request to a user."""
+        encoded_project_id = quote_plus(project_id)
+        response = self._http_client.put(
+            f"/api/v4/projects/{encoded_project_id}/merge_requests/{merge_request_iid}",
+            data={"assignee_id": str(assignee_id)},
+        )
+        _parse_json_response(response)
+
+    def find_user_id_by_username(self, username: str) -> int:
+        """Resolve a GitLab user id from an exact username lookup."""
+        response = self._http_client.get(
+            "/api/v4/users",
+            params={"username": username},
+        )
+        payload = _parse_json_response(response)
+        if not isinstance(payload, list):
+            raise GitLabClientError("Unexpected GitLab users response payload.")
+        if not payload:
+            raise GitLabClientError(f"GitLab user '{username}' was not found.")
+        first = payload[0]
+        if not isinstance(first, dict):
+            raise GitLabClientError("Unexpected GitLab user structure.")
+        user_id = first.get("id")
+        if not isinstance(user_id, int):
+            raise GitLabClientError("Unexpected GitLab user id structure.")
+        return user_id
 
 
 def _parse_json_response(response: httpx.Response) -> dict[str, Any] | list[Any]:

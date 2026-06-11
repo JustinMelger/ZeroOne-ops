@@ -19,6 +19,8 @@ def test_create_merge_request_normalizes_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/api/v4/projects/123/merge_requests"
         assert request.method == "POST"
+        body = request.content.decode("utf-8")
+        assert "assignee_id=42" in body
         return httpx.Response(
             201,
             json={
@@ -43,6 +45,7 @@ def test_create_merge_request_normalizes_response() -> None:
         title="fix: patch service",
         description="summary",
         labels=["zeroone-ops"],
+        assignee_id=42,
     )
 
     assert mr.iid == 7
@@ -104,6 +107,73 @@ def test_find_open_merge_request_normalizes_existing_merge_request() -> None:
     assert mr is not None
     assert mr.iid == 9
     assert mr.web_url == "https://gitlab.example.com/group/project/-/merge_requests/9"
+
+
+def test_find_user_id_by_username_normalizes_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/users"
+        assert request.method == "GET"
+        assert request.url.params["username"] == "justin"
+        return httpx.Response(200, json=[{"id": 42, "username": "justin"}])
+
+    client = GitLabClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    user_id = client.find_user_id_by_username("justin")
+
+    assert user_id == 42
+
+
+def test_find_user_id_by_username_reports_missing_user() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/users"
+        return httpx.Response(200, json=[])
+
+    client = GitLabClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    with pytest.raises(GitLabClientError, match="was not found"):
+        client.find_user_id_by_username("missing-user")
+
+
+def test_update_merge_request_assignee_uses_single_assignee_id() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/projects/123/merge_requests/7"
+        assert request.method == "PUT"
+        body = request.content.decode("utf-8")
+        assert "assignee_id=42" in body
+        return httpx.Response(
+            200,
+            json={
+                "iid": 7,
+                "web_url": "https://gitlab.example.com/group/project/-/merge_requests/7",
+                "title": "fix: patch service",
+            },
+        )
+
+    client = GitLabClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    client.update_merge_request_assignee(
+        project_id="123",
+        merge_request_iid=7,
+        assignee_id=42,
+    )
 
 
 def test_find_open_merge_request_reports_invalid_or_expired_token_on_401() -> None:

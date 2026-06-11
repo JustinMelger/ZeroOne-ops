@@ -168,6 +168,55 @@ def test_settings_load_inline_comments_review_flag(tmp_path: Path, monkeypatch) 
     assert config.review.inline_comments_enabled is True
 
 
+def test_settings_default_gitlab_merge_request_assignee_username_is_none(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.gitlab.merge_request_assignee_username is None
+
+
+def test_settings_load_gitlab_merge_request_assignee_username(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "gitlab": {
+            "target_branch": "main",
+            "labels": [],
+            "merge_request_assignee_username": "justin"
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.gitlab.merge_request_assignee_username == "justin"
+
+
 def test_settings_load_nested_remediation_and_sonarqube_config(
     tmp_path: Path,
     monkeypatch,

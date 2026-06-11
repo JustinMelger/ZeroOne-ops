@@ -32,6 +32,7 @@ class MergeRequestService:
         title: str,
         description: str,
         labels: list[str],
+        assignee_id: int | None = None,
     ) -> MergeRequestInfo:
         """Create a merge request.
 
@@ -42,6 +43,7 @@ class MergeRequestService:
             title: Merge request title.
             description: Merge request description.
             labels: Labels to attach to the merge request.
+            assignee_id: Optional assignee id to attach to the merge request.
 
         Returns:
             Metadata for the created merge request.
@@ -53,6 +55,7 @@ class MergeRequestService:
             title=title,
             description=description,
             labels=labels,
+            assignee_id=assignee_id,
         )
 
     def find_open(
@@ -66,4 +69,18 @@ class MergeRequestService:
             project_id=project_id,
             source_branch=source_branch,
             target_branch=target_branch,
+        )
+
+    def assign(
+        self,
+        *,
+        project_id: str,
+        merge_request_iid: int,
+        assignee_id: int,
+    ) -> None:
+        """Assign an existing merge request."""
+        self.gitlab_client.update_merge_request_assignee(
+            project_id=project_id,
+            merge_request_iid=merge_request_iid,
+            assignee_id=assignee_id,
         )
