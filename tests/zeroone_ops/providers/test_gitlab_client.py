@@ -20,7 +20,7 @@ def test_create_merge_request_normalizes_response() -> None:
         assert request.url.path == "/api/v4/projects/123/merge_requests"
         assert request.method == "POST"
         body = request.content.decode("utf-8")
-        assert "assignee_id=42" in body
+        assert "assignee_ids%5B%5D=42" in body
         return httpx.Response(
             201,
             json={
@@ -151,7 +151,7 @@ def test_update_merge_request_assignee_uses_single_assignee_id() -> None:
         assert request.url.path == "/api/v4/projects/123/merge_requests/7"
         assert request.method == "PUT"
         body = request.content.decode("utf-8")
-        assert "assignee_id=42" in body
+        assert "assignee_ids%5B%5D=42" in body
         return httpx.Response(
             200,
             json={

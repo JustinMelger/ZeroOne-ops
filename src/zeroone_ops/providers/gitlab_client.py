@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlencode
 
 import httpx
 
@@ -73,19 +73,20 @@ class GitLabClient:
     ) -> MergeRequestInfo:
         """Create a merge request in GitLab."""
         encoded_project_id = quote_plus(project_id)
-        request_data: dict[str, str] = {
-            "source_branch": source_branch,
-            "target_branch": target_branch,
-            "title": title,
-            "description": description,
-            "labels": ",".join(labels or []),
-            "remove_source_branch": "true",
-        }
+        request_data: list[tuple[str, str]] = [
+            ("source_branch", source_branch),
+            ("target_branch", target_branch),
+            ("title", title),
+            ("description", description),
+            ("labels", ",".join(labels or [])),
+            ("remove_source_branch", "true"),
+        ]
         if assignee_id is not None:
-            request_data["assignee_id"] = str(assignee_id)
+            request_data.append(("assignee_ids[]", str(assignee_id)))
         response = self._http_client.post(
             f"/api/v4/projects/{encoded_project_id}/merge_requests",
-            data=request_data,
+            content=_encode_form_data(request_data),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         response_payload = _parse_json_response(response)
         if not isinstance(response_payload, dict):
@@ -103,7 +104,8 @@ class GitLabClient:
         encoded_project_id = quote_plus(project_id)
         response = self._http_client.put(
             f"/api/v4/projects/{encoded_project_id}/merge_requests/{merge_request_iid}",
-            data={"assignee_id": str(assignee_id)},
+            content=_encode_form_data([("assignee_ids[]", str(assignee_id))]),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         _parse_json_response(response)
 
@@ -163,3 +165,8 @@ def _normalize_merge_request(payload: dict[str, Any]) -> MergeRequestInfo:
     if not isinstance(iid, int) or not isinstance(web_url, str) or not isinstance(title, str):
         raise GitLabClientError("Unexpected GitLab merge request structure.")
     return MergeRequestInfo(iid=iid, web_url=web_url, title=title)
+
+
+def _encode_form_data(items: list[tuple[str, str]]) -> bytes:
+    """Encode x-www-form-urlencoded request content."""
+    return urlencode(items).encode("utf-8")
