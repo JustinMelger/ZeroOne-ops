@@ -201,6 +201,7 @@ class ReviewContextBuilder:
             return True
         return any(file_path.startswith(prefix) for prefix in self.config.review.supported_paths)
 
+
 def _parse_remediation_context(description: str | None) -> RemediationReviewContext | None:
     """Parse bot-authored remediation metadata from an MR description when present."""
     if not description:

@@ -104,6 +104,17 @@ Shipped baseline:
 
 ### 5. Remediation Repository Guidance
 
+The implementation slices are now shipped and in active testing.
+
+Current rollout focus:
+
+- observe whether repository guidance improves remediation quality without
+  broadening selected issue scope
+- verify guidance remains fix-shaping only and does not leak into review-style
+  judgments
+- tune prompt strength only from real remediation feedback, not speculative
+  pre-adjustments
+
 - add bounded repository guidance to remediation analysis and structured-edit
   prompts
 - reuse the same repository guidance source/path discovery as review
@@ -120,19 +131,19 @@ Shipped baseline:
 
 - reuse the same bounded repository guidance source/path discovery as review
 
-- [ ] Phase 2: Remediation Context Wiring
+- [x] Phase 2: Remediation Context Wiring
 
 - carry bounded repository guidance into remediation context
 - keep it untrusted and bounded
 
-- [ ] Phase 3: Prompt Integration
+- [x] Phase 3: Prompt Integration
 
 - include repository guidance in:
   - remediation analysis prompt
   - remediation structured-edit prompt
 - explicitly forbid repository guidance from expanding selected issue scope
 
-- [ ] Phase 4: Boundary Tests
+- [x] Phase 4: Boundary Tests
 
 - prove repository guidance can shape fix implementation choices
 - prove it does not create review judgments

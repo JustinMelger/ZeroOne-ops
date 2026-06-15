@@ -696,3 +696,104 @@ def test_analyze_issue_rejects_multi_file_structured_edit_for_v1(
     assert result.failure.stage.value == "analysis"
     assert "Structured edit could not be rendered safely" in result.summary
     assert "touch exactly one file" in result.summary
+
+
+def test_analyze_issue_allows_repository_guidance_to_shape_in_scope_fix(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / "AGENT.md").write_text(
+        "\n".join(
+            [
+                "# Agent Guide",
+                "",
+                "Repository guidance for remediation fixes.",
+                "",
+                "- Prefer replacing this example sentinel with `value = 3`.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    class GuidanceAwareLLMClient:
+        def __init__(self) -> None:
+            self.analysis_guidance_paths: list[str] = []
+            self.edit_guidance_paths: list[str] = []
+            self.analysis_file_path: str | None = None
+            self.edit_file_path: str | None = None
+
+        def analyze_issue(self, issue: RemediationExecutionTarget, context) -> IssueAnalysis:
+            del issue
+            self.analysis_guidance_paths = [
+                guidance.file_path for guidance in context.repository_guidance
+            ]
+            self.analysis_file_path = context.file_path
+            return IssueAnalysis(
+                issue_key="FIXTURE-1",
+                classification=AnalysisClassification.AUTO_FIXABLE,
+                summary="Apply the local repository-guided fix.",
+                risk_notes=[],
+                target_files=[context.file_path],
+                proposed_strategy="Use repository guidance to shape the same-file fix.",
+            )
+
+        def generate_structured_edit(
+            self,
+            issue: RemediationExecutionTarget,
+            context,
+        ) -> StructuredEditProposal:
+            del issue
+            self.edit_guidance_paths = [
+                guidance.file_path for guidance in context.repository_guidance
+            ]
+            self.edit_file_path = context.file_path
+            replace_text = "value = 3" if context.repository_guidance else "value = 2"
+            return StructuredEditProposal(
+                issue_key="FIXTURE-1",
+                edits=[
+                    TextEdit(
+                        file_path=context.file_path,
+                        search_text="value = 1",
+                        replace_text=replace_text,
+                        line_hint=1,
+                    )
+                ],
+                commit_message="fix(sonar): patch service [FIXTURE-1]",
+                mr_title="fix: patch service",
+                mr_description="summary",
+            )
+
+    guidance_client = GuidanceAwareLLMClient()
+    service = AnalysisService(
+        tmp_path,
+        build_config(
+            apply_patch_in_dry_run=True,
+            validation_commands=['test "$(cat src/service.py)" = "value = 3"'],
+        ),
+    )
+    monkeypatch.setattr(
+        AnalysisService,
+        "_build_llm_client",
+        lambda self: guidance_client,
+    )
+
+    result = service.analyze_issue(
+        selected_issue=build_issue(),
+        dry_run=True,
+    )
+
+    assert result.failure is None
+    assert result.patch_applied is True
+    assert result.validation_passed is True
+    assert guidance_client.analysis_guidance_paths == ["AGENT.md"]
+    assert guidance_client.edit_guidance_paths == ["AGENT.md"]
+    assert guidance_client.analysis_file_path == "src/service.py"
+    assert guidance_client.edit_file_path == "src/service.py"
+    assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 3\n"

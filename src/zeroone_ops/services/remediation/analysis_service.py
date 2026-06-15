@@ -32,11 +32,13 @@ from zeroone_ops.services.remediation.patch_applier import PatchApplier
 from zeroone_ops.services.remediation.patch_execution_service import (
     PatchExecutionService,
 )
+from zeroone_ops.services.remediation.remediation_context_builder import (
+    RemediationContextBuilder,
+)
 from zeroone_ops.services.remediation.solution_artifact_service import (
     SolutionArtifactService,
 )
 from zeroone_ops.services.remediation.validator import Validator
-from zeroone_ops.services.shared.context_builder import ContextBuilder
 from zeroone_ops.services.shared.workspace_snapshot import (
     WorkspaceSnapshot,
     WorkspaceSnapshotService,
@@ -83,7 +85,7 @@ class AnalysisService:
         """
         self.repo_root = repo_root
         self.config = config
-        self.context_builder = ContextBuilder(repo_root, config)
+        self.context_builder = RemediationContextBuilder(repo_root, config)
         self.edit_renderer = EditRenderer(repo_root)
         self.patch_applier = PatchApplier(repo_root)
         self.validator = Validator(repo_root)

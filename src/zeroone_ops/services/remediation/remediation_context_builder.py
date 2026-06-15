@@ -6,9 +6,11 @@ from pathlib import Path
 
 from zeroone_ops.models.analysis import IssueContext, PriorReviewFeedback
 from zeroone_ops.models.config import AppConfig
-from zeroone_ops.models.remediation import RemediationWorkItem
+from zeroone_ops.models.remediation import RemediationExecutionTarget, RemediationWorkItem
 from zeroone_ops.services.shared.context_builder import build_issue_context
 from zeroone_ops.services.shared.repository_guidance import load_repository_guidance
+
+RemediationContextTarget = RemediationWorkItem | RemediationExecutionTarget
 
 
 class RemediationContextBuilder:
@@ -19,7 +21,7 @@ class RemediationContextBuilder:
         self.repo_root = repo_root
         self.config = config
 
-    def build(self, work_item: RemediationWorkItem) -> IssueContext | None:
+    def build(self, work_item: RemediationContextTarget) -> IssueContext | None:
         """Build source context for one remediation work item."""
         context = build_issue_context(
             repo_root=self.repo_root,
@@ -39,7 +41,7 @@ class RemediationContextBuilder:
         return context.model_copy(update={"prior_review_feedback": prior_review_feedback})
 
 
-def _build_prior_review_feedback(work_item: RemediationWorkItem) -> PriorReviewFeedback | None:
+def _build_prior_review_feedback(work_item: RemediationContextTarget) -> PriorReviewFeedback | None:
     """Return bounded prior review feedback for retry-eligible work items."""
     payload = work_item.source_payload
     if payload.get("retry_eligible") is not True:

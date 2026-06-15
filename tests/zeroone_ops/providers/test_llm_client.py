@@ -205,6 +205,7 @@ def test_build_analysis_prompt_uses_prompt_template() -> None:
     assert "Match existing repository conventions for type hints and docstrings" in prompt
     assert "Repository guidance:\n(none)" in prompt
     assert "Do not let repository guidance expand the selected issue scope" in prompt
+    assert "Do not use repository guidance to create review judgments" in prompt
     assert "Code snippet:\ndef bad_name():\n    return 1\n" in prompt
 
 
@@ -293,6 +294,7 @@ def test_build_structured_edit_prompt_uses_prompt_template() -> None:
     )
     assert "Repository guidance:\n(none)" in prompt
     assert "Do not let repository guidance expand the selected issue scope" in prompt
+    assert "Do not use repository guidance to create review judgments" in prompt
     assert "follow existing repository conventions for type hints and docstrings" in prompt
     assert "Prefer matching surrounding code style over introducing generic boilerplate." in prompt
     assert "Good same-file multi-edit examples:" in prompt
@@ -408,8 +410,7 @@ def test_build_analysis_prompt_includes_repository_guidance_when_present() -> No
     assert "<<BEGIN REPOSITORY GUIDANCE AGENT.md>>" in prompt
     assert "Prefer clearer function names." in prompt
     assert (
-        "Use repository guidance only to make the selected fix fit repository conventions"
-        in prompt
+        "Use repository guidance only to make the selected fix fit repository conventions" in prompt
     )
 
 
