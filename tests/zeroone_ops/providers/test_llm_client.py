@@ -6,6 +6,7 @@ from zeroone_ops.models.analysis import (
     CodeContextSnippet,
     IssueContext,
     PriorReviewFeedback,
+    RepositoryGuidanceContext,
 )
 from zeroone_ops.models.config import OpenAIConnectionConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
@@ -20,7 +21,6 @@ from zeroone_ops.models.review import (
     PriorReviewFinding,
     PriorReviewPass,
     RemediationReviewContext,
-    RepositoryGuidanceContext,
     ReviewFileContext,
     ReviewFinding,
     ReviewHelperContext,
