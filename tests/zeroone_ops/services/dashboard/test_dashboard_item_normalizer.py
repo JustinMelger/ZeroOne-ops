@@ -25,6 +25,9 @@ def build_item(
         file=file_path,
         line=42,
         rule="python:S1125",
+        issue_type="CODE_SMELL",
+        component="sample-project:src/service.py",
+        project="sample-project",
         severity="LOW",
         source_severity="LOW",
         automation_severity="low",
@@ -46,6 +49,9 @@ def test_normalize_returns_provider_neutral_work_item_for_supported_dashboard_it
     assert result.work_item.file_path == "src/service.py"
     assert result.work_item.validation_commands == ["uv run pytest"]
     assert result.work_item.severity == "low"
+    assert result.work_item.issue_type == "CODE_SMELL"
+    assert result.work_item.component == "sample-project:src/service.py"
+    assert result.work_item.project == "sample-project"
     assert result.message == ""
 
 

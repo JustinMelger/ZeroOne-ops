@@ -149,6 +149,9 @@ class DashboardItem(BaseModel):
     file: str | None = None
     line: int | None = None
     rule: str | None = None
+    issue_type: str | None = None
+    component: str | None = None
+    project: str | None = None
     severity: str | None = None
     source_severity: str | None = None
     automation_severity: str | None = None

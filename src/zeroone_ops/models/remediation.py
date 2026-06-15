@@ -21,6 +21,9 @@ class RemediationWorkItem(BaseModel):
     line: int | None = None
     rule_id: str | None = None
     severity: str | None = None
+    issue_type: str | None = None
+    component: str | None = None
+    project: str | None = None
     source_payload: dict[str, Any] = Field(default_factory=dict)
     validation_commands: list[str] = Field(default_factory=list)
     expected_change: str | None = None

@@ -101,6 +101,12 @@ Shipped baseline:
 - continue small codebase and docs cleanup where it improves operator or
   maintainer clarity
 - keep these slices behavior-neutral unless a real rollout issue is being fixed
+- next recommended cleanup slice:
+  - remediation path consolidation
+  - remove the remaining direct Sonar remediation intake/execution path once
+    dashboard-backed remediation is the intended default
+  - reduce remaining Sonar-shaped assumptions inside the shared remediation
+    core
 
 ### 5. Remediation Repository Guidance
 

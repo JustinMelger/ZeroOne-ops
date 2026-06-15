@@ -21,6 +21,9 @@ def remediation_work_item_to_execution_target(
         line=work_item.line,
         rule_id=work_item.rule_id,
         severity=work_item.severity,
+        issue_type=work_item.issue_type,
+        component=work_item.component,
+        project=work_item.project,
         source_payload=work_item.source_payload,
         validation_commands=work_item.validation_commands,
         expected_change=work_item.expected_change,
@@ -42,6 +45,9 @@ def sonar_issue_to_work_item(issue: SonarIssue) -> RemediationWorkItem:
         line=issue.line,
         rule_id=issue.rule,
         severity=issue.severity,
+        issue_type=issue.type,
+        component=issue.component,
+        project=issue.project,
         source_payload={
             "issue_type": issue.type,
             "component": issue.component,
@@ -59,10 +65,4 @@ def sonar_issue_to_work_item(issue: SonarIssue) -> RemediationWorkItem:
 def sonar_issue_to_execution_target(issue: SonarIssue) -> RemediationExecutionTarget:
     """Adapt one SonarQube issue into the shared execution target shape."""
     work_item = sonar_issue_to_work_item(issue)
-    return remediation_work_item_to_execution_target(work_item).model_copy(
-        update={
-            "issue_type": issue.type,
-            "component": issue.component,
-            "project": issue.project,
-        }
-    )
+    return remediation_work_item_to_execution_target(work_item)
