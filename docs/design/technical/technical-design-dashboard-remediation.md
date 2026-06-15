@@ -107,6 +107,33 @@ outcome handling:
 - remediation decides automated pickup eligibility from that inventory
 - later merge-request outcomes are handled by dashboard reconciliation
 
+### 5.1.1 Analysis And Structured-Edit Flow
+
+Inside step 9, the remediation workflow currently uses the LLM in this order:
+
+1. Build one bounded `IssueContext` for the selected remediation work item.
+2. Call the analysis prompt.
+3. Read the returned analysis classification:
+   - `manual`
+     - stop before patch generation
+     - return a manual/rejected style outcome with no structured edit
+   - `auto_fixable` or `retryable`
+     - continue to structured edit generation
+4. Call the structured-edit prompt using the same bounded issue context.
+5. Render the returned structured edit into a bot-generated diff.
+6. Apply the diff, validate it, and continue to publish only if validation
+   succeeds.
+
+Boundary notes:
+
+- the analysis prompt decides whether automation should proceed at all
+- the structured-edit prompt is only used after analysis allows automated
+  continuation
+- both prompts stay bounded to the selected remediation work item and must not
+  expand the issue scope
+- repository guidance, when present, may shape how the fix is implemented but
+  must not create new remediation targets or new review judgments
+
 ### 5.2 Execution Diagram
 
 ```mermaid

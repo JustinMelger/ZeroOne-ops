@@ -116,7 +116,7 @@ Shipped baseline:
 
 #### Remediation Guidance Slices
 
-- [ ] Phase 1: Shared Guidance Discovery Reuse
+- [x] Phase 1: Shared Guidance Discovery Reuse
 
 - reuse the same bounded repository guidance source/path discovery as review
 

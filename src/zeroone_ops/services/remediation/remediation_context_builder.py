@@ -8,6 +8,7 @@ from zeroone_ops.models.analysis import IssueContext, PriorReviewFeedback
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.services.shared.context_builder import build_issue_context
+from zeroone_ops.services.shared.repository_guidance import load_repository_guidance
 
 
 class RemediationContextBuilder:
@@ -29,6 +30,9 @@ class RemediationContextBuilder:
         )
         if context is None:
             return None
+        context = context.model_copy(
+            update={"repository_guidance": load_repository_guidance(self.repo_root)}
+        )
         prior_review_feedback = _build_prior_review_feedback(work_item)
         if prior_review_feedback is None:
             return context

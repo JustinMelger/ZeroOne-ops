@@ -58,6 +58,7 @@ def build_analysis_prompt(issue: RemediationExecutionTarget, context: IssueConte
         snippet_end_line=context.snippet.end_line,
         full_file_included=context.full_file_included,
         context_truncated=context.truncated,
+        repository_guidance=_format_issue_repository_guidance(context),
         prior_review_feedback=_format_prior_review_feedback(context),
         code_snippet=context.snippet.content,
     )
@@ -84,6 +85,7 @@ def build_structured_edit_prompt(
         constraints=issue.constraints or "(none)",
         snippet_start_line=context.snippet.start_line,
         snippet_end_line=context.snippet.end_line,
+        repository_guidance=_format_issue_repository_guidance(context),
         prior_review_feedback=_format_prior_review_feedback(context),
         code_snippet=context.snippet.content,
     )
@@ -114,6 +116,24 @@ def _format_prior_review_feedback(context: IssueContext) -> str:
                 else "(none)"
             ),
             f"Review confidence reason: {feedback.review_confidence_reason or '(none)'}",
+        ]
+    )
+
+
+def _format_issue_repository_guidance(context: IssueContext) -> str:
+    """Render bounded repository guidance for remediation prompts."""
+    if not context.repository_guidance:
+        return "(none)"
+    return "\n\n".join(
+        [
+            "\n".join(
+                [
+                    f"<<BEGIN REPOSITORY GUIDANCE {guidance.file_path}>>",
+                    guidance.summary,
+                    f"<<END REPOSITORY GUIDANCE {guidance.file_path}>>",
+                ]
+            )
+            for guidance in context.repository_guidance
         ]
     )
 

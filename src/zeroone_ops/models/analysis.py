@@ -92,6 +92,7 @@ class IssueContext(BaseModel):
     snippet: CodeContextSnippet
     full_file_included: bool
     truncated: bool
+    repository_guidance: list[RepositoryGuidanceContext] = Field(default_factory=list)
     prior_review_feedback: PriorReviewFeedback | None = None
 
 
