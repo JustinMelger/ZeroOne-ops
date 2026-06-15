@@ -101,12 +101,17 @@ Shipped baseline:
 - continue small codebase and docs cleanup where it improves operator or
   maintainer clarity
 - keep these slices behavior-neutral unless a real rollout issue is being fixed
-- next recommended cleanup slice:
+- completed cleanup slice:
   - remediation path consolidation
-  - remove the remaining direct Sonar remediation intake/execution path once
-    dashboard-backed remediation is the intended default
-  - reduce remaining Sonar-shaped assumptions inside the shared remediation
-    core
+  - removed the remaining direct Sonar remediation intake/execution path
+  - reduced Sonar-shaped assumptions in the active dashboard-backed remediation
+    path
+- remaining cleanup candidates:
+  - move `validation_commands` under the remediation config surface once that
+    contract is intentionally locked
+  - remove remaining flat-config compatibility and older migration-era aliases
+  - move GitLab-specific merge-request services out of `services/shared` once
+    provider-neutral publish/review boundaries are mature enough
 
 ### 5. Remediation Repository Guidance
 
