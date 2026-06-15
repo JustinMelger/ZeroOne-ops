@@ -308,6 +308,7 @@ def build_artifact(
     classification: ReviewClassification = "findings_present",
     summary: str | None = None,
     follow_up_lines: list[str] | None = None,
+    advisory_notes: list[str] | None = None,
 ) -> PublishableReviewArtifact:
     findings = (
         []
@@ -344,6 +345,7 @@ def build_artifact(
             else "The reviewed change is narrow and well supported."
         ),
         findings=findings,
+        advisory_notes=advisory_notes or [],
         follow_up_lines=follow_up_lines or [],
     )
 
@@ -390,6 +392,29 @@ def test_render_artifact_formats_findings_present() -> None:
             "title": "Missing test coverage",
         }
     ]
+
+
+def test_render_artifact_renders_advisory_notes_in_separate_section() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_context(),
+        artifact=build_artifact(
+            advisory_notes=[
+                (
+                    "Repository guidance prefers clearer naming here; "
+                    "this example remains harder to scan."
+                )
+            ]
+        ),
+    )
+
+    assert "Style Observations (Repository Guidance):" in body
+    assert (
+        "- Repository guidance prefers clearer naming here; this example remains harder to scan."
+        in body
+    )
+    assert "1. [medium] Missing test coverage (`src/service.py`)" in body
 
 
 def test_render_artifact_formats_no_findings() -> None:

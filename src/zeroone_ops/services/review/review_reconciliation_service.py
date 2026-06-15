@@ -243,6 +243,13 @@ class ReviewReconciliationService:
             )
 
         truncated_precision_decision = self._truncate_precision_findings(precision_decision)
+        truncated_precision_decision = truncated_precision_decision.model_copy(
+            update={
+                "advisory_notes": _normalize_advisory_notes(
+                    truncated_precision_decision.advisory_notes
+                )
+            }
+        )
         reconciled_decision = build_reconciled_review_decision(
             truncated_precision_decision,
             prior_review_context_used=bool(
@@ -347,6 +354,7 @@ class ReviewReconciliationService:
             decision_rationale=message,
             confidence_level=0.0,
             accepted_findings=[],
+            advisory_notes=[],
             dropped_candidates=list(dropped_candidates),
             prior_review_context_used=bool(
                 context.prior_review_context and context.prior_review_context.passes
@@ -432,3 +440,21 @@ _SEVERITY_RANK = {
     "medium": 1,
     "low": 2,
 }
+
+
+def _normalize_advisory_notes(notes: list[str]) -> list[str]:
+    """Return bounded developer-facing advisory notes."""
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw_note in notes:
+        note = raw_note.strip()
+        if not note:
+            continue
+        folded = note.casefold()
+        if folded in seen:
+            continue
+        seen.add(folded)
+        normalized.append(note)
+        if len(normalized) == 3:
+            break
+    return normalized

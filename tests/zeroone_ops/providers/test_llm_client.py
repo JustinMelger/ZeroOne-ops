@@ -751,14 +751,20 @@ def test_build_review_precision_prompt_uses_candidate_bounded_contract() -> None
     assert "keep the defect if the code evidence is direct" in prompt
     assert "distinguish added-code fragility from a demonstrated reachable regression" in prompt
     assert "let reachability uncertainty reduce severity or confidence" in prompt
+    assert "non-actionable repository-guidance-backed style" in prompt
+    assert "- `advisory_notes`" in prompt
+    assert "use this only for non-actionable repository-guidance-backed style" in prompt
+    assert "keep the list bounded and return at most 3 notes" in prompt
     assert "Keep role separation tight so the final review does not repeat itself:" in prompt
     assert "`decision_summary`: overall review outcome only, in 1-2 short sentences" in prompt
     assert "`decision_summary` must not restate each accepted finding one by one" in prompt
+    assert "`decision_rationale` must not act as a shadow advisory section" in prompt
     assert (
         "accepted finding `summary`: one short local concern statement for that finding" in prompt
     )
     assert "accepted finding `why_it_matters`: only the consequence or risk, briefly" in prompt
     assert "accepted finding `recommended_follow_up`: one short next step only" in prompt
+    assert "`advisory_notes`: short repository-guidance-backed observations only" in prompt
     assert "<<BEGIN UNTRUSTED Grounded candidate findings>>" in prompt
     assert "candidate_id=candidate-1" in prompt
     assert "lines=1-1" in prompt
@@ -977,6 +983,7 @@ def test_openai_review_precision_reconciliation_uses_high_reasoning() -> None:
                 ),
                 confidence_level=0.88,
                 accepted_findings=[],
+                advisory_notes=[],
                 dropped_candidates=[],
             )
         )

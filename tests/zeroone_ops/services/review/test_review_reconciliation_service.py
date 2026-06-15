@@ -191,6 +191,18 @@ def test_reconcile_uses_precision_output_as_final_review_meaning(monkeypatch) ->
                 decision_summary="One medium-risk finding remains after precision review.",
                 decision_rationale="Candidate 2 duplicates candidate 1 and was dropped.",
                 confidence_level=0.79,
+                advisory_notes=[
+                    (
+                        "Repository guidance prefers clearer naming here; "
+                        "the example remains harder to scan."
+                    ),
+                    (
+                        "Repository guidance prefers clearer naming here; "
+                        "the example remains harder to scan."
+                    ),
+                    "Repository guidance also encourages smaller helpers in this area.",
+                    "Repository guidance notes a third style concern.",
+                ],
                 accepted_findings=[
                     PrecisionAcceptedFinding(
                         source_candidate_ids=["candidate-1"],
@@ -236,6 +248,11 @@ def test_reconcile_uses_precision_output_as_final_review_meaning(monkeypatch) ->
     assert result.reconciled_decision is not None
     assert result.review_result.classification == "findings_present"
     assert result.review_result.summary == "One medium-risk finding remains after precision review."
+    assert result.reconciled_decision.advisory_notes == [
+        "Repository guidance prefers clearer naming here; the example remains harder to scan.",
+        "Repository guidance also encourages smaller helpers in this area.",
+        "Repository guidance notes a third style concern.",
+    ]
     assert result.review_result.findings[0].line_start == 1
     assert result.reconciled_decision.accepted_findings[0].source_candidate_ids == ["candidate-1"]
     assert result.reconciled_decision.dropped_candidates[0].candidate_id == "candidate-2"
@@ -295,6 +312,63 @@ def test_reconcile_attaches_continuity_status_from_overlap_result() -> None:
     assert result.reconciled_decision is not None
     assert result.reconciled_decision.prior_review_context_used is True
     assert result.reconciled_decision.accepted_findings[0].continuity_status == "unresolved"
+
+
+def test_reconcile_preserves_guidance_style_concern_as_advisory_note() -> None:
+    service = ReviewReconciliationService(
+        build_config(),
+        llm_client_builder=lambda: FakePrecisionLLMClient(
+            PrecisionReviewDecision(
+                review_classification="no_findings",
+                decision_summary="No actionable findings in the reviewed change.",
+                decision_rationale=(
+                    "The visible code does not justify an actionable review finding in this pass."
+                ),
+                confidence_level=0.72,
+                advisory_notes=[
+                    (
+                        "Repository guidance prefers clearer, smaller examples here; "
+                        "the standalone snippet remains harder to scan."
+                    )
+                ],
+                accepted_findings=[],
+                dropped_candidates=[
+                    {
+                        "candidate_id": "candidate-1",
+                        "drop_reason": "unsupported_scope",
+                        "notes": (
+                            "The visible concern is guidance-backed readability rather than "
+                            "an actionable defect."
+                        ),
+                    },
+                    {
+                        "candidate_id": "candidate-2",
+                        "drop_reason": "duplicate",
+                        "notes": "Overlaps the same guidance-backed readability concern.",
+                    },
+                ],
+            )
+        ),
+    )
+    result = service.reconcile(
+        context=build_context(),
+        candidate_stage_result=build_candidate_stage_result(),
+    )
+
+    assert result.review_result is not None
+    assert result.reconciled_decision is not None
+    assert result.review_result.classification == "no_findings"
+    assert result.review_result.findings == []
+    assert result.reconciled_decision.accepted_findings == []
+    assert result.reconciled_decision.advisory_notes == [
+        (
+            "Repository guidance prefers clearer, smaller examples here; "
+            "the standalone snippet remains harder to scan."
+        )
+    ]
+    assert result.reconciled_decision.decision_rationale == (
+        "The visible code does not justify an actionable review finding in this pass."
+    )
 
 
 def test_reconcile_returns_candidate_failure_when_no_authoritative_review_exists() -> None:

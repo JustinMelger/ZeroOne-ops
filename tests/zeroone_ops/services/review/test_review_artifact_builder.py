@@ -24,6 +24,12 @@ def build_decision(classification: str = "findings_present") -> ReconciledReview
             ),
             decision_rationale="The finding is grounded in the reviewed diff.",
             confidence_level=0.84,
+            advisory_notes=[
+                (
+                    "Repository guidance prefers clearer naming here; "
+                    "the example remains harder to scan."
+                )
+            ],
             accepted_findings=(
                 []
                 if classification != "findings_present"
@@ -59,6 +65,9 @@ def test_build_preserves_finding_content_for_findings_present() -> None:
     assert artifact.summary == "One medium-risk finding."
     assert artifact.review_confidence == 0.84
     assert artifact.review_confidence_reason == "The finding is grounded in the reviewed diff."
+    assert artifact.advisory_notes == [
+        "Repository guidance prefers clearer naming here; the example remains harder to scan."
+    ]
     assert len(artifact.findings) == 1
     assert artifact.findings[0].title == "Missing regression coverage"
     assert artifact.follow_up_lines == []
@@ -166,4 +175,5 @@ def test_artifact_to_review_result_preserves_follow_up_lines() -> None:
 
     review_result = artifact.to_review_result()
 
+    assert "advisory_notes" not in review_result.model_dump()
     assert review_result.follow_up_lines == artifact.follow_up_lines

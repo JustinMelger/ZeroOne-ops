@@ -47,6 +47,7 @@ The output must include:
 - `decision_rationale`
 - `confidence_level`
 - `accepted_findings`
+- `advisory_notes`
 - `dropped_candidates`
 
 For `accepted_findings`:
@@ -66,6 +67,16 @@ For `dropped_candidates`:
   - `superseded`
 - optional `notes` must stay short and precise
 
+For `advisory_notes`:
+- use this only for non-actionable repository-guidance-backed style,
+  readability, or maintainability concerns
+- only when the concern is clearly visible in changed code
+- keep each note short
+- keep the list bounded and return at most 3 notes
+- include an optional short improvement hint only when it helps
+- do not use this for generic best-practice advice or concerns not supported by
+  repository guidance
+
 `decision_summary` and `decision_rationale` are developer-facing review text.
 They must explain review truth in code-review terms, not internal pipeline mechanics.
 Do not mention:
@@ -81,6 +92,7 @@ Keep role separation tight so the final review does not repeat itself:
 - `decision_summary` must not restate each accepted finding one by one
 - `decision_rationale`: short overall justification for the review outcome
 - `decision_rationale` must not repeat `decision_summary` in different words
+- `decision_rationale` must not act as a shadow advisory section
 - accepted finding `title`: compact concern label only
 - accepted finding `summary`: one short local concern statement for that finding
 - accepted finding `summary` must not restate `decision_summary`
@@ -88,6 +100,10 @@ Keep role separation tight so the final review does not repeat itself:
 - accepted finding `why_it_matters`: only the consequence or risk, briefly
 - accepted finding `why_it_matters` must not restate the evidence
 - accepted finding `recommended_follow_up`: one short next step only
+- `advisory_notes`: short repository-guidance-backed observations only
+- `advisory_notes` must not restate accepted findings or `decision_summary`
+- do not convert repository-guidance style concerns into accepted findings unless
+  the visible code supports a real actionable issue
 
 Classification rules:
 - `findings_present`: at least one accepted finding survives

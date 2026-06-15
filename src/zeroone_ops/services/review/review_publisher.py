@@ -211,6 +211,7 @@ class ReviewPublisher:
                     artifact.summary,
                     *artifact.follow_up_lines,
                     *_render_confidence_lines(artifact),
+                    *_render_advisory_notes(artifact),
                 ]
             )
         elif artifact.classification == "manual_review_only":
@@ -221,6 +222,7 @@ class ReviewPublisher:
                     "",
                     artifact.summary,
                     *_render_confidence_lines(artifact),
+                    *_render_advisory_notes(artifact),
                     "",
                     "What this means:",
                     (
@@ -247,6 +249,7 @@ class ReviewPublisher:
                     *artifact.follow_up_lines,
                     artifact.summary,
                     *_render_confidence_lines(artifact),
+                    *_render_advisory_notes(artifact),
                     "",
                     *finding_lines,
                 ]
@@ -278,6 +281,17 @@ def _render_confidence_lines(artifact: PublishableReviewArtifact) -> list[str]:
     if artifact.review_confidence_reason:
         lines.append(f"- Reason: {artifact.review_confidence_reason}")
     return lines
+
+
+def _render_advisory_notes(artifact: PublishableReviewArtifact) -> list[str]:
+    """Render repository-guidance-backed style observations when present."""
+    if not artifact.advisory_notes:
+        return []
+    return [
+        "",
+        "Style Observations (Repository Guidance):",
+        *[f"- {note}" for note in artifact.advisory_notes],
+    ]
 
 
 @dataclass(frozen=True)
