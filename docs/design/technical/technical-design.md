@@ -291,6 +291,16 @@ Responsibilities:
 - enforce rejection rules for manual-only issues,
 - delegate artifact persistence and patch execution to focused services.
 
+Current repository-guidance boundary:
+
+- remediation analysis does not yet include repository guidance in its prompt
+  context
+- the current remediation prompt is grounded in issue metadata, local code
+  context, constraints, and optional prior review feedback only
+- if repository guidance is added later, it should stay bounded, untrusted, and
+  implementation-oriented rather than acting like a second review-authority
+  surface
+
 ### 6.9 `services/execution_service.py`
 
 Responsibilities:
@@ -343,6 +353,15 @@ Responsibilities:
 - capture neighboring lines,
 - identify related test files when possible,
 - include validation command metadata in the LLM context.
+
+Current repository-guidance boundary:
+
+- the remediation context builder does not currently discover or attach
+  repository guidance excerpts
+- repository guidance is currently a review-owned prompt input, not a
+  remediation-owned context input
+- any later remediation use should treat repository guidance as bounded
+  repository context only, never as trusted executable instructions
 
 ### 6.12 `services/fix_generator.py`
 

@@ -238,6 +238,16 @@ The first implementation can likely reuse much of the current Sonar
 `ContextBuilder` logic once the dashboard item is normalized to the required
 shape.
 
+Current repository-guidance boundary:
+
+- dashboard-backed remediation does not yet attach repository guidance to the
+  remediation prompt context
+- the current remediation context remains limited to the selected work item,
+  local code snippet context, constraints, and optional prior review feedback
+- if repository guidance is added later, it should stay bounded and untrusted
+  like review guidance, but with a narrower implementation-guidance role rather
+  than becoming a second review-policy authority
+
 ### 6.8 `services/dashboard_remediation_updater.py`
 
 Responsibilities:

@@ -40,6 +40,13 @@ Shipped baseline:
 - staged review pipeline with candidate generation, precision judgment,
   continuity handling, artifact building, validator gating, same-SHA reuse,
   and review observability
+- delivered review hardening slices for:
+  - stable finding identity
+  - published output hygiene
+  - persisted review location and inline-comment metadata
+  - identity-first duplicate-comment checks
+  - trusted inline location validation
+  - feature-flagged inline-comment rollout wiring
 - GitLab-backed prior-review continuity for follow-up review notes
 - operator-managed remediation exclusions
 - finalized rollout-facing config structure with `review`, `remediation`, and
@@ -82,61 +89,54 @@ Shipped baseline:
   architecture itself
 - keep bounded repair parked as a later option only if live validator
   downgrade patterns prove there are narrow safe repair classes
-
-#### Review Hardening Slices
-
-- [x] Phase 1: Stable Finding Identity Hardening
-
-- strengthen repeated-finding continuity across review passes
-- reduce duplicates caused by wording drift before expanding publish surfaces
-
-- [x] Phase 2: Published Output Hygiene
-
-- tighten precision-stage prompts so published findings stay concise and
-  operator-facing
-- reduce overlong review text without treating it as a validator failure class
-
-- [x] Phase 3: Persist Review Location And Comment Metadata
-
-- extend persisted review state with the location and inline-comment metadata
-  needed for continuity-safe reuse
-- keep the summary note as the authoritative review-pass record
-
-- [x] Phase 4: Identity And Duplicate-Comment Checks
-
-- reuse canonical finding identity for inline-comment continuity checks
-- avoid posting a second near-duplicate inline comment when the same finding
-  already has a trusted anchor on the latest relevant authoritative pass
-- keep inline publication to one comment max per finding in the first version
-
-- [x] Phase 5: Trusted Location Validation
-
-- enforce the trusted/weak/untrusted location rubric in application code
-- allow inline publication only for trusted `medium` / `high` findings
-- reuse anchors only when line ranges overlap or drift by at most 3 lines
-
-- [x] Phase 6: Config Flag And Disabled-By-Default Rollout
-
-- add a review config flag for inline comments
-- keep it off by default in repo config so implementation can ship before
-  default enablement
-
-- [ ] Phase 7: Test Deployment Validation And Live Enablement
-
-- validate the behavior in a feature-flagged test deployment before broad
-  enablement
-- keep compact CI diagnostics for trusted vs weak anchor decisions and reused
-  vs new inline-comment outcomes during rollout
-- keep diagnostics compact in CI:
-  - one structured decision line per finding
-  - one run-level summary line
-- enable per repo only after identity and location trust look good in practice
+- keep the remaining inline-comment rollout work scoped to:
+  - feature-flagged test deployment validation
+  - compact CI diagnostics for trusted vs weak anchor decisions
+  - compact CI diagnostics for reused vs new inline-comment outcomes
+  - per-repo enablement only after identity and location trust look good in
+    practice
 
 ### 4. Cleanup
 
 - continue small codebase and docs cleanup where it improves operator or
   maintainer clarity
 - keep these slices behavior-neutral unless a real rollout issue is being fixed
+
+### 5. Remediation Repository Guidance
+
+- add bounded repository guidance to remediation analysis and structured-edit
+  prompts
+- reuse the same repository guidance source/path discovery as review
+- include all bounded guidance rather than trying to pre-filter relevance in the
+  first version
+- keep repository guidance untrusted in remediation, just like in review
+- use repository guidance only to shape fix implementation choices
+- do not let repository guidance expand the selected issue scope
+- do not let remediation become a second review-authority surface
+
+#### Remediation Guidance Slices
+
+- [ ] Phase 1: Shared Guidance Discovery Reuse
+
+- reuse the same bounded repository guidance source/path discovery as review
+
+- [ ] Phase 2: Remediation Context Wiring
+
+- carry bounded repository guidance into remediation context
+- keep it untrusted and bounded
+
+- [ ] Phase 3: Prompt Integration
+
+- include repository guidance in:
+  - remediation analysis prompt
+  - remediation structured-edit prompt
+- explicitly forbid repository guidance from expanding selected issue scope
+
+- [ ] Phase 4: Boundary Tests
+
+- prove repository guidance can shape fix implementation choices
+- prove it does not create review judgments
+- prove it does not broaden the selected remediation issue scope
 
 ### 5. Dashboard Workflow Refinement
 
