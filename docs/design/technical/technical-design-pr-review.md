@@ -430,7 +430,20 @@ class ReviewResult(BaseModel):
     classification: Literal["no_findings", "findings_present", "manual_review_only"]
     summary: str
     findings: list[ReviewFinding] = []
+    advisory_notes: list[str] = []
 ```
+
+Recommended advisory-note contract:
+
+- reserved for non-actionable repository-guidance-backed style, readability, or
+  maintainability concerns
+- only when the concern is clearly visible in changed code and meaningful to a
+  human reviewer
+- bounded and separate from `findings`
+- not severity-bearing actionable findings
+- not continuity-tracked
+- not inline-comment eligible
+- not feedback-authoritative
 
 ### 8.5 Review State Model
 
@@ -601,7 +614,25 @@ Recommended first behavior:
 - do not treat overlong-but-otherwise-valid review text as a validator failure
   class in the first rollout
 
-### 9.4 Feature-Flagged Test Rollout
+### 9.4 Advisory Style Observations
+
+Repository-guidance-backed style or readability concerns that are intentionally
+non-actionable should use a separate advisory section rather than overloading
+accepted findings or `decision_rationale`.
+
+Recommended first behavior:
+
+- candidate generation may surface those concerns when repository guidance
+  explicitly supports them and the issue is clearly visible in changed code
+- precision may preserve them only as bounded advisory notes when they do not
+  justify an actionable finding
+- advisory notes should stay clearly separate from findings in the published
+  review output so developers can distinguish style guidance from actionable
+  review defects
+- advisory notes must not feed repeated-review continuity, inline comment
+  publication, or operator feedback authority
+
+### 9.5 Feature-Flagged Test Rollout
 
 Before broad enablement, inline-comment publication should be exercised in a
 feature-flagged test deployment.

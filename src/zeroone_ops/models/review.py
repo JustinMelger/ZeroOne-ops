@@ -283,6 +283,7 @@ class PrecisionReviewDecision(BaseModel):
     decision_rationale: str
     confidence_level: float | None = Field(default=None, ge=0.0, le=1.0)
     accepted_findings: list[PrecisionAcceptedFinding] = Field(default_factory=list)
+    advisory_notes: list[str] = Field(default_factory=list)
     dropped_candidates: list[DroppedCandidate] = Field(default_factory=list)
 
 
@@ -294,6 +295,7 @@ class ReconciledReviewDecision(BaseModel):
     decision_rationale: str
     confidence_level: float | None = Field(default=None, ge=0.0, le=1.0)
     accepted_findings: list[ReconciledFinding] = Field(default_factory=list)
+    advisory_notes: list[str] = Field(default_factory=list)
     dropped_candidates: list[DroppedCandidate] = Field(default_factory=list)
     prior_review_context_used: bool = False
     same_sha_review: bool = False
@@ -355,6 +357,7 @@ class PublishableReviewArtifact(BaseModel):
     review_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     review_confidence_reason: str | None = None
     findings: list[PublishableReviewFinding] = Field(default_factory=list)
+    advisory_notes: list[str] = Field(default_factory=list)
     follow_up_lines: list[str] = Field(default_factory=list)
 
     @classmethod
@@ -376,6 +379,7 @@ class PublishableReviewArtifact(BaseModel):
                 if review_confidence_reason is None
                 else review_confidence_reason
             ),
+            advisory_notes=list(decision.advisory_notes),
             findings=[
                 PublishableReviewFinding(
                     severity=finding.severity,

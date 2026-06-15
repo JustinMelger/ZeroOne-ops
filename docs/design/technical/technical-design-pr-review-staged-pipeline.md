@@ -198,17 +198,21 @@ The next review-bot hardening work should map to stages like this:
 
 - candidate / discovery stage
   - surface high-recall candidate concerns
+  - may notice repository-guidance-backed style or readability concerns
   - attach optional location hints when visible evidence supports them
   - do not make final publish-surface decisions here
 - precision / reconciliation stage
   - decide which candidates survive
   - normalize and validate identity-relevant finding inputs
+  - separate actionable findings from non-actionable repository-guidance-backed
+    style or readability observations
   - decide whether location evidence is strong enough to trust later for
     inline-comment publication
   - keep final finding meaning concise and bounded
 - artifact builder / publisher stage
   - decide inline comment versus summary-only transport from trusted final
     location data
+  - render any non-actionable style observations in a separate advisory section
   - enforce output hygiene for operator-visible text
   - keep internal analysis detail out of the final published artifact
 
@@ -217,6 +221,18 @@ That keeps:
 - discovery broad and evidence-seeking
 - precision responsible for truth and trusted finding identity
 - publisher responsible for transport choice and operator-safe rendering
+
+Repository-guidance style/readability observations should follow a separate
+path from actionable findings:
+
+- candidate stage may notice them when they are explicitly supported by
+  repository guidance and clearly visible in changed code
+- precision may retain them only as bounded advisory output when they are
+  meaningful but intentionally non-actionable
+- they must not be promoted into accepted findings unless they also meet the
+  normal actionable-finding bar
+- they must not become continuity-tracked findings, inline-comment candidates,
+  or feedback-authoritative review surfaces
 
 ### 6.1.1 Boundary Guardrails
 

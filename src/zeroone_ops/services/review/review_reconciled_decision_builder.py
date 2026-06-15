@@ -80,6 +80,7 @@ def build_reconciled_review_decision(
         decision_rationale=precision_decision.decision_rationale,
         confidence_level=precision_decision.confidence_level,
         accepted_findings=accepted_findings,
+        advisory_notes=list(precision_decision.advisory_notes),
         dropped_candidates=list(precision_decision.dropped_candidates),
         prior_review_context_used=prior_review_context_used,
         same_sha_review=same_sha_review,

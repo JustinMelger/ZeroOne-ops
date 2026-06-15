@@ -71,6 +71,9 @@ def build_precision_decision() -> PrecisionReviewDecision:
         decision_summary=review_result.summary,
         decision_rationale=review_result.review_confidence_reason or review_result.summary,
         confidence_level=review_result.review_confidence,
+        advisory_notes=[
+            "Repository guidance prefers clearer naming here; the example remains harder to scan."
+        ],
         accepted_findings=[
             PrecisionAcceptedFinding(
                 source_candidate_ids=[],
@@ -106,6 +109,9 @@ def test_reconciled_review_decision_from_precision_decision_preserves_review_mea
     assert decision.decision_summary == "One medium-risk finding."
     assert decision.decision_rationale == "The finding is grounded in the reviewed diff."
     assert decision.confidence_level == 0.84
+    assert decision.advisory_notes == [
+        "Repository guidance prefers clearer naming here; the example remains harder to scan."
+    ]
     assert decision.prior_review_context_used is True
     assert decision.repair_allowed is True
     assert decision.pipeline_version == "review-staged-v1"
@@ -144,6 +150,7 @@ def test_publishable_review_artifact_from_reconciled_decision_preserves_boundari
     assert artifact.summary == decision.decision_summary
     assert artifact.review_confidence == decision.confidence_level
     assert artifact.review_confidence_reason == decision.decision_rationale
+    assert artifact.advisory_notes == decision.advisory_notes
     assert artifact.follow_up_lines == ["Follow-up review after an earlier pass."]
     assert len(artifact.findings) == 1
     assert artifact.findings[0].title == "Missing regression coverage"
@@ -182,3 +189,20 @@ def test_artifact_validation_result_can_capture_repair_or_rejection_outcomes() -
     assert validation_result.status == "repaired"
     assert validation_result.issues[0].rule_id == "summary_contradicts_verdict"
     assert validation_result.artifact is artifact
+
+
+def test_publishable_review_artifact_to_review_result_preserves_advisory_notes() -> None:
+    artifact = PublishableReviewArtifact.from_reconciled_decision(
+        build_reconciled_review_decision(
+            build_precision_decision(),
+            prior_review_context_used=False,
+            same_sha_review=False,
+            repair_allowed=True,
+            reconciled_at=datetime(2026, 5, 1, 12, 0, 0),
+            pipeline_version="review-staged-v1",
+        )
+    )
+
+    review_result = artifact.to_review_result()
+
+    assert not hasattr(review_result, "advisory_notes")
