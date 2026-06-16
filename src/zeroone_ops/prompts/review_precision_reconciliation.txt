@@ -144,6 +144,9 @@ Source branch: {source_branch}
 Target branch: {target_branch}
 Head SHA: {head_sha}
 
+Repository guidance:
+{repository_guidance}
+
 Candidate-stage assessment:
 {candidate_stage_assessment}
 

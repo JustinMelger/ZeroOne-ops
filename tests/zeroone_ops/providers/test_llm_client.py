@@ -744,6 +744,14 @@ def test_build_review_precision_prompt_uses_candidate_bounded_contract() -> None
         target_branch="main",
         web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
         head_sha="abc123",
+        repository_guidance=[
+            RepositoryGuidanceContext(
+                file_path="AGENT.md",
+                summary=(
+                    "- Prefer regression tests for behavior changes.\n- Keep review output narrow."
+                ),
+            )
+        ],
         prior_review_context=PriorReviewContext(
             merge_request_iid=17,
             passes=[
@@ -853,6 +861,9 @@ def test_build_review_precision_prompt_uses_candidate_bounded_contract() -> None
     assert "accepted finding `why_it_matters`: only the consequence or risk, briefly" in prompt
     assert "accepted finding `recommended_follow_up`: one short next step only" in prompt
     assert "`advisory_notes`: short repository-guidance-backed observations only" in prompt
+    assert "Repository guidance:" in prompt
+    assert "<<BEGIN REPOSITORY GUIDANCE AGENT.md>>" in prompt
+    assert "Prefer regression tests for behavior changes." in prompt
     assert "<<BEGIN UNTRUSTED Grounded candidate findings>>" in prompt
     assert "candidate_id=candidate-1" in prompt
     assert "lines=1-1" in prompt
