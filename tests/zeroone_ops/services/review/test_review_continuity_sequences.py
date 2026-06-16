@@ -369,6 +369,34 @@ def _vehicle_types_current_wording_drift() -> ReviewFinding:
     )
 
 
+def _empty_types_prior_finding() -> ReviewFinding:
+    return ReviewFinding(
+        severity="high",
+        file_path="bnl_app/functions/vehicle_functions.py",
+        symbol="get_vehicle_details_long",
+        issue_kind="runtime_error",
+        region_hint="UK/ROI details name fallback",
+        title="UK/ROI details name fallback can index empty types",
+        evidence="The helper indexes the first type row directly.",
+        explanation="An empty types list can still raise at runtime.",
+        suggested_follow_up="Guard the first type lookup before building the name fallback.",
+    )
+
+
+def _empty_types_current_issue_kind_drift() -> ReviewFinding:
+    return ReviewFinding(
+        severity="high",
+        file_path="bnl_app/functions/vehicle_functions.py",
+        symbol="get_vehicle_details_long",
+        issue_kind="deterministic_runtime_error",
+        region_hint="UK/ROI details name fallback",
+        title="UK/ROI details name fallback indexes an empty types list",
+        evidence="The helper still indexes the first type row directly.",
+        explanation="An empty types list can still raise on the same fallback path.",
+        suggested_follow_up="Guard the first type lookup before building the name fallback.",
+    )
+
+
 def test_valueerror_sequence_tracks_still_unresolved_new_and_resolved_findings() -> None:
     pass1_findings = [_cylinder_finding()]
 
@@ -557,6 +585,22 @@ def test_vehicle_types_continuity_survives_region_and_title_wording_drift() -> N
     assert pass2_still == [
         "core/external_clients/vehicle_lookup_service.py: "
         "Vehicle-based detail helpers assume `vehicle.types` is non-empty and can crash"
+    ]
+    assert pass2_new == []
+    assert pass2_resolved == []
+    assert pass2_ambiguous == []
+
+
+def test_issue_kind_wording_drift_still_resolves_same_structured_finding() -> None:
+    pass2_still, pass2_new, pass2_resolved, pass2_ambiguous = _reconcile_sequence(
+        head_sha="issue-kind-drift-pass-2",
+        prior_pass=_build_prior_pass("issue-kind-drift-pass-1", [_empty_types_prior_finding()]),
+        findings=[_empty_types_current_issue_kind_drift()],
+    )
+
+    assert pass2_still == [
+        "bnl_app/functions/vehicle_functions.py: "
+        "UK/ROI details name fallback can index empty types"
     ]
     assert pass2_new == []
     assert pass2_resolved == []

@@ -152,6 +152,34 @@ def _vehicle_types_current_wording_drift() -> ReviewFinding:
     )
 
 
+def _empty_types_prior_finding() -> ReviewFinding:
+    return ReviewFinding(
+        severity="high",
+        file_path="bnl_app/functions/vehicle_functions.py",
+        symbol="get_vehicle_details_long",
+        issue_kind="runtime_error",
+        region_hint="UK/ROI details name fallback",
+        title="UK/ROI details name fallback can index empty types",
+        evidence="The helper indexes the first type row directly.",
+        explanation="An empty types list can still raise at runtime.",
+        suggested_follow_up="Guard the first type lookup before building the name fallback.",
+    )
+
+
+def _empty_types_current_issue_kind_drift() -> ReviewFinding:
+    return ReviewFinding(
+        severity="high",
+        file_path="bnl_app/functions/vehicle_functions.py",
+        symbol="get_vehicle_details_long",
+        issue_kind="deterministic_runtime_error",
+        region_hint="UK/ROI details name fallback",
+        title="UK/ROI details name fallback indexes an empty types list",
+        evidence="The helper still indexes the first type row directly.",
+        explanation="An empty types list can still raise on the same fallback path.",
+        suggested_follow_up="Guard the first type lookup before building the name fallback.",
+    )
+
+
 def test_build_overlap_packet_returns_none_without_prior_pass() -> None:
     packet = OverlapPacketBuilder().build(
         context=_build_context(),
@@ -297,5 +325,27 @@ def test_build_overlap_packet_keeps_same_symbol_and_issue_kind_despite_region_wo
             "current_finding_index": 0,
             "prior_finding_index": 0,
             "reasons": ["same_file", "symbol", "issue_kind", "title_overlap"],
+        }
+    ]
+
+
+def test_build_overlap_packet_keeps_same_symbol_and_region_despite_issue_kind_wording_drift() -> (
+    None
+):
+    packet = OverlapPacketBuilder().build(
+        context=_build_context(prior_pass=_build_prior_pass(findings=[_empty_types_prior_finding()])),
+        review_result=ReviewResult(
+            classification="findings_present",
+            summary="One finding.",
+            findings=[_empty_types_current_issue_kind_drift()],
+        ),
+    )
+
+    assert packet is not None
+    assert [candidate.model_dump() for candidate in packet.candidates] == [
+        {
+            "current_finding_index": 0,
+            "prior_finding_index": 0,
+            "reasons": ["same_file", "symbol", "region_hint", "title_overlap"],
         }
     ]
