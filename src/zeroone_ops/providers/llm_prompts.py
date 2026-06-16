@@ -187,6 +187,7 @@ def build_review_precision_prompt(
         target_branch=context.target_branch,
         head_sha=context.head_sha,
         max_findings=max_findings,
+        repository_guidance=_format_repository_guidance(context),
         candidate_stage_assessment=_format_untrusted_block(
             label="Candidate stage assessment",
             content="\n".join(
