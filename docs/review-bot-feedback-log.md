@@ -20,7 +20,47 @@ Keep this file focused on:
 - recently patched feedback still awaiting validation
 - a short closed/validated tail only when it still helps current rollout work
 
-## Open Feedback
+## Open Defects
+
+### June 2026 Active Issues
+
+- Issue: Repository guidance code-quality concerns are not reliably surfaced in
+  candidate generation
+  - Reported: `2026-06-11`
+  - Status: `open`
+  - Last checked: `2026-06-16`
+  - Example: a merge request containing poor-quality Python code and an
+    incorrect `if name == "main":` guard still returned `no_findings`, even
+    though repository guidance emphasized clarity, safety, and small testable
+    changes
+  - Request: keep candidate and precision focused on real regressions, but
+    continue collecting concrete examples of guidance-backed code-quality misses
+    before broadening the pipeline
+
+- Issue: Continuity misses a clear persisted finding when no overlap candidate
+  is generated
+  - Reported: `2026-06-16`
+  - Status: `open`
+  - Last checked: `2026-06-16`
+  - Example: MR `!431` treated `UK/ROI details name fallback indexes an empty
+    types list` as `new_in_this_pass` while marking the earlier
+    `UK/ROI details name fallback can index empty types` finding as
+    `no_longer_present`, even though the file, symbol, region, and underlying
+    defect were the same
+  - Request: overlap-candidate generation should catch near-identical persisted
+    findings even when title or `issue_kind` wording drifts slightly
+
+- Issue: The same underlying finding received different severity
+  classifications across passes without stronger evidence
+  - Reported: `2026-06-16`
+  - Status: `open`
+  - Last checked: `2026-06-16`
+  - Example: `Vehicle lookup country map now silently defaults to empty` was
+    first classified as `low`, then follow-up wording changed and severity
+    became `medium` without materially stronger evidence
+  - Request: severity should stay stable across follow-up passes unless the
+    newer pass has materially stronger evidence or more concrete supported-path
+    impact
 
 ### Review Output
 
@@ -58,13 +98,6 @@ Keep this file focused on:
   - Example: the same point gets repeated across summary, evidence, and
     follow-up
   - Request: keep published notes shorter and less repetitive
-
-- Issue: Conversational greeting using MR author
-  - Reported: `2026-04-17`
-  - Status: `open`
-  - Last checked: `2026-06-15`
-  - Example: prefer `Hi <MR author>,` with `Hi,` as fallback
-  - Request: improve warmth without adding noise
 
 ### Review Continuity / Stability
 
