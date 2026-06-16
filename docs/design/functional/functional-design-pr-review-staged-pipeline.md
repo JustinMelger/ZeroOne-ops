@@ -12,11 +12,9 @@ the next architecture track for separating:
 2. precision reconciliation,
 3. artifact consistency validation.
 
-This document turns the existing staged-pipeline direction from
-[future_plans.md](../../../future_plans.md) into an implementation-oriented
-product design, using the live failures in
-[review-bot-feedback-log.md](../../review-bot-feedback-log.md) as the main
-evidence base.
+This document turns the existing staged-pipeline direction from the roadmap and
+Notion research/planning space into an implementation-oriented product design,
+using live operational feedback from Notion as the main evidence base.
 
 ## 2. Goals
 

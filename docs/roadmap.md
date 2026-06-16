@@ -235,5 +235,3 @@ Use these docs when deeper detail is needed:
 - [design/technical/technical-design-remediation-exclusions.md](design/technical/technical-design-remediation-exclusions.md)
 - [design/technical/technical-design-dashboard-operator-policy.md](design/technical/technical-design-dashboard-operator-policy.md)
 - [design/technical/technical-design-config-structure.md](design/technical/technical-design-config-structure.md)
-- [review-bot-feedback-log.md](review-bot-feedback-log.md)
-- [../future_plans.md](../future_plans.md)

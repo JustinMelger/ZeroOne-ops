@@ -112,7 +112,7 @@ class OverlapPacketBuilder:
             field_name="symbol",
             expected_value=current_finding.symbol,
         )
-        narrowed_candidates = self._narrow_candidates_by_field(
+        narrowed_candidates = self._soft_narrow_candidates_by_field(
             narrowed_candidates,
             field_name="issue_kind",
             expected_value=current_finding.issue_kind,
@@ -190,6 +190,26 @@ class OverlapPacketBuilder:
         ]
         if candidates_with_structured_value:
             return []
+        return candidates
+
+    def _soft_narrow_candidates_by_field(
+        self,
+        candidates: list[tuple[int, PriorReviewFinding]],
+        *,
+        field_name: str,
+        expected_value: str | None,
+    ) -> list[tuple[int, PriorReviewFinding]]:
+        """Prefer one structured-field match without discarding close candidates."""
+        if expected_value is None:
+            return candidates
+
+        matching_candidates = [
+            candidate
+            for candidate in candidates
+            if getattr(candidate[1], field_name) == expected_value
+        ]
+        if matching_candidates:
+            return matching_candidates
         return candidates
 
     def _soft_narrow_candidates_by_region(
