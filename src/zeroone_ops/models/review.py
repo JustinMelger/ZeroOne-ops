@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from zeroone_ops.models.analysis import RepositoryGuidanceContext
+
 ReviewClassification = Literal["no_findings", "findings_present", "manual_review_only"]
 ReviewFindingSeverity = Literal["high", "medium", "low"]
 ContinuityStatus = Literal["new", "unresolved"]
@@ -100,13 +102,6 @@ class RemediationReviewContext(BaseModel):
     message: str | None = None
     validation_summary: str | None = None
     notes: str | None = None
-
-
-class RepositoryGuidanceContext(BaseModel):
-    """Represent one bounded repository guidance excerpt for review."""
-
-    file_path: str
-    summary: str
 
 
 class PriorReviewFinding(BaseModel):

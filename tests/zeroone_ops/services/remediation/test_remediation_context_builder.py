@@ -54,6 +54,7 @@ def test_build_returns_context_for_normalized_work_item(tmp_path: Path) -> None:
     assert context.issue_key == "AX123"
     assert context.file_path == "src/service.py"
     assert "   2: b = 2" in context.snippet.content
+    assert context.repository_guidance == []
 
 
 def test_build_returns_none_when_work_item_file_is_missing(tmp_path: Path) -> None:
@@ -95,3 +96,45 @@ def test_build_attaches_prior_review_feedback_for_retry_eligible_item(tmp_path: 
         == "Ordering changed in a shared path."
     )
     assert context.prior_review_feedback.retry_count == 1
+
+
+def test_build_attaches_repository_guidance_when_available(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "src" / "service.py").write_text("a = 1\nb = 2\nc = 3\n", encoding="utf-8")
+    (tmp_path / "AGENT.md").write_text(
+        "\n".join(
+            [
+                "# Agent Guide",
+                "",
+                "Use this repository guidance for fixes and reviews.",
+                "",
+                "- Prefer regression tests for behavior changes.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "technical-design-pr-review.md").write_text(
+        "\n".join(
+            [
+                "# Technical Design",
+                "",
+                "Review notes should stay evidence-backed.",
+                "",
+                "## Standards",
+                "- Prefer no findings over speculative comments.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    builder = RemediationContextBuilder(tmp_path, build_config())
+
+    context = builder.build(build_work_item())
+
+    assert context is not None
+    assert [guidance.file_path for guidance in context.repository_guidance] == [
+        "AGENT.md",
+        "docs/technical-design-pr-review.md",
+    ]
+    assert "Prefer regression tests" in context.repository_guidance[0].summary
+    assert "Prefer no findings" in context.repository_guidance[1].summary

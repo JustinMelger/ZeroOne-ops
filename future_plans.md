@@ -258,13 +258,6 @@ Open questions for the later dashboard phase:
 - what dashboard schema/versioning and migration mechanism should support live
   upgrades without delete-and-recreate recovery
 
-### 3. Pull Request Review Bot (Shipped Baseline)
-
-Status:
-
-- PR review v1 is already implemented and in active use
-- merge request notes remain the primary review surface
-
 ## MLflow Tracing Follow-On Directions
 
 If the first narrow MLflow autologging slice proves useful, likely later
@@ -287,12 +280,6 @@ extensions include:
   - keep infra/setup decisions separate from the initial code-side tracing
     basis
 - dashboard mirroring is additive and should not replace MR-first output
-
-Future direction from this baseline:
-
-- keep review and remediation as distinct workflows on one shared platform
-- preserve deterministic review output and dedupe behavior
-- expand only after workflow reliability and CI hardening are complete
 
 ### Review Improvement Track
 
@@ -325,14 +312,6 @@ High-value improvements:
   existing helpers
 - strengthen finding formatting so each review comment ties the risk to
   concrete diff evidence or nearby source context
-- move follow-up reconciliation toward a stable stored finding identity for
-  matching, so persisted review state uses a canonical machine format while MR
-  notes keep human-friendly wording; prefer that over title-based matching
-  once backward-compatible state support is in place
-- later, move prior-review context and finding identity toward stronger
-  structured fields, so the model can return bounded machine-friendly review
-  fields such as file path, symbol, issue kind, or region hint while the app
-  still derives and owns the final canonical reconciliation key
 - if review-context expansion is revisited, prefer bounded helper-following
   context before function-aware whole-function expansion, since current
   false-positive patterns are more often caused by missing helper/callee truth
@@ -373,12 +352,9 @@ High-value improvements:
 - harden "why no remediation happened" messaging so no-op remediation runs
   still explain whether nothing was eligible, policy blocked execution, an
   active MR prevented action, or review state made remediation unsafe
-- standardize remediation-created merge request titles around a
-  conventional-commit-style pattern so humans can scan bot-opened changes more
-  easily and repository conventions stay more consistent
 - when the bot opens a remediation merge request, support automatically
-  assigning a human reviewer and/or assignee so ownership is clearer and the
-  handoff from automation to human review is more explicit
+  assigning a human reviewer so ownership is clearer and the handoff from
+  automation to human review is more explicit
 - make remediation-generated functions follow repository conventions for type
   hints and docstrings more reliably, preferably through clearer prompt
   guidance and later repo-aware validation or config support
@@ -397,10 +373,6 @@ High-value improvements:
   `Investigate Failure` does not stop at "understand the problem" but also
   leads more clearly toward the next appropriate action such as retry,
   environment/config fix, blocked state, or manual follow-up
-- remove the remaining direct Sonar remediation intake path once the
-  dashboard-backed producer and remediation flow are fully trusted, so Sonar
-  remains only a producer into the dashboard instead of also shaping a legacy
-  execution path
 - audit the operator policy surface so dashboard commands map more explicitly
   to actual remediation behavior around thresholds, exclusions, retry
   blocking, and review-gated automation
@@ -416,9 +388,6 @@ Recommended guardrails for developer disagreement feedback:
 
 Recommended cleanup pass after dashboard/remediation hardening:
 
-- remove the remaining direct Sonar remediation intake path and related
-  legacy execution glue once dashboard-backed remediation is the only intended
-  path
 - if repo-defined validation commands are kept after hardening, move
   `validation_commands` under the remediation config surface once the feature
   contract is explicit and reliable
@@ -429,10 +398,6 @@ Recommended cleanup pass after dashboard/remediation hardening:
 - harden `DashboardRemediationUpdater` retry boundaries so parser or integrity
   failures are not retried and flattened the same way as transient dashboard
   write races
-- extract publish-preparation and continuity-wiring logic out of
-  `ReviewRunner` once the inline-comment rollout phases settle, so the runner
-  returns to higher-level orchestration instead of accumulating review-phase
-  implementation detail
 - reduce remaining Sonar-shaped execution adapters and assumptions where the
   remediation core still carries older source-specific structure
 - clean up older `ai-sonar-bot` naming in non-compatibility-sensitive places

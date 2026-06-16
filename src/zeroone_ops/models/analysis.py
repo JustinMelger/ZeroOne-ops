@@ -65,6 +65,13 @@ class PriorReviewFeedback(BaseModel):
     retry_count: int | None = None
 
 
+class RepositoryGuidanceContext(BaseModel):
+    """Represent one bounded repository guidance excerpt."""
+
+    file_path: str
+    summary: str
+
+
 class IssueContext(BaseModel):
     """Represent structured source context for a selected issue.
 
@@ -85,6 +92,7 @@ class IssueContext(BaseModel):
     snippet: CodeContextSnippet
     full_file_included: bool
     truncated: bool
+    repository_guidance: list[RepositoryGuidanceContext] = Field(default_factory=list)
     prior_review_feedback: PriorReviewFeedback | None = None
 
 

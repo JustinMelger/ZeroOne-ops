@@ -28,6 +28,9 @@ def test_sonar_issue_to_work_item_normalizes_direct_sonar_input() -> None:
     assert work_item.source_type == "sonarqube"
     assert work_item.source_ref == "AX123"
     assert work_item.rule_id == "python:S1125"
+    assert work_item.issue_type == "CODE_SMELL"
+    assert work_item.component == "sample-project:src/service.py"
+    assert work_item.project == "sample-project"
     assert work_item.source_payload["issue_type"] == "CODE_SMELL"
 
 
@@ -38,6 +41,8 @@ def test_sonar_issue_to_execution_target_reuses_work_item_normalization() -> Non
     assert target.source_ref == "AX123"
     assert target.rule_id == "python:S1125"
     assert target.issue_type == "CODE_SMELL"
+    assert target.component == "sample-project:src/service.py"
+    assert target.project == "sample-project"
 
 
 def test_work_item_target_adapter_preserves_shared_fields() -> None:
@@ -47,3 +52,6 @@ def test_work_item_target_adapter_preserves_shared_fields() -> None:
     assert target.item_id == "sonar:AX123"
     assert target.source_type == "sonarqube"
     assert target.file_path == "src/service.py"
+    assert target.issue_type == "CODE_SMELL"
+    assert target.component == "sample-project:src/service.py"
+    assert target.project == "sample-project"
