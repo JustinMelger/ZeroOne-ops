@@ -222,6 +222,51 @@ These are important, but intentionally not part of the immediate rollout phase.
 - dashboard readability and grouped review-history improvements where they help
   operators
 
+#### GitHub Platform Support Slices
+
+- [ ] Phase 1: Review Provider Extraction
+
+- introduce a provider-neutral review client seam
+- rename GitLab-shaped review models to provider-neutral pull-request naming up
+  front
+- reduce direct GitLab coupling in review runner, intake, and prior-context
+  loading
+- keep GitLab review behavior unchanged while the seam is extracted
+- merge and live-validate GitLab review stability before starting GitHub
+  summary-support work
+
+- [ ] Phase 2: GitHub Review Summary Support
+
+- support GitHub pull request intake from CI context
+- load GitHub pull request changed files and bounded review context
+- publish deterministic GitHub pull request summary comments
+- support same-SHA reuse and prior-summary continuity on GitHub
+
+- [ ] Phase 3: GitHub Review Inline Comments
+
+- add GitHub inline comment transport
+- keep the summary comment authoritative
+- preserve trusted-location and identity gating before inline publication
+
+- [ ] Phase 4: GitHub Remediation Publish Support
+
+- support GitHub branch and pull request publication for remediation
+- preserve the current remediation execution core where it is genuinely
+  provider-neutral
+- avoid GitLab-specific merge-request assumptions in remediation publish flow
+
+- [ ] Phase 5: GitHub Control Plane Design And Implementation
+
+- design a GitHub-native dashboard or work-queue equivalent
+- design the operator control and policy interaction model on GitHub
+- connect remediation and review workflow status back into that control plane
+
+- [ ] Phase 6: GitHub Platform Rollout
+
+- dogfood GitHub review support on this repository first
+- expand into broader GitHub-native workflow usage as later slices land
+- validate product clarity before claiming broader platform parity
+
 ## Reference Docs
 
 Use these docs when deeper detail is needed:

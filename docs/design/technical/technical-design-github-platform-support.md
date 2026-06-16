@@ -137,6 +137,26 @@ But we should keep genuinely provider-specific surfaces explicit:
 - inline-comment/thread semantics,
 - CI event context and auth loading.
 
+### 6.4 Phase 1 Seam Rule
+
+Phase 1 should follow one practical extraction rule:
+
+- if `ReviewRunner` is currently coupled to GitLab through a specific
+  responsibility, that responsibility should move behind a provider-neutral
+  seam
+
+This keeps Phase 1 grounded in real coupling rather than speculative
+abstraction.
+
+Likely first-pass seams include:
+
+- intake / pull-request fetch
+- current PR/MR state lookup
+- prior-review continuity loading
+- authoritative summary publication
+- inline-comment publication
+- bot author identity lookup
+
 ## 7. Platform Shape
 
 GitHub platform support should be treated as four related but separate product
@@ -152,27 +172,34 @@ forced into one huge first implementation.
 
 ## 8. Review Architecture Direction
 
-### 8.1 Introduce A Provider-Neutral Review Platform Interface
+### 8.1 Introduce Smaller Review Provider Seams
 
-Add a review-facing provider protocol, for example:
+The platform docs suggest GitHub and GitLab diverge enough that one broad
+review client would likely become awkward too quickly.
 
-- `ReviewPlatformClient`
+GitHub separates:
 
-Responsibilities:
+- pull request resources,
+- issue comments on pull requests,
+- pull request reviews,
+- pull request review comments,
 
-- fetch one PR/MR candidate from CI context,
-- fetch full reviewable pull request details with changed files and diff data,
-- fetch current PR/MR state for same-SHA and reconciliation checks,
-- publish summary review output,
-- update summary review output,
-- publish inline comments when enabled,
-- list prior machine-managed review notes/comments,
-- resolve current bot author identity.
+while GitLab is closer to:
 
-Implementations:
+- merge request resources,
+- merge request notes,
+- merge request discussions.
 
-- `GitLabReviewPlatformClient`
-- `GitHubReviewPlatformClient`
+So the design should prefer smaller provider-facing seams, for example:
+
+- intake and diff fetch
+- summary-surface publication
+- inline-comment publication
+- prior-review continuity loading
+- author identity lookup
+
+This should age better than forcing every provider concern into one broad
+`ReviewPlatformClient` too early.
 
 ### 8.2 Move Toward Provider-Neutral Review Naming
 
@@ -188,8 +215,24 @@ should evolve toward provider-neutral review naming, for example:
 - `PullRequestReviewContext`
 - `PullRequestChangedFile`
 
-This does not require one giant rename first, but the design direction should
-be explicit.
+The design direction should be explicit:
+
+- perform this provider-neutral rename during Phase 1
+
+Reason:
+
+- these models sit close enough to the review core that keeping GitLab-shaped
+  names during GitHub support would encourage the wrong mental model and make
+  later provider-neutral boundaries harder to keep clean.
+
+Naming rule:
+
+- choose names from the review domain itself, not from the current provider and
+  not from the next provider
+
+That means the Phase 1 rename should aim for the most neutral
+domain-oriented vocabulary we can justify, so later platform work is not
+shaped by leftover GitLab or GitHub terminology.
 
 ### 8.3 Keep The Staged Review Pipeline
 
@@ -213,9 +256,17 @@ GitHub review should preserve the current authority model:
 - machine-safe payload embedded in that summary surface
 - inline comments subordinate to the summary record
 
-Likely first transport:
+Chosen first transport:
 
-- GitHub pull request summary comment
+- GitHub pull request issue comment
+
+Reason:
+
+- every pull request is also an issue in GitHub’s API model
+- issue comments are a simpler and more stable authoritative summary surface
+  than pull request review objects for our continuity and same-SHA reuse model
+- this keeps the first GitHub summary surface closer in spirit to the current
+  GitLab merge request note model
 
 Likely later transport:
 
@@ -291,6 +342,20 @@ We should preserve the current high-level commands where possible:
 Platform selection should happen from runtime context and available provider
 credentials first.
 
+For GitHub Actions pull request workflows, same-SHA continuity should not rely
+on `GITHUB_SHA` alone.
+
+The platform docs show that:
+
+- `GITHUB_REF` points at the pull request merge ref for `pull_request`
+  workflows
+- `GITHUB_HEAD_REF` and `GITHUB_BASE_REF` describe source and target branches
+- `GITHUB_EVENT_PATH` contains the full event webhook payload
+
+So GitHub review continuity should recover the authoritative head SHA from the
+event payload and/or pull request API data rather than assuming the default
+workflow SHA is the authoritative review head identity.
+
 If explicit provider flags become necessary later, they should be added only
 after the default CI detection story is clear.
 
@@ -299,8 +364,11 @@ after the default CI detection story is clear.
 ### Phase 1: Review Provider Extraction
 
 - extract GitLab review transport behind a provider-neutral review seam
+- rename GitLab-shaped review models to provider-neutral pull-request naming up
+  front
 - reduce direct GitLab dependencies in `ReviewRunner`
 - keep behavior unchanged on GitLab
+- merge and live-validate GitLab review stability before starting Phase 2
 
 ### Phase 2: GitHub Review Summary Support
 
@@ -400,3 +468,122 @@ But the design and planning frame should be broader:
 
 - GitHub as a first-class ZeroOne Ops platform,
 - with review first, not review only.
+
+## 16. Open Questions
+
+These questions do not block Phase 1, but they should stay visible in the
+design so later implementation slices do not guess silently.
+
+### 16.1 Review Provider Seam Shape
+
+Primary phase:
+
+- Phase 1: Review Provider Extraction
+
+- smaller provider-facing seams for intake/fetch, prior-review continuity, and
+  publication
+
+Current design direction:
+
+- prefer smaller provider-facing seams
+
+Reason:
+
+- docs-backed API differences between GitHub and GitLab already suggest that
+  one broad client would hide too many transport differences too early.
+
+### 16.2 Provider-Neutral Model Rename Timing
+
+Primary phase:
+
+- Phase 1: Review Provider Extraction
+
+Should GitLab-shaped model names such as:
+
+- `MergeRequestReviewCandidate`
+- `MergeRequestReviewContext`
+
+be renamed up front before GitHub support lands, or should adapters be added
+first and the rename happen later?
+
+Chosen design direction:
+
+- rename up front during Phase 1
+
+Reason:
+
+- this avoids GitLab-shaped naming leakage in the first GitHub implementation
+  slice
+- it keeps the review core mentally and structurally cleaner before provider
+  expansion begins
+
+### 16.3 GitHub Authoritative Summary Surface
+
+Primary phase:
+
+- Phase 2: GitHub Review Summary Support
+
+Chosen design direction:
+
+- GitHub pull request issue comment
+
+Reason:
+
+- it is the closest stable equivalent to the current authoritative GitLab merge
+  request note
+- it avoids coupling first-pass continuity to GitHub review-object lifecycle
+  semantics
+- it keeps inline review comments clearly subordinate
+
+### 16.4 GitHub Same-SHA Continuity Lookup Contract
+
+Primary phases:
+
+- Phase 2: GitHub Review Summary Support
+- Phase 3: GitHub Review Inline Comments
+
+The obvious identity is:
+
+- repository identity
+- pull request number
+- head SHA
+
+But we still need to decide how strict the provider-backed lookup contract
+should be when recovering prior authoritative review state on GitHub.
+
+Docs-backed constraint:
+
+- do not rely on `GITHUB_SHA` alone in GitHub Actions pull request workflows
+
+Current design direction:
+
+- recover authoritative head identity from the GitHub event payload and/or pull
+  request API data before continuity lookup
+
+### 16.5 Remediation Publish Reuse Boundary
+
+Primary phase:
+
+- Phase 4: GitHub Remediation Publish Support
+
+How much of the current remediation publish path is genuinely provider-neutral,
+and how much should be extracted behind a dedicated branch/PR publication seam
+before GitHub remediation support starts?
+
+### 16.6 GitHub Control Plane Direction
+
+Primary phases:
+
+- Phase 5: GitHub Control Plane Design And Implementation
+- Phase 6: GitHub Platform Rollout
+
+What should the GitHub-native work-queue / control-plane shape be?
+
+Possible directions:
+
+- one persistent issue similar to the current GitLab dashboard
+- a label and issue/PR state driven workflow
+- another lighter GitHub-native control surface
+
+This is the biggest later product-design question and should not be answered by
+accident through transport reuse alone.
