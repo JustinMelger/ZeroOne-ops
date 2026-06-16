@@ -214,6 +214,9 @@ These are important, but intentionally not part of the immediate rollout phase.
 
 ### Broader Workflow Expansion
 
+- GitHub platform support as a first-class product track, with review as the
+  first implementation slice and broader remediation/control-plane parity to
+  follow deliberately
 - additional remediation producers such as pipeline-failure and security-scan
   inputs
 - dashboard readability and grouped review-history improvements where they help

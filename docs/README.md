@@ -40,6 +40,7 @@ Recommended entry points:
 - [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)
 - [design/technical/technical-design-pr-review.md](design/technical/technical-design-pr-review.md)
 - [design/technical/technical-design-pr-review-staged-pipeline.md](design/technical/technical-design-pr-review-staged-pipeline.md)
+- [design/technical/technical-design-github-platform-support.md](design/technical/technical-design-github-platform-support.md)
 - [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
 - [design/technical/technical-design-remediation-exclusions.md](design/technical/technical-design-remediation-exclusions.md)
 - [design/functional/functional-design-dashboard-operator-policy.md](design/functional/functional-design-dashboard-operator-policy.md)
