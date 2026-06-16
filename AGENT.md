@@ -22,7 +22,10 @@ Current workflow behavior and future direction are documented in:
 - [docs/design/functional/functional-design-dashboard-remediation.md](docs/design/functional/functional-design-dashboard-remediation.md)
 - [docs/design/technical/technical-design-dashboard.md](docs/design/technical/technical-design-dashboard.md)
 - [docs/design/technical/technical-design-dashboard-remediation.md](docs/design/technical/technical-design-dashboard-remediation.md)
-- [future_plans.md](future_plans.md)
+
+Operational feedback and longer-horizon research/planning now live in Notion.
+Keep the repo focused on current roadmap, implementation contracts, and design
+truth.
 
 ## Repository Intent
 

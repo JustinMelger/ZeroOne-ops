@@ -9,11 +9,10 @@ It complements
 [functional-design-pr-review-staged-pipeline.md](../functional/functional-design-pr-review-staged-pipeline.md),
 which defines the product behavior and stage ownership.
 
-It also turns the review-architecture direction captured in
-[future_plans.md](../../../future_plans.md) into a more explicit technical
-contract, using
-[review-bot-feedback-log.md](../../review-bot-feedback-log.md) as the main
-source of concrete failure examples.
+It also turns the review-architecture direction captured in the roadmap and
+Notion research/planning space into a more explicit technical contract, using
+live operational feedback from Notion as the main source of concrete failure
+examples.
 
 This technical design focuses on:
 
