@@ -92,6 +92,12 @@ Why first:
 - pipeline failures are usually more structured than human-authored tickets
 - the success criteria are clearer
 - the operational pain is immediate and measurable
+- later product refinements in this area could also:
+  - trigger a focused bot note when a pipeline fails, with a concise summary,
+    likely cause, and suggested next step
+  - surface failing test names directly into the dashboard or failure note
+  - detect likely flaky tests by tracking pass/fail instability across recent
+    pipeline history instead of only summarizing one failed run
 
 ### 2. Security Scan Producers To Dashboard
 
@@ -326,6 +332,9 @@ High-value improvements:
   insufficient context from low-value findings
 - add repo-level controls for review noise such as path filtering,
   changed-file limits, and note verbosity
+- make repository-guidance discovery configurable so repositories can point
+  review and remediation at different guidance files or locations without
+  weakening the untrusted-input boundary
 - if review path scoping needs to become more expressive later, consider
   adding explicit glob-based `supported_paths` / `ignored_paths` support
   instead of only prefix matching, so repositories can scope review by file
@@ -355,6 +364,11 @@ High-value improvements:
 - when the bot opens a remediation merge request, support automatically
   assigning a human reviewer so ownership is clearer and the handoff from
   automation to human review is more explicit
+- detect when an open remediation merge request already exists for the same
+  underlying issue and reuse, update, or explicitly supersede it instead of
+  silently creating a duplicate path
+- add a retry, rebase, or recreate option for remediation merge requests that
+  become stale or unmergeable after repository state changes
 - make remediation-generated functions follow repository conventions for type
   hints and docstrings more reliably, preferably through clearer prompt
   guidance and later repo-aware validation or config support
@@ -380,6 +394,9 @@ High-value improvements:
   shared wrap-and-log pattern at true provider or orchestration boundaries,
   preserving known domain errors and converting only unknown failures into
   typed repo-specific exceptions more consistently
+- if developer-facing review tone still feels too cold in practice, consider a
+  warmer greeting such as `Hi <MR author>,` with `Hi,` as fallback, but keep
+  that as a UX refinement rather than an active defect track
 
 Recommended guardrails for developer disagreement feedback:
 

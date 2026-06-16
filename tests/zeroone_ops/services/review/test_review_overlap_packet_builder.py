@@ -333,7 +333,9 @@ def test_build_overlap_packet_keeps_same_symbol_and_region_despite_issue_kind_wo
     None
 ):
     packet = OverlapPacketBuilder().build(
-        context=_build_context(prior_pass=_build_prior_pass(findings=[_empty_types_prior_finding()])),
+        context=_build_context(
+            prior_pass=_build_prior_pass(findings=[_empty_types_prior_finding()])
+        ),
         review_result=ReviewResult(
             classification="findings_present",
             summary="One finding.",

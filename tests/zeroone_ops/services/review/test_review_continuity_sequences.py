@@ -599,8 +599,7 @@ def test_issue_kind_wording_drift_still_resolves_same_structured_finding() -> No
     )
 
     assert pass2_still == [
-        "bnl_app/functions/vehicle_functions.py: "
-        "UK/ROI details name fallback can index empty types"
+        "bnl_app/functions/vehicle_functions.py: UK/ROI details name fallback can index empty types"
     ]
     assert pass2_new == []
     assert pass2_resolved == []
