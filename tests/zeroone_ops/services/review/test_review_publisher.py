@@ -3,9 +3,9 @@ from typing import cast
 
 from zeroone_ops.models.gitlab import GitLabMergeRequestState, MergeRequestNote
 from zeroone_ops.models.review import (
-    MergeRequestDiffRefs,
-    MergeRequestReviewCandidate,
-    MergeRequestReviewContext,
+    ChangeRequestDiffRefs,
+    ChangeRequestReviewCandidate,
+    ChangeRequestReviewContext,
     PriorReviewContext,
     PriorReviewFinding,
     PriorReviewInlineComment,
@@ -16,7 +16,7 @@ from zeroone_ops.models.review import (
     ReviewFileContext,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
-from zeroone_ops.providers.gitlab_client import GitLabClientError
+from zeroone_ops.providers.pull_request_review_platform import ReviewPlatformClientError
 from zeroone_ops.services.review.review_publisher import ReviewPublisher
 
 
@@ -28,8 +28,8 @@ def extract_machine_safe_payload(body: str) -> dict[str, object]:
     return cast(dict[str, object], json.loads(body[start:end]))
 
 
-def build_context() -> MergeRequestReviewContext:
-    return MergeRequestReviewContext(
+def build_context() -> ChangeRequestReviewContext:
+    return ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -37,7 +37,7 @@ def build_context() -> MergeRequestReviewContext:
         target_branch="main",
         web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
         head_sha="abc123",
-        diff_refs=MergeRequestDiffRefs(
+        diff_refs=ChangeRequestDiffRefs(
             base_sha="base123",
             start_sha="start123",
             head_sha="abc123",
@@ -58,8 +58,8 @@ def build_context() -> MergeRequestReviewContext:
     )
 
 
-def build_multiline_context() -> MergeRequestReviewContext:
-    return MergeRequestReviewContext(
+def build_multiline_context() -> ChangeRequestReviewContext:
+    return ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -67,7 +67,7 @@ def build_multiline_context() -> MergeRequestReviewContext:
         target_branch="main",
         web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
         head_sha="abc123",
-        diff_refs=MergeRequestDiffRefs(
+        diff_refs=ChangeRequestDiffRefs(
             base_sha="base123",
             start_sha="start123",
             head_sha="abc123",
@@ -92,7 +92,7 @@ def build_multiline_context() -> MergeRequestReviewContext:
     )
 
 
-def build_follow_up_context() -> MergeRequestReviewContext:
+def build_follow_up_context() -> ChangeRequestReviewContext:
     return build_context().model_copy(
         update={
             "head_sha": "def456",
@@ -118,7 +118,7 @@ def build_follow_up_context() -> MergeRequestReviewContext:
     )
 
 
-def build_ambiguous_follow_up_context() -> MergeRequestReviewContext:
+def build_ambiguous_follow_up_context() -> ChangeRequestReviewContext:
     return build_context().model_copy(
         update={
             "head_sha": "def456",
@@ -143,7 +143,7 @@ def build_ambiguous_follow_up_context() -> MergeRequestReviewContext:
     )
 
 
-def build_mixed_ambiguity_follow_up_context() -> MergeRequestReviewContext:
+def build_mixed_ambiguity_follow_up_context() -> ChangeRequestReviewContext:
     return build_context().model_copy(
         update={
             "head_sha": "def456",
@@ -173,7 +173,7 @@ def build_mixed_ambiguity_follow_up_context() -> MergeRequestReviewContext:
     )
 
 
-def build_variant_title_follow_up_context() -> MergeRequestReviewContext:
+def build_variant_title_follow_up_context() -> ChangeRequestReviewContext:
     return build_context().model_copy(
         update={
             "head_sha": "ghi789",
@@ -238,13 +238,26 @@ class FakeGitLabReviewClient:
             web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
         )
 
-    def list_open_merge_requests(self, *, project_id: str) -> list[MergeRequestReviewCandidate]:
+    def create_change_request_comment(
+        self,
+        *,
+        project_id: str,
+        change_request_number: int,
+        body: str,
+    ) -> MergeRequestNote:
+        return self.create_merge_request_note(
+            project_id=project_id,
+            merge_request_iid=change_request_number,
+            body=body,
+        )
+
+    def list_open_merge_requests(self, *, project_id: str) -> list[ChangeRequestReviewCandidate]:
         del project_id
         raise NotImplementedError
 
     def get_merge_request(
         self, *, project_id: str, merge_request_iid: int
-    ) -> MergeRequestReviewCandidate:
+    ) -> ChangeRequestReviewCandidate:
         del project_id, merge_request_iid
         raise NotImplementedError
 
@@ -273,11 +286,26 @@ class FakeGitLabReviewClient:
     ) -> MergeRequestNote:
         del project_id, merge_request_iid, note_id
         if self.fail_note_update:
-            raise GitLabClientError("update failed")
+            raise ReviewPlatformClientError("update failed")
         self.updated_body = body
         return MergeRequestNote(
             id=55,
             web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
+        )
+
+    def update_change_request_comment(
+        self,
+        *,
+        project_id: str,
+        change_request_number: int,
+        note_id: int,
+        body: str,
+    ) -> MergeRequestNote:
+        return self.update_merge_request_note(
+            project_id=project_id,
+            merge_request_iid=change_request_number,
+            note_id=note_id,
+            body=body,
         )
 
     def create_merge_request_inline_comment(
@@ -295,11 +323,36 @@ class FakeGitLabReviewClient:
     ) -> MergeRequestNote:
         del project_id, merge_request_iid, base_sha, start_sha, head_sha, old_path, new_path
         if self.fail_inline_publish:
-            raise GitLabClientError("inline failed")
+            raise ReviewPlatformClientError("inline failed")
         self.inline_comments.append((body, new_line))
         return MergeRequestNote(
             id=789,
             web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_789",
+        )
+
+    def create_change_request_inline_comment(
+        self,
+        *,
+        project_id: str,
+        change_request_number: int,
+        body: str,
+        base_sha: str,
+        start_sha: str,
+        head_sha: str,
+        old_path: str,
+        new_path: str,
+        new_line: int,
+    ) -> MergeRequestNote:
+        return self.create_merge_request_inline_comment(
+            project_id=project_id,
+            merge_request_iid=change_request_number,
+            body=body,
+            base_sha=base_sha,
+            start_sha=start_sha,
+            head_sha=head_sha,
+            old_path=old_path,
+            new_path=new_path,
+            new_line=new_line,
         )
 
 
@@ -366,12 +419,13 @@ def test_render_artifact_formats_findings_present() -> None:
     assert (
         "Evidence: The diff changes `value = 1` to `value = 2` without any test updates."
     ) in body
-    assert "- Reviewed merge request: `!17`" in body
+    assert "- Reviewed pull request: `#17`" in body
     assert "- Reviewed commit SHA: `abc123`" in body
     assert "- Files reviewed: 1" in body
 
     payload = extract_machine_safe_payload(body)
     assert payload["schema"] == "ai-sonar-bot/review-note/v1"
+    assert payload["reviewed_change_request_number"] == 17
     assert payload["reviewed_merge_request_iid"] == 17
     assert payload["reviewed_head_sha"] == "abc123"
     assert payload["classification"] == "findings_present"
@@ -428,7 +482,7 @@ def test_render_artifact_formats_no_findings() -> None:
     assert "No actionable findings in this review pass." in body
     assert body.startswith("Hi,\n\nHere are your review notes.")
     assert "Review confidence: 0.91" in body
-    assert "- Reviewed merge request: `!17`" in body
+    assert "- Reviewed pull request: `#17`" in body
     assert "- Files reviewed: 1" in body
     assert "Notes:" not in body
 

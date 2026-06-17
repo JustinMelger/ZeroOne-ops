@@ -1,5 +1,5 @@
 from zeroone_ops.models.review import (
-    MergeRequestReviewContext,
+    ChangeRequestReviewContext,
     PriorReviewContext,
     PriorReviewFinding,
     PriorReviewInlineComment,
@@ -16,8 +16,8 @@ from zeroone_ops.services.review.review_inline_comment_continuity_service import
 def build_context(
     *,
     prior_passes: list[PriorReviewPass] | None = None,
-) -> MergeRequestReviewContext:
-    return MergeRequestReviewContext(
+) -> ChangeRequestReviewContext:
+    return ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",

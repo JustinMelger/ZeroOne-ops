@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 from zeroone_ops.models.analysis import RepositoryGuidanceContext
 
@@ -24,16 +24,16 @@ ArtifactValidationStatus = Literal["valid", "repaired", "rejected"]
 InlineCommentStatus = Literal["published", "shadow", "superseded"]
 
 
-class MergeRequestDiffRefs(BaseModel):
-    """Represent GitLab diff refs needed for inline comment anchoring."""
+class ChangeRequestDiffRefs(BaseModel):
+    """Represent provider diff refs needed for change-request review anchoring."""
 
     base_sha: str
     start_sha: str
     head_sha: str
 
 
-class MergeRequestChangedFile(BaseModel):
-    """Represent a changed file in a merge request."""
+class ChangeRequestChangedFile(BaseModel):
+    """Represent a changed file in a reviewed change request."""
 
     old_path: str
     new_path: str
@@ -43,10 +43,12 @@ class MergeRequestChangedFile(BaseModel):
     renamed_file: bool = False
 
 
-class MergeRequestReviewCandidate(BaseModel):
-    """Represent a merge request candidate for automated review."""
+class ChangeRequestReviewCandidate(BaseModel):
+    """Represent a change-request candidate for automated review."""
 
-    iid: int
+    change_request_number: int = Field(
+        validation_alias=AliasChoices("change_request_number", "pull_request_number", "iid")
+    )
     title: str
     description: str | None = None
     source_branch: str
@@ -55,8 +57,28 @@ class MergeRequestReviewCandidate(BaseModel):
     head_sha: str
     draft: bool = False
     author_username: str | None = None
-    diff_refs: MergeRequestDiffRefs | None = None
-    changes: list[MergeRequestChangedFile] = Field(default_factory=list)
+    diff_refs: ChangeRequestDiffRefs | None = None
+    changes: list[ChangeRequestChangedFile] = Field(default_factory=list)
+
+    @property
+    def iid(self) -> int:
+        """Back-compat alias during the provider-neutral identifier transition."""
+        return self.change_request_number
+
+    @property
+    def pull_request_number(self) -> int:
+        """Back-compat alias during the provider-neutral identifier transition."""
+        return self.change_request_number
+
+
+class ReviewComment(BaseModel):
+    """Represent one provider-backed review comment."""
+
+    id: int
+    web_url: str | None = None
+    body: str | None = None
+    author_username: str | None = None
+    created_at: str | None = None
 
 
 class ReviewFileContext(BaseModel):
@@ -133,7 +155,7 @@ class PriorReviewInlineComment(BaseModel):
 
 
 class PriorReviewPass(BaseModel):
-    """Represent one bounded prior review pass on the same merge request."""
+    """Represent one bounded prior review pass on the same change request."""
 
     reviewed_head_sha: str
     classification: ReviewClassification
@@ -145,16 +167,32 @@ class PriorReviewPass(BaseModel):
 
 
 class PriorReviewContext(BaseModel):
-    """Represent bounded prior review history for the same merge request."""
+    """Represent bounded prior review history for the same change request."""
 
-    merge_request_iid: int
+    change_request_number: int = Field(
+        validation_alias=AliasChoices(
+            "change_request_number", "pull_request_number", "merge_request_iid"
+        )
+    )
     passes: list[PriorReviewPass] = Field(default_factory=list)
 
+    @property
+    def merge_request_iid(self) -> int:
+        """Back-compat alias during the provider-neutral identifier transition."""
+        return self.change_request_number
 
-class MergeRequestReviewContext(BaseModel):
-    """Represent deterministic review context for one merge request."""
+    @property
+    def pull_request_number(self) -> int:
+        """Back-compat alias during the provider-neutral identifier transition."""
+        return self.change_request_number
 
-    mr_iid: int
+
+class ChangeRequestReviewContext(BaseModel):
+    """Represent deterministic review context for one change request."""
+
+    change_request_number: int = Field(
+        validation_alias=AliasChoices("change_request_number", "pull_request_number", "mr_iid")
+    )
     title: str
     description: str | None = None
     source_branch: str
@@ -163,11 +201,21 @@ class MergeRequestReviewContext(BaseModel):
     head_sha: str
     draft: bool = False
     author_username: str | None = None
-    diff_refs: MergeRequestDiffRefs | None = None
+    diff_refs: ChangeRequestDiffRefs | None = None
     remediation_context: RemediationReviewContext | None = None
     prior_review_context: PriorReviewContext | None = None
     repository_guidance: list[RepositoryGuidanceContext] = Field(default_factory=list)
     changed_files: list[ReviewFileContext] = Field(default_factory=list)
+
+    @property
+    def mr_iid(self) -> int:
+        """Back-compat alias during the provider-neutral identifier transition."""
+        return self.change_request_number
+
+    @property
+    def pull_request_number(self) -> int:
+        """Back-compat alias during the provider-neutral identifier transition."""
+        return self.change_request_number
 
 
 class ReviewFinding(BaseModel):
@@ -449,14 +497,35 @@ class OverlapCandidate(BaseModel):
 
 
 class OverlapPacket(BaseModel):
-    """Represent one bounded overlap packet for a single MR review run."""
+    """Represent one bounded overlap packet for a single change-request review run."""
 
-    merge_request_iid: int
+    change_request_number: int = Field(
+        validation_alias=AliasChoices(
+            "change_request_number", "pull_request_number", "merge_request_iid"
+        )
+    )
     current_head_sha: str
     prior_head_sha: str
     current_findings: list[ReviewFinding] = Field(default_factory=list)
     prior_findings: list[PriorReviewFinding] = Field(default_factory=list)
     candidates: list[OverlapCandidate] = Field(default_factory=list)
+
+    @property
+    def merge_request_iid(self) -> int:
+        """Back-compat alias during the provider-neutral identifier transition."""
+        return self.change_request_number
+
+    @property
+    def pull_request_number(self) -> int:
+        """Back-compat alias during the provider-neutral identifier transition."""
+        return self.change_request_number
+
+
+PullRequestDiffRefs = ChangeRequestDiffRefs
+PullRequestChangedFile = ChangeRequestChangedFile
+PullRequestReviewCandidate = ChangeRequestReviewCandidate
+PullRequestReviewNote = ReviewComment
+PullRequestReviewContext = ChangeRequestReviewContext
 
 
 class OverlapResolution(BaseModel):

@@ -181,7 +181,7 @@ FINAL DISCIPLINE
 ----------------------------------------------------------------
 CONTEXT
 ----------------------------------------------------------------
-Merge request IID: {mr_iid}
+Pull request number: {change_request_number}
 Title: {title}
 Description:
 {description}

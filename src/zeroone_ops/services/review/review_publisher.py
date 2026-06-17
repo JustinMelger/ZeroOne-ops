@@ -6,17 +6,19 @@ import json
 import re
 from dataclasses import dataclass
 
-from zeroone_ops.models.gitlab import MergeRequestNote
 from zeroone_ops.models.review import (
-    MergeRequestReviewContext,
+    ChangeRequestReviewContext,
     PriorReviewInlineComment,
     PublishableReviewArtifact,
     PublishableReviewFinding,
+    ReviewComment,
     ReviewFileContext,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
-from zeroone_ops.providers.gitlab_client import GitLabClientError
-from zeroone_ops.providers.gitlab_review_client import GitLabReviewClientProtocol
+from zeroone_ops.providers.pull_request_review_platform import (
+    ChangeRequestReviewPublishClientProtocol,
+    ReviewPlatformClientError,
+)
 
 _HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
@@ -25,7 +27,7 @@ _HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 class ReviewPublishResult:
     """Capture the outcome of publishing a review note."""
 
-    note: MergeRequestNote | None
+    note: ReviewComment | None
     body: str
     artifact: PublishableReviewArtifact
     inline_comment_decisions: list[ReviewInlineCommentDecision] | None = None
@@ -36,7 +38,7 @@ class ReviewPublishResult:
 class ReviewPublisher:
     """Render and publish deterministic merge-request review notes."""
 
-    def __init__(self, review_client: GitLabReviewClientProtocol) -> None:
+    def __init__(self, review_client: ChangeRequestReviewPublishClientProtocol) -> None:
         """Initialize the review publisher."""
         self.review_client = review_client
 
@@ -44,23 +46,29 @@ class ReviewPublisher:
         self,
         *,
         project_id: str,
-        merge_request_iid: int,
-        context: MergeRequestReviewContext,
+        change_request_number: int | None = None,
+        merge_request_iid: int | None = None,
+        context: ChangeRequestReviewContext,
         artifact: PublishableReviewArtifact,
         inline_comment_decisions: list[ReviewInlineCommentDecision] | None = None,
     ) -> ReviewPublishResult:
         """Publish one note from a publish-shaped review artifact."""
+        resolved_change_request_number = (
+            change_request_number if change_request_number is not None else merge_request_iid
+        )
+        if resolved_change_request_number is None:
+            raise ValueError("A pull request number is required for review publication.")
         body = self.render_artifact(
             context=context,
             artifact=artifact,
         )
         try:
-            note = self.review_client.create_merge_request_note(
+            note = self.review_client.create_change_request_comment(
                 project_id=project_id,
-                merge_request_iid=merge_request_iid,
+                change_request_number=resolved_change_request_number,
                 body=body,
             )
-        except GitLabClientError as error:
+        except ReviewPlatformClientError as error:
             return ReviewPublishResult(
                 note=None,
                 body=body,
@@ -70,7 +78,7 @@ class ReviewPublisher:
             )
         artifact_to_publish, updated_decisions = self._publish_inline_comments(
             project_id=project_id,
-            merge_request_iid=merge_request_iid,
+            change_request_number=resolved_change_request_number,
             context=context,
             artifact=artifact,
             inline_comment_decisions=inline_comment_decisions or [],
@@ -87,14 +95,14 @@ class ReviewPublisher:
                 artifact=artifact_to_publish,
             )
             try:
-                note = self.review_client.update_merge_request_note(
+                note = self.review_client.update_change_request_comment(
                     project_id=project_id,
-                    merge_request_iid=merge_request_iid,
+                    change_request_number=resolved_change_request_number,
                     note_id=note.id,
                     body=updated_body,
                 )
                 body = updated_body
-            except GitLabClientError:
+            except ReviewPlatformClientError:
                 warning_messages.append(
                     "Inline comments were published, but updating the authoritative review note "
                     "failed. GitLab-backed continuity metadata for those inline comments is "
@@ -114,8 +122,8 @@ class ReviewPublisher:
         self,
         *,
         project_id: str,
-        merge_request_iid: int,
-        context: MergeRequestReviewContext,
+        change_request_number: int,
+        context: ChangeRequestReviewContext,
         artifact: PublishableReviewArtifact,
         inline_comment_decisions: list[ReviewInlineCommentDecision],
     ) -> tuple[PublishableReviewArtifact, list[ReviewInlineCommentDecision]]:
@@ -150,9 +158,9 @@ class ReviewPublisher:
                 continue
 
             try:
-                note = self.review_client.create_merge_request_inline_comment(
+                note = self.review_client.create_change_request_inline_comment(
                     project_id=project_id,
-                    merge_request_iid=merge_request_iid,
+                    change_request_number=change_request_number,
                     body=_render_inline_comment_body(finding),
                     base_sha=context.diff_refs.base_sha,
                     start_sha=context.diff_refs.start_sha,
@@ -161,7 +169,7 @@ class ReviewPublisher:
                     new_path=position.new_path,
                     new_line=position.new_line,
                 )
-            except GitLabClientError:
+            except ReviewPlatformClientError:
                 updated_findings.append(finding)
                 updated_decisions.append(
                     decision.model_copy(
@@ -194,7 +202,7 @@ class ReviewPublisher:
     def render_artifact(
         self,
         *,
-        context: MergeRequestReviewContext,
+        context: ChangeRequestReviewContext,
         artifact: PublishableReviewArtifact,
     ) -> str:
         """Render one deterministic review note body from a publish-shaped artifact."""
@@ -259,7 +267,7 @@ class ReviewPublisher:
             [
                 "",
                 "Scope:",
-                f"- Reviewed merge request: `!{context.mr_iid}`",
+                f"- Reviewed pull request: `#{context.change_request_number}`",
                 f"- Reviewed commit SHA: `{context.head_sha}`",
                 f"- Files reviewed: {len(context.changed_files)}",
                 "",
@@ -303,7 +311,7 @@ class _InlinePosition:
 
 def _resolve_inline_position(
     *,
-    context: MergeRequestReviewContext,
+    context: ChangeRequestReviewContext,
     finding: PublishableReviewFinding,
 ) -> _InlinePosition | None:
     """Resolve one GitLab inline discussion position from review context."""
@@ -418,13 +426,14 @@ def _decision_key(
 
 def _render_machine_safe_block(
     *,
-    context: MergeRequestReviewContext,
+    context: ChangeRequestReviewContext,
     artifact: PublishableReviewArtifact,
 ) -> list[str]:
     """Render one bounded machine-safe note block for later MR reconstruction."""
     payload = {
         "schema": "ai-sonar-bot/review-note/v1",
-        "reviewed_merge_request_iid": context.mr_iid,
+        "reviewed_change_request_number": context.change_request_number,
+        "reviewed_merge_request_iid": context.change_request_number,
         "reviewed_head_sha": context.head_sha,
         "classification": artifact.classification,
         "summary": artifact.summary,

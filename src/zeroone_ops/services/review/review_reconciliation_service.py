@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
     CandidateReviewFinding,
+    ChangeRequestReviewContext,
     ContinuityStatus,
     DroppedCandidate,
-    MergeRequestReviewContext,
     OverlapPacket,
     OverlapReconciliationResult,
     PrecisionAcceptedFinding,
@@ -64,7 +64,7 @@ class ReviewReconciliationService:
     def reconcile(
         self,
         *,
-        context: MergeRequestReviewContext,
+        context: ChangeRequestReviewContext,
         candidate_stage_result: ReviewCandidateStageResult,
     ) -> ReviewReconciliationResult:
         """Reconcile candidate-stage output into final review meaning."""
@@ -159,7 +159,7 @@ class ReviewReconciliationService:
     def _normalize_precision_decision(
         self,
         *,
-        context: MergeRequestReviewContext,
+        context: ChangeRequestReviewContext,
         precision_decision: PrecisionReviewDecision,
         active_candidates: list[CandidateReviewFinding],
         grounding_dropped_candidates: tuple[DroppedCandidate, ...],
@@ -306,7 +306,7 @@ class ReviewReconciliationService:
     def _build_precision_overlap_packet(
         self,
         *,
-        context: MergeRequestReviewContext,
+        context: ChangeRequestReviewContext,
         active_candidates: list[CandidateReviewFinding],
     ) -> OverlapPacket | None:
         """Build bounded overlap hints for the precision prompt when candidates exist."""
@@ -340,7 +340,7 @@ class ReviewReconciliationService:
     def _invalid_precision_fallback(
         self,
         *,
-        context: MergeRequestReviewContext,
+        context: ChangeRequestReviewContext,
         message: str,
         dropped_candidates: tuple[DroppedCandidate, ...],
     ) -> ReconciledReviewDecision:
@@ -368,7 +368,7 @@ class ReviewReconciliationService:
     def _reconcile_overlap(
         self,
         *,
-        context: MergeRequestReviewContext,
+        context: ChangeRequestReviewContext,
         review_result: ReviewResult,
     ) -> OverlapReconciliationResult | None:
         """Resolve repeated-review overlap when prior review context exists."""
@@ -405,7 +405,7 @@ class ReviewReconciliationService:
         for index, finding in enumerate(decision.accepted_findings):
             finding.continuity_status = status_by_index.get(index)
 
-    def _is_same_sha_review(self, context: MergeRequestReviewContext) -> bool:
+    def _is_same_sha_review(self, context: ChangeRequestReviewContext) -> bool:
         """Return whether the latest prior pass used the same reviewed SHA."""
         prior_review_context = context.prior_review_context
         if prior_review_context is None or not prior_review_context.passes:

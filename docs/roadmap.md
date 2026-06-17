@@ -214,10 +214,82 @@ These are important, but intentionally not part of the immediate rollout phase.
 
 ### Broader Workflow Expansion
 
+- GitHub platform support as a first-class product track, with review as the
+  first implementation slice and broader remediation/control-plane parity to
+  follow deliberately
 - additional remediation producers such as pipeline-failure and security-scan
   inputs
 - dashboard readability and grouped review-history improvements where they help
   operators
+
+#### GitHub Platform Support Slices
+
+- [x] Phase 1a: Provider-Neutral Review Core
+
+- introduce a provider-neutral review client seam
+- neutralize shared review-domain identifiers and transport errors
+- rename shared review-domain models to domain vocabulary (`ChangeRequest...`,
+  `ReviewComment`) up front
+- reduce direct GitLab coupling in review runner, intake, and prior-context
+  loading
+- keep GitLab review behavior unchanged while the seam is extracted
+- merge and live-validate GitLab review stability before starting cleanup or
+  GitHub summary-support work
+
+- [ ] Phase 1b: Review Neutrality Cleanup
+
+- remove temporary compatibility aliases in the shared review core, including
+  legacy `PullRequest...` model aliases and legacy review-platform protocol
+  aliases
+- remove legacy provider-specific parameter/property fallbacks from the shared
+  review core where they are no longer needed for GitLab validation, including
+  `mr_iid`, `merge_request_iid`, and `pull_request_number` compatibility shims
+  around the new `change_request_number` contract
+- remove legacy machine-safe payload fallback fields once GitLab live
+  validation confirms the new `reviewed_change_request_number` payload is
+  stable
+- rename the remaining review-path modules and services that still expose
+  GitLab/MR-shaped vocabulary at the shared seam, such as `mr_intake.py` and
+  `MergeRequestSelector`
+- tighten review-path user-facing wording and internal logging from
+  `merge request` / `pull request` to the intended domain vocabulary wherever
+  the text belongs to the shared review workflow rather than the GitLab
+  provider layer
+- decide whether `MergeRequestReviewState` and related persisted-state naming
+  should stay Phase-1 compatible for GitLab validation or move in the same
+  cleanup pass before Phase 2 starts
+
+- [ ] Phase 2: GitHub Review Summary Support
+
+- support GitHub pull request intake from CI context
+- load GitHub pull request changed files and bounded review context
+- publish deterministic GitHub pull request summary comments
+- support same-SHA reuse and prior-summary continuity on GitHub
+
+- [ ] Phase 3: GitHub Review Inline Comments
+
+- add GitHub inline comment transport
+- keep the summary comment authoritative
+- preserve trusted-location and identity gating before inline publication
+
+- [ ] Phase 4: GitHub Remediation Publish Support
+
+- support GitHub branch and pull request publication for remediation
+- preserve the current remediation execution core where it is genuinely
+  provider-neutral
+- avoid GitLab-specific merge-request assumptions in remediation publish flow
+
+- [ ] Phase 5: GitHub Control Plane Design And Implementation
+
+- design a GitHub-native dashboard or work-queue equivalent
+- design the operator control and policy interaction model on GitHub
+- connect remediation and review workflow status back into that control plane
+
+- [ ] Phase 6: GitHub Platform Rollout
+
+- dogfood GitHub review support on this repository first
+- expand into broader GitHub-native workflow usage as later slices land
+- validate product clarity before claiming broader platform parity
 
 ## Reference Docs
 

@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, cast
 
-from zeroone_ops.models.gitlab import MergeRequestNote
 from zeroone_ops.models.review import (
     PriorReviewFinding,
     PriorReviewInlineComment,
     PriorReviewPass,
+    ReviewComment,
     ReviewFinding,
 )
 from zeroone_ops.services.review.review_gitlab_prior_context_service import (
@@ -32,16 +32,24 @@ class PriorReviewNoteParseResult:
     message: str
 
 
-class ReviewGitLabPriorNoteParser:
-    """Rebuild one prior review pass from a machine-safe GitLab MR note."""
+class GitLabChangeRequestPriorNoteParser:
+    """Rebuild one prior review pass from one machine-safe provider note."""
 
     def parse_note(
         self,
         *,
-        note: MergeRequestNote,
-        expected_merge_request_iid: int,
+        note: ReviewComment,
+        expected_change_request_number: int | None = None,
+        expected_merge_request_iid: int | None = None,
     ) -> PriorReviewNoteParseResult:
         """Parse one machine-safe review note into a bounded prior review pass."""
+        resolved_change_request_number = (
+            expected_change_request_number
+            if expected_change_request_number is not None
+            else expected_merge_request_iid
+        )
+        if resolved_change_request_number is None:
+            raise ValueError("An expected pull request number is required for note parsing.")
         payload = extract_machine_safe_review_note_payload(note.body)
         if payload is None:
             return PriorReviewNoteParseResult(
@@ -49,11 +57,13 @@ class ReviewGitLabPriorNoteParser:
                 message="Selected note does not contain a valid machine-safe review payload.",
             )
 
-        reviewed_merge_request_iid = payload.get("reviewed_merge_request_iid")
-        if reviewed_merge_request_iid != expected_merge_request_iid:
+        reviewed_change_request_number = payload.get("reviewed_change_request_number")
+        if reviewed_change_request_number is None:
+            reviewed_change_request_number = payload.get("reviewed_merge_request_iid")
+        if reviewed_change_request_number != resolved_change_request_number:
             return PriorReviewNoteParseResult(
                 prior_review_pass=None,
-                message="Selected note machine-safe payload targets a different merge request.",
+                message="Selected note machine-safe payload targets a different pull request.",
             )
 
         reviewed_head_sha = payload.get("reviewed_head_sha")
@@ -121,6 +131,9 @@ class ReviewGitLabPriorNoteParser:
             ),
             message="Parsed machine-safe prior review note successfully.",
         )
+
+
+ReviewGitLabPriorNoteParser = GitLabChangeRequestPriorNoteParser
 
 
 def _parse_prior_review_finding(payload: object) -> PriorReviewFinding | None:

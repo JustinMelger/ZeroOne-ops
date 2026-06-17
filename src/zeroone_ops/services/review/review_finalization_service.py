@@ -6,8 +6,8 @@ import logging
 from dataclasses import dataclass
 
 from zeroone_ops.models.review import (
-    MergeRequestReviewCandidate,
-    MergeRequestReviewContext,
+    ChangeRequestReviewCandidate,
+    ChangeRequestReviewContext,
     PublishableReviewArtifact,
     ReviewResult,
 )
@@ -51,8 +51,8 @@ class ReviewFinalizationService:
         run_id: str,
         project_id: str,
         active_dry_run: bool,
-        merge_request: MergeRequestReviewCandidate,
-        context: MergeRequestReviewContext,
+        merge_request: ChangeRequestReviewCandidate,
+        context: ChangeRequestReviewContext,
         artifact: PublishableReviewArtifact,
         inline_comment_decisions: list[ReviewInlineCommentDecision],
     ) -> ReviewFinalizationResult:
@@ -76,7 +76,7 @@ class ReviewFinalizationService:
 
         publish_result = self.review_publisher.publish_artifact(
             project_id=project_id,
-            merge_request_iid=context.mr_iid,
+            change_request_number=context.change_request_number,
             context=context,
             artifact=artifact,
             inline_comment_decisions=inline_comment_decisions,

@@ -47,7 +47,7 @@ Keep rationales out of the response unless the schema explicitly includes them.
 ----------------------------------------------------------------
 CONTEXT
 ----------------------------------------------------------------
-Merge request IID: {mr_iid}
+Pull request number: {change_request_number}
 Current reviewed SHA: {current_head_sha}
 Prior reviewed SHA: {prior_head_sha}
 

@@ -19,8 +19,8 @@ from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.models.review import (
     CandidateReviewFinding,
     CandidateReviewResult,
-    MergeRequestReviewCandidate,
-    MergeRequestReviewContext,
+    ChangeRequestReviewCandidate,
+    ChangeRequestReviewContext,
     PrecisionAcceptedFinding,
     PrecisionReviewDecision,
     PriorReviewFinding,
@@ -76,7 +76,7 @@ def build_dashboard_document(*, items: list[DashboardItem]) -> DashboardDocument
 class _IntegrationPrecisionClient:
     def review_precision_reconciliation(
         self,
-        context: MergeRequestReviewContext,
+        context: ChangeRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
         overlap_packet,
@@ -3468,7 +3468,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
         encoding="utf-8",
     )
 
-    merge_request = MergeRequestReviewCandidate(
+    merge_request = ChangeRequestReviewCandidate(
         iid=17,
         title="feat: review flow",
         description="summary",
@@ -3478,7 +3478,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
         head_sha="abc123",
         changes=[],
     )
-    review_context = MergeRequestReviewContext(
+    review_context = ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -3570,7 +3570,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         encoding="utf-8",
     )
 
-    merge_request = MergeRequestReviewCandidate(
+    merge_request = ChangeRequestReviewCandidate(
         iid=17,
         title="feat: review flow",
         description="summary",
@@ -3580,7 +3580,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         head_sha="abc123",
         changes=[],
     )
-    review_context = MergeRequestReviewContext(
+    review_context = ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -3668,12 +3668,12 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     def publish_artifact_stub(  # noqa: ANN001, ANN202
         self,
         project_id,
-        merge_request_iid,
+        change_request_number,
         context,
         artifact,
         inline_comment_decisions=None,
     ):
-        del self, project_id, merge_request_iid, context, inline_comment_decisions
+        del self, project_id, change_request_number, context, inline_comment_decisions
         return ReviewPublishResult(
             note=type(
                 "Note",
@@ -3760,7 +3760,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         encoding="utf-8",
     )
 
-    merge_request = MergeRequestReviewCandidate(
+    merge_request = ChangeRequestReviewCandidate(
         iid=17,
         title="feat: review flow",
         description="summary",
@@ -3770,7 +3770,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         head_sha="abc123",
         changes=[],
     )
-    review_context = MergeRequestReviewContext(
+    review_context = ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -3831,12 +3831,12 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     def publish_artifact_stub(  # noqa: ANN001, ANN202
         self,
         project_id,
-        merge_request_iid,
+        change_request_number,
         context,
         artifact,
         inline_comment_decisions=None,
     ):
-        del self, project_id, merge_request_iid, context, inline_comment_decisions
+        del self, project_id, change_request_number, context, inline_comment_decisions
         return ReviewPublishResult(
             note=type("Note", (), {"id": 55, "web_url": None})(),
             body="summary",
@@ -3923,7 +3923,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
         encoding="utf-8",
     )
 
-    merge_request = MergeRequestReviewCandidate(
+    merge_request = ChangeRequestReviewCandidate(
         iid=17,
         title="feat: review flow",
         description="summary",
@@ -3933,7 +3933,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
         head_sha="abc123",
         changes=[],
     )
-    review_context = MergeRequestReviewContext(
+    review_context = ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -4024,11 +4024,12 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
     def capture_publish(  # noqa: ANN001, ANN202
         self,
         project_id,
-        merge_request_iid,
+        change_request_number,
         context,
         artifact,
         inline_comment_decisions=None,
     ):
+        del self, project_id, change_request_number, context
         observed["artifact"] = artifact
         observed["inline_comment_decisions"] = inline_comment_decisions
         return ReviewPublishResult(
@@ -4094,7 +4095,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         encoding="utf-8",
     )
 
-    merge_request = MergeRequestReviewCandidate(
+    merge_request = ChangeRequestReviewCandidate(
         iid=17,
         title="feat: review flow",
         description="summary",
@@ -4104,7 +4105,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         head_sha="def456",
         changes=[],
     )
-    review_context = MergeRequestReviewContext(
+    review_context = ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -4258,11 +4259,12 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     def capture_publish(  # noqa: ANN001, ANN202
         self,
         project_id,
-        merge_request_iid,
+        change_request_number,
         context,
         artifact,
         inline_comment_decisions=None,
     ):
+        del self, project_id, change_request_number, context
         observed["artifact"] = artifact
         observed["inline_comment_decisions"] = inline_comment_decisions
         return ReviewPublishResult(
@@ -4330,7 +4332,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         encoding="utf-8",
     )
 
-    merge_request = MergeRequestReviewCandidate(
+    merge_request = ChangeRequestReviewCandidate(
         iid=17,
         title="feat: review flow",
         description="summary",
@@ -4340,7 +4342,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         head_sha="abc123",
         changes=[],
     )
-    review_context = MergeRequestReviewContext(
+    review_context = ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -4403,11 +4405,12 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     def capture_publish(  # noqa: ANN001, ANN202
         self,
         project_id,
-        merge_request_iid,
+        change_request_number,
         context,
         artifact,
         inline_comment_decisions=None,
     ):
+        del self, project_id, change_request_number, context
         observed["artifact"] = artifact
         observed["inline_comment_decisions"] = inline_comment_decisions
         return ReviewPublishResult(
@@ -4490,7 +4493,7 @@ def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeyp
 
     monkeypatch.setattr(
         "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
-        lambda self, project_id, merge_request_iid: MergeRequestReviewCandidate(
+        lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
             iid=17,
             title="feat: review flow",
             description="summary",
@@ -4536,7 +4539,7 @@ def test_review_skips_unchanged_sha_revision_via_gitlab_note_fallback(
 
     monkeypatch.setattr(
         "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
-        lambda self, project_id, merge_request_iid: MergeRequestReviewCandidate(
+        lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
             iid=17,
             title="feat: review flow",
             description="summary",
@@ -4619,7 +4622,7 @@ def test_review_skips_unchanged_sha_when_local_state_is_manual_review_only(
 
     monkeypatch.setattr(
         "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
-        lambda self, project_id, merge_request_iid: MergeRequestReviewCandidate(
+        lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
             iid=17,
             title="feat: review flow",
             description="summary",
@@ -4665,7 +4668,7 @@ def test_review_skips_unchanged_sha_when_gitlab_note_is_manual_review_only(
 
     monkeypatch.setattr(
         "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
-        lambda self, project_id, merge_request_iid: MergeRequestReviewCandidate(
+        lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
             iid=17,
             title="feat: review flow",
             description="summary",
@@ -4732,7 +4735,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
         encoding="utf-8",
     )
 
-    merge_request = MergeRequestReviewCandidate(
+    merge_request = ChangeRequestReviewCandidate(
         iid=17,
         title="feat: review flow",
         description="summary",
@@ -4742,7 +4745,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
         head_sha="abc123",
         changes=[],
     )
-    review_context = MergeRequestReviewContext(
+    review_context = ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",

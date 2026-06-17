@@ -138,7 +138,7 @@ matches the earlier accepted concern.
 ----------------------------------------------------------------
 CONTEXT
 ----------------------------------------------------------------
-Merge request IID: {mr_iid}
+Pull request number: {change_request_number}
 Title: {title}
 Source branch: {source_branch}
 Target branch: {target_branch}

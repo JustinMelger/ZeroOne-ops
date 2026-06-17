@@ -8,6 +8,15 @@ class FakeGitLabReviewClient:
     def __init__(self, notes: list[MergeRequestNote]) -> None:
         self.notes = notes
 
+    def list_change_request_comments(
+        self,
+        *,
+        project_id: str,
+        change_request_number: int,
+    ) -> list[MergeRequestNote]:
+        del project_id, change_request_number
+        return self.notes
+
     def list_merge_request_notes(
         self,
         *,

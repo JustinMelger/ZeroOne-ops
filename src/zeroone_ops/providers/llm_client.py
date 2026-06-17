@@ -25,7 +25,7 @@ from zeroone_ops.models.config import OpenAIConnectionConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget, remediation_profile_for
 from zeroone_ops.models.review import (
     CandidateReviewFinding,
-    MergeRequestReviewContext,
+    ChangeRequestReviewContext,
     OverlapPacket,
     OverlapReconciliationResult,
     PrecisionReviewDecision,
@@ -97,7 +97,7 @@ class LLMClient(ABC):
         ...
 
     @abstractmethod
-    def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
+    def review_merge_request(self, context: ChangeRequestReviewContext) -> ReviewResult:
         """Review one merge request and return structured findings."""
         ...
 
@@ -112,7 +112,7 @@ class LLMClient(ABC):
     @abstractmethod
     def review_precision_reconciliation(
         self,
-        context: MergeRequestReviewContext,
+        context: ChangeRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
         overlap_packet: OverlapPacket | None,
@@ -231,7 +231,7 @@ class OpenAILLMClient(LLMClient):
             raise LLMClientError("OpenAI structured edit generation did not return parsed output.")
         return response.output_parsed
 
-    def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
+    def review_merge_request(self, context: ChangeRequestReviewContext) -> ReviewResult:
         """Review a merge request with OpenAI."""
         input_text = build_candidate_review_prompt(context)
         try:
@@ -296,7 +296,7 @@ class OpenAILLMClient(LLMClient):
 
     def review_precision_reconciliation(
         self,
-        context: MergeRequestReviewContext,
+        context: ChangeRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
         overlap_packet: OverlapPacket | None,
@@ -447,7 +447,7 @@ class FixtureLLMClient(LLMClient):
         except LLMFixtureError as error:
             raise LLMClientError(str(error)) from error
 
-    def review_merge_request(self, context: MergeRequestReviewContext) -> ReviewResult:
+    def review_merge_request(self, context: ChangeRequestReviewContext) -> ReviewResult:
         """Load a fixture-based review result."""
         del context
         if self.review_fixture_path is None:
@@ -472,7 +472,7 @@ class FixtureLLMClient(LLMClient):
 
     def review_precision_reconciliation(
         self,
-        context: MergeRequestReviewContext,
+        context: ChangeRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
         overlap_packet: OverlapPacket | None,
