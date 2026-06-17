@@ -15,7 +15,7 @@ from zeroone_ops.models.review import (
     ReviewFileContext,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
-from zeroone_ops.providers.pull_request_review_platform import (
+from zeroone_ops.providers.review_platform import (
     ChangeRequestReviewPublishClientProtocol,
     ReviewPlatformClientError,
 )
@@ -36,7 +36,7 @@ class ReviewPublishResult:
 
 
 class ReviewPublisher:
-    """Render and publish deterministic merge-request review notes."""
+    """Render and publish deterministic change-request review notes."""
 
     def __init__(self, review_client: ChangeRequestReviewPublishClientProtocol) -> None:
         """Initialize the review publisher."""
@@ -46,18 +46,12 @@ class ReviewPublisher:
         self,
         *,
         project_id: str,
-        change_request_number: int | None = None,
-        merge_request_iid: int | None = None,
+        change_request_number: int,
         context: ChangeRequestReviewContext,
         artifact: PublishableReviewArtifact,
         inline_comment_decisions: list[ReviewInlineCommentDecision] | None = None,
     ) -> ReviewPublishResult:
         """Publish one note from a publish-shaped review artifact."""
-        resolved_change_request_number = (
-            change_request_number if change_request_number is not None else merge_request_iid
-        )
-        if resolved_change_request_number is None:
-            raise ValueError("A pull request number is required for review publication.")
         body = self.render_artifact(
             context=context,
             artifact=artifact,
@@ -65,7 +59,7 @@ class ReviewPublisher:
         try:
             note = self.review_client.create_change_request_comment(
                 project_id=project_id,
-                change_request_number=resolved_change_request_number,
+                change_request_number=change_request_number,
                 body=body,
             )
         except ReviewPlatformClientError as error:
@@ -78,7 +72,7 @@ class ReviewPublisher:
             )
         artifact_to_publish, updated_decisions = self._publish_inline_comments(
             project_id=project_id,
-            change_request_number=resolved_change_request_number,
+            change_request_number=change_request_number,
             context=context,
             artifact=artifact,
             inline_comment_decisions=inline_comment_decisions or [],
@@ -97,7 +91,7 @@ class ReviewPublisher:
             try:
                 note = self.review_client.update_change_request_comment(
                     project_id=project_id,
-                    change_request_number=resolved_change_request_number,
+                    change_request_number=change_request_number,
                     note_id=note.id,
                     body=updated_body,
                 )
@@ -234,7 +228,7 @@ class ReviewPublisher:
                     "",
                     "What this means:",
                     (
-                        "- The bot could not assess this merge request reliably "
+                        "- The bot could not assess this change request reliably "
                         "with the available context."
                     ),
                     "- This is not an actionable finding by itself.",
@@ -267,7 +261,7 @@ class ReviewPublisher:
             [
                 "",
                 "Scope:",
-                f"- Reviewed pull request: `#{context.change_request_number}`",
+                f"- Reviewed change request: `#{context.change_request_number}`",
                 f"- Reviewed commit SHA: `{context.head_sha}`",
                 f"- Files reviewed: {len(context.changed_files)}",
                 "",
@@ -433,7 +427,6 @@ def _render_machine_safe_block(
     payload = {
         "schema": "ai-sonar-bot/review-note/v1",
         "reviewed_change_request_number": context.change_request_number,
-        "reviewed_merge_request_iid": context.change_request_number,
         "reviewed_head_sha": context.head_sha,
         "classification": artifact.classification,
         "summary": artifact.summary,

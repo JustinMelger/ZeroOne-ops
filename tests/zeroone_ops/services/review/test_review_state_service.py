@@ -11,7 +11,7 @@ from zeroone_ops.models.review import (
 )
 from zeroone_ops.models.state import (
     AppState,
-    MergeRequestReviewState,
+    ChangeRequestReviewState,
     PriorReviewFindingState,
     RepositoryState,
     RunStatus,
@@ -29,7 +29,7 @@ def build_state() -> AppState:
 
 def build_merge_request() -> ChangeRequestReviewCandidate:
     return ChangeRequestReviewCandidate(
-        iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -368,12 +368,12 @@ def test_load_prior_review_context_returns_recent_passes_for_same_mr(tmp_path) -
         )
 
     prior_review_context = service.load_prior_review_context(
-        mr_iid=17,
+        change_request_number=17,
         current_head_sha="sha-3",
     )
 
     assert isinstance(prior_review_context, PriorReviewContext)
-    assert prior_review_context.merge_request_iid == 17
+    assert prior_review_context.change_request_number == 17
     assert [review_pass.reviewed_head_sha for review_pass in prior_review_context.passes] == [
         "sha-2",
     ]
@@ -485,8 +485,8 @@ def test_load_prior_review_context_preserves_mixed_new_and_legacy_finding_state(
         sonarqube_project_key=None,
     )
     state = build_state()
-    state.reviews["17:sha-2"] = MergeRequestReviewState(
-        mr_iid=17,
+    state.reviews["17:sha-2"] = ChangeRequestReviewState(
+        change_request_number=17,
         head_sha="sha-2",
         status="findings_present",
         last_run_id="run-2",
@@ -516,7 +516,7 @@ def test_load_prior_review_context_preserves_mixed_new_and_legacy_finding_state(
     )
 
     prior_review_context = service.load_prior_review_context(
-        mr_iid=17,
+        change_request_number=17,
         current_head_sha="sha-3",
     )
 

@@ -1,4 +1,4 @@
-"""Bounded helper-following support for merge request review context."""
+"""Bounded helper-following support for change-request review context."""
 
 from __future__ import annotations
 

@@ -111,7 +111,7 @@ class ReviewCandidateGenerationService:
                 raw_review_result=None,
                 accepted_candidate_ids=(),
                 dropped_candidates=(),
-                message="LLM backend not configured for merge request review.",
+                message="LLM backend not configured for change-request review.",
             )
 
         try:
@@ -122,7 +122,7 @@ class ReviewCandidateGenerationService:
                 raw_review_result=None,
                 accepted_candidate_ids=(),
                 dropped_candidates=(),
-                message=f"Structured merge request review failed: {error}",
+                message=f"Structured change-request review failed: {error}",
             )
 
         candidate_result = _candidate_review_result_from_review_result(raw_review_result)

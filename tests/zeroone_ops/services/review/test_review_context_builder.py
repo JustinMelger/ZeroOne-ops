@@ -61,7 +61,7 @@ def build_config(
 
 def build_merge_request(*, changes: list[ChangeRequestChangedFile]) -> ChangeRequestReviewCandidate:
     return ChangeRequestReviewCandidate(
-        iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",

@@ -53,7 +53,8 @@ class StateStore:
         """
         if not self.path.exists():
             return AppState(repository=self.default_repository)
-        return AppState.model_validate_json(self.path.read_text(encoding="utf-8"))
+        raw_payload = json.loads(self.path.read_text(encoding="utf-8"))
+        return AppState.model_validate(_normalize_legacy_state_payload(raw_payload))
 
     def save(self, state: AppState) -> None:
         """Persist application state to disk.
@@ -94,3 +95,25 @@ class StateStore:
         """
         state.issues[issue_key] = issue_state
         return state
+
+
+def _normalize_legacy_state_payload(payload: object) -> object:
+    """Normalize older persisted state shapes to the current contract."""
+    if not isinstance(payload, dict):
+        return payload
+
+    reviews = payload.get("reviews")
+    if isinstance(reviews, dict):
+        normalized_reviews: dict[str, object] = {}
+        for review_key, review_value in reviews.items():
+            if not isinstance(review_value, dict):
+                normalized_reviews[review_key] = review_value
+                continue
+            normalized_review = dict(review_value)
+            if "change_request_number" not in normalized_review and "mr_iid" in normalized_review:
+                normalized_review["change_request_number"] = normalized_review.pop("mr_iid")
+            normalized_reviews[review_key] = normalized_review
+        payload = dict(payload)
+        payload["reviews"] = normalized_reviews
+
+    return payload

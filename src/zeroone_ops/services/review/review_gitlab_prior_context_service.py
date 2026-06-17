@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from zeroone_ops.models.review import ReviewComment
-from zeroone_ops.providers.pull_request_review_platform import (
+from zeroone_ops.providers.review_platform import (
     ChangeRequestReviewCommentsClientProtocol,
 )
 
@@ -55,19 +55,13 @@ class GitLabChangeRequestPriorContextLoader:
         self,
         *,
         project_id: str,
-        change_request_number: int | None = None,
-        merge_request_iid: int | None = None,
+        change_request_number: int,
         current_head_sha: str,
     ) -> PriorReviewNoteSelectionResult:
         """Return the latest earlier machine-safe bot review note for one MR."""
-        resolved_change_request_number = (
-            change_request_number if change_request_number is not None else merge_request_iid
-        )
-        if resolved_change_request_number is None:
-            raise ValueError("A pull request number is required for prior-note lookup.")
         notes = self.review_client.list_change_request_comments(
             project_id=project_id,
-            change_request_number=resolved_change_request_number,
+            change_request_number=change_request_number,
         )
         author_matched_notes = [note for note in notes if self._matches_bot_author(note)]
         machine_safe_notes = [
@@ -116,7 +110,7 @@ class GitLabChangeRequestPriorContextLoader:
                     current_sha_skipped_count=current_sha_skipped_count,
                 ),
                 message=(
-                    "No earlier machine-safe bot prior review note found on this merge request."
+                    "No earlier machine-safe bot prior review note found on this change request."
                 ),
             )
 
@@ -136,9 +130,6 @@ class GitLabChangeRequestPriorContextLoader:
         if self.bot_author_username is None:
             return True
         return note.author_username == self.bot_author_username
-
-
-ReviewGitLabPriorContextService = GitLabChangeRequestPriorContextLoader
 
 
 def _has_machine_safe_review_note_block(body: str) -> bool:

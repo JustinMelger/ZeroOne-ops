@@ -25,7 +25,7 @@ def _build_context(
     prior_pass: PriorReviewPass | None = None,
 ) -> ChangeRequestReviewContext:
     return ChangeRequestReviewContext(
-        mr_iid=120,
+        change_request_number=120,
         title="test: continuity sequence",
         description="summary",
         source_branch="feature/review",
@@ -47,7 +47,7 @@ def _build_context(
             None
             if prior_pass is None
             else PriorReviewContext(
-                merge_request_iid=120,
+                change_request_number=120,
                 passes=[prior_pass],
             )
         ),

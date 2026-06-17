@@ -1,4 +1,4 @@
-"""Pull-request review workflow runner."""
+"""Change-request review workflow runner."""
 
 from __future__ import annotations
 
@@ -25,13 +25,13 @@ from zeroone_ops.models.state import (
     RunRecord,
 )
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
-from zeroone_ops.providers.pull_request_review_platform import (
+from zeroone_ops.providers.review_platform import (
     ChangeRequestReviewPlatformProtocol,
     ReviewPlatformClientError,
 )
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
-from zeroone_ops.services.review.mr_intake import ChangeRequestIntakeService
+from zeroone_ops.services.review.change_request_intake import ChangeRequestIntakeService
 from zeroone_ops.services.review.review_artifact_builder import ReviewArtifactBuilder
 from zeroone_ops.services.review.review_artifact_validator import (
     ReviewArtifactValidator,
@@ -73,7 +73,7 @@ _AUTHORITATIVE_REVIEW_CLASSIFICATIONS = frozenset(
 
 
 class ReviewRunner:
-    """Run the pull-request review workflow with injected dependencies."""
+    """Run the change-request review workflow with injected dependencies."""
 
     def __init__(
         self,
@@ -104,15 +104,11 @@ class ReviewRunner:
         record: RunRecord,
         active_dry_run: bool,
     ) -> RunSummary:
-        """Run one merge-request review workflow."""
-        intake_result = ChangeRequestIntakeService().select_pull_request(
+        """Run one change-request review workflow."""
+        intake_result = ChangeRequestIntakeService().select_change_request(
             state=self.review_state_service.state
         )
-        selected_change_request = getattr(
-            intake_result,
-            "selected_change_request",
-            getattr(intake_result, "selected_merge_request", None),
-        )
+        selected_change_request = intake_result.selected_change_request
         if selected_change_request is None:
             return self.review_state_service.finish_no_review(
                 record=record,
@@ -138,10 +134,10 @@ class ReviewRunner:
             )
 
         LOGGER.info(
-            "review run targeting merge request",
+            "review run targeting change request",
             extra={
                 "run_id": run_id,
-                "mr_iid": selected_change_request.iid,
+                "change_request_number": selected_change_request.change_request_number,
                 "head_sha": selected_change_request.head_sha,
                 "source_branch": selected_change_request.source_branch,
                 "target_branch": selected_change_request.target_branch,
@@ -169,7 +165,7 @@ class ReviewRunner:
         prior_review_context = self._load_gitlab_prior_review_context(
             run_id=run_id,
             project_id=project_id,
-            change_request_number=selected_change_request.iid,
+            change_request_number=selected_change_request.change_request_number,
             current_head_sha=selected_change_request.head_sha,
         )
         if prior_review_context is not None:
@@ -199,7 +195,7 @@ class ReviewRunner:
             "review context built",
             extra={
                 "run_id": run_id,
-                "mr_iid": context.mr_iid,
+                "change_request_number": context.change_request_number,
                 "head_sha": context.head_sha,
                 "changed_file_count": changed_file_count,
                 "context_line_count": total_context_lines,
@@ -222,7 +218,7 @@ class ReviewRunner:
             "review candidate stage completed",
             extra={
                 "run_id": run_id,
-                "mr_iid": context.mr_iid,
+                "change_request_number": context.change_request_number,
                 "head_sha": context.head_sha,
                 "candidate_count": (
                     0
@@ -274,7 +270,7 @@ class ReviewRunner:
             "review reconciliation completed",
             extra={
                 "run_id": run_id,
-                "mr_iid": context.mr_iid,
+                "change_request_number": context.change_request_number,
                 "head_sha": context.head_sha,
                 "classification": review_result.classification,
                 "precision_accepted_candidate_count": (
@@ -328,7 +324,7 @@ class ReviewRunner:
                 "review overlap reconciliation unavailable; omitting continuity wording",
                 extra={
                     "run_id": run_id,
-                    "mr_iid": context.mr_iid,
+                    "change_request_number": context.change_request_number,
                     "head_sha": context.head_sha,
                     "reconciliation_message": reconciliation_result.message,
                 },
@@ -402,7 +398,7 @@ class ReviewRunner:
         inline_comment_decisions = finalization_result.inline_comment_decisions
         _log_inline_comment_rollout(
             run_id=run_id,
-            mr_iid=context.mr_iid,
+            change_request_number=context.change_request_number,
             head_sha=context.head_sha,
             inline_comments_enabled=self.config.review.inline_comments_enabled,
             inline_comment_transport_enabled=(
@@ -448,7 +444,7 @@ class ReviewRunner:
         self,
         *,
         run_id: str,
-        mr_iid: int,
+        change_request_number: int,
         current_head_sha: str,
     ) -> str | None:
         """Resolve and cache the GitLab username behind the active review token."""
@@ -461,7 +457,7 @@ class ReviewRunner:
                 "review gitlab current user lookup failed; prior-note author filter disabled",
                 extra={
                     "run_id": run_id,
-                    "mr_iid": mr_iid,
+                    "change_request_number": change_request_number,
                     "head_sha": current_head_sha,
                 },
             )
@@ -472,7 +468,7 @@ class ReviewRunner:
             f"review gitlab current user resolved (username={resolved_username})",
             extra={
                 "run_id": run_id,
-                "mr_iid": mr_iid,
+                "change_request_number": change_request_number,
                 "head_sha": current_head_sha,
                 "bot_author_username": resolved_username,
             },
@@ -492,7 +488,7 @@ class ReviewRunner:
             self.review_client,
             bot_author_username=self._resolve_prior_note_author_username(
                 run_id=run_id,
-                mr_iid=change_request_number,
+                change_request_number=change_request_number,
                 current_head_sha=current_head_sha,
             ),
         )
@@ -507,7 +503,7 @@ class ReviewRunner:
                 "review gitlab prior note lookup failed; omitting continuity context",
                 extra={
                     "run_id": run_id,
-                    "mr_iid": change_request_number,
+                    "change_request_number": change_request_number,
                     "head_sha": current_head_sha,
                 },
             )
@@ -525,7 +521,7 @@ class ReviewRunner:
                 ),
                 extra={
                     "run_id": run_id,
-                    "mr_iid": change_request_number,
+                    "change_request_number": change_request_number,
                     "head_sha": current_head_sha,
                     "considered_note_count": selection_result.considered_note_count,
                     "author_matched_note_count": selection_result.author_matched_note_count,
@@ -550,7 +546,7 @@ class ReviewRunner:
                 ),
                 extra={
                     "run_id": run_id,
-                    "mr_iid": change_request_number,
+                    "change_request_number": change_request_number,
                     "head_sha": current_head_sha,
                     "selected_note_id": selection_result.selected_note.id,
                 },
@@ -566,7 +562,7 @@ class ReviewRunner:
                 ),
                 extra={
                     "run_id": run_id,
-                    "mr_iid": change_request_number,
+                    "change_request_number": change_request_number,
                     "head_sha": current_head_sha,
                     "selected_note_id": selection_result.selected_note.id,
                     "considered_note_count": selection_result.considered_note_count,
@@ -593,7 +589,7 @@ class ReviewRunner:
             ),
             extra={
                 "run_id": run_id,
-                "mr_iid": change_request_number,
+                "change_request_number": change_request_number,
                 "head_sha": current_head_sha,
                 "selected_note_id": selection_result.selected_note.id,
                 "considered_note_count": selection_result.considered_note_count,
@@ -619,7 +615,7 @@ class ReviewRunner:
     ) -> PriorReviewPass | None:
         """Return the authoritative existing review reference for one MR SHA."""
         review_state = self.review_state_service.state.reviews.get(
-            f"{merge_request.iid}:{merge_request.head_sha}"
+            f"{merge_request.change_request_number}:{merge_request.head_sha}"
         )
         if review_state is not None and _is_authoritative_review_classification(
             review_state.status
@@ -636,14 +632,14 @@ class ReviewRunner:
         try:
             notes = self.review_client.list_change_request_comments(
                 project_id=project_id,
-                change_request_number=merge_request.iid,
+                change_request_number=merge_request.change_request_number,
             )
         except (ReviewPlatformClientError, httpx.HTTPError, OSError) as exc:
             LOGGER.warning(
                 "review same-sha lookup via gitlab note failed; continuing without reuse",
                 extra={
                     "run_id": run_id,
-                    "mr_iid": merge_request.iid,
+                    "change_request_number": merge_request.change_request_number,
                     "head_sha": merge_request.head_sha,
                     "error": str(exc),
                 },
@@ -651,7 +647,7 @@ class ReviewRunner:
             return None
         bot_author_username = self._resolve_prior_note_author_username(
             run_id=run_id,
-            mr_iid=merge_request.iid,
+            change_request_number=merge_request.change_request_number,
             current_head_sha=merge_request.head_sha,
         )
         if bot_author_username is None:
@@ -659,7 +655,7 @@ class ReviewRunner:
                 "review same-sha gitlab note reuse disabled because bot username is unresolved",
                 extra={
                     "run_id": run_id,
-                    "mr_iid": merge_request.iid,
+                    "change_request_number": merge_request.change_request_number,
                     "head_sha": merge_request.head_sha,
                 },
             )
@@ -766,7 +762,7 @@ def _build_review_run_diagnostics(
 def _log_inline_comment_rollout(
     *,
     run_id: str,
-    mr_iid: int,
+    change_request_number: int,
     head_sha: str,
     inline_comments_enabled: bool,
     inline_comment_transport_enabled: bool,
@@ -778,7 +774,7 @@ def _log_inline_comment_rollout(
             "review inline comment rollout summary",
             extra={
                 "run_id": run_id,
-                "mr_iid": mr_iid,
+                "change_request_number": change_request_number,
                 "head_sha": head_sha,
                 "inline_comments_enabled": inline_comments_enabled,
                 "inline_comment_transport_enabled": inline_comment_transport_enabled,
@@ -798,7 +794,7 @@ def _log_inline_comment_rollout(
             "review inline comment decision",
             extra={
                 "run_id": run_id,
-                "mr_iid": mr_iid,
+                "change_request_number": change_request_number,
                 "head_sha": head_sha,
                 "finding_identity": decision.finding_identity,
                 "severity": decision.severity,
@@ -822,7 +818,7 @@ def _log_inline_comment_rollout(
         "review inline comment rollout summary",
         extra={
             "run_id": run_id,
-            "mr_iid": mr_iid,
+            "change_request_number": change_request_number,
             "head_sha": head_sha,
             "inline_comments_enabled": inline_comments_enabled,
             "inline_comment_transport_enabled": inline_comment_transport_enabled,

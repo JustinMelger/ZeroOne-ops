@@ -212,8 +212,8 @@ def load_gitlab_connection_config() -> GitLabConnectionConfig:
     )
 
 
-def load_current_merge_request_iid() -> int | None:
-    """Load the current GitLab merge request IID from CI context when present."""
+def load_current_change_request_number() -> int | None:
+    """Load the current change-request number from CI context when present."""
     _load_environment_file()
     raw_value = os.environ.get("CI_MERGE_REQUEST_IID")
     if raw_value is None or raw_value == "":

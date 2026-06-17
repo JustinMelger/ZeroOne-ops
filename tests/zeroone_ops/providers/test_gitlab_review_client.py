@@ -47,7 +47,7 @@ def test_list_open_merge_requests_normalizes_response() -> None:
     merge_requests = client.list_open_merge_requests(project_id="123")
 
     assert len(merge_requests) == 1
-    assert merge_requests[0].iid == 17
+    assert merge_requests[0].change_request_number == 17
     assert merge_requests[0].head_sha == "abc123"
     assert merge_requests[0].author_username == "justin"
     assert merge_requests[0].changes == []
@@ -97,7 +97,7 @@ def test_get_merge_request_normalizes_changes_response() -> None:
 
     merge_request = client.get_merge_request(project_id="123", merge_request_iid=17)
 
-    assert merge_request.iid == 17
+    assert merge_request.change_request_number == 17
     assert merge_request.diff_refs is not None
     assert merge_request.diff_refs.base_sha == "base123"
     assert len(merge_request.changes) == 1

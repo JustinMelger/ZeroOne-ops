@@ -219,10 +219,10 @@ class PriorReviewInlineCommentState(BaseModel):
     anchor_line_end: int | None = None
 
 
-class MergeRequestReviewState(BaseModel):
-    """Represent the latest known review state for one MR revision."""
+class ChangeRequestReviewState(BaseModel):
+    """Represent the latest known review state for one change-request revision."""
 
-    mr_iid: int
+    change_request_number: int
     head_sha: str
     status: Literal["no_findings", "findings_present", "manual_review_only"]
     last_run_id: str
@@ -297,4 +297,4 @@ class AppState(BaseModel):
     issues: dict[str, IssueState] = Field(default_factory=dict)
     dashboard_items: dict[str, DashboardItemState] = Field(default_factory=dict)
     remediation_exclusions: list[RemediationExclusionState] = Field(default_factory=list)
-    reviews: dict[str, MergeRequestReviewState] = Field(default_factory=dict)
+    reviews: dict[str, ChangeRequestReviewState] = Field(default_factory=dict)

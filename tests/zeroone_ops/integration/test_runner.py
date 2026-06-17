@@ -31,8 +31,8 @@ from zeroone_ops.models.review import (
 )
 from zeroone_ops.models.state import (
     AppState,
+    ChangeRequestReviewState,
     FailureStage,
-    MergeRequestReviewState,
     RepositoryState,
 )
 from zeroone_ops.providers.gitlab_client import GitLabClientError
@@ -3469,7 +3469,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
     )
 
     merge_request = ChangeRequestReviewCandidate(
-        iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -3479,7 +3479,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
         changes=[],
     )
     review_context = ChangeRequestReviewContext(
-        mr_iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -3500,13 +3500,13 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
+        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state: type(
             "Result",
             (),
             {
-                "selected_merge_request": merge_request,
-                "merge_request_count": 1,
+                "selected_change_request": merge_request,
+                "change_request_count": 1,
                 "message": "",
             },
         )(),
@@ -3539,7 +3539,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
     summary = review(dry_run=True)
 
     assert summary.status.value == "reviewed"
-    assert "Reviewed merge request !17 at abc123." in summary.message
+    assert "Reviewed change request !17 at abc123." in summary.message
     assert "Dry-run skipped note publication." in summary.message
 
 
@@ -3571,7 +3571,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     )
 
     merge_request = ChangeRequestReviewCandidate(
-        iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -3581,7 +3581,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         changes=[],
     )
     review_context = ChangeRequestReviewContext(
-        mr_iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -3602,13 +3602,13 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
+        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state: type(
             "Result",
             (),
             {
-                "selected_merge_request": merge_request,
-                "merge_request_count": 1,
+                "selected_change_request": merge_request,
+                "change_request_count": 1,
                 "message": "",
             },
         )(),
@@ -3708,7 +3708,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
-    assert "Reviewed merge request !17 at abc123." in summary.message
+    assert "Reviewed change request !17 at abc123." in summary.message
     assert (
         "Review note: https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
         in summary.message
@@ -3761,7 +3761,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     )
 
     merge_request = ChangeRequestReviewCandidate(
-        iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -3771,7 +3771,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         changes=[],
     )
     review_context = ChangeRequestReviewContext(
-        mr_iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -3792,13 +3792,13 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
+        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state: type(
             "Result",
             (),
             {
-                "selected_merge_request": merge_request,
-                "merge_request_count": 1,
+                "selected_change_request": merge_request,
+                "change_request_count": 1,
                 "message": "",
             },
         )(),
@@ -3924,7 +3924,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
     )
 
     merge_request = ChangeRequestReviewCandidate(
-        iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -3934,7 +3934,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
         changes=[],
     )
     review_context = ChangeRequestReviewContext(
-        mr_iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -3955,13 +3955,13 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
+        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state: type(
             "Result",
             (),
             {
-                "selected_merge_request": merge_request,
-                "merge_request_count": 1,
+                "selected_change_request": merge_request,
+                "change_request_count": 1,
                 "message": "",
             },
         )(),
@@ -4096,7 +4096,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     )
 
     merge_request = ChangeRequestReviewCandidate(
-        iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -4106,7 +4106,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         changes=[],
     )
     review_context = ChangeRequestReviewContext(
-        mr_iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -4127,13 +4127,13 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
+        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state: type(
             "Result",
             (),
             {
-                "selected_merge_request": merge_request,
-                "merge_request_count": 1,
+                "selected_change_request": merge_request,
+                "change_request_count": 1,
                 "message": "",
             },
         )(),
@@ -4156,8 +4156,8 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         },
     )()
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_gitlab_prior_context_service.ReviewGitLabPriorContextService.select_latest_prior_review_note",
-        lambda self, project_id, merge_request_iid, current_head_sha: type(
+        "zeroone_ops.services.review.review_gitlab_prior_context_service.GitLabChangeRequestPriorContextLoader.select_latest_prior_review_note",
+        lambda self, project_id, change_request_number, current_head_sha: type(
             "SelectionResult",
             (),
             {
@@ -4173,8 +4173,8 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_gitlab_prior_note_parser.ReviewGitLabPriorNoteParser.parse_note",
-        lambda self, note, expected_merge_request_iid: type(
+        "zeroone_ops.services.review.review_gitlab_prior_note_parser.GitLabChangeRequestPriorNoteParser.parse_note",
+        lambda self, note, expected_change_request_number: type(
             "ParseResult",
             (),
             {
@@ -4302,7 +4302,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
 
     assert summary.status.value == "reviewed"
     assert observed["artifact"].follow_up_lines == []
-    assert "Reviewed merge request !17 at def456." in summary.message
+    assert "Reviewed change request !17 at def456." in summary.message
 
 
 def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
@@ -4333,7 +4333,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     )
 
     merge_request = ChangeRequestReviewCandidate(
-        iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -4343,7 +4343,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         changes=[],
     )
     review_context = ChangeRequestReviewContext(
-        mr_iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -4364,13 +4364,13 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
+        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state: type(
             "Result",
             (),
             {
-                "selected_merge_request": merge_request,
-                "merge_request_count": 1,
+                "selected_change_request": merge_request,
+                "change_request_count": 1,
                 "message": "",
             },
         )(),
@@ -4447,7 +4447,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
-    assert "Reviewed merge request !17 at abc123." in summary.message
+    assert "Reviewed change request !17 at abc123." in summary.message
     assert observed["artifact"].classification == "no_findings"
     assert observed["artifact"].summary == "No actionable findings in this review pass."
     assert observed["artifact"].follow_up_lines == []
@@ -4483,8 +4483,8 @@ def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeyp
         sonarqube_project_key=None,
     )
     state = AppState(repository=RepositoryState(base_branch="main"))
-    state.reviews["17:abc123"] = MergeRequestReviewState(
-        mr_iid=17,
+    state.reviews["17:abc123"] = ChangeRequestReviewState(
+        change_request_number=17,
         head_sha="abc123",
         status="no_findings",
         last_run_id="run-1",
@@ -4494,7 +4494,7 @@ def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeyp
     monkeypatch.setattr(
         "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
         lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
-            iid=17,
+            change_request_number=17,
             title="feat: review flow",
             description="summary",
             source_branch="feature/review",
@@ -4540,7 +4540,7 @@ def test_review_skips_unchanged_sha_revision_via_gitlab_note_fallback(
     monkeypatch.setattr(
         "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
         lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
-            iid=17,
+            change_request_number=17,
             title="feat: review flow",
             description="summary",
             source_branch="feature/review",
@@ -4566,7 +4566,7 @@ def test_review_skips_unchanged_sha_revision_via_gitlab_note_fallback(
                     "Hi,\n\nHere are your review notes.\n\n"
                     "<!-- ai-sonar-bot:review-note:v1\n"
                     '{"classification":"findings_present","findings":[],"findings_count":0,'
-                    '"reviewed_head_sha":"abc123","reviewed_merge_request_iid":17,'
+                    '"reviewed_head_sha":"abc123","reviewed_change_request_number":17,'
                     '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
                     "-->"
                 ),
@@ -4612,8 +4612,8 @@ def test_review_skips_unchanged_sha_when_local_state_is_manual_review_only(
         sonarqube_project_key=None,
     )
     state = AppState(repository=RepositoryState(base_branch="main"))
-    state.reviews["17:abc123"] = MergeRequestReviewState(
-        mr_iid=17,
+    state.reviews["17:abc123"] = ChangeRequestReviewState(
+        change_request_number=17,
         head_sha="abc123",
         status="manual_review_only",
         last_run_id="run-1",
@@ -4623,7 +4623,7 @@ def test_review_skips_unchanged_sha_when_local_state_is_manual_review_only(
     monkeypatch.setattr(
         "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
         lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
-            iid=17,
+            change_request_number=17,
             title="feat: review flow",
             description="summary",
             source_branch="feature/review",
@@ -4669,7 +4669,7 @@ def test_review_skips_unchanged_sha_when_gitlab_note_is_manual_review_only(
     monkeypatch.setattr(
         "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
         lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
-            iid=17,
+            change_request_number=17,
             title="feat: review flow",
             description="summary",
             source_branch="feature/review",
@@ -4695,7 +4695,7 @@ def test_review_skips_unchanged_sha_when_gitlab_note_is_manual_review_only(
                     "Hi,\n\nHere are your review notes.\n\n"
                     "<!-- ai-sonar-bot:review-note:v1\n"
                     '{"classification":"manual_review_only","findings":[],"findings_count":0,'
-                    '"reviewed_head_sha":"abc123","reviewed_merge_request_iid":17,'
+                    '"reviewed_head_sha":"abc123","reviewed_change_request_number":17,'
                     '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
                     "-->"
                 ),
@@ -4736,7 +4736,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
     )
 
     merge_request = ChangeRequestReviewCandidate(
-        iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -4746,7 +4746,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
         changes=[],
     )
     review_context = ChangeRequestReviewContext(
-        mr_iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -4767,13 +4767,13 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.mr_intake.MergeRequestIntakeService.select_merge_request",
+        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state: type(
             "Result",
             (),
             {
-                "selected_merge_request": merge_request,
-                "merge_request_count": 1,
+                "selected_change_request": merge_request,
+                "change_request_count": 1,
                 "message": "",
             },
         )(),
@@ -4794,7 +4794,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
                     "Hi,\n\nHere are your review notes.\n\n"
                     "<!-- ai-sonar-bot:review-note:v1\n"
                     '{"classification":"findings_present","findings":[],"findings_count":0,'
-                    '"reviewed_head_sha":"abc123","reviewed_merge_request_iid":17,'
+                    '"reviewed_head_sha":"abc123","reviewed_change_request_number":17,'
                     '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
                     "-->"
                 ),

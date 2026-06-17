@@ -27,7 +27,7 @@ def _prior_finding(title: str) -> PriorReviewFinding:
 def test_reconcile_overlap_packet_marks_new_finding_without_candidates() -> None:
     result = OverlapReconciliationService().reconcile(
         packet=OverlapPacket(
-            merge_request_iid=122,
+            change_request_number=122,
             current_head_sha="current",
             prior_head_sha="prior",
             current_findings=[_current_finding("Current issue")],
@@ -50,7 +50,7 @@ def test_reconcile_overlap_packet_marks_new_finding_without_candidates() -> None
 def test_reconcile_overlap_packet_marks_single_candidate_as_still_unresolved() -> None:
     result = OverlapReconciliationService().reconcile(
         packet=OverlapPacket(
-            merge_request_iid=122,
+            change_request_number=122,
             current_head_sha="current",
             prior_head_sha="prior",
             current_findings=[_current_finding("Current issue")],
@@ -78,7 +78,7 @@ def test_reconcile_overlap_packet_marks_single_candidate_as_still_unresolved() -
 def test_reconcile_overlap_packet_marks_missing_prior_as_no_longer_present() -> None:
     result = OverlapReconciliationService().reconcile(
         packet=OverlapPacket(
-            merge_request_iid=122,
+            change_request_number=122,
             current_head_sha="current",
             prior_head_sha="prior",
             current_findings=[],
@@ -100,7 +100,7 @@ def test_reconcile_overlap_packet_marks_missing_prior_as_no_longer_present() -> 
 def test_reconcile_overlap_packet_marks_multiple_candidates_as_ambiguous() -> None:
     result = OverlapReconciliationService().reconcile(
         packet=OverlapPacket(
-            merge_request_iid=122,
+            change_request_number=122,
             current_head_sha="current",
             prior_head_sha="prior",
             current_findings=[_current_finding("Current issue")],
@@ -133,7 +133,7 @@ def test_reconcile_overlap_packet_marks_multiple_candidates_as_ambiguous() -> No
 def test_reconcile_overlap_packet_deduplicates_repeated_single_prior_candidate() -> None:
     result = OverlapReconciliationService().reconcile(
         packet=OverlapPacket(
-            merge_request_iid=122,
+            change_request_number=122,
             current_head_sha="current",
             prior_head_sha="prior",
             current_findings=[_current_finding("Current issue")],

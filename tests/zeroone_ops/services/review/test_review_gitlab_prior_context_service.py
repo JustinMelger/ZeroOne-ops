@@ -1,6 +1,6 @@
 from zeroone_ops.models.gitlab import MergeRequestNote
 from zeroone_ops.services.review.review_gitlab_prior_context_service import (
-    ReviewGitLabPriorContextService,
+    GitLabChangeRequestPriorContextLoader,
 )
 
 
@@ -40,7 +40,7 @@ def build_note(
         "{"
         f'"classification":"findings_present","findings":[],"findings_count":0,'
         f'"reviewed_head_sha":"{reviewed_head_sha}",'
-        '"reviewed_merge_request_iid":17,'
+        '"reviewed_change_request_number":17,'
         '"schema":"ai-sonar-bot/review-note/v1",'
         '"summary":"summary"'
         "}\n-->"
@@ -55,7 +55,7 @@ def build_note(
 
 
 def test_select_latest_prior_review_note_chooses_latest_earlier_note() -> None:
-    service = ReviewGitLabPriorContextService(
+    service = GitLabChangeRequestPriorContextLoader(
         FakeGitLabReviewClient(
             [
                 build_note(
@@ -74,7 +74,7 @@ def test_select_latest_prior_review_note_chooses_latest_earlier_note() -> None:
 
     result = service.select_latest_prior_review_note(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         current_head_sha="ghi789",
     )
 
@@ -90,7 +90,7 @@ def test_select_latest_prior_review_note_chooses_latest_earlier_note() -> None:
 
 
 def test_select_latest_prior_review_note_skips_current_head_sha() -> None:
-    service = ReviewGitLabPriorContextService(
+    service = GitLabChangeRequestPriorContextLoader(
         FakeGitLabReviewClient(
             [
                 build_note(
@@ -109,7 +109,7 @@ def test_select_latest_prior_review_note_skips_current_head_sha() -> None:
 
     result = service.select_latest_prior_review_note(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         current_head_sha="ghi789",
     )
 
@@ -119,7 +119,7 @@ def test_select_latest_prior_review_note_skips_current_head_sha() -> None:
 
 
 def test_select_latest_prior_review_note_ignores_notes_from_other_authors() -> None:
-    service = ReviewGitLabPriorContextService(
+    service = GitLabChangeRequestPriorContextLoader(
         FakeGitLabReviewClient(
             [
                 build_note(
@@ -139,7 +139,7 @@ def test_select_latest_prior_review_note_ignores_notes_from_other_authors() -> N
 
     result = service.select_latest_prior_review_note(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         current_head_sha="ghi789",
     )
 
@@ -150,7 +150,7 @@ def test_select_latest_prior_review_note_ignores_notes_from_other_authors() -> N
 
 
 def test_select_latest_prior_review_note_ignores_malformed_machine_safe_notes() -> None:
-    service = ReviewGitLabPriorContextService(
+    service = GitLabChangeRequestPriorContextLoader(
         FakeGitLabReviewClient(
             [
                 MergeRequestNote(
@@ -170,7 +170,7 @@ def test_select_latest_prior_review_note_ignores_malformed_machine_safe_notes() 
 
     result = service.select_latest_prior_review_note(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         current_head_sha="ghi789",
     )
 
@@ -181,7 +181,7 @@ def test_select_latest_prior_review_note_ignores_malformed_machine_safe_notes() 
 
 
 def test_select_latest_prior_review_note_returns_none_without_earlier_note() -> None:
-    service = ReviewGitLabPriorContextService(
+    service = GitLabChangeRequestPriorContextLoader(
         FakeGitLabReviewClient(
             [
                 MergeRequestNote(
@@ -201,7 +201,7 @@ def test_select_latest_prior_review_note_returns_none_without_earlier_note() -> 
 
     result = service.select_latest_prior_review_note(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         current_head_sha="ghi789",
     )
 
@@ -213,12 +213,12 @@ def test_select_latest_prior_review_note_returns_none_without_earlier_note() -> 
     assert result.current_sha_skipped_count == 1
     assert result.reason_code == "only_current_sha_notes"
     assert result.message == (
-        "No earlier machine-safe bot prior review note found on this merge request."
+        "No earlier machine-safe bot prior review note found on this change request."
     )
 
 
 def test_select_latest_prior_review_note_allows_machine_safe_note_without_author_filter() -> None:
-    service = ReviewGitLabPriorContextService(
+    service = GitLabChangeRequestPriorContextLoader(
         FakeGitLabReviewClient(
             [
                 build_note(
@@ -234,7 +234,7 @@ def test_select_latest_prior_review_note_allows_machine_safe_note_without_author
 
     result = service.select_latest_prior_review_note(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         current_head_sha="ghi789",
     )
 
@@ -244,7 +244,7 @@ def test_select_latest_prior_review_note_allows_machine_safe_note_without_author
 
 
 def test_select_latest_prior_review_note_reports_no_author_match_reason() -> None:
-    service = ReviewGitLabPriorContextService(
+    service = GitLabChangeRequestPriorContextLoader(
         FakeGitLabReviewClient(
             [
                 build_note(
@@ -259,7 +259,7 @@ def test_select_latest_prior_review_note_reports_no_author_match_reason() -> Non
 
     result = service.select_latest_prior_review_note(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         current_head_sha="ghi789",
     )
 
@@ -273,7 +273,7 @@ def test_select_latest_prior_review_note_reports_no_author_match_reason() -> Non
 
 
 def test_select_latest_prior_review_note_reports_no_machine_safe_reason() -> None:
-    service = ReviewGitLabPriorContextService(
+    service = GitLabChangeRequestPriorContextLoader(
         FakeGitLabReviewClient(
             [
                 MergeRequestNote(
@@ -288,7 +288,7 @@ def test_select_latest_prior_review_note_reports_no_machine_safe_reason() -> Non
 
     result = service.select_latest_prior_review_note(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         current_head_sha="ghi789",
     )
 

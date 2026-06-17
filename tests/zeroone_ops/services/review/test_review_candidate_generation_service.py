@@ -34,7 +34,7 @@ def build_config() -> AppConfig:
 
 def build_context() -> ChangeRequestReviewContext:
     return ChangeRequestReviewContext(
-        mr_iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -148,4 +148,4 @@ def test_analyze_reports_structured_review_failure(monkeypatch) -> None:
 
     assert result.candidate_result is None
     assert result.raw_review_result is None
-    assert result.message == "Structured merge request review failed: bad output"
+    assert result.message == "Structured change-request review failed: bad output"

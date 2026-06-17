@@ -62,7 +62,7 @@ class ReviewFinalizationService:
                 "review dry-run skipped publication",
                 extra={
                     "run_id": run_id,
-                    "mr_iid": context.mr_iid,
+                    "change_request_number": context.change_request_number,
                     "head_sha": context.head_sha,
                 },
             )
@@ -102,7 +102,7 @@ class ReviewFinalizationService:
                 "review note published",
                 extra={
                     "run_id": run_id,
-                    "mr_iid": context.mr_iid,
+                    "change_request_number": context.change_request_number,
                     "head_sha": context.head_sha,
                     "note_id": publish_result.note.id,
                     "note_url": publish_result.note.web_url,
@@ -113,7 +113,7 @@ class ReviewFinalizationService:
                     "review inline comment transport warning",
                     extra={
                         "run_id": run_id,
-                        "mr_iid": context.mr_iid,
+                        "change_request_number": context.change_request_number,
                         "head_sha": context.head_sha,
                         "warning": publish_warning,
                     },
@@ -130,7 +130,7 @@ class ReviewFinalizationService:
                 "review dashboard mirrored",
                 extra={
                     "run_id": run_id,
-                    "mr_iid": context.mr_iid,
+                    "change_request_number": context.change_request_number,
                     "head_sha": context.head_sha,
                     "dashboard_issue_url": dashboard_update.dashboard_issue_url,
                 },
@@ -140,7 +140,7 @@ class ReviewFinalizationService:
                 "review dashboard mirror warning",
                 extra={
                     "run_id": run_id,
-                    "mr_iid": context.mr_iid,
+                    "change_request_number": context.change_request_number,
                     "head_sha": context.head_sha,
                 },
             )

@@ -16,7 +16,7 @@ from zeroone_ops.models.review import (
     ReviewFileContext,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
-from zeroone_ops.providers.pull_request_review_platform import ReviewPlatformClientError
+from zeroone_ops.providers.review_platform import ReviewPlatformClientError
 from zeroone_ops.services.review.review_publisher import ReviewPublisher
 
 
@@ -30,7 +30,7 @@ def extract_machine_safe_payload(body: str) -> dict[str, object]:
 
 def build_context() -> ChangeRequestReviewContext:
     return ChangeRequestReviewContext(
-        mr_iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -60,7 +60,7 @@ def build_context() -> ChangeRequestReviewContext:
 
 def build_multiline_context() -> ChangeRequestReviewContext:
     return ChangeRequestReviewContext(
-        mr_iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -97,7 +97,7 @@ def build_follow_up_context() -> ChangeRequestReviewContext:
         update={
             "head_sha": "def456",
             "prior_review_context": PriorReviewContext(
-                merge_request_iid=17,
+                change_request_number=17,
                 passes=[
                     PriorReviewPass(
                         reviewed_head_sha="abc123",
@@ -123,7 +123,7 @@ def build_ambiguous_follow_up_context() -> ChangeRequestReviewContext:
         update={
             "head_sha": "def456",
             "prior_review_context": PriorReviewContext(
-                merge_request_iid=17,
+                change_request_number=17,
                 passes=[
                     PriorReviewPass(
                         reviewed_head_sha="abc123",
@@ -148,7 +148,7 @@ def build_mixed_ambiguity_follow_up_context() -> ChangeRequestReviewContext:
         update={
             "head_sha": "def456",
             "prior_review_context": PriorReviewContext(
-                merge_request_iid=17,
+                change_request_number=17,
                 passes=[
                     PriorReviewPass(
                         reviewed_head_sha="abc123",
@@ -178,7 +178,7 @@ def build_variant_title_follow_up_context() -> ChangeRequestReviewContext:
         update={
             "head_sha": "ghi789",
             "prior_review_context": PriorReviewContext(
-                merge_request_iid=17,
+                change_request_number=17,
                 passes=[
                     PriorReviewPass(
                         reviewed_head_sha="def456",
@@ -419,14 +419,13 @@ def test_render_artifact_formats_findings_present() -> None:
     assert (
         "Evidence: The diff changes `value = 1` to `value = 2` without any test updates."
     ) in body
-    assert "- Reviewed pull request: `#17`" in body
+    assert "- Reviewed change request: `#17`" in body
     assert "- Reviewed commit SHA: `abc123`" in body
     assert "- Files reviewed: 1" in body
 
     payload = extract_machine_safe_payload(body)
     assert payload["schema"] == "ai-sonar-bot/review-note/v1"
     assert payload["reviewed_change_request_number"] == 17
-    assert payload["reviewed_merge_request_iid"] == 17
     assert payload["reviewed_head_sha"] == "abc123"
     assert payload["classification"] == "findings_present"
     assert payload["findings_count"] == 1
@@ -482,7 +481,7 @@ def test_render_artifact_formats_no_findings() -> None:
     assert "No actionable findings in this review pass." in body
     assert body.startswith("Hi,\n\nHere are your review notes.")
     assert "Review confidence: 0.91" in body
-    assert "- Reviewed pull request: `#17`" in body
+    assert "- Reviewed change request: `#17`" in body
     assert "- Files reviewed: 1" in body
     assert "Notes:" not in body
 
@@ -498,7 +497,7 @@ def test_publish_artifact_sends_rendered_note_body() -> None:
 
     result = publisher.publish_artifact(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         context=build_context(),
         artifact=build_artifact(),
     )
@@ -518,7 +517,7 @@ def test_publish_artifact_creates_inline_comment_after_summary_note_when_request
 
     result = publisher.publish_artifact(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         context=build_context(),
         artifact=artifact,
         inline_comment_decisions=[
@@ -558,7 +557,7 @@ def test_publish_artifact_surfaces_inline_comment_publish_warning() -> None:
 
     result = publisher.publish_artifact(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         context=build_context(),
         artifact=artifact,
         inline_comment_decisions=[
@@ -592,7 +591,7 @@ def test_publish_artifact_surfaces_authoritative_note_update_warning() -> None:
 
     result = publisher.publish_artifact(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         context=build_context(),
         artifact=artifact,
         inline_comment_decisions=[
@@ -647,7 +646,7 @@ def test_publish_artifact_prefers_latest_changed_line_within_finding_range() -> 
 
     publisher.publish_artifact(
         project_id="123",
-        merge_request_iid=17,
+        change_request_number=17,
         context=build_multiline_context(),
         artifact=artifact,
         inline_comment_decisions=[

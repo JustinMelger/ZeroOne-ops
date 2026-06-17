@@ -105,7 +105,7 @@ def _artifact_confidence_reason(
     return (
         "The reviewed changes appear internally consistent, and I did not see "
         "concrete evidence in the visible code of a remaining supported-path "
-        "regression or deterministic failure introduced by this merge request."
+        "regression or deterministic failure introduced by this change request."
     )
 
 

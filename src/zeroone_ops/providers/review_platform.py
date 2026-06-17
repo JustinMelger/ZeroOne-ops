@@ -86,9 +86,3 @@ class ChangeRequestReviewPlatformProtocol(
     Protocol,
 ):
     """Aggregate review protocol for the current Phase 1 runner boundary."""
-
-
-PullRequestReviewFetchClientProtocol = ChangeRequestReviewFetchClientProtocol
-PullRequestReviewNotesClientProtocol = ChangeRequestReviewCommentsClientProtocol
-PullRequestReviewPublishClientProtocol = ChangeRequestReviewPublishClientProtocol
-PullRequestReviewPlatformProtocol = ChangeRequestReviewPlatformProtocol
