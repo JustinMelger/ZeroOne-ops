@@ -6,8 +6,10 @@ import json
 from dataclasses import dataclass
 from typing import Literal
 
-from zeroone_ops.models.gitlab import MergeRequestNote
-from zeroone_ops.providers.gitlab_review_client import GitLabReviewClientProtocol
+from zeroone_ops.models.review import PullRequestReviewNote
+from zeroone_ops.providers.pull_request_review_platform import (
+    PullRequestReviewNotesClientProtocol,
+)
 
 _MACHINE_SAFE_REVIEW_NOTE_PREFIX = "<!-- ai-sonar-bot:review-note:v1\n"
 _MACHINE_SAFE_REVIEW_NOTE_SUFFIX = "\n-->"
@@ -19,7 +21,7 @@ _DEFAULT_BOT_AUTHOR_USERNAME = "ai-sonar-bot"
 class PriorReviewNoteSelectionResult:
     """Capture bounded MR note selection for prior review reconstruction."""
 
-    selected_note: MergeRequestNote | None
+    selected_note: PullRequestReviewNote | None
     considered_note_count: int
     author_matched_note_count: int
     machine_safe_note_count: int
@@ -36,12 +38,12 @@ class PriorReviewNoteSelectionResult:
     message: str
 
 
-class ReviewGitLabPriorContextService:
+class GitLabPullRequestPriorContextLoader:
     """Fetch and select the latest earlier machine-safe review note on one MR."""
 
     def __init__(
         self,
-        review_client: GitLabReviewClientProtocol,
+        review_client: PullRequestReviewNotesClientProtocol,
         *,
         bot_author_username: str | None = _DEFAULT_BOT_AUTHOR_USERNAME,
     ) -> None:
@@ -53,13 +55,19 @@ class ReviewGitLabPriorContextService:
         self,
         *,
         project_id: str,
-        merge_request_iid: int,
+        pull_request_number: int | None = None,
+        merge_request_iid: int | None = None,
         current_head_sha: str,
     ) -> PriorReviewNoteSelectionResult:
         """Return the latest earlier machine-safe bot review note for one MR."""
-        notes = self.review_client.list_merge_request_notes(
+        resolved_pull_request_number = (
+            pull_request_number if pull_request_number is not None else merge_request_iid
+        )
+        if resolved_pull_request_number is None:
+            raise ValueError("A pull request number is required for prior-note lookup.")
+        notes = self.review_client.list_pull_request_notes(
             project_id=project_id,
-            merge_request_iid=merge_request_iid,
+            pull_request_number=resolved_pull_request_number,
         )
         author_matched_notes = [note for note in notes if self._matches_bot_author(note)]
         machine_safe_notes = [
@@ -68,9 +76,9 @@ class ReviewGitLabPriorContextService:
             if note.body and _has_machine_safe_review_note_block(note.body)
         ]
 
-        parseable_notes: list[tuple[MergeRequestNote, dict[str, object]]] = []
+        parseable_notes: list[tuple[PullRequestReviewNote, dict[str, object]]] = []
         current_sha_skipped_count = 0
-        candidate_notes: list[MergeRequestNote] = []
+        candidate_notes: list[PullRequestReviewNote] = []
         for note in machine_safe_notes:
             payload = extract_machine_safe_review_note_payload(note.body)
             if payload is None:
@@ -123,11 +131,14 @@ class ReviewGitLabPriorContextService:
             message="Selected latest earlier machine-safe bot review note.",
         )
 
-    def _matches_bot_author(self, note: MergeRequestNote) -> bool:
+    def _matches_bot_author(self, note: PullRequestReviewNote) -> bool:
         """Return whether one note matches the configured bot author when set."""
         if self.bot_author_username is None:
             return True
         return note.author_username == self.bot_author_username
+
+
+ReviewGitLabPriorContextService = GitLabPullRequestPriorContextLoader
 
 
 def _has_machine_safe_review_note_block(body: str) -> bool:

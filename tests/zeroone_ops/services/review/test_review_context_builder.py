@@ -10,8 +10,8 @@ from zeroone_ops.models.config import (
     ReviewConfig,
 )
 from zeroone_ops.models.review import (
-    MergeRequestChangedFile,
-    MergeRequestReviewCandidate,
+    PullRequestChangedFile,
+    PullRequestReviewCandidate,
     ReviewFileContext,
     ReviewHelperContext,
 )
@@ -59,8 +59,8 @@ def build_config(
     )
 
 
-def build_merge_request(*, changes: list[MergeRequestChangedFile]) -> MergeRequestReviewCandidate:
-    return MergeRequestReviewCandidate(
+def build_merge_request(*, changes: list[PullRequestChangedFile]) -> PullRequestReviewCandidate:
+    return PullRequestReviewCandidate(
         iid=17,
         title="feat: review flow",
         description="summary",
@@ -73,15 +73,24 @@ def build_merge_request(*, changes: list[MergeRequestChangedFile]) -> MergeReque
 
 
 class FakeGitLabReviewClient:
-    def __init__(self, detailed_merge_request: MergeRequestReviewCandidate) -> None:
+    def __init__(self, detailed_merge_request: PullRequestReviewCandidate) -> None:
         self.detailed_merge_request = detailed_merge_request
+
+    def get_pull_request(
+        self,
+        *,
+        project_id: str,
+        pull_request_number: int,
+    ) -> PullRequestReviewCandidate:
+        del project_id, pull_request_number
+        return self.detailed_merge_request
 
     def get_merge_request(
         self,
         *,
         project_id: str,
         merge_request_iid: int,
-    ) -> MergeRequestReviewCandidate:
+    ) -> PullRequestReviewCandidate:
         del project_id, merge_request_iid
         return self.detailed_merge_request
 
@@ -95,7 +104,7 @@ def test_build_returns_changed_file_context(tmp_path: Path) -> None:
     )
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -3,1 +3,1 @@\n-line3\n+line3_changed\n",
@@ -124,12 +133,12 @@ def test_build_rejects_when_changed_files_exceed_v1_limit(tmp_path: Path) -> Non
     (source_dir / "b.py").write_text("b = 2\n", encoding="utf-8")
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/a.py",
                 new_path="src/a.py",
                 diff="@@ -1,1 +1,1 @@",
             ),
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/b.py",
                 new_path="src/b.py",
                 diff="@@ -1,1 +1,1 @@",
@@ -150,7 +159,7 @@ def test_build_rejects_when_changed_files_exceed_v1_limit(tmp_path: Path) -> Non
 def test_build_rejects_missing_local_file(tmp_path: Path) -> None:
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/missing.py",
                 new_path="src/missing.py",
                 diff="@@ -1,1 +1,1 @@",
@@ -174,12 +183,12 @@ def test_build_filters_to_supported_paths(tmp_path: Path) -> None:
     (source_dir / "service.py").write_text("line1\n", encoding="utf-8")
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="docs/readme.md",
                 new_path="docs/readme.md",
                 diff="@@ -1,1 +1,1 @@",
             ),
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -1,1 +1,1 @@",
@@ -207,12 +216,12 @@ def test_build_filters_ignored_paths_even_when_supported(tmp_path: Path) -> None
     (source_dir / "service.py").write_text("line1\n", encoding="utf-8")
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/generated/service.py",
                 new_path="src/generated/service.py",
                 diff="@@ -1,1 +1,1 @@",
             ),
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -1,1 +1,1 @@",
@@ -240,7 +249,7 @@ def test_build_parses_remediation_authored_merge_request_context(tmp_path: Path)
     (source_dir / "service.py").write_text("value = 2\n", encoding="utf-8")
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -1,1 +1,1 @@\n-value = 1\n+value = 2\n",
@@ -300,7 +309,7 @@ def test_build_keeps_working_for_normal_merge_requests_without_metadata(tmp_path
     (source_dir / "service.py").write_text("value = 2\n", encoding="utf-8")
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -1,1 +1,1 @@\n-value = 1\n+value = 2\n",
@@ -325,7 +334,7 @@ def test_build_does_not_set_prior_review_context_by_default(tmp_path: Path) -> N
     (source_dir / "service.py").write_text("value = 2\n", encoding="utf-8")
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -1,1 +1,1 @@\n-value = 1\n+value = 2\n",
@@ -401,7 +410,7 @@ def test_build_loads_bounded_repository_guidance(tmp_path: Path) -> None:
     )
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -1,1 +1,1 @@\n-value = 1\n+value = 2\n",
@@ -442,7 +451,7 @@ def test_build_includes_same_file_direct_helper_context_for_python_changes(tmp_p
     )
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -4,1 +4,1 @@\n-    return 0\n+    return helper()\n",
@@ -481,7 +490,7 @@ def test_build_skips_helper_context_when_disabled(tmp_path: Path) -> None:
     )
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -4,1 +4,1 @@\n-    return 0\n+    return helper()\n",
@@ -518,7 +527,7 @@ def test_build_includes_same_file_self_method_helper_context(tmp_path: Path) -> 
     )
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -5,1 +5,1 @@\n-        return 0\n+        return self.helper()\n",
@@ -559,7 +568,7 @@ def test_build_includes_same_file_class_method_helper_context(tmp_path: Path) ->
     )
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -6,1 +6,1 @@\n-    return 0\n+    return Service.helper()\n",
@@ -607,7 +616,7 @@ def test_build_includes_project_local_imported_helper_context(tmp_path: Path) ->
     )
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -3,1 +3,1 @@\n-    return 0\n+    return helper()\n",
@@ -658,7 +667,7 @@ def test_build_skips_imported_helpers_in_ignored_paths(tmp_path: Path) -> None:
     )
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -3,1 +3,1 @@\n-    return 0\n+    return helper()\n",
@@ -698,7 +707,7 @@ def test_build_limits_same_file_helper_context_by_budget(tmp_path: Path) -> None
     )
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -5,1 +5,1 @@\n-    return 0\n+    return helper()\n",
@@ -734,7 +743,7 @@ def test_build_logs_helper_following_when_enabled(tmp_path: Path, caplog) -> Non
     )
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -4,1 +4,1 @@\n-    return 0\n+    return helper()\n",
@@ -788,7 +797,7 @@ def test_build_uses_enclosing_function_context_when_function_fits(tmp_path: Path
     )
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -4,1 +4,1 @@\n-        return prepared - 1\n+        return prepared\n",
@@ -832,7 +841,7 @@ def test_build_clips_large_function_context_when_function_exceeds_budget(tmp_pat
     )
     merge_request = build_merge_request(
         changes=[
-            MergeRequestChangedFile(
+            PullRequestChangedFile(
                 old_path="src/service.py",
                 new_path="src/service.py",
                 diff="@@ -7,1 +7,1 @@\n-    if final > 8:\n+    if final > 10:\n",

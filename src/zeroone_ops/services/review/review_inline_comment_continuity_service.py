@@ -7,11 +7,11 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from zeroone_ops.models.review import (
-    MergeRequestReviewContext,
     PriorReviewFinding,
     PriorReviewPass,
     PublishableReviewArtifact,
     PublishableReviewFinding,
+    PullRequestReviewContext,
     ReviewFileContext,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
@@ -40,7 +40,7 @@ class ReviewInlineCommentContinuityService:
         self,
         *,
         enabled: bool,
-        context: MergeRequestReviewContext,
+        context: PullRequestReviewContext,
         artifact: PublishableReviewArtifact,
     ) -> InlineCommentContinuityResult:
         """Apply inline-comment continuity only when the feature flag is enabled."""
@@ -51,7 +51,7 @@ class ReviewInlineCommentContinuityService:
     def apply(
         self,
         *,
-        context: MergeRequestReviewContext,
+        context: PullRequestReviewContext,
         artifact: PublishableReviewArtifact,
     ) -> InlineCommentContinuityResult:
         """Mirror reusable prior inline-comment metadata onto current findings."""
@@ -143,7 +143,7 @@ def _decision_for_finding(
     return ("reuse", "existing_anchor_reused")
 
 
-def _latest_prior_pass(context: MergeRequestReviewContext) -> PriorReviewPass | None:
+def _latest_prior_pass(context: PullRequestReviewContext) -> PriorReviewPass | None:
     """Return the latest available prior review pass when present."""
     if context.prior_review_context is None or not context.prior_review_context.passes:
         return None
@@ -166,7 +166,7 @@ def _published_prior_findings_by_identity(
 
 def _location_trust(
     *,
-    context: MergeRequestReviewContext,
+    context: PullRequestReviewContext,
     finding: PublishableReviewFinding,
 ) -> LocationTrust:
     """Classify whether one finding anchor is trusted enough for inline reuse."""

@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, cast
 
-from zeroone_ops.models.gitlab import MergeRequestNote
 from zeroone_ops.models.review import (
     PriorReviewFinding,
     PriorReviewInlineComment,
     PriorReviewPass,
+    PullRequestReviewNote,
     ReviewFinding,
 )
 from zeroone_ops.services.review.review_gitlab_prior_context_service import (
@@ -32,13 +32,13 @@ class PriorReviewNoteParseResult:
     message: str
 
 
-class ReviewGitLabPriorNoteParser:
-    """Rebuild one prior review pass from a machine-safe GitLab MR note."""
+class GitLabPullRequestPriorNoteParser:
+    """Rebuild one prior review pass from one machine-safe provider note."""
 
     def parse_note(
         self,
         *,
-        note: MergeRequestNote,
+        note: PullRequestReviewNote,
         expected_merge_request_iid: int,
     ) -> PriorReviewNoteParseResult:
         """Parse one machine-safe review note into a bounded prior review pass."""
@@ -121,6 +121,9 @@ class ReviewGitLabPriorNoteParser:
             ),
             message="Parsed machine-safe prior review note successfully.",
         )
+
+
+ReviewGitLabPriorNoteParser = GitLabPullRequestPriorNoteParser
 
 
 def _parse_prior_review_finding(payload: object) -> PriorReviewFinding | None:

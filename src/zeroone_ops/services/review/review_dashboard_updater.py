@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from zeroone_ops.models.dashboard import DashboardItem
-from zeroone_ops.models.review import MergeRequestReviewCandidate, ReviewResult
+from zeroone_ops.models.review import PullRequestReviewCandidate, ReviewResult
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 
 LOGGER = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class ReviewDashboardUpdater:
         self,
         *,
         project_id: str,
-        merge_request: MergeRequestReviewCandidate,
+        merge_request: PullRequestReviewCandidate,
         review_result: ReviewResult,
     ) -> ReviewDashboardUpdateResult:
         """Update a linked remediation item or fall back to one review-status item."""
@@ -72,7 +72,7 @@ class ReviewDashboardUpdater:
 
 def _find_linked_remediation_item(
     items: Iterable[DashboardItem],
-    merge_request: MergeRequestReviewCandidate,
+    merge_request: PullRequestReviewCandidate,
 ) -> DashboardItem | None:
     """Return one remediation item linked to the reviewed merge request."""
     for item in items:
@@ -95,7 +95,7 @@ def _find_linked_remediation_item(
 def _build_updated_remediation_item(
     *,
     current_item: DashboardItem,
-    merge_request: MergeRequestReviewCandidate,
+    merge_request: PullRequestReviewCandidate,
     review_result: ReviewResult,
 ) -> DashboardItem:
     """Attach bounded review metadata to a linked remediation item."""
@@ -116,7 +116,7 @@ def _build_updated_remediation_item(
 
 def _build_review_status_item(
     *,
-    merge_request: MergeRequestReviewCandidate,
+    merge_request: PullRequestReviewCandidate,
     review_result: ReviewResult,
 ) -> DashboardItem:
     """Build a fallback standalone review-status dashboard item."""

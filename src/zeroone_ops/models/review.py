@@ -24,16 +24,16 @@ ArtifactValidationStatus = Literal["valid", "repaired", "rejected"]
 InlineCommentStatus = Literal["published", "shadow", "superseded"]
 
 
-class MergeRequestDiffRefs(BaseModel):
-    """Represent GitLab diff refs needed for inline comment anchoring."""
+class PullRequestDiffRefs(BaseModel):
+    """Represent provider diff refs needed for inline comment anchoring."""
 
     base_sha: str
     start_sha: str
     head_sha: str
 
 
-class MergeRequestChangedFile(BaseModel):
-    """Represent a changed file in a merge request."""
+class PullRequestChangedFile(BaseModel):
+    """Represent a changed file in a reviewed pull request."""
 
     old_path: str
     new_path: str
@@ -43,8 +43,8 @@ class MergeRequestChangedFile(BaseModel):
     renamed_file: bool = False
 
 
-class MergeRequestReviewCandidate(BaseModel):
-    """Represent a merge request candidate for automated review."""
+class PullRequestReviewCandidate(BaseModel):
+    """Represent a pull request candidate for automated review."""
 
     iid: int
     title: str
@@ -55,8 +55,18 @@ class MergeRequestReviewCandidate(BaseModel):
     head_sha: str
     draft: bool = False
     author_username: str | None = None
-    diff_refs: MergeRequestDiffRefs | None = None
-    changes: list[MergeRequestChangedFile] = Field(default_factory=list)
+    diff_refs: PullRequestDiffRefs | None = None
+    changes: list[PullRequestChangedFile] = Field(default_factory=list)
+
+
+class PullRequestReviewNote(BaseModel):
+    """Represent one provider-backed pull request review note/comment."""
+
+    id: int
+    web_url: str | None = None
+    body: str | None = None
+    author_username: str | None = None
+    created_at: str | None = None
 
 
 class ReviewFileContext(BaseModel):
@@ -151,8 +161,8 @@ class PriorReviewContext(BaseModel):
     passes: list[PriorReviewPass] = Field(default_factory=list)
 
 
-class MergeRequestReviewContext(BaseModel):
-    """Represent deterministic review context for one merge request."""
+class PullRequestReviewContext(BaseModel):
+    """Represent deterministic review context for one pull request."""
 
     mr_iid: int
     title: str
@@ -163,7 +173,7 @@ class MergeRequestReviewContext(BaseModel):
     head_sha: str
     draft: bool = False
     author_username: str | None = None
-    diff_refs: MergeRequestDiffRefs | None = None
+    diff_refs: PullRequestDiffRefs | None = None
     remediation_context: RemediationReviewContext | None = None
     prior_review_context: PriorReviewContext | None = None
     repository_guidance: list[RepositoryGuidanceContext] = Field(default_factory=list)

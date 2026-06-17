@@ -1,8 +1,8 @@
 from zeroone_ops.models.review import (
-    MergeRequestReviewContext,
     PriorReviewContext,
     PriorReviewFinding,
     PriorReviewPass,
+    PullRequestReviewContext,
     ReviewFileContext,
     ReviewFinding,
     ReviewResult,
@@ -23,8 +23,8 @@ def _build_context(
     *,
     head_sha: str,
     prior_pass: PriorReviewPass | None = None,
-) -> MergeRequestReviewContext:
-    return MergeRequestReviewContext(
+) -> PullRequestReviewContext:
+    return PullRequestReviewContext(
         mr_iid=120,
         title="test: continuity sequence",
         description="summary",

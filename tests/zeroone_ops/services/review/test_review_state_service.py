@@ -1,13 +1,13 @@
 from datetime import UTC, datetime
 
 from zeroone_ops.models.review import (
-    MergeRequestReviewCandidate,
     PrecisionAcceptedFinding,
     PrecisionReviewDecision,
     PriorReviewContext,
     PriorReviewInlineComment,
     PublishableReviewArtifact,
     PublishableReviewFinding,
+    PullRequestReviewCandidate,
 )
 from zeroone_ops.models.state import (
     AppState,
@@ -27,8 +27,8 @@ def build_state() -> AppState:
     return AppState(repository=RepositoryState(base_branch="main"))
 
 
-def build_merge_request() -> MergeRequestReviewCandidate:
-    return MergeRequestReviewCandidate(
+def build_merge_request() -> PullRequestReviewCandidate:
+    return PullRequestReviewCandidate(
         iid=17,
         title="feat: review flow",
         description="summary",

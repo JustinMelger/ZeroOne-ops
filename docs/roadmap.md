@@ -234,6 +234,8 @@ These are important, but intentionally not part of the immediate rollout phase.
 - keep GitLab review behavior unchanged while the seam is extracted
 - merge and live-validate GitLab review stability before starting GitHub
   summary-support work
+- run a short follow-up cleanup pass after live validation to remove temporary
+  compatibility aliases and remaining shallow GitLab-shaped review names
 
 - [ ] Phase 2: GitHub Review Summary Support
 

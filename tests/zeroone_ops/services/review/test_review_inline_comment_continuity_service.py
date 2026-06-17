@@ -1,11 +1,11 @@
 from zeroone_ops.models.review import (
-    MergeRequestReviewContext,
     PriorReviewContext,
     PriorReviewFinding,
     PriorReviewInlineComment,
     PriorReviewPass,
     PublishableReviewArtifact,
     PublishableReviewFinding,
+    PullRequestReviewContext,
     ReviewFileContext,
 )
 from zeroone_ops.services.review.review_inline_comment_continuity_service import (
@@ -16,8 +16,8 @@ from zeroone_ops.services.review.review_inline_comment_continuity_service import
 def build_context(
     *,
     prior_passes: list[PriorReviewPass] | None = None,
-) -> MergeRequestReviewContext:
-    return MergeRequestReviewContext(
+) -> PullRequestReviewContext:
+    return PullRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",

@@ -5,12 +5,12 @@ from __future__ import annotations
 import logging
 
 from zeroone_ops.models.review import (
-    MergeRequestReviewCandidate,
     PriorReviewContext,
     PriorReviewFinding,
     PriorReviewInlineComment,
     PriorReviewPass,
     PublishableReviewArtifact,
+    PullRequestReviewCandidate,
 )
 from zeroone_ops.models.state import (
     AppState,
@@ -96,7 +96,7 @@ class ReviewStateService:
         self,
         *,
         record: RunRecord,
-        merge_request: MergeRequestReviewCandidate,
+        merge_request: PullRequestReviewCandidate,
         artifact: PublishableReviewArtifact,
         note_id: int | None,
         note_url: str | None,
@@ -144,7 +144,7 @@ class ReviewStateService:
         self,
         *,
         record: RunRecord,
-        merge_request: MergeRequestReviewCandidate,
+        merge_request: PullRequestReviewCandidate,
         prior_classification: str | None,
     ) -> RunSummary:
         """Persist an operational same-SHA reuse outcome and return the summary."""

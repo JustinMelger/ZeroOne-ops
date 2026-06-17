@@ -12,7 +12,7 @@ from zeroone_ops.models.review import (
     CandidateReviewFinding,
     CandidateReviewResult,
     DroppedCandidate,
-    MergeRequestReviewContext,
+    PullRequestReviewContext,
     ReviewFileContext,
     ReviewResult,
 )
@@ -102,7 +102,7 @@ class ReviewCandidateGenerationService:
         self.config = config
         self._llm_client_builder = llm_client_builder
 
-    def analyze(self, context: MergeRequestReviewContext) -> ReviewCandidateStageResult:
+    def analyze(self, context: PullRequestReviewContext) -> ReviewCandidateStageResult:
         """Generate candidate findings, then ground them without deciding final truth."""
         llm_client = self._build_llm_client()
         if llm_client is None:
@@ -184,7 +184,7 @@ def _candidate_review_result_from_review_result(
 
 def _ground_candidate_findings(
     *,
-    context: MergeRequestReviewContext,
+    context: PullRequestReviewContext,
     candidate_result: CandidateReviewResult,
 ) -> tuple[list[str], list[DroppedCandidate]]:
     """Ground candidate findings without deciding final review truth."""

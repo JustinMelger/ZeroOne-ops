@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from zeroone_ops.models.review import MergeRequestReviewCandidate
+from zeroone_ops.models.review import PullRequestReviewCandidate
 from zeroone_ops.models.state import AppState, MergeRequestReviewState
 
 _AUTHORITATIVE_REVIEW_STATUSES = frozenset(
@@ -20,9 +20,9 @@ class MergeRequestSelector:
 
     def select(
         self,
-        merge_requests: list[MergeRequestReviewCandidate],
+        merge_requests: list[PullRequestReviewCandidate],
         state: AppState,
-    ) -> MergeRequestReviewCandidate | None:
+    ) -> PullRequestReviewCandidate | None:
         """Select the next merge request to review."""
         for merge_request in merge_requests:
             if self.skip_reason(merge_request, state) is not None:
@@ -32,7 +32,7 @@ class MergeRequestSelector:
 
     def skip_reason(
         self,
-        merge_request: MergeRequestReviewCandidate,
+        merge_request: PullRequestReviewCandidate,
         state: AppState,
     ) -> str | None:
         """Return why a merge request should be skipped."""

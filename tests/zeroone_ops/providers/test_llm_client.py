@@ -12,7 +12,6 @@ from zeroone_ops.models.config import OpenAIConnectionConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.review import (
     CandidateReviewFinding,
-    MergeRequestReviewContext,
     OverlapCandidate,
     OverlapPacket,
     OverlapReconciliationResult,
@@ -20,6 +19,7 @@ from zeroone_ops.models.review import (
     PriorReviewContext,
     PriorReviewFinding,
     PriorReviewPass,
+    PullRequestReviewContext,
     RemediationReviewContext,
     ReviewFileContext,
     ReviewFinding,
@@ -455,7 +455,7 @@ def test_build_structured_edit_prompt_includes_repository_guidance_when_present(
 
 
 def test_build_review_prompt_uses_prompt_template() -> None:
-    context = MergeRequestReviewContext(
+    context = PullRequestReviewContext(
         mr_iid=17,
         title="feat: add safety check",
         description="Adds validation.",
@@ -569,7 +569,7 @@ def test_build_review_prompt_uses_prompt_template() -> None:
 
 
 def test_build_candidate_review_prompt_includes_preloaded_input_context_guardrail() -> None:
-    context = MergeRequestReviewContext(
+    context = PullRequestReviewContext(
         mr_iid=370,
         title="refactor: preload vehicle menu ids",
         description="Reuse precomputed menu ids through manufacturer-order helpers.",
@@ -606,7 +606,7 @@ def test_build_candidate_review_prompt_includes_preloaded_input_context_guardrai
 
 
 def test_build_candidate_review_prompt_renders_supporting_helper_context() -> None:
-    context = MergeRequestReviewContext(
+    context = PullRequestReviewContext(
         mr_iid=18,
         title="refactor: use helper",
         description="Adds helper usage.",
@@ -646,7 +646,7 @@ def test_build_candidate_review_prompt_renders_supporting_helper_context() -> No
 
 
 def test_build_candidate_review_prompt_includes_remediation_context_when_present() -> None:
-    context = MergeRequestReviewContext(
+    context = PullRequestReviewContext(
         mr_iid=17,
         title="fix: add null guard",
         description="Bot-authored remediation merge request.",
@@ -690,7 +690,7 @@ def test_build_candidate_review_prompt_includes_remediation_context_when_present
 
 
 def test_build_candidate_review_prompt_omits_prior_review_context_even_when_present() -> None:
-    context = MergeRequestReviewContext(
+    context = PullRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -736,7 +736,7 @@ def test_build_candidate_review_prompt_omits_prior_review_context_even_when_pres
 
 
 def test_build_review_precision_prompt_uses_candidate_bounded_contract() -> None:
-    context = MergeRequestReviewContext(
+    context = PullRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -1020,7 +1020,7 @@ def test_openai_review_merge_request_uses_medium_reasoning_and_short_system_prom
     client.client = SimpleNamespace(responses=SimpleNamespace(parse=parse))
 
     client.review_merge_request(
-        MergeRequestReviewContext(
+        PullRequestReviewContext(
             mr_iid=17,
             title="feat: add safety check",
             description="Adds validation.",
@@ -1090,7 +1090,7 @@ def test_openai_review_precision_reconciliation_uses_high_reasoning() -> None:
     client.client = SimpleNamespace(responses=SimpleNamespace(parse=parse))
 
     client.review_precision_reconciliation(
-        MergeRequestReviewContext(
+        PullRequestReviewContext(
             mr_iid=17,
             title="feat: add safety check",
             description="Adds validation.",

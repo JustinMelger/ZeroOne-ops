@@ -10,9 +10,10 @@ import httpx
 from zeroone_ops.models.config import GitLabConnectionConfig
 from zeroone_ops.models.gitlab import GitLabMergeRequestState, MergeRequestNote
 from zeroone_ops.models.review import (
-    MergeRequestChangedFile,
-    MergeRequestDiffRefs,
-    MergeRequestReviewCandidate,
+    PullRequestChangedFile,
+    PullRequestDiffRefs,
+    PullRequestReviewCandidate,
+    PullRequestReviewNote,
 )
 from zeroone_ops.providers.gitlab_client import GitLabClientError, _parse_json_response
 
@@ -20,7 +21,7 @@ from zeroone_ops.providers.gitlab_client import GitLabClientError, _parse_json_r
 class GitLabReviewClientProtocol(Protocol):
     """Structural interface for review-oriented GitLab access."""
 
-    def list_open_merge_requests(self, *, project_id: str) -> list[MergeRequestReviewCandidate]:
+    def list_open_merge_requests(self, *, project_id: str) -> list[PullRequestReviewCandidate]:
         """List open merge requests for review."""
 
     def get_merge_request(
@@ -28,7 +29,7 @@ class GitLabReviewClientProtocol(Protocol):
         *,
         project_id: str,
         merge_request_iid: int,
-    ) -> MergeRequestReviewCandidate:
+    ) -> PullRequestReviewCandidate:
         """Fetch one merge request with change metadata."""
 
     def get_merge_request_state(
@@ -101,7 +102,7 @@ class GitLabReviewClient:
             timeout=30.0,
         )
 
-    def list_open_merge_requests(self, *, project_id: str) -> list[MergeRequestReviewCandidate]:
+    def list_open_merge_requests(self, *, project_id: str) -> list[PullRequestReviewCandidate]:
         """List open merge requests for review."""
         encoded_project_id = quote_plus(project_id)
         response = self._http_client.get(
@@ -118,7 +119,7 @@ class GitLabReviewClient:
         *,
         project_id: str,
         merge_request_iid: int,
-    ) -> MergeRequestReviewCandidate:
+    ) -> PullRequestReviewCandidate:
         """Fetch one merge request with change metadata."""
         encoded_project_id = quote_plus(project_id)
         response = self._http_client.get(
@@ -259,8 +260,97 @@ class GitLabReviewClient:
             raise GitLabClientError("Unexpected GitLab current user username.")
         return username
 
+    def get_pull_request(
+        self,
+        *,
+        project_id: str,
+        pull_request_number: int,
+    ) -> PullRequestReviewCandidate:
+        """Fetch one pull request with change metadata using provider-neutral naming."""
+        return self.get_merge_request(
+            project_id=project_id,
+            merge_request_iid=pull_request_number,
+        )
 
-def _normalize_review_candidate(payload: dict[str, Any]) -> MergeRequestReviewCandidate:
+    def list_pull_request_notes(
+        self,
+        *,
+        project_id: str,
+        pull_request_number: int,
+    ) -> list[PullRequestReviewNote]:
+        """List provider-backed review notes/comments using neutral naming."""
+        return [
+            _to_pull_request_review_note(note)
+            for note in self.list_merge_request_notes(
+                project_id=project_id,
+                merge_request_iid=pull_request_number,
+            )
+        ]
+
+    def create_pull_request_note(
+        self,
+        *,
+        project_id: str,
+        pull_request_number: int,
+        body: str,
+    ) -> PullRequestReviewNote:
+        """Publish one authoritative pull-request review note/comment."""
+        return _to_pull_request_review_note(
+            self.create_merge_request_note(
+                project_id=project_id,
+                merge_request_iid=pull_request_number,
+                body=body,
+            )
+        )
+
+    def update_pull_request_note(
+        self,
+        *,
+        project_id: str,
+        pull_request_number: int,
+        note_id: int,
+        body: str,
+    ) -> PullRequestReviewNote:
+        """Update one authoritative pull-request review note/comment."""
+        return _to_pull_request_review_note(
+            self.update_merge_request_note(
+                project_id=project_id,
+                merge_request_iid=pull_request_number,
+                note_id=note_id,
+                body=body,
+            )
+        )
+
+    def create_pull_request_inline_comment(
+        self,
+        *,
+        project_id: str,
+        pull_request_number: int,
+        body: str,
+        base_sha: str,
+        start_sha: str,
+        head_sha: str,
+        old_path: str,
+        new_path: str,
+        new_line: int,
+    ) -> PullRequestReviewNote:
+        """Publish one inline pull-request review comment."""
+        return _to_pull_request_review_note(
+            self.create_merge_request_inline_comment(
+                project_id=project_id,
+                merge_request_iid=pull_request_number,
+                body=body,
+                base_sha=base_sha,
+                start_sha=start_sha,
+                head_sha=head_sha,
+                old_path=old_path,
+                new_path=new_path,
+                new_line=new_line,
+            )
+        )
+
+
+def _normalize_review_candidate(payload: dict[str, Any]) -> PullRequestReviewCandidate:
     """Normalize a GitLab merge request payload for review."""
     iid = payload.get("iid")
     title = payload.get("title")
@@ -298,7 +388,7 @@ def _normalize_review_candidate(payload: dict[str, Any]) -> MergeRequestReviewCa
         raise GitLabClientError("Unexpected GitLab merge request changes structure.")
     diff_refs = _normalize_diff_refs(diff_refs_payload)
 
-    return MergeRequestReviewCandidate(
+    return PullRequestReviewCandidate(
         iid=iid,
         title=title,
         description=description,
@@ -317,7 +407,7 @@ def _normalize_review_candidate(payload: dict[str, Any]) -> MergeRequestReviewCa
     )
 
 
-def _normalize_changed_file(payload: dict[str, Any]) -> MergeRequestChangedFile:
+def _normalize_changed_file(payload: dict[str, Any]) -> PullRequestChangedFile:
     """Normalize one changed-file entry."""
     old_path = payload.get("old_path")
     new_path = payload.get("new_path")
@@ -333,7 +423,7 @@ def _normalize_changed_file(payload: dict[str, Any]) -> MergeRequestChangedFile:
     if not all(isinstance(value, bool) for value in (deleted_file, new_file, renamed_file)):
         raise GitLabClientError("Unexpected GitLab changed file flags.")
 
-    return MergeRequestChangedFile(
+    return PullRequestChangedFile(
         old_path=old_path,
         new_path=new_path,
         diff=diff,
@@ -343,7 +433,7 @@ def _normalize_changed_file(payload: dict[str, Any]) -> MergeRequestChangedFile:
     )
 
 
-def _normalize_diff_refs(payload: object) -> MergeRequestDiffRefs | None:
+def _normalize_diff_refs(payload: object) -> PullRequestDiffRefs | None:
     """Normalize optional GitLab diff refs for inline comment positioning."""
     if payload is None:
         return None
@@ -354,7 +444,7 @@ def _normalize_diff_refs(payload: object) -> MergeRequestDiffRefs | None:
     head_sha = payload.get("head_sha")
     if not all(isinstance(value, str) for value in (base_sha, start_sha, head_sha)):
         raise GitLabClientError("Unexpected GitLab merge request diff refs payload.")
-    return MergeRequestDiffRefs(
+    return PullRequestDiffRefs(
         base_sha=str(base_sha),
         start_sha=str(start_sha),
         head_sha=str(head_sha),
@@ -392,6 +482,17 @@ def _normalize_merge_request_note(payload: dict[str, Any]) -> MergeRequestNote:
         body=body,
         author_username=author_username,
         created_at=created_at,
+    )
+
+
+def _to_pull_request_review_note(note: MergeRequestNote) -> PullRequestReviewNote:
+    """Adapt a GitLab merge request note into the neutral review-note shape."""
+    return PullRequestReviewNote(
+        id=note.id,
+        web_url=note.web_url,
+        body=note.body,
+        author_username=note.author_username,
+        created_at=note.created_at,
     )
 
 

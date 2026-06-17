@@ -12,11 +12,11 @@ from zeroone_ops.models.remediation import (
 )
 from zeroone_ops.models.review import (
     CandidateReviewFinding,
-    MergeRequestReviewContext,
     OverlapCandidate,
     OverlapPacket,
     PriorReviewFinding,
     PriorReviewPass,
+    PullRequestReviewContext,
     RemediationReviewContext,
     ReviewFileContext,
     ReviewFinding,
@@ -138,7 +138,7 @@ def _format_issue_repository_guidance(context: IssueContext) -> str:
     )
 
 
-def build_candidate_review_prompt(context: MergeRequestReviewContext) -> str:
+def build_candidate_review_prompt(context: PullRequestReviewContext) -> str:
     """Build the candidate-generation review prompt for one merge request."""
     changed_files = "\n\n".join(
         _format_changed_file_context(changed_file) for changed_file in context.changed_files
@@ -161,7 +161,7 @@ def build_candidate_review_prompt(context: MergeRequestReviewContext) -> str:
 
 
 def build_review_precision_prompt(
-    context: MergeRequestReviewContext,
+    context: PullRequestReviewContext,
     *,
     candidates: list[CandidateReviewFinding],
     overlap_packet: OverlapPacket | None,
@@ -452,7 +452,7 @@ def _format_remediation_review_context(
     )
 
 
-def _format_repository_guidance(context: MergeRequestReviewContext) -> str:
+def _format_repository_guidance(context: PullRequestReviewContext) -> str:
     """Render bounded repository guidance for the review prompt."""
     if not context.repository_guidance:
         return "(none)"

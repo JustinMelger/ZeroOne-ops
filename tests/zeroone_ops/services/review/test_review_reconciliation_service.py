@@ -11,13 +11,13 @@ from zeroone_ops.models.config import (
 from zeroone_ops.models.review import (
     CandidateReviewFinding,
     CandidateReviewResult,
-    MergeRequestReviewContext,
     OverlapReconciliationResult,
     OverlapResolution,
     PrecisionAcceptedFinding,
     PrecisionReviewDecision,
     PriorReviewContext,
     PriorReviewPass,
+    PullRequestReviewContext,
     ReviewFileContext,
     ReviewFinding,
     ReviewResult,
@@ -45,7 +45,7 @@ def build_config() -> AppConfig:
     )
 
 
-def build_context(with_prior: bool = False) -> MergeRequestReviewContext:
+def build_context(with_prior: bool = False) -> PullRequestReviewContext:
     prior_review_context = None
     if with_prior:
         prior_review_context = PriorReviewContext(
@@ -60,7 +60,7 @@ def build_context(with_prior: bool = False) -> MergeRequestReviewContext:
                 )
             ],
         )
-    return MergeRequestReviewContext(
+    return PullRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -137,7 +137,7 @@ class FakePrecisionLLMClient:
 
     def review_precision_reconciliation(
         self,
-        context: MergeRequestReviewContext,
+        context: PullRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
         overlap_packet,
@@ -161,7 +161,7 @@ class FakePrecisionLLMClient:
 class FakePrecisionErrorClient:
     def review_precision_reconciliation(
         self,
-        context: MergeRequestReviewContext,
+        context: PullRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
         overlap_packet,
