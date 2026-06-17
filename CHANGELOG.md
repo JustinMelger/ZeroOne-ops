@@ -5,6 +5,13 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.43.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.42.1...zeroone-ops-v0.43.0) (2026-06-17)
+
+
+### Features
+
+* **review:** add provider-neutral change-request review core ([#201](https://github.com/JustinMelger/ZeroOne-ops/issues/201)) ([1f8435b](https://github.com/JustinMelger/ZeroOne-ops/commit/1f8435b58fa954a3528e2983e670164bbe58826a))
+
 ## [0.42.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.42.0...zeroone-ops-v0.42.1) (2026-06-16)
 
 
