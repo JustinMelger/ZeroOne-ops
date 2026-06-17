@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from zeroone_ops.models.review import PullRequestReviewCandidate
+from zeroone_ops.models.review import ChangeRequestReviewCandidate
 from zeroone_ops.models.state import AppState, MergeRequestReviewState, RepositoryState
 from zeroone_ops.services.review.mr_selector import (
     MergeRequestSelector,
@@ -8,8 +8,8 @@ from zeroone_ops.services.review.mr_selector import (
 )
 
 
-def build_merge_request(iid: int, head_sha: str) -> PullRequestReviewCandidate:
-    return PullRequestReviewCandidate(
+def build_merge_request(iid: int, head_sha: str) -> ChangeRequestReviewCandidate:
+    return ChangeRequestReviewCandidate(
         iid=iid,
         title=f"feat: review {iid}",
         description="summary",

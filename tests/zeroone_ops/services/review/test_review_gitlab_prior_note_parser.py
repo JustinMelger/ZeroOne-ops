@@ -32,6 +32,7 @@ def build_payload(
     normalized_findings = findings or []
     return {
         "schema": "ai-sonar-bot/review-note/v1",
+        "reviewed_change_request_number": 17,
         "reviewed_merge_request_iid": 17,
         "reviewed_head_sha": "abc123",
         "classification": classification,
@@ -70,7 +71,7 @@ def test_parse_note_rebuilds_findings_present_pass() -> None:
 
     result = parser.parse_note(
         note=build_note(build_payload(findings=[build_finding_payload()])),
-        expected_merge_request_iid=17,
+        expected_change_request_number=17,
     )
 
     assert result.prior_review_pass is not None
@@ -101,7 +102,7 @@ def test_parse_note_rebuilds_no_findings_pass() -> None:
 
     result = parser.parse_note(
         note=build_note(build_payload(classification="no_findings", findings=[])),
-        expected_merge_request_iid=17,
+        expected_change_request_number=17,
     )
 
     assert result.prior_review_pass is not None
@@ -115,7 +116,7 @@ def test_parse_note_rebuilds_manual_review_only_pass() -> None:
 
     result = parser.parse_note(
         note=build_note(build_payload(classification="manual_review_only", findings=[])),
-        expected_merge_request_iid=17,
+        expected_change_request_number=17,
     )
 
     assert result.prior_review_pass is not None
@@ -128,11 +129,11 @@ def test_parse_note_rejects_different_merge_request_iid() -> None:
 
     result = parser.parse_note(
         note=build_note(build_payload()),
-        expected_merge_request_iid=99,
+        expected_change_request_number=99,
     )
 
     assert result.prior_review_pass is None
-    assert result.message == "Selected note machine-safe payload targets a different merge request."
+    assert result.message == "Selected note machine-safe payload targets a different pull request."
 
 
 def test_parse_note_rejects_mismatched_findings_count() -> None:
@@ -140,7 +141,7 @@ def test_parse_note_rejects_mismatched_findings_count() -> None:
 
     result = parser.parse_note(
         note=build_note(build_payload(findings=[build_finding_payload()], findings_count=2)),
-        expected_merge_request_iid=17,
+        expected_change_request_number=17,
     )
 
     assert result.prior_review_pass is None
@@ -156,7 +157,7 @@ def test_parse_note_rejects_mismatched_supplied_identity() -> None:
 
     result = parser.parse_note(
         note=build_note(build_payload(findings=[finding])),
-        expected_merge_request_iid=17,
+        expected_change_request_number=17,
     )
 
     assert result.prior_review_pass is None

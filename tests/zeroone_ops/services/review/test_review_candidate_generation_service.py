@@ -7,7 +7,7 @@ from zeroone_ops.models.config import (
     ReviewConfig,
 )
 from zeroone_ops.models.review import (
-    PullRequestReviewContext,
+    ChangeRequestReviewContext,
     ReviewFileContext,
     ReviewFinding,
     ReviewResult,
@@ -32,8 +32,8 @@ def build_config() -> AppConfig:
     )
 
 
-def build_context() -> PullRequestReviewContext:
-    return PullRequestReviewContext(
+def build_context() -> ChangeRequestReviewContext:
+    return ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -59,13 +59,13 @@ class FakeReviewLLMClient:
     def __init__(self, review_result: ReviewResult) -> None:
         self.review_result = review_result
 
-    def review_merge_request(self, context: PullRequestReviewContext) -> ReviewResult:
+    def review_merge_request(self, context: ChangeRequestReviewContext) -> ReviewResult:
         del context
         return self.review_result
 
 
 class FakeReviewErrorClient:
-    def review_merge_request(self, context: PullRequestReviewContext) -> ReviewResult:
+    def review_merge_request(self, context: ChangeRequestReviewContext) -> ReviewResult:
         del context
         raise LLMClientError("bad output")
 

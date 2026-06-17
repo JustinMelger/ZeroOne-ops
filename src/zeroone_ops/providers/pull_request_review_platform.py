@@ -1,69 +1,73 @@
-"""Provider-neutral review transport seams for pull-request workflows."""
+"""Provider-neutral review transport seams for change-request workflows."""
 
 from __future__ import annotations
 
 from typing import Protocol
 
 from zeroone_ops.models.review import (
-    PullRequestReviewCandidate,
-    PullRequestReviewNote,
+    ChangeRequestReviewCandidate,
+    ReviewComment,
 )
 
 
-class PullRequestReviewFetchClientProtocol(Protocol):
-    """Fetch pull-request review candidates and detailed review payloads."""
+class ReviewPlatformClientError(RuntimeError):
+    """Provider-neutral error raised by review platform client seams."""
 
-    def get_pull_request(
+
+class ChangeRequestReviewFetchClientProtocol(Protocol):
+    """Fetch change-request review candidates and detailed review payloads."""
+
+    def get_change_request(
         self,
         *,
         project_id: str,
-        pull_request_number: int,
-    ) -> PullRequestReviewCandidate:
-        """Fetch one pull request with change metadata."""
+        change_request_number: int,
+    ) -> ChangeRequestReviewCandidate:
+        """Fetch one change request with change metadata."""
 
 
-class PullRequestReviewNotesClientProtocol(Protocol):
-    """Load provider-backed pull-request notes/comments for continuity."""
+class ChangeRequestReviewCommentsClientProtocol(Protocol):
+    """Load provider-backed review comments for continuity."""
 
-    def list_pull_request_notes(
+    def list_change_request_comments(
         self,
         *,
         project_id: str,
-        pull_request_number: int,
-    ) -> list[PullRequestReviewNote]:
-        """List provider-backed notes/comments for one pull request."""
+        change_request_number: int,
+    ) -> list[ReviewComment]:
+        """List provider-backed review comments for one change request."""
 
     def get_current_user_username(self) -> str:
         """Return the username associated with the active review token."""
 
 
-class PullRequestReviewPublishClientProtocol(Protocol):
-    """Publish provider-backed review output for one pull request."""
+class ChangeRequestReviewPublishClientProtocol(Protocol):
+    """Publish provider-backed review output for one change request."""
 
-    def create_pull_request_note(
+    def create_change_request_comment(
         self,
         *,
         project_id: str,
-        pull_request_number: int,
+        change_request_number: int,
         body: str,
-    ) -> PullRequestReviewNote:
-        """Publish one authoritative review note/comment."""
+    ) -> ReviewComment:
+        """Publish one authoritative review comment."""
 
-    def update_pull_request_note(
+    def update_change_request_comment(
         self,
         *,
         project_id: str,
-        pull_request_number: int,
+        change_request_number: int,
         note_id: int,
         body: str,
-    ) -> PullRequestReviewNote:
-        """Update one authoritative review note/comment."""
+    ) -> ReviewComment:
+        """Update one authoritative review comment."""
 
-    def create_pull_request_inline_comment(
+    def create_change_request_inline_comment(
         self,
         *,
         project_id: str,
-        pull_request_number: int,
+        change_request_number: int,
         body: str,
         base_sha: str,
         start_sha: str,
@@ -71,14 +75,20 @@ class PullRequestReviewPublishClientProtocol(Protocol):
         old_path: str,
         new_path: str,
         new_line: int,
-    ) -> PullRequestReviewNote:
-        """Publish one inline review comment for one pull request."""
+    ) -> ReviewComment:
+        """Publish one inline review comment for one change request."""
 
 
-class PullRequestReviewPlatformProtocol(
-    PullRequestReviewFetchClientProtocol,
-    PullRequestReviewNotesClientProtocol,
-    PullRequestReviewPublishClientProtocol,
+class ChangeRequestReviewPlatformProtocol(
+    ChangeRequestReviewFetchClientProtocol,
+    ChangeRequestReviewCommentsClientProtocol,
+    ChangeRequestReviewPublishClientProtocol,
     Protocol,
 ):
     """Aggregate review protocol for the current Phase 1 runner boundary."""
+
+
+PullRequestReviewFetchClientProtocol = ChangeRequestReviewFetchClientProtocol
+PullRequestReviewNotesClientProtocol = ChangeRequestReviewCommentsClientProtocol
+PullRequestReviewPublishClientProtocol = ChangeRequestReviewPublishClientProtocol
+PullRequestReviewPlatformProtocol = ChangeRequestReviewPlatformProtocol

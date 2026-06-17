@@ -236,6 +236,26 @@ These are important, but intentionally not part of the immediate rollout phase.
   summary-support work
 - run a short follow-up cleanup pass after live validation to remove temporary
   compatibility aliases and remaining shallow GitLab-shaped review names
+- remaining Phase 1 cleanup targets before Phase 2:
+  - remove temporary compatibility aliases in the shared review core, including
+    `PullRequest...` model aliases and legacy review-platform protocol aliases
+  - remove legacy provider-specific parameter/property fallbacks from the
+    shared review core where they are no longer needed for GitLab validation,
+    including `mr_iid`, `merge_request_iid`, and `pull_request_number`
+    compatibility shims around the new `change_request_number` contract
+  - remove legacy machine-safe payload fallback fields once GitLab live
+    validation confirms the new `reviewed_change_request_number` payload is
+    stable
+  - rename the remaining review-path modules and services that still expose
+    GitLab/MR-shaped vocabulary at the shared seam, such as `mr_intake.py`
+    and `MergeRequestSelector`
+  - tighten review-path user-facing wording and internal logging from
+    `merge request` / `pull request` to the intended domain vocabulary
+    wherever the text belongs to the shared review workflow rather than the
+    GitLab provider layer
+  - review whether `MergeRequestReviewState` and related persisted-state naming
+    should stay Phase-1 compatible for GitLab validation or move in the same
+    cleanup pass before Phase 2 starts
 
 - [ ] Phase 2: GitHub Review Summary Support
 

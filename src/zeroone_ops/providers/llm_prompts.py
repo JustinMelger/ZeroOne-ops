@@ -12,11 +12,11 @@ from zeroone_ops.models.remediation import (
 )
 from zeroone_ops.models.review import (
     CandidateReviewFinding,
+    ChangeRequestReviewContext,
     OverlapCandidate,
     OverlapPacket,
     PriorReviewFinding,
     PriorReviewPass,
-    PullRequestReviewContext,
     RemediationReviewContext,
     ReviewFileContext,
     ReviewFinding,
@@ -138,14 +138,14 @@ def _format_issue_repository_guidance(context: IssueContext) -> str:
     )
 
 
-def build_candidate_review_prompt(context: PullRequestReviewContext) -> str:
+def build_candidate_review_prompt(context: ChangeRequestReviewContext) -> str:
     """Build the candidate-generation review prompt for one merge request."""
     changed_files = "\n\n".join(
         _format_changed_file_context(changed_file) for changed_file in context.changed_files
     )
     return render_prompt_template(
         "review_candidate_merge_request.txt",
-        mr_iid=context.mr_iid,
+        change_request_number=context.change_request_number,
         title=context.title,
         description=_format_untrusted_block(
             label="Merge request description",
@@ -161,7 +161,7 @@ def build_candidate_review_prompt(context: PullRequestReviewContext) -> str:
 
 
 def build_review_precision_prompt(
-    context: PullRequestReviewContext,
+    context: ChangeRequestReviewContext,
     *,
     candidates: list[CandidateReviewFinding],
     overlap_packet: OverlapPacket | None,
@@ -181,7 +181,7 @@ def build_review_precision_prompt(
     )
     return render_prompt_template(
         "review_precision_reconciliation.txt",
-        mr_iid=context.mr_iid,
+        change_request_number=context.change_request_number,
         title=context.title,
         source_branch=context.source_branch,
         target_branch=context.target_branch,
@@ -240,7 +240,7 @@ def build_review_overlap_prompt(packet: OverlapPacket) -> str:
     )
     return render_prompt_template(
         "review_overlap_reconciliation.txt",
-        mr_iid=packet.merge_request_iid,
+        change_request_number=packet.change_request_number,
         current_head_sha=packet.current_head_sha,
         prior_head_sha=packet.prior_head_sha,
         current_findings=_format_untrusted_block(
@@ -452,7 +452,7 @@ def _format_remediation_review_context(
     )
 
 
-def _format_repository_guidance(context: PullRequestReviewContext) -> str:
+def _format_repository_guidance(context: ChangeRequestReviewContext) -> str:
     """Render bounded repository guidance for the review prompt."""
     if not context.repository_guidance:
         return "(none)"

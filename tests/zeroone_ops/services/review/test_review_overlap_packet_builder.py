@@ -1,8 +1,8 @@
 from zeroone_ops.models.review import (
+    ChangeRequestReviewContext,
     PriorReviewContext,
     PriorReviewFinding,
     PriorReviewPass,
-    PullRequestReviewContext,
     ReviewFileContext,
     ReviewFinding,
     ReviewResult,
@@ -16,8 +16,8 @@ from zeroone_ops.utils.review_finding_identity import (
 )
 
 
-def _build_context(*, prior_pass: PriorReviewPass | None = None) -> PullRequestReviewContext:
-    return PullRequestReviewContext(
+def _build_context(*, prior_pass: PriorReviewPass | None = None) -> ChangeRequestReviewContext:
+    return ChangeRequestReviewContext(
         mr_iid=122,
         title="test: overlap packet",
         description="summary",

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from zeroone_ops.models.dashboard import DashboardDocument, DashboardItem, empty_sections
-from zeroone_ops.models.review import PullRequestReviewCandidate, ReviewResult
+from zeroone_ops.models.review import ChangeRequestReviewCandidate, ReviewResult
 from zeroone_ops.services.review.review_dashboard_updater import ReviewDashboardUpdater
 
 
@@ -36,8 +36,8 @@ class FakeDashboardService:
         )
 
 
-def build_merge_request() -> PullRequestReviewCandidate:
-    return PullRequestReviewCandidate(
+def build_merge_request() -> ChangeRequestReviewCandidate:
+    return ChangeRequestReviewCandidate(
         iid=17,
         title="feat: review flow",
         description="summary",

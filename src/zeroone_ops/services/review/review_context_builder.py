@@ -9,13 +9,13 @@ from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
-    PullRequestReviewCandidate,
-    PullRequestReviewContext,
+    ChangeRequestReviewCandidate,
+    ChangeRequestReviewContext,
     RemediationReviewContext,
     ReviewFileContext,
 )
 from zeroone_ops.providers.pull_request_review_platform import (
-    PullRequestReviewFetchClientProtocol,
+    ChangeRequestReviewFetchClientProtocol,
 )
 from zeroone_ops.services.review.review_function_context import (
     select_function_aware_window,
@@ -39,7 +39,7 @@ LOGGER = logging.getLogger(__name__)
 class ReviewContextBuildResult:
     """Capture the result of building review context."""
 
-    context: PullRequestReviewContext | None
+    context: ChangeRequestReviewContext | None
     message: str
 
 
@@ -50,7 +50,7 @@ class ReviewContextBuilder:
         self,
         repo_root: Path,
         config: AppConfig,
-        review_client: PullRequestReviewFetchClientProtocol,
+        review_client: ChangeRequestReviewFetchClientProtocol,
     ) -> None:
         """Initialize the review context builder."""
         self.repo_root = repo_root
@@ -59,14 +59,14 @@ class ReviewContextBuilder:
 
     def build(
         self,
-        merge_request: PullRequestReviewCandidate,
+        merge_request: ChangeRequestReviewCandidate,
         *,
         project_id: str,
     ) -> ReviewContextBuildResult:
         """Build review context for one merge request."""
-        detailed_merge_request = self.review_client.get_pull_request(
+        detailed_merge_request = self.review_client.get_change_request(
             project_id=project_id,
-            pull_request_number=merge_request.iid,
+            change_request_number=merge_request.iid,
         )
         supported_changes = [
             change
@@ -177,8 +177,8 @@ class ReviewContextBuilder:
             )
 
         return ReviewContextBuildResult(
-            context=PullRequestReviewContext(
-                mr_iid=detailed_merge_request.iid,
+            context=ChangeRequestReviewContext(
+                change_request_number=detailed_merge_request.change_request_number,
                 title=detailed_merge_request.title,
                 description=detailed_merge_request.description,
                 source_branch=detailed_merge_request.source_branch,

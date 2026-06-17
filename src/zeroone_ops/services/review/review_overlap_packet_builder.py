@@ -5,10 +5,10 @@ from __future__ import annotations
 import re
 
 from zeroone_ops.models.review import (
+    ChangeRequestReviewContext,
     OverlapCandidate,
     OverlapPacket,
     PriorReviewFinding,
-    PullRequestReviewContext,
     ReviewFinding,
     ReviewResult,
 )
@@ -27,7 +27,7 @@ class OverlapPacketBuilder:
     def build(
         self,
         *,
-        context: PullRequestReviewContext,
+        context: ChangeRequestReviewContext,
         review_result: ReviewResult,
     ) -> OverlapPacket | None:
         """Build one bounded overlap packet for the latest prior review pass."""
@@ -54,7 +54,7 @@ class OverlapPacketBuilder:
                 )
 
         return OverlapPacket(
-            merge_request_iid=context.mr_iid,
+            change_request_number=context.change_request_number,
             current_head_sha=context.head_sha,
             prior_head_sha=latest_prior_pass.reviewed_head_sha,
             current_findings=review_result.findings,

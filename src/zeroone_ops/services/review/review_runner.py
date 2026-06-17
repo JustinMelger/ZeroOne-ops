@@ -9,10 +9,10 @@ import httpx
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
+    ChangeRequestReviewCandidate,
     PriorReviewContext,
     PriorReviewPass,
-    PullRequestReviewCandidate,
-    PullRequestReviewNote,
+    ReviewComment,
     ReviewResult,
 )
 from zeroone_ops.models.state import (
@@ -24,14 +24,14 @@ from zeroone_ops.models.state import (
     ReviewRunDiagnostics,
     RunRecord,
 )
-from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.pull_request_review_platform import (
-    PullRequestReviewPlatformProtocol,
+    ChangeRequestReviewPlatformProtocol,
+    ReviewPlatformClientError,
 )
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
-from zeroone_ops.services.review.mr_intake import PullRequestIntakeService
+from zeroone_ops.services.review.mr_intake import ChangeRequestIntakeService
 from zeroone_ops.services.review.review_artifact_builder import ReviewArtifactBuilder
 from zeroone_ops.services.review.review_artifact_validator import (
     ReviewArtifactValidator,
@@ -48,11 +48,11 @@ from zeroone_ops.services.review.review_finalization_service import (
     ReviewFinalizationService,
 )
 from zeroone_ops.services.review.review_gitlab_prior_context_service import (
-    GitLabPullRequestPriorContextLoader,
+    GitLabChangeRequestPriorContextLoader,
     extract_machine_safe_review_note_payload,
 )
 from zeroone_ops.services.review.review_gitlab_prior_note_parser import (
-    GitLabPullRequestPriorNoteParser,
+    GitLabChangeRequestPriorNoteParser,
 )
 from zeroone_ops.services.review.review_inline_comment_continuity_service import (
     ReviewInlineCommentContinuityService,
@@ -80,11 +80,11 @@ class ReviewRunner:
         *,
         repo_root: Path,
         config: AppConfig,
-        review_client: PullRequestReviewPlatformProtocol,
+        review_client: ChangeRequestReviewPlatformProtocol,
         dashboard_client: GitLabDashboardClient,
         review_state_service: ReviewStateService,
-        prior_context_service: GitLabPullRequestPriorContextLoader | None = None,
-        prior_note_parser: GitLabPullRequestPriorNoteParser | None = None,
+        prior_context_service: GitLabChangeRequestPriorContextLoader | None = None,
+        prior_note_parser: GitLabChangeRequestPriorNoteParser | None = None,
     ) -> None:
         """Initialize the review workflow runner."""
         self.repo_root = repo_root
@@ -93,7 +93,7 @@ class ReviewRunner:
         self.dashboard_client = dashboard_client
         self.review_state_service = review_state_service
         self.prior_context_service = prior_context_service
-        self.prior_note_parser = prior_note_parser or GitLabPullRequestPriorNoteParser()
+        self.prior_note_parser = prior_note_parser or GitLabChangeRequestPriorNoteParser()
         self._resolved_bot_author_username: str | None | object = _UNRESOLVED_BOT_AUTHOR_USERNAME
 
     def run(
@@ -105,15 +105,15 @@ class ReviewRunner:
         active_dry_run: bool,
     ) -> RunSummary:
         """Run one merge-request review workflow."""
-        intake_result = PullRequestIntakeService().select_pull_request(
+        intake_result = ChangeRequestIntakeService().select_pull_request(
             state=self.review_state_service.state
         )
-        selected_pull_request = getattr(
+        selected_change_request = getattr(
             intake_result,
-            "selected_pull_request",
+            "selected_change_request",
             getattr(intake_result, "selected_merge_request", None),
         )
-        if selected_pull_request is None:
+        if selected_change_request is None:
             return self.review_state_service.finish_no_review(
                 record=record,
                 message=f"[{self.config.execution_mode}] {intake_result.message}",
@@ -122,12 +122,12 @@ class ReviewRunner:
         existing_review = self._load_same_sha_review_reference(
             run_id=run_id,
             project_id=project_id,
-            merge_request=selected_pull_request,
+            merge_request=selected_change_request,
         )
         if existing_review is not None:
             summary = self.review_state_service.mark_same_sha_reused(
                 record=record,
-                merge_request=selected_pull_request,
+                merge_request=selected_change_request,
                 prior_classification=existing_review.classification,
             )
             return RunSummary(
@@ -141,10 +141,10 @@ class ReviewRunner:
             "review run targeting merge request",
             extra={
                 "run_id": run_id,
-                "mr_iid": selected_pull_request.iid,
-                "head_sha": selected_pull_request.head_sha,
-                "source_branch": selected_pull_request.source_branch,
-                "target_branch": selected_pull_request.target_branch,
+                "mr_iid": selected_change_request.iid,
+                "head_sha": selected_change_request.head_sha,
+                "source_branch": selected_change_request.source_branch,
+                "target_branch": selected_change_request.target_branch,
                 "dry_run": active_dry_run,
             },
         )
@@ -154,7 +154,7 @@ class ReviewRunner:
             config=self.config,
             review_client=self.review_client,
         ).build(
-            selected_pull_request,
+            selected_change_request,
             project_id=project_id,
         )
         if context_result.context is None:
@@ -169,8 +169,8 @@ class ReviewRunner:
         prior_review_context = self._load_gitlab_prior_review_context(
             run_id=run_id,
             project_id=project_id,
-            pull_request_number=selected_pull_request.iid,
-            current_head_sha=selected_pull_request.head_sha,
+            change_request_number=selected_change_request.iid,
+            current_head_sha=selected_change_request.head_sha,
         )
         if prior_review_context is not None:
             context_result = context_result.__class__(
@@ -375,7 +375,7 @@ class ReviewRunner:
             run_id=run_id,
             project_id=project_id,
             active_dry_run=active_dry_run,
-            merge_request=selected_pull_request,
+            merge_request=selected_change_request,
             context=context,
             artifact=publish_artifact,
             inline_comment_decisions=inline_comment_continuity_result.decisions,
@@ -419,7 +419,7 @@ class ReviewRunner:
         )
         summary = self.review_state_service.mark_reviewed(
             record=record,
-            merge_request=selected_pull_request,
+            merge_request=selected_change_request,
             artifact=publish_artifact,
             note_id=note_id,
             note_url=note_url,
@@ -484,22 +484,22 @@ class ReviewRunner:
         *,
         run_id: str,
         project_id: str,
-        pull_request_number: int,
+        change_request_number: int,
         current_head_sha: str,
     ) -> PriorReviewContext | None:
         """Load prior review context from the latest earlier machine-safe MR note."""
-        prior_context_service = self.prior_context_service or GitLabPullRequestPriorContextLoader(
+        prior_context_service = self.prior_context_service or GitLabChangeRequestPriorContextLoader(
             self.review_client,
             bot_author_username=self._resolve_prior_note_author_username(
                 run_id=run_id,
-                mr_iid=pull_request_number,
+                mr_iid=change_request_number,
                 current_head_sha=current_head_sha,
             ),
         )
         try:
             selection_result = prior_context_service.select_latest_prior_review_note(
                 project_id=project_id,
-                pull_request_number=pull_request_number,
+                change_request_number=change_request_number,
                 current_head_sha=current_head_sha,
             )
         except Exception:  # pragma: no cover - exercised via integration stubs
@@ -507,7 +507,7 @@ class ReviewRunner:
                 "review gitlab prior note lookup failed; omitting continuity context",
                 extra={
                     "run_id": run_id,
-                    "mr_iid": pull_request_number,
+                    "mr_iid": change_request_number,
                     "head_sha": current_head_sha,
                 },
             )
@@ -525,7 +525,7 @@ class ReviewRunner:
                 ),
                 extra={
                     "run_id": run_id,
-                    "mr_iid": pull_request_number,
+                    "mr_iid": change_request_number,
                     "head_sha": current_head_sha,
                     "considered_note_count": selection_result.considered_note_count,
                     "author_matched_note_count": selection_result.author_matched_note_count,
@@ -540,7 +540,7 @@ class ReviewRunner:
         try:
             parse_result = self.prior_note_parser.parse_note(
                 note=selection_result.selected_note,
-                expected_merge_request_iid=pull_request_number,
+                expected_change_request_number=change_request_number,
             )
         except Exception:  # pragma: no cover - defensive guard for malformed parser wiring
             LOGGER.warning(
@@ -550,7 +550,7 @@ class ReviewRunner:
                 ),
                 extra={
                     "run_id": run_id,
-                    "mr_iid": pull_request_number,
+                    "mr_iid": change_request_number,
                     "head_sha": current_head_sha,
                     "selected_note_id": selection_result.selected_note.id,
                 },
@@ -566,7 +566,7 @@ class ReviewRunner:
                 ),
                 extra={
                     "run_id": run_id,
-                    "mr_iid": pull_request_number,
+                    "mr_iid": change_request_number,
                     "head_sha": current_head_sha,
                     "selected_note_id": selection_result.selected_note.id,
                     "considered_note_count": selection_result.considered_note_count,
@@ -593,7 +593,7 @@ class ReviewRunner:
             ),
             extra={
                 "run_id": run_id,
-                "mr_iid": pull_request_number,
+                "mr_iid": change_request_number,
                 "head_sha": current_head_sha,
                 "selected_note_id": selection_result.selected_note.id,
                 "considered_note_count": selection_result.considered_note_count,
@@ -606,7 +606,7 @@ class ReviewRunner:
             },
         )
         return PriorReviewContext(
-            merge_request_iid=pull_request_number,
+            change_request_number=change_request_number,
             passes=[parse_result.prior_review_pass],
         )
 
@@ -615,7 +615,7 @@ class ReviewRunner:
         *,
         run_id: str,
         project_id: str,
-        merge_request: PullRequestReviewCandidate,
+        merge_request: ChangeRequestReviewCandidate,
     ) -> PriorReviewPass | None:
         """Return the authoritative existing review reference for one MR SHA."""
         review_state = self.review_state_service.state.reviews.get(
@@ -634,11 +634,11 @@ class ReviewRunner:
             )
 
         try:
-            notes = self.review_client.list_pull_request_notes(
+            notes = self.review_client.list_change_request_comments(
                 project_id=project_id,
-                pull_request_number=merge_request.iid,
+                change_request_number=merge_request.iid,
             )
-        except (GitLabClientError, httpx.HTTPError, OSError) as exc:
+        except (ReviewPlatformClientError, httpx.HTTPError, OSError) as exc:
             LOGGER.warning(
                 "review same-sha lookup via gitlab note failed; continuing without reuse",
                 extra={
@@ -664,7 +664,7 @@ class ReviewRunner:
                 },
             )
             return None
-        candidate_notes: list[PullRequestReviewNote] = []
+        candidate_notes: list[ReviewComment] = []
         for note in notes:
             if note.author_username != bot_author_username:
                 continue
@@ -689,7 +689,7 @@ class ReviewRunner:
         )[0]
         parse_result = self.prior_note_parser.parse_note(
             note=selected_note,
-            expected_merge_request_iid=merge_request.iid,
+            expected_change_request_number=merge_request.change_request_number,
         )
         return parse_result.prior_review_pass
 

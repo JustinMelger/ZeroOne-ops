@@ -211,9 +211,9 @@ Current names like:
 
 should evolve toward provider-neutral review naming, for example:
 
-- `PullRequestReviewCandidate`
-- `PullRequestReviewContext`
-- `PullRequestChangedFile`
+- `ChangeRequestReviewCandidate`
+- `ChangeRequestReviewContext`
+- `ChangeRequestChangedFile`
 
 The design direction should be explicit:
 

@@ -12,6 +12,7 @@ from zeroone_ops.models.config import OpenAIConnectionConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.review import (
     CandidateReviewFinding,
+    ChangeRequestReviewContext,
     OverlapCandidate,
     OverlapPacket,
     OverlapReconciliationResult,
@@ -19,7 +20,6 @@ from zeroone_ops.models.review import (
     PriorReviewContext,
     PriorReviewFinding,
     PriorReviewPass,
-    PullRequestReviewContext,
     RemediationReviewContext,
     ReviewFileContext,
     ReviewFinding,
@@ -455,7 +455,7 @@ def test_build_structured_edit_prompt_includes_repository_guidance_when_present(
 
 
 def test_build_review_prompt_uses_prompt_template() -> None:
-    context = PullRequestReviewContext(
+    context = ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: add safety check",
         description="Adds validation.",
@@ -560,7 +560,7 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "treat the reviewed SHA as authoritative" in prompt
     assert "Limit findings to the most important issues (<=5)" in prompt
     assert "CONTEXT" in prompt
-    assert "Merge request IID: 17" in prompt
+    assert "Pull request number: 17" in prompt
     assert "<<BEGIN UNTRUSTED Merge request description>>" in prompt
     assert "Repository guidance:" in prompt
     assert "<<BEGIN REPOSITORY GUIDANCE AGENT.md>>" in prompt
@@ -569,7 +569,7 @@ def test_build_review_prompt_uses_prompt_template() -> None:
 
 
 def test_build_candidate_review_prompt_includes_preloaded_input_context_guardrail() -> None:
-    context = PullRequestReviewContext(
+    context = ChangeRequestReviewContext(
         mr_iid=370,
         title="refactor: preload vehicle menu ids",
         description="Reuse precomputed menu ids through manufacturer-order helpers.",
@@ -606,7 +606,7 @@ def test_build_candidate_review_prompt_includes_preloaded_input_context_guardrai
 
 
 def test_build_candidate_review_prompt_renders_supporting_helper_context() -> None:
-    context = PullRequestReviewContext(
+    context = ChangeRequestReviewContext(
         mr_iid=18,
         title="refactor: use helper",
         description="Adds helper usage.",
@@ -646,7 +646,7 @@ def test_build_candidate_review_prompt_renders_supporting_helper_context() -> No
 
 
 def test_build_candidate_review_prompt_includes_remediation_context_when_present() -> None:
-    context = PullRequestReviewContext(
+    context = ChangeRequestReviewContext(
         mr_iid=17,
         title="fix: add null guard",
         description="Bot-authored remediation merge request.",
@@ -690,7 +690,7 @@ def test_build_candidate_review_prompt_includes_remediation_context_when_present
 
 
 def test_build_candidate_review_prompt_omits_prior_review_context_even_when_present() -> None:
-    context = PullRequestReviewContext(
+    context = ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -736,7 +736,7 @@ def test_build_candidate_review_prompt_omits_prior_review_context_even_when_pres
 
 
 def test_build_review_precision_prompt_uses_candidate_bounded_contract() -> None:
-    context = PullRequestReviewContext(
+    context = ChangeRequestReviewContext(
         mr_iid=17,
         title="feat: review flow",
         description="summary",
@@ -951,7 +951,7 @@ def test_build_review_overlap_prompt_uses_prompt_template() -> None:
     )
     assert "All indices in this packet are zero-based machine indices." in prompt
     assert "Prefer `overlap_ambiguous` over a weak or forced match." in prompt
-    assert "Merge request IID: 17" in prompt
+    assert "Pull request number: 17" in prompt
     assert "Current reviewed SHA: def456" in prompt
     assert "Prior reviewed SHA: abc123" in prompt
     assert "<<BEGIN UNTRUSTED Current findings>>" in prompt
@@ -1020,7 +1020,7 @@ def test_openai_review_merge_request_uses_medium_reasoning_and_short_system_prom
     client.client = SimpleNamespace(responses=SimpleNamespace(parse=parse))
 
     client.review_merge_request(
-        PullRequestReviewContext(
+        ChangeRequestReviewContext(
             mr_iid=17,
             title="feat: add safety check",
             description="Adds validation.",
@@ -1090,7 +1090,7 @@ def test_openai_review_precision_reconciliation_uses_high_reasoning() -> None:
     client.client = SimpleNamespace(responses=SimpleNamespace(parse=parse))
 
     client.review_precision_reconciliation(
-        PullRequestReviewContext(
+        ChangeRequestReviewContext(
             mr_iid=17,
             title="feat: add safety check",
             description="Adds validation.",

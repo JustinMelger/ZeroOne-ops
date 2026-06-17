@@ -1,29 +1,29 @@
 from __future__ import annotations
 
-from zeroone_ops.models.review import PullRequestReviewCandidate
+from zeroone_ops.models.review import ChangeRequestReviewCandidate
 from zeroone_ops.models.state import AppState, MergeRequestReviewState, RepositoryState
 from zeroone_ops.services.review.mr_intake import MergeRequestIntakeService
 from zeroone_ops.services.review.mr_selector import build_review_revision_key
 
 
 class FakeGitLabReviewClient:
-    def __init__(self, merge_requests: list[PullRequestReviewCandidate]) -> None:
+    def __init__(self, merge_requests: list[ChangeRequestReviewCandidate]) -> None:
         self.merge_requests = merge_requests
         self.requested_merge_request_iid: int | None = None
 
-    def list_open_merge_requests(self, *, project_id: str) -> list[PullRequestReviewCandidate]:
+    def list_open_merge_requests(self, *, project_id: str) -> list[ChangeRequestReviewCandidate]:
         del project_id
         return self.merge_requests
 
-    def get_pull_request(
+    def get_change_request(
         self,
         *,
         project_id: str,
-        pull_request_number: int,
-    ) -> PullRequestReviewCandidate:
+        change_request_number: int,
+    ) -> ChangeRequestReviewCandidate:
         return self.get_merge_request(
             project_id=project_id,
-            merge_request_iid=pull_request_number,
+            merge_request_iid=change_request_number,
         )
 
     def get_merge_request(
@@ -31,7 +31,7 @@ class FakeGitLabReviewClient:
         *,
         project_id: str,
         merge_request_iid: int,
-    ) -> PullRequestReviewCandidate:
+    ) -> ChangeRequestReviewCandidate:
         del project_id
         self.requested_merge_request_iid = merge_request_iid
         for merge_request in self.merge_requests:
@@ -44,8 +44,8 @@ def build_merge_request(
     iid: int,
     *,
     title: str = "feat: add review",
-) -> PullRequestReviewCandidate:
-    return PullRequestReviewCandidate(
+) -> ChangeRequestReviewCandidate:
+    return ChangeRequestReviewCandidate(
         iid=iid,
         title=title,
         description="summary",
