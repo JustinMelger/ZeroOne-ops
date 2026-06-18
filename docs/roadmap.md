@@ -236,28 +236,30 @@ These are important, but intentionally not part of the immediate rollout phase.
 - merge and live-validate GitLab review stability before starting cleanup or
   GitHub summary-support work
 
-- [ ] Phase 1b: Review Neutrality Cleanup
+- [x] Phase 1b: Review Neutrality Cleanup
 
-- remove temporary compatibility aliases in the shared review core, including
+- removed temporary compatibility aliases in the shared review core, including
   legacy `PullRequest...` model aliases and legacy review-platform protocol
   aliases
-- remove legacy provider-specific parameter/property fallbacks from the shared
-  review core where they are no longer needed for GitLab validation, including
-  `mr_iid`, `merge_request_iid`, and `pull_request_number` compatibility shims
-  around the new `change_request_number` contract
-- remove legacy machine-safe payload fallback fields once GitLab live
-  validation confirms the new `reviewed_change_request_number` payload is
+- removed legacy provider-specific parameter/property fallbacks from the shared
+  review core where they were no longer needed after GitLab validation,
+  including `mr_iid`, `merge_request_iid`, and `pull_request_number` shims
+  around the canonical `change_request_number` contract
+- removed legacy machine-safe payload fallback fields after GitLab live
+  validation confirmed the new `reviewed_change_request_number` payload was
   stable
-- rename the remaining review-path modules and services that still expose
-  GitLab/MR-shaped vocabulary at the shared seam, such as `mr_intake.py` and
-  `MergeRequestSelector`
-- tighten review-path user-facing wording and internal logging from
-  `merge request` / `pull request` to the intended domain vocabulary wherever
-  the text belongs to the shared review workflow rather than the GitLab
-  provider layer
-- decide whether `MergeRequestReviewState` and related persisted-state naming
-  should stay Phase-1 compatible for GitLab validation or move in the same
-  cleanup pass before Phase 2 starts
+- renamed the remaining shared review-path modules and prompt surfaces that
+  still exposed GitLab/MR-shaped vocabulary at the shared seam
+- tightened shared review-path user-facing wording and internal logging from
+  `merge request` / `pull request` to domain vocabulary wherever the text
+  belongs to the shared review workflow rather than the provider layer
+- migrated persisted shared review state to `ChangeRequestReviewState` and
+  `change_request_number`, while keeping legacy on-disk state readable through
+  load-time migration
+
+- Provider-local GitLab review services, transport models, and GitLab CI
+  environment names intentionally remain provider-specific and are not Phase 1b
+  debt.
 
 - [ ] Phase 2: GitHub Review Summary Support
 

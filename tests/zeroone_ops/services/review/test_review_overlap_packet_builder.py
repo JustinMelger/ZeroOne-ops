@@ -18,7 +18,7 @@ from zeroone_ops.utils.review_finding_identity import (
 
 def _build_context(*, prior_pass: PriorReviewPass | None = None) -> ChangeRequestReviewContext:
     return ChangeRequestReviewContext(
-        mr_iid=122,
+        change_request_number=122,
         title="test: overlap packet",
         description="summary",
         source_branch="feature/review",
@@ -40,7 +40,7 @@ def _build_context(*, prior_pass: PriorReviewPass | None = None) -> ChangeReques
             None
             if prior_pass is None
             else PriorReviewContext(
-                merge_request_iid=122,
+                change_request_number=122,
                 passes=[prior_pass],
             )
         ),

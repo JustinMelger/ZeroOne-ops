@@ -55,8 +55,8 @@ zeroone-ops/
       gitlab_review_client.py
     services/
       review/
-        mr_intake.py
-        mr_selector.py
+        change_request_intake.py
+        change_request_selector.py
         review_context_builder.py
         review_analysis_service.py
         review_overlap_analysis_service.py
@@ -83,7 +83,7 @@ The review bot currently runs as a synchronous MR-first pipeline:
 1. Load config.
 2. Initialize GitLab review client and state store.
 3. Fetch open merge requests.
-4. Use `MergeRequestSelector` to choose one reviewable MR.
+4. Use `ChangeRequestSelector` to choose one reviewable MR.
 5. Fetch MR metadata, changed files, and diff.
 6. Parse remediation-authored MR context when present and keep it available as
    structured review input.
@@ -191,7 +191,7 @@ Responsibilities:
 - publish merge request notes,
 - retrieve existing notes later if note replacement is added.
 
-### 6.6 `services/mr_intake.py`
+### 6.6 `services/change_request_intake.py`
 
 Responsibilities:
 
@@ -199,7 +199,7 @@ Responsibilities:
 - filter obviously unsupported items,
 - return a typed intake result with counts and no-work summaries.
 
-### 6.7 `services/mr_selector.py`
+### 6.7 `services/change_request_selector.py`
 
 Responsibilities:
 

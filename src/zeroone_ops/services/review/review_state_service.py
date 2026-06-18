@@ -14,15 +14,15 @@ from zeroone_ops.models.review import (
 )
 from zeroone_ops.models.state import (
     AppState,
+    ChangeRequestReviewState,
     FailureDetails,
-    MergeRequestReviewState,
     PriorReviewFindingState,
     PriorReviewInlineCommentState,
     RunRecord,
     RunStatus,
     utc_now,
 )
-from zeroone_ops.services.review.mr_selector import build_review_revision_key
+from zeroone_ops.services.review.change_request_selector import build_review_revision_key
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.shared.state_store import StateStore
 
@@ -102,16 +102,16 @@ class ReviewStateService:
         note_url: str | None,
         dry_run: bool,
     ) -> RunSummary:
-        """Persist a reviewed merge request revision and return the summary."""
+        """Persist a reviewed change-request revision and return the summary."""
         record.status = RunStatus.REVIEWED
         record.updated_at = utc_now()
         if not dry_run:
             dedup_key = build_review_revision_key(
-                mr_iid=merge_request.iid,
+                change_request_number=merge_request.change_request_number,
                 head_sha=merge_request.head_sha,
             )
-            self.state.reviews[dedup_key] = MergeRequestReviewState(
-                mr_iid=merge_request.iid,
+            self.state.reviews[dedup_key] = ChangeRequestReviewState(
+                change_request_number=merge_request.change_request_number,
                 head_sha=merge_request.head_sha,
                 status=artifact.classification,
                 last_run_id=record.run_id,
@@ -122,11 +122,12 @@ class ReviewStateService:
                 note_id=note_id,
                 note_url=note_url,
             )
-            self._trim_prior_reviews_for_merge_request(merge_request.iid)
+            self._trim_prior_reviews_for_change_request(merge_request.change_request_number)
         self.state_store.save(self.state)
         summary_clause = _review_classification_summary(artifact)
         base_message = (
-            f"Reviewed merge request !{merge_request.iid} at {merge_request.head_sha}. "
+            f"Reviewed change request !{merge_request.change_request_number} "
+            f"at {merge_request.head_sha}. "
             f"Classification: {artifact.classification}. {summary_clause}"
         )
         if dry_run:
@@ -151,7 +152,10 @@ class ReviewStateService:
         record.status = RunStatus.REVIEWED
         record.updated_at = utc_now()
         self.state_store.save(self.state)
-        message = f"Reviewed merge request !{merge_request.iid} at {merge_request.head_sha}. "
+        message = (
+            f"Reviewed change request !{merge_request.change_request_number} "
+            f"at {merge_request.head_sha}. "
+        )
         message += "No new changes after the last review."
         if prior_classification is not None:
             message += f" Earlier classification: {prior_classification}."
@@ -162,18 +166,22 @@ class ReviewStateService:
             state_path=self.state_store.path,
         )
 
-    def _trim_prior_reviews_for_merge_request(self, mr_iid: int) -> None:
-        """Keep only the most recent bounded review passes for one MR."""
+    def _trim_prior_reviews_for_change_request(self, change_request_number: int) -> None:
+        """Keep only the most recent bounded review passes for one change request."""
         if self.max_prior_review_passes <= 0:
             review_keys_to_remove = [
-                key for key, value in self.state.reviews.items() if value.mr_iid == mr_iid
+                key
+                for key, value in self.state.reviews.items()
+                if value.change_request_number == change_request_number
             ]
             for key in review_keys_to_remove:
                 self.state.reviews.pop(key, None)
             return
 
         matching_reviews = [
-            (key, value) for key, value in self.state.reviews.items() if value.mr_iid == mr_iid
+            (key, value)
+            for key, value in self.state.reviews.items()
+            if value.change_request_number == change_request_number
         ]
         if len(matching_reviews) <= self.max_prior_review_passes:
             return
@@ -188,14 +196,15 @@ class ReviewStateService:
     def load_prior_review_context(
         self,
         *,
-        mr_iid: int,
+        change_request_number: int,
         current_head_sha: str,
     ) -> PriorReviewContext | None:
-        """Return bounded persisted prior review context for one MR."""
+        """Return bounded persisted prior review context for one change request."""
         matching_reviews = [
             review_state
             for review_state in self.state.reviews.values()
-            if review_state.mr_iid == mr_iid and review_state.head_sha != current_head_sha
+            if review_state.change_request_number == change_request_number
+            and review_state.head_sha != current_head_sha
         ]
         if not matching_reviews:
             return None
@@ -204,7 +213,7 @@ class ReviewStateService:
             reverse=True,
         )
         return PriorReviewContext(
-            change_request_number=mr_iid,
+            change_request_number=change_request_number,
             passes=[
                 PriorReviewPass(
                     reviewed_head_sha=review_state.head_sha,

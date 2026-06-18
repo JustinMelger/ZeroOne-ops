@@ -2,11 +2,11 @@ from pathlib import Path
 
 from zeroone_ops.models.state import (
     AppState,
+    ChangeRequestReviewState,
     DashboardItemState,
     FailureDetails,
     FailureStage,
     IssueState,
-    MergeRequestReviewState,
     PriorReviewFindingState,
     RemediationExclusionState,
     RepositoryState,
@@ -72,8 +72,8 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
             updated_by="operator",
         )
     )
-    initial.reviews["17:abc123"] = MergeRequestReviewState(
-        mr_iid=17,
+    initial.reviews["17:abc123"] = ChangeRequestReviewState(
+        change_request_number=17,
         head_sha="abc123",
         status="findings_present",
         last_run_id="run-2",
@@ -126,7 +126,7 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
         == "Usually requires broader refactor than the current safe fix boundary."
     )
     assert loaded.remediation_exclusions[0].updated_by == "operator"
-    assert loaded.reviews["17:abc123"].mr_iid == 17
+    assert loaded.reviews["17:abc123"].change_request_number == 17
     assert loaded.reviews["17:abc123"].head_sha == "abc123"
     assert loaded.reviews["17:abc123"].status == "findings_present"
     assert loaded.reviews["17:abc123"].last_run_id == "run-2"
@@ -148,3 +148,42 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
         loaded.reviews["17:abc123"].note_url
         == "https://gitlab.example.com/group/project/-/merge_requests/17#note_5"
     )
+
+
+def test_state_store_load_migrates_legacy_review_state_identifier(tmp_path: Path) -> None:
+    state_path = tmp_path / ".zeroone-ops-state.json"
+    state_path.write_text(
+        """
+        {
+          "version": 1,
+          "repository": {
+            "base_branch": "main",
+            "gitlab_project_id": "123",
+            "sonarqube_project_key": "project-key"
+          },
+          "reviews": {
+            "17:abc123": {
+              "mr_iid": 17,
+              "head_sha": "abc123",
+              "status": "no_findings",
+              "last_run_id": "run-1",
+              "findings_count": 0,
+              "follow_up_lines": [],
+              "findings": []
+            }
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    store = StateStore(
+        state_path,
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key="project-key",
+    )
+
+    loaded = store.load()
+
+    assert loaded.reviews["17:abc123"].change_request_number == 17
+    assert loaded.reviews["17:abc123"].status == "no_findings"

@@ -31,7 +31,7 @@ _PROMPT_TEMPLATE_NAMES = frozenset(
     {
         "analyze_issue.txt",
         "generate_structured_edit.txt",
-        "review_candidate_merge_request.txt",
+        "review_candidate_change_request.txt",
         "review_precision_reconciliation.txt",
         "review_overlap_reconciliation.txt",
     }
@@ -139,16 +139,16 @@ def _format_issue_repository_guidance(context: IssueContext) -> str:
 
 
 def build_candidate_review_prompt(context: ChangeRequestReviewContext) -> str:
-    """Build the candidate-generation review prompt for one merge request."""
+    """Build the candidate-generation review prompt for one change request."""
     changed_files = "\n\n".join(
         _format_changed_file_context(changed_file) for changed_file in context.changed_files
     )
     return render_prompt_template(
-        "review_candidate_merge_request.txt",
+        "review_candidate_change_request.txt",
         change_request_number=context.change_request_number,
         title=context.title,
         description=_format_untrusted_block(
-            label="Merge request description",
+            label="Change request description",
             content=context.description or "(none)",
         ),
         source_branch=context.source_branch,
@@ -170,7 +170,7 @@ def build_review_precision_prompt(
     candidate_stage_rationale: str,
     max_findings: int,
 ) -> str:
-    """Build the candidate-bounded precision-pass prompt for one merge request."""
+    """Build the candidate-bounded precision-pass prompt for one change request."""
     changed_files = "\n\n".join(
         _format_changed_file_context(changed_file) for changed_file in context.changed_files
     )
@@ -216,7 +216,7 @@ def build_review_precision_prompt(
 
 
 def build_review_overlap_prompt(packet: OverlapPacket) -> str:
-    """Build the bounded overlap reconciliation prompt for one MR run."""
+    """Build the bounded overlap reconciliation prompt for one change-request run."""
     current_findings = (
         "\n".join(
             _format_current_overlap_finding(index, finding)

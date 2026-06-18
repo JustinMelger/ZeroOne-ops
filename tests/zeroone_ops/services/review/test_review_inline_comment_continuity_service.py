@@ -18,7 +18,7 @@ def build_context(
     prior_passes: list[PriorReviewPass] | None = None,
 ) -> ChangeRequestReviewContext:
     return ChangeRequestReviewContext(
-        mr_iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -28,7 +28,7 @@ def build_context(
         prior_review_context=(
             None
             if prior_passes is None
-            else PriorReviewContext(merge_request_iid=17, passes=prior_passes)
+            else PriorReviewContext(change_request_number=17, passes=prior_passes)
         ),
         changed_files=[
             ReviewFileContext(
@@ -379,7 +379,7 @@ def test_apply_does_not_reuse_inline_comment_when_multiple_nearby_hunks_compete(
     ambiguous_context = build_context().model_copy(
         update={
             "prior_review_context": PriorReviewContext(
-                merge_request_iid=17,
+                change_request_number=17,
                 passes=[
                     PriorReviewPass(
                         reviewed_head_sha="abc123",

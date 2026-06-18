@@ -60,7 +60,7 @@ class ReviewDashboardUpdater:
             LOGGER.warning(
                 "review dashboard update failed",
                 extra={
-                    "mr_iid": merge_request.iid,
+                    "change_request_number": merge_request.change_request_number,
                     "head_sha": merge_request.head_sha,
                 },
             )
@@ -74,13 +74,13 @@ def _find_linked_remediation_item(
     items: Iterable[DashboardItem],
     merge_request: ChangeRequestReviewCandidate,
 ) -> DashboardItem | None:
-    """Return one remediation item linked to the reviewed merge request."""
+    """Return one remediation item linked to the reviewed change request."""
     for item in items:
         if not isinstance(item, DashboardItem):
             continue
         if item.type == "review_status" or item.source == "pull_request_review":
             continue
-        if item.merge_request_iid == merge_request.iid:
+        if item.merge_request_iid == merge_request.change_request_number:
             return item
     for item in items:
         if not isinstance(item, DashboardItem):
@@ -136,15 +136,15 @@ def _build_review_status_item(
             )
         summary = f"{summary}{confidence_summary}"
     return DashboardItem(
-        id=f"mr-review:{merge_request.iid}:{merge_request.head_sha}",
+        id=f"mr-review:{merge_request.change_request_number}:{merge_request.head_sha}",
         source="pull_request_review",
         type="review_status",
         status="done",
-        title=f"Review status for !{merge_request.iid}",
+        title=f"Review status for !{merge_request.change_request_number}",
         summary=summary,
         priority="low",
         source_reference=merge_request.web_url,
-        merge_request_iid=merge_request.iid,
+        merge_request_iid=merge_request.change_request_number,
         merge_request_url=merge_request.web_url,
         reviewed_head_sha=merge_request.head_sha,
         review_status=review_result.classification,

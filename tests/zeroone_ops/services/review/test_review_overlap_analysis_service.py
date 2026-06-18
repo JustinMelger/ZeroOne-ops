@@ -36,7 +36,7 @@ def build_config() -> AppConfig:
 
 def build_packet() -> OverlapPacket:
     return OverlapPacket(
-        merge_request_iid=17,
+        change_request_number=17,
         current_head_sha="def456",
         prior_head_sha="abc123",
         current_findings=[

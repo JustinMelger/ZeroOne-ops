@@ -49,7 +49,7 @@ def build_context(with_prior: bool = False) -> ChangeRequestReviewContext:
     prior_review_context = None
     if with_prior:
         prior_review_context = PriorReviewContext(
-            merge_request_iid=17,
+            change_request_number=17,
             passes=[
                 PriorReviewPass(
                     reviewed_head_sha="prior-sha",
@@ -61,7 +61,7 @@ def build_context(with_prior: bool = False) -> ChangeRequestReviewContext:
             ],
         )
     return ChangeRequestReviewContext(
-        mr_iid=17,
+        change_request_number=17,
         title="feat: review flow",
         description="summary",
         source_branch="feature/review",
@@ -381,14 +381,14 @@ def test_reconcile_returns_candidate_failure_when_no_authoritative_review_exists
             raw_review_result=None,
             accepted_candidate_ids=(),
             dropped_candidates=(),
-            message="LLM backend not configured for merge request review.",
+            message="LLM backend not configured for change-request review.",
         ),
     )
 
     assert result.review_result is None
     assert result.reconciled_decision is None
     assert result.overlap_result is None
-    assert result.message == "LLM backend not configured for merge request review."
+    assert result.message == "LLM backend not configured for change-request review."
 
 
 def test_reconcile_returns_failure_when_precision_backend_errors() -> None:

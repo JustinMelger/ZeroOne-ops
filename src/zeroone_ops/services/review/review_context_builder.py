@@ -14,7 +14,7 @@ from zeroone_ops.models.review import (
     RemediationReviewContext,
     ReviewFileContext,
 )
-from zeroone_ops.providers.pull_request_review_platform import (
+from zeroone_ops.providers.review_platform import (
     ChangeRequestReviewFetchClientProtocol,
 )
 from zeroone_ops.services.review.review_function_context import (
@@ -44,7 +44,7 @@ class ReviewContextBuildResult:
 
 
 class ReviewContextBuilder:
-    """Build deterministic review context from MR diffs and local files."""
+    """Build deterministic review context from change-request diffs and local files."""
 
     def __init__(
         self,
@@ -63,10 +63,10 @@ class ReviewContextBuilder:
         *,
         project_id: str,
     ) -> ReviewContextBuildResult:
-        """Build review context for one merge request."""
+        """Build review context for one change request."""
         detailed_merge_request = self.review_client.get_change_request(
             project_id=project_id,
-            change_request_number=merge_request.iid,
+            change_request_number=merge_request.change_request_number,
         )
         supported_changes = [
             change
@@ -78,7 +78,7 @@ class ReviewContextBuilder:
                 context=None,
                 message=(
                     "Could not build review context. "
-                    "The merge request has no supported non-deleted changed files."
+                    "The change request has no supported non-deleted changed files."
                 ),
             )
         if len(supported_changes) > self.config.review.max_changed_files:
@@ -86,7 +86,7 @@ class ReviewContextBuilder:
                 context=None,
                 message=(
                     "Could not build review context. "
-                    f"The merge request changes {len(supported_changes)} supported files, "
+                    f"The change request changes {len(supported_changes)} supported files, "
                     f"which exceeds the v1 limit of {self.config.review.max_changed_files}."
                 ),
             )

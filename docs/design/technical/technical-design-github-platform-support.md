@@ -52,7 +52,7 @@ The review core is partly reusable:
 But transport and orchestration remain GitLab-shaped:
 
 - `providers/gitlab_review_client.py`
-- `services/review/mr_intake.py`
+- `services/review/change_request_intake.py`
 - `services/review/review_gitlab_prior_context_service.py`
 - `services/review/review_gitlab_prior_note_parser.py`
 - `services/review/review_publisher.py`
