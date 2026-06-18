@@ -11,8 +11,6 @@ GUIDANCE_HEADING_PATTERN = re.compile(r"^(#+)\s+.+$")
 GUIDANCE_BULLET_PATTERN = re.compile(r"^([-*]|\d+\.)\s+.+$")
 GUIDANCE_PATHS = (
     "AGENT.md",
-    "CONTRIBUTING.md",
-    "README.md",
     "docs/engineering-standards.md",
 )
 GUIDANCE_GLOBS = ("docs/technical-design*.md",)
