@@ -71,7 +71,7 @@ jobs:
       - name: Extract stable Docker metadata
         id: meta_stable
         if: ${{ steps.ref.outputs.prerelease != 'true' }}
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
@@ -83,7 +83,7 @@ jobs:
       - name: Extract prerelease Docker metadata
         id: meta_prerelease
         if: ${{ steps.ref.outputs.prerelease == 'true' }}
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
