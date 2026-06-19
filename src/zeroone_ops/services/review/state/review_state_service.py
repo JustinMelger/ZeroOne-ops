@@ -22,7 +22,7 @@ from zeroone_ops.models.state import (
     RunStatus,
     utc_now,
 )
-from zeroone_ops.services.review.change_request_selector import build_review_revision_key
+from zeroone_ops.services.review.intake.change_request_selector import build_review_revision_key
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.shared.state_store import StateStore
 

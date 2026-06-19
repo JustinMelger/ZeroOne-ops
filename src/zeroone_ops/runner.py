@@ -33,7 +33,7 @@ from zeroone_ops.services.intake.sonar_dashboard_sync_service import (
     SonarDashboardSyncService,
 )
 from zeroone_ops.services.review.review_runner import ReviewRunner
-from zeroone_ops.services.review.review_state_service import ReviewStateService
+from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import (
     RunStateService,
     RunSummary,

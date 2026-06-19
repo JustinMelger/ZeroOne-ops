@@ -14,10 +14,10 @@ from zeroone_ops.models.review import (
     RemediationReviewContext,
     ReviewFileContext,
 )
-from zeroone_ops.services.review.review_function_context import (
+from zeroone_ops.services.review.context.review_function_context import (
     select_function_aware_window,
 )
-from zeroone_ops.services.review.review_helper_context import (
+from zeroone_ops.services.review.context.review_helper_context import (
     build_same_file_helper_context,
 )
 from zeroone_ops.services.shared.context_builder import (

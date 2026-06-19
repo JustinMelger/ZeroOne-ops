@@ -15,7 +15,9 @@ from zeroone_ops.models.review import (
     ReviewFileContext,
     ReviewHelperContext,
 )
-from zeroone_ops.services.review.review_context_builder import ReviewContextBuilder
+from zeroone_ops.services.review.context.review_context_builder import (
+    ReviewContextBuilder,
+)
 
 
 def build_config(

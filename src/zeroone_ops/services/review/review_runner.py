@@ -31,7 +31,20 @@ from zeroone_ops.providers.review_platform import (
 )
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
-from zeroone_ops.services.review.change_request_intake import ChangeRequestIntakeService
+from zeroone_ops.services.review.context.review_context_builder import (
+    ReviewContextBuilder,
+)
+from zeroone_ops.services.review.continuity.review_inline_comment_continuity_service import (
+    ReviewInlineCommentContinuityService,
+)
+from zeroone_ops.services.review.continuity.review_prior_comment_loader import (
+    ChangeRequestPriorCommentLoader,
+    extract_machine_safe_review_note_payload,
+)
+from zeroone_ops.services.review.continuity.review_prior_comment_parser import (
+    ChangeRequestPriorCommentParser,
+)
+from zeroone_ops.services.review.intake.change_request_intake import ChangeRequestIntakeService
 from zeroone_ops.services.review.review_artifact_builder import ReviewArtifactBuilder
 from zeroone_ops.services.review.review_artifact_validator import (
     ReviewArtifactValidator,
@@ -40,29 +53,18 @@ from zeroone_ops.services.review.review_candidate_generation_service import (
     ReviewCandidateGenerationService,
     ReviewCandidateStageResult,
 )
-from zeroone_ops.services.review.review_context_builder import ReviewContextBuilder
 from zeroone_ops.services.review.review_dashboard_updater import (
     ReviewDashboardUpdater,
 )
 from zeroone_ops.services.review.review_finalization_service import (
     ReviewFinalizationService,
 )
-from zeroone_ops.services.review.review_inline_comment_continuity_service import (
-    ReviewInlineCommentContinuityService,
-)
-from zeroone_ops.services.review.review_prior_comment_loader import (
-    ChangeRequestPriorCommentLoader,
-    extract_machine_safe_review_note_payload,
-)
-from zeroone_ops.services.review.review_prior_comment_parser import (
-    ChangeRequestPriorCommentParser,
-)
 from zeroone_ops.services.review.review_publisher import ReviewPublisher
 from zeroone_ops.services.review.review_reconciliation_service import (
     ReviewReconciliationResult,
     ReviewReconciliationService,
 )
-from zeroone_ops.services.review.review_state_service import ReviewStateService
+from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
 
 LOGGER = logging.getLogger(__name__)

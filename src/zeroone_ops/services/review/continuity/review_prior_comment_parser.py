@@ -12,7 +12,7 @@ from zeroone_ops.models.review import (
     ReviewComment,
     ReviewFinding,
 )
-from zeroone_ops.services.review.review_prior_comment_loader import (
+from zeroone_ops.services.review.continuity.review_prior_comment_loader import (
     extract_machine_safe_review_note_payload,
 )
 from zeroone_ops.utils.review_finding_identity import (

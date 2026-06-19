@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from zeroone_ops.models.review import ChangeRequestReviewCandidate
 from zeroone_ops.models.state import AppState, ChangeRequestReviewState, RepositoryState
-from zeroone_ops.services.review.change_request_intake import ChangeRequestIntakeService
-from zeroone_ops.services.review.change_request_selector import build_review_revision_key
+from zeroone_ops.services.review.intake.change_request_intake import ChangeRequestIntakeService
+from zeroone_ops.services.review.intake.change_request_selector import build_review_revision_key
 
 
 class FakeGitLabReviewClient:

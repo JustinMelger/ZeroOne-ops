@@ -19,7 +19,7 @@ from zeroone_ops.models.state import (
 from zeroone_ops.services.review.review_reconciled_decision_builder import (
     build_reconciled_review_decision,
 )
-from zeroone_ops.services.review.review_state_service import ReviewStateService
+from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.state_store import StateStore
 
 

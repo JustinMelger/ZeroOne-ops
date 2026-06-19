@@ -1,7 +1,7 @@
 import json
 
 from zeroone_ops.models.gitlab import MergeRequestNote
-from zeroone_ops.services.review.review_prior_comment_parser import (
+from zeroone_ops.services.review.continuity.review_prior_comment_parser import (
     ChangeRequestPriorCommentParser,
 )
 

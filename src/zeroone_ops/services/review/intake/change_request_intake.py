@@ -11,7 +11,7 @@ from zeroone_ops.models.state import AppState
 from zeroone_ops.providers.review_platform import (
     ChangeRequestReviewFetchClientProtocol,
 )
-from zeroone_ops.services.review.change_request_selector import ChangeRequestSelector
+from zeroone_ops.services.review.intake.change_request_selector import ChangeRequestSelector
 
 LOGGER = logging.getLogger(__name__)
 

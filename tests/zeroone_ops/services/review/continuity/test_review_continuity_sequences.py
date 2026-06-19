@@ -7,10 +7,10 @@ from zeroone_ops.models.review import (
     ReviewFinding,
     ReviewResult,
 )
-from zeroone_ops.services.review.review_overlap_packet_builder import (
+from zeroone_ops.services.review.continuity.review_overlap_packet_builder import (
     OverlapPacketBuilder,
 )
-from zeroone_ops.services.review.review_overlap_reconciliation import (
+from zeroone_ops.services.review.continuity.review_overlap_reconciliation import (
     OverlapReconciliationService,
 )
 from zeroone_ops.utils.review_finding_identity import (

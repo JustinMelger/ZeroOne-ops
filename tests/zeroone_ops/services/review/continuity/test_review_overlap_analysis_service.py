@@ -15,7 +15,7 @@ from zeroone_ops.models.review import (
     ReviewFinding,
 )
 from zeroone_ops.providers.llm_client import LLMClientError
-from zeroone_ops.services.review.review_overlap_analysis_service import (
+from zeroone_ops.services.review.continuity.review_overlap_analysis_service import (
     ReviewOverlapAnalysisService,
 )
 

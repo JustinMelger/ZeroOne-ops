@@ -8,7 +8,7 @@ from zeroone_ops.models.review import (
     PublishableReviewFinding,
     ReviewFileContext,
 )
-from zeroone_ops.services.review.review_inline_comment_continuity_service import (
+from zeroone_ops.services.review.continuity.review_inline_comment_continuity_service import (
     ReviewInlineCommentContinuityService,
 )
 

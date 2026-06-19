@@ -46,10 +46,10 @@ from zeroone_ops.runner import (
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardPolicyProcessResult
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
-from zeroone_ops.services.review.review_context_builder import (
+from zeroone_ops.services.review.context.review_context_builder import (
     ReviewContextBuildResult,
 )
-from zeroone_ops.services.review.review_overlap_analysis_service import (
+from zeroone_ops.services.review.continuity.review_overlap_analysis_service import (
     ReviewOverlapAnalysisResult,
 )
 from zeroone_ops.services.review.review_publisher import ReviewPublishResult
@@ -3501,7 +3501,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
+        "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
@@ -3513,7 +3513,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
+        "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
         lambda self, merge_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
@@ -3606,7 +3606,7 @@ def test_review_github_non_dry_run_publishes_summary_comment(
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
+        "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
@@ -3618,7 +3618,7 @@ def test_review_github_non_dry_run_publishes_summary_comment(
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
+        "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
         lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
@@ -3803,7 +3803,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
+        "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
@@ -3815,7 +3815,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
+        "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
         lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
@@ -3991,7 +3991,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
+        "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
@@ -4003,7 +4003,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
+        "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
         lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
@@ -4152,7 +4152,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
+        "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
@@ -4164,7 +4164,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
+        "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
         lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
@@ -4322,7 +4322,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
+        "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
@@ -4334,7 +4334,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
+        "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
         lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     selected_note = type(
@@ -4349,7 +4349,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         },
     )()
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_prior_comment_loader.ChangeRequestPriorCommentLoader.select_latest_prior_review_note",
+        "zeroone_ops.services.review.continuity.review_prior_comment_loader.ChangeRequestPriorCommentLoader.select_latest_prior_review_note",
         lambda self, repository_id, change_request_number, current_head_sha: type(
             "SelectionResult",
             (),
@@ -4366,7 +4366,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_prior_comment_parser.ChangeRequestPriorCommentParser.parse_note",
+        "zeroone_ops.services.review.continuity.review_prior_comment_parser.ChangeRequestPriorCommentParser.parse_note",
         lambda self, note, expected_change_request_number: type(
             "ParseResult",
             (),
@@ -4439,7 +4439,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_overlap_analysis_service.ReviewOverlapAnalysisService.analyze",
+        "zeroone_ops.services.review.continuity.review_overlap_analysis_service.ReviewOverlapAnalysisService.analyze",
         lambda self, packet: ReviewOverlapAnalysisResult(
             overlap_result=None,
             status="llm_error",
@@ -4557,7 +4557,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
+        "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
@@ -4569,7 +4569,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
+        "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
         lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
@@ -4958,7 +4958,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
+        "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
         lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
@@ -4993,7 +4993,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
         ],
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
+        "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
         lambda self, merge_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
