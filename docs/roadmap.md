@@ -270,7 +270,7 @@ These are important, but intentionally not part of the immediate rollout phase.
 - stop conservatively when the triggering pull request head SHA no longer
   matches the live provider head SHA
 
-- [~] Phase 2b: GitHub Review Config And Documentation Cleanup
+- [x] Phase 2b: GitHub Review Config And Documentation Cleanup
 
 - completed:
   - made review configuration honest for GitHub review mode by removing the
@@ -283,14 +283,12 @@ These are important, but intentionally not part of the immediate rollout phase.
     - `services/review/pipeline/`
     - `services/review/state/`
     - `providers/review/`
-- still open:
-  - finish the review config/documentation migration guidance around the new
-    GitHub review shape
-  - mirror the review test suite to the cleaned review package boundaries
-- document the new review configuration contract and migration path clearly in
-  the design docs, runbook, and any configuration examples
-- live-validate the GitHub summary-review path with the neutralized config
-  surface before starting inline-comment work
+  - documented the new GitHub review config shape and migration guidance in the
+    runbook, design docs, and workflow example
+  - mirrored the review integration test suite to the cleaned review package
+    boundaries
+- Phase 2 itself still needs live GitHub validation of the summary-review path
+  with the neutralized config surface before inline-comment work starts
 
 - [ ] Phase 3: GitHub Review Inline Comments
 

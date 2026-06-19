@@ -633,11 +633,10 @@ Implemented Phase 2b config outcome:
   clearer review-focused package boundaries before Phase 3 grows on top of them
 - the target package map for that cleanup is defined in
   `technical-design-review-package-layout.md`
-- once those review package boundaries are stable, the review test suite should
-  be reorganized to mirror the cleaned source map rather than being split first
-  and moved again later
-- the migration path from legacy GitLab review config must be documented in the
-  design docs, runbook, and config examples before Phase 3 begins
+- the review integration test suite now mirrors the cleaned package map instead
+  of growing further under one broad integration file
+- the migration path from legacy GitLab review config is now documented in the
+  design docs, runbook, and config examples
 
 Reason:
 

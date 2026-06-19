@@ -32,11 +32,11 @@ It does not attempt to redesign:
 
 The package layout described here is now implemented for the review workflow.
 
-The remaining `Phase 2b` work is:
+That structural `Phase 2b` work is now complete:
 
-- provider-neutral review config cleanup
-- documentation cleanup and config migration guidance
-- later review integration-test splitting against the new package map
+- provider-neutral review config cleanup is implemented
+- documentation and config migration guidance are in place
+- review integration tests were split to match the cleaned package map
 
 ## Former Problem
 
