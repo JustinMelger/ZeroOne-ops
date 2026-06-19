@@ -148,6 +148,58 @@ def test_github_settings_load_pull_request_head_sha_from_event_payload(
     assert load_current_github_pull_request_head_sha() == "abc123def456"
 
 
+def test_settings_allow_github_review_config_without_gitlab_block(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "review": {
+            "platform": "github"
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.review.platform == "github"
+    assert config.gitlab is None
+
+
+def test_settings_require_gitlab_block_for_gitlab_review_mode(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "review": {
+            "platform": "gitlab"
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    try:
+        load_config()
+    except SettingsError as error:
+        assert "review.platform=gitlab requires a top-level gitlab configuration block." in str(
+            error
+        )
+    else:  # pragma: no cover - defensive guard
+        raise AssertionError("Expected SettingsError for missing gitlab block in gitlab mode")
+
+
 def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ZEROONE_OPS_WRITE_SOLUTION_ARTIFACTS_IN_CI", "true")

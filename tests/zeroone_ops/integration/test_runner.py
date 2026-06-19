@@ -3564,10 +3564,6 @@ def test_review_github_non_dry_run_publishes_summary_comment(
           "validation_commands": [],
           "review": {
             "platform": "github"
-          },
-          "gitlab": {
-            "target_branch": "main",
-            "labels": []
           }
         }
         """.strip(),
@@ -3713,10 +3709,6 @@ def test_review_github_stops_when_live_head_sha_differs_from_triggered_revision(
           "validation_commands": [],
           "review": {
             "platform": "github"
-          },
-          "gitlab": {
-            "target_branch": "main",
-            "labels": []
           }
         }
         """.strip(),
@@ -5044,10 +5036,6 @@ def test_review_github_reuses_same_sha_note_when_username_lookup_is_unresolved(
           "validation_commands": [],
           "review": {
             "platform": "github"
-          },
-          "gitlab": {
-            "target_branch": "main",
-            "labels": []
           }
         }
         """.strip(),
