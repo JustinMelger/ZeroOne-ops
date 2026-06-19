@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 
 from zeroone_ops.models.dashboard import (
@@ -37,6 +38,76 @@ from zeroone_ops.services.review.continuity.review_overlap_analysis_service impo
 )
 from zeroone_ops.services.review.publish.review_publisher import ReviewPublishResult
 from zeroone_ops.services.shared.state_store import StateStore
+
+
+class _SelectionResult:
+    def __init__(
+        self,
+        *,
+        selected_change_request: ChangeRequestReviewCandidate | None,
+        change_request_count: int,
+        message: str,
+    ) -> None:
+        self.selected_change_request = selected_change_request
+        self.change_request_count = change_request_count
+        self.message = message
+
+
+class _CandidateStageResult:
+    def __init__(
+        self,
+        *,
+        candidate_result: CandidateReviewResult | None,
+        raw_review_result: ReviewResult,
+        accepted_candidate_ids: tuple[str, ...],
+        dropped_candidates: tuple[str, ...],
+        message: str,
+    ) -> None:
+        self.candidate_result = candidate_result
+        self.raw_review_result = raw_review_result
+        self.accepted_candidate_ids = accepted_candidate_ids
+        self.dropped_candidates = dropped_candidates
+        self.message = message
+
+
+class _DashboardUpdateResult:
+    def __init__(
+        self,
+        *,
+        dashboard_issue_url: str | None,
+        error_message: str | None,
+    ) -> None:
+        self.dashboard_issue_url = dashboard_issue_url
+        self.error_message = error_message
+
+
+class _PriorNoteSelectionResult:
+    def __init__(
+        self,
+        *,
+        selected_note: ReviewComment | MergeRequestNote | None,
+        considered_note_count: int,
+        author_matched_note_count: int,
+        machine_safe_note_count: int,
+        parseable_note_count: int,
+        current_sha_skipped_count: int,
+        reason_code: str,
+        message: str,
+    ) -> None:
+        self.selected_note = selected_note
+        self.considered_note_count = considered_note_count
+        self.author_matched_note_count = author_matched_note_count
+        self.machine_safe_note_count = machine_safe_note_count
+        self.parseable_note_count = parseable_note_count
+        self.current_sha_skipped_count = current_sha_skipped_count
+        self.reason_code = reason_code
+        self.message = message
+
+
+class _ParseNoteResult:
+    def __init__(self, *, prior_review_pass: PriorReviewPass | None, message: str) -> None:
+        self.prior_review_pass = prior_review_pass
+        self.message = message
 
 
 def build_dashboard_document(*, items: list[DashboardItem]) -> DashboardDocument:
@@ -111,11 +182,224 @@ class _IntegrationPrecisionClient:
 
 
 def _install_review_precision_fake(monkeypatch) -> None:
+    def _build_precision_client(self: object) -> _IntegrationPrecisionClient:
+        del self
+        return _IntegrationPrecisionClient()
+
     monkeypatch.setattr(
         "zeroone_ops.services.review.pipeline.review_reconciliation_service."
         "ReviewReconciliationService._build_llm_client",
-        lambda self: _IntegrationPrecisionClient(),
+        _build_precision_client,
     )
+
+
+def _stub_select_change_request(
+    change_request: ChangeRequestReviewCandidate | None,
+    *,
+    change_request_count: int = 1,
+    message: str = "",
+) -> Callable[[object, AppState, str, int | None, str | None], _SelectionResult]:
+    def _select(
+        self: object,
+        state: AppState,
+        repository_id: str,
+        change_request_number: int | None,
+        triggered_head_sha: str | None = None,
+    ) -> _SelectionResult:
+        del self, state, repository_id, change_request_number, triggered_head_sha
+        return _SelectionResult(
+            selected_change_request=change_request,
+            change_request_count=change_request_count,
+            message=message,
+        )
+
+    return _select
+
+
+def _stub_build_context(
+    context: ChangeRequestReviewContext,
+) -> Callable[[object, ChangeRequestReviewCandidate], ReviewContextBuildResult]:
+    def _build(
+        self: object,
+        change_request: ChangeRequestReviewCandidate,
+    ) -> ReviewContextBuildResult:
+        del self, change_request
+        return ReviewContextBuildResult(context=context, message="")
+
+    return _build
+
+
+def _stub_candidate_stage(
+    *,
+    candidate_result: CandidateReviewResult | None,
+    raw_review_result: ReviewResult,
+    accepted_candidate_ids: tuple[str, ...] = (),
+    dropped_candidates: tuple[str, ...] = (),
+    message: str,
+) -> Callable[[object, ChangeRequestReviewContext], _CandidateStageResult]:
+    def _analyze(
+        self: object,
+        context: ChangeRequestReviewContext,
+    ) -> _CandidateStageResult:
+        del self, context
+        return _CandidateStageResult(
+            candidate_result=candidate_result,
+            raw_review_result=raw_review_result,
+            accepted_candidate_ids=accepted_candidate_ids,
+            dropped_candidates=dropped_candidates,
+            message=message,
+        )
+
+    return _analyze
+
+
+def _stub_dashboard_update(
+    *,
+    dashboard_issue_url: str | None,
+    error_message: str | None,
+) -> Callable[[object, str, ChangeRequestReviewCandidate, ReviewResult], _DashboardUpdateResult]:
+    def _update(
+        self: object,
+        project_id: str,
+        merge_request: ChangeRequestReviewCandidate,
+        review_result: ReviewResult,
+    ) -> _DashboardUpdateResult:
+        del self, project_id, merge_request, review_result
+        return _DashboardUpdateResult(
+            dashboard_issue_url=dashboard_issue_url,
+            error_message=error_message,
+        )
+
+    return _update
+
+
+def _stub_get_change_request(
+    change_request: ChangeRequestReviewCandidate,
+) -> Callable[[object, str, int], ChangeRequestReviewCandidate]:
+    def _get(
+        self: object,
+        repository_id: str,
+        change_request_number: int,
+    ) -> ChangeRequestReviewCandidate:
+        del self, repository_id, change_request_number
+        return change_request
+
+    return _get
+
+
+def _stub_get_current_username(
+    username: str,
+) -> Callable[[object], str]:
+    def _get(self: object) -> str:
+        del self
+        return username
+
+    return _get
+
+
+def _stub_raise_runtime_error(
+    message: str,
+) -> Callable[[object], str]:
+    def _raise(self: object) -> str:
+        del self
+        raise RuntimeError(message)
+
+    return _raise
+
+
+def _stub_list_comments(
+    comments: list[ReviewComment],
+) -> Callable[[object, str, int], list[ReviewComment]]:
+    def _list(self: object, repository_id: str, change_request_number: int) -> list[ReviewComment]:
+        del self, repository_id, change_request_number
+        return comments
+
+    return _list
+
+
+def _stub_list_merge_request_notes(
+    notes: list[MergeRequestNote],
+) -> Callable[[object, str, int], list[MergeRequestNote]]:
+    def _list(self: object, project_id: str, merge_request_iid: int) -> list[MergeRequestNote]:
+        del self, project_id, merge_request_iid
+        return notes
+
+    return _list
+
+
+def _stub_get_gitlab_merge_request(
+    change_request: ChangeRequestReviewCandidate,
+) -> Callable[[object, str, int], ChangeRequestReviewCandidate]:
+    def _get(
+        self: object,
+        project_id: str,
+        merge_request_iid: int,
+    ) -> ChangeRequestReviewCandidate:
+        del self, project_id, merge_request_iid
+        return change_request
+
+    return _get
+
+
+def _stub_select_latest_prior_review_note(
+    *,
+    selected_note: ReviewComment | MergeRequestNote | None,
+    considered_note_count: int,
+    author_matched_note_count: int,
+    machine_safe_note_count: int,
+    parseable_note_count: int,
+    current_sha_skipped_count: int,
+    reason_code: str,
+    message: str,
+) -> Callable[[object, str, int, str], _PriorNoteSelectionResult]:
+    def _select(
+        self: object,
+        repository_id: str,
+        change_request_number: int,
+        current_head_sha: str,
+    ) -> _PriorNoteSelectionResult:
+        del self, repository_id, change_request_number, current_head_sha
+        return _PriorNoteSelectionResult(
+            selected_note=selected_note,
+            considered_note_count=considered_note_count,
+            author_matched_note_count=author_matched_note_count,
+            machine_safe_note_count=machine_safe_note_count,
+            parseable_note_count=parseable_note_count,
+            current_sha_skipped_count=current_sha_skipped_count,
+            reason_code=reason_code,
+            message=message,
+        )
+
+    return _select
+
+
+def _stub_parse_prior_note(
+    prior_review_pass: PriorReviewPass | None,
+    *,
+    message: str,
+) -> Callable[[object, ReviewComment | MergeRequestNote, int], _ParseNoteResult]:
+    def _parse(
+        self: object,
+        note: ReviewComment | MergeRequestNote,
+        expected_change_request_number: int,
+    ) -> _ParseNoteResult:
+        del self, note, expected_change_request_number
+        return _ParseNoteResult(
+            prior_review_pass=prior_review_pass,
+            message=message,
+        )
+
+    return _parse
+
+
+def _stub_overlap_analysis(
+    result: ReviewOverlapAnalysisResult,
+) -> Callable[[object, object], ReviewOverlapAnalysisResult]:
+    def _analyze(self: object, packet: object) -> ReviewOverlapAnalysisResult:
+        del self, packet
+        return result
+
+    return _analyze
 
 
 def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> None:
@@ -174,37 +458,23 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
-            "Result",
-            (),
-            {
-                "selected_change_request": merge_request,
-                "change_request_count": 1,
-                "message": "",
-            },
-        )(),
+        _stub_select_change_request(merge_request),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request: ReviewContextBuildResult(context=review_context, message=""),
+        _stub_build_context(review_context),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
-        lambda self, context: type(
-            "CandidateStageResult",
-            (),
-            {
-                "candidate_result": None,
-                "raw_review_result": ReviewResult(
-                    classification="no_findings",
-                    summary="No findings.",
-                    findings=[],
-                ),
-                "accepted_candidate_ids": (),
-                "dropped_candidates": (),
-                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
-            },
-        )(),
+        _stub_candidate_stage(
+            candidate_result=None,
+            raw_review_result=ReviewResult(
+                classification="no_findings",
+                summary="No findings.",
+                findings=[],
+            ),
+            message="Candidate review generated 0 candidates and accepted 0 findings.",
+        ),
     )
 
     summary = review(dry_run=True)
@@ -275,37 +545,23 @@ def test_review_github_non_dry_run_publishes_summary_comment(
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
-            "Result",
-            (),
-            {
-                "selected_change_request": change_request,
-                "change_request_count": 1,
-                "message": "",
-            },
-        )(),
+        _stub_select_change_request(change_request),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
+        _stub_build_context(review_context),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
-        lambda self, context: type(
-            "CandidateStageResult",
-            (),
-            {
-                "candidate_result": None,
-                "raw_review_result": ReviewResult(
-                    classification="no_findings",
-                    summary="No findings.",
-                    findings=[],
-                ),
-                "accepted_candidate_ids": (),
-                "dropped_candidates": (),
-                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
-            },
-        )(),
+        _stub_candidate_stage(
+            candidate_result=None,
+            raw_review_result=ReviewResult(
+                classification="no_findings",
+                summary="No findings.",
+                findings=[],
+            ),
+            message="Candidate review generated 0 candidates and accepted 0 findings.",
+        ),
     )
 
     observed: dict[str, object] = {}
@@ -389,15 +645,17 @@ def test_review_github_stops_when_live_head_sha_differs_from_triggered_revision(
 
     monkeypatch.setattr(
         "zeroone_ops.providers.review.github.GitHubReviewClient.get_change_request",
-        lambda self, repository_id, change_request_number: ChangeRequestReviewCandidate(
-            change_request_number=23,
-            title="feat: github review flow",
-            description="summary",
-            source_branch="feature/github-review",
-            target_branch="main",
-            web_url="https://github.com/octo-org/octo-repo/pull/23",
-            head_sha="newsha456",
-            changes=[],
+        _stub_get_change_request(
+            ChangeRequestReviewCandidate(
+                change_request_number=23,
+                title="feat: github review flow",
+                description="summary",
+                source_branch="feature/github-review",
+                target_branch="main",
+                web_url="https://github.com/octo-org/octo-repo/pull/23",
+                head_sha="newsha456",
+                changes=[],
+            )
         ),
     )
 
@@ -468,64 +726,49 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
-            "Result",
-            (),
-            {
-                "selected_change_request": merge_request,
-                "change_request_count": 1,
-                "message": "",
-            },
-        )(),
+        _stub_select_change_request(merge_request),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
+        _stub_build_context(review_context),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
-        lambda self, context: type(
-            "CandidateStageResult",
-            (),
-            {
-                "candidate_result": CandidateReviewResult(
-                    findings=[
-                        CandidateReviewFinding(
-                            candidate_id="candidate-1",
-                            severity="medium",
-                            file_path="src/service.py",
-                            title="Missing test coverage",
-                            evidence=(
-                                "The diff changes `value = 1` to `value = 2` "
-                                "without any test updates."
-                            ),
-                            explanation="The change alters behavior without test updates.",
-                            suggested_follow_up="Add a regression test.",
-                        )
-                    ]
-                ),
-                "raw_review_result": ReviewResult(
-                    classification="findings_present",
-                    summary="One medium-risk finding.",
-                    findings=[
-                        ReviewFinding(
-                            severity="medium",
-                            file_path="src/service.py",
-                            title="Missing test coverage",
-                            evidence=(
-                                "The diff changes `value = 1` to `value = 2` "
-                                "without any test updates."
-                            ),
-                            explanation="The change alters behavior without test updates.",
-                            suggested_follow_up="Add a regression test.",
-                        )
-                    ],
-                ),
-                "accepted_candidate_ids": ("candidate-1",),
-                "dropped_candidates": (),
-                "message": "Candidate review generated 1 candidates and accepted 1 findings.",
-            },
-        )(),
+        _stub_candidate_stage(
+            candidate_result=CandidateReviewResult(
+                findings=[
+                    CandidateReviewFinding(
+                        candidate_id="candidate-1",
+                        severity="medium",
+                        file_path="src/service.py",
+                        title="Missing test coverage",
+                        evidence=(
+                            "The diff changes `value = 1` to `value = 2` without any test updates."
+                        ),
+                        explanation="The change alters behavior without test updates.",
+                        suggested_follow_up="Add a regression test.",
+                    )
+                ]
+            ),
+            raw_review_result=ReviewResult(
+                classification="findings_present",
+                summary="One medium-risk finding.",
+                findings=[
+                    ReviewFinding(
+                        severity="medium",
+                        file_path="src/service.py",
+                        title="Missing test coverage",
+                        evidence=(
+                            "The diff changes `value = 1` to `value = 2` without any test updates."
+                        ),
+                        explanation="The change alters behavior without test updates.",
+                        suggested_follow_up="Add a regression test.",
+                    )
+                ],
+            ),
+            accepted_candidate_ids=("candidate-1",),
+            message="Candidate review generated 1 candidates and accepted 1 findings.",
+        ),
     )
 
     def publish_artifact_stub(  # noqa: ANN001, ANN202
@@ -558,14 +801,10 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
-        lambda self, project_id, merge_request, review_result: type(
-            "DashboardResult",
-            (),
-            {
-                "dashboard_issue_url": ("https://gitlab.example.com/group/project/-/issues/11"),
-                "error_message": None,
-            },
-        )(),
+        _stub_dashboard_update(
+            dashboard_issue_url="https://gitlab.example.com/group/project/-/issues/11",
+            error_message=None,
+        ),
     )
 
     summary = review(dry_run=False)
@@ -656,37 +895,23 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
-            "Result",
-            (),
-            {
-                "selected_change_request": merge_request,
-                "change_request_count": 1,
-                "message": "",
-            },
-        )(),
+        _stub_select_change_request(merge_request),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
+        _stub_build_context(review_context),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
-        lambda self, context: type(
-            "CandidateStageResult",
-            (),
-            {
-                "candidate_result": None,
-                "raw_review_result": ReviewResult(
-                    classification="no_findings",
-                    summary="No findings.",
-                    findings=[],
-                ),
-                "accepted_candidate_ids": (),
-                "dropped_candidates": (),
-                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
-            },
-        )(),
+        _stub_candidate_stage(
+            candidate_result=None,
+            raw_review_result=ReviewResult(
+                classification="no_findings",
+                summary="No findings.",
+                findings=[],
+            ),
+            message="Candidate review generated 0 candidates and accepted 0 findings.",
+        ),
     )
 
     def publish_artifact_stub(  # noqa: ANN001, ANN202
@@ -817,65 +1042,50 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
-            "Result",
-            (),
-            {
-                "selected_change_request": merge_request,
-                "change_request_count": 1,
-                "message": "",
-            },
-        )(),
+        _stub_select_change_request(merge_request),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
+        _stub_build_context(review_context),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
-        lambda self, context: type(
-            "CandidateStageResult",
-            (),
-            {
-                "candidate_result": CandidateReviewResult(
-                    findings=[
-                        CandidateReviewFinding(
-                            candidate_id="candidate-1",
-                            severity="medium",
-                            file_path="src/service.py",
-                            title="Missing test coverage",
-                            evidence=(
-                                "The diff changes `value = 1` to `value = 2` "
-                                "without any test updates."
-                            ),
-                            explanation="The change alters behavior without test updates.",
-                            suggested_follow_up="Add a regression test.",
-                        )
-                    ]
-                ),
-                "raw_review_result": ReviewResult(
-                    classification="findings_present",
-                    summary="No actionable findings in this review pass.",
-                    review_confidence_reason="The regression is visible in the diff.",
-                    findings=[
-                        ReviewFinding(
-                            severity="medium",
-                            file_path="src/service.py",
-                            title="Missing test coverage",
-                            evidence=(
-                                "The diff changes `value = 1` to `value = 2` "
-                                "without any test updates."
-                            ),
-                            explanation="The change alters behavior without test updates.",
-                            suggested_follow_up="Add a regression test.",
-                        )
-                    ],
-                ),
-                "accepted_candidate_ids": ("candidate-1",),
-                "dropped_candidates": (),
-                "message": "Candidate review generated 1 candidates and accepted 1 findings.",
-            },
-        )(),
+        _stub_candidate_stage(
+            candidate_result=CandidateReviewResult(
+                findings=[
+                    CandidateReviewFinding(
+                        candidate_id="candidate-1",
+                        severity="medium",
+                        file_path="src/service.py",
+                        title="Missing test coverage",
+                        evidence=(
+                            "The diff changes `value = 1` to `value = 2` without any test updates."
+                        ),
+                        explanation="The change alters behavior without test updates.",
+                        suggested_follow_up="Add a regression test.",
+                    )
+                ]
+            ),
+            raw_review_result=ReviewResult(
+                classification="findings_present",
+                summary="No actionable findings in this review pass.",
+                review_confidence_reason="The regression is visible in the diff.",
+                findings=[
+                    ReviewFinding(
+                        severity="medium",
+                        file_path="src/service.py",
+                        title="Missing test coverage",
+                        evidence=(
+                            "The diff changes `value = 1` to `value = 2` without any test updates."
+                        ),
+                        explanation="The change alters behavior without test updates.",
+                        suggested_follow_up="Add a regression test.",
+                    )
+                ],
+            ),
+            accepted_candidate_ids=("candidate-1",),
+            message="Candidate review generated 1 candidates and accepted 1 findings.",
+        ),
     )
 
     observed: dict[str, object] = {}
@@ -903,14 +1113,10 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
-        lambda self, project_id, merge_request, review_result: type(
-            "DashboardResult",
-            (),
-            {
-                "dashboard_issue_url": None,
-                "error_message": None,
-            },
-        )(),
+        _stub_dashboard_update(
+            dashboard_issue_url=None,
+            error_message=None,
+        ),
     )
 
     summary = review(dry_run=False)
@@ -987,19 +1193,11 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
-            "Result",
-            (),
-            {
-                "selected_change_request": merge_request,
-                "change_request_count": 1,
-                "message": "",
-            },
-        )(),
+        _stub_select_change_request(merge_request),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
+        _stub_build_context(review_context),
     )
     selected_note = type(
         "Note",
@@ -1014,100 +1212,87 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     )()
     monkeypatch.setattr(
         "zeroone_ops.services.review.continuity.review_prior_comment_loader.ChangeRequestPriorCommentLoader.select_latest_prior_review_note",
-        lambda self, repository_id, change_request_number, current_head_sha: type(
-            "SelectionResult",
-            (),
-            {
-                "selected_note": selected_note,
-                "considered_note_count": 2,
-                "author_matched_note_count": 1,
-                "machine_safe_note_count": 1,
-                "parseable_note_count": 1,
-                "current_sha_skipped_count": 0,
-                "reason_code": "selected",
-                "message": "Selected latest earlier machine-safe bot review note.",
-            },
-        )(),
+        _stub_select_latest_prior_review_note(
+            selected_note=selected_note,
+            considered_note_count=2,
+            author_matched_note_count=1,
+            machine_safe_note_count=1,
+            parseable_note_count=1,
+            current_sha_skipped_count=0,
+            reason_code="selected",
+            message="Selected latest earlier machine-safe bot review note.",
+        ),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.continuity.review_prior_comment_parser.ChangeRequestPriorCommentParser.parse_note",
-        lambda self, note, expected_change_request_number: type(
-            "ParseResult",
-            (),
-            {
-                "prior_review_pass": PriorReviewPass(
-                    reviewed_head_sha="abc123",
-                    classification="findings_present",
-                    findings_count=1,
-                    summary="One earlier concern still needs attention.",
-                    note_url=selected_note.web_url,
-                    findings=[
-                        PriorReviewFinding(
-                            identity="src/service.py::missing-test-coverage",
-                            legacy_identity="src/service.py::coverage-miss-test",
-                            summary="src/service.py: Missing test coverage",
-                            severity="medium",
-                            symbol=None,
-                            issue_kind=None,
-                            region_hint=None,
-                        )
-                    ],
-                ),
-                "message": "Parsed machine-safe prior review note successfully.",
-            },
-        )(),
+        _stub_parse_prior_note(
+            PriorReviewPass(
+                reviewed_head_sha="abc123",
+                classification="findings_present",
+                findings_count=1,
+                summary="One earlier concern still needs attention.",
+                note_url=selected_note.web_url,
+                findings=[
+                    PriorReviewFinding(
+                        identity="src/service.py::missing-test-coverage",
+                        legacy_identity="src/service.py::coverage-miss-test",
+                        summary="src/service.py: Missing test coverage",
+                        severity="medium",
+                        symbol=None,
+                        issue_kind=None,
+                        region_hint=None,
+                    )
+                ],
+            ),
+            message="Parsed machine-safe prior review note successfully.",
+        ),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
-        lambda self, context: type(
-            "CandidateStageResult",
-            (),
-            {
-                "candidate_result": CandidateReviewResult(
-                    findings=[
-                        CandidateReviewFinding(
-                            candidate_id="candidate-1",
-                            severity="medium",
-                            file_path="src/service.py",
-                            title="Missing test coverage",
-                            evidence=(
-                                "The diff changes `value = 1` to `value = 2` "
-                                "without any test updates."
-                            ),
-                            explanation="The change alters behavior without test updates.",
-                            suggested_follow_up="Add a regression test.",
-                        )
-                    ]
-                ),
-                "raw_review_result": ReviewResult(
-                    classification="findings_present",
-                    summary="One medium-risk finding.",
-                    findings=[
-                        ReviewFinding(
-                            severity="medium",
-                            file_path="src/service.py",
-                            title="Missing test coverage",
-                            evidence=(
-                                "The diff changes `value = 1` to `value = 2` "
-                                "without any test updates."
-                            ),
-                            explanation="The change alters behavior without test updates.",
-                            suggested_follow_up="Add a regression test.",
-                        )
-                    ],
-                ),
-                "accepted_candidate_ids": ("candidate-1",),
-                "dropped_candidates": (),
-                "message": "Candidate review generated 1 candidates and accepted 1 findings.",
-            },
-        )(),
+        _stub_candidate_stage(
+            candidate_result=CandidateReviewResult(
+                findings=[
+                    CandidateReviewFinding(
+                        candidate_id="candidate-1",
+                        severity="medium",
+                        file_path="src/service.py",
+                        title="Missing test coverage",
+                        evidence=(
+                            "The diff changes `value = 1` to `value = 2` without any test updates."
+                        ),
+                        explanation="The change alters behavior without test updates.",
+                        suggested_follow_up="Add a regression test.",
+                    )
+                ]
+            ),
+            raw_review_result=ReviewResult(
+                classification="findings_present",
+                summary="One medium-risk finding.",
+                findings=[
+                    ReviewFinding(
+                        severity="medium",
+                        file_path="src/service.py",
+                        title="Missing test coverage",
+                        evidence=(
+                            "The diff changes `value = 1` to `value = 2` without any test updates."
+                        ),
+                        explanation="The change alters behavior without test updates.",
+                        suggested_follow_up="Add a regression test.",
+                    )
+                ],
+            ),
+            accepted_candidate_ids=("candidate-1",),
+            message="Candidate review generated 1 candidates and accepted 1 findings.",
+        ),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.continuity.review_overlap_analysis_service.ReviewOverlapAnalysisService.analyze",
-        lambda self, packet: ReviewOverlapAnalysisResult(
-            overlap_result=None,
-            status="llm_error",
-            message="Structured review overlap reconciliation failed.",
+        _stub_overlap_analysis(
+            ReviewOverlapAnalysisResult(
+                overlap_result=None,
+                status="llm_error",
+                message="Structured review overlap reconciliation failed.",
+            )
         ),
     )
 
@@ -1145,14 +1330,10 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
-        lambda self, project_id, merge_request, review_result: type(
-            "DashboardResult",
-            (),
-            {
-                "dashboard_issue_url": None,
-                "error_message": None,
-            },
-        )(),
+        _stub_dashboard_update(
+            dashboard_issue_url=None,
+            error_message=None,
+        ),
     )
 
     summary = review(dry_run=False)
@@ -1222,37 +1403,23 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
-            "Result",
-            (),
-            {
-                "selected_change_request": merge_request,
-                "change_request_count": 1,
-                "message": "",
-            },
-        )(),
+        _stub_select_change_request(merge_request),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
+        _stub_build_context(review_context),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
-        lambda self, context: type(
-            "CandidateStageResult",
-            (),
-            {
-                "candidate_result": None,
-                "raw_review_result": ReviewResult(
-                    classification="no_findings",
-                    summary="No findings.",
-                    findings=[],
-                ),
-                "accepted_candidate_ids": (),
-                "dropped_candidates": (),
-                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
-            },
-        )(),
+        _stub_candidate_stage(
+            candidate_result=None,
+            raw_review_result=ReviewResult(
+                classification="no_findings",
+                summary="No findings.",
+                findings=[],
+            ),
+            message="Candidate review generated 0 candidates and accepted 0 findings.",
+        ),
     )
 
     observed: dict[str, object] = {}
@@ -1289,14 +1456,10 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
-        lambda self, project_id, merge_request, review_result: type(
-            "DashboardResult",
-            (),
-            {
-                "dashboard_issue_url": None,
-                "error_message": None,
-            },
-        )(),
+        _stub_dashboard_update(
+            dashboard_issue_url=None,
+            error_message=None,
+        ),
     )
 
     summary = review(dry_run=False)
@@ -1348,15 +1511,17 @@ def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeyp
 
     monkeypatch.setattr(
         "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request",
-        lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
-            change_request_number=17,
-            title="feat: review flow",
-            description="summary",
-            source_branch="feature/review",
-            target_branch="main",
-            web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
-            head_sha="abc123",
-            changes=[],
+        _stub_get_gitlab_merge_request(
+            ChangeRequestReviewCandidate(
+                change_request_number=17,
+                title="feat: review flow",
+                description="summary",
+                source_branch="feature/review",
+                target_branch="main",
+                web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+                head_sha="abc123",
+                changes=[],
+            )
         ),
     )
 
@@ -1394,39 +1559,43 @@ def test_review_skips_unchanged_sha_revision_via_gitlab_note_fallback(
 
     monkeypatch.setattr(
         "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request",
-        lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
-            change_request_number=17,
-            title="feat: review flow",
-            description="summary",
-            source_branch="feature/review",
-            target_branch="main",
-            web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
-            head_sha="abc123",
-            changes=[],
+        _stub_get_gitlab_merge_request(
+            ChangeRequestReviewCandidate(
+                change_request_number=17,
+                title="feat: review flow",
+                description="summary",
+                source_branch="feature/review",
+                target_branch="main",
+                web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+                head_sha="abc123",
+                changes=[],
+            )
         ),
     )
     monkeypatch.setattr(
         "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_current_user_username",
-        lambda self: "ai-sonar-bot",
+        _stub_get_current_username("ai-sonar-bot"),
     )
     monkeypatch.setattr(
         "zeroone_ops.providers.review.gitlab.GitLabReviewClient.list_merge_request_notes",
-        lambda self, project_id, merge_request_iid: [
-            MergeRequestNote(
-                id=55,
-                web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
-                author_username="ai-sonar-bot",
-                created_at="2026-05-03T10:00:00Z",
-                body=(
-                    "Hi,\n\nHere are your review notes.\n\n"
-                    "<!-- ai-sonar-bot:review-note:v1\n"
-                    '{"classification":"findings_present","findings":[],"findings_count":0,'
-                    '"reviewed_head_sha":"abc123","reviewed_change_request_number":17,'
-                    '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
-                    "-->"
-                ),
-            )
-        ],
+        _stub_list_merge_request_notes(
+            [
+                MergeRequestNote(
+                    id=55,
+                    web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
+                    author_username="ai-sonar-bot",
+                    created_at="2026-05-03T10:00:00Z",
+                    body=(
+                        "Hi,\n\nHere are your review notes.\n\n"
+                        "<!-- ai-sonar-bot:review-note:v1\n"
+                        '{"classification":"findings_present","findings":[],"findings_count":0,'
+                        '"reviewed_head_sha":"abc123","reviewed_change_request_number":17,'
+                        '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
+                        "-->"
+                    ),
+                )
+            ]
+        ),
     )
 
     summary = review(dry_run=True)
@@ -1477,15 +1646,17 @@ def test_review_skips_unchanged_sha_when_local_state_is_manual_review_only(
 
     monkeypatch.setattr(
         "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request",
-        lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
-            change_request_number=17,
-            title="feat: review flow",
-            description="summary",
-            source_branch="feature/review",
-            target_branch="main",
-            web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
-            head_sha="abc123",
-            changes=[],
+        _stub_get_gitlab_merge_request(
+            ChangeRequestReviewCandidate(
+                change_request_number=17,
+                title="feat: review flow",
+                description="summary",
+                source_branch="feature/review",
+                target_branch="main",
+                web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+                head_sha="abc123",
+                changes=[],
+            )
         ),
     )
 
@@ -1523,39 +1694,43 @@ def test_review_skips_unchanged_sha_when_gitlab_note_is_manual_review_only(
 
     monkeypatch.setattr(
         "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request",
-        lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
-            change_request_number=17,
-            title="feat: review flow",
-            description="summary",
-            source_branch="feature/review",
-            target_branch="main",
-            web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
-            head_sha="abc123",
-            changes=[],
+        _stub_get_gitlab_merge_request(
+            ChangeRequestReviewCandidate(
+                change_request_number=17,
+                title="feat: review flow",
+                description="summary",
+                source_branch="feature/review",
+                target_branch="main",
+                web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+                head_sha="abc123",
+                changes=[],
+            )
         ),
     )
     monkeypatch.setattr(
         "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_current_user_username",
-        lambda self: "ai-sonar-bot",
+        _stub_get_current_username("ai-sonar-bot"),
     )
     monkeypatch.setattr(
         "zeroone_ops.providers.review.gitlab.GitLabReviewClient.list_merge_request_notes",
-        lambda self, project_id, merge_request_iid: [
-            MergeRequestNote(
-                id=55,
-                web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
-                author_username="ai-sonar-bot",
-                created_at="2026-05-03T10:00:00Z",
-                body=(
-                    "Hi,\n\nHere are your review notes.\n\n"
-                    "<!-- ai-sonar-bot:review-note:v1\n"
-                    '{"classification":"manual_review_only","findings":[],"findings_count":0,'
-                    '"reviewed_head_sha":"abc123","reviewed_change_request_number":17,'
-                    '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
-                    "-->"
-                ),
-            )
-        ],
+        _stub_list_merge_request_notes(
+            [
+                MergeRequestNote(
+                    id=55,
+                    web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
+                    author_username="ai-sonar-bot",
+                    created_at="2026-05-03T10:00:00Z",
+                    body=(
+                        "Hi,\n\nHere are your review notes.\n\n"
+                        "<!-- ai-sonar-bot:review-note:v1\n"
+                        '{"classification":"manual_review_only","findings":[],"findings_count":0,'
+                        '"reviewed_head_sha":"abc123","reviewed_change_request_number":17,'
+                        '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
+                        "-->"
+                    ),
+                )
+            ]
+        ),
     )
     summary = review(dry_run=True)
 
@@ -1623,60 +1798,48 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
-            "Result",
-            (),
-            {
-                "selected_change_request": merge_request,
-                "change_request_count": 1,
-                "message": "",
-            },
-        )(),
+        _stub_select_change_request(merge_request),
     )
     monkeypatch.setattr(
         "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_current_user_username",
-        lambda self: (_ for _ in ()).throw(RuntimeError("cannot resolve bot username")),
+        _stub_raise_runtime_error("cannot resolve bot username"),
     )
     monkeypatch.setattr(
         "zeroone_ops.providers.review.gitlab.GitLabReviewClient.list_merge_request_notes",
-        lambda self, project_id, merge_request_iid: [
-            MergeRequestNote(
-                id=55,
-                web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
-                author_username="someone-else",
-                created_at="2026-05-03T10:00:00Z",
-                body=(
-                    "Hi,\n\nHere are your review notes.\n\n"
-                    "<!-- ai-sonar-bot:review-note:v1\n"
-                    '{"classification":"findings_present","findings":[],"findings_count":0,'
-                    '"reviewed_head_sha":"abc123","reviewed_change_request_number":17,'
-                    '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
-                    "-->"
-                ),
-            )
-        ],
+        _stub_list_merge_request_notes(
+            [
+                MergeRequestNote(
+                    id=55,
+                    web_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
+                    author_username="someone-else",
+                    created_at="2026-05-03T10:00:00Z",
+                    body=(
+                        "Hi,\n\nHere are your review notes.\n\n"
+                        "<!-- ai-sonar-bot:review-note:v1\n"
+                        '{"classification":"findings_present","findings":[],"findings_count":0,'
+                        '"reviewed_head_sha":"abc123","reviewed_change_request_number":17,'
+                        '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
+                        "-->"
+                    ),
+                )
+            ]
+        ),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request: ReviewContextBuildResult(context=review_context, message=""),
+        _stub_build_context(review_context),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
-        lambda self, context: type(
-            "CandidateStageResult",
-            (),
-            {
-                "candidate_result": None,
-                "raw_review_result": ReviewResult(
-                    classification="no_findings",
-                    summary="No findings.",
-                    findings=[],
-                ),
-                "accepted_candidate_ids": (),
-                "dropped_candidates": (),
-                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
-            },
-        )(),
+        _stub_candidate_stage(
+            candidate_result=None,
+            raw_review_result=ReviewResult(
+                classification="no_findings",
+                summary="No findings.",
+                findings=[],
+            ),
+            message="Candidate review generated 0 candidates and accepted 0 findings.",
+        ),
     )
 
     summary = review(dry_run=True)
@@ -1716,39 +1879,43 @@ def test_review_github_reuses_same_sha_note_when_username_lookup_is_unresolved(
 
     monkeypatch.setattr(
         "zeroone_ops.providers.review.github.GitHubReviewClient.get_change_request",
-        lambda self, repository_id, change_request_number: ChangeRequestReviewCandidate(
-            change_request_number=23,
-            title="feat: github review flow",
-            description="summary",
-            source_branch="feature/github-review",
-            target_branch="main",
-            web_url="https://github.com/octo-org/octo-repo/pull/23",
-            head_sha="abc123",
-            changes=[],
+        _stub_get_change_request(
+            ChangeRequestReviewCandidate(
+                change_request_number=23,
+                title="feat: github review flow",
+                description="summary",
+                source_branch="feature/github-review",
+                target_branch="main",
+                web_url="https://github.com/octo-org/octo-repo/pull/23",
+                head_sha="abc123",
+                changes=[],
+            )
         ),
     )
     monkeypatch.setattr(
         "zeroone_ops.providers.review.github.GitHubReviewClient.get_current_user_username",
-        lambda self: (_ for _ in ()).throw(RuntimeError("cannot resolve bot username")),
+        _stub_raise_runtime_error("cannot resolve bot username"),
     )
     monkeypatch.setattr(
         "zeroone_ops.providers.review.github.GitHubReviewClient.list_change_request_comments",
-        lambda self, repository_id, change_request_number: [
-            ReviewComment(
-                id=55,
-                web_url="https://github.com/octo-org/octo-repo/pull/23#issuecomment-55",
-                author_username="someone-else",
-                created_at="2026-05-03T10:00:00Z",
-                body=(
-                    "Hi,\n\nHere are your review notes.\n\n"
-                    "<!-- ai-sonar-bot:review-note:v1\n"
-                    '{"classification":"findings_present","findings":[],"findings_count":0,'
-                    '"reviewed_head_sha":"abc123","reviewed_change_request_number":23,'
-                    '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
-                    "-->"
-                ),
-            )
-        ],
+        _stub_list_comments(
+            [
+                ReviewComment(
+                    id=55,
+                    web_url="https://github.com/octo-org/octo-repo/pull/23#issuecomment-55",
+                    author_username="someone-else",
+                    created_at="2026-05-03T10:00:00Z",
+                    body=(
+                        "Hi,\n\nHere are your review notes.\n\n"
+                        "<!-- ai-sonar-bot:review-note:v1\n"
+                        '{"classification":"findings_present","findings":[],"findings_count":0,'
+                        '"reviewed_head_sha":"abc123","reviewed_change_request_number":23,'
+                        '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
+                        "-->"
+                    ),
+                )
+            ]
+        ),
     )
 
     summary = review(dry_run=True)
