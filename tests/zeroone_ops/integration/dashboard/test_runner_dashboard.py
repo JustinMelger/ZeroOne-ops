@@ -3424,5 +3424,3 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
     assert dashboard_state.commit_sha is None
     assert dashboard_state.mr_url is None
     assert dashboard_state.last_error == "Commit failed: git commit failed"
-
-
