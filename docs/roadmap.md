@@ -267,6 +267,22 @@ These are important, but intentionally not part of the immediate rollout phase.
 - load GitHub pull request changed files and bounded review context
 - publish deterministic GitHub pull request summary comments
 - support same-SHA reuse and prior-summary continuity on GitHub
+- stop conservatively when the triggering pull request head SHA no longer
+  matches the live provider head SHA
+
+- [ ] Phase 2b: GitHub Review Config And Documentation Cleanup
+
+- make review configuration honest for GitHub review mode by removing the need
+  for a dummy top-level `gitlab` block when `review.platform=github`
+- introduce a provider-neutral review configuration surface for shared review
+  behavior and keep GitLab legacy input compatibility for a transition period
+- clean up review-domain packaging so GitHub review support lives under clearer
+  review-focused packages instead of continuing to spread across loosely grouped
+  review-adjacent files
+- document the new review configuration contract and migration path clearly in
+  the design docs, runbook, and any configuration examples
+- live-validate the GitHub summary-review path with the neutralized config
+  surface before starting inline-comment work
 
 - [ ] Phase 3: GitHub Review Inline Comments
 

@@ -548,19 +548,92 @@ The obvious identity is:
 - pull request number
 - head SHA
 
-But we still need to decide how strict the provider-backed lookup contract
-should be when recovering prior authoritative review state on GitHub.
-
 Docs-backed constraint:
 
 - do not rely on `GITHUB_SHA` alone in GitHub Actions pull request workflows
 
-Current design direction:
+Chosen design direction:
 
 - recover authoritative head identity from the GitHub event payload and/or pull
   request API data before continuity lookup
+- use the event payload first, but prefer live pull request API head state when
+  both are available
+- use the GitHub pull request head SHA as the authoritative reviewed revision
+  identity
+- treat `GITHUB_SHA` as diagnostic workflow context only, not the authoritative
+  continuity identity
+- reuse a prior authoritative summary only on an exact match of:
+  - repository identity
+  - pull request number
+  - pull request head SHA
+- if workflow context and pull request API state disagree, prefer the pull
+  request event/API head SHA, log the mismatch, and continue conservatively
+  without risky summary reuse on ambiguous identity
+- if more than one bot-authored machine-parseable authoritative summary exists
+  for the exact same reviewed revision, prefer the newest matching summary and
+  warn about duplicates
+- require bot-authored identification through an explicit machine-safe marker
+  plus parseable payload rather than actor name alone
+- reuse the current provider-neutral machine-safe payload structure as much as
+  possible rather than inventing a GitHub-specific payload shape in Phase 2
 
-### 16.5 Remediation Publish Reuse Boundary
+Reason:
+
+- false reuse is worse than missed reuse during early GitHub rollout
+- GitHub Actions pull request workflow SHA values can represent merge refs or
+  workflow-trigger context rather than the exact reviewed head revision
+- strict reuse keeps continuity trustworthy while still allowing tolerant
+  diagnostics when workflow context drifts
+
+### 16.5 GitHub Review Config Neutralization
+
+Primary phase:
+
+- Phase 2b: GitHub Review Config And Documentation Cleanup
+
+Problem:
+
+- the first GitHub summary-support implementation still relies on a required
+  top-level `gitlab` config block even when `review.platform=github`
+- this is acceptable for an internal implementation checkpoint, but it is not
+  an honest long-term review configuration contract
+
+Chosen design direction:
+
+- introduce a provider-neutral review configuration surface for shared review
+  behavior
+- keep true GitLab provider connection/runtime configuration provider-local
+- support legacy GitLab review input during a transition period by normalizing
+  old GitLab-shaped review fields into the neutral review config at load time
+- do not use Phase 2b to fully neutralize remediation or control-plane config;
+  scope it to the review workflow contract
+
+Initial expectations for Phase 2b:
+
+- GitHub review mode must not require a dummy top-level `gitlab` block
+- review-platform selection stays under `review.platform`
+- shared review behavior should live under neutral review config rather than
+  under provider-local GitLab config
+- review-domain packaging should be tightened where Phase 1 and Phase 2 left
+  review logic spread across loosely grouped modules; Phase 2b should group
+  related review-platform, intake, publish, and prior-comment concerns under
+  clearer review-focused package boundaries before Phase 3 grows on top of them
+- the migration path from legacy GitLab review config must be documented in the
+  design docs, runbook, and config examples before Phase 3 begins
+
+Reason:
+
+- the product contract should match the provider-neutral review architecture
+  already extracted in Phase 1
+- GitHub summary support is not really complete if GitHub-only repositories
+  still need GitLab-shaped config to start the review runner
+- Phase 2 already increased the number of review-adjacent files touched for one
+  provider feature, so packaging cleanup now is cheaper and safer than letting
+  GitHub review grow on top of a scattered module layout
+- a bounded transition period is safer than a hard config break while GitLab
+  remains the mature production path
+
+### 16.6 Remediation Publish Reuse Boundary
 
 Primary phase:
 
@@ -570,7 +643,7 @@ How much of the current remediation publish path is genuinely provider-neutral,
 and how much should be extracted behind a dedicated branch/PR publication seam
 before GitHub remediation support starts?
 
-### 16.6 GitHub Control Plane Direction
+### 16.7 GitHub Control Plane Direction
 
 Primary phases:
 
