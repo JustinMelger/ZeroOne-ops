@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+from pydantic import ValidationError
 
 from zeroone_ops.models.config import (
     AppConfig,
@@ -125,7 +126,10 @@ def load_config() -> AppConfig:
         state["path"] = env_state_path
         data["state"] = state
 
-    return AppConfig.model_validate(data)
+    try:
+        return AppConfig.model_validate(data)
+    except ValidationError as error:
+        raise SettingsError(f"Invalid configuration: {error}") from error
 
 
 def load_sonarqube_connection_config() -> SonarQubeConnectionConfig:

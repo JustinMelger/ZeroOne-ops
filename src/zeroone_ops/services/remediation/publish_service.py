@@ -60,18 +60,21 @@ class PublishService:
     ) -> PublishResult:
         """Push the current branch and create or reuse a merge request."""
         try:
+            workflow_gitlab_config = self.config.require_gitlab_config(
+                reason="Remediation publish",
+            )
             gitlab_config = load_gitlab_connection_config()
             pushed_branch = self.branch_manager.push_current_branch()
             gitlab_client = GitLabClient(gitlab_config)
             merge_request_service = MergeRequestService(gitlab_client)
             assignee_id: int | None = None
-            assignee_username = self.config.gitlab.merge_request_assignee_username
+            assignee_username = workflow_gitlab_config.merge_request_assignee_username
             if assignee_username is not None:
                 assignee_id = gitlab_client.find_user_id_by_username(assignee_username)
             existing_mr = merge_request_service.find_open(
                 project_id=gitlab_config.project_id,
                 source_branch=pushed_branch,
-                target_branch=self.config.gitlab.target_branch,
+                target_branch=workflow_gitlab_config.target_branch,
             )
             if existing_mr is not None:
                 if assignee_id is not None:
@@ -88,7 +91,7 @@ class PublishService:
             created_mr = merge_request_service.create(
                 project_id=gitlab_config.project_id,
                 source_branch=pushed_branch,
-                target_branch=self.config.gitlab.target_branch,
+                target_branch=workflow_gitlab_config.target_branch,
                 title=self.build_mr_title(
                     selected_issue=selected_issue,
                     proposed_title=mr_title,
@@ -97,7 +100,7 @@ class PublishService:
                     selected_issue=selected_issue,
                     change_summary=mr_description,
                 ),
-                labels=self.config.gitlab.labels,
+                labels=workflow_gitlab_config.labels,
                 assignee_id=assignee_id,
             )
         except (BranchManagerError, GitLabClientError, RuntimeError) as error:

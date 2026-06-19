@@ -191,7 +191,7 @@ class AppConfig(BaseModel):
         review: Review-related settings.
         remediation: Remediation-related settings.
         sonarqube: SonarQube producer settings.
-        gitlab: GitLab merge request settings when GitLab workflows are used.
+    gitlab: GitLab merge request settings when GitLab workflows are used.
         state: State persistence settings.
     """
 
@@ -209,7 +209,7 @@ class AppConfig(BaseModel):
     review: ReviewConfig = Field(default_factory=ReviewConfig)
     remediation: RemediationConfig = Field(default_factory=RemediationConfig)
     sonarqube: SonarQubeConfig = Field(default_factory=SonarQubeConfig)
-    gitlab: GitLabConfig
+    gitlab: GitLabConfig | None = None
     state: StateConfig = Field(default_factory=StateConfig)
 
     @model_validator(mode="before")
@@ -247,6 +247,21 @@ class AppConfig(BaseModel):
             data["sonarqube"] = sonarqube
 
         return data
+
+    @model_validator(mode="after")
+    def _validate_provider_requirements(self) -> AppConfig:
+        """Validate provider-specific configuration requirements."""
+        if self.review.platform == "gitlab" and self.gitlab is None:
+            raise ValueError(
+                "review.platform=gitlab requires a top-level gitlab configuration block."
+            )
+        return self
+
+    def require_gitlab_config(self, *, reason: str) -> GitLabConfig:
+        """Return GitLab workflow settings or fail with a scoped message."""
+        if self.gitlab is None:
+            raise ValueError(f"{reason} requires a top-level gitlab configuration block.")
+        return self.gitlab
 
     def requires_local_approval(self) -> bool:
         """Return whether this run should block for terminal approval.

@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This design gives Phase `2b` a concrete package-boundary target before source
-files or tests are moved.
+This design gave Phase `2b` a concrete package-boundary target before source
+files or tests were moved.
 
 The goal is not broad repository refactoring. The goal is to stop the review
 workflow from continuing to grow across a flat `services/review/` namespace
@@ -28,10 +28,20 @@ It does not attempt to redesign:
 - dashboard packaging
 - shared Git provider abstractions outside review
 
-## Current Problem
+## Status
 
-The current review implementation is structurally correct, but review-domain
-code is still spread across one broad package:
+The package layout described here is now implemented for the review workflow.
+
+That structural `Phase 2b` work is now complete:
+
+- provider-neutral review config cleanup is implemented
+- documentation and config migration guidance are in place
+- review integration tests were split to match the cleaned package map
+
+## Former Problem
+
+Before the cleanup, the review implementation was structurally correct, but
+review-domain code was still spread across one broad package:
 
 - `services/review/change_request_intake.py`
 - `services/review/review_context_builder.py`
@@ -173,8 +183,8 @@ Responsibility:
 
 ### 7. `providers/review/`
 
-Provider review transport should eventually live under a review-focused provider
- namespace instead of a flat providers directory.
+Provider review transport now lives under a review-focused provider namespace
+instead of a flat providers directory.
 
 Target contents:
 

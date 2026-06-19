@@ -5,7 +5,7 @@ from __future__ import annotations
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.dashboard import DashboardItem
 from zeroone_ops.models.state import FailureDetails, FailureStage, RunRecord, RunStatus, utc_now
-from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
+from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.services.dashboard.dashboard_reconciliation_intake import (
     DashboardReconciliationIntakeService,
 )
