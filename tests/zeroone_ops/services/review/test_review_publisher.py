@@ -241,12 +241,12 @@ class FakeGitLabReviewClient:
     def create_change_request_comment(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         body: str,
     ) -> MergeRequestNote:
         return self.create_merge_request_note(
-            project_id=project_id,
+            project_id=repository_id,
             merge_request_iid=change_request_number,
             body=body,
         )
@@ -296,13 +296,13 @@ class FakeGitLabReviewClient:
     def update_change_request_comment(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         note_id: int,
         body: str,
     ) -> MergeRequestNote:
         return self.update_merge_request_note(
-            project_id=project_id,
+            project_id=repository_id,
             merge_request_iid=change_request_number,
             note_id=note_id,
             body=body,
@@ -333,7 +333,7 @@ class FakeGitLabReviewClient:
     def create_change_request_inline_comment(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         body: str,
         base_sha: str,
@@ -344,7 +344,7 @@ class FakeGitLabReviewClient:
         new_line: int,
     ) -> MergeRequestNote:
         return self.create_merge_request_inline_comment(
-            project_id=project_id,
+            project_id=repository_id,
             merge_request_iid=change_request_number,
             body=body,
             base_sha=base_sha,
@@ -496,7 +496,7 @@ def test_publish_artifact_sends_rendered_note_body() -> None:
     publisher = ReviewPublisher(review_client)
 
     result = publisher.publish_artifact(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         context=build_context(),
         artifact=build_artifact(),
@@ -516,7 +516,7 @@ def test_publish_artifact_creates_inline_comment_after_summary_note_when_request
     artifact = build_artifact()
 
     result = publisher.publish_artifact(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         context=build_context(),
         artifact=artifact,
@@ -556,7 +556,7 @@ def test_publish_artifact_surfaces_inline_comment_publish_warning() -> None:
     artifact = build_artifact()
 
     result = publisher.publish_artifact(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         context=build_context(),
         artifact=artifact,
@@ -590,7 +590,7 @@ def test_publish_artifact_surfaces_authoritative_note_update_warning() -> None:
     artifact = build_artifact()
 
     result = publisher.publish_artifact(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         context=build_context(),
         artifact=artifact,
@@ -645,7 +645,7 @@ def test_publish_artifact_prefers_latest_changed_line_within_finding_range() -> 
     )
 
     publisher.publish_artifact(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         context=build_multiline_context(),
         artifact=artifact,

@@ -1,4 +1,4 @@
-"""GitLab-backed prior review note selection."""
+"""Provider-neutral prior review comment selection."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ _DEFAULT_BOT_AUTHOR_USERNAME = "ai-sonar-bot"
 
 @dataclass(frozen=True)
 class PriorReviewNoteSelectionResult:
-    """Capture bounded MR note selection for prior review reconstruction."""
+    """Capture bounded review-comment selection for prior review reconstruction."""
 
     selected_note: ReviewComment | None
     considered_note_count: int
@@ -38,8 +38,8 @@ class PriorReviewNoteSelectionResult:
     message: str
 
 
-class GitLabChangeRequestPriorContextLoader:
-    """Fetch and select the latest earlier machine-safe review note on one MR."""
+class ChangeRequestPriorCommentLoader:
+    """Fetch and select the latest earlier machine-safe review comment."""
 
     def __init__(
         self,
@@ -47,20 +47,20 @@ class GitLabChangeRequestPriorContextLoader:
         *,
         bot_author_username: str | None = _DEFAULT_BOT_AUTHOR_USERNAME,
     ) -> None:
-        """Initialize the GitLab-backed prior review note selector."""
+        """Initialize the provider-neutral prior review comment selector."""
         self.review_client = review_client
         self.bot_author_username = bot_author_username
 
     def select_latest_prior_review_note(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         current_head_sha: str,
     ) -> PriorReviewNoteSelectionResult:
-        """Return the latest earlier machine-safe bot review note for one MR."""
+        """Return the latest earlier machine-safe bot review comment."""
         notes = self.review_client.list_change_request_comments(
-            project_id=project_id,
+            repository_id=repository_id,
             change_request_number=change_request_number,
         )
         author_matched_notes = [note for note in notes if self._matches_bot_author(note)]
@@ -133,7 +133,7 @@ class GitLabChangeRequestPriorContextLoader:
 
 
 def _has_machine_safe_review_note_block(body: str) -> bool:
-    """Return whether one MR note contains the bounded machine-safe block."""
+    """Return whether one review comment contains the bounded machine-safe block."""
     return _MACHINE_SAFE_REVIEW_NOTE_PREFIX in body
 
 

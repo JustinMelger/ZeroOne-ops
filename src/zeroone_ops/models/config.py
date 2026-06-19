@@ -39,6 +39,7 @@ class ApprovalConfig(BaseModel):
 class ReviewConfig(BaseModel):
     """Configure pull-request review behavior."""
 
+    platform: Literal["gitlab", "github"] = "gitlab"
     max_changed_files: int = 10
     max_context_lines_before: int = 30
     max_context_lines_after: int = 30
@@ -86,6 +87,22 @@ class GitLabConnectionConfig(BaseModel):
     url: str
     token: str
     project_id: str
+
+
+class GitHubConnectionConfig(BaseModel):
+    """Configure GitHub API connectivity for pull-request review.
+
+    Attributes:
+        api_url: GitHub API base URL.
+        server_url: GitHub server URL for building web links when needed.
+        token: GitHub API token.
+        repository: Repository full name in ``owner/name`` form.
+    """
+
+    api_url: str
+    server_url: str
+    token: str
+    repository: str
 
 
 class SonarQubeConnectionConfig(BaseModel):
@@ -174,7 +191,7 @@ class AppConfig(BaseModel):
         review: Review-related settings.
         remediation: Remediation-related settings.
         sonarqube: SonarQube producer settings.
-        gitlab: GitLab merge request settings.
+        gitlab: GitLab merge request settings when GitLab workflows are used.
         state: State persistence settings.
     """
 

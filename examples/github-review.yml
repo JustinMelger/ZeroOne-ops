@@ -1,0 +1,65 @@
+name: ZeroOne Ops Review
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  zeroone-ops-review:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/<owner>/zeroone-ops:latest
+
+    env:
+      ZEROONE_OPS_EXECUTION_MODE: ci
+      ZEROONE_OPS_CONFIG: .zeroone-ops.json
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: gpt-5.4-mini
+      # Optional MLflow tracing. Enable only when a reachable tracking server is
+      # configured for this environment.
+      # ZEROONE_MLFLOW_ENABLED: "true"
+      # MLFLOW_TRACKING_URI: "https://mlflow.example.internal"
+      # MLFLOW_EXPERIMENT_NAME: "zeroone-ops-review"
+      # Keep request settings tight in CI so an unreachable tracking server does
+      # not stall review runs for too long.
+      # MLFLOW_HTTP_REQUEST_TIMEOUT: "5"
+      # MLFLOW_HTTP_REQUEST_MAX_RETRIES: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Mark workspace as safe for Git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Run review
+        run: zeroone-ops review
+
+# Current config note:
+# - Until GitHub review config neutralization lands in Phase 2b, the repository
+#   JSON config still needs a top-level "gitlab" block for validation even when
+#   "review.platform" is set to "github".
+# - The smallest currently valid review config shape is:
+#
+# {
+#   "base_branch": "main",
+#   "review": {
+#     "platform": "github"
+#   },
+#   "gitlab": {
+#     "target_branch": "main"
+#   }
+# }

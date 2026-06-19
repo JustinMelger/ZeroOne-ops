@@ -1,8 +1,8 @@
 import json
 
 from zeroone_ops.models.gitlab import MergeRequestNote
-from zeroone_ops.services.review.review_gitlab_prior_note_parser import (
-    GitLabChangeRequestPriorNoteParser,
+from zeroone_ops.services.review.review_prior_comment_parser import (
+    ChangeRequestPriorCommentParser,
 )
 
 START_MARKER = "<!-- ai-sonar-bot:review-note:v1\n"
@@ -66,7 +66,7 @@ def build_finding_payload() -> dict[str, object]:
 
 
 def test_parse_note_rebuilds_findings_present_pass() -> None:
-    parser = GitLabChangeRequestPriorNoteParser()
+    parser = ChangeRequestPriorCommentParser()
 
     result = parser.parse_note(
         note=build_note(build_payload(findings=[build_finding_payload()])),
@@ -97,7 +97,7 @@ def test_parse_note_rebuilds_findings_present_pass() -> None:
 
 
 def test_parse_note_rebuilds_no_findings_pass() -> None:
-    parser = GitLabChangeRequestPriorNoteParser()
+    parser = ChangeRequestPriorCommentParser()
 
     result = parser.parse_note(
         note=build_note(build_payload(classification="no_findings", findings=[])),
@@ -111,7 +111,7 @@ def test_parse_note_rebuilds_no_findings_pass() -> None:
 
 
 def test_parse_note_rebuilds_manual_review_only_pass() -> None:
-    parser = GitLabChangeRequestPriorNoteParser()
+    parser = ChangeRequestPriorCommentParser()
 
     result = parser.parse_note(
         note=build_note(build_payload(classification="manual_review_only", findings=[])),
@@ -124,7 +124,7 @@ def test_parse_note_rebuilds_manual_review_only_pass() -> None:
 
 
 def test_parse_note_rejects_different_merge_request_iid() -> None:
-    parser = GitLabChangeRequestPriorNoteParser()
+    parser = ChangeRequestPriorCommentParser()
 
     result = parser.parse_note(
         note=build_note(build_payload()),
@@ -138,7 +138,7 @@ def test_parse_note_rejects_different_merge_request_iid() -> None:
 
 
 def test_parse_note_rejects_mismatched_findings_count() -> None:
-    parser = GitLabChangeRequestPriorNoteParser()
+    parser = ChangeRequestPriorCommentParser()
 
     result = parser.parse_note(
         note=build_note(build_payload(findings=[build_finding_payload()], findings_count=2)),
@@ -152,7 +152,7 @@ def test_parse_note_rejects_mismatched_findings_count() -> None:
 
 
 def test_parse_note_rejects_mismatched_supplied_identity() -> None:
-    parser = GitLabChangeRequestPriorNoteParser()
+    parser = ChangeRequestPriorCommentParser()
     finding = build_finding_payload()
     finding["identity"] = "src/service.py::different-identity"
 

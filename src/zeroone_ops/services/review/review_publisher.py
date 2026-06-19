@@ -45,7 +45,7 @@ class ReviewPublisher:
     def publish_artifact(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         context: ChangeRequestReviewContext,
         artifact: PublishableReviewArtifact,
@@ -58,7 +58,7 @@ class ReviewPublisher:
         )
         try:
             note = self.review_client.create_change_request_comment(
-                project_id=project_id,
+                repository_id=repository_id,
                 change_request_number=change_request_number,
                 body=body,
             )
@@ -71,7 +71,7 @@ class ReviewPublisher:
                 error_message=f"Review note publish failed: {error}",
             )
         artifact_to_publish, updated_decisions = self._publish_inline_comments(
-            project_id=project_id,
+            repository_id=repository_id,
             change_request_number=change_request_number,
             context=context,
             artifact=artifact,
@@ -90,7 +90,7 @@ class ReviewPublisher:
             )
             try:
                 note = self.review_client.update_change_request_comment(
-                    project_id=project_id,
+                    repository_id=repository_id,
                     change_request_number=change_request_number,
                     note_id=note.id,
                     body=updated_body,
@@ -99,7 +99,7 @@ class ReviewPublisher:
             except ReviewPlatformClientError:
                 warning_messages.append(
                     "Inline comments were published, but updating the authoritative review note "
-                    "failed. GitLab-backed continuity metadata for those inline comments is "
+                    "failed. Provider-backed continuity metadata for those inline comments is "
                     "incomplete, but local mirrored continuity was preserved."
                 )
         return ReviewPublishResult(
@@ -115,7 +115,7 @@ class ReviewPublisher:
     def _publish_inline_comments(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         context: ChangeRequestReviewContext,
         artifact: PublishableReviewArtifact,
@@ -153,7 +153,7 @@ class ReviewPublisher:
 
             try:
                 note = self.review_client.create_change_request_inline_comment(
-                    project_id=project_id,
+                    repository_id=repository_id,
                     change_request_number=change_request_number,
                     body=_render_inline_comment_body(finding),
                     base_sha=context.diff_refs.base_sha,

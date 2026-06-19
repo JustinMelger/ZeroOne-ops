@@ -14,9 +14,6 @@ from zeroone_ops.models.review import (
     RemediationReviewContext,
     ReviewFileContext,
 )
-from zeroone_ops.providers.review_platform import (
-    ChangeRequestReviewFetchClientProtocol,
-)
 from zeroone_ops.services.review.review_function_context import (
     select_function_aware_window,
 )
@@ -50,27 +47,19 @@ class ReviewContextBuilder:
         self,
         repo_root: Path,
         config: AppConfig,
-        review_client: ChangeRequestReviewFetchClientProtocol,
     ) -> None:
         """Initialize the review context builder."""
         self.repo_root = repo_root
         self.config = config
-        self.review_client = review_client
 
     def build(
         self,
-        merge_request: ChangeRequestReviewCandidate,
-        *,
-        project_id: str,
+        change_request: ChangeRequestReviewCandidate,
     ) -> ReviewContextBuildResult:
         """Build review context for one change request."""
-        detailed_merge_request = self.review_client.get_change_request(
-            project_id=project_id,
-            change_request_number=merge_request.change_request_number,
-        )
         supported_changes = [
             change
-            for change in detailed_merge_request.changes
+            for change in change_request.changes
             if not change.deleted_file and self._is_supported_path(change.new_path)
         ]
         if len(supported_changes) == 0:
@@ -178,17 +167,17 @@ class ReviewContextBuilder:
 
         return ReviewContextBuildResult(
             context=ChangeRequestReviewContext(
-                change_request_number=detailed_merge_request.change_request_number,
-                title=detailed_merge_request.title,
-                description=detailed_merge_request.description,
-                source_branch=detailed_merge_request.source_branch,
-                target_branch=detailed_merge_request.target_branch,
-                web_url=detailed_merge_request.web_url,
-                head_sha=detailed_merge_request.head_sha,
-                draft=detailed_merge_request.draft,
-                author_username=detailed_merge_request.author_username,
-                diff_refs=detailed_merge_request.diff_refs,
-                remediation_context=_parse_remediation_context(detailed_merge_request.description),
+                change_request_number=change_request.change_request_number,
+                title=change_request.title,
+                description=change_request.description,
+                source_branch=change_request.source_branch,
+                target_branch=change_request.target_branch,
+                web_url=change_request.web_url,
+                head_sha=change_request.head_sha,
+                draft=change_request.draft,
+                author_username=change_request.author_username,
+                diff_refs=change_request.diff_refs,
+                remediation_context=_parse_remediation_context(change_request.description),
                 repository_guidance=load_repository_guidance(self.repo_root),
                 changed_files=changed_files,
             ),

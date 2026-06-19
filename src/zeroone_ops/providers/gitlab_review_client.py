@@ -261,16 +261,20 @@ class GitLabReviewClient:
             raise GitLabClientError("Unexpected GitLab current user username.")
         return username
 
+    def allows_machine_safe_comment_fallback(self) -> bool:
+        """Keep GitLab continuity conservative when author lookup fails."""
+        return False
+
     def get_change_request(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
     ) -> ChangeRequestReviewCandidate:
         """Fetch one pull request with change metadata using provider-neutral naming."""
         try:
             return self.get_merge_request(
-                project_id=project_id,
+                project_id=repository_id,
                 merge_request_iid=change_request_number,
             )
         except GitLabClientError as error:
@@ -279,7 +283,7 @@ class GitLabReviewClient:
     def list_change_request_comments(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
     ) -> list[ReviewComment]:
         """List provider-backed review notes/comments using neutral naming."""
@@ -287,7 +291,7 @@ class GitLabReviewClient:
             return [
                 _to_pull_request_review_note(note)
                 for note in self.list_merge_request_notes(
-                    project_id=project_id,
+                    project_id=repository_id,
                     merge_request_iid=change_request_number,
                 )
             ]
@@ -297,7 +301,7 @@ class GitLabReviewClient:
     def create_change_request_comment(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         body: str,
     ) -> ReviewComment:
@@ -305,7 +309,7 @@ class GitLabReviewClient:
         try:
             return _to_pull_request_review_note(
                 self.create_merge_request_note(
-                    project_id=project_id,
+                    project_id=repository_id,
                     merge_request_iid=change_request_number,
                     body=body,
                 )
@@ -316,7 +320,7 @@ class GitLabReviewClient:
     def update_change_request_comment(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         note_id: int,
         body: str,
@@ -325,7 +329,7 @@ class GitLabReviewClient:
         try:
             return _to_pull_request_review_note(
                 self.update_merge_request_note(
-                    project_id=project_id,
+                    project_id=repository_id,
                     merge_request_iid=change_request_number,
                     note_id=note_id,
                     body=body,
@@ -337,7 +341,7 @@ class GitLabReviewClient:
     def create_change_request_inline_comment(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         body: str,
         base_sha: str,
@@ -351,7 +355,7 @@ class GitLabReviewClient:
         try:
             return _to_pull_request_review_note(
                 self.create_merge_request_inline_comment(
-                    project_id=project_id,
+                    project_id=repository_id,
                     merge_request_iid=change_request_number,
                     body=body,
                     base_sha=base_sha,

@@ -25,6 +25,7 @@ from zeroone_ops.models.review import (
     PrecisionReviewDecision,
     PriorReviewFinding,
     PriorReviewPass,
+    ReviewComment,
     ReviewFileContext,
     ReviewFinding,
     ReviewResult,
@@ -3501,7 +3502,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state: type(
+        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
             {
@@ -3513,9 +3514,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, project_id: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, merge_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
@@ -3541,6 +3540,208 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
     assert summary.status.value == "reviewed"
     assert "Reviewed change request !17 at abc123." in summary.message
     assert "Dry-run skipped note publication." in summary.message
+
+
+def test_review_github_non_dry_run_publishes_summary_comment(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _install_review_precision_fake(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITHUB_TOKEN", "github-token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    event_path = tmp_path / "github-event.json"
+    event_path.write_text('{"pull_request": {"number": 23}}', encoding="utf-8")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "review": {
+            "platform": "github"
+          },
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    change_request = ChangeRequestReviewCandidate(
+        change_request_number=23,
+        title="feat: github review flow",
+        description="summary",
+        source_branch="feature/github-review",
+        target_branch="main",
+        web_url="https://github.com/octo-org/octo-repo/pull/23",
+        head_sha="abc123",
+        changes=[],
+    )
+    review_context = ChangeRequestReviewContext(
+        change_request_number=23,
+        title="feat: github review flow",
+        description="summary",
+        source_branch="feature/github-review",
+        target_branch="main",
+        web_url="https://github.com/octo-org/octo-repo/pull/23",
+        head_sha="abc123",
+        changed_files=[
+            ReviewFileContext(
+                file_path="src/service.py",
+                diff="@@ -1,1 +1,1 @@",
+                start_line=1,
+                end_line=1,
+                content="   1: value = 1",
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
+        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
+            "Result",
+            (),
+            {
+                "selected_change_request": change_request,
+                "change_request_count": 1,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
+        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
+        lambda self, context: type(
+            "CandidateStageResult",
+            (),
+            {
+                "candidate_result": None,
+                "raw_review_result": ReviewResult(
+                    classification="no_findings",
+                    summary="No findings.",
+                    findings=[],
+                ),
+                "accepted_candidate_ids": (),
+                "dropped_candidates": (),
+                "message": "Candidate review generated 0 candidates and accepted 0 findings.",
+            },
+        )(),
+    )
+
+    observed: dict[str, object] = {}
+
+    def capture_publish(  # noqa: ANN001, ANN202
+        self,
+        repository_id,
+        change_request_number,
+        context,
+        artifact,
+        inline_comment_decisions=None,
+    ):
+        del self, context, inline_comment_decisions
+        observed["repository_id"] = repository_id
+        observed["change_request_number"] = change_request_number
+        observed["artifact"] = artifact
+        return ReviewPublishResult(
+            note=type(
+                "Note",
+                (),
+                {
+                    "id": 88,
+                    "web_url": "https://github.com/octo-org/octo-repo/pull/23#issuecomment-88",
+                },
+            )(),
+            body="summary",
+            artifact=artifact,
+        )
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        capture_publish,
+    )
+
+    summary = review(dry_run=False)
+
+    assert summary.status.value == "reviewed"
+    assert observed["repository_id"] == "octo-org/octo-repo"
+    assert observed["change_request_number"] == 23
+    assert observed["artifact"].classification == "no_findings"
+    assert "Review note: https://github.com/octo-org/octo-repo/pull/23#issuecomment-88" in (
+        summary.message
+    )
+    state = StateStore(
+        tmp_path / ".zeroone-ops-state.json",
+        base_branch="main",
+        gitlab_project_id=None,
+        sonarqube_project_key=None,
+    ).load()
+    assert state.reviews["23:abc123"].change_request_number == 23
+
+
+def test_review_github_stops_when_live_head_sha_differs_from_triggered_revision(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _install_review_precision_fake(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITHUB_TOKEN", "github-token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    event_path = tmp_path / "github-event.json"
+    event_path.write_text(
+        '{"pull_request": {"number": 23, "head": {"sha": "oldsha123"}}}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "review": {
+            "platform": "github"
+          },
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "zeroone_ops.providers.github_review_client.GitHubReviewClient.get_change_request",
+        lambda self, repository_id, change_request_number: ChangeRequestReviewCandidate(
+            change_request_number=23,
+            title="feat: github review flow",
+            description="summary",
+            source_branch="feature/github-review",
+            target_branch="main",
+            web_url="https://github.com/octo-org/octo-repo/pull/23",
+            head_sha="newsha456",
+            changes=[],
+        ),
+    )
+
+    summary = review(dry_run=False)
+
+    assert summary.status.value == "failed"
+    assert "live change request head SHA no longer matches" in summary.message
+    assert "oldsha123 -> newsha456" in summary.message
 
 
 def test_review_non_dry_run_publishes_findings_and_persists_revision(
@@ -3603,7 +3804,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state: type(
+        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
             {
@@ -3615,9 +3816,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, project_id: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
@@ -3667,13 +3866,13 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
 
     def publish_artifact_stub(  # noqa: ANN001, ANN202
         self,
-        project_id,
+        repository_id,
         change_request_number,
         context,
         artifact,
         inline_comment_decisions=None,
     ):
-        del self, project_id, change_request_number, context, inline_comment_decisions
+        del self, repository_id, change_request_number, context, inline_comment_decisions
         return ReviewPublishResult(
             note=type(
                 "Note",
@@ -3793,7 +3992,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state: type(
+        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
             {
@@ -3805,9 +4004,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, project_id: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
@@ -3830,13 +4027,13 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
 
     def publish_artifact_stub(  # noqa: ANN001, ANN202
         self,
-        project_id,
+        repository_id,
         change_request_number,
         context,
         artifact,
         inline_comment_decisions=None,
     ):
-        del self, project_id, change_request_number, context, inline_comment_decisions
+        del self, repository_id, change_request_number, context, inline_comment_decisions
         return ReviewPublishResult(
             note=type("Note", (), {"id": 55, "web_url": None})(),
             body="summary",
@@ -3956,7 +4153,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state: type(
+        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
             {
@@ -3968,9 +4165,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, project_id: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
@@ -4023,13 +4218,13 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
 
     def capture_publish(  # noqa: ANN001, ANN202
         self,
-        project_id,
+        repository_id,
         change_request_number,
         context,
         artifact,
         inline_comment_decisions=None,
     ):
-        del self, project_id, change_request_number, context
+        del self, repository_id, change_request_number, context
         observed["artifact"] = artifact
         observed["inline_comment_decisions"] = inline_comment_decisions
         return ReviewPublishResult(
@@ -4128,7 +4323,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state: type(
+        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
             {
@@ -4140,9 +4335,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, project_id: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     selected_note = type(
         "Note",
@@ -4156,8 +4349,8 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         },
     )()
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_gitlab_prior_context_service.GitLabChangeRequestPriorContextLoader.select_latest_prior_review_note",
-        lambda self, project_id, change_request_number, current_head_sha: type(
+        "zeroone_ops.services.review.review_prior_comment_loader.ChangeRequestPriorCommentLoader.select_latest_prior_review_note",
+        lambda self, repository_id, change_request_number, current_head_sha: type(
             "SelectionResult",
             (),
             {
@@ -4173,7 +4366,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_gitlab_prior_note_parser.GitLabChangeRequestPriorNoteParser.parse_note",
+        "zeroone_ops.services.review.review_prior_comment_parser.ChangeRequestPriorCommentParser.parse_note",
         lambda self, note, expected_change_request_number: type(
             "ParseResult",
             (),
@@ -4258,13 +4451,13 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
 
     def capture_publish(  # noqa: ANN001, ANN202
         self,
-        project_id,
+        repository_id,
         change_request_number,
         context,
         artifact,
         inline_comment_decisions=None,
     ):
-        del self, project_id, change_request_number, context
+        del self, repository_id, change_request_number, context
         observed["artifact"] = artifact
         observed["inline_comment_decisions"] = inline_comment_decisions
         return ReviewPublishResult(
@@ -4365,7 +4558,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state: type(
+        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
             {
@@ -4377,9 +4570,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, project_id: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
@@ -4404,13 +4595,13 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
 
     def capture_publish(  # noqa: ANN001, ANN202
         self,
-        project_id,
+        repository_id,
         change_request_number,
         context,
         artifact,
         inline_comment_decisions=None,
     ):
-        del self, project_id, change_request_number, context
+        del self, repository_id, change_request_number, context
         observed["artifact"] = artifact
         observed["inline_comment_decisions"] = inline_comment_decisions
         return ReviewPublishResult(
@@ -4768,7 +4959,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
 
     monkeypatch.setattr(
         "zeroone_ops.services.review.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        lambda self, state: type(
+        lambda self, state, repository_id, change_request_number, triggered_head_sha=None: type(
             "Result",
             (),
             {
@@ -4803,9 +4994,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, project_id: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, merge_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
@@ -4831,3 +5020,79 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
     assert summary.status.value == "reviewed"
     assert "No new changes after the last review." not in summary.message
     assert "Dry-run skipped note publication." in summary.message
+
+
+def test_review_github_reuses_same_sha_note_when_username_lookup_is_unresolved(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _install_review_precision_fake(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITHUB_TOKEN", "github-token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    event_path = tmp_path / "github-event.json"
+    event_path.write_text(
+        '{"pull_request": {"number": 23, "head": {"sha": "abc123"}}}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "review": {
+            "platform": "github"
+          },
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "zeroone_ops.providers.github_review_client.GitHubReviewClient.get_change_request",
+        lambda self, repository_id, change_request_number: ChangeRequestReviewCandidate(
+            change_request_number=23,
+            title="feat: github review flow",
+            description="summary",
+            source_branch="feature/github-review",
+            target_branch="main",
+            web_url="https://github.com/octo-org/octo-repo/pull/23",
+            head_sha="abc123",
+            changes=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.github_review_client.GitHubReviewClient.get_current_user_username",
+        lambda self: (_ for _ in ()).throw(RuntimeError("cannot resolve bot username")),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.github_review_client.GitHubReviewClient.list_change_request_comments",
+        lambda self, repository_id, change_request_number: [
+            ReviewComment(
+                id=55,
+                web_url="https://github.com/octo-org/octo-repo/pull/23#issuecomment-55",
+                author_username="someone-else",
+                created_at="2026-05-03T10:00:00Z",
+                body=(
+                    "Hi,\n\nHere are your review notes.\n\n"
+                    "<!-- ai-sonar-bot:review-note:v1\n"
+                    '{"classification":"findings_present","findings":[],"findings_count":0,'
+                    '"reviewed_head_sha":"abc123","reviewed_change_request_number":23,'
+                    '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
+                    "-->"
+                ),
+            )
+        ],
+    )
+
+    summary = review(dry_run=True)
+
+    assert summary.status.value == "reviewed"
+    assert "No new changes after the last review." in summary.message
+    assert "Earlier classification: findings_present." in summary.message

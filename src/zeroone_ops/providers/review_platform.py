@@ -20,7 +20,7 @@ class ChangeRequestReviewFetchClientProtocol(Protocol):
     def get_change_request(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
     ) -> ChangeRequestReviewCandidate:
         """Fetch one change request with change metadata."""
@@ -32,13 +32,16 @@ class ChangeRequestReviewCommentsClientProtocol(Protocol):
     def list_change_request_comments(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
     ) -> list[ReviewComment]:
         """List provider-backed review comments for one change request."""
 
     def get_current_user_username(self) -> str:
         """Return the username associated with the active review token."""
+
+    def allows_machine_safe_comment_fallback(self) -> bool:
+        """Return whether machine-safe comments may be trusted without author lookup."""
 
 
 class ChangeRequestReviewPublishClientProtocol(Protocol):
@@ -47,7 +50,7 @@ class ChangeRequestReviewPublishClientProtocol(Protocol):
     def create_change_request_comment(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         body: str,
     ) -> ReviewComment:
@@ -56,7 +59,7 @@ class ChangeRequestReviewPublishClientProtocol(Protocol):
     def update_change_request_comment(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         note_id: int,
         body: str,
@@ -66,7 +69,7 @@ class ChangeRequestReviewPublishClientProtocol(Protocol):
     def create_change_request_inline_comment(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         body: str,
         base_sha: str,

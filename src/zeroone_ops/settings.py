@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 
 from zeroone_ops.models.config import (
     AppConfig,
+    GitHubConnectionConfig,
     GitLabConnectionConfig,
     OpenAIConnectionConfig,
     SonarQubeConnectionConfig,
@@ -212,6 +213,33 @@ def load_gitlab_connection_config() -> GitLabConnectionConfig:
     )
 
 
+def load_github_connection_config() -> GitHubConnectionConfig:
+    """Load GitHub connection settings from the environment.
+
+    Returns:
+        Validated GitHub connection settings.
+
+    Raises:
+        SettingsError: If a required GitHub environment variable is missing.
+    """
+    _load_environment_file()
+    required = {
+        "GITHUB_TOKEN": os.environ.get("GITHUB_TOKEN"),
+        "GITHUB_REPOSITORY": os.environ.get("GITHUB_REPOSITORY"),
+    }
+    missing = sorted(name for name, value in required.items() if not value)
+    if missing:
+        names = ", ".join(missing)
+        raise SettingsError(f"Missing required GitHub environment variables: {names}")
+
+    return GitHubConnectionConfig(
+        api_url=os.environ.get("GITHUB_API_URL") or "https://api.github.com",
+        server_url=os.environ.get("GITHUB_SERVER_URL") or "https://github.com",
+        token=required["GITHUB_TOKEN"] or "",
+        repository=required["GITHUB_REPOSITORY"] or "",
+    )
+
+
 def load_current_change_request_number() -> int | None:
     """Load the current change-request number from CI context when present."""
     _load_environment_file()
@@ -222,6 +250,62 @@ def load_current_change_request_number() -> int | None:
         return int(raw_value)
     except ValueError as error:
         raise SettingsError("CI_MERGE_REQUEST_IID must be an integer when set.") from error
+
+
+def load_current_github_pull_request_number() -> int | None:
+    """Load the current GitHub pull-request number from workflow context when present."""
+    payload = _load_github_event_payload()
+    if payload is None:
+        return None
+
+    number = payload.get("number")
+    if number is None:
+        pull_request = payload.get("pull_request")
+        if not isinstance(pull_request, dict):
+            return None
+        number = pull_request.get("number")
+    if not isinstance(number, int):
+        raise SettingsError("GitHub pull_request.number must be an integer when set.")
+    return number
+
+
+def load_current_github_pull_request_head_sha() -> str | None:
+    """Load the triggering GitHub pull-request head SHA from workflow context when present."""
+    payload = _load_github_event_payload()
+    if payload is None:
+        return None
+
+    pull_request = payload.get("pull_request")
+    if not isinstance(pull_request, dict):
+        return None
+    head = pull_request.get("head")
+    if not isinstance(head, dict):
+        return None
+    head_sha = head.get("sha")
+    if head_sha is None:
+        return None
+    if not isinstance(head_sha, str):
+        raise SettingsError("GitHub pull_request.head.sha must be a string when set.")
+    return head_sha
+
+
+def _load_github_event_payload() -> dict[str, Any] | None:
+    """Load the current GitHub workflow event payload when present."""
+    _load_environment_file()
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if not event_path:
+        return None
+
+    try:
+        payload = json.loads(Path(event_path).read_text(encoding="utf-8"))
+    except OSError as error:
+        raise SettingsError(f"Could not read GITHUB_EVENT_PATH payload: {error}") from error
+    except json.JSONDecodeError as error:
+        raise SettingsError("GITHUB_EVENT_PATH does not contain valid JSON.") from error
+
+    if not isinstance(payload, dict):
+        raise SettingsError("GITHUB_EVENT_PATH payload must be a JSON object.")
+    return payload
 
 
 def load_gitlab_project_id_override() -> str | None:
