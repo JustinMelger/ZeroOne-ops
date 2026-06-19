@@ -72,20 +72,6 @@ def build_merge_request(*, changes: list[ChangeRequestChangedFile]) -> ChangeReq
     )
 
 
-class FakeGitLabReviewClient:
-    def __init__(self, detailed_merge_request: ChangeRequestReviewCandidate) -> None:
-        self.detailed_merge_request = detailed_merge_request
-
-    def get_change_request(
-        self,
-        *,
-        repository_id: str,
-        change_request_number: int,
-    ) -> ChangeRequestReviewCandidate:
-        del repository_id, change_request_number
-        return self.detailed_merge_request
-
-
 def test_build_returns_changed_file_context(tmp_path: Path) -> None:
     source_dir = tmp_path / "src"
     source_dir.mkdir()
@@ -106,8 +92,7 @@ def test_build_returns_changed_file_context(tmp_path: Path) -> None:
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     assert result.message == ""
@@ -140,8 +125,7 @@ def test_build_rejects_when_changed_files_exceed_v1_limit(tmp_path: Path) -> Non
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(max_changed_files=1),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is None
     assert "exceeds the v1 limit of 1" in result.message
@@ -161,8 +145,7 @@ def test_build_rejects_missing_local_file(tmp_path: Path) -> None:
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is None
     assert "Changed file is missing" in result.message
@@ -190,8 +173,7 @@ def test_build_filters_to_supported_paths(tmp_path: Path) -> None:
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(supported_paths=["src/"]),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     assert len(result.context.changed_files) == 1
@@ -226,8 +208,7 @@ def test_build_filters_ignored_paths_even_when_supported(tmp_path: Path) -> None
             supported_paths=["src/"],
             ignored_paths=["src/generated/"],
         ),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     assert len(result.context.changed_files) == 1
@@ -273,8 +254,7 @@ def test_build_parses_remediation_authored_merge_request_context(tmp_path: Path)
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     assert result.context.remediation_context is not None
@@ -312,8 +292,7 @@ def test_build_keeps_working_for_normal_merge_requests_without_metadata(tmp_path
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     assert result.context.remediation_context is None
@@ -336,8 +315,7 @@ def test_build_does_not_set_prior_review_context_by_default(tmp_path: Path) -> N
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     assert result.context.prior_review_context is None
@@ -412,8 +390,7 @@ def test_build_loads_bounded_repository_guidance(tmp_path: Path) -> None:
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     assert [guidance.file_path for guidance in result.context.repository_guidance] == [
@@ -453,8 +430,7 @@ def test_build_includes_same_file_direct_helper_context_for_python_changes(tmp_p
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     helper_context = result.context.changed_files[0].helper_context
@@ -492,8 +468,7 @@ def test_build_skips_helper_context_when_disabled(tmp_path: Path) -> None:
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(enable_helper_following=False),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     assert result.context.changed_files[0].helper_context == []
@@ -529,8 +504,7 @@ def test_build_includes_same_file_self_method_helper_context(tmp_path: Path) -> 
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     helper_context = result.context.changed_files[0].helper_context
@@ -570,8 +544,7 @@ def test_build_includes_same_file_class_method_helper_context(tmp_path: Path) ->
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     helper_context = result.context.changed_files[0].helper_context
@@ -618,8 +591,7 @@ def test_build_includes_project_local_imported_helper_context(tmp_path: Path) ->
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(supported_paths=["src/"]),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     helper_context = result.context.changed_files[0].helper_context
@@ -672,8 +644,7 @@ def test_build_skips_imported_helpers_in_ignored_paths(tmp_path: Path) -> None:
             supported_paths=["src/"],
             ignored_paths=["src/generated/"],
         ),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     assert result.context.changed_files[0].helper_context == []
@@ -709,8 +680,7 @@ def test_build_limits_same_file_helper_context_by_budget(tmp_path: Path) -> None
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(max_followed_helper_lines=2),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     assert result.context.changed_files[0].helper_context == []
@@ -746,8 +716,7 @@ def test_build_logs_helper_following_when_enabled(tmp_path: Path, caplog) -> Non
         result = ReviewContextBuilder(
             repo_root=tmp_path,
             config=build_config(),
-            review_client=FakeGitLabReviewClient(merge_request),
-        ).build(merge_request, repository_id="123")
+        ).build(merge_request)
 
     assert result.context is not None
     assert (
@@ -760,8 +729,7 @@ def test_build_logs_helper_following_when_enabled(tmp_path: Path, caplog) -> Non
         result = ReviewContextBuilder(
             repo_root=tmp_path,
             config=build_config(log_helper_following=True),
-            review_client=FakeGitLabReviewClient(merge_request),
-        ).build(merge_request, repository_id="123")
+        ).build(merge_request)
 
     assert result.context is not None
     assert (
@@ -799,8 +767,7 @@ def test_build_uses_enclosing_function_context_when_function_fits(tmp_path: Path
     result = ReviewContextBuilder(
         repo_root=tmp_path,
         config=build_config(max_context_lines_before=0, max_context_lines_after=0),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     changed_file = result.context.changed_files[0]
@@ -847,8 +814,7 @@ def test_build_clips_large_function_context_when_function_exceeds_budget(tmp_pat
             max_context_lines_after=0,
             max_function_context_lines=5,
         ),
-        review_client=FakeGitLabReviewClient(merge_request),
-    ).build(merge_request, repository_id="123")
+    ).build(merge_request)
 
     assert result.context is not None
     changed_file = result.context.changed_files[0]

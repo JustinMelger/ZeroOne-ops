@@ -261,6 +261,10 @@ class GitLabReviewClient:
             raise GitLabClientError("Unexpected GitLab current user username.")
         return username
 
+    def allows_machine_safe_comment_fallback(self) -> bool:
+        """Keep GitLab continuity conservative when author lookup fails."""
+        return False
+
     def get_change_request(
         self,
         *,

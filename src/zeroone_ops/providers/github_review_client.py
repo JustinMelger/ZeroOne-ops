@@ -137,6 +137,10 @@ class GitHubReviewClient:
             raise ReviewPlatformClientError("Unexpected GitHub current user login.")
         return login
 
+    def allows_machine_safe_comment_fallback(self) -> bool:
+        """Allow machine-safe continuity fallback when author lookup is unavailable."""
+        return True
+
     def _get_json(
         self,
         path: str,

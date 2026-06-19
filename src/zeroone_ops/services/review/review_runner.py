@@ -162,10 +162,8 @@ class ReviewRunner:
         context_result = ReviewContextBuilder(
             repo_root=self.repo_root,
             config=self.config,
-            review_client=self.review_client,
         ).build(
             selected_change_request,
-            repository_id=repository_id,
         )
         if context_result.context is None:
             return self.review_state_service.fail_review(
@@ -668,18 +666,28 @@ class ReviewRunner:
             current_head_sha=change_request.head_sha,
         )
         if bot_author_username is None:
-            LOGGER.info(
-                "review same-sha comment reuse disabled because bot username is unresolved",
-                extra={
-                    "run_id": run_id,
-                    "change_request_number": change_request.change_request_number,
-                    "head_sha": change_request.head_sha,
-                },
-            )
-            return None
+            if self.review_client.allows_machine_safe_comment_fallback():
+                LOGGER.warning(
+                    "review same-sha comment reuse falling back to machine-safe payload only",
+                    extra={
+                        "run_id": run_id,
+                        "change_request_number": change_request.change_request_number,
+                        "head_sha": change_request.head_sha,
+                    },
+                )
+            else:
+                LOGGER.info(
+                    "review same-sha comment reuse disabled because bot username is unresolved",
+                    extra={
+                        "run_id": run_id,
+                        "change_request_number": change_request.change_request_number,
+                        "head_sha": change_request.head_sha,
+                    },
+                )
+                return None
         candidate_notes: list[ReviewComment] = []
         for note in notes:
-            if note.author_username != bot_author_username:
+            if bot_author_username is not None and note.author_username != bot_author_username:
                 continue
             payload = extract_machine_safe_review_note_payload(note.body)
             if payload is None:

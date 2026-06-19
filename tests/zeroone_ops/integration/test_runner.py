@@ -25,6 +25,7 @@ from zeroone_ops.models.review import (
     PrecisionReviewDecision,
     PriorReviewFinding,
     PriorReviewPass,
+    ReviewComment,
     ReviewFileContext,
     ReviewFinding,
     ReviewResult,
@@ -3513,7 +3514,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, repository_id: ReviewContextBuildResult(
+        lambda self, merge_request: ReviewContextBuildResult(
             context=review_context, message=""
         ),
     )
@@ -3620,7 +3621,7 @@ def test_review_github_non_dry_run_publishes_summary_comment(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request, repository_id: ReviewContextBuildResult(
+        lambda self, change_request: ReviewContextBuildResult(
             context=review_context, message=""
         ),
     )
@@ -3819,7 +3820,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, repository_id: ReviewContextBuildResult(
+        lambda self, change_request: ReviewContextBuildResult(
             context=review_context, message=""
         ),
     )
@@ -4009,7 +4010,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, repository_id: ReviewContextBuildResult(
+        lambda self, change_request: ReviewContextBuildResult(
             context=review_context, message=""
         ),
     )
@@ -4172,7 +4173,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, repository_id: ReviewContextBuildResult(
+        lambda self, change_request: ReviewContextBuildResult(
             context=review_context, message=""
         ),
     )
@@ -4344,7 +4345,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, repository_id: ReviewContextBuildResult(
+        lambda self, change_request: ReviewContextBuildResult(
             context=review_context, message=""
         ),
     )
@@ -4581,7 +4582,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, repository_id: ReviewContextBuildResult(
+        lambda self, change_request: ReviewContextBuildResult(
             context=review_context, message=""
         ),
     )
@@ -5007,7 +5008,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request, repository_id: ReviewContextBuildResult(
+        lambda self, merge_request: ReviewContextBuildResult(
             context=review_context, message=""
         ),
     )
@@ -5035,3 +5036,79 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
     assert summary.status.value == "reviewed"
     assert "No new changes after the last review." not in summary.message
     assert "Dry-run skipped note publication." in summary.message
+
+
+def test_review_github_reuses_same_sha_note_when_username_lookup_is_unresolved(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _install_review_precision_fake(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITHUB_TOKEN", "github-token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    event_path = tmp_path / "github-event.json"
+    event_path.write_text(
+        '{"pull_request": {"number": 23, "head": {"sha": "abc123"}}}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "review": {
+            "platform": "github"
+          },
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "zeroone_ops.providers.github_review_client.GitHubReviewClient.get_change_request",
+        lambda self, repository_id, change_request_number: ChangeRequestReviewCandidate(
+            change_request_number=23,
+            title="feat: github review flow",
+            description="summary",
+            source_branch="feature/github-review",
+            target_branch="main",
+            web_url="https://github.com/octo-org/octo-repo/pull/23",
+            head_sha="abc123",
+            changes=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.github_review_client.GitHubReviewClient.get_current_user_username",
+        lambda self: (_ for _ in ()).throw(RuntimeError("cannot resolve bot username")),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.github_review_client.GitHubReviewClient.list_change_request_comments",
+        lambda self, repository_id, change_request_number: [
+            ReviewComment(
+                id=55,
+                web_url="https://github.com/octo-org/octo-repo/pull/23#issuecomment-55",
+                author_username="someone-else",
+                created_at="2026-05-03T10:00:00Z",
+                body=(
+                    "Hi,\n\nHere are your review notes.\n\n"
+                    "<!-- ai-sonar-bot:review-note:v1\n"
+                    '{"classification":"findings_present","findings":[],"findings_count":0,'
+                    '"reviewed_head_sha":"abc123","reviewed_change_request_number":23,'
+                    '"schema":"ai-sonar-bot/review-note/v1","summary":"Earlier review."}\n'
+                    "-->"
+                ),
+            )
+        ],
+    )
+
+    summary = review(dry_run=True)
+
+    assert summary.status.value == "reviewed"
+    assert "No new changes after the last review." in summary.message
+    assert "Earlier classification: findings_present." in summary.message
