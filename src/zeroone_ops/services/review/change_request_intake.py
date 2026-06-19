@@ -8,16 +8,10 @@ from dataclasses import dataclass
 
 from zeroone_ops.models.review import ChangeRequestReviewCandidate
 from zeroone_ops.models.state import AppState
-from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
 from zeroone_ops.providers.review_platform import (
     ChangeRequestReviewFetchClientProtocol,
 )
 from zeroone_ops.services.review.change_request_selector import ChangeRequestSelector
-from zeroone_ops.settings import (
-    SettingsError,
-    load_current_change_request_number,
-    load_gitlab_connection_config,
-)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -37,33 +31,22 @@ class ChangeRequestIntakeService:
 
     def __init__(
         self,
-        review_client: ChangeRequestReviewFetchClientProtocol | None = None,
+        review_client: ChangeRequestReviewFetchClientProtocol,
         selector: ChangeRequestSelector | None = None,
     ) -> None:
         """Initialize the change-request intake service."""
         self.review_client = review_client
         self.selector = selector or ChangeRequestSelector()
 
-    def select_change_request(self, *, state: AppState) -> ChangeRequestIntakeResult:
+    def select_change_request(
+        self,
+        *,
+        state: AppState,
+        repository_id: str,
+        change_request_number: int | None,
+        triggered_head_sha: str | None = None,
+    ) -> ChangeRequestIntakeResult:
         """Fetch one change request from CI context and select it for review."""
-        try:
-            gitlab_config = load_gitlab_connection_config()
-        except SettingsError:
-            return ChangeRequestIntakeResult(
-                selected_change_request=None,
-                change_request_count=0,
-                message="No change request selected. Review platform credentials not configured.",
-                selected_skip_reason=None,
-            )
-        try:
-            change_request_number = load_current_change_request_number()
-        except SettingsError:
-            return ChangeRequestIntakeResult(
-                selected_change_request=None,
-                change_request_count=0,
-                message="No change request selected. CI change request number is invalid.",
-                selected_skip_reason=None,
-            )
         if change_request_number is None:
             return ChangeRequestIntakeResult(
                 selected_change_request=None,
@@ -75,14 +58,13 @@ class ChangeRequestIntakeService:
                 selected_skip_reason=None,
             )
 
-        review_client = self.review_client or GitLabReviewClient(gitlab_config)
         LOGGER.info(
             "review intake targeting change request from CI context",
             extra={"change_request_number": change_request_number},
         )
         change_requests = [
-            review_client.get_change_request(
-                project_id=gitlab_config.project_id,
+            self.review_client.get_change_request(
+                repository_id=repository_id,
                 change_request_number=change_request_number,
             )
         ]
@@ -94,6 +76,23 @@ class ChangeRequestIntakeService:
                 message="No reviewable change request found in the configured repository.",
                 selected_skip_reason=None,
             )
+        if (
+            triggered_head_sha is not None
+            and change_requests
+            and change_requests[0].head_sha != triggered_head_sha
+        ):
+            return ChangeRequestIntakeResult(
+                selected_change_request=None,
+                change_request_count=change_request_count,
+                message=(
+                    "Review run stopped because the live change request head SHA no longer "
+                    f"matches the triggering workflow revision "
+                    f"({triggered_head_sha} -> {change_requests[0].head_sha}). "
+                    "Re-run the review on the latest head revision."
+                ),
+                selected_skip_reason="head_sha_mismatch",
+            )
+
         selected_change_request = self.selector.select(change_requests, state)
         if selected_change_request is None:
             skip_reason_counts = Counter[str]()

@@ -1,7 +1,11 @@
 from pathlib import Path
 
 from zeroone_ops.settings import (
+    SettingsError,
     load_config,
+    load_current_github_pull_request_head_sha,
+    load_current_github_pull_request_number,
+    load_github_connection_config,
     load_gitlab_connection_config,
     load_gitlab_project_id_override,
     load_sonarqube_connection_config,
@@ -83,6 +87,65 @@ def test_gitlab_settings_fall_back_to_ci_project_id(tmp_path: Path, monkeypatch)
     config = load_gitlab_connection_config()
 
     assert config.project_id == "456"
+
+
+def test_github_settings_load_connection_config(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GITHUB_TOKEN", "github-token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    monkeypatch.setenv("GITHUB_API_URL", "https://github.example.com/api/v3")
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.example.com")
+
+    config = load_github_connection_config()
+
+    assert config.token == "github-token"
+    assert config.repository == "octo-org/octo-repo"
+    assert config.api_url == "https://github.example.com/api/v3"
+    assert config.server_url == "https://github.example.com"
+
+
+def test_github_settings_load_pull_request_number_from_event_payload(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    event_path = tmp_path / "github-event.json"
+    event_path.write_text('{"pull_request": {"number": 42}}', encoding="utf-8")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+
+    assert load_current_github_pull_request_number() == 42
+
+
+def test_github_settings_reject_non_integer_pull_request_number(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    event_path = tmp_path / "github-event.json"
+    event_path.write_text('{"pull_request": {"number": "42"}}', encoding="utf-8")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+
+    try:
+        load_current_github_pull_request_number()
+    except SettingsError as error:
+        assert "pull_request.number must be an integer" in str(error)
+    else:  # pragma: no cover - defensive guard
+        raise AssertionError("Expected SettingsError for non-integer pull_request.number")
+
+
+def test_github_settings_load_pull_request_head_sha_from_event_payload(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    event_path = tmp_path / "github-event.json"
+    event_path.write_text(
+        '{"pull_request": {"number": 42, "head": {"sha": "abc123def456"}}}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+
+    assert load_current_github_pull_request_head_sha() == "abc123def456"
 
 
 def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatch) -> None:

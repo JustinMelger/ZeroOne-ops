@@ -1,4 +1,4 @@
-"""Parse machine-safe GitLab review notes into prior review models."""
+"""Parse machine-safe provider review comments into prior review models."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from zeroone_ops.models.review import (
     ReviewComment,
     ReviewFinding,
 )
-from zeroone_ops.services.review.review_gitlab_prior_context_service import (
+from zeroone_ops.services.review.review_prior_comment_loader import (
     extract_machine_safe_review_note_payload,
 )
 from zeroone_ops.utils.review_finding_identity import (
@@ -32,8 +32,8 @@ class PriorReviewNoteParseResult:
     message: str
 
 
-class GitLabChangeRequestPriorNoteParser:
-    """Rebuild one prior review pass from one machine-safe provider note."""
+class ChangeRequestPriorCommentParser:
+    """Rebuild one prior review pass from one machine-safe provider comment."""
 
     def parse_note(
         self,

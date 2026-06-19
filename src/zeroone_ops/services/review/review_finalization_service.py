@@ -39,7 +39,7 @@ class ReviewFinalizationService:
         self,
         *,
         review_publisher: ReviewPublisher,
-        dashboard_updater: ReviewDashboardUpdater,
+        dashboard_updater: ReviewDashboardUpdater | None,
     ) -> None:
         """Initialize the finalization service."""
         self.review_publisher = review_publisher
@@ -49,9 +49,9 @@ class ReviewFinalizationService:
         self,
         *,
         run_id: str,
-        project_id: str,
+        repository_id: str,
         active_dry_run: bool,
-        merge_request: ChangeRequestReviewCandidate,
+        change_request: ChangeRequestReviewCandidate,
         context: ChangeRequestReviewContext,
         artifact: PublishableReviewArtifact,
         inline_comment_decisions: list[ReviewInlineCommentDecision],
@@ -75,7 +75,7 @@ class ReviewFinalizationService:
             )
 
         publish_result = self.review_publisher.publish_artifact(
-            project_id=project_id,
+            repository_id=repository_id,
             change_request_number=context.change_request_number,
             context=context,
             artifact=artifact,
@@ -119,31 +119,33 @@ class ReviewFinalizationService:
                     },
                 )
 
-        dashboard_update = self.dashboard_updater.update(
-            project_id=project_id,
-            merge_request=merge_request,
-            review_result=finalized_review_result,
-        )
-        dashboard_warning = dashboard_update.error_message
-        if dashboard_warning is None:
-            LOGGER.info(
-                "review dashboard mirrored",
-                extra={
-                    "run_id": run_id,
-                    "change_request_number": context.change_request_number,
-                    "head_sha": context.head_sha,
-                    "dashboard_issue_url": dashboard_update.dashboard_issue_url,
-                },
+        dashboard_warning = None
+        if self.dashboard_updater is not None:
+            dashboard_update = self.dashboard_updater.update(
+                project_id=repository_id,
+                merge_request=change_request,
+                review_result=finalized_review_result,
             )
-        else:
-            LOGGER.warning(
-                "review dashboard mirror warning",
-                extra={
-                    "run_id": run_id,
-                    "change_request_number": context.change_request_number,
-                    "head_sha": context.head_sha,
-                },
-            )
+            dashboard_warning = dashboard_update.error_message
+            if dashboard_warning is None:
+                LOGGER.info(
+                    "review dashboard mirrored",
+                    extra={
+                        "run_id": run_id,
+                        "change_request_number": context.change_request_number,
+                        "head_sha": context.head_sha,
+                        "dashboard_issue_url": dashboard_update.dashboard_issue_url,
+                    },
+                )
+            else:
+                LOGGER.warning(
+                    "review dashboard mirror warning",
+                    extra={
+                        "run_id": run_id,
+                        "change_request_number": context.change_request_number,
+                        "head_sha": context.head_sha,
+                    },
+                )
 
         return ReviewFinalizationResult(
             artifact=finalized_artifact,

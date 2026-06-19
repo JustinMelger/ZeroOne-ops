@@ -59,18 +59,18 @@ class ReviewContextBuilder:
 
     def build(
         self,
-        merge_request: ChangeRequestReviewCandidate,
+        change_request: ChangeRequestReviewCandidate,
         *,
-        project_id: str,
+        repository_id: str,
     ) -> ReviewContextBuildResult:
         """Build review context for one change request."""
-        detailed_merge_request = self.review_client.get_change_request(
-            project_id=project_id,
-            change_request_number=merge_request.change_request_number,
+        detailed_change_request = self.review_client.get_change_request(
+            repository_id=repository_id,
+            change_request_number=change_request.change_request_number,
         )
         supported_changes = [
             change
-            for change in detailed_merge_request.changes
+            for change in detailed_change_request.changes
             if not change.deleted_file and self._is_supported_path(change.new_path)
         ]
         if len(supported_changes) == 0:
@@ -178,17 +178,17 @@ class ReviewContextBuilder:
 
         return ReviewContextBuildResult(
             context=ChangeRequestReviewContext(
-                change_request_number=detailed_merge_request.change_request_number,
-                title=detailed_merge_request.title,
-                description=detailed_merge_request.description,
-                source_branch=detailed_merge_request.source_branch,
-                target_branch=detailed_merge_request.target_branch,
-                web_url=detailed_merge_request.web_url,
-                head_sha=detailed_merge_request.head_sha,
-                draft=detailed_merge_request.draft,
-                author_username=detailed_merge_request.author_username,
-                diff_refs=detailed_merge_request.diff_refs,
-                remediation_context=_parse_remediation_context(detailed_merge_request.description),
+                change_request_number=detailed_change_request.change_request_number,
+                title=detailed_change_request.title,
+                description=detailed_change_request.description,
+                source_branch=detailed_change_request.source_branch,
+                target_branch=detailed_change_request.target_branch,
+                web_url=detailed_change_request.web_url,
+                head_sha=detailed_change_request.head_sha,
+                draft=detailed_change_request.draft,
+                author_username=detailed_change_request.author_username,
+                diff_refs=detailed_change_request.diff_refs,
+                remediation_context=_parse_remediation_context(detailed_change_request.description),
                 repository_guidance=load_repository_guidance(self.repo_root),
                 changed_files=changed_files,
             ),

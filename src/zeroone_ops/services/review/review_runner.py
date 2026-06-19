@@ -47,15 +47,15 @@ from zeroone_ops.services.review.review_dashboard_updater import (
 from zeroone_ops.services.review.review_finalization_service import (
     ReviewFinalizationService,
 )
-from zeroone_ops.services.review.review_gitlab_prior_context_service import (
-    GitLabChangeRequestPriorContextLoader,
-    extract_machine_safe_review_note_payload,
-)
-from zeroone_ops.services.review.review_gitlab_prior_note_parser import (
-    GitLabChangeRequestPriorNoteParser,
-)
 from zeroone_ops.services.review.review_inline_comment_continuity_service import (
     ReviewInlineCommentContinuityService,
+)
+from zeroone_ops.services.review.review_prior_comment_loader import (
+    ChangeRequestPriorCommentLoader,
+    extract_machine_safe_review_note_payload,
+)
+from zeroone_ops.services.review.review_prior_comment_parser import (
+    ChangeRequestPriorCommentParser,
 )
 from zeroone_ops.services.review.review_publisher import ReviewPublisher
 from zeroone_ops.services.review.review_reconciliation_service import (
@@ -81,10 +81,10 @@ class ReviewRunner:
         repo_root: Path,
         config: AppConfig,
         review_client: ChangeRequestReviewPlatformProtocol,
-        dashboard_client: GitLabDashboardClient,
+        dashboard_client: GitLabDashboardClient | None,
         review_state_service: ReviewStateService,
-        prior_context_service: GitLabChangeRequestPriorContextLoader | None = None,
-        prior_note_parser: GitLabChangeRequestPriorNoteParser | None = None,
+        prior_context_service: ChangeRequestPriorCommentLoader | None = None,
+        prior_note_parser: ChangeRequestPriorCommentParser | None = None,
     ) -> None:
         """Initialize the review workflow runner."""
         self.repo_root = repo_root
@@ -93,23 +93,37 @@ class ReviewRunner:
         self.dashboard_client = dashboard_client
         self.review_state_service = review_state_service
         self.prior_context_service = prior_context_service
-        self.prior_note_parser = prior_note_parser or GitLabChangeRequestPriorNoteParser()
+        self.prior_note_parser = prior_note_parser or ChangeRequestPriorCommentParser()
         self._resolved_bot_author_username: str | None | object = _UNRESOLVED_BOT_AUTHOR_USERNAME
 
     def run(
         self,
         *,
-        project_id: str,
+        repository_id: str,
+        current_change_request_number: int | None,
+        triggered_head_sha: str | None,
         run_id: str,
         record: RunRecord,
         active_dry_run: bool,
     ) -> RunSummary:
         """Run one change-request review workflow."""
-        intake_result = ChangeRequestIntakeService().select_change_request(
-            state=self.review_state_service.state
+        intake_result = ChangeRequestIntakeService(self.review_client).select_change_request(
+            state=self.review_state_service.state,
+            repository_id=repository_id,
+            change_request_number=current_change_request_number,
+            triggered_head_sha=triggered_head_sha,
         )
         selected_change_request = intake_result.selected_change_request
         if selected_change_request is None:
+            if intake_result.selected_skip_reason == "head_sha_mismatch":
+                return self.review_state_service.fail_review(
+                    record=record,
+                    error_message=f"[{self.config.execution_mode}] {intake_result.message}",
+                    failure=FailureDetails(
+                        stage=FailureStage.REVIEW_INTAKE,
+                        message=intake_result.message,
+                    ),
+                )
             return self.review_state_service.finish_no_review(
                 record=record,
                 message=f"[{self.config.execution_mode}] {intake_result.message}",
@@ -117,8 +131,8 @@ class ReviewRunner:
 
         existing_review = self._load_same_sha_review_reference(
             run_id=run_id,
-            project_id=project_id,
-            merge_request=selected_change_request,
+            repository_id=repository_id,
+            change_request=selected_change_request,
         )
         if existing_review is not None:
             summary = self.review_state_service.mark_same_sha_reused(
@@ -151,7 +165,7 @@ class ReviewRunner:
             review_client=self.review_client,
         ).build(
             selected_change_request,
-            project_id=project_id,
+            repository_id=repository_id,
         )
         if context_result.context is None:
             return self.review_state_service.fail_review(
@@ -162,9 +176,9 @@ class ReviewRunner:
                     message=context_result.message,
                 ),
             )
-        prior_review_context = self._load_gitlab_prior_review_context(
+        prior_review_context = self._load_prior_review_context(
             run_id=run_id,
-            project_id=project_id,
+            repository_id=repository_id,
             change_request_number=selected_change_request.change_request_number,
             current_head_sha=selected_change_request.head_sha,
         )
@@ -355,9 +369,9 @@ class ReviewRunner:
                 ),
             )
 
-        finalization_result = ReviewFinalizationService(
-            review_publisher=ReviewPublisher(self.review_client),
-            dashboard_updater=ReviewDashboardUpdater(
+        dashboard_updater = None
+        if self.dashboard_client is not None:
+            dashboard_updater = ReviewDashboardUpdater(
                 DashboardService(
                     self.dashboard_client,
                     policy_view_builder=DashboardPolicyViewBuilder(
@@ -366,12 +380,15 @@ class ReviewRunner:
                         state=self.review_state_service.state,
                     ),
                 )
-            ),
+            )
+        finalization_result = ReviewFinalizationService(
+            review_publisher=ReviewPublisher(self.review_client),
+            dashboard_updater=dashboard_updater,
         ).finalize(
             run_id=run_id,
-            project_id=project_id,
+            repository_id=repository_id,
             active_dry_run=active_dry_run,
-            merge_request=selected_change_request,
+            change_request=selected_change_request,
             context=context,
             artifact=publish_artifact,
             inline_comment_decisions=inline_comment_continuity_result.decisions,
@@ -440,21 +457,21 @@ class ReviewRunner:
             state_path=summary.state_path,
         )
 
-    def _resolve_prior_note_author_username(
+    def _resolve_prior_comment_author_username(
         self,
         *,
         run_id: str,
         change_request_number: int,
         current_head_sha: str,
     ) -> str | None:
-        """Resolve and cache the GitLab username behind the active review token."""
+        """Resolve and cache the current review-platform username behind the active token."""
         if self._resolved_bot_author_username is not _UNRESOLVED_BOT_AUTHOR_USERNAME:
             return self._resolved_bot_author_username  # type: ignore[return-value]
         try:
             resolved_username = self.review_client.get_current_user_username()
         except Exception:
             LOGGER.warning(
-                "review gitlab current user lookup failed; prior-note author filter disabled",
+                "review current user lookup failed; prior-comment author filter disabled",
                 extra={
                     "run_id": run_id,
                     "change_request_number": change_request_number,
@@ -465,7 +482,7 @@ class ReviewRunner:
             return None
         self._resolved_bot_author_username = resolved_username
         LOGGER.info(
-            f"review gitlab current user resolved (username={resolved_username})",
+            f"review current user resolved (username={resolved_username})",
             extra={
                 "run_id": run_id,
                 "change_request_number": change_request_number,
@@ -475,18 +492,18 @@ class ReviewRunner:
         )
         return resolved_username
 
-    def _load_gitlab_prior_review_context(
+    def _load_prior_review_context(
         self,
         *,
         run_id: str,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         current_head_sha: str,
     ) -> PriorReviewContext | None:
-        """Load prior review context from the latest earlier machine-safe MR note."""
-        prior_context_service = self.prior_context_service or GitLabChangeRequestPriorContextLoader(
+        """Load prior review context from the latest earlier machine-safe review comment."""
+        prior_context_service = self.prior_context_service or ChangeRequestPriorCommentLoader(
             self.review_client,
-            bot_author_username=self._resolve_prior_note_author_username(
+            bot_author_username=self._resolve_prior_comment_author_username(
                 run_id=run_id,
                 change_request_number=change_request_number,
                 current_head_sha=current_head_sha,
@@ -494,13 +511,13 @@ class ReviewRunner:
         )
         try:
             selection_result = prior_context_service.select_latest_prior_review_note(
-                project_id=project_id,
+                repository_id=repository_id,
                 change_request_number=change_request_number,
                 current_head_sha=current_head_sha,
             )
         except Exception:  # pragma: no cover - exercised via integration stubs
             LOGGER.warning(
-                "review gitlab prior note lookup failed; omitting continuity context",
+                "review prior comment lookup failed; omitting continuity context",
                 extra={
                     "run_id": run_id,
                     "change_request_number": change_request_number,
@@ -511,7 +528,7 @@ class ReviewRunner:
         if selection_result.selected_note is None:
             LOGGER.info(
                 (
-                    "review gitlab prior note not found "
+                    "review prior comment not found "
                     f"[reason={selection_result.reason_code} "
                     f"considered={selection_result.considered_note_count} "
                     f"author={selection_result.author_matched_note_count} "
@@ -541,7 +558,7 @@ class ReviewRunner:
         except Exception:  # pragma: no cover - defensive guard for malformed parser wiring
             LOGGER.warning(
                 (
-                    "review gitlab prior note parse crashed; omitting continuity context "
+                    "review prior comment parse crashed; omitting continuity context "
                     f"(selected_note_id={selection_result.selected_note.id})"
                 ),
                 extra={
@@ -555,7 +572,7 @@ class ReviewRunner:
         if parse_result.prior_review_pass is None:
             LOGGER.warning(
                 (
-                    "review gitlab prior note parse failed; omitting continuity context "
+                    "review prior comment parse failed; omitting continuity context "
                     f"[note={selection_result.selected_note.id} "
                     f"reason={selection_result.reason_code}] "
                     f"{parse_result.message}"
@@ -577,7 +594,7 @@ class ReviewRunner:
 
         LOGGER.info(
             (
-                "review gitlab prior note selected "
+                "review prior comment selected "
                 f"[note={selection_result.selected_note.id} "
                 f"prior={parse_result.prior_review_pass.reviewed_head_sha} "
                 f"reason={selection_result.reason_code} "
@@ -610,12 +627,12 @@ class ReviewRunner:
         self,
         *,
         run_id: str,
-        project_id: str,
-        merge_request: ChangeRequestReviewCandidate,
+        repository_id: str,
+        change_request: ChangeRequestReviewCandidate,
     ) -> PriorReviewPass | None:
-        """Return the authoritative existing review reference for one MR SHA."""
+        """Return the authoritative existing review reference for one change-request SHA."""
         review_state = self.review_state_service.state.reviews.get(
-            f"{merge_request.change_request_number}:{merge_request.head_sha}"
+            f"{change_request.change_request_number}:{change_request.head_sha}"
         )
         if review_state is not None and _is_authoritative_review_classification(
             review_state.status
@@ -631,32 +648,32 @@ class ReviewRunner:
 
         try:
             notes = self.review_client.list_change_request_comments(
-                project_id=project_id,
-                change_request_number=merge_request.change_request_number,
+                repository_id=repository_id,
+                change_request_number=change_request.change_request_number,
             )
         except (ReviewPlatformClientError, httpx.HTTPError, OSError) as exc:
             LOGGER.warning(
-                "review same-sha lookup via gitlab note failed; continuing without reuse",
+                "review same-sha lookup via provider comment failed; continuing without reuse",
                 extra={
                     "run_id": run_id,
-                    "change_request_number": merge_request.change_request_number,
-                    "head_sha": merge_request.head_sha,
+                    "change_request_number": change_request.change_request_number,
+                    "head_sha": change_request.head_sha,
                     "error": str(exc),
                 },
             )
             return None
-        bot_author_username = self._resolve_prior_note_author_username(
+        bot_author_username = self._resolve_prior_comment_author_username(
             run_id=run_id,
-            change_request_number=merge_request.change_request_number,
-            current_head_sha=merge_request.head_sha,
+            change_request_number=change_request.change_request_number,
+            current_head_sha=change_request.head_sha,
         )
         if bot_author_username is None:
             LOGGER.info(
-                "review same-sha gitlab note reuse disabled because bot username is unresolved",
+                "review same-sha comment reuse disabled because bot username is unresolved",
                 extra={
                     "run_id": run_id,
-                    "change_request_number": merge_request.change_request_number,
-                    "head_sha": merge_request.head_sha,
+                    "change_request_number": change_request.change_request_number,
+                    "head_sha": change_request.head_sha,
                 },
             )
             return None
@@ -669,7 +686,7 @@ class ReviewRunner:
                 continue
             reviewed_head_sha = payload.get("reviewed_head_sha")
             classification = payload.get("classification")
-            if reviewed_head_sha != merge_request.head_sha:
+            if reviewed_head_sha != change_request.head_sha:
                 continue
             if not isinstance(classification, str) or not _is_authoritative_review_classification(
                 classification
@@ -685,7 +702,7 @@ class ReviewRunner:
         )[0]
         parse_result = self.prior_note_parser.parse_note(
             note=selected_note,
-            expected_change_request_number=merge_request.change_request_number,
+            expected_change_request_number=change_request.change_request_number,
         )
         return parse_result.prior_review_pass
 

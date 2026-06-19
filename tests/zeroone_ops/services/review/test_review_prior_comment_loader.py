@@ -1,6 +1,6 @@
 from zeroone_ops.models.gitlab import MergeRequestNote
-from zeroone_ops.services.review.review_gitlab_prior_context_service import (
-    GitLabChangeRequestPriorContextLoader,
+from zeroone_ops.services.review.review_prior_comment_loader import (
+    ChangeRequestPriorCommentLoader,
 )
 
 
@@ -11,19 +11,10 @@ class FakeGitLabReviewClient:
     def list_change_request_comments(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
     ) -> list[MergeRequestNote]:
-        del project_id, change_request_number
-        return self.notes
-
-    def list_merge_request_notes(
-        self,
-        *,
-        project_id: str,
-        merge_request_iid: int,
-    ) -> list[MergeRequestNote]:
-        del project_id, merge_request_iid
+        del repository_id, change_request_number
         return self.notes
 
 
@@ -55,7 +46,7 @@ def build_note(
 
 
 def test_select_latest_prior_review_note_chooses_latest_earlier_note() -> None:
-    service = GitLabChangeRequestPriorContextLoader(
+    service = ChangeRequestPriorCommentLoader(
         FakeGitLabReviewClient(
             [
                 build_note(
@@ -73,7 +64,7 @@ def test_select_latest_prior_review_note_chooses_latest_earlier_note() -> None:
     )
 
     result = service.select_latest_prior_review_note(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         current_head_sha="ghi789",
     )
@@ -90,7 +81,7 @@ def test_select_latest_prior_review_note_chooses_latest_earlier_note() -> None:
 
 
 def test_select_latest_prior_review_note_skips_current_head_sha() -> None:
-    service = GitLabChangeRequestPriorContextLoader(
+    service = ChangeRequestPriorCommentLoader(
         FakeGitLabReviewClient(
             [
                 build_note(
@@ -108,7 +99,7 @@ def test_select_latest_prior_review_note_skips_current_head_sha() -> None:
     )
 
     result = service.select_latest_prior_review_note(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         current_head_sha="ghi789",
     )
@@ -119,7 +110,7 @@ def test_select_latest_prior_review_note_skips_current_head_sha() -> None:
 
 
 def test_select_latest_prior_review_note_ignores_notes_from_other_authors() -> None:
-    service = GitLabChangeRequestPriorContextLoader(
+    service = ChangeRequestPriorCommentLoader(
         FakeGitLabReviewClient(
             [
                 build_note(
@@ -138,7 +129,7 @@ def test_select_latest_prior_review_note_ignores_notes_from_other_authors() -> N
     )
 
     result = service.select_latest_prior_review_note(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         current_head_sha="ghi789",
     )
@@ -150,7 +141,7 @@ def test_select_latest_prior_review_note_ignores_notes_from_other_authors() -> N
 
 
 def test_select_latest_prior_review_note_ignores_malformed_machine_safe_notes() -> None:
-    service = GitLabChangeRequestPriorContextLoader(
+    service = ChangeRequestPriorCommentLoader(
         FakeGitLabReviewClient(
             [
                 MergeRequestNote(
@@ -169,7 +160,7 @@ def test_select_latest_prior_review_note_ignores_malformed_machine_safe_notes() 
     )
 
     result = service.select_latest_prior_review_note(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         current_head_sha="ghi789",
     )
@@ -181,7 +172,7 @@ def test_select_latest_prior_review_note_ignores_malformed_machine_safe_notes() 
 
 
 def test_select_latest_prior_review_note_returns_none_without_earlier_note() -> None:
-    service = GitLabChangeRequestPriorContextLoader(
+    service = ChangeRequestPriorCommentLoader(
         FakeGitLabReviewClient(
             [
                 MergeRequestNote(
@@ -200,7 +191,7 @@ def test_select_latest_prior_review_note_returns_none_without_earlier_note() -> 
     )
 
     result = service.select_latest_prior_review_note(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         current_head_sha="ghi789",
     )
@@ -218,7 +209,7 @@ def test_select_latest_prior_review_note_returns_none_without_earlier_note() -> 
 
 
 def test_select_latest_prior_review_note_allows_machine_safe_note_without_author_filter() -> None:
-    service = GitLabChangeRequestPriorContextLoader(
+    service = ChangeRequestPriorCommentLoader(
         FakeGitLabReviewClient(
             [
                 build_note(
@@ -233,7 +224,7 @@ def test_select_latest_prior_review_note_allows_machine_safe_note_without_author
     )
 
     result = service.select_latest_prior_review_note(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         current_head_sha="ghi789",
     )
@@ -244,7 +235,7 @@ def test_select_latest_prior_review_note_allows_machine_safe_note_without_author
 
 
 def test_select_latest_prior_review_note_reports_no_author_match_reason() -> None:
-    service = GitLabChangeRequestPriorContextLoader(
+    service = ChangeRequestPriorCommentLoader(
         FakeGitLabReviewClient(
             [
                 build_note(
@@ -258,7 +249,7 @@ def test_select_latest_prior_review_note_reports_no_author_match_reason() -> Non
     )
 
     result = service.select_latest_prior_review_note(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         current_head_sha="ghi789",
     )
@@ -273,7 +264,7 @@ def test_select_latest_prior_review_note_reports_no_author_match_reason() -> Non
 
 
 def test_select_latest_prior_review_note_reports_no_machine_safe_reason() -> None:
-    service = GitLabChangeRequestPriorContextLoader(
+    service = ChangeRequestPriorCommentLoader(
         FakeGitLabReviewClient(
             [
                 MergeRequestNote(
@@ -287,7 +278,7 @@ def test_select_latest_prior_review_note_reports_no_machine_safe_reason() -> Non
     )
 
     result = service.select_latest_prior_review_note(
-        project_id="123",
+        repository_id="123",
         change_request_number=17,
         current_head_sha="ghi789",
     )

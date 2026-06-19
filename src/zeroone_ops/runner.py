@@ -9,9 +9,12 @@ import logging
 import secrets
 from pathlib import Path
 
+from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.state import RunStatus, utc_now
+from zeroone_ops.providers.github_review_client import GitHubReviewClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
+from zeroone_ops.providers.review_platform import ChangeRequestReviewPlatformProtocol
 from zeroone_ops.services.dashboard.dashboard_policy_processing_runner import (
     DashboardPolicyProcessingRunner,
 )
@@ -38,6 +41,10 @@ from zeroone_ops.services.shared.run_state_service import (
 from zeroone_ops.services.shared.state_store import StateStore
 from zeroone_ops.settings import (
     load_config,
+    load_current_change_request_number,
+    load_current_github_pull_request_head_sha,
+    load_current_github_pull_request_number,
+    load_github_connection_config,
     load_gitlab_connection_config,
     load_gitlab_project_id_override,
     load_sonarqube_project_key_override,
@@ -55,7 +62,6 @@ def _build_run_id() -> str:
 def review(*, dry_run: bool = False) -> RunSummary:
     """Run the merge-request review workflow."""
     config = load_config()
-    gitlab_config = load_gitlab_connection_config()
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,
@@ -73,17 +79,56 @@ def review(*, dry_run: bool = False) -> RunSummary:
     record = review_state_service.start_run(run_id)
     repo_root = Path.cwd()
     active_dry_run = dry_run or config.dry_run
+    (
+        review_client,
+        repository_id,
+        current_change_request_number,
+        triggered_head_sha,
+        dashboard_client,
+    ) = _build_review_platform_runtime(config)
     return ReviewRunner(
         repo_root=repo_root,
         config=config,
-        review_client=GitLabReviewClient(gitlab_config),
-        dashboard_client=GitLabDashboardClient(gitlab_config),
+        review_client=review_client,
+        dashboard_client=dashboard_client,
         review_state_service=review_state_service,
     ).run(
-        project_id=gitlab_config.project_id,
+        repository_id=repository_id,
+        current_change_request_number=current_change_request_number,
+        triggered_head_sha=triggered_head_sha,
         record=record,
         run_id=run_id,
         active_dry_run=active_dry_run,
+    )
+
+
+def _build_review_platform_runtime(
+    config: AppConfig,
+) -> tuple[
+    ChangeRequestReviewPlatformProtocol,
+    str,
+    int | None,
+    str | None,
+    GitLabDashboardClient | None,
+]:
+    """Build platform-specific review dependencies for the active review workflow."""
+    if config.review.platform == "github":
+        github_config = load_github_connection_config()
+        return (
+            GitHubReviewClient(github_config),
+            github_config.repository,
+            load_current_github_pull_request_number(),
+            load_current_github_pull_request_head_sha(),
+            None,
+        )
+
+    gitlab_config = load_gitlab_connection_config()
+    return (
+        GitLabReviewClient(gitlab_config),
+        gitlab_config.project_id,
+        load_current_change_request_number(),
+        None,
+        GitLabDashboardClient(gitlab_config),
     )
 
 

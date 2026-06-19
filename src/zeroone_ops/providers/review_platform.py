@@ -20,7 +20,7 @@ class ChangeRequestReviewFetchClientProtocol(Protocol):
     def get_change_request(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
     ) -> ChangeRequestReviewCandidate:
         """Fetch one change request with change metadata."""
@@ -32,7 +32,7 @@ class ChangeRequestReviewCommentsClientProtocol(Protocol):
     def list_change_request_comments(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
     ) -> list[ReviewComment]:
         """List provider-backed review comments for one change request."""
@@ -47,7 +47,7 @@ class ChangeRequestReviewPublishClientProtocol(Protocol):
     def create_change_request_comment(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         body: str,
     ) -> ReviewComment:
@@ -56,7 +56,7 @@ class ChangeRequestReviewPublishClientProtocol(Protocol):
     def update_change_request_comment(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         note_id: int,
         body: str,
@@ -66,7 +66,7 @@ class ChangeRequestReviewPublishClientProtocol(Protocol):
     def create_change_request_inline_comment(
         self,
         *,
-        project_id: str,
+        repository_id: str,
         change_request_number: int,
         body: str,
         base_sha: str,
