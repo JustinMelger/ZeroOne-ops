@@ -125,6 +125,17 @@ Provider layers only own:
 - publication transport,
 - provider-backed continuity retrieval.
 
+Design rule for later GitHub phases:
+
+- every new GitHub feature must explicitly justify whether it belongs in
+  shared review-domain logic or in provider-local code
+- if the behavior is part of the product review contract, keep it in shared
+  review-domain logic
+- if the behavior exists because GitHub's API, CI surface, or publication
+  model differs, keep it provider-local
+- do not solve provider quirks by adding ad hoc GitHub special cases to the
+  shared review runner or core review services
+
 ### 6.2 Remediation Stays Focused On Fixes
 
 GitHub remediation support must preserve the current remediation boundary:
