@@ -22,8 +22,7 @@
       "matchDepNames": [
         "python"
       ],
-      "groupName": "python runtime",
-      "separateMajorMinor": true
+      "enabled": false
     },
     {
       "matchManagers": [
