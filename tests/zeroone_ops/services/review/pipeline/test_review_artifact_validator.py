@@ -1,5 +1,7 @@
 from zeroone_ops.models.review import PublishableReviewArtifact, PublishableReviewFinding
-from zeroone_ops.services.review.review_artifact_validator import ReviewArtifactValidator
+from zeroone_ops.services.review.pipeline.review_artifact_validator import (
+    ReviewArtifactValidator,
+)
 
 
 def test_validate_accepts_consistent_findings_present_artifact() -> None:

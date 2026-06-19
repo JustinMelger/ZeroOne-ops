@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 
 from zeroone_ops.models.config import GitLabConnectionConfig
-from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
+from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 
 
 def build_config() -> GitLabConnectionConfig:

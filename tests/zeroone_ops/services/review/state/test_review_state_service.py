@@ -16,7 +16,7 @@ from zeroone_ops.models.state import (
     RepositoryState,
     RunStatus,
 )
-from zeroone_ops.services.review.review_reconciled_decision_builder import (
+from zeroone_ops.services.review.pipeline.review_reconciled_decision_builder import (
     build_reconciled_review_decision,
 )
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService

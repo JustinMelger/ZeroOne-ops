@@ -13,7 +13,7 @@ from zeroone_ops.models.review import (
     ReviewResult,
 )
 from zeroone_ops.providers.llm_client import LLMClientError
-from zeroone_ops.services.review.review_candidate_generation_service import (
+from zeroone_ops.services.review.pipeline.review_candidate_generation_service import (
     ReviewCandidateGenerationService,
 )
 

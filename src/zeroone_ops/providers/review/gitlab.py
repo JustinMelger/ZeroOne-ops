@@ -16,7 +16,7 @@ from zeroone_ops.models.review import (
     ReviewComment,
 )
 from zeroone_ops.providers.gitlab_client import GitLabClientError, _parse_json_response
-from zeroone_ops.providers.review_platform import ReviewPlatformClientError
+from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 
 
 class GitLabReviewClientProtocol(Protocol):

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from zeroone_ops.models.review import ChangeRequestReviewCandidate
 from zeroone_ops.models.state import AppState
-from zeroone_ops.providers.review_platform import (
+from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewFetchClientProtocol,
 )
 from zeroone_ops.services.review.intake.change_request_selector import ChangeRequestSelector

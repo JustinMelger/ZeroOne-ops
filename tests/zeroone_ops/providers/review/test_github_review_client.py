@@ -4,8 +4,8 @@ import httpx
 import pytest
 
 from zeroone_ops.models.config import GitHubConnectionConfig
-from zeroone_ops.providers.github_review_client import GitHubReviewClient
-from zeroone_ops.providers.review_platform import ReviewPlatformClientError
+from zeroone_ops.providers.review.github import GitHubReviewClient
+from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 
 
 def build_client(handler) -> GitHubReviewClient:  # noqa: ANN001, ANN202

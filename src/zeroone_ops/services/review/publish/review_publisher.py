@@ -15,7 +15,7 @@ from zeroone_ops.models.review import (
     ReviewFileContext,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
-from zeroone_ops.providers.review_platform import (
+from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPublishClientProtocol,
     ReviewPlatformClientError,
 )

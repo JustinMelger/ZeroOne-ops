@@ -12,8 +12,10 @@ from zeroone_ops.models.review import (
     ReviewResult,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
-from zeroone_ops.services.review.review_dashboard_updater import ReviewDashboardUpdater
-from zeroone_ops.services.review.review_publisher import ReviewPublisher
+from zeroone_ops.services.review.publish.review_dashboard_updater import (
+    ReviewDashboardUpdater,
+)
+from zeroone_ops.services.review.publish.review_publisher import ReviewPublisher
 
 LOGGER = logging.getLogger(__name__)
 

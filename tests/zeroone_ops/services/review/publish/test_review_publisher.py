@@ -16,8 +16,8 @@ from zeroone_ops.models.review import (
     ReviewFileContext,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
-from zeroone_ops.providers.review_platform import ReviewPlatformClientError
-from zeroone_ops.services.review.review_publisher import ReviewPublisher
+from zeroone_ops.providers.review.platform import ReviewPlatformClientError
+from zeroone_ops.services.review.publish.review_publisher import ReviewPublisher
 
 
 def extract_machine_safe_payload(body: str) -> dict[str, object]:

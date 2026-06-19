@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from zeroone_ops.models.review import ReviewComment
-from zeroone_ops.providers.review_platform import (
+from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewCommentsClientProtocol,
 )
 

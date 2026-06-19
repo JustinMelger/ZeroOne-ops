@@ -12,7 +12,7 @@ from zeroone_ops.models.review import (
     ReviewFinding,
     ReviewResult,
 )
-from zeroone_ops.services.review.review_reconciled_decision_builder import (
+from zeroone_ops.services.review.pipeline.review_reconciled_decision_builder import (
     build_reconciled_review_decision,
 )
 

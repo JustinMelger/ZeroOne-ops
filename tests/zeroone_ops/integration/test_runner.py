@@ -52,7 +52,7 @@ from zeroone_ops.services.review.context.review_context_builder import (
 from zeroone_ops.services.review.continuity.review_overlap_analysis_service import (
     ReviewOverlapAnalysisResult,
 )
-from zeroone_ops.services.review.review_publisher import ReviewPublishResult
+from zeroone_ops.services.review.publish.review_publisher import ReviewPublishResult
 from zeroone_ops.services.shared.branch_manager import BranchManagerError
 from zeroone_ops.services.shared.state_store import StateStore
 from zeroone_ops.services.shared.workspace_snapshot import WorkspaceSnapshotService
@@ -131,7 +131,7 @@ class _IntegrationPrecisionClient:
 
 def _install_review_precision_fake(monkeypatch) -> None:
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_reconciliation_service."
+        "zeroone_ops.services.review.pipeline.review_reconciliation_service."
         "ReviewReconciliationService._build_llm_client",
         lambda self: _IntegrationPrecisionClient(),
     )
@@ -420,7 +420,7 @@ def test_dashboard_reconcile_dry_run_selects_mr_opened_item(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
 
@@ -573,7 +573,7 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
     monkeypatch.setattr(
@@ -716,7 +716,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
     monkeypatch.setattr(
@@ -842,7 +842,7 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
     monkeypatch.setattr(
@@ -942,7 +942,7 @@ def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
     recorded_updates: list[tuple[int | None, bool | None, str | None]] = []
@@ -1071,7 +1071,7 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
     recorded_updates: list[tuple[int | None, bool | None, str | None]] = []
@@ -1197,7 +1197,7 @@ def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
 
@@ -1317,7 +1317,7 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
     monkeypatch.setattr(
@@ -1430,7 +1430,7 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
         lambda self, **kwargs: failing_get_merge_request_state(**kwargs),
     )
     monkeypatch.setattr(
@@ -1604,7 +1604,7 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request_state",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
         lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
     )
     monkeypatch.setattr(
@@ -3517,7 +3517,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
         lambda self, merge_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
+        "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -3622,7 +3622,7 @@ def test_review_github_non_dry_run_publishes_summary_comment(
         lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
+        "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -3668,7 +3668,7 @@ def test_review_github_non_dry_run_publishes_summary_comment(
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
         capture_publish,
     )
 
@@ -3724,7 +3724,7 @@ def test_review_github_stops_when_live_head_sha_differs_from_triggered_revision(
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.github_review_client.GitHubReviewClient.get_change_request",
+        "zeroone_ops.providers.review.github.GitHubReviewClient.get_change_request",
         lambda self, repository_id, change_request_number: ChangeRequestReviewCandidate(
             change_request_number=23,
             title="feat: github review flow",
@@ -3819,7 +3819,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
+        "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -3889,11 +3889,11 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
         publish_artifact_stub,
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
+        "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
         lambda self, project_id, merge_request, review_result: type(
             "DashboardResult",
             (),
@@ -4007,7 +4007,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
+        "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -4041,7 +4041,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
         publish_artifact_stub,
     )
     observed: dict[str, object] = {}
@@ -4064,7 +4064,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
+        "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
         capture_dashboard_update,
     )
 
@@ -4168,7 +4168,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
         lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
+        "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -4234,11 +4234,11 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
         capture_publish,
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
+        "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
         lambda self, project_id, merge_request, review_result: type(
             "DashboardResult",
             (),
@@ -4394,7 +4394,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
+        "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -4476,11 +4476,11 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
         capture_publish,
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
+        "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
         lambda self, project_id, merge_request, review_result: type(
             "DashboardResult",
             (),
@@ -4573,7 +4573,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
+        "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -4620,11 +4620,11 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_publisher.ReviewPublisher.publish_artifact",
+        "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
         capture_publish,
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_dashboard_updater.ReviewDashboardUpdater.update",
+        "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
         lambda self, project_id, merge_request, review_result: type(
             "DashboardResult",
             (),
@@ -4683,7 +4683,7 @@ def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeyp
     store.save(state)
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request",
         lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
             change_request_number=17,
             title="feat: review flow",
@@ -4729,7 +4729,7 @@ def test_review_skips_unchanged_sha_revision_via_gitlab_note_fallback(
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request",
         lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
             change_request_number=17,
             title="feat: review flow",
@@ -4742,11 +4742,11 @@ def test_review_skips_unchanged_sha_revision_via_gitlab_note_fallback(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_current_user_username",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_current_user_username",
         lambda self: "ai-sonar-bot",
     )
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.list_merge_request_notes",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.list_merge_request_notes",
         lambda self, project_id, merge_request_iid: [
             MergeRequestNote(
                 id=55,
@@ -4812,7 +4812,7 @@ def test_review_skips_unchanged_sha_when_local_state_is_manual_review_only(
     store.save(state)
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request",
         lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
             change_request_number=17,
             title="feat: review flow",
@@ -4858,7 +4858,7 @@ def test_review_skips_unchanged_sha_when_gitlab_note_is_manual_review_only(
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_merge_request",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request",
         lambda self, project_id, merge_request_iid: ChangeRequestReviewCandidate(
             change_request_number=17,
             title="feat: review flow",
@@ -4871,11 +4871,11 @@ def test_review_skips_unchanged_sha_when_gitlab_note_is_manual_review_only(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_current_user_username",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_current_user_username",
         lambda self: "ai-sonar-bot",
     )
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.list_merge_request_notes",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.list_merge_request_notes",
         lambda self, project_id, merge_request_iid: [
             MergeRequestNote(
                 id=55,
@@ -4970,11 +4970,11 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
         )(),
     )
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.get_current_user_username",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_current_user_username",
         lambda self: (_ for _ in ()).throw(RuntimeError("cannot resolve bot username")),
     )
     monkeypatch.setattr(
-        "zeroone_ops.providers.gitlab_review_client.GitLabReviewClient.list_merge_request_notes",
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.list_merge_request_notes",
         lambda self, project_id, merge_request_iid: [
             MergeRequestNote(
                 id=55,
@@ -4997,7 +4997,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
         lambda self, merge_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
+        "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
         lambda self, context: type(
             "CandidateStageResult",
             (),
@@ -5055,7 +5055,7 @@ def test_review_github_reuses_same_sha_note_when_username_lookup_is_unresolved(
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.github_review_client.GitHubReviewClient.get_change_request",
+        "zeroone_ops.providers.review.github.GitHubReviewClient.get_change_request",
         lambda self, repository_id, change_request_number: ChangeRequestReviewCandidate(
             change_request_number=23,
             title="feat: github review flow",
@@ -5068,11 +5068,11 @@ def test_review_github_reuses_same_sha_note_when_username_lookup_is_unresolved(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.providers.github_review_client.GitHubReviewClient.get_current_user_username",
+        "zeroone_ops.providers.review.github.GitHubReviewClient.get_current_user_username",
         lambda self: (_ for _ in ()).throw(RuntimeError("cannot resolve bot username")),
     )
     monkeypatch.setattr(
-        "zeroone_ops.providers.github_review_client.GitHubReviewClient.list_change_request_comments",
+        "zeroone_ops.providers.review.github.GitHubReviewClient.list_change_request_comments",
         lambda self, repository_id, change_request_number: [
             ReviewComment(
                 id=55,

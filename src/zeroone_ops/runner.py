@@ -11,10 +11,10 @@ from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.state import RunStatus, utc_now
-from zeroone_ops.providers.github_review_client import GitHubReviewClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
-from zeroone_ops.providers.gitlab_review_client import GitLabReviewClient
-from zeroone_ops.providers.review_platform import ChangeRequestReviewPlatformProtocol
+from zeroone_ops.providers.review.github import GitHubReviewClient
+from zeroone_ops.providers.review.gitlab import GitLabReviewClient
+from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
 from zeroone_ops.services.dashboard.dashboard_policy_processing_runner import (
     DashboardPolicyProcessingRunner,
 )
@@ -32,7 +32,7 @@ from zeroone_ops.services.intake.issue_intake import IssueIntakeService
 from zeroone_ops.services.intake.sonar_dashboard_sync_service import (
     SonarDashboardSyncService,
 )
-from zeroone_ops.services.review.review_runner import ReviewRunner
+from zeroone_ops.services.review.pipeline.review_runner import ReviewRunner
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import (
     RunStateService,

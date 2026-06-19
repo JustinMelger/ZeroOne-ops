@@ -12,7 +12,7 @@ from zeroone_ops.models.review import (
     ChangeRequestReviewCandidate,
     ReviewComment,
 )
-from zeroone_ops.providers.review_platform import ReviewPlatformClientError
+from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 
 
 class GitHubReviewClient:

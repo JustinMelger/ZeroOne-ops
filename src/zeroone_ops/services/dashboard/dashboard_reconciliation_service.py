@@ -10,7 +10,7 @@ import httpx
 from zeroone_ops.models.dashboard import DashboardItem
 from zeroone_ops.models.gitlab import GitLabMergeRequestState
 from zeroone_ops.providers.gitlab_client import GitLabClientError
-from zeroone_ops.providers.gitlab_review_client import GitLabReviewClientProtocol
+from zeroone_ops.providers.review.gitlab import GitLabReviewClientProtocol
 
 
 @dataclass(frozen=True)

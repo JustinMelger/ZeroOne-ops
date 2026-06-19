@@ -23,10 +23,10 @@ from zeroone_ops.models.review import (
     ReviewResult,
 )
 from zeroone_ops.providers.llm_client import LLMClientError
-from zeroone_ops.services.review.review_candidate_generation_service import (
+from zeroone_ops.services.review.pipeline.review_candidate_generation_service import (
     ReviewCandidateStageResult,
 )
-from zeroone_ops.services.review.review_reconciliation_service import (
+from zeroone_ops.services.review.pipeline.review_reconciliation_service import (
     ReviewReconciliationService,
 )
 
@@ -230,7 +230,7 @@ def test_reconcile_uses_precision_output_as_final_review_meaning(monkeypatch) ->
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.review_reconciliation_service.now_utc",
+        "zeroone_ops.services.review.pipeline.review_reconciliation_service.now_utc",
         lambda: datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC),
     )
     monkeypatch.setattr(

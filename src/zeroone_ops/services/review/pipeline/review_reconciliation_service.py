@@ -30,10 +30,10 @@ from zeroone_ops.services.review.continuity.review_overlap_analysis_service impo
 from zeroone_ops.services.review.continuity.review_overlap_packet_builder import (
     OverlapPacketBuilder,
 )
-from zeroone_ops.services.review.review_candidate_generation_service import (
+from zeroone_ops.services.review.pipeline.review_candidate_generation_service import (
     ReviewCandidateStageResult,
 )
-from zeroone_ops.services.review.review_reconciled_decision_builder import (
+from zeroone_ops.services.review.pipeline.review_reconciled_decision_builder import (
     build_reconciled_review_decision,
 )
 from zeroone_ops.settings import SettingsError, load_openai_connection_config
