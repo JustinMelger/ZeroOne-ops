@@ -135,3 +135,41 @@ jobs:
 
       - name: Run Pytest
         run: uv run pytest
+
+  review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+
+    env:
+      ZEROONE_OPS_EXECUTION_MODE: ci
+      ZEROONE_OPS_CONFIG: .zeroone-ops.json
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: gpt-5.4-mini
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Sync dependencies
+        run: uv sync --all-groups
+
+      - name: Run review
+        run: uv run zeroone-ops review
