@@ -3514,9 +3514,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, merge_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
@@ -3621,9 +3619,7 @@ def test_review_github_non_dry_run_publishes_summary_comment(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
@@ -3820,9 +3816,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
@@ -4010,9 +4004,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
@@ -4173,9 +4165,7 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
@@ -4345,9 +4335,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     selected_note = type(
         "Note",
@@ -4582,9 +4570,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, change_request: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, change_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
@@ -5008,9 +4994,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_context_builder.ReviewContextBuilder.build",
-        lambda self, merge_request: ReviewContextBuildResult(
-            context=review_context, message=""
-        ),
+        lambda self, merge_request: ReviewContextBuildResult(context=review_context, message=""),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
