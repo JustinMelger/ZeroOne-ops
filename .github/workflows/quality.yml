@@ -22,7 +22,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14.6"
 
       - name: Sync dependencies
         run: uv sync --all-groups
@@ -49,7 +49,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14.6"
 
       - name: Sync dependencies
         run: uv sync --all-groups
@@ -73,7 +73,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14.6"
 
       - name: Sync dependencies
         run: uv sync --all-groups
@@ -97,7 +97,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14.6"
 
       - name: Sync dependencies
         run: uv sync --all-groups
@@ -122,7 +122,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14.6"
 
       - name: Sync dependencies
         run: uv sync --all-groups
@@ -161,7 +161,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14.6"
 
       - name: Sync dependencies
         run: uv sync --all-groups
