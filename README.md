@@ -140,6 +140,7 @@ Copyable operator examples now live in [examples/](examples/), including:
 - [examples/.zeroone-ops.json](examples/.zeroone-ops.json)
 - [examples/.env.example](examples/.env.example)
 - [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml)
+- [examples/github-review.yml](examples/github-review.yml)
 
 Use the root [.zeroone-ops.json](.zeroone-ops.json) as the repository's live
 runtime config, and use the files in [examples/](examples/) as copyable
@@ -247,6 +248,9 @@ docker pull ghcr.io/<owner>/zeroone-ops:0.2.0
 A GitLab CI example is provided in
 [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml). It uses the
 published `zeroone-ops` image while keeping the current runtime command names.
+For GitHub review smoke tests, use
+[examples/github-review.yml](examples/github-review.yml) as the starting
+workflow file.
 
 ## Execution Modes
 

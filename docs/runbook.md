@@ -773,6 +773,26 @@ Do not move to unattended review runs yet if you see:
 - review runs failing to read merge request changes reliably
 - comments being published when the run should have been a dry-run
 
+## GitHub Review Workflow Example
+
+For GitHub review smoke tests, start from:
+
+- [examples/github-review.yml](../examples/github-review.yml)
+
+The example is intentionally scoped to review only:
+
+- GitHub pull request trigger
+- summary-comment publication
+- no remediation or control-plane workflow yet
+
+Current temporary config caveat:
+
+- until Phase 2b neutralizes the review config surface, GitHub review mode
+  still requires a top-level `gitlab.target_branch` field in
+  `.zeroone-ops.json` for config validation
+- keep `review.platform` set to `github`
+- use the example workflow comments for the smallest currently valid JSON shape
+
 ## Dashboard Discovery Smoke Check
 
 Use this quick check after the remediation workflow is already healthy.
