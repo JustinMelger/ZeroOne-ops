@@ -279,6 +279,9 @@ These are important, but intentionally not part of the immediate rollout phase.
 - clean up review-domain packaging so GitHub review support lives under clearer
   review-focused packages instead of continuing to spread across loosely grouped
   review-adjacent files
+- mirror the review test suite to the cleaned review package boundaries only
+  after the source/domain cleanup lands, so the tests do not need a second
+  structural move
 - document the new review configuration contract and migration path clearly in
   the design docs, runbook, and any configuration examples
 - live-validate the GitHub summary-review path with the neutralized config

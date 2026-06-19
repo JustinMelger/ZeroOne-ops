@@ -618,6 +618,9 @@ Initial expectations for Phase 2b:
   review logic spread across loosely grouped modules; Phase 2b should group
   related review-platform, intake, publish, and prior-comment concerns under
   clearer review-focused package boundaries before Phase 3 grows on top of them
+- once those review package boundaries are stable, the review test suite should
+  be reorganized to mirror the cleaned source map rather than being split first
+  and moved again later
 - the migration path from legacy GitLab review config must be documented in the
   design docs, runbook, and config examples before Phase 3 begins
 
