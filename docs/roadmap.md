@@ -270,18 +270,23 @@ These are important, but intentionally not part of the immediate rollout phase.
 - stop conservatively when the triggering pull request head SHA no longer
   matches the live provider head SHA
 
-- [ ] Phase 2b: GitHub Review Config And Documentation Cleanup
+- [~] Phase 2b: GitHub Review Config And Documentation Cleanup
 
-- make review configuration honest for GitHub review mode by removing the need
-  for a dummy top-level `gitlab` block when `review.platform=github`
-- introduce a provider-neutral review configuration surface for shared review
-  behavior and keep GitLab legacy input compatibility for a transition period
-- clean up review-domain packaging so GitHub review support lives under clearer
-  review-focused packages instead of continuing to spread across loosely grouped
-  review-adjacent files
-- mirror the review test suite to the cleaned review package boundaries only
-  after the source/domain cleanup lands, so the tests do not need a second
-  structural move
+- completed:
+  - made review configuration honest for GitHub review mode by removing the
+    need for a dummy top-level `gitlab` block when `review.platform=github`
+  - cleaned up review-domain packaging so GitHub review support now lives under:
+    - `services/review/intake/`
+    - `services/review/context/`
+    - `services/review/continuity/`
+    - `services/review/publish/`
+    - `services/review/pipeline/`
+    - `services/review/state/`
+    - `providers/review/`
+- still open:
+  - finish the review config/documentation migration guidance around the new
+    GitHub review shape
+  - mirror the review test suite to the cleaned review package boundaries
 - document the new review configuration contract and migration path clearly in
   the design docs, runbook, and any configuration examples
 - live-validate the GitHub summary-review path with the neutralized config

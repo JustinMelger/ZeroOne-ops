@@ -51,12 +51,25 @@ The review core is partly reusable:
 
 But transport and orchestration remain GitLab-shaped:
 
-- `providers/gitlab_review_client.py`
-- `services/review/change_request_intake.py`
+- `providers/review/gitlab.py`
+- `services/review/intake/change_request_intake.py`
 - `services/review/review_gitlab_prior_context_service.py`
 - `services/review/review_gitlab_prior_note_parser.py`
-- `services/review/review_publisher.py`
-- `services/review/review_runner.py`
+- `services/review/publish/review_publisher.py`
+- `services/review/pipeline/review_runner.py`
+
+Since this design started, the shared review code has been regrouped into:
+
+- `services/review/intake/`
+- `services/review/context/`
+- `services/review/continuity/`
+- `services/review/publish/`
+- `services/review/pipeline/`
+- `services/review/state/`
+- `providers/review/`
+
+That package cleanup is completed `Phase 2b` structural work and gives the
+GitHub slices a cleaner domain map to build on.
 
 ### 3.2 Dashboard And Remediation
 
@@ -593,10 +606,10 @@ Primary phase:
 
 Problem:
 
-- the first GitHub summary-support implementation still relies on a required
+- the first GitHub summary-support implementation relied on a required
   top-level `gitlab` config block even when `review.platform=github`
-- this is acceptable for an internal implementation checkpoint, but it is not
-  an honest long-term review configuration contract
+- that was acceptable for an internal implementation checkpoint, but it was
+  not an honest long-term review configuration contract
 
 Chosen design direction:
 
@@ -608,12 +621,12 @@ Chosen design direction:
 - do not use Phase 2b to fully neutralize remediation or control-plane config;
   scope it to the review workflow contract
 
-Initial expectations for Phase 2b:
+Implemented Phase 2b config outcome:
 
-- GitHub review mode must not require a dummy top-level `gitlab` block
+- GitHub review mode no longer requires a dummy top-level `gitlab` block
 - review-platform selection stays under `review.platform`
-- shared review behavior should live under neutral review config rather than
-  under provider-local GitLab config
+- provider-local GitLab workflow settings remain available for GitLab-backed
+  remediation and dashboard paths that still require them
 - review-domain packaging should be tightened where Phase 1 and Phase 2 left
   review logic spread across loosely grouped modules; Phase 2b should group
   related review-platform, intake, publish, and prior-comment concerns under

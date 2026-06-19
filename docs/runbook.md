@@ -785,13 +785,11 @@ The example is intentionally scoped to review only:
 - summary-comment publication
 - no remediation or control-plane workflow yet
 
-Current temporary config caveat:
+Current config note:
 
-- until Phase 2b neutralizes the review config surface, GitHub review mode
-  still requires a top-level `gitlab.target_branch` field in
-  `.zeroone-ops.json` for config validation
 - keep `review.platform` set to `github`
-- use the example workflow comments for the smallest currently valid JSON shape
+- use the example workflow comments for the smallest valid review-only JSON
+  shape
 
 ## Dashboard Discovery Smoke Check
 
