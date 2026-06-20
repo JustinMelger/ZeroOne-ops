@@ -245,16 +245,22 @@ class ReviewPublisher:
 def _render_summary_sentence(artifact: PublishableReviewArtifact) -> str:
     """Render the short human-facing summary sentence."""
     if artifact.classification == "no_findings":
+        if _has_follow_up_context(artifact.follow_up_lines):
+            return (
+                "I took another look, and I don't see any actionable concerns in these changes now."
+            )
         return "I don't see any actionable concerns in these changes."
     if artifact.classification == "manual_review_only":
         return "I couldn't review these changes confidently enough to call them clear."
+    if _has_follow_up_context(artifact.follow_up_lines):
+        return _render_follow_up_summary_sentence(artifact)
     findings_count = len(artifact.findings)
     if _render_risk(artifact) == "High":
         concern_label = "concern" if findings_count == 1 else "concerns"
         return f"I'd block this because of {findings_count} actionable {concern_label}."
     if findings_count == 1:
-        return "One actionable concern stood out in these changes."
-    return f"There are {findings_count} actionable concerns in these changes."
+        return "I noticed one actionable concern in these changes."
+    return f"I noticed {findings_count} actionable concerns in these changes."
 
 
 def _render_verdict(
@@ -309,6 +315,54 @@ def _render_continuity_line(artifact: PublishableReviewArtifact) -> str | None:
     if summary is None:
         return None
     return f"**Continuity:** {summary}"
+
+
+def _has_follow_up_context(lines: list[str]) -> bool:
+    """Return whether the note has meaningful follow-up context from an earlier pass."""
+    return any(line.strip() for line in lines)
+
+
+def _render_follow_up_summary_sentence(artifact: PublishableReviewArtifact) -> str:
+    """Render a conversational summary sentence for follow-up passes with findings."""
+    findings_count = len(artifact.findings)
+    concern_label = "concern" if findings_count == 1 else "concerns"
+    continuity_summary = _summarize_follow_up_lines(artifact.follow_up_lines) or ""
+    if "new" in continuity_summary:
+        if _render_risk(artifact) == "High":
+            return (
+                "I took another look, and I'd block this now because of "
+                f"{findings_count} actionable {concern_label}."
+            )
+        if findings_count == 1:
+            return "I took another look, and I noticed one actionable concern in these changes now."
+        return (
+            "I took another look, and I noticed "
+            f"{findings_count} actionable concerns in these changes now."
+        )
+    if "repeated" in continuity_summary:
+        if _render_risk(artifact) == "High":
+            return (
+                "I took another look, and I'd still block this because of "
+                f"{findings_count} actionable {concern_label}."
+            )
+        if findings_count == 1:
+            return (
+                "I took another look, and I still notice one actionable concern in these changes."
+            )
+        return (
+            "I took another look, and I still notice "
+            f"{findings_count} actionable concerns in these changes."
+        )
+    if _render_risk(artifact) == "High":
+        return (
+            "I took another look, and I'd block this because of "
+            f"{findings_count} actionable {concern_label}."
+        )
+    if findings_count == 1:
+        return "I took another look, and I noticed one actionable concern in these changes."
+    return (
+        f"I took another look, and I noticed {findings_count} actionable concerns in these changes."
+    )
 
 
 def _render_advisory_notes(artifact: PublishableReviewArtifact) -> list[str]:
