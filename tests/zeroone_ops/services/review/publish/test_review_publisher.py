@@ -411,17 +411,14 @@ def test_render_artifact_formats_findings_present() -> None:
         artifact=build_artifact(),
     )
 
-    assert body.startswith("Hi,\n\nHere are your review notes.")
+    assert body.startswith("Verdict: Concern\nRisk: Medium\nConfidence: High")
     assert "One medium-risk finding." in body
-    assert "Review confidence: 0.82" in body
-    assert "Reason: The diff is small and the evidence is specific." in body
-    assert "1. [medium] Missing test coverage (`src/service.py`)" in body
-    assert (
-        "Evidence: The diff changes `value = 1` to `value = 2` without any test updates."
-    ) in body
-    assert "- Reviewed change request: `#17`" in body
-    assert "- Reviewed commit SHA: `abc123`" in body
-    assert "- Files reviewed: 1" in body
+    assert "1. `src/service.py`" in body
+    assert "Missing test coverage." in body
+    assert "The change alters branch behavior without test updates." in body
+    assert "Evidence:" not in body
+    assert "Follow-up:" not in body
+    assert "Scope:" not in body
 
     payload = extract_machine_safe_payload(body)
     assert payload["schema"] == "ai-sonar-bot/review-note/v1"
@@ -467,7 +464,7 @@ def test_render_artifact_renders_advisory_notes_in_separate_section() -> None:
         "- Repository guidance prefers clearer naming here; this example remains harder to scan."
         in body
     )
-    assert "1. [medium] Missing test coverage (`src/service.py`)" in body
+    assert "1. `src/service.py`" in body
 
 
 def test_render_artifact_formats_no_findings() -> None:
@@ -479,10 +476,9 @@ def test_render_artifact_formats_no_findings() -> None:
     )
 
     assert "No actionable findings in this review pass." in body
-    assert body.startswith("Hi,\n\nHere are your review notes.")
-    assert "Review confidence: 0.91" in body
-    assert "- Reviewed change request: `#17`" in body
-    assert "- Files reviewed: 1" in body
+    assert body.startswith("Verdict: Clear\nRisk: Low\nConfidence: High")
+    assert "Continuity:" not in body
+    assert "Scope:" not in body
     assert "Notes:" not in body
 
     payload = extract_machine_safe_payload(body)
@@ -729,8 +725,8 @@ def test_render_artifact_includes_follow_up_lines_when_available() -> None:
         ),
     )
 
-    assert "Follow-up review after the earlier bot pass on `abc123`." in body
-    assert "An earlier concern from the last pass still appears unresolved." in body
+    assert "Continuity: 1 repeated" in body
+    assert "Follow-up review after the earlier bot pass on `abc123`." not in body
 
 
 def test_render_artifact_uses_neutral_follow_up_wording_for_ambiguous_overlap() -> None:
@@ -750,10 +746,7 @@ def test_render_artifact_uses_neutral_follow_up_wording_for_ambiguous_overlap() 
         ),
     )
 
-    assert (
-        "This pass may overlap with an earlier concern, but the overlap is not "
-        "fully clear from the current changes." in body
-    )
+    assert "Continuity: overlap unclear" in body
 
 
 def test_render_artifact_omits_follow_up_wording_when_missing() -> None:
@@ -764,8 +757,7 @@ def test_render_artifact_omits_follow_up_wording_when_missing() -> None:
         artifact=build_artifact(),
     )
 
-    assert "Follow-up review after the earlier bot pass" not in body
-    assert "still appears unresolved" not in body
+    assert "Continuity:" not in body
 
 
 def test_render_artifact_keeps_manual_review_only_overlap_wording_conservative() -> None:
@@ -787,9 +779,6 @@ def test_render_artifact_keeps_manual_review_only_overlap_wording_conservative()
         ),
     )
 
-    assert (
-        "This pass may still relate to an earlier concern, but the current review "
-        "was not confident enough to verify continuity fully." in body
-    )
-    assert "introduces a new concern" not in body
-    assert "no longer appears present" not in body
+    assert body.startswith("Verdict: Concern\nRisk: Medium\nConfidence: High")
+    assert "Continuity:" in body
+    assert "Human review is still needed before treating this change request as clear." in body

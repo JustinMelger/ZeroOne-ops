@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from typing import Literal
 
 from zeroone_ops.models.review import (
     ChangeRequestReviewContext,
@@ -200,70 +201,37 @@ class ReviewPublisher:
         artifact: PublishableReviewArtifact,
     ) -> str:
         """Render one deterministic review note body from a publish-shaped artifact."""
-        lines = [
-            "Hi,",
-            "",
-            "Here are your review notes.",
-            "",
+        lines: list[str] = [
+            f"Verdict: {_render_verdict(artifact)}",
+            f"Risk: {_render_risk(artifact)}",
+            f"Confidence: {_render_confidence_label(artifact)}",
         ]
+        continuity_line = _render_continuity_line(artifact)
+        if continuity_line is not None:
+            lines.append(continuity_line)
+        lines.extend(["", artifact.summary])
 
-        if artifact.classification == "no_findings":
+        if artifact.classification == "manual_review_only":
             lines.extend(
                 [
-                    artifact.summary,
-                    *artifact.follow_up_lines,
-                    *_render_confidence_lines(artifact),
+                    "Human review is still needed before treating this change request as clear.",
                     *_render_advisory_notes(artifact),
                 ]
             )
-        elif artifact.classification == "manual_review_only":
+        elif artifact.classification == "findings_present":
             lines.extend(
                 [
-                    "Bot assessment was insufficient for a trustworthy review decision.",
-                    *artifact.follow_up_lines,
-                    "",
-                    artifact.summary,
-                    *_render_confidence_lines(artifact),
                     *_render_advisory_notes(artifact),
                     "",
-                    "What this means:",
-                    (
-                        "- The bot could not assess this change request reliably "
-                        "with the available context."
-                    ),
-                    "- This is not an actionable finding by itself.",
-                    "- Human review is still needed to decide whether the change is safe.",
+                    "Findings:",
+                    *_render_findings(artifact.findings),
                 ]
             )
         else:
-            finding_lines = ["Findings:"]
-            for index, finding in enumerate(artifact.findings, start=1):
-                finding_lines.extend(
-                    [
-                        f"{index}. [{finding.severity}] {finding.title} (`{finding.file_path}`)",
-                        f"   Evidence: {finding.evidence}",
-                        f"   {finding.explanation}",
-                        f"   Follow-up: {finding.suggested_follow_up}",
-                    ]
-                )
-            lines.extend(
-                [
-                    *artifact.follow_up_lines,
-                    artifact.summary,
-                    *_render_confidence_lines(artifact),
-                    *_render_advisory_notes(artifact),
-                    "",
-                    *finding_lines,
-                ]
-            )
+            lines.extend(_render_advisory_notes(artifact))
 
         lines.extend(
             [
-                "",
-                "Scope:",
-                f"- Reviewed change request: `#{context.change_request_number}`",
-                f"- Reviewed commit SHA: `{context.head_sha}`",
-                f"- Files reviewed: {len(context.changed_files)}",
                 "",
                 *_render_machine_safe_block(context=context, artifact=artifact),
             ]
@@ -271,18 +239,56 @@ class ReviewPublisher:
         return "\n".join(lines)
 
 
-def _render_confidence_lines(artifact: PublishableReviewArtifact) -> list[str]:
-    """Render advisory confidence lines when present."""
+def _render_verdict(artifact: PublishableReviewArtifact) -> Literal["Block", "Concern", "Clear"]:
+    """Render the top-block verdict label."""
+    if artifact.classification == "no_findings":
+        return "Clear"
+    if artifact.classification == "manual_review_only":
+        return "Concern"
+    if _render_risk(artifact) == "High":
+        return "Block"
+    return "Concern"
+
+
+def _render_risk(artifact: PublishableReviewArtifact) -> Literal["High", "Medium", "Low"]:
+    """Render the top-block risk label."""
+    if artifact.classification == "no_findings":
+        return "Low"
+    if artifact.classification == "manual_review_only":
+        return "Medium"
+
+    severity_order: dict[str, Literal["High", "Medium", "Low"]] = {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low",
+    }
+    severities = [severity_order[finding.severity] for finding in artifact.findings]
+    if "High" in severities:
+        return "High"
+    if "Medium" in severities:
+        return "Medium"
+    return "Low"
+
+
+def _render_confidence_label(
+    artifact: PublishableReviewArtifact,
+) -> Literal["High", "Medium", "Low"]:
+    """Compress numeric confidence into the human-facing label."""
     if artifact.review_confidence is None:
-        return []
-    lines = [
-        "",
-        "Confidence:",
-        f"- Review confidence: {artifact.review_confidence:.2f}",
-    ]
-    if artifact.review_confidence_reason:
-        lines.append(f"- Reason: {artifact.review_confidence_reason}")
-    return lines
+        return "Medium"
+    if artifact.review_confidence >= 0.8:
+        return "High"
+    if artifact.review_confidence >= 0.5:
+        return "Medium"
+    return "Low"
+
+
+def _render_continuity_line(artifact: PublishableReviewArtifact) -> str | None:
+    """Render one compact continuity line only when prior-review context adds value."""
+    summary = _summarize_follow_up_lines(artifact.follow_up_lines)
+    if summary is None:
+        return None
+    return f"Continuity: {summary}"
 
 
 def _render_advisory_notes(artifact: PublishableReviewArtifact) -> list[str]:
@@ -294,6 +300,140 @@ def _render_advisory_notes(artifact: PublishableReviewArtifact) -> list[str]:
         "Style Observations (Repository Guidance):",
         *[f"- {note}" for note in artifact.advisory_notes],
     ]
+
+
+def _render_findings(findings: list[PublishableReviewFinding]) -> list[str]:
+    """Render compact developer-facing finding lines."""
+    lines: list[str] = []
+    for index, finding in enumerate(findings, start=1):
+        lines.append(f"{index}. `{finding.file_path}`")
+        lines.extend(_render_single_finding_body(finding))
+    return lines
+
+
+def _render_single_finding_body(finding: PublishableReviewFinding) -> list[str]:
+    """Render one finding using one issue sentence and an optional consequence sentence."""
+    issue_sentence = _ensure_terminal_punctuation(finding.title)
+    body_lines = [f"   {issue_sentence}"]
+    consequence = _render_consequence_sentence(finding)
+    if consequence is not None:
+        body_lines.append(f"   {consequence}")
+    return body_lines
+
+
+def _render_consequence_sentence(finding: PublishableReviewFinding) -> str | None:
+    """Return a short consequence sentence only when the impact is not already obvious."""
+    explanation = finding.explanation.strip()
+    if not explanation:
+        return None
+    if not _should_include_consequence_sentence(finding):
+        return None
+    return _ensure_terminal_punctuation(explanation)
+
+
+def _should_include_consequence_sentence(finding: PublishableReviewFinding) -> bool:
+    """Decide whether a second short consequence sentence materially helps clarity."""
+    issue_kind = (finding.issue_kind or "").lower()
+    if "runtime" in issue_kind:
+        return False
+
+    title = finding.title.lower()
+    explanation = finding.explanation.lower()
+    obvious_hard_failure_markers = (
+        "indexerror",
+        "typeerror",
+        "keyerror",
+        "attributeerror",
+        "exception",
+        "raise ",
+        "raises ",
+        "crash",
+        "runtime error",
+    )
+    if any(marker in title for marker in obvious_hard_failure_markers):
+        return False
+    if explanation.startswith(title):
+        return False
+    return True
+
+
+def _summarize_follow_up_lines(lines: list[str]) -> str | None:
+    """Compress existing follow-up wording into a compact continuity label."""
+    if not lines:
+        return None
+
+    unresolved_count = 0
+    new_count = 0
+    resolved_count = 0
+    ambiguous = False
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("Follow-up review after"):
+            continue
+        lower = line.lower()
+        if "still appears unresolved" in lower:
+            unresolved_count += _extract_count_from_overlap_line(
+                line=line,
+                singular_prefix="An earlier concern",
+                plural_token="earlier concerns",
+            )
+        if "no longer appears present" in lower:
+            resolved_count += _extract_count_from_overlap_line(
+                line=line,
+                singular_prefix="One earlier concern",
+                plural_token="earlier concerns",
+            )
+        new_count += _extract_new_concern_count(line)
+        if "overlap is not fully clear" in lower:
+            ambiguous = True
+        if "not confident enough to verify continuity fully" in lower:
+            ambiguous = True
+
+    parts: list[str] = []
+    if unresolved_count:
+        parts.append(_counted_status(unresolved_count, "repeated"))
+    if new_count:
+        parts.append(_counted_status(new_count, "new"))
+    if resolved_count:
+        parts.append(_counted_status(resolved_count, "resolved"))
+    if ambiguous:
+        parts.append("overlap unclear")
+    if not parts:
+        return None
+    return ", ".join(parts)
+
+
+def _extract_count_from_overlap_line(
+    *,
+    line: str,
+    singular_prefix: str,
+    plural_token: str,
+) -> int:
+    """Extract one overlap count from normalized follow-up wording."""
+    if line.startswith(singular_prefix):
+        return 1
+    match = re.search(r"(\d+)\s+" + re.escape(plural_token), line)
+    if match is None:
+        return 0
+    return int(match.group(1))
+
+
+def _extract_new_concern_count(line: str) -> int:
+    """Extract how many new concerns the overlap summary reports."""
+    if "introduces a new concern" in line:
+        return 1
+    match = re.search(r"introduces (\d+) new concerns", line)
+    if match is None:
+        return 0
+    return int(match.group(1))
+
+
+def _counted_status(count: int, label: str) -> str:
+    """Render one counted continuity status phrase."""
+    if count == 1:
+        return f"1 {label}"
+    return f"{count} {label}"
 
 
 @dataclass(frozen=True)
