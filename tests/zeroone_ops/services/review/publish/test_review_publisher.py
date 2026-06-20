@@ -961,5 +961,10 @@ def test_render_artifact_keeps_manual_review_only_overlap_wording_conservative()
     assert body.startswith("**Verdict:** Needs review\n**Confidence:** High")
     assert "Risk:" not in body
     assert "Continuity:" not in body
-    assert "I couldn't review these changes confidently enough to call them clear." in body
+    assert (
+        "I took another look, but I couldn't review these changes confidently enough "
+        "to call them clear this time."
+        in body
+    )
+    assert "The diff is too broad to assess reliably in this pass." in body
     assert "A human review is still needed before treating these changes as safe." in body

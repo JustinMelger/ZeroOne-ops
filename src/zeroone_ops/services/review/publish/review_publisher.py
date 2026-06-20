@@ -217,6 +217,7 @@ class ReviewPublisher:
         if artifact.classification == "manual_review_only":
             lines.extend(
                 [
+                    artifact.summary,
                     "A human review is still needed before treating these changes as safe.",
                     *_render_advisory_notes(artifact),
                 ]
@@ -251,6 +252,11 @@ def _render_summary_sentence(artifact: PublishableReviewArtifact) -> str:
             )
         return "I don't see any actionable concerns in these changes."
     if artifact.classification == "manual_review_only":
+        if _has_follow_up_context(artifact.follow_up_lines):
+            return (
+                "I took another look, but I couldn't review these changes "
+                "confidently enough to call them clear this time."
+            )
         return "I couldn't review these changes confidently enough to call them clear."
     if _has_follow_up_context(artifact.follow_up_lines):
         return _render_follow_up_summary_sentence(artifact)
