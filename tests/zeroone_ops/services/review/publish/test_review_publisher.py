@@ -412,7 +412,7 @@ def test_render_artifact_formats_findings_present() -> None:
     )
 
     assert body.startswith("Verdict: Concern\nRisk: Medium\nConfidence: High")
-    assert "One medium-risk finding." in body
+    assert "I found 1 actionable concern in these changes." in body
     assert "1. `src/service.py`" in body
     assert "Missing test coverage." in body
     assert "The change alters branch behavior without test updates." in body
@@ -563,7 +563,7 @@ def test_render_artifact_formats_no_findings() -> None:
         artifact=build_artifact(classification="no_findings"),
     )
 
-    assert "These changes look clear. No actionable concerns found in this pass." in body
+    assert "I don't see any actionable concerns in these changes." in body
     assert body.startswith("Verdict: Clear\nConfidence: High")
     assert "Risk:" not in body
     assert "Continuity:" not in body
@@ -870,4 +870,5 @@ def test_render_artifact_keeps_manual_review_only_overlap_wording_conservative()
 
     assert body.startswith("Verdict: Concern\nRisk: Medium\nConfidence: High")
     assert "Continuity:" in body
-    assert "Human review is still needed before treating this change request as clear." in body
+    assert "I couldn't review these changes confidently enough to call them clear." in body
+    assert "I'd still want a human review here before treating these changes as clear." in body

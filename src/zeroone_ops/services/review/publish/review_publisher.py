@@ -213,7 +213,7 @@ class ReviewPublisher:
         if artifact.classification == "manual_review_only":
             lines.extend(
                 [
-                    "Human review is still needed before treating this change request as clear.",
+                    "I'd still want a human review here before treating these changes as clear.",
                     *_render_advisory_notes(artifact),
                 ]
             )
@@ -241,8 +241,12 @@ class ReviewPublisher:
 def _render_summary_sentence(artifact: PublishableReviewArtifact) -> str:
     """Render the short human-facing summary sentence."""
     if artifact.classification == "no_findings":
-        return "These changes look clear. No actionable concerns found in this pass."
-    return artifact.summary
+        return "I don't see any actionable concerns in these changes."
+    if artifact.classification == "manual_review_only":
+        return "I couldn't review these changes confidently enough to call them clear."
+    findings_count = len(artifact.findings)
+    concern_label = "concern" if findings_count == 1 else "concerns"
+    return f"I found {findings_count} actionable {concern_label} in these changes."
 
 
 def _render_verdict(artifact: PublishableReviewArtifact) -> Literal["Block", "Concern", "Clear"]:
