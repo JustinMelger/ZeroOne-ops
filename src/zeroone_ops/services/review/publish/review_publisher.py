@@ -247,8 +247,7 @@ def _render_summary_sentence(artifact: PublishableReviewArtifact) -> str:
     if artifact.classification == "no_findings":
         if _has_follow_up_context(artifact.follow_up_lines):
             return (
-                "I took another look, and I don't see any actionable concerns in these "
-                "changes now."
+                "I took another look, and I don't see any actionable concerns in these changes now."
             )
         return "I don't see any actionable concerns in these changes."
     if artifact.classification == "manual_review_only":
@@ -348,8 +347,7 @@ def _render_follow_up_summary_sentence(artifact: PublishableReviewArtifact) -> s
             )
         if findings_count == 1:
             return (
-                "I took another look, and I still notice one actionable concern in "
-                "these changes."
+                "I took another look, and I still notice one actionable concern in these changes."
             )
         return (
             "I took another look, and I still notice "
@@ -363,8 +361,7 @@ def _render_follow_up_summary_sentence(artifact: PublishableReviewArtifact) -> s
     if findings_count == 1:
         return "I took another look, and I noticed one actionable concern in these changes."
     return (
-        "I took another look, and I noticed "
-        f"{findings_count} actionable concerns in these changes."
+        f"I took another look, and I noticed {findings_count} actionable concerns in these changes."
     )
 
 

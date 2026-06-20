@@ -590,8 +590,7 @@ def test_render_artifact_acknowledges_previous_pass_for_no_findings_follow_up() 
     )
 
     assert (
-        "I took another look, and I don't see any actionable concerns in these "
-        "changes now."
+        "I took another look, and I don't see any actionable concerns in these changes now."
     ) in body
 
 
@@ -887,8 +886,7 @@ def test_render_artifact_includes_follow_up_lines_when_available() -> None:
     assert "**Continuity:** 1 repeated" in body
     assert "Follow-up review after the earlier bot pass on `abc123`." not in body
     assert (
-        "I took another look, and I still notice one actionable concern in these changes."
-        in body
+        "I took another look, and I still notice one actionable concern in these changes." in body
     )
 
 
