@@ -444,6 +444,94 @@ def test_render_artifact_formats_findings_present() -> None:
     ]
 
 
+def test_render_artifact_uses_block_verdict_for_high_risk_findings() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_context(),
+        artifact=PublishableReviewArtifact(
+            classification="findings_present",
+            summary="One high-risk finding.",
+            review_confidence=0.88,
+            findings=[
+                PublishableReviewFinding(
+                    severity="high",
+                    file_path="src/service.py",
+                    title="Unconditional exception reaches a supported runtime path",
+                    evidence="The diff raises a RuntimeError unconditionally in the new branch.",
+                    explanation="This can fail at runtime on supported input.",
+                    suggested_follow_up="Remove the unconditional exception.",
+                    issue_kind="deterministic_runtime_error",
+                )
+            ],
+        ),
+    )
+
+    assert body.startswith("Verdict: Block\nRisk: High\nConfidence: High")
+
+
+def test_render_artifact_uses_one_sentence_for_runtime_failures() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_context(),
+        artifact=PublishableReviewArtifact(
+            classification="findings_present",
+            summary="One high-risk finding.",
+            review_confidence=0.88,
+            findings=[
+                PublishableReviewFinding(
+                    severity="high",
+                    file_path="src/service.py",
+                    title="Unchecked access to `vehicle.types[0]` can raise `IndexError`",
+                    evidence="The helper reads `vehicle.types[0]` directly.",
+                    explanation="This can raise `IndexError` on valid empty-list input.",
+                    suggested_follow_up="Guard the empty-list case.",
+                    issue_kind="deterministic_runtime_error",
+                )
+            ],
+        ),
+    )
+
+    assert (
+        "Unchecked access to `vehicle.types[0]` can raise `IndexError`.\n"
+        "   This can raise `IndexError` on valid empty-list input."
+    ) not in body
+
+
+def test_render_artifact_uses_two_sentences_when_behavioral_consequence_is_not_obvious() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_context(),
+        artifact=PublishableReviewArtifact(
+            classification="findings_present",
+            summary="One medium-risk finding.",
+            review_confidence=0.74,
+            findings=[
+                PublishableReviewFinding(
+                    severity="medium",
+                    file_path="src/config.py",
+                    title="Missing lookup-country config now defaults silently to `{}`",
+                    evidence="The new code path uses an empty-dict fallback.",
+                    explanation=(
+                        "This turns a configuration error into silent misconfiguration, "
+                        "which is harder to detect in production."
+                    ),
+                    suggested_follow_up="Fail fast when the configuration is missing.",
+                    issue_kind="behavioral_regression",
+                )
+            ],
+        ),
+    )
+
+    assert "Missing lookup-country config now defaults silently to `{}`." in body
+    assert (
+        "This turns a configuration error into silent misconfiguration, "
+        "which is harder to detect in production."
+    ) in body
+
+
 def test_render_artifact_renders_advisory_notes_in_separate_section() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
