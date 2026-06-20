@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Literal
 
 from zeroone_ops.models.review import (
     ChangeRequestReviewContext,
@@ -19,6 +18,13 @@ from zeroone_ops.models.state import ReviewInlineCommentDecision
 from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPublishClientProtocol,
     ReviewPlatformClientError,
+)
+from zeroone_ops.services.review.publish.review_response_state import (
+    render_confidence_label,
+    render_continuity_line,
+    render_risk,
+    render_summary_sentence,
+    render_verdict,
 )
 
 _HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
@@ -201,18 +207,18 @@ class ReviewPublisher:
         artifact: PublishableReviewArtifact,
     ) -> str:
         """Render one deterministic review note body from a publish-shaped artifact."""
-        lines: list[str] = [f"**Verdict:** {_render_verdict(artifact)}"]
+        lines: list[str] = [f"**Verdict:** {render_verdict(artifact)}"]
         if artifact.classification == "findings_present":
-            lines.append(f"**Risk:** {_render_risk(artifact)}")
-        lines.append(f"**Confidence:** {_render_confidence_label(artifact)}")
+            lines.append(f"**Risk:** {render_risk(artifact)}")
+        lines.append(f"**Confidence:** {render_confidence_label(artifact)}")
         continuity_line = (
             None
             if artifact.classification == "manual_review_only"
-            else _render_continuity_line(artifact)
+            else render_continuity_line(artifact)
         )
         if continuity_line is not None:
             lines.append(continuity_line)
-        lines.extend(["", _render_summary_sentence(artifact)])
+        lines.extend(["", render_summary_sentence(context=context, artifact=artifact)])
 
         if artifact.classification == "manual_review_only":
             lines.extend(
@@ -241,134 +247,6 @@ class ReviewPublisher:
             ]
         )
         return "\n".join(lines)
-
-
-def _render_summary_sentence(artifact: PublishableReviewArtifact) -> str:
-    """Render the short human-facing summary sentence."""
-    if artifact.classification == "no_findings":
-        if _has_follow_up_context(artifact.follow_up_lines):
-            return (
-                "I took another look, and I don't see any actionable concerns in these changes now."
-            )
-        return "I don't see any actionable concerns in these changes."
-    if artifact.classification == "manual_review_only":
-        if _has_follow_up_context(artifact.follow_up_lines):
-            return (
-                "I took another look, but I couldn't review these changes "
-                "confidently enough to call them clear this time."
-            )
-        return "I couldn't review these changes confidently enough to call them clear."
-    if _has_follow_up_context(artifact.follow_up_lines):
-        return _render_follow_up_summary_sentence(artifact)
-    findings_count = len(artifact.findings)
-    if _render_risk(artifact) == "High":
-        concern_label = "concern" if findings_count == 1 else "concerns"
-        return f"I'd block this because of {findings_count} actionable {concern_label}."
-    if findings_count == 1:
-        return "I noticed one actionable concern in these changes."
-    return f"I noticed {findings_count} actionable concerns in these changes."
-
-
-def _render_verdict(
-    artifact: PublishableReviewArtifact,
-) -> Literal["Block", "Concern", "Clear", "Needs review"]:
-    """Render the top-block verdict label."""
-    if artifact.classification == "no_findings":
-        return "Clear"
-    if artifact.classification == "manual_review_only":
-        return "Needs review"
-    if _render_risk(artifact) == "High":
-        return "Block"
-    return "Concern"
-
-
-def _render_risk(artifact: PublishableReviewArtifact) -> Literal["High", "Medium", "Low"]:
-    """Render the top-block risk label."""
-    if artifact.classification == "no_findings":
-        return "Low"
-    if artifact.classification == "manual_review_only":
-        return "Medium"
-
-    severity_order: dict[str, Literal["High", "Medium", "Low"]] = {
-        "high": "High",
-        "medium": "Medium",
-        "low": "Low",
-    }
-    severities = [severity_order[finding.severity] for finding in artifact.findings]
-    if "High" in severities:
-        return "High"
-    if "Medium" in severities:
-        return "Medium"
-    return "Low"
-
-
-def _render_confidence_label(
-    artifact: PublishableReviewArtifact,
-) -> Literal["High", "Medium", "Low"]:
-    """Compress numeric confidence into the human-facing label."""
-    if artifact.review_confidence is None:
-        return "Medium"
-    if artifact.review_confidence >= 0.8:
-        return "High"
-    if artifact.review_confidence >= 0.5:
-        return "Medium"
-    return "Low"
-
-
-def _render_continuity_line(artifact: PublishableReviewArtifact) -> str | None:
-    """Render one compact continuity line only when prior-review context adds value."""
-    summary = _summarize_follow_up_lines(artifact.follow_up_lines)
-    if summary is None:
-        return None
-    return f"**Continuity:** {summary}"
-
-
-def _has_follow_up_context(lines: list[str]) -> bool:
-    """Return whether the note has meaningful follow-up context from an earlier pass."""
-    return any(line.strip() for line in lines)
-
-
-def _render_follow_up_summary_sentence(artifact: PublishableReviewArtifact) -> str:
-    """Render a conversational summary sentence for follow-up passes with findings."""
-    findings_count = len(artifact.findings)
-    concern_label = "concern" if findings_count == 1 else "concerns"
-    continuity_summary = _summarize_follow_up_lines(artifact.follow_up_lines) or ""
-    if "new" in continuity_summary:
-        if _render_risk(artifact) == "High":
-            return (
-                "I took another look, and I'd block this now because of "
-                f"{findings_count} actionable {concern_label}."
-            )
-        if findings_count == 1:
-            return "I took another look, and I noticed one actionable concern in these changes now."
-        return (
-            "I took another look, and I noticed "
-            f"{findings_count} actionable concerns in these changes now."
-        )
-    if "repeated" in continuity_summary:
-        if _render_risk(artifact) == "High":
-            return (
-                "I took another look, and I'd still block this because of "
-                f"{findings_count} actionable {concern_label}."
-            )
-        if findings_count == 1:
-            return (
-                "I took another look, and I still notice one actionable concern in these changes."
-            )
-        return (
-            "I took another look, and I still notice "
-            f"{findings_count} actionable concerns in these changes."
-        )
-    if _render_risk(artifact) == "High":
-        return (
-            "I took another look, and I'd block this because of "
-            f"{findings_count} actionable {concern_label}."
-        )
-    if findings_count == 1:
-        return "I took another look, and I noticed one actionable concern in these changes."
-    return (
-        f"I took another look, and I noticed {findings_count} actionable concerns in these changes."
-    )
 
 
 def _render_advisory_notes(artifact: PublishableReviewArtifact) -> list[str]:

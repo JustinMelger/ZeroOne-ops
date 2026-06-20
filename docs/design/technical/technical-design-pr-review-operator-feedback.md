@@ -377,6 +377,68 @@ Example:
    empty-list input.
 ```
 
+Recommended follow-up summary transition matrix:
+
+- `now` signals that the current pass changed state relative to the prior pass
+- `still` signals that the same review posture persists across passes
+- avoid `again`; it reads more procedural and less reviewer-like
+- `Needs review` notes should keep a short visible reason line after the summary
+
+Current `Clear`:
+
+- first pass:
+  - `I don't see any actionable concerns in these changes.`
+- follow-up from `Concern`:
+  - `I took another look, and I don't see any actionable concerns in these changes now.`
+- follow-up from `Needs review`:
+  - `I took another look, and I don't see any actionable concerns in these changes now.`
+
+Current `Concern`:
+
+- first pass:
+  - `I noticed one actionable concern in these changes.`
+  - `I noticed {n} actionable concerns in these changes.`
+- follow-up from `Clear`:
+  - `I took another look, and I noticed one actionable concern in these changes now.`
+  - `I took another look, and I noticed {n} actionable concerns in these changes now.`
+- follow-up from `Concern`:
+  - `I took another look, and I still notice one actionable concern in these changes.`
+  - `I took another look, and I still notice {n} actionable concerns in these changes.`
+- follow-up from `Needs review`:
+  - `I took another look, and I now notice one actionable concern in these changes.`
+  - `I took another look, and I now notice {n} actionable concerns in these changes.`
+
+Current `Block`:
+
+- first pass:
+  - `I'd block this because of one actionable concern.`
+  - `I'd block this because of {n} actionable concerns.`
+- follow-up from `Clear`:
+  - `I took another look, and I'd block this now because of one actionable concern.`
+  - `I took another look, and I'd block this now because of {n} actionable concerns.`
+- follow-up from `Concern`:
+  - `I took another look, and I'd block this now because of one actionable concern.`
+  - `I took another look, and I'd block this now because of {n} actionable concerns.`
+- follow-up from `Block`:
+  - `I took another look, and I'd still block this because of one actionable concern.`
+  - `I took another look, and I'd still block this because of {n} actionable concerns.`
+- follow-up from `Needs review`:
+  - `I took another look, and I'd now block this because of one actionable concern.`
+  - `I took another look, and I'd now block this because of {n} actionable concerns.`
+
+Current `Needs review`:
+
+- first pass:
+  - `I couldn't review these changes confidently enough to call them clear.`
+- follow-up from `Clear`:
+  - `I took another look, but I couldn't review these changes confidently enough to call them clear this time.`
+- follow-up from `Concern`:
+  - `I took another look, but I couldn't review these changes confidently enough to confirm the earlier concern this time.`
+- follow-up from `Block`:
+  - `I took another look, but I couldn't review these changes confidently enough to confirm the earlier blocking concern this time.`
+- follow-up from `Needs review`:
+  - `I took another look, but I still couldn't review these changes confidently enough to call them clear.`
+
 Where repeated findings share one clear underlying cause, the renderer may
 later group them conservatively, but only when the shared cause is explicit in
 the structured result.

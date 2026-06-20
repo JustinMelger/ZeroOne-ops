@@ -90,6 +90,48 @@ def build_follow_up_context() -> ChangeRequestReviewContext:
     )
 
 
+def build_clear_follow_up_context() -> ChangeRequestReviewContext:
+    """Create one context whose prior pass was clear."""
+    return build_context().model_copy(
+        update={
+            "head_sha": "clearfollowup123",
+            "prior_review_context": PriorReviewContext(
+                change_request_number=209,
+                passes=[
+                    PriorReviewPass(
+                        reviewed_head_sha="abc123def456",
+                        classification="no_findings",
+                        findings_count=0,
+                        summary="No actionable findings in the earlier pass.",
+                        findings=[],
+                    )
+                ],
+            ),
+        }
+    )
+
+
+def build_manual_follow_up_context() -> ChangeRequestReviewContext:
+    """Create one context whose prior pass needed manual review."""
+    return build_context().model_copy(
+        update={
+            "head_sha": "manualfollowup123",
+            "prior_review_context": PriorReviewContext(
+                change_request_number=209,
+                passes=[
+                    PriorReviewPass(
+                        reviewed_head_sha="abc123def456",
+                        classification="manual_review_only",
+                        findings_count=0,
+                        summary="The earlier pass could not assess the diff reliably.",
+                        findings=[],
+                    )
+                ],
+            ),
+        }
+    )
+
+
 def build_examples() -> list[tuple[str, ChangeRequestReviewContext, PublishableReviewArtifact]]:
     """Return representative note examples for UX review."""
     return [
@@ -124,6 +166,36 @@ def build_examples() -> list[tuple[str, ChangeRequestReviewContext, PublishableR
                 summary="One medium-risk finding.",
                 review_confidence=0.84,
                 review_confidence_reason="The failure mode is directly visible in the diff.",
+                findings=[
+                    PublishableReviewFinding(
+                        severity="medium",
+                        file_path="src/service.py",
+                        line_start=12,
+                        line_end=12,
+                        stable_identity="src/service.py::unchecked-types-index",
+                        legacy_identity="src/service.py::unchecked-types-index",
+                        title="Unchecked access to `vehicle.types[0]` can raise `IndexError`.",
+                        evidence="The change reads the first element without guarding empty input.",
+                        explanation="Supported empty-list input now fails at runtime.",
+                        suggested_follow_up="Guard empty `vehicle.types` input before indexing.",
+                        issue_kind="runtime_error",
+                    )
+                ],
+            ),
+        ),
+        (
+            "concern_after_clear",
+            build_clear_follow_up_context(),
+            PublishableReviewArtifact(
+                classification="findings_present",
+                summary="One medium-risk finding.",
+                review_confidence=0.84,
+                review_confidence_reason="The failure mode is directly visible in the diff.",
+                follow_up_lines=[
+                    "Follow-up review after the earlier bot pass on `abc123def456`.",
+                    "This pass introduces a new concern in the updated changes.",
+                    "",
+                ],
                 findings=[
                     PublishableReviewFinding(
                         severity="medium",
@@ -191,6 +263,25 @@ def build_examples() -> list[tuple[str, ChangeRequestReviewContext, PublishableR
             ),
         ),
         (
+            "manual_review_after_clear",
+            build_clear_follow_up_context(),
+            PublishableReviewArtifact(
+                classification="manual_review_only",
+                summary="The diff is too broad to assess reliably in this pass.",
+                review_confidence=0.58,
+                review_confidence_reason="The change set is broad and cross-cutting.",
+                follow_up_lines=[
+                    "Follow-up review after the earlier bot pass on `abc123def456`.",
+                    (
+                        "This pass broadened enough that the current review was not "
+                        "confident enough to assess it reliably."
+                    ),
+                    "",
+                ],
+                findings=[],
+            ),
+        ),
+        (
             "concern_repeated",
             build_follow_up_context(),
             PublishableReviewArtifact(
@@ -203,6 +294,42 @@ def build_examples() -> list[tuple[str, ChangeRequestReviewContext, PublishableR
                 follow_up_lines=[
                     "Follow-up review after the earlier bot pass on `abc123def456`.",
                     "An earlier concern from the last pass still appears unresolved.",
+                    "",
+                ],
+                findings=[
+                    PublishableReviewFinding(
+                        severity="medium",
+                        file_path="src/service.py",
+                        line_start=30,
+                        line_end=32,
+                        stable_identity="src/service.py::missing-coverage",
+                        legacy_identity="src/service.py::missing-coverage",
+                        title="The changed branch still has no regression coverage.",
+                        evidence=(
+                            "The diff still alters branch behavior without adding a matching test."
+                        ),
+                        explanation=(
+                            "That leaves the repeated behavior change unguarded in future edits."
+                        ),
+                        suggested_follow_up="Add a regression test for the changed branch.",
+                        issue_kind="coverage_regression",
+                    )
+                ],
+            ),
+        ),
+        (
+            "concern_after_manual_review",
+            build_manual_follow_up_context(),
+            PublishableReviewArtifact(
+                classification="findings_present",
+                summary="One medium-risk finding.",
+                review_confidence=0.82,
+                review_confidence_reason=(
+                    "The issue is visible once the narrowed change is isolated."
+                ),
+                follow_up_lines=[
+                    "Follow-up review after the earlier bot pass on `abc123def456`.",
+                    "This pass introduces a new concern in the updated changes.",
                     "",
                 ],
                 findings=[
