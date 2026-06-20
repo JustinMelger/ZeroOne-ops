@@ -12,6 +12,7 @@ It builds on:
 
 - [functional-design-pr-review-overlap-reconciliation.md](../functional/functional-design-pr-review-overlap-reconciliation.md)
 - [functional-design-pr-review-operator-feedback.md](../functional/functional-design-pr-review-operator-feedback.md)
+- [technical-design-pr-review-operator-feedback.md](technical-design-pr-review-operator-feedback.md)
 
 This design is intentionally narrow.
 
@@ -40,7 +41,8 @@ It should not:
 - Keep overlap matching explainable through app-owned candidate generation.
 - Make overlap behavior easier to benchmark independently from current-pass bug
   discovery.
-- Create a clean foundation for later MR-scoped operator feedback.
+- Create a clean foundation for later provider-neutral change-request-scoped
+  operator feedback across GitLab and GitHub.
 
 ## 3. Current Problem In Technical Terms
 
@@ -121,11 +123,18 @@ The overlap phase should receive a bounded packet and only classify:
 - `no_longer_present`
 - `overlap_ambiguous`
 
+When bounded human feedback is available on the authoritative prior summary
+comment, this stage is also the first stage allowed to consume it.
+
 It should compare only:
 
 - current findings from phase 1
 - findings from the latest prior review pass on the same MR
 - app-generated candidate overlaps
+- bounded stored feedback tied to that latest prior review pass
+
+The feedback contract consumed here should stay provider-neutral even when note
+retrieval differs by platform.
 
 ### 6.2 Explicit non-responsibilities
 
@@ -135,6 +144,7 @@ The overlap phase should not:
 - search arbitrary repo context
 - reason across all historical review passes at once
 - own final finding identity
+- treat human reactions or replies as automatic truth overrides
 
 ## 7. Proposed Data Flow
 

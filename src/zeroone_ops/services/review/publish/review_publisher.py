@@ -19,6 +19,13 @@ from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPublishClientProtocol,
     ReviewPlatformClientError,
 )
+from zeroone_ops.services.review.publish.review_response_state import (
+    render_confidence_label,
+    render_continuity_line,
+    render_risk,
+    render_summary_sentence,
+    render_verdict,
+)
 
 _HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
@@ -200,89 +207,46 @@ class ReviewPublisher:
         artifact: PublishableReviewArtifact,
     ) -> str:
         """Render one deterministic review note body from a publish-shaped artifact."""
-        lines = [
-            "Hi,",
-            "",
-            "Here are your review notes.",
-            "",
-        ]
+        lines: list[str] = [f"**Verdict:** {render_verdict(artifact)}"]
+        if artifact.classification == "findings_present":
+            lines.append(f"**Risk:** {render_risk(artifact)}")
+        lines.append(f"**Confidence:** {render_confidence_label(artifact)}")
+        continuity_line = (
+            None
+            if artifact.classification == "manual_review_only"
+            else render_continuity_line(artifact)
+        )
+        if continuity_line is not None:
+            lines.append(continuity_line)
+        lines.extend(["", render_summary_sentence(context=context, artifact=artifact)])
 
-        if artifact.classification == "no_findings":
+        if artifact.classification == "manual_review_only":
             lines.extend(
                 [
                     artifact.summary,
-                    *artifact.follow_up_lines,
-                    *_render_confidence_lines(artifact),
+                    "A human review is still needed before treating these changes as safe.",
                     *_render_advisory_notes(artifact),
                 ]
             )
-        elif artifact.classification == "manual_review_only":
+        elif artifact.classification == "findings_present":
             lines.extend(
                 [
-                    "Bot assessment was insufficient for a trustworthy review decision.",
-                    *artifact.follow_up_lines,
-                    "",
-                    artifact.summary,
-                    *_render_confidence_lines(artifact),
                     *_render_advisory_notes(artifact),
                     "",
-                    "What this means:",
-                    (
-                        "- The bot could not assess this change request reliably "
-                        "with the available context."
-                    ),
-                    "- This is not an actionable finding by itself.",
-                    "- Human review is still needed to decide whether the change is safe.",
+                    "**Findings**",
+                    *_render_findings(artifact.findings),
                 ]
             )
         else:
-            finding_lines = ["Findings:"]
-            for index, finding in enumerate(artifact.findings, start=1):
-                finding_lines.extend(
-                    [
-                        f"{index}. [{finding.severity}] {finding.title} (`{finding.file_path}`)",
-                        f"   Evidence: {finding.evidence}",
-                        f"   {finding.explanation}",
-                        f"   Follow-up: {finding.suggested_follow_up}",
-                    ]
-                )
-            lines.extend(
-                [
-                    *artifact.follow_up_lines,
-                    artifact.summary,
-                    *_render_confidence_lines(artifact),
-                    *_render_advisory_notes(artifact),
-                    "",
-                    *finding_lines,
-                ]
-            )
+            lines.extend(_render_advisory_notes(artifact))
 
         lines.extend(
             [
-                "",
-                "Scope:",
-                f"- Reviewed change request: `#{context.change_request_number}`",
-                f"- Reviewed commit SHA: `{context.head_sha}`",
-                f"- Files reviewed: {len(context.changed_files)}",
                 "",
                 *_render_machine_safe_block(context=context, artifact=artifact),
             ]
         )
         return "\n".join(lines)
-
-
-def _render_confidence_lines(artifact: PublishableReviewArtifact) -> list[str]:
-    """Render advisory confidence lines when present."""
-    if artifact.review_confidence is None:
-        return []
-    lines = [
-        "",
-        "Confidence:",
-        f"- Review confidence: {artifact.review_confidence:.2f}",
-    ]
-    if artifact.review_confidence_reason:
-        lines.append(f"- Reason: {artifact.review_confidence_reason}")
-    return lines
 
 
 def _render_advisory_notes(artifact: PublishableReviewArtifact) -> list[str]:
@@ -294,6 +258,125 @@ def _render_advisory_notes(artifact: PublishableReviewArtifact) -> list[str]:
         "Style Observations (Repository Guidance):",
         *[f"- {note}" for note in artifact.advisory_notes],
     ]
+
+
+def _render_findings(findings: list[PublishableReviewFinding]) -> list[str]:
+    """Render compact developer-facing finding lines."""
+    lines: list[str] = []
+    for index, finding in enumerate(findings, start=1):
+        if lines:
+            lines.append("")
+        lines.append(f"{index}. `{finding.file_path}`")
+        lines.extend(_render_single_finding_body(finding))
+    return lines
+
+
+def _render_single_finding_body(finding: PublishableReviewFinding) -> list[str]:
+    """Render one finding using one issue sentence and an optional consequence sentence."""
+    issue_sentence = _ensure_terminal_punctuation(finding.title)
+    body_lines = [f"   {issue_sentence}"]
+    consequence = _render_consequence_sentence(finding)
+    if consequence is not None:
+        body_lines.append(f"   {consequence}")
+    return body_lines
+
+
+def _render_consequence_sentence(finding: PublishableReviewFinding) -> str | None:
+    """Return a short consequence sentence only when the impact is not already obvious."""
+    explanation = finding.explanation.strip()
+    if not explanation:
+        return None
+    if not _should_include_consequence_sentence(finding):
+        return None
+    return _ensure_terminal_punctuation(explanation)
+
+
+def _should_include_consequence_sentence(finding: PublishableReviewFinding) -> bool:
+    """Decide whether a second short consequence sentence materially helps clarity."""
+    title = finding.title.lower()
+    explanation = finding.explanation.lower()
+    if explanation.startswith(title):
+        return False
+    return True
+
+
+def _summarize_follow_up_lines(lines: list[str]) -> str | None:
+    """Compress existing follow-up wording into a compact continuity label."""
+    if not lines:
+        return None
+
+    unresolved_count = 0
+    new_count = 0
+    resolved_count = 0
+    ambiguous = False
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("Follow-up review after"):
+            continue
+        lower = line.lower()
+        if "still appears unresolved" in lower:
+            unresolved_count += _extract_count_from_overlap_line(
+                line=line,
+                singular_prefix="An earlier concern",
+                plural_phrase="earlier concerns",
+            )
+        if "no longer appears present" in lower:
+            resolved_count += _extract_count_from_overlap_line(
+                line=line,
+                singular_prefix="One earlier concern",
+                plural_phrase="earlier concerns",
+            )
+        new_count += _extract_new_concern_count(line)
+        if "overlap is not fully clear" in lower:
+            ambiguous = True
+        if "not confident enough to verify continuity fully" in lower:
+            ambiguous = True
+
+    parts: list[str] = []
+    if unresolved_count:
+        parts.append(_counted_status(unresolved_count, "repeated"))
+    if new_count:
+        parts.append(_counted_status(new_count, "new"))
+    if resolved_count:
+        parts.append(_counted_status(resolved_count, "resolved"))
+    if ambiguous:
+        parts.append("overlap unclear")
+    if not parts:
+        return None
+    return ", ".join(parts)
+
+
+def _extract_count_from_overlap_line(
+    *,
+    line: str,
+    singular_prefix: str,
+    plural_phrase: str,
+) -> int:
+    """Extract one overlap count from normalized follow-up wording."""
+    if line.startswith(singular_prefix):
+        return 1
+    match = re.search(r"(\d+)\s+" + re.escape(plural_phrase), line)
+    if match is None:
+        return 0
+    return int(match.group(1))
+
+
+def _extract_new_concern_count(line: str) -> int:
+    """Extract how many new concerns the overlap summary reports."""
+    if "introduces a new concern" in line:
+        return 1
+    match = re.search(r"introduces (\d+) new concerns", line)
+    if match is None:
+        return 0
+    return int(match.group(1))
+
+
+def _counted_status(count: int, label: str) -> str:
+    """Render one counted continuity status phrase."""
+    if count == 1:
+        return f"1 {label}"
+    return f"{count} {label}"
 
 
 @dataclass(frozen=True)
@@ -369,10 +452,20 @@ def _changed_hunk_ranges(diff_text: str) -> list[tuple[int, int]]:
 def _render_inline_comment_body(finding: PublishableReviewFinding) -> str:
     """Render one short inline comment body."""
     concern = _ensure_terminal_punctuation(finding.title)
-    why_it_matters = _first_sentence(finding.explanation)
-    if not why_it_matters or why_it_matters == concern:
+    consequence = _render_inline_consequence_sentence(finding)
+    if consequence is None or consequence == concern:
         return concern
-    return f"{concern}\n\n{why_it_matters}"
+    return f"{concern}\n\n{consequence}"
+
+
+def _render_inline_consequence_sentence(finding: PublishableReviewFinding) -> str | None:
+    """Return one short inline consequence sentence when it adds clarity."""
+    explanation = finding.explanation.strip()
+    if not explanation:
+        return None
+    if not _should_include_consequence_sentence(finding):
+        return None
+    return _first_sentence(explanation)
 
 
 def _ensure_terminal_punctuation(text: str) -> str:

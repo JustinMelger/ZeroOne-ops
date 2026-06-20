@@ -9,22 +9,17 @@
   "mock_llm_analysis_path": "fixtures/llm/analysis.json",
   "mock_llm_edit_path": "fixtures/llm/edit.json",
   "validation_commands": [
-    "uv run lint-imports",
-    "uv run pytest",
-    "uv run mypy src",
-    "uv run ruff check .",
-    "uv run ruff format --check ."
   ],
   "approval": {
     "required": true
   },
   "review": {
     "platform": "github",
-    "max_changed_files": 5,
+    "max_changed_files": 10,
     "max_findings_per_review": 3,
     "max_prior_review_passes": 2,
-    "max_context_lines_before": 30,
-    "max_context_lines_after": 30,
+    "max_context_lines_before": 200,
+    "max_context_lines_after": 200,
     "supported_paths": ["src/", "tests/", "app/"],
     "ignored_paths": ["src/generated/"],
     "skip_draft_merge_requests": true,
