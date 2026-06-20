@@ -411,8 +411,9 @@ def test_render_artifact_formats_findings_present() -> None:
         artifact=build_artifact(),
     )
 
-    assert body.startswith("Verdict: Concern\nRisk: Medium\nConfidence: High")
-    assert "I found 1 actionable concern in these changes." in body
+    assert body.startswith("**Verdict:** Concern\n**Risk:** Medium\n**Confidence:** High")
+    assert "One actionable concern stood out in these changes." in body
+    assert "**Findings**" in body
     assert "1. `src/service.py`" in body
     assert "Missing test coverage." in body
     assert "The change alters branch behavior without test updates." in body
@@ -467,7 +468,8 @@ def test_render_artifact_uses_block_verdict_for_high_risk_findings() -> None:
         ),
     )
 
-    assert body.startswith("Verdict: Block\nRisk: High\nConfidence: High")
+    assert body.startswith("**Verdict:** Block\n**Risk:** High\n**Confidence:** High")
+    assert "I'd block this because of 1 actionable concern." in body
 
 
 def test_render_artifact_uses_one_sentence_for_runtime_failures() -> None:
@@ -564,7 +566,7 @@ def test_render_artifact_formats_no_findings() -> None:
     )
 
     assert "I don't see any actionable concerns in these changes." in body
-    assert body.startswith("Verdict: Clear\nConfidence: High")
+    assert body.startswith("**Verdict:** Clear\n**Confidence:** High")
     assert "Risk:" not in body
     assert "Continuity:" not in body
     assert "Scope:" not in body
@@ -632,6 +634,57 @@ def test_publish_artifact_creates_inline_comment_after_summary_note_when_request
     assert result.artifact.findings[0].inline_comment.comment_id == "789"
     assert result.inline_comment_decisions is not None
     assert result.warning_message is None
+
+
+def test_publish_artifact_uses_one_sentence_inline_comment_for_runtime_failures() -> None:
+    review_client = FakeGitLabReviewClient()
+    publisher = ReviewPublisher(review_client)
+    artifact = PublishableReviewArtifact(
+        classification="findings_present",
+        summary="One high-risk finding.",
+        findings=[
+            PublishableReviewFinding(
+                severity="high",
+                file_path="src/service.py",
+                line_start=1,
+                line_end=1,
+                stable_identity="src/service.py::unchecked-types-index",
+                legacy_identity="src/service.py::unchecked-types-index",
+                title="Unchecked access to `vehicle.types[0]` can raise `IndexError`",
+                evidence="The helper reads `vehicle.types[0]` directly.",
+                explanation="This can raise `IndexError` on valid empty-list input.",
+                suggested_follow_up="Guard the empty-list case.",
+                issue_kind="deterministic_runtime_error",
+            )
+        ],
+    )
+
+    publisher.publish_artifact(
+        repository_id="123",
+        change_request_number=17,
+        context=build_context(),
+        artifact=artifact,
+        inline_comment_decisions=[
+            ReviewInlineCommentDecision(
+                finding_identity=artifact.findings[0].stable_identity,
+                severity=artifact.findings[0].severity,
+                file_path=artifact.findings[0].file_path,
+                line_start=artifact.findings[0].line_start,
+                line_end=artifact.findings[0].line_end,
+                region_hint=artifact.findings[0].region_hint,
+                inline_comments_enabled=True,
+                location_trust="trusted",
+                existing_inline_comment_found=False,
+                anchor_reuse_decision="new",
+                anchor_reuse_reason="trusted_new_anchor",
+            )
+        ],
+    )
+
+    assert review_client.inline_comments
+    assert review_client.inline_comments[0][0] == (
+        "Unchecked access to `vehicle.types[0]` can raise `IndexError`."
+    )
 
 
 def test_publish_artifact_surfaces_inline_comment_publish_warning() -> None:
@@ -814,7 +867,7 @@ def test_render_artifact_includes_follow_up_lines_when_available() -> None:
         ),
     )
 
-    assert "Continuity: 1 repeated" in body
+    assert "**Continuity:** 1 repeated" in body
     assert "Follow-up review after the earlier bot pass on `abc123`." not in body
 
 
@@ -835,7 +888,7 @@ def test_render_artifact_uses_neutral_follow_up_wording_for_ambiguous_overlap() 
         ),
     )
 
-    assert "Continuity: overlap unclear" in body
+    assert "**Continuity:** overlap unclear" in body
 
 
 def test_render_artifact_omits_follow_up_wording_when_missing() -> None:
@@ -868,7 +921,8 @@ def test_render_artifact_keeps_manual_review_only_overlap_wording_conservative()
         ),
     )
 
-    assert body.startswith("Verdict: Concern\nRisk: Medium\nConfidence: High")
-    assert "Continuity:" in body
+    assert body.startswith("**Verdict:** Needs review\n**Confidence:** High")
+    assert "Risk:" not in body
+    assert "Continuity:" not in body
     assert "I couldn't review these changes confidently enough to call them clear." in body
-    assert "I'd still want a human review here before treating these changes as clear." in body
+    assert "A human review is still needed before treating these changes as safe." in body

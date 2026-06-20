@@ -201,11 +201,15 @@ class ReviewPublisher:
         artifact: PublishableReviewArtifact,
     ) -> str:
         """Render one deterministic review note body from a publish-shaped artifact."""
-        lines: list[str] = [f"Verdict: {_render_verdict(artifact)}"]
-        if artifact.classification != "no_findings":
-            lines.append(f"Risk: {_render_risk(artifact)}")
-        lines.append(f"Confidence: {_render_confidence_label(artifact)}")
-        continuity_line = _render_continuity_line(artifact)
+        lines: list[str] = [f"**Verdict:** {_render_verdict(artifact)}"]
+        if artifact.classification == "findings_present":
+            lines.append(f"**Risk:** {_render_risk(artifact)}")
+        lines.append(f"**Confidence:** {_render_confidence_label(artifact)}")
+        continuity_line = (
+            None
+            if artifact.classification == "manual_review_only"
+            else _render_continuity_line(artifact)
+        )
         if continuity_line is not None:
             lines.append(continuity_line)
         lines.extend(["", _render_summary_sentence(artifact)])
@@ -213,7 +217,7 @@ class ReviewPublisher:
         if artifact.classification == "manual_review_only":
             lines.extend(
                 [
-                    "I'd still want a human review here before treating these changes as clear.",
+                    "A human review is still needed before treating these changes as safe.",
                     *_render_advisory_notes(artifact),
                 ]
             )
@@ -222,7 +226,7 @@ class ReviewPublisher:
                 [
                     *_render_advisory_notes(artifact),
                     "",
-                    "Findings:",
+                    "**Findings**",
                     *_render_findings(artifact.findings),
                 ]
             )
@@ -245,16 +249,22 @@ def _render_summary_sentence(artifact: PublishableReviewArtifact) -> str:
     if artifact.classification == "manual_review_only":
         return "I couldn't review these changes confidently enough to call them clear."
     findings_count = len(artifact.findings)
-    concern_label = "concern" if findings_count == 1 else "concerns"
-    return f"I found {findings_count} actionable {concern_label} in these changes."
+    if _render_risk(artifact) == "High":
+        concern_label = "concern" if findings_count == 1 else "concerns"
+        return f"I'd block this because of {findings_count} actionable {concern_label}."
+    if findings_count == 1:
+        return "One actionable concern stood out in these changes."
+    return f"There are {findings_count} actionable concerns in these changes."
 
 
-def _render_verdict(artifact: PublishableReviewArtifact) -> Literal["Block", "Concern", "Clear"]:
+def _render_verdict(
+    artifact: PublishableReviewArtifact,
+) -> Literal["Block", "Concern", "Clear", "Needs review"]:
     """Render the top-block verdict label."""
     if artifact.classification == "no_findings":
         return "Clear"
     if artifact.classification == "manual_review_only":
-        return "Concern"
+        return "Needs review"
     if _render_risk(artifact) == "High":
         return "Block"
     return "Concern"
@@ -298,7 +308,7 @@ def _render_continuity_line(artifact: PublishableReviewArtifact) -> str | None:
     summary = _summarize_follow_up_lines(artifact.follow_up_lines)
     if summary is None:
         return None
-    return f"Continuity: {summary}"
+    return f"**Continuity:** {summary}"
 
 
 def _render_advisory_notes(artifact: PublishableReviewArtifact) -> list[str]:
@@ -316,6 +326,8 @@ def _render_findings(findings: list[PublishableReviewFinding]) -> list[str]:
     """Render compact developer-facing finding lines."""
     lines: list[str] = []
     for index, finding in enumerate(findings, start=1):
+        if lines:
+            lines.append("")
         lines.append(f"{index}. `{finding.file_path}`")
         lines.extend(_render_single_finding_body(finding))
     return lines
@@ -519,10 +531,20 @@ def _changed_hunk_ranges(diff_text: str) -> list[tuple[int, int]]:
 def _render_inline_comment_body(finding: PublishableReviewFinding) -> str:
     """Render one short inline comment body."""
     concern = _ensure_terminal_punctuation(finding.title)
-    why_it_matters = _first_sentence(finding.explanation)
-    if not why_it_matters or why_it_matters == concern:
+    consequence = _render_inline_consequence_sentence(finding)
+    if consequence is None or consequence == concern:
         return concern
-    return f"{concern}\n\n{why_it_matters}"
+    return f"{concern}\n\n{consequence}"
+
+
+def _render_inline_consequence_sentence(finding: PublishableReviewFinding) -> str | None:
+    """Return one short inline consequence sentence when it adds clarity."""
+    explanation = finding.explanation.strip()
+    if not explanation:
+        return None
+    if not _should_include_consequence_sentence(finding):
+        return None
+    return _first_sentence(explanation)
 
 
 def _ensure_terminal_punctuation(text: str) -> str:
