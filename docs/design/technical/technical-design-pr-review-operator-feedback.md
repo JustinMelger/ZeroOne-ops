@@ -281,16 +281,93 @@ Confidence: High
 Continuity: 1 repeated, 2 new
 ```
 
+Recommended first verdict vocabulary:
+
+- `Block`
+  - actionable findings are serious enough that the change request should not
+    merge as-is
+- `Concern`
+  - actionable findings exist, but they do not clearly justify a hard block
+- `Clear`
+  - no actionable concerns were found
+
+Recommended first risk vocabulary:
+
+- `High`
+- `Medium`
+- `Low`
+
+Recommended first confidence vocabulary:
+
+- `High`
+- `Medium`
+- `Low`
+
+Confidence should stay compressed in the human-facing note:
+
+- default to the bare label only
+- do not add a qualifier by default
+- only revisit qualifiers later if live usage shows a real interpretation gap
+
+Verdict and risk should stay distinct:
+
+- verdict expresses review stance or merge posture
+- risk expresses likely impact or severity
+
+Expected interaction:
+
+- `Concern` should be the default when actionable findings exist but a hard
+  block would overstate the situation
+- `Block` should stay meaningful and should not be used for every valid
+  finding
+
+Continuity visibility rule:
+
+- show `Continuity` only when prior review history materially changes how the
+  current note should be read
+- omit `Continuity` entirely when there is no meaningful prior-review context
+  to summarize
+
+Examples where continuity is informative:
+
+- `Continuity: 1 repeated, 2 new`
+- `Continuity: 2 repeated`
+- `Continuity: 1 repeated, 1 resolved`
+
+Examples where continuity should usually be omitted:
+
+- first review on the change request
+- no prior review state exists
+- all concerns are new and prior history adds no useful interpretation
+
 Recommended first summary sentence shape:
 
 - one short sentence describing the main developer action or concern
 - avoid repeating full finding detail in the summary block
+- keep the short summary sentence even when the top block is already present
 
 Recommended first finding shape:
 
 - file or path context
 - one short statement of the issue
-- one short sentence explaining why it matters
+- one short consequence sentence only when the issue sentence does not already
+  make the impact clear
+
+Consequence-sentence rule:
+
+- default to one short issue sentence
+- add a second short consequence sentence only when the impact is not already
+  obvious from the issue itself
+- this is most often needed for:
+  - behavioral regressions
+  - silent fallback or silent misconfiguration
+  - subtle logic changes where the consequence is not obvious from the defect
+    statement alone
+- this is usually not needed for:
+  - deterministic runtime failures
+  - direct exception paths
+  - obvious hard failures where the issue sentence already carries the
+    consequence
 
 Example:
 
@@ -303,6 +380,19 @@ Example:
 Where repeated findings share one clear underlying cause, the renderer may
 later group them conservatively, but only when the shared cause is explicit in
 the structured result.
+
+Grouping rule for the first UX slice:
+
+- do not introduce grouped root-cause rendering yet
+- keep numbered findings as the first implementation shape
+
+No-findings rule for the first UX slice:
+
+- `Clear` notes should use a smaller variant than findings-present notes
+- keep `Verdict`, `Risk`, and `Confidence`
+- omit `Continuity` unless prior review history materially changes
+  interpretation
+- keep one short summary sentence
 
 ### 8.2 Developer-response footer
 

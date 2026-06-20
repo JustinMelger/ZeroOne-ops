@@ -104,13 +104,36 @@ Shipped baseline:
   feedback instead of a repetitive generated report
 - reduce repeated boilerplate and compress confidence/caution wording
 - improve the top summary/verdict block for faster scanability
+- use verdict vocabulary:
+  - `Block`
+  - `Concern`
+  - `Clear`
+- use risk vocabulary:
+  - `High`
+  - `Medium`
+  - `Low`
+- use confidence vocabulary:
+  - `High`
+  - `Medium`
+  - `Low`
+- keep confidence compressed to the bare label only
 - use a compact top block in this order:
   - verdict
   - risk
   - confidence
   - continuity
+- show continuity only when prior review history materially changes how the
+  current note should be read
+- keep one short summary sentence after the top block
 - keep each finding explanation short and clear so a developer can immediately
   understand the issue and why it matters
+- default to one short issue sentence per finding
+- add a second short consequence sentence only when the impact is not already
+  obvious from the issue itself, which is most common for behavioral changes
+  and silent misconfiguration rather than direct runtime failures
+- keep numbered findings in the first UX slice
+- do not add grouped root-cause rendering in the first UX slice
+- use a smaller `Clear` note shape than findings-present notes
 
 #### Parked Operator-Feedback Research
 
