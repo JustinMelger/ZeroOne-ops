@@ -293,25 +293,8 @@ def _render_consequence_sentence(finding: PublishableReviewFinding) -> str | Non
 
 def _should_include_consequence_sentence(finding: PublishableReviewFinding) -> bool:
     """Decide whether a second short consequence sentence materially helps clarity."""
-    issue_kind = (finding.issue_kind or "").lower()
-    if "runtime" in issue_kind:
-        return False
-
     title = finding.title.lower()
     explanation = finding.explanation.lower()
-    obvious_hard_failure_markers = (
-        "indexerror",
-        "typeerror",
-        "keyerror",
-        "attributeerror",
-        "exception",
-        "raise ",
-        "raises ",
-        "crash",
-        "runtime error",
-    )
-    if any(marker in title for marker in obvious_hard_failure_markers):
-        return False
     if explanation.startswith(title):
         return False
     return True

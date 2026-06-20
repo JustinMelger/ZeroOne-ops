@@ -89,7 +89,7 @@ def test_render_artifact_uses_block_verdict_for_high_risk_findings() -> None:
     assert "I'd block this because of 1 actionable concern." in body
 
 
-def test_render_artifact_uses_one_sentence_for_runtime_failures() -> None:
+def test_render_artifact_keeps_consequence_for_runtime_failures_when_it_adds_clarity() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
     body = publisher.render_artifact(
@@ -115,7 +115,7 @@ def test_render_artifact_uses_one_sentence_for_runtime_failures() -> None:
     assert (
         "Unchecked access to `vehicle.types[0]` can raise `IndexError`.\n"
         "   This can raise `IndexError` on valid empty-list input."
-    ) not in body
+    ) in body
 
 
 def test_render_artifact_uses_two_sentences_when_behavioral_consequence_is_not_obvious() -> None:
@@ -269,7 +269,7 @@ def test_publish_artifact_creates_inline_comment_after_summary_note_when_request
     assert result.warning_message is None
 
 
-def test_publish_artifact_uses_one_sentence_inline_comment_for_runtime_failures() -> None:
+def test_publish_artifact_keeps_runtime_inline_consequence_when_it_adds_clarity() -> None:
     review_client = FakeGitLabReviewClient()
     publisher = ReviewPublisher(review_client)
     artifact = PublishableReviewArtifact(
@@ -316,7 +316,8 @@ def test_publish_artifact_uses_one_sentence_inline_comment_for_runtime_failures(
 
     assert review_client.inline_comments
     assert review_client.inline_comments[0][0] == (
-        "Unchecked access to `vehicle.types[0]` can raise `IndexError`."
+        "Unchecked access to `vehicle.types[0]` can raise `IndexError`.\n\n"
+        "This can raise `IndexError` on valid empty-list input."
     )
 
 
