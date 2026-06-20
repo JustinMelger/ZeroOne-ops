@@ -201,15 +201,14 @@ class ReviewPublisher:
         artifact: PublishableReviewArtifact,
     ) -> str:
         """Render one deterministic review note body from a publish-shaped artifact."""
-        lines: list[str] = [
-            f"Verdict: {_render_verdict(artifact)}",
-            f"Risk: {_render_risk(artifact)}",
-            f"Confidence: {_render_confidence_label(artifact)}",
-        ]
+        lines: list[str] = [f"Verdict: {_render_verdict(artifact)}"]
+        if artifact.classification != "no_findings":
+            lines.append(f"Risk: {_render_risk(artifact)}")
+        lines.append(f"Confidence: {_render_confidence_label(artifact)}")
         continuity_line = _render_continuity_line(artifact)
         if continuity_line is not None:
             lines.append(continuity_line)
-        lines.extend(["", artifact.summary])
+        lines.extend(["", _render_summary_sentence(artifact)])
 
         if artifact.classification == "manual_review_only":
             lines.extend(
@@ -237,6 +236,13 @@ class ReviewPublisher:
             ]
         )
         return "\n".join(lines)
+
+
+def _render_summary_sentence(artifact: PublishableReviewArtifact) -> str:
+    """Render the short human-facing summary sentence."""
+    if artifact.classification == "no_findings":
+        return "These changes look clear. No actionable concerns found in this pass."
+    return artifact.summary
 
 
 def _render_verdict(artifact: PublishableReviewArtifact) -> Literal["Block", "Concern", "Clear"]:

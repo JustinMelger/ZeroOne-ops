@@ -563,8 +563,9 @@ def test_render_artifact_formats_no_findings() -> None:
         artifact=build_artifact(classification="no_findings"),
     )
 
-    assert "No actionable findings in this review pass." in body
-    assert body.startswith("Verdict: Clear\nRisk: Low\nConfidence: High")
+    assert "These changes look clear. No actionable concerns found in this pass." in body
+    assert body.startswith("Verdict: Clear\nConfidence: High")
+    assert "Risk:" not in body
     assert "Continuity:" not in body
     assert "Scope:" not in body
     assert "Notes:" not in body
