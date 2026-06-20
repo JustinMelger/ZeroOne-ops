@@ -412,7 +412,7 @@ def test_render_artifact_formats_findings_present() -> None:
     )
 
     assert body.startswith("**Verdict:** Concern\n**Risk:** Medium\n**Confidence:** High")
-    assert "One actionable concern stood out in these changes." in body
+    assert "I noticed one actionable concern in these changes." in body
     assert "**Findings**" in body
     assert "1. `src/service.py`" in body
     assert "Missing test coverage." in body
@@ -576,6 +576,23 @@ def test_render_artifact_formats_no_findings() -> None:
     assert payload["classification"] == "no_findings"
     assert payload["findings_count"] == 0
     assert payload["findings"] == []
+
+
+def test_render_artifact_acknowledges_previous_pass_for_no_findings_follow_up() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_follow_up_context(),
+        artifact=build_artifact(
+            classification="no_findings",
+            follow_up_lines=["Follow-up review after the earlier bot pass on `abc123`."],
+        ),
+    )
+
+    assert (
+        "I took another look, and I don't see any actionable concerns in these "
+        "changes now."
+    ) in body
 
 
 def test_publish_artifact_sends_rendered_note_body() -> None:
@@ -869,6 +886,10 @@ def test_render_artifact_includes_follow_up_lines_when_available() -> None:
 
     assert "**Continuity:** 1 repeated" in body
     assert "Follow-up review after the earlier bot pass on `abc123`." not in body
+    assert (
+        "I took another look, and I still notice one actionable concern in these changes."
+        in body
+    )
 
 
 def test_render_artifact_uses_neutral_follow_up_wording_for_ambiguous_overlap() -> None:
@@ -889,6 +910,24 @@ def test_render_artifact_uses_neutral_follow_up_wording_for_ambiguous_overlap() 
     )
 
     assert "**Continuity:** overlap unclear" in body
+
+
+def test_render_artifact_acknowledges_new_follow_up_concern() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_follow_up_context(),
+        artifact=build_artifact(
+            follow_up_lines=[
+                "Follow-up review after the earlier bot pass on `abc123`.",
+                "This pass introduces a new concern in the updated changes.",
+                "",
+            ]
+        ),
+    )
+
+    assert "**Continuity:** 1 new" in body
+    assert "I took another look, and I noticed one actionable concern in these changes now." in body
 
 
 def test_render_artifact_omits_follow_up_wording_when_missing() -> None:

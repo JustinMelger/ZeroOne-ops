@@ -105,6 +105,18 @@ def build_examples() -> list[tuple[str, ChangeRequestReviewContext, PublishableR
             ),
         ),
         (
+            "clear_follow_up",
+            build_follow_up_context(),
+            PublishableReviewArtifact(
+                classification="no_findings",
+                summary="No actionable findings in this review pass.",
+                review_confidence=0.91,
+                review_confidence_reason="The reviewed change is narrow and well supported.",
+                findings=[],
+                follow_up_lines=["Follow-up review after the earlier bot pass on `abc123def456`."],
+            ),
+        ),
+        (
             "concern_runtime_failure",
             build_context(),
             PublishableReviewArtifact(
