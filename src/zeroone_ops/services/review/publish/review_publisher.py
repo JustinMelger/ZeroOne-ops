@@ -376,13 +376,13 @@ def _summarize_follow_up_lines(lines: list[str]) -> str | None:
             unresolved_count += _extract_count_from_overlap_line(
                 line=line,
                 singular_prefix="An earlier concern",
-                plural_token="earlier concerns",
+                plural_phrase="earlier concerns",
             )
         if "no longer appears present" in lower:
             resolved_count += _extract_count_from_overlap_line(
                 line=line,
                 singular_prefix="One earlier concern",
-                plural_token="earlier concerns",
+                plural_phrase="earlier concerns",
             )
         new_count += _extract_new_concern_count(line)
         if "overlap is not fully clear" in lower:
@@ -408,12 +408,12 @@ def _extract_count_from_overlap_line(
     *,
     line: str,
     singular_prefix: str,
-    plural_token: str,
+    plural_phrase: str,
 ) -> int:
     """Extract one overlap count from normalized follow-up wording."""
     if line.startswith(singular_prefix):
         return 1
-    match = re.search(r"(\d+)\s+" + re.escape(plural_token), line)
+    match = re.search(r"(\d+)\s+" + re.escape(plural_phrase), line)
     if match is None:
         return 0
     return int(match.group(1))
