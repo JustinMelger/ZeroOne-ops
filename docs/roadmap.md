@@ -96,6 +96,33 @@ Shipped baseline:
   - per-repo enablement only after identity and location trust look good in
     practice
 
+#### Open Review Feedback Slices
+
+- [ ] Phase 1: Developer-Friendly Summary Note
+
+- redesign the authoritative summary note so it reads like concise developer
+  feedback instead of a repetitive generated report
+- reduce repeated boilerplate and compress confidence/caution wording
+- improve the top summary/verdict block for faster scanability
+- use a compact top block in this order:
+  - verdict
+  - risk
+  - confidence
+  - continuity
+- keep each finding explanation short and clear so a developer can immediately
+  understand the issue and why it matters
+
+#### Parked Operator-Feedback Research
+
+- explicit reply invitation in the summary note stays parked until replies are
+  actually consumed by the product
+- bounded numbered reply intake is parked pending clearer v1 boundaries and
+  authoritative-surface decisions
+- continuity consumption of operator feedback is parked pending a smaller,
+  safer first implementation plan
+- keep the existing feedback-state and continuity research as design input, not
+  as the active next implementation slice
+
 ### 4. Cleanup
 
 - continue small codebase and docs cleanup where it improves operator or
@@ -136,29 +163,12 @@ Current rollout focus:
 - do not let repository guidance expand the selected issue scope
 - do not let remediation become a second review-authority surface
 
-#### Remediation Guidance Slices
+#### Implemented Remediation Guidance Slices
 
-- [x] Phase 1: Shared Guidance Discovery Reuse
-
-- reuse the same bounded repository guidance source/path discovery as review
-
-- [x] Phase 2: Remediation Context Wiring
-
-- carry bounded repository guidance into remediation context
-- keep it untrusted and bounded
-
-- [x] Phase 3: Prompt Integration
-
-- include repository guidance in:
-  - remediation analysis prompt
-  - remediation structured-edit prompt
-- explicitly forbid repository guidance from expanding selected issue scope
-
-- [x] Phase 4: Boundary Tests
-
-- prove repository guidance can shape fix implementation choices
-- prove it does not create review judgments
-- prove it does not broaden the selected remediation issue scope
+- shared guidance discovery reuse
+- remediation context wiring
+- prompt integration for analysis and structured-edit paths
+- boundary tests proving guidance stays fix-shaping only
 
 ### 5. Dashboard Workflow Refinement
 
@@ -222,44 +232,30 @@ These are important, but intentionally not part of the immediate rollout phase.
 - dashboard readability and grouped review-history improvements where they help
   operators
 
-#### GitHub Platform Support Slices
+#### Implemented GitHub Platform Slices
 
-- [x] Phase 1a: Provider-Neutral Review Core
-
-- introduce a provider-neutral review client seam
-- neutralize shared review-domain identifiers and transport errors
-- rename shared review-domain models to domain vocabulary (`ChangeRequest...`,
-  `ReviewComment`) up front
-- reduce direct GitLab coupling in review runner, intake, and prior-context
-  loading
-- keep GitLab review behavior unchanged while the seam is extracted
-- merge and live-validate GitLab review stability before starting cleanup or
-  GitHub summary-support work
-
-- [x] Phase 1b: Review Neutrality Cleanup
-
-- removed temporary compatibility aliases in the shared review core, including
-  legacy `PullRequest...` model aliases and legacy review-platform protocol
-  aliases
-- removed legacy provider-specific parameter/property fallbacks from the shared
-  review core where they were no longer needed after GitLab validation,
-  including `mr_iid`, `merge_request_iid`, and `pull_request_number` shims
-  around the canonical `change_request_number` contract
-- removed legacy machine-safe payload fallback fields after GitLab live
-  validation confirmed the new `reviewed_change_request_number` payload was
-  stable
-- renamed the remaining shared review-path modules and prompt surfaces that
-  still exposed GitLab/MR-shaped vocabulary at the shared seam
-- tightened shared review-path user-facing wording and internal logging from
-  `merge request` / `pull request` to domain vocabulary wherever the text
-  belongs to the shared review workflow rather than the provider layer
-- migrated persisted shared review state to `ChangeRequestReviewState` and
-  `change_request_number`, while keeping legacy on-disk state readable through
-  load-time migration
+- Phase 1a: provider-neutral review core
+  - provider-neutral review client seam
+  - neutral shared identifiers and transport errors
+  - domain review vocabulary (`ChangeRequest...`, `ReviewComment`)
+  - reduced direct GitLab coupling in runner, intake, and prior-context loading
+- Phase 1b: review neutrality cleanup
+  - removed temporary shared-core compatibility aliases and fallback fields
+  - renamed remaining shared review-path modules and wording to domain language
+  - migrated persisted shared review state to `ChangeRequestReviewState` with
+    load-time migration for older local state
+- Phase 2b: GitHub review config and documentation cleanup
+  - removed the dummy top-level `gitlab` requirement for GitHub review mode
+  - grouped GitHub review support under review-domain packages
+  - documented the GitHub review config shape and workflow example
+  - mirrored the review integration test suite to the cleaned package
+    boundaries
 
 - Provider-local GitLab review services, transport models, and GitLab CI
-  environment names intentionally remain provider-specific and are not Phase 1b
-  debt.
+  environment names intentionally remain provider-specific and are not shared
+  review-core debt.
+
+#### Open GitHub Platform Slices
 
 - [ ] Phase 2: GitHub Review Summary Support
 
@@ -269,24 +265,6 @@ These are important, but intentionally not part of the immediate rollout phase.
 - support same-SHA reuse and prior-summary continuity on GitHub
 - stop conservatively when the triggering pull request head SHA no longer
   matches the live provider head SHA
-
-- [x] Phase 2b: GitHub Review Config And Documentation Cleanup
-
-- completed:
-  - made review configuration honest for GitHub review mode by removing the
-    need for a dummy top-level `gitlab` block when `review.platform=github`
-  - cleaned up review-domain packaging so GitHub review support now lives under:
-    - `services/review/intake/`
-    - `services/review/context/`
-    - `services/review/continuity/`
-    - `services/review/publish/`
-    - `services/review/pipeline/`
-    - `services/review/state/`
-    - `providers/review/`
-  - documented the new GitHub review config shape and migration guidance in the
-    runbook, design docs, and workflow example
-  - mirrored the review integration test suite to the cleaned review package
-    boundaries
 - Phase 2 itself still needs live GitHub validation of the summary-review path
   with the neutralized config surface before inline-comment work starts
 
