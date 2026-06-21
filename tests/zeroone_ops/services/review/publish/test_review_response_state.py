@@ -5,6 +5,7 @@ from zeroone_ops.services.review.publish.review_response_state import (
     render_risk,
     render_summary_sentence,
     render_verdict,
+    should_render_no_findings_detail,
 )
 
 from .support import (
@@ -72,6 +73,27 @@ def test_render_summary_sentence_for_clear_after_clear() -> None:
             artifact=build_artifact(classification="no_findings"),
         )
         == "I took another look, and I don't see any actionable concerns in these changes now."
+    )
+
+
+def test_should_render_no_findings_detail_after_concern() -> None:
+    assert should_render_no_findings_detail(
+        context=build_follow_up_context(),
+        artifact=build_artifact(classification="no_findings"),
+    )
+
+
+def test_should_not_render_no_findings_detail_after_clear() -> None:
+    assert not should_render_no_findings_detail(
+        context=build_clear_follow_up_context(),
+        artifact=build_artifact(classification="no_findings"),
+    )
+
+
+def test_should_render_no_findings_detail_after_manual_review() -> None:
+    assert should_render_no_findings_detail(
+        context=build_manual_review_follow_up_context(),
+        artifact=build_artifact(classification="no_findings"),
     )
 
 

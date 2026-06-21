@@ -199,9 +199,10 @@ def test_render_artifact_acknowledges_previous_pass_for_no_findings_follow_up() 
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
     body = publisher.render_artifact(
-        context=build_clear_follow_up_context(),
+        context=build_follow_up_context(),
         artifact=build_artifact(
             classification="no_findings",
+            summary="The earlier concern is no longer present in the updated changes.",
             follow_up_lines=["Follow-up review after the earlier bot pass on `abc123`."],
         ),
     )
@@ -209,6 +210,26 @@ def test_render_artifact_acknowledges_previous_pass_for_no_findings_follow_up() 
     assert (
         "I took another look, and I don't see any actionable concerns in these changes now."
     ) in body
+    assert "The earlier concern is no longer present in the updated changes." in body
+
+
+def test_render_artifact_does_not_repeat_clear_detail_after_prior_clear() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_clear_follow_up_context(),
+        artifact=build_artifact(
+            classification="no_findings",
+            summary="The earlier concern is no longer present in the updated changes.",
+            follow_up_lines=["Follow-up review after the earlier bot pass on `abc123`."],
+        ),
+    )
+
+    assert (
+        "I took another look, and I don't see any actionable concerns in these changes now."
+    ) in body
+    visible_body = body.split("<!-- ai-sonar-bot:review-note:v1", 1)[0]
+    assert "The earlier concern is no longer present in the updated changes." not in visible_body
 
 
 def test_publish_artifact_sends_rendered_note_body() -> None:
@@ -259,9 +280,7 @@ def test_publish_artifact_creates_inline_comment_after_summary_note_when_request
 
     assert review_client.inline_comments
     assert review_client.inline_comments[0][1] == 1
-    assert review_client.inline_comments[0][0] == (
-        "Missing test coverage.\n\nThe change alters branch behavior without test updates."
-    )
+    assert review_client.inline_comments[0][0] == "Missing test coverage."
     assert result.artifact is not None
     assert result.artifact.findings[0].inline_comment is not None
     assert result.artifact.findings[0].inline_comment.comment_id == "789"
@@ -269,7 +288,7 @@ def test_publish_artifact_creates_inline_comment_after_summary_note_when_request
     assert result.warning_message is None
 
 
-def test_publish_artifact_keeps_runtime_inline_consequence_when_it_adds_clarity() -> None:
+def test_publish_artifact_keeps_inline_comments_to_one_issue_sentence() -> None:
     review_client = FakeGitLabReviewClient()
     publisher = ReviewPublisher(review_client)
     artifact = PublishableReviewArtifact(
@@ -315,9 +334,9 @@ def test_publish_artifact_keeps_runtime_inline_consequence_when_it_adds_clarity(
     )
 
     assert review_client.inline_comments
-    assert review_client.inline_comments[0][0] == (
-        "Unchecked access to `vehicle.types[0]` can raise `IndexError`.\n\n"
-        "This can raise `IndexError` on valid empty-list input."
+    assert (
+        review_client.inline_comments[0][0]
+        == "Unchecked access to `vehicle.types[0]` can raise `IndexError`."
     )
 
 
