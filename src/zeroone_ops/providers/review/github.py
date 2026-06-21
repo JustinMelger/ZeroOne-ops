@@ -9,6 +9,7 @@ import httpx
 from zeroone_ops.models.config import GitHubConnectionConfig
 from zeroone_ops.models.review import (
     ChangeRequestChangedFile,
+    ChangeRequestDiffRefs,
     ChangeRequestReviewCandidate,
     ReviewComment,
 )
@@ -110,21 +111,20 @@ class GitHubReviewClient:
         new_path: str,
         new_line: int,
     ) -> ReviewComment:
-        """Inline GitHub review comments are not supported in Phase 2."""
-        del (
-            repository_id,
-            change_request_number,
-            body,
-            base_sha,
-            start_sha,
-            head_sha,
-            old_path,
-            new_path,
-            new_line,
+        """Publish one single-line inline pull-request review comment on the new diff side."""
+        del base_sha, start_sha, old_path
+        payload = self._post_json(
+            f"/repos/{repository_id}/pulls/{change_request_number}/comments",
+            json={
+                "body": body,
+                "commit_id": head_sha,
+                "path": new_path,
+                "line": new_line,
+                "side": "RIGHT",
+            },
+            error_message="Unexpected GitHub pull request review comment payload.",
         )
-        raise ReviewPlatformClientError(
-            "GitHub inline review comments are not supported in Phase 2."
-        )
+        return _normalize_review_comment(payload)
 
     def get_current_user_username(self) -> str:
         """Return the GitHub login associated with the active API token."""
@@ -248,10 +248,12 @@ def _normalize_pull_request(
     head_ref = head.get("ref")
     head_sha = head.get("sha")
     base_ref = base.get("ref")
+    base_sha = base.get("sha")
     if (
         not isinstance(head_ref, str)
         or not isinstance(head_sha, str)
         or not isinstance(base_ref, str)
+        or not isinstance(base_sha, str)
     ):
         raise ReviewPlatformClientError("Unexpected GitHub pull request head/base structure.")
 
@@ -272,7 +274,11 @@ def _normalize_pull_request(
         head_sha=head_sha,
         draft=bool(draft),
         author_username=author_username,
-        diff_refs=None,
+        diff_refs=ChangeRequestDiffRefs(
+            base_sha=base_sha,
+            start_sha=base_sha,
+            head_sha=head_sha,
+        ),
         changes=[_normalize_pull_request_file(item) for item in files],
     )
 
@@ -325,6 +331,39 @@ def _normalize_issue_comment(payload: dict[str, Any]) -> ReviewComment:
         login = user.get("login")
         if login is not None and not isinstance(login, str):
             raise ReviewPlatformClientError("Unexpected GitHub issue comment author.")
+        author_username = login
+
+    return ReviewComment(
+        id=comment_id,
+        web_url=html_url,
+        body=body,
+        author_username=author_username,
+        created_at=created_at,
+    )
+
+
+def _normalize_review_comment(payload: dict[str, Any]) -> ReviewComment:
+    """Normalize one GitHub pull-request review comment payload."""
+    comment_id = payload.get("id")
+    html_url = payload.get("html_url")
+    body = payload.get("body")
+    created_at = payload.get("created_at")
+    user = payload.get("user")
+
+    if not isinstance(comment_id, int):
+        raise ReviewPlatformClientError("Unexpected GitHub review comment identifier.")
+    if html_url is not None and not isinstance(html_url, str):
+        raise ReviewPlatformClientError("Unexpected GitHub review comment URL.")
+    if body is not None and not isinstance(body, str):
+        raise ReviewPlatformClientError("Unexpected GitHub review comment body.")
+    if created_at is not None and not isinstance(created_at, str):
+        raise ReviewPlatformClientError("Unexpected GitHub review comment timestamp.")
+
+    author_username = None
+    if isinstance(user, dict):
+        login = user.get("login")
+        if login is not None and not isinstance(login, str):
+            raise ReviewPlatformClientError("Unexpected GitHub review comment author.")
         author_username = login
 
     return ReviewComment(

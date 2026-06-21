@@ -60,7 +60,7 @@ class ReviewInlineCommentContinuityService:
 
         latest_pass = _latest_prior_pass(context)
         prior_findings_by_identity = (
-            {} if latest_pass is None else _published_prior_findings_by_identity(latest_pass)
+            {} if latest_pass is None else _relevant_prior_findings_by_identity(latest_pass)
         )
 
         reused_inline_comment_count = 0
@@ -139,7 +139,7 @@ def _decision_for_finding(
     if prior_finding is None or prior_finding.inline_comment is None:
         return ("new", "trusted_new_anchor")
     if not _anchor_is_reusable(current_finding=finding, prior_finding=prior_finding):
-        return ("new", "prior_anchor_not_reusable")
+        return ("summary_only", "prior_inline_comment_not_reopened")
     return ("reuse", "existing_anchor_reused")
 
 
@@ -150,15 +150,17 @@ def _latest_prior_pass(context: ChangeRequestReviewContext) -> PriorReviewPass |
     return context.prior_review_context.passes[0]
 
 
-def _published_prior_findings_by_identity(
+def _relevant_prior_findings_by_identity(
     prior_pass: PriorReviewPass,
 ) -> dict[str, PriorReviewFinding]:
-    """Index prior findings with published inline comments by canonical identity."""
+    """Index prior findings with relevant inline-comment metadata by canonical identity."""
     indexed_findings: dict[str, PriorReviewFinding] = {}
     for finding in prior_pass.findings:
         if finding.identity is None:
             continue
-        if finding.inline_comment is None or finding.inline_comment.status != "published":
+        if finding.inline_comment is None:
+            continue
+        if finding.inline_comment.status != "published":
             continue
         indexed_findings.setdefault(finding.identity, finding)
     return indexed_findings

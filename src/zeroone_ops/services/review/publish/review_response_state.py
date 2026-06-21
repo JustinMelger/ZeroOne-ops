@@ -101,6 +101,20 @@ def render_continuity_line(artifact: PublishableReviewArtifact) -> str | None:
     return f"**Continuity:** {summary}"
 
 
+def should_render_no_findings_detail(
+    *,
+    context: ChangeRequestReviewContext,
+    artifact: PublishableReviewArtifact,
+) -> bool:
+    """Return whether a clear follow-up may show one extra summary-detail sentence."""
+    if artifact.classification != "no_findings":
+        return False
+    prior_pass = _latest_prior_pass(context)
+    if prior_pass is None:
+        return False
+    return prior_pass.classification in {"findings_present", "manual_review_only"}
+
+
 def _has_follow_up_context(lines: list[str]) -> bool:
     """Return whether the note has meaningful follow-up context from an earlier pass."""
     return any(line.strip() for line in lines)
@@ -111,7 +125,7 @@ def _latest_prior_pass(context: ChangeRequestReviewContext) -> PriorReviewPass |
     prior_context = context.prior_review_context
     if prior_context is None or not prior_context.passes:
         return None
-    return prior_context.passes[-1]
+    return prior_context.passes[0]
 
 
 def _prior_pass_was_blocking(prior_pass: PriorReviewPass) -> bool:

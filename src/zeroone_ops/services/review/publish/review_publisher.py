@@ -25,6 +25,7 @@ from zeroone_ops.services.review.publish.review_response_state import (
     render_risk,
     render_summary_sentence,
     render_verdict,
+    should_render_no_findings_detail,
 )
 
 _HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
@@ -238,7 +239,12 @@ class ReviewPublisher:
                 ]
             )
         else:
-            lines.extend(_render_advisory_notes(artifact))
+            lines.extend(
+                [
+                    *_render_clear_detail(context=context, artifact=artifact),
+                    *_render_advisory_notes(artifact),
+                ]
+            )
 
         lines.extend(
             [
@@ -258,6 +264,20 @@ def _render_advisory_notes(artifact: PublishableReviewArtifact) -> list[str]:
         "Style Observations (Repository Guidance):",
         *[f"- {note}" for note in artifact.advisory_notes],
     ]
+
+
+def _render_clear_detail(
+    *,
+    context: ChangeRequestReviewContext,
+    artifact: PublishableReviewArtifact,
+) -> list[str]:
+    """Render one short follow-up clear detail when the summary adds context."""
+    if not should_render_no_findings_detail(context=context, artifact=artifact):
+        return []
+    detail = _render_clear_detail_sentence(artifact.summary)
+    if detail is None:
+        return []
+    return ["", detail]
 
 
 def _render_findings(findings: list[PublishableReviewFinding]) -> list[str]:
@@ -451,21 +471,28 @@ def _changed_hunk_ranges(diff_text: str) -> list[tuple[int, int]]:
 
 def _render_inline_comment_body(finding: PublishableReviewFinding) -> str:
     """Render one short inline comment body."""
-    concern = _ensure_terminal_punctuation(finding.title)
-    consequence = _render_inline_consequence_sentence(finding)
-    if consequence is None or consequence == concern:
-        return concern
-    return f"{concern}\n\n{consequence}"
+    return _ensure_terminal_punctuation(finding.title)
 
 
-def _render_inline_consequence_sentence(finding: PublishableReviewFinding) -> str | None:
-    """Return one short inline consequence sentence when it adds clarity."""
-    explanation = finding.explanation.strip()
-    if not explanation:
+def _render_clear_detail_sentence(summary: str) -> str | None:
+    """Return one short clear-detail sentence when the summary is informative."""
+    normalized = _normalize_summary(summary)
+    if not normalized or normalized in _GENERIC_NO_FINDINGS_SUMMARIES:
         return None
-    if not _should_include_consequence_sentence(finding):
-        return None
-    return _first_sentence(explanation)
+    return _ensure_terminal_punctuation(summary)
+
+
+def _normalize_summary(summary: str) -> str:
+    """Normalize one summary string for generic-summary comparison."""
+    return re.sub(r"\s+", " ", summary.strip().lower().rstrip(".!?"))
+
+
+_GENERIC_NO_FINDINGS_SUMMARIES = {
+    "no actionable findings",
+    "no actionable findings in this pass",
+    "no actionable findings in this review pass",
+    "no actionable concerns in these changes",
+}
 
 
 def _ensure_terminal_punctuation(text: str) -> str:
@@ -476,17 +503,6 @@ def _ensure_terminal_punctuation(text: str) -> str:
     if stripped[-1] in ".!?":
         return stripped
     return f"{stripped}."
-
-
-def _first_sentence(text: str) -> str:
-    """Return one short first sentence for inline-comment brevity."""
-    stripped = text.strip()
-    if not stripped:
-        return ""
-    for marker in (". ", "! ", "? "):
-        if marker in stripped:
-            return _ensure_terminal_punctuation(stripped.split(marker, 1)[0])
-    return _ensure_terminal_punctuation(stripped)
 
 
 def _finding_key(finding: PublishableReviewFinding) -> tuple[str | None, str, int | None, str]:

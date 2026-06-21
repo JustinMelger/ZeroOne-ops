@@ -151,7 +151,7 @@ def build_examples() -> list[tuple[str, ChangeRequestReviewContext, PublishableR
             build_follow_up_context(),
             PublishableReviewArtifact(
                 classification="no_findings",
-                summary="No actionable findings in this review pass.",
+                summary="The earlier concern is no longer present in the updated changes.",
                 review_confidence=0.91,
                 review_confidence_reason="The reviewed change is narrow and well supported.",
                 findings=[],

@@ -406,6 +406,11 @@ after the default CI detection story is clear.
 - load prior GitHub review summaries into bounded continuity context
 - preserve current continuity contracts
 - later add GitHub inline comments with the same trust rules
+- add provider-backed GitHub inline-thread state observation only for transport
+  behavior, not as a replacement for authoritative summary continuity
+- if a developer resolved an earlier GitHub inline thread, later runs should
+  default to summary-only transport unless a new explicit re-publication rule
+  is justified
 
 ### Phase 4: GitHub Remediation Publish Support
 

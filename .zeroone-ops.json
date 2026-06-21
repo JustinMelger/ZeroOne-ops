@@ -24,7 +24,7 @@
     "ignored_paths": ["src/generated/"],
     "skip_draft_merge_requests": true,
     "max_review_feedback_retries": 1,
-    "inline_comments_enabled": false
+    "inline_comments_enabled": true
   },
   "remediation": {
     "bootstrap_severities": ["LOW"],

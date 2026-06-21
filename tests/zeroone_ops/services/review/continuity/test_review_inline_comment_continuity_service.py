@@ -327,8 +327,8 @@ def test_apply_does_not_reuse_inline_comment_when_anchor_drift_is_too_large() ->
     )
 
     assert result.reused_inline_comment_count == 0
-    assert result.decisions[0].anchor_reuse_decision == "new"
-    assert result.decisions[0].anchor_reuse_reason == "prior_anchor_not_reusable"
+    assert result.decisions[0].anchor_reuse_decision == "summary_only"
+    assert result.decisions[0].anchor_reuse_reason == "prior_inline_comment_not_reopened"
     assert result.artifact.findings[0].inline_comment is None
 
 
@@ -370,8 +370,8 @@ def test_apply_does_not_reuse_inline_comment_when_local_region_differs() -> None
     )
 
     assert result.reused_inline_comment_count == 0
-    assert result.decisions[0].anchor_reuse_decision == "new"
-    assert result.decisions[0].anchor_reuse_reason == "prior_anchor_not_reusable"
+    assert result.decisions[0].anchor_reuse_decision == "summary_only"
+    assert result.decisions[0].anchor_reuse_reason == "prior_inline_comment_not_reopened"
     assert result.artifact.findings[0].inline_comment is None
 
 

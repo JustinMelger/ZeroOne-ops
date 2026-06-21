@@ -294,8 +294,14 @@ These are important, but intentionally not part of the immediate rollout phase.
 - [ ] Phase 3: GitHub Review Inline Comments
 
 - add GitHub inline comment transport
+- suppress automatic inline re-posting on later runs for the same canonical
+  finding identity when prior inline-comment metadata already exists
+- keep still-valid findings in the authoritative summary comment even when
+  inline re-publication is suppressed
 - keep the summary comment authoritative
 - preserve trusted-location and identity gating before inline publication
+- cleanup GitHub review client helper growth by splitting transport,
+  normalization, and inline-thread helper concerns once the slice stabilizes
 
 - [ ] Phase 4: GitHub Remediation Publish Support
 
