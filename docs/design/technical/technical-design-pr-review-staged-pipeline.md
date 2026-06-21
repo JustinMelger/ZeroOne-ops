@@ -336,6 +336,11 @@ Follow-up publish check:
 - if a developer marked the earlier inline comment resolved, treat that as an
   advisory signal only; the next review pass still decides whether the concern
   is actually resolved
+- provider-observed resolved inline-thread state should suppress automatic
+  inline re-publication on the next run by default
+- when the concern still appears valid, keep it in the authoritative summary
+  note and prefer summary-only transport rather than reopening the subordinate
+  inline thread automatically
 
 ### 6.3 Feature-Flagged Test Validation
 

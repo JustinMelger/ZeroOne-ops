@@ -525,6 +525,9 @@ Recommended persistence rule:
 - developer-resolved inline comments may be observed later as advisory context,
   but they must not by themselves clear or resolve a finding without a new
   review pass over the code
+- provider-observed inline-thread state may suppress automatic inline
+  re-publication on a later run, but it must not replace the authoritative
+  summary note as the source of repeated-review truth
 
 ## 9. Review Hardening Extension
 
@@ -544,6 +547,8 @@ pipeline while tightening three contracts:
 - follow-up publication should check whether the same canonical finding
   identity already has an inline comment on the relevant prior authoritative
   pass before posting another one
+- a provider-observed resolved inline thread should default later runs to
+  summary-only transport unless a new explicit re-publication rule is justified
 
 ### 9.2 Identity-First Continuity
 
@@ -565,6 +570,9 @@ Recommended first duplicate-avoidance rule:
   inline comment by default
 - prefer summary-note continuity wording unless the earlier anchor is no longer
   valid and a new trusted anchor is available
+- if the earlier inline thread was resolved by a developer, do not automatically
+  recreate that inline comment on the next run; keep the finding in the summary
+  note when still valid, but default the transport decision to summary-only
 - publish at most one inline comment per finding in the first version
 
 Recommended first anchor-reuse order:

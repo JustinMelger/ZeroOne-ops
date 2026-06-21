@@ -294,6 +294,11 @@ These are important, but intentionally not part of the immediate rollout phase.
 - [ ] Phase 3: GitHub Review Inline Comments
 
 - add GitHub inline comment transport
+- observe provider-backed inline-thread resolved state
+- suppress automatic inline re-posting on later runs when a developer resolved
+  the earlier inline thread
+- keep still-valid findings in the authoritative summary comment even when
+  inline re-publication is suppressed
 - keep the summary comment authoritative
 - preserve trusted-location and identity gating before inline publication
 
