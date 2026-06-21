@@ -125,7 +125,7 @@ def _latest_prior_pass(context: ChangeRequestReviewContext) -> PriorReviewPass |
     prior_context = context.prior_review_context
     if prior_context is None or not prior_context.passes:
         return None
-    return prior_context.passes[-1]
+    return prior_context.passes[0]
 
 
 def _prior_pass_was_blocking(prior_pass: PriorReviewPass) -> bool:

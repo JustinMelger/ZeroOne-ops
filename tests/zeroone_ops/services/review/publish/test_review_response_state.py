@@ -1,4 +1,9 @@
-from zeroone_ops.models.review import PublishableReviewArtifact
+from zeroone_ops.models.review import (
+    ChangeRequestReviewContext,
+    PriorReviewContext,
+    PriorReviewPass,
+    PublishableReviewArtifact,
+)
 from zeroone_ops.services.review.publish.review_response_state import (
     render_confidence_label,
     render_continuity_line,
@@ -73,6 +78,41 @@ def test_render_summary_sentence_for_clear_after_clear() -> None:
             artifact=build_artifact(classification="no_findings"),
         )
         == "I took another look, and I don't see any actionable concerns in these changes now."
+    )
+
+
+def test_render_summary_sentence_uses_newest_prior_pass_when_multiple_are_present() -> None:
+    context = ChangeRequestReviewContext.model_validate(
+        build_context().model_dump()
+        | {
+            "prior_review_context": PriorReviewContext(
+                change_request_number=17,
+                passes=[
+                    PriorReviewPass(
+                        reviewed_head_sha="newest",
+                        classification="no_findings",
+                        findings_count=0,
+                        summary="No actionable findings in the earlier pass.",
+                        findings=[],
+                    ),
+                    PriorReviewPass(
+                        reviewed_head_sha="older",
+                        classification="findings_present",
+                        findings_count=1,
+                        summary="One earlier concern still needs attention.",
+                        findings=[],
+                    ),
+                ],
+            )
+        }
+    )
+
+    assert (
+        render_summary_sentence(
+            context=context,
+            artifact=build_artifact(),
+        )
+        == "I took another look, and I noticed one actionable concern in these changes now."
     )
 
 
