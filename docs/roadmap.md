@@ -301,6 +301,8 @@ These are important, but intentionally not part of the immediate rollout phase.
   inline re-publication is suppressed
 - keep the summary comment authoritative
 - preserve trusted-location and identity gating before inline publication
+- cleanup GitHub review client helper growth by splitting transport,
+  normalization, and inline-thread helper concerns once the slice stabilizes
 
 - [ ] Phase 4: GitHub Remediation Publish Support
 

@@ -6,6 +6,7 @@ from typing import Protocol
 
 from zeroone_ops.models.review import (
     ChangeRequestReviewCandidate,
+    InlineCommentStatus,
     ReviewComment,
 )
 
@@ -42,6 +43,15 @@ class ChangeRequestReviewCommentsClientProtocol(Protocol):
 
     def allows_machine_safe_comment_fallback(self) -> bool:
         """Return whether machine-safe comments may be trusted without author lookup."""
+
+    def list_change_request_inline_comment_statuses(
+        self,
+        *,
+        repository_id: str,
+        change_request_number: int,
+        comment_ids: list[str],
+    ) -> dict[str, InlineCommentStatus]:
+        """Return normalized inline-comment transport states keyed by comment ID."""
 
 
 class ChangeRequestReviewPublishClientProtocol(Protocol):

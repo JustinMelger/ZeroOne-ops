@@ -229,3 +229,50 @@ def test_create_change_request_inline_comment_surfaces_provider_errors() -> None
         )
 
     assert "422" in str(exc_info.value)
+
+
+def test_list_change_request_inline_comment_statuses_reads_resolved_threads() -> None:
+    observed_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/graphql":
+            observed_payloads.append(json.loads(request.content.decode("utf-8")))
+            return httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "repository": {
+                            "pullRequest": {
+                                "reviewThreads": {
+                                    "nodes": [
+                                        {
+                                            "isResolved": True,
+                                            "comments": {"nodes": [{"databaseId": 61}]},
+                                        },
+                                        {
+                                            "isResolved": False,
+                                            "comments": {"nodes": [{"databaseId": 62}]},
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+            )
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    client = build_client(handler)
+
+    statuses = client.list_change_request_inline_comment_statuses(
+        repository_id="octo-org/octo-repo",
+        change_request_number=17,
+        comment_ids=["61", "62", "99"],
+    )
+
+    assert statuses == {"61": "resolved", "62": "published"}
+    assert observed_payloads[0]["variables"] == {
+        "owner": "octo-org",
+        "name": "octo-repo",
+        "number": 17,
+    }

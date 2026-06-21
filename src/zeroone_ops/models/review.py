@@ -21,7 +21,7 @@ CandidateDropReason = Literal[
     "superseded",
 ]
 ArtifactValidationStatus = Literal["valid", "repaired", "rejected"]
-InlineCommentStatus = Literal["published", "shadow", "superseded"]
+InlineCommentStatus = Literal["published", "shadow", "superseded", "resolved", "unknown"]
 
 
 class ChangeRequestDiffRefs(BaseModel):

@@ -235,7 +235,7 @@ def _parse_inline_comment(payload: object) -> PriorReviewInlineComment | None:
         return None
     if not _is_optional_string(comment_url):
         return None
-    if status not in {"published", "shadow", "superseded"}:
+    if status not in {"published", "shadow", "superseded", "resolved", "unknown"}:
         return None
     if not isinstance(anchor_file_path, str):
         return None
@@ -247,7 +247,7 @@ def _parse_inline_comment(payload: object) -> PriorReviewInlineComment | None:
     return PriorReviewInlineComment(
         comment_id=comment_id,
         comment_url=cast(str | None, comment_url),
-        status=cast(Literal["published", "shadow", "superseded"], status),
+        status=cast(Literal["published", "shadow", "superseded", "resolved", "unknown"], status),
         anchor_file_path=anchor_file_path,
         anchor_line_start=cast(int | None, anchor_line_start),
         anchor_line_end=cast(int | None, anchor_line_end),

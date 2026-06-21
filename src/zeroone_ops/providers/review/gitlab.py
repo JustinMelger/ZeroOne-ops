@@ -13,6 +13,7 @@ from zeroone_ops.models.review import (
     ChangeRequestChangedFile,
     ChangeRequestDiffRefs,
     ChangeRequestReviewCandidate,
+    InlineCommentStatus,
     ReviewComment,
 )
 from zeroone_ops.providers.gitlab_client import GitLabClientError, _parse_json_response
@@ -264,6 +265,17 @@ class GitLabReviewClient:
     def allows_machine_safe_comment_fallback(self) -> bool:
         """Keep GitLab continuity conservative when author lookup fails."""
         return False
+
+    def list_change_request_inline_comment_statuses(
+        self,
+        *,
+        repository_id: str,
+        change_request_number: int,
+        comment_ids: list[str],
+    ) -> dict[str, InlineCommentStatus]:
+        """Return no provider-inline state overrides until GitLab support lands."""
+        del repository_id, change_request_number, comment_ids
+        return {}
 
     def get_change_request(
         self,

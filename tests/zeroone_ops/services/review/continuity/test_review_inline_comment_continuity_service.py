@@ -235,6 +235,35 @@ def test_apply_does_not_reuse_superseded_or_override_existing_inline_comment() -
     assert result.artifact.findings[0].inline_comment.comment_id == "current"
 
 
+def test_apply_suppresses_inline_reposting_when_provider_marks_prior_thread_resolved() -> None:
+    result = ReviewInlineCommentContinuityService().apply_if_enabled(
+        enabled=True,
+        context=build_context(
+            prior_passes=[
+                PriorReviewPass(
+                    reviewed_head_sha="abc123",
+                    classification="findings_present",
+                    findings_count=1,
+                    findings=[
+                        build_prior_finding(
+                            identity="src/service.py::coverage_gap::service-run::changed-branch",
+                            inline_comment=build_inline_comment(),
+                        )
+                    ],
+                )
+            ]
+        ),
+        artifact=build_artifact(),
+        inline_comment_statuses={"789": "resolved"},
+    )
+
+    assert result.reused_inline_comment_count == 0
+    assert result.decisions[0].existing_inline_comment_found is True
+    assert result.decisions[0].anchor_reuse_decision == "summary_only"
+    assert result.decisions[0].anchor_reuse_reason == "prior_inline_comment_resolved"
+    assert result.artifact.findings[0].inline_comment is None
+
+
 def test_apply_does_not_reuse_inline_comment_for_low_severity_finding() -> None:
     artifact = build_artifact().model_copy(
         update={"findings": [build_artifact().findings[0].model_copy(update={"severity": "low"})]}

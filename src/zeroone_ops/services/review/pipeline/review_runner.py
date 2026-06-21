@@ -10,6 +10,8 @@ import httpx
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
     ChangeRequestReviewCandidate,
+    ChangeRequestReviewContext,
+    InlineCommentStatus,
     PriorReviewContext,
     PriorReviewPass,
     ReviewComment,
@@ -277,6 +279,10 @@ class ReviewRunner:
                     context=context,
                     artifact=publish_artifact,
                     enabled=self.config.review.inline_comments_enabled,
+                    inline_comment_statuses=self._load_inline_comment_statuses(
+                        repository_id=repository_id,
+                        context=context,
+                    ),
                 )
             )
             publish_artifact = inline_comment_continuity_result.artifact
@@ -624,6 +630,43 @@ class ReviewRunner:
             change_request_number=change_request_number,
             passes=[parse_result.prior_review_pass],
         )
+
+    def _load_inline_comment_statuses(
+        self,
+        *,
+        repository_id: str,
+        context: ChangeRequestReviewContext,
+    ) -> dict[str, InlineCommentStatus]:
+        """Load provider-backed inline-comment states for the latest prior pass."""
+        if context.prior_review_context is None or not context.prior_review_context.passes:
+            return {}
+        latest_pass = context.prior_review_context.passes[0]
+        comment_ids = [
+            finding.inline_comment.comment_id
+            for finding in latest_pass.findings
+            if finding.inline_comment is not None
+        ]
+        if not comment_ids:
+            return {}
+        try:
+            return self.review_client.list_change_request_inline_comment_statuses(
+                repository_id=repository_id,
+                change_request_number=context.change_request_number,
+                comment_ids=comment_ids,
+            )
+        except ReviewPlatformClientError:
+            LOGGER.warning(
+                (
+                    "review inline comment state lookup failed; "
+                    "continuing without provider thread state"
+                ),
+                extra={
+                    "change_request_number": context.change_request_number,
+                    "head_sha": context.head_sha,
+                    "comment_id_count": len(comment_ids),
+                },
+            )
+            return {}
 
     def _load_same_sha_review_reference(
         self,
