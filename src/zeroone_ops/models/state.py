@@ -213,7 +213,7 @@ class PriorReviewInlineCommentState(BaseModel):
 
     comment_id: str
     comment_url: str | None = None
-    status: Literal["published", "shadow", "superseded", "resolved", "unknown"]
+    status: Literal["published", "shadow", "superseded"]
     anchor_file_path: str
     anchor_line_start: int | None = None
     anchor_line_end: int | None = None

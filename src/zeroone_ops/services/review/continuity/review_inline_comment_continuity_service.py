@@ -8,7 +8,6 @@ from typing import Literal
 
 from zeroone_ops.models.review import (
     ChangeRequestReviewContext,
-    InlineCommentStatus,
     PriorReviewFinding,
     PriorReviewPass,
     PublishableReviewArtifact,
@@ -43,23 +42,17 @@ class ReviewInlineCommentContinuityService:
         enabled: bool,
         context: ChangeRequestReviewContext,
         artifact: PublishableReviewArtifact,
-        inline_comment_statuses: dict[str, InlineCommentStatus] | None = None,
     ) -> InlineCommentContinuityResult:
         """Apply inline-comment continuity only when the feature flag is enabled."""
         if not enabled:
             return InlineCommentContinuityResult(artifact=artifact)
-        return self.apply(
-            context=context,
-            artifact=artifact,
-            inline_comment_statuses=inline_comment_statuses,
-        )
+        return self.apply(context=context, artifact=artifact)
 
     def apply(
         self,
         *,
         context: ChangeRequestReviewContext,
         artifact: PublishableReviewArtifact,
-        inline_comment_statuses: dict[str, InlineCommentStatus] | None = None,
     ) -> InlineCommentContinuityResult:
         """Mirror reusable prior inline-comment metadata onto current findings."""
         if artifact.classification != "findings_present":
@@ -67,9 +60,7 @@ class ReviewInlineCommentContinuityService:
 
         latest_pass = _latest_prior_pass(context)
         prior_findings_by_identity = (
-            {}
-            if latest_pass is None
-            else _relevant_prior_findings_by_identity(latest_pass, inline_comment_statuses or {})
+            {} if latest_pass is None else _relevant_prior_findings_by_identity(latest_pass)
         )
 
         reused_inline_comment_count = 0
@@ -147,10 +138,8 @@ def _decision_for_finding(
         return ("summary_only", "location_weak")
     if prior_finding is None or prior_finding.inline_comment is None:
         return ("new", "trusted_new_anchor")
-    if prior_finding.inline_comment.status == "resolved":
-        return ("summary_only", "prior_inline_comment_resolved")
     if not _anchor_is_reusable(current_finding=finding, prior_finding=prior_finding):
-        return ("new", "prior_anchor_not_reusable")
+        return ("summary_only", "prior_inline_comment_not_reopened")
     return ("reuse", "existing_anchor_reused")
 
 
@@ -163,7 +152,6 @@ def _latest_prior_pass(context: ChangeRequestReviewContext) -> PriorReviewPass |
 
 def _relevant_prior_findings_by_identity(
     prior_pass: PriorReviewPass,
-    inline_comment_statuses: dict[str, InlineCommentStatus],
 ) -> dict[str, PriorReviewFinding]:
     """Index prior findings with relevant inline-comment metadata by canonical identity."""
     indexed_findings: dict[str, PriorReviewFinding] = {}
@@ -172,18 +160,9 @@ def _relevant_prior_findings_by_identity(
             continue
         if finding.inline_comment is None:
             continue
-        normalized_status = inline_comment_statuses.get(finding.inline_comment.comment_id)
-        effective_inline_comment = (
-            finding.inline_comment
-            if normalized_status is None
-            else finding.inline_comment.model_copy(update={"status": normalized_status})
-        )
-        if effective_inline_comment.status not in {"published", "resolved"}:
+        if finding.inline_comment.status != "published":
             continue
-        indexed_findings.setdefault(
-            finding.identity,
-            finding.model_copy(update={"inline_comment": effective_inline_comment}),
-        )
+        indexed_findings.setdefault(finding.identity, finding)
     return indexed_findings
 
 

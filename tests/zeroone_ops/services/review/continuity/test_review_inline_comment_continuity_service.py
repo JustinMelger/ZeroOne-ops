@@ -235,7 +235,7 @@ def test_apply_does_not_reuse_superseded_or_override_existing_inline_comment() -
     assert result.artifact.findings[0].inline_comment.comment_id == "current"
 
 
-def test_apply_suppresses_inline_reposting_when_provider_marks_prior_thread_resolved() -> None:
+def test_apply_suppresses_inline_reposting_when_prior_anchor_is_not_reusable() -> None:
     result = ReviewInlineCommentContinuityService().apply_if_enabled(
         enabled=True,
         context=build_context(
@@ -254,13 +254,12 @@ def test_apply_suppresses_inline_reposting_when_provider_marks_prior_thread_reso
             ]
         ),
         artifact=build_artifact(),
-        inline_comment_statuses={"789": "resolved"},
     )
 
     assert result.reused_inline_comment_count == 0
     assert result.decisions[0].existing_inline_comment_found is True
     assert result.decisions[0].anchor_reuse_decision == "summary_only"
-    assert result.decisions[0].anchor_reuse_reason == "prior_inline_comment_resolved"
+    assert result.decisions[0].anchor_reuse_reason == "prior_inline_comment_not_reopened"
     assert result.artifact.findings[0].inline_comment is None
 
 
@@ -356,8 +355,8 @@ def test_apply_does_not_reuse_inline_comment_when_anchor_drift_is_too_large() ->
     )
 
     assert result.reused_inline_comment_count == 0
-    assert result.decisions[0].anchor_reuse_decision == "new"
-    assert result.decisions[0].anchor_reuse_reason == "prior_anchor_not_reusable"
+    assert result.decisions[0].anchor_reuse_decision == "summary_only"
+    assert result.decisions[0].anchor_reuse_reason == "prior_inline_comment_not_reopened"
     assert result.artifact.findings[0].inline_comment is None
 
 
@@ -399,8 +398,8 @@ def test_apply_does_not_reuse_inline_comment_when_local_region_differs() -> None
     )
 
     assert result.reused_inline_comment_count == 0
-    assert result.decisions[0].anchor_reuse_decision == "new"
-    assert result.decisions[0].anchor_reuse_reason == "prior_anchor_not_reusable"
+    assert result.decisions[0].anchor_reuse_decision == "summary_only"
+    assert result.decisions[0].anchor_reuse_reason == "prior_inline_comment_not_reopened"
     assert result.artifact.findings[0].inline_comment is None
 
 

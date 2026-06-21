@@ -11,7 +11,6 @@ from zeroone_ops.models.review import (
     ChangeRequestChangedFile,
     ChangeRequestDiffRefs,
     ChangeRequestReviewCandidate,
-    InlineCommentStatus,
     ReviewComment,
 )
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
@@ -141,31 +140,6 @@ class GitHubReviewClient:
     def allows_machine_safe_comment_fallback(self) -> bool:
         """Allow machine-safe continuity fallback when author lookup is unavailable."""
         return True
-
-    def list_change_request_inline_comment_statuses(
-        self,
-        *,
-        repository_id: str,
-        change_request_number: int,
-        comment_ids: list[str],
-    ) -> dict[str, InlineCommentStatus]:
-        """Return provider-observed inline-thread states for known inline comment IDs."""
-        if not comment_ids:
-            return {}
-        owner, name = _split_repository_id(repository_id)
-        payload = self._post_json(
-            "/graphql",
-            json={
-                "query": _inline_comment_thread_status_query(),
-                "variables": {
-                    "owner": owner,
-                    "name": name,
-                    "number": change_request_number,
-                },
-            },
-            error_message="Unexpected GitHub pull request review thread payload.",
-        )
-        return _extract_inline_comment_statuses(payload, comment_ids)
 
     def _get_json(
         self,
@@ -399,84 +373,3 @@ def _normalize_review_comment(payload: dict[str, Any]) -> ReviewComment:
         author_username=author_username,
         created_at=created_at,
     )
-
-
-def _inline_comment_thread_status_query() -> str:
-    """Return the bounded GraphQL query for inline-thread resolution state."""
-    return """
-query InlineCommentThreadStates($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) {
-    pullRequest(number: $number) {
-      reviewThreads(first: 100) {
-        nodes {
-          isResolved
-          comments(first: 100) {
-            nodes {
-              databaseId
-            }
-          }
-        }
-      }
-    }
-  }
-}
-""".strip()
-
-
-def _split_repository_id(repository_id: str) -> tuple[str, str]:
-    """Split one GitHub repository id into owner and name."""
-    owner, separator, name = repository_id.partition("/")
-    if not owner or not separator or not name:
-        raise ReviewPlatformClientError("Unexpected GitHub repository identifier.")
-    return owner, name
-
-
-def _extract_inline_comment_statuses(
-    payload: dict[str, Any],
-    comment_ids: list[str],
-) -> dict[str, InlineCommentStatus]:
-    """Extract normalized inline comment states from one GraphQL review-thread payload."""
-    expected_ids = set(comment_ids)
-    data = payload.get("data")
-    repository = data.get("repository") if isinstance(data, dict) else None
-    if not isinstance(repository, dict):
-        raise ReviewPlatformClientError("Unexpected GitHub review thread repository payload.")
-    pull_request = repository.get("pullRequest")
-    if not isinstance(pull_request, dict):
-        raise ReviewPlatformClientError("Unexpected GitHub review thread pull request payload.")
-    review_threads = pull_request.get("reviewThreads")
-    if not isinstance(review_threads, dict):
-        raise ReviewPlatformClientError("Unexpected GitHub review thread listing payload.")
-    nodes = review_threads.get("nodes")
-    if not isinstance(nodes, list):
-        raise ReviewPlatformClientError("Unexpected GitHub review thread nodes payload.")
-
-    statuses: dict[str, InlineCommentStatus] = {}
-    for node in nodes:
-        if not isinstance(node, dict):
-            continue
-        is_resolved = node.get("isResolved")
-        if not isinstance(is_resolved, bool):
-            raise ReviewPlatformClientError("Unexpected GitHub review thread resolution state.")
-        comments = node.get("comments")
-        if not isinstance(comments, dict):
-            raise ReviewPlatformClientError("Unexpected GitHub review thread comments payload.")
-        comment_nodes = comments.get("nodes")
-        if not isinstance(comment_nodes, list):
-            raise ReviewPlatformClientError(
-                "Unexpected GitHub review thread comment nodes payload."
-            )
-        normalized_status: InlineCommentStatus = "resolved" if is_resolved else "published"
-        for comment_node in comment_nodes:
-            if not isinstance(comment_node, dict):
-                continue
-            database_id = comment_node.get("databaseId")
-            if database_id is None:
-                continue
-            if not isinstance(database_id, int):
-                raise ReviewPlatformClientError("Unexpected GitHub review comment database id.")
-            comment_id = str(database_id)
-            if comment_id not in expected_ids:
-                continue
-            statuses[comment_id] = normalized_status
-    return statuses
