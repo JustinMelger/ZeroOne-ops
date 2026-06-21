@@ -43,6 +43,7 @@ class ChangeRequestReviewCommentsClientProtocol(Protocol):
     def allows_machine_safe_comment_fallback(self) -> bool:
         """Return whether machine-safe comments may be trusted without author lookup."""
 
+
 class ChangeRequestReviewPublishClientProtocol(Protocol):
     """Publish provider-backed review output for one change request."""
 
