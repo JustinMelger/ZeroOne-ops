@@ -593,7 +593,7 @@ def test_render_artifact_includes_follow_up_lines_when_available() -> None:
         ),
     )
 
-    assert "**Continuity:** 1 repeated finding" in body
+    assert "**Since last review:** 1 repeated finding" in body
     assert "Follow-up review after the earlier bot pass on `abc123`." not in body
     assert (
         "I took another look, and one actionable concern still stands out in these changes." in body
@@ -617,7 +617,7 @@ def test_render_artifact_uses_neutral_follow_up_wording_for_ambiguous_overlap() 
         ),
     )
 
-    assert "**Continuity:** overlap unclear" in body
+    assert "**Since last review:** overlap was unclear" in body
 
 
 def test_render_artifact_acknowledges_new_follow_up_concern() -> None:
@@ -634,7 +634,7 @@ def test_render_artifact_acknowledges_new_follow_up_concern() -> None:
         ),
     )
 
-    assert "**Continuity:** 1 new finding" in body
+    assert "**Since last review:** 1 new finding" in body
     assert (
         "I took another look, and one actionable concern stands out in these changes now." in body
     )

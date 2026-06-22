@@ -380,7 +380,7 @@ def _summarize_follow_up_lines(lines: list[str]) -> str | None:
     if resolved_count:
         parts.append(_counted_status(resolved_count, "resolved"))
     if ambiguous:
-        parts.append("overlap unclear")
+        parts.append("overlap was unclear")
     if not parts:
         return None
     return ", ".join(parts)

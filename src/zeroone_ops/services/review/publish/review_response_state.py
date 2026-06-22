@@ -98,7 +98,7 @@ def render_continuity_line(artifact: PublishableReviewArtifact) -> str | None:
     summary = _summarize_follow_up_lines(artifact.follow_up_lines)
     if summary is None:
         return None
-    return f"**Continuity:** {summary}"
+    return f"**Since last review:** {summary}"
 
 
 def should_render_no_findings_detail(
@@ -297,7 +297,7 @@ def _summarize_follow_up_lines(lines: list[str]) -> str | None:
     if resolved_count:
         parts.append(_counted_status(resolved_count, "resolved"))
     if ambiguous:
-        parts.append("overlap unclear")
+        parts.append("overlap was unclear")
     if not parts:
         return None
     return ", ".join(parts)

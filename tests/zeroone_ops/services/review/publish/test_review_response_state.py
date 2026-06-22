@@ -58,7 +58,7 @@ def test_render_continuity_line_for_repeated_concern() -> None:
             "",
         ]
     )
-    assert render_continuity_line(artifact) == "**Continuity:** 1 repeated finding"
+    assert render_continuity_line(artifact) == "**Since last review:** 1 repeated finding"
 
 
 def test_render_summary_sentence_for_first_pass_clear() -> None:
