@@ -29,7 +29,7 @@ def test_render_artifact_formats_findings_present() -> None:
     )
 
     assert body.startswith("**Verdict:** Concern\n**Risk:** Medium\n**Confidence:** High")
-    assert "I noticed one actionable concern in these changes." in body
+    assert "One actionable concern stood out in these changes." in body
     assert "**Findings**" in body
     assert "1. `src/service.py`" in body
     assert "Missing test coverage." in body
@@ -574,10 +574,10 @@ def test_render_artifact_includes_follow_up_lines_when_available() -> None:
         ),
     )
 
-    assert "**Continuity:** 1 repeated" in body
+    assert "**Continuity:** 1 repeated finding" in body
     assert "Follow-up review after the earlier bot pass on `abc123`." not in body
     assert (
-        "I took another look, and I still notice one actionable concern in these changes." in body
+        "I took another look, and one actionable concern still stands out in these changes." in body
     )
 
 
@@ -615,8 +615,10 @@ def test_render_artifact_acknowledges_new_follow_up_concern() -> None:
         ),
     )
 
-    assert "**Continuity:** 1 new" in body
-    assert "I took another look, and I noticed one actionable concern in these changes now." in body
+    assert "**Continuity:** 1 new finding" in body
+    assert (
+        "I took another look, and one actionable concern stands out in these changes now." in body
+    )
 
 
 def test_render_artifact_omits_follow_up_wording_when_missing() -> None:
@@ -699,4 +701,6 @@ def test_render_artifact_acknowledges_concern_after_manual_review() -> None:
         ),
     )
 
-    assert "I took another look, and I now notice one actionable concern in these changes." in body
+    assert (
+        "I took another look, and one actionable concern stands out in these changes now." in body
+    )
