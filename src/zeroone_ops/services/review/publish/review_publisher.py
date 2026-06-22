@@ -274,7 +274,7 @@ def _render_clear_detail(
     """Render one short follow-up clear detail when the summary adds context."""
     if not should_render_no_findings_detail(context=context, artifact=artifact):
         return []
-    detail = _render_clear_detail_sentence(artifact.summary)
+    detail = _render_clear_detail_sentence(context=context, summary=artifact.summary)
     if detail is None:
         return []
     return ["", detail]
@@ -485,10 +485,18 @@ def _render_inline_comment_body(finding: PublishableReviewFinding) -> str:
     return _ensure_terminal_punctuation(finding.title)
 
 
-def _render_clear_detail_sentence(summary: str) -> str | None:
+def _render_clear_detail_sentence(
+    *,
+    context: ChangeRequestReviewContext,
+    summary: str,
+) -> str | None:
     """Return one short clear-detail sentence when the summary is informative."""
     normalized = _normalize_summary(summary)
     if not normalized or normalized in _GENERIC_NO_FINDINGS_SUMMARIES:
+        return None
+    if _looks_like_prior_concern_resolution(normalized) and not _can_reference_prior_concern(
+        context=context
+    ):
         return None
     return _ensure_terminal_punctuation(summary)
 
@@ -504,6 +512,19 @@ _GENERIC_NO_FINDINGS_SUMMARIES = {
     "no actionable findings in this review pass",
     "no actionable concerns in these changes",
 }
+
+
+def _looks_like_prior_concern_resolution(normalized_summary: str) -> bool:
+    """Return whether the summary claims that an earlier concern was resolved."""
+    return "earlier concern" in normalized_summary or "previous review" in normalized_summary
+
+
+def _can_reference_prior_concern(*, context: ChangeRequestReviewContext) -> bool:
+    """Return whether the latest prior pass supports concern-resolution wording."""
+    prior_context = context.prior_review_context
+    if prior_context is None or not prior_context.passes:
+        return False
+    return prior_context.passes[0].classification in {"findings_present", "manual_review_only"}
 
 
 def _ensure_terminal_punctuation(text: str) -> str:

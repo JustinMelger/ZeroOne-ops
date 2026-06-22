@@ -261,7 +261,7 @@ def test_render_artifact_acknowledges_previous_pass_for_no_findings_follow_up() 
     assert "The earlier concern is no longer present in the updated changes." in body
 
 
-def test_render_artifact_renders_informative_clear_detail_after_prior_clear() -> None:
+def test_render_artifact_skips_resolution_wording_after_prior_clear() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
     body = publisher.render_artifact(
@@ -277,7 +277,7 @@ def test_render_artifact_renders_informative_clear_detail_after_prior_clear() ->
         "I took another look, and I don't see any actionable concerns in these changes now."
     ) in body
     visible_body = body.split("<!-- ai-sonar-bot:review-note:v1", 1)[0]
-    assert "The earlier concern is no longer present in the updated changes." in visible_body
+    assert "The earlier concern is no longer present in the updated changes." not in visible_body
 
 
 def test_publish_artifact_sends_rendered_note_body() -> None:
