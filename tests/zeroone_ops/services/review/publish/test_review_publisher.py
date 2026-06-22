@@ -34,6 +34,7 @@ def test_render_artifact_formats_findings_present() -> None:
     assert "1. `src/service.py`" in body
     assert "Missing test coverage." in body
     assert "The change alters branch behavior without test updates." in body
+    assert "Suggested fix: Add a regression test for the changed branch." in body
     assert "Evidence:" not in body
     assert "Follow-up:" not in body
     assert "Scope:" not in body
@@ -149,6 +150,36 @@ def test_render_artifact_uses_two_sentences_when_behavioral_consequence_is_not_o
         "This turns a configuration error into silent misconfiguration, "
         "which is harder to detect in production."
     ) in body
+    assert "Suggested fix: Fail fast when the configuration is missing." in body
+
+
+def test_render_artifact_renders_suggested_fix_when_follow_up_is_present() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_context(),
+        artifact=PublishableReviewArtifact(
+            classification="findings_present",
+            summary="One medium-risk finding.",
+            review_confidence=0.74,
+            findings=[
+                PublishableReviewFinding(
+                    severity="medium",
+                    file_path="src/config.py",
+                    title="Missing lookup-country config now defaults silently to `{}`",
+                    evidence="The new code path uses an empty-dict fallback.",
+                    explanation=(
+                        "This turns a configuration error into silent misconfiguration, "
+                        "which is harder to detect in production."
+                    ),
+                    suggested_follow_up="Investigate further",
+                    issue_kind="behavioral_regression",
+                )
+            ],
+        ),
+    )
+
+    assert "Suggested fix: Investigate further." in body
 
 
 def test_render_artifact_renders_advisory_notes_in_separate_section() -> None:

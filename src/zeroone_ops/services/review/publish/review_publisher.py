@@ -292,12 +292,15 @@ def _render_findings(findings: list[PublishableReviewFinding]) -> list[str]:
 
 
 def _render_single_finding_body(finding: PublishableReviewFinding) -> list[str]:
-    """Render one finding using one issue sentence and an optional consequence sentence."""
+    """Render one finding using issue, explanation, and bounded fix guidance."""
     issue_sentence = _ensure_terminal_punctuation(finding.title)
     body_lines = [f"   {issue_sentence}"]
     consequence = _render_consequence_sentence(finding)
     if consequence is not None:
         body_lines.append(f"   {consequence}")
+    suggested_fix = _render_suggested_fix_line(finding)
+    if suggested_fix is not None:
+        body_lines.append(f"   {suggested_fix}")
     return body_lines
 
 
@@ -318,6 +321,14 @@ def _should_include_consequence_sentence(finding: PublishableReviewFinding) -> b
     if explanation.startswith(title):
         return False
     return True
+
+
+def _render_suggested_fix_line(finding: PublishableReviewFinding) -> str | None:
+    """Render one short suggested-fix line when the follow-up text is present."""
+    suggested_follow_up = finding.suggested_follow_up.strip()
+    if not suggested_follow_up:
+        return None
+    return f"Suggested fix: {_ensure_terminal_punctuation(suggested_follow_up)}"
 
 
 def _summarize_follow_up_lines(lines: list[str]) -> str | None:
