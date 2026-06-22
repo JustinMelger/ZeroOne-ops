@@ -300,6 +300,7 @@ def _render_single_finding_body(finding: PublishableReviewFinding) -> list[str]:
         body_lines.append(f"   {consequence}")
     suggested_fix = _render_suggested_fix_line(finding)
     if suggested_fix is not None:
+        body_lines.append("")
         body_lines.append(f"   {suggested_fix}")
     return body_lines
 

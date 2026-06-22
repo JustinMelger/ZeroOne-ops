@@ -34,7 +34,10 @@ def test_render_artifact_formats_findings_present() -> None:
     assert "1. `src/service.py`" in body
     assert "Missing test coverage." in body
     assert "The change alters branch behavior without test updates." in body
-    assert "Suggested fix: Add a regression test for the changed branch." in body
+    assert (
+        "The change alters branch behavior without test updates.\n\n"
+        "   Suggested fix: Add a regression test for the changed branch."
+    ) in body
     assert "Evidence:" not in body
     assert "Follow-up:" not in body
     assert "Scope:" not in body
@@ -150,7 +153,10 @@ def test_render_artifact_uses_two_sentences_when_behavioral_consequence_is_not_o
         "This turns a configuration error into silent misconfiguration, "
         "which is harder to detect in production."
     ) in body
-    assert "Suggested fix: Fail fast when the configuration is missing." in body
+    assert (
+        "which is harder to detect in production.\n\n"
+        "   Suggested fix: Fail fast when the configuration is missing."
+    ) in body
 
 
 def test_render_artifact_renders_suggested_fix_when_follow_up_is_present() -> None:
@@ -179,7 +185,7 @@ def test_render_artifact_renders_suggested_fix_when_follow_up_is_present() -> No
         ),
     )
 
-    assert "Suggested fix: Investigate further." in body
+    assert "\n\n   Suggested fix: Investigate further." in body
 
 
 def test_render_artifact_renders_advisory_notes_in_separate_section() -> None:
