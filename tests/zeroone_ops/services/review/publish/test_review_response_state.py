@@ -58,7 +58,7 @@ def test_render_continuity_line_for_repeated_concern() -> None:
             "",
         ]
     )
-    assert render_continuity_line(artifact) == "**Continuity:** 1 repeated"
+    assert render_continuity_line(artifact) == "**Since last review:** 1 repeated finding"
 
 
 def test_render_summary_sentence_for_first_pass_clear() -> None:
@@ -112,7 +112,7 @@ def test_render_summary_sentence_uses_newest_prior_pass_when_multiple_are_presen
             context=context,
             artifact=build_artifact(),
         )
-        == "I took another look, and I noticed one actionable concern in these changes now."
+        == "I took another look, and one actionable concern stands out in these changes now."
     )
 
 
@@ -123,8 +123,8 @@ def test_should_render_no_findings_detail_after_concern() -> None:
     )
 
 
-def test_should_not_render_no_findings_detail_after_clear() -> None:
-    assert not should_render_no_findings_detail(
+def test_should_render_no_findings_detail_after_clear() -> None:
+    assert should_render_no_findings_detail(
         context=build_clear_follow_up_context(),
         artifact=build_artifact(classification="no_findings"),
     )
@@ -137,13 +137,20 @@ def test_should_render_no_findings_detail_after_manual_review() -> None:
     )
 
 
+def test_should_render_no_findings_detail_on_first_pass_clear() -> None:
+    assert should_render_no_findings_detail(
+        context=build_context(),
+        artifact=build_artifact(classification="no_findings"),
+    )
+
+
 def test_render_summary_sentence_for_concern_after_clear() -> None:
     assert (
         render_summary_sentence(
             context=build_clear_follow_up_context(),
             artifact=build_artifact(),
         )
-        == "I took another look, and I noticed one actionable concern in these changes now."
+        == "I took another look, and one actionable concern stands out in these changes now."
     )
 
 
@@ -153,7 +160,7 @@ def test_render_summary_sentence_for_concern_after_concern() -> None:
             context=build_follow_up_context(),
             artifact=build_artifact(),
         )
-        == "I took another look, and I still notice one actionable concern in these changes."
+        == "I took another look, and one actionable concern still stands out in these changes."
     )
 
 
@@ -163,7 +170,7 @@ def test_render_summary_sentence_for_concern_after_manual_review() -> None:
             context=build_manual_review_follow_up_context(),
             artifact=build_artifact(),
         )
-        == "I took another look, and I now notice one actionable concern in these changes."
+        == "I took another look, and one actionable concern stands out in these changes now."
     )
 
 

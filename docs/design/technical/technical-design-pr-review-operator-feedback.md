@@ -352,6 +352,7 @@ Recommended first finding shape:
 - one short statement of the issue
 - one short consequence sentence only when the issue sentence does not already
   make the impact clear
+- one short `Suggested fix:` line when the structured follow-up text is present
 
 Consequence-sentence rule:
 
@@ -377,6 +378,13 @@ Example:
    empty-list input.
 ```
 
+Suggested-fix rule:
+
+- render `Suggested fix:` when the structured `suggested_follow_up` text is
+  present
+- keep it to one short line
+- do not restore separate `Evidence`, `Impact`, or `Follow-up` blocks
+
 Recommended follow-up summary transition matrix:
 
 - `now` signals that the current pass changed state relative to the prior pass
@@ -388,10 +396,27 @@ Current `Clear`:
 
 - first pass:
   - `I don't see any actionable concerns in these changes.`
+  - allow one extra short detail sentence when the `no_findings` summary is
+    informative
 - follow-up from `Concern`:
   - `I took another look, and I don't see any actionable concerns in these changes now.`
 - follow-up from `Needs review`:
   - `I took another look, and I don't see any actionable concerns in these changes now.`
+  - allow one extra short detail sentence when the `no_findings` summary is
+    informative
+
+Clear-detail rule:
+
+- informative `Clear` summaries may render one extra short trust-building
+  sentence
+- generic summaries such as `No actionable findings in this review pass` should
+  stay hidden from the visible note body
+- continuity-style resolution wording such as `The earlier concern is no longer
+  present...` must only be shown when the latest prior pass was
+  `findings_present` or `manual_review_only`
+- first-pass clear notes may still show one short informative detail sentence
+  when it describes what the bot concluded about the diff itself rather than
+  prior-review continuity
 
 Current `Concern`:
 
@@ -451,10 +476,12 @@ Grouping rule for the first UX slice:
 No-findings rule for the first UX slice:
 
 - `Clear` notes should use a smaller variant than findings-present notes
-- keep `Verdict`, `Risk`, and `Confidence`
+- keep `Verdict` and `Confidence`
 - omit `Continuity` unless prior review history materially changes
   interpretation
 - keep one short summary sentence
+- allow one extra short detail sentence when it increases trust and does not
+  overstate prior-review continuity
 
 ### 8.2 Developer-response footer
 

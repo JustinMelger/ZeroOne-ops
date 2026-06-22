@@ -76,7 +76,7 @@ def _artifact_summary(
     """Return the publish-shaped summary line for one review artifact."""
     if classification == "no_findings":
         if overlap_result is not None:
-            return "No new actionable findings since the last reviewed SHA."
+            return "The updates since the last review don't introduce any new actionable concerns."
         return "No actionable findings in this review pass."
     return decision_summary
 

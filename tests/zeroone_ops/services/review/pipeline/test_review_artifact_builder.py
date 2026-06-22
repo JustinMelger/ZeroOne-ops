@@ -126,6 +126,10 @@ def test_build_rewrites_internal_follow_up_no_findings_rationale_for_publish() -
     assert artifact.review_confidence_reason is not None
     assert "candidate-backed evidence" not in artifact.review_confidence_reason.lower()
     assert "earlier concern" in artifact.review_confidence_reason.lower()
+    assert (
+        artifact.summary
+        == "The updates since the last review don't introduce any new actionable concerns."
+    )
 
 
 def test_build_attaches_follow_up_lines_from_overlap_result() -> None:

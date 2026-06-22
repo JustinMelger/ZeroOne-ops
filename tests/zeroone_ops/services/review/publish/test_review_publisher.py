@@ -29,11 +29,15 @@ def test_render_artifact_formats_findings_present() -> None:
     )
 
     assert body.startswith("**Verdict:** Concern\n**Risk:** Medium\n**Confidence:** High")
-    assert "I noticed one actionable concern in these changes." in body
+    assert "One actionable concern stood out in these changes." in body
     assert "**Findings**" in body
     assert "1. `src/service.py`" in body
     assert "Missing test coverage." in body
     assert "The change alters branch behavior without test updates." in body
+    assert (
+        "The change alters branch behavior without test updates.\n\n"
+        "   Suggested fix: Add a regression test for the changed branch."
+    ) in body
     assert "Evidence:" not in body
     assert "Follow-up:" not in body
     assert "Scope:" not in body
@@ -149,6 +153,39 @@ def test_render_artifact_uses_two_sentences_when_behavioral_consequence_is_not_o
         "This turns a configuration error into silent misconfiguration, "
         "which is harder to detect in production."
     ) in body
+    assert (
+        "which is harder to detect in production.\n\n"
+        "   Suggested fix: Fail fast when the configuration is missing."
+    ) in body
+
+
+def test_render_artifact_renders_suggested_fix_when_follow_up_is_present() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_context(),
+        artifact=PublishableReviewArtifact(
+            classification="findings_present",
+            summary="One medium-risk finding.",
+            review_confidence=0.74,
+            findings=[
+                PublishableReviewFinding(
+                    severity="medium",
+                    file_path="src/config.py",
+                    title="Missing lookup-country config now defaults silently to `{}`",
+                    evidence="The new code path uses an empty-dict fallback.",
+                    explanation=(
+                        "This turns a configuration error into silent misconfiguration, "
+                        "which is harder to detect in production."
+                    ),
+                    suggested_follow_up="Investigate further",
+                    issue_kind="behavioral_regression",
+                )
+            ],
+        ),
+    )
+
+    assert "\n\n   Suggested fix: Investigate further." in body
 
 
 def test_render_artifact_renders_advisory_notes_in_separate_section() -> None:
@@ -179,10 +216,14 @@ def test_render_artifact_formats_no_findings() -> None:
 
     body = publisher.render_artifact(
         context=build_context(),
-        artifact=build_artifact(classification="no_findings"),
+        artifact=build_artifact(
+            classification="no_findings",
+            summary="The updated diff preserves the existing lookup behavior.",
+        ),
     )
 
     assert "I don't see any actionable concerns in these changes." in body
+    assert "The updated diff preserves the existing lookup behavior." in body
     assert body.startswith("**Verdict:** Clear\n**Confidence:** High")
     assert "Risk:" not in body
     assert "Continuity:" not in body
@@ -193,6 +234,19 @@ def test_render_artifact_formats_no_findings() -> None:
     assert payload["classification"] == "no_findings"
     assert payload["findings_count"] == 0
     assert payload["findings"] == []
+
+
+def test_render_artifact_skips_generic_detail_for_first_pass_clear() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_context(),
+        artifact=build_artifact(classification="no_findings"),
+    )
+
+    visible_body = body.split("<!-- ai-sonar-bot:review-note:v1", 1)[0]
+    assert "I don't see any actionable concerns in these changes." in visible_body
+    assert "No actionable findings in this review pass." not in visible_body
 
 
 def test_render_artifact_acknowledges_previous_pass_for_no_findings_follow_up() -> None:
@@ -213,11 +267,30 @@ def test_render_artifact_acknowledges_previous_pass_for_no_findings_follow_up() 
     assert "The earlier concern is no longer present in the updated changes." in body
 
 
-def test_render_artifact_does_not_repeat_clear_detail_after_prior_clear() -> None:
+def test_render_artifact_skips_resolution_wording_after_prior_clear() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
     body = publisher.render_artifact(
         context=build_clear_follow_up_context(),
+        artifact=build_artifact(
+            classification="no_findings",
+            summary="The earlier concern is no longer present in the updated changes.",
+            follow_up_lines=["Follow-up review after the earlier bot pass on `abc123`."],
+        ),
+    )
+
+    assert (
+        "I took another look, and I don't see any actionable concerns in these changes now."
+    ) in body
+    visible_body = body.split("<!-- ai-sonar-bot:review-note:v1", 1)[0]
+    assert "The earlier concern is no longer present in the updated changes." not in visible_body
+
+
+def test_render_artifact_skips_resolution_wording_after_manual_review_only() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_manual_review_follow_up_context(),
         artifact=build_artifact(
             classification="no_findings",
             summary="The earlier concern is no longer present in the updated changes.",
@@ -520,10 +593,10 @@ def test_render_artifact_includes_follow_up_lines_when_available() -> None:
         ),
     )
 
-    assert "**Continuity:** 1 repeated" in body
+    assert "**Since last review:** 1 repeated finding" in body
     assert "Follow-up review after the earlier bot pass on `abc123`." not in body
     assert (
-        "I took another look, and I still notice one actionable concern in these changes." in body
+        "I took another look, and one actionable concern still stands out in these changes." in body
     )
 
 
@@ -544,7 +617,7 @@ def test_render_artifact_uses_neutral_follow_up_wording_for_ambiguous_overlap() 
         ),
     )
 
-    assert "**Continuity:** overlap unclear" in body
+    assert "**Since last review:** overlap was unclear" in body
 
 
 def test_render_artifact_acknowledges_new_follow_up_concern() -> None:
@@ -561,8 +634,10 @@ def test_render_artifact_acknowledges_new_follow_up_concern() -> None:
         ),
     )
 
-    assert "**Continuity:** 1 new" in body
-    assert "I took another look, and I noticed one actionable concern in these changes now." in body
+    assert "**Since last review:** 1 new finding" in body
+    assert (
+        "I took another look, and one actionable concern stands out in these changes now." in body
+    )
 
 
 def test_render_artifact_omits_follow_up_wording_when_missing() -> None:
@@ -631,6 +706,26 @@ def test_render_artifact_acknowledges_manual_review_after_clear() -> None:
     )
 
 
+def test_render_artifact_hides_internal_manual_review_downgrade_reason() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_context(),
+        artifact=build_artifact(
+            classification="manual_review_only",
+            summary=(
+                "The automated review produced an internally inconsistent artifact and "
+                "was downgraded to manual review."
+            ),
+        ),
+    )
+
+    visible_body = body.split("<!-- ai-sonar-bot:review-note:v1", 1)[0]
+    assert "internally inconsistent artifact" not in visible_body
+    assert "downgraded to manual review" not in visible_body
+    assert "A human review is still needed before treating these changes as safe." in body
+
+
 def test_render_artifact_acknowledges_concern_after_manual_review() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
@@ -645,4 +740,6 @@ def test_render_artifact_acknowledges_concern_after_manual_review() -> None:
         ),
     )
 
-    assert "I took another look, and I now notice one actionable concern in these changes." in body
+    assert (
+        "I took another look, and one actionable concern stands out in these changes now." in body
+    )

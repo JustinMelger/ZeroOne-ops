@@ -43,7 +43,7 @@ def render_summary_sentence(
         concern_label = "concern" if findings_count == 1 else "concerns"
         return f"I'd block this because of {findings_count} actionable {concern_label}."
     if findings_count == 1:
-        return "I noticed one actionable concern in these changes."
+        return "One actionable concern stood out in these changes."
     return f"I noticed {findings_count} actionable concerns in these changes."
 
 
@@ -98,7 +98,7 @@ def render_continuity_line(artifact: PublishableReviewArtifact) -> str | None:
     summary = _summarize_follow_up_lines(artifact.follow_up_lines)
     if summary is None:
         return None
-    return f"**Continuity:** {summary}"
+    return f"**Since last review:** {summary}"
 
 
 def should_render_no_findings_detail(
@@ -106,13 +106,11 @@ def should_render_no_findings_detail(
     context: ChangeRequestReviewContext,
     artifact: PublishableReviewArtifact,
 ) -> bool:
-    """Return whether a clear follow-up may show one extra summary-detail sentence."""
+    """Return whether a clear note may show one extra summary-detail sentence."""
     if artifact.classification != "no_findings":
         return False
-    prior_pass = _latest_prior_pass(context)
-    if prior_pass is None:
-        return False
-    return prior_pass.classification in {"findings_present", "manual_review_only"}
+    del context
+    return True
 
 
 def _has_follow_up_context(lines: list[str]) -> bool:
@@ -185,7 +183,9 @@ def _render_follow_up_summary_sentence(
 
     if prior_classification == "manual_review_only":
         if findings_count == 1:
-            return "I took another look, and I now notice one actionable concern in these changes."
+            return (
+                "I took another look, and one actionable concern stands out in these changes now."
+            )
         return (
             "I took another look, and I now notice "
             f"{findings_count} actionable concerns in these changes."
@@ -193,7 +193,7 @@ def _render_follow_up_summary_sentence(
     if prior_classification == "findings_present":
         if findings_count == 1:
             return (
-                "I took another look, and I still notice one actionable concern in these changes."
+                "I took another look, and one actionable concern still stands out in these changes."
             )
         return (
             "I took another look, and I still notice "
@@ -201,7 +201,9 @@ def _render_follow_up_summary_sentence(
         )
     if prior_classification == "no_findings":
         if findings_count == 1:
-            return "I took another look, and I noticed one actionable concern in these changes now."
+            return (
+                "I took another look, and one actionable concern stands out in these changes now."
+            )
         return (
             "I took another look, and I noticed "
             f"{findings_count} actionable concerns in these changes now."
@@ -221,7 +223,9 @@ def _render_fallback_follow_up_summary_sentence(artifact: PublishableReviewArtif
                 f"{findings_count} actionable {concern_label}."
             )
         if findings_count == 1:
-            return "I took another look, and I noticed one actionable concern in these changes now."
+            return (
+                "I took another look, and one actionable concern stands out in these changes now."
+            )
         return (
             "I took another look, and I noticed "
             f"{findings_count} actionable concerns in these changes now."
@@ -234,7 +238,7 @@ def _render_fallback_follow_up_summary_sentence(artifact: PublishableReviewArtif
             )
         if findings_count == 1:
             return (
-                "I took another look, and I still notice one actionable concern in these changes."
+                "I took another look, and one actionable concern still stands out in these changes."
             )
         return (
             "I took another look, and I still notice "
@@ -246,7 +250,7 @@ def _render_fallback_follow_up_summary_sentence(artifact: PublishableReviewArtif
             f"{findings_count} actionable {concern_label}."
         )
     if findings_count == 1:
-        return "I took another look, and I noticed one actionable concern in these changes."
+        return "I took another look, and one actionable concern stands out in these changes."
     return (
         f"I took another look, and I noticed {findings_count} actionable concerns in these changes."
     )
@@ -293,7 +297,7 @@ def _summarize_follow_up_lines(lines: list[str]) -> str | None:
     if resolved_count:
         parts.append(_counted_status(resolved_count, "resolved"))
     if ambiguous:
-        parts.append("overlap unclear")
+        parts.append("overlap was unclear")
     if not parts:
         return None
     return ", ".join(parts)
@@ -327,5 +331,5 @@ def _extract_new_concern_count(line: str) -> int:
 def _counted_status(count: int, label: str) -> str:
     """Render one counted continuity status phrase."""
     if count == 1:
-        return f"1 {label}"
-    return f"{count} {label}"
+        return f"1 {label} finding"
+    return f"{count} {label} findings"
