@@ -224,7 +224,7 @@ class ReviewPublisher:
         if artifact.classification == "manual_review_only":
             lines.extend(
                 [
-                    artifact.summary,
+                    *_render_manual_review_detail(summary=artifact.summary),
                     "A human review is still needed before treating these changes as safe.",
                     *_render_advisory_notes(artifact),
                 ]
@@ -278,6 +278,13 @@ def _render_clear_detail(
     if detail is None:
         return []
     return ["", detail]
+
+
+def _render_manual_review_detail(*, summary: str) -> list[str]:
+    """Render one manual-review detail sentence when it is user-facing."""
+    if _should_hide_manual_review_summary(summary):
+        return []
+    return [summary]
 
 
 def _render_findings(findings: list[PublishableReviewFinding]) -> list[str]:
@@ -518,6 +525,15 @@ _GENERIC_NO_FINDINGS_SUMMARIES = {
 def _looks_like_prior_concern_resolution(normalized_summary: str) -> bool:
     """Return whether the summary claims that an earlier concern was resolved."""
     return "earlier concern" in normalized_summary or "previous review" in normalized_summary
+
+
+def _should_hide_manual_review_summary(summary: str) -> bool:
+    """Hide internal-only manual-review fallback wording from visible notes."""
+    normalized = _normalize_summary(summary)
+    return (
+        "internally inconsistent artifact" in normalized
+        and "downgraded to manual review" in normalized
+    )
 
 
 def _can_reference_prior_concern(*, context: ChangeRequestReviewContext) -> bool:

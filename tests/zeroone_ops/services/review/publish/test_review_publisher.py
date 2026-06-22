@@ -706,6 +706,26 @@ def test_render_artifact_acknowledges_manual_review_after_clear() -> None:
     )
 
 
+def test_render_artifact_hides_internal_manual_review_downgrade_reason() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_context(),
+        artifact=build_artifact(
+            classification="manual_review_only",
+            summary=(
+                "The automated review produced an internally inconsistent artifact and "
+                "was downgraded to manual review."
+            ),
+        ),
+    )
+
+    visible_body = body.split("<!-- ai-sonar-bot:review-note:v1", 1)[0]
+    assert "internally inconsistent artifact" not in visible_body
+    assert "downgraded to manual review" not in visible_body
+    assert "A human review is still needed before treating these changes as safe." in body
+
+
 def test_render_artifact_acknowledges_concern_after_manual_review() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
