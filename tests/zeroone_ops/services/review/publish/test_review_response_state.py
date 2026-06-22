@@ -123,8 +123,8 @@ def test_should_render_no_findings_detail_after_concern() -> None:
     )
 
 
-def test_should_not_render_no_findings_detail_after_clear() -> None:
-    assert not should_render_no_findings_detail(
+def test_should_render_no_findings_detail_after_clear() -> None:
+    assert should_render_no_findings_detail(
         context=build_clear_follow_up_context(),
         artifact=build_artifact(classification="no_findings"),
     )
@@ -133,6 +133,13 @@ def test_should_not_render_no_findings_detail_after_clear() -> None:
 def test_should_render_no_findings_detail_after_manual_review() -> None:
     assert should_render_no_findings_detail(
         context=build_manual_review_follow_up_context(),
+        artifact=build_artifact(classification="no_findings"),
+    )
+
+
+def test_should_render_no_findings_detail_on_first_pass_clear() -> None:
+    assert should_render_no_findings_detail(
+        context=build_context(),
         artifact=build_artifact(classification="no_findings"),
     )
 

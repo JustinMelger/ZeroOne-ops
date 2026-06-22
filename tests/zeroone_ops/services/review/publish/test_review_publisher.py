@@ -210,10 +210,14 @@ def test_render_artifact_formats_no_findings() -> None:
 
     body = publisher.render_artifact(
         context=build_context(),
-        artifact=build_artifact(classification="no_findings"),
+        artifact=build_artifact(
+            classification="no_findings",
+            summary="The updated diff preserves the existing lookup behavior.",
+        ),
     )
 
     assert "I don't see any actionable concerns in these changes." in body
+    assert "The updated diff preserves the existing lookup behavior." in body
     assert body.startswith("**Verdict:** Clear\n**Confidence:** High")
     assert "Risk:" not in body
     assert "Continuity:" not in body
@@ -224,6 +228,19 @@ def test_render_artifact_formats_no_findings() -> None:
     assert payload["classification"] == "no_findings"
     assert payload["findings_count"] == 0
     assert payload["findings"] == []
+
+
+def test_render_artifact_skips_generic_detail_for_first_pass_clear() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_context(),
+        artifact=build_artifact(classification="no_findings"),
+    )
+
+    visible_body = body.split("<!-- ai-sonar-bot:review-note:v1", 1)[0]
+    assert "I don't see any actionable concerns in these changes." in visible_body
+    assert "No actionable findings in this review pass." not in visible_body
 
 
 def test_render_artifact_acknowledges_previous_pass_for_no_findings_follow_up() -> None:
@@ -244,7 +261,7 @@ def test_render_artifact_acknowledges_previous_pass_for_no_findings_follow_up() 
     assert "The earlier concern is no longer present in the updated changes." in body
 
 
-def test_render_artifact_does_not_repeat_clear_detail_after_prior_clear() -> None:
+def test_render_artifact_renders_informative_clear_detail_after_prior_clear() -> None:
     publisher = ReviewPublisher(FakeGitLabReviewClient())
 
     body = publisher.render_artifact(
@@ -260,7 +277,7 @@ def test_render_artifact_does_not_repeat_clear_detail_after_prior_clear() -> Non
         "I took another look, and I don't see any actionable concerns in these changes now."
     ) in body
     visible_body = body.split("<!-- ai-sonar-bot:review-note:v1", 1)[0]
-    assert "The earlier concern is no longer present in the updated changes." not in visible_body
+    assert "The earlier concern is no longer present in the updated changes." in visible_body
 
 
 def test_publish_artifact_sends_rendered_note_body() -> None:
