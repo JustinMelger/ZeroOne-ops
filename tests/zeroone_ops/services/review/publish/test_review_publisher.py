@@ -286,6 +286,25 @@ def test_render_artifact_skips_resolution_wording_after_prior_clear() -> None:
     assert "The earlier concern is no longer present in the updated changes." not in visible_body
 
 
+def test_render_artifact_skips_resolution_wording_after_manual_review_only() -> None:
+    publisher = ReviewPublisher(FakeGitLabReviewClient())
+
+    body = publisher.render_artifact(
+        context=build_manual_review_follow_up_context(),
+        artifact=build_artifact(
+            classification="no_findings",
+            summary="The earlier concern is no longer present in the updated changes.",
+            follow_up_lines=["Follow-up review after the earlier bot pass on `abc123`."],
+        ),
+    )
+
+    assert (
+        "I took another look, and I don't see any actionable concerns in these changes now."
+    ) in body
+    visible_body = body.split("<!-- ai-sonar-bot:review-note:v1", 1)[0]
+    assert "The earlier concern is no longer present in the updated changes." not in visible_body
+
+
 def test_publish_artifact_sends_rendered_note_body() -> None:
     review_client = FakeGitLabReviewClient()
     publisher = ReviewPublisher(review_client)

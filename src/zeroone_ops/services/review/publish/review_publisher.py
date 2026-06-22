@@ -525,7 +525,8 @@ def _can_reference_prior_concern(*, context: ChangeRequestReviewContext) -> bool
     prior_context = context.prior_review_context
     if prior_context is None or not prior_context.passes:
         return False
-    return prior_context.passes[0].classification in {"findings_present", "manual_review_only"}
+    latest_pass = prior_context.passes[0]
+    return latest_pass.classification == "findings_present" and latest_pass.findings_count > 0
 
 
 def _ensure_terminal_punctuation(text: str) -> str:
