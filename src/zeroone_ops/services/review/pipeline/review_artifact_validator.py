@@ -8,37 +8,13 @@ from zeroone_ops.models.review import (
     PublishableReviewArtifact,
 )
 
-_NO_FINDINGS_PHRASES = (
-    "no actionable findings",
-    "no findings",
-)
-_ACTIONABLE_CONCERN_PHRASES = (
-    "actionable concern",
-    "actionable issue",
-    "deterministic runtime error",
-    "missing validation",
-    "this regression",
-    "the regression",
-    "this bug",
-    "the bug",
-    "runtime error",
-    "breaks runtime behavior",
-    "breaks behavior",
-    "breaks the",
-    "broken behavior",
-)
-
 
 class ReviewArtifactValidator:
-    """Validate publish-shaped review artifacts for narrow contradiction classes."""
+    """Validate publish-shaped review artifacts for strict structural invariants."""
 
     def validate(self, artifact: PublishableReviewArtifact) -> ArtifactValidationResult:
         """Validate one publish-shaped review artifact."""
-        issues = [
-            *self._validate_findings_presence(artifact),
-            *self._validate_summary_contradictions(artifact),
-            *self._validate_reason_contradictions(artifact),
-        ]
+        issues = self._validate_findings_presence(artifact)
         if issues:
             return ArtifactValidationResult(
                 status="rejected",
@@ -90,58 +66,11 @@ class ReviewArtifactValidator:
                     message="Artifact classification is no_findings but findings are present.",
                 )
             ]
-        return []
-
-    def _validate_summary_contradictions(
-        self,
-        artifact: PublishableReviewArtifact,
-    ) -> list[ArtifactValidationIssue]:
-        """Reject high-trust summary contradictions."""
-        normalized_summary = artifact.summary.lower()
-        if artifact.classification == "findings_present" and any(
-            phrase in normalized_summary for phrase in _NO_FINDINGS_PHRASES
-        ):
+        if artifact.classification == "manual_review_only" and artifact.findings:
             return [
                 ArtifactValidationIssue(
-                    rule_id="findings_present_summary_denies_findings",
-                    message="Artifact summary claims there are no actionable findings.",
-                )
-            ]
-        if artifact.classification == "no_findings" and any(
-            phrase in normalized_summary for phrase in _ACTIONABLE_CONCERN_PHRASES
-        ):
-            return [
-                ArtifactValidationIssue(
-                    rule_id="no_findings_summary_describes_concern",
-                    message="Artifact summary still describes an actionable concern.",
-                )
-            ]
-        return []
-
-    def _validate_reason_contradictions(
-        self,
-        artifact: PublishableReviewArtifact,
-    ) -> list[ArtifactValidationIssue]:
-        """Reject narrow confidence-reason contradictions."""
-        if artifact.review_confidence_reason is None:
-            return []
-        normalized_reason = artifact.review_confidence_reason.lower()
-        if artifact.classification == "no_findings" and any(
-            phrase in normalized_reason for phrase in _ACTIONABLE_CONCERN_PHRASES
-        ):
-            return [
-                ArtifactValidationIssue(
-                    rule_id="no_findings_reason_describes_concern",
-                    message="Artifact confidence reason still describes an actionable concern.",
-                )
-            ]
-        if artifact.classification == "findings_present" and any(
-            phrase in normalized_reason for phrase in _NO_FINDINGS_PHRASES
-        ):
-            return [
-                ArtifactValidationIssue(
-                    rule_id="findings_present_reason_denies_findings",
-                    message="Artifact confidence reason denies the accepted findings.",
+                    rule_id="manual_review_only_with_findings",
+                    message="Artifact classification is manual_review_only but findings exist.",
                 )
             ]
         return []

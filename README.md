@@ -6,14 +6,13 @@
 
 Structured AI workflows for software maintenance.
 
-An AI-assisted engineering workflow system for code review, static-analysis
-remediation, and operator-controlled automation.
+Structured AI workflows for code review, remediation, and operator-controlled
+automation.
 
-ZeroOne Ops coordinates multiple bounded workflows instead of relying on one
-opaque agent. It reviews merge requests, runs staged LLM-assisted review and
-continuity checks, mirrors outcomes into a GitLab-native dashboard, picks up
-eligible remediation work, generates and validates bounded fixes, and keeps the
-whole flow inspectable through explicit operator policy and workflow state.
+ZeroOne Ops coordinates bounded review and remediation workflows instead of
+relying on one opaque agent. It helps teams review change requests, follow up
+on static-analysis findings, and keep automation visible through explicit
+workflow state, operator policy, and inspectable outputs.
 
 ## Why This Exists
 
@@ -30,12 +29,12 @@ Today the project includes:
 
 - SonarQube issue intake and selection
 - dashboard-backed remediation and reconciliation workflows
-- GitLab merge request review with staged candidate, precision, and continuity
-  handling
+- GitLab and GitHub change-request review with staged candidate, precision,
+  continuity, and bounded inline-comment support
 - focused code-context gathering and LLM-backed analysis
 - patch generation, bounded execution, and MR creation in CI mode
 - operator-controlled policy handling through strict dashboard commands
-- bounded local state and machine-safe GitLab note persistence for continuity
+- bounded local state and machine-safe review-note persistence for continuity
 - a conservative single-file remediation boundary for safety
 
 The project is now in iterative hardening and refinement, with a focus on
@@ -119,7 +118,7 @@ Severity control note:
 - review one merge request per run
 - publish one deterministic summary note per reviewed revision
 - deduplicate by merge request IID and head SHA
-- avoid inline comments in v1
+- keep the summary note authoritative even when bounded inline comments are enabled
 
 ## Dry-Run And Fixtures
 
@@ -155,6 +154,8 @@ Config structure direction:
 
 For example:
 
+- `review.platform`
+- `review.inline_comments_enabled`
 - `remediation.bootstrap_severities`
 - `remediation.max_retry_count`
 - `remediation.analysis`
@@ -166,7 +167,7 @@ primary steady-state operator control once dashboard policy exists.
 When config leaves severity empty and no dashboard policy exists yet, the
 default bootstrap baseline is `low` and `medium` enabled with `high` disabled.
 Compatibility aliases still load during migration, but new configs should use
-`bootstrap_severities` and the nested structure.
+`remediation.bootstrap_severities` and the nested structure.
 
 To test the real OpenAI path instead of local fixtures:
 
@@ -201,6 +202,8 @@ For local testing, the most common environment variables are:
 
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
+- `GITHUB_TOKEN`
+- `GITHUB_REPOSITORY`
 - `GITLAB_URL`
 - `GITLAB_TOKEN`
 - `SONARQUBE_URL`

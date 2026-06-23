@@ -17,6 +17,8 @@ from zeroone_ops.models.review import (
     PrecisionReviewDecision,
     PriorReviewFinding,
     PriorReviewPass,
+    PublishableReviewArtifact,
+    PublishableReviewFinding,
     ReviewComment,
     ReviewFileContext,
     ReviewFinding,
@@ -982,7 +984,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     assert diagnostics.final_classification == "no_findings"
 
 
-def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_only(
+def test_review_non_dry_run_downgrades_structurally_invalid_artifact_to_manual_review_only(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -1086,6 +1088,33 @@ def test_review_non_dry_run_downgrades_contradictory_artifact_to_manual_review_o
             accepted_candidate_ids=("candidate-1",),
             message="Candidate review generated 1 candidates and accepted 1 findings.",
         ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.pipeline.review_artifact_builder.ReviewArtifactBuilder.build",
+        lambda self, **kwargs: type(
+            "BuildResult",
+            (),
+            {
+                    "artifact": PublishableReviewArtifact(
+                        classification="no_findings",
+                        summary="No actionable findings in this review pass.",
+                        findings=[
+                            PublishableReviewFinding(
+                                severity="medium",
+                                file_path="src/service.py",
+                                title="Missing test coverage",
+                            evidence=(
+                                "The diff changes `value = 1` to `value = 2` "
+                                "without any test updates."
+                            ),
+                            explanation="The change alters behavior without test updates.",
+                            suggested_follow_up="Add a regression test.",
+                        )
+                    ],
+                ),
+                "message": "Built publishable review artifact with contradictory shape.",
+            },
+        )(),
     )
 
     observed: dict[str, object] = {}

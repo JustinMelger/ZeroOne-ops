@@ -74,5 +74,7 @@ flowchart TD
 - Same-SHA reuse is an app-owned operational early exit, not a new review pass.
 - The precision stage owns final review meaning.
 - The validator owns publish safety, not review truth.
+- The validator should prefer strict structural invariants over natural-language
+  reinterpretation of an otherwise coherent review decision.
 - Repair is intentionally not implemented yet; current validator fallback is
   `manual_review_only`.

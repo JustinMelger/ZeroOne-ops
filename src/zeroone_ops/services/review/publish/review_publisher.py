@@ -211,7 +211,8 @@ class ReviewPublisher:
         lines: list[str] = [f"**Verdict:** {render_verdict(artifact)}"]
         if artifact.classification == "findings_present":
             lines.append(f"**Risk:** {render_risk(artifact)}")
-        lines.append(f"**Confidence:** {render_confidence_label(artifact)}")
+        if artifact.classification != "manual_review_only":
+            lines.append(f"**Confidence:** {render_confidence_label(artifact)}")
         continuity_line = (
             None
             if artifact.classification == "manual_review_only"

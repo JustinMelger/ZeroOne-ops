@@ -227,7 +227,16 @@ Why:
     "path": ".zeroone-ops-state.json"
   },
   "review": {
+    "platform": "gitlab",
     "max_changed_files": 5,
+    "enable_function_context": true,
+    "max_function_context_lines": 200,
+    "enable_helper_following": true,
+    "log_helper_following": false,
+    "helper_follow_depth": 1,
+    "max_followed_helpers_per_function": 3,
+    "max_followed_helper_lines": 120,
+    "max_followed_helper_lines_per_review": 240,
     "max_findings_per_review": 3,
     "max_prior_review_passes": 2,
     "max_context_lines_before": 30,
@@ -252,6 +261,19 @@ Why:
   }
 }
 ```
+
+Deprecated compatibility-only flat keys:
+
+- `supported_severities`
+  Use `remediation.bootstrap_severities`.
+- top-level `bootstrap_severities`
+  Use `remediation.bootstrap_severities`.
+- top-level `max_retry_count`
+  Use `remediation.max_retry_count`.
+- top-level `analysis`
+  Use `remediation.analysis`.
+- top-level `mock_sonar_issues_path`
+  Use `sonarqube.mock_issues_path`.
 
 ## 11. Implementation Phases
 
