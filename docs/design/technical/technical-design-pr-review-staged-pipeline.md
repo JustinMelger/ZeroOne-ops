@@ -523,14 +523,11 @@ real logged failures.
 
 Recommended first rules:
 
-- reject `no_findings` artifacts whose summary or confidence reason still
-  describes an actionable regression,
-- reject `findings_present` artifacts whose summary claims no actionable
-  findings,
-- reject artifacts whose rationale directly undermines the final
-  classification,
-- reject obvious off-diff or unsupported broad-impact claims when the final
-  artifact overstates supported evidence.
+- reject `no_findings` artifacts that still carry accepted findings,
+- reject `findings_present` artifacts that do not carry any accepted findings,
+- reject `manual_review_only` artifacts that still carry accepted findings,
+- reject other strict shape contradictions where the publish artifact cannot be
+  interpreted coherently from its structured fields.
 
 The validator should grow from real logged failures, not from speculative rule
 sprawl.
@@ -541,6 +538,11 @@ feedback log so each validator rule has a concrete motivating example.
 Recommended v1 boundary:
 
 - keep strict validator rules limited to high-trust contradiction classes,
+- do not let the validator reinterpret natural-language review meaning when the
+  precision/reconciliation stages have already made a coherent final judgment,
+- keep semantic review judgment in precision/reconciliation,
+- keep structural publish safety in validator,
+- keep user-facing wording and presentation guards in the publisher,
 - do not let the first validator become a broad wording or style police layer,
 - defer softer quality checks until more live examples accumulate.
 

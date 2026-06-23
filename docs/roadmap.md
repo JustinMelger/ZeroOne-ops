@@ -14,9 +14,9 @@ Working rule:
 - prefer validation, cleanup, and sharp follow-up fixes over broad new workflow
   expansion until the live rollout feedback is well understood
 
-## Current Product State
+## Implemented
 
-Shipped baseline:
+Shipped product state:
 
 - dashboard-backed remediation with bounded structured-edit execution
 - remediation reconciliation for `mr_opened` items
@@ -54,6 +54,16 @@ Shipped baseline:
 - operator-facing rebrand to `ZeroOne Ops`
 - internal package rename to `zeroone_ops`
 - service and service-test domain cleanup aligned to the product structure
+- review prompt cleanup and better reasoning defaults
+- bounded overlap/reconciliation flow for repeated MR reviews
+- same-file multi-edit remediation support for tightly coupled low-risk fixes
+- rollout-facing config restructure
+- dashboard schema hardening:
+  - structured-block recovery truth
+  - summary parsing reduction
+  - projection-only renderer contract
+  - historical dashboard fixtures
+  - machine manifest integrity contract
 
 ## Immediate Focus
 
@@ -116,13 +126,13 @@ Shipped baseline:
   - `High`
   - `Medium`
   - `Low`
-- keep confidence compressed to the bare label only
+- keep confidence compressed to the bare label only when it is shown
 - use a compact top block in this order:
   - verdict
   - risk
   - confidence
-  - continuity
-- show continuity only when prior review history materially changes how the
+  - since last review
+- show `Since last review` only when prior review history materially changes how the
   current note should be read
 - keep one short summary sentence after the top block
 - keep each finding explanation short and clear so a developer can immediately
@@ -131,9 +141,20 @@ Shipped baseline:
 - add a second short consequence sentence only when the impact is not already
   obvious from the issue itself, which is most common for behavioral changes
   and silent misconfiguration rather than direct runtime failures
+- tighten manual-review-only fallback UX so internal validator downgrade reasons
+  do not leak into the visible developer note
 - keep numbered findings in the first UX slice
 - do not add grouped root-cause rendering in the first UX slice
 - use a smaller `Clear` note shape than findings-present notes
+
+#### Active GitHub Review Rollout
+
+- live-validate the GitHub summary-review path with the neutralized config
+  surface
+- keep dogfooding the GitHub inline-comment path for continuity and transport
+  edge cases
+- cleanup GitHub review client helper growth by splitting transport,
+  normalization, and inline-thread helper concerns once the slice stabilizes
 
 #### Parked Operator-Feedback Research
 
@@ -193,7 +214,7 @@ Current rollout focus:
 - prompt integration for analysis and structured-edit paths
 - boundary tests proving guidance stays fix-shaping only
 
-### 5. Dashboard Workflow Refinement
+### 6. Dashboard Workflow Refinement
 
 The first dashboard hardening pass is now shipped.
 
@@ -207,25 +228,6 @@ Next feedback-driven refinements:
   current renderer-owned defaults
 - continue preferring explanation and scanability improvements before adding
   mutable retry or reset commands
-
-## Recently Completed
-
-- operator-facing rebrand to `ZeroOne Ops`
-- review prompt cleanup and better reasoning defaults
-- GitLab-backed prior review context for follow-up continuity
-- bounded overlap/reconciliation flow for repeated MR reviews
-- same-file multi-edit remediation support for tightly coupled low-risk fixes
-- remediation exclusion flow
-- rollout-facing config restructure
-- service-domain cleanup
-- service-test-domain cleanup
-- internal package rename to `zeroone_ops`
-- dashboard schema hardening:
-  - structured-block recovery truth
-  - summary parsing reduction
-  - projection-only renderer contract
-  - historical dashboard fixtures
-  - machine manifest integrity contract
 
 ## Future Tracks
 
@@ -273,35 +275,30 @@ These are important, but intentionally not part of the immediate rollout phase.
   - documented the GitHub review config shape and workflow example
   - mirrored the review integration test suite to the cleaned package
     boundaries
+- Phase 2: GitHub review summary support
+  - support GitHub pull request intake from CI context
+  - load GitHub pull request changed files and bounded review context
+  - publish deterministic GitHub pull request summary comments
+  - support same-SHA reuse and prior-summary continuity on GitHub
+  - stop conservatively when the triggering pull request head SHA no longer
+    matches the live provider head SHA
+  - reduce review artifact validation to strict structural invariants so valid
+    `no_findings` follow-up notes do not downgrade to `manual_review_only` from
+    phrase-based heuristic matching
+- Phase 3: GitHub review inline comments
+  - add GitHub inline comment transport
+  - suppress automatic inline re-posting on later runs for the same canonical
+    finding identity when prior inline-comment metadata already exists
+  - keep still-valid findings in the authoritative summary comment even when
+    inline re-publication is suppressed
+  - keep the summary comment authoritative
+  - preserve trusted-location and identity gating before inline publication
 
 - Provider-local GitLab review services, transport models, and GitLab CI
   environment names intentionally remain provider-specific and are not shared
   review-core debt.
 
 #### Open GitHub Platform Slices
-
-- [ ] Phase 2: GitHub Review Summary Support
-
-- support GitHub pull request intake from CI context
-- load GitHub pull request changed files and bounded review context
-- publish deterministic GitHub pull request summary comments
-- support same-SHA reuse and prior-summary continuity on GitHub
-- stop conservatively when the triggering pull request head SHA no longer
-  matches the live provider head SHA
-- Phase 2 itself still needs live GitHub validation of the summary-review path
-  with the neutralized config surface before inline-comment work starts
-
-- [ ] Phase 3: GitHub Review Inline Comments
-
-- add GitHub inline comment transport
-- suppress automatic inline re-posting on later runs for the same canonical
-  finding identity when prior inline-comment metadata already exists
-- keep still-valid findings in the authoritative summary comment even when
-  inline re-publication is suppressed
-- keep the summary comment authoritative
-- preserve trusted-location and identity gating before inline publication
-- cleanup GitHub review client helper growth by splitting transport,
-  normalization, and inline-thread helper concerns once the slice stabilizes
 
 - [ ] Phase 4: GitHub Remediation Publish Support
 

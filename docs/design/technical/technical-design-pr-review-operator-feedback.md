@@ -266,8 +266,8 @@ Recommended first note structure:
 
 1. `Verdict`
 2. `Risk`
-3. `Confidence`
-4. `Continuity`
+3. `Confidence` when shown
+4. `Since last review`
 5. short summary sentence
 6. compact findings section
 7. short feedback footer when that later feature is actually enabled
@@ -278,7 +278,7 @@ Recommended first top block shape:
 Verdict: Block
 Risk: High
 Confidence: High
-Continuity: 1 repeated, 2 new
+Since last review: 1 repeated finding, 2 new findings
 ```
 
 Recommended first verdict vocabulary:
@@ -307,6 +307,7 @@ Confidence should stay compressed in the human-facing note:
 
 - default to the bare label only
 - do not add a qualifier by default
+- omit visible `Confidence` on `Needs review`
 - only revisit qualifiers later if live usage shows a real interpretation gap
 
 Verdict and risk should stay distinct:
@@ -321,18 +322,18 @@ Expected interaction:
 - `Block` should stay meaningful and should not be used for every valid
   finding
 
-Continuity visibility rule:
+Since-last-review visibility rule:
 
-- show `Continuity` only when prior review history materially changes how the
+- show `Since last review` only when prior review history materially changes how the
   current note should be read
-- omit `Continuity` entirely when there is no meaningful prior-review context
+- omit `Since last review` entirely when there is no meaningful prior-review context
   to summarize
 
-Examples where continuity is informative:
+Examples where prior-review delta is informative:
 
-- `Continuity: 1 repeated, 2 new`
-- `Continuity: 2 repeated`
-- `Continuity: 1 repeated, 1 resolved`
+- `Since last review: 1 repeated finding, 2 new findings`
+- `Since last review: 2 repeated findings`
+- `Since last review: 1 repeated finding, 1 resolved finding`
 
 Examples where continuity should usually be omitted:
 
@@ -391,6 +392,7 @@ Recommended follow-up summary transition matrix:
 - `still` signals that the same review posture persists across passes
 - avoid `again`; it reads more procedural and less reviewer-like
 - `Needs review` notes should keep a short visible reason line after the summary
+- visible `Confidence` should be omitted for `Needs review`
 
 Current `Clear`:
 
@@ -413,7 +415,7 @@ Clear-detail rule:
   stay hidden from the visible note body
 - continuity-style resolution wording such as `The earlier concern is no longer
   present...` must only be shown when the latest prior pass was
-  `findings_present` or `manual_review_only`
+  `findings_present`
 - first-pass clear notes may still show one short informative detail sentence
   when it describes what the bot concluded about the diff itself rather than
   prior-review continuity
@@ -455,6 +457,10 @@ Current `Needs review`:
 
 - first pass:
   - `I couldn't review these changes confidently enough to call them clear.`
+- top block:
+  - keep `Verdict`
+  - omit visible `Confidence`
+  - omit `Since last review`
 - follow-up from `Clear`:
   - `I took another look, but I couldn't review these changes confidently enough to call them clear this time.`
 - follow-up from `Concern`:
@@ -477,7 +483,7 @@ No-findings rule for the first UX slice:
 
 - `Clear` notes should use a smaller variant than findings-present notes
 - keep `Verdict` and `Confidence`
-- omit `Continuity` unless prior review history materially changes
+- omit `Since last review` unless prior review history materially changes
   interpretation
 - keep one short summary sentence
 - allow one extra short detail sentence when it increases trust and does not

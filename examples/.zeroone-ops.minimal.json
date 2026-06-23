@@ -1,5 +1,8 @@
 {
   "base_branch": "main",
+  "review": {
+    "platform": "gitlab"
+  },
   "gitlab": {
     "target_branch": "main"
   }

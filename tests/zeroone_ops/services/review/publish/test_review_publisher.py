@@ -670,7 +670,8 @@ def test_render_artifact_keeps_manual_review_only_overlap_wording_conservative()
         ),
     )
 
-    assert body.startswith("**Verdict:** Needs review\n**Confidence:** High")
+    assert body.startswith("**Verdict:** Needs review")
+    assert "Confidence:" not in body
     assert "Risk:" not in body
     assert "Continuity:" not in body
     assert (
