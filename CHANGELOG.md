@@ -5,6 +5,13 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.45.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.45.0...zeroone-ops-v0.45.1) (2026-06-23)
+
+
+### Bug Fixes
+
+* **review:** simplify artifact validation and refresh docs ([#226](https://github.com/JustinMelger/ZeroOne-ops/issues/226)) ([a86236d](https://github.com/JustinMelger/ZeroOne-ops/commit/a86236dedc4d3f00bbff5a9f52a20a6348d20537))
+
 ## [0.45.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.44.0...zeroone-ops-v0.45.0) (2026-06-22)
 
 
