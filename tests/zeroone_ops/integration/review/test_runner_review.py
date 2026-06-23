@@ -1095,14 +1095,14 @@ def test_review_non_dry_run_downgrades_structurally_invalid_artifact_to_manual_r
             "BuildResult",
             (),
             {
-                    "artifact": PublishableReviewArtifact(
-                        classification="no_findings",
-                        summary="No actionable findings in this review pass.",
-                        findings=[
-                            PublishableReviewFinding(
-                                severity="medium",
-                                file_path="src/service.py",
-                                title="Missing test coverage",
+                "artifact": PublishableReviewArtifact(
+                    classification="no_findings",
+                    summary="No actionable findings in this review pass.",
+                    findings=[
+                        PublishableReviewFinding(
+                            severity="medium",
+                            file_path="src/service.py",
+                            title="Missing test coverage",
                             evidence=(
                                 "The diff changes `value = 1` to `value = 2` "
                                 "without any test updates."
