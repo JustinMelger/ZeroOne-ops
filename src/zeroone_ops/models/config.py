@@ -256,9 +256,7 @@ class AppConfig(BaseModel):
     def _validate_provider_requirements(self) -> AppConfig:
         """Validate provider-specific configuration requirements."""
         if self.platform == "gitlab" and self.gitlab is None:
-            raise ValueError(
-                "platform=gitlab requires a top-level gitlab configuration block."
-            )
+            raise ValueError("platform=gitlab requires a top-level gitlab configuration block.")
         return self
 
     def require_gitlab_config(self, *, reason: str) -> GitLabConfig:
