@@ -1,5 +1,6 @@
 {
   "execution_mode": "ci",
+  "platform": "gitlab",
   "base_branch": "main",
   "branch_prefix": "zeroone-ops",
   "dry_run": false,
@@ -12,7 +13,6 @@
     "required": true
   },
   "review": {
-    "platform": "gitlab",
     "max_changed_files": 5,
     "enable_function_context": true,
     "max_function_context_lines": 200,

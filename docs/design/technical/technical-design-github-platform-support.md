@@ -623,7 +623,7 @@ Primary phase:
 Problem:
 
 - the first GitHub summary-support implementation relied on a required
-  top-level `gitlab` config block even when `review.platform=github`
+  top-level `gitlab` config block even when `platform=github`
 - that was acceptable for an internal implementation checkpoint, but it was
   not an honest long-term review configuration contract
 
@@ -640,7 +640,7 @@ Chosen design direction:
 Implemented Phase 2b config outcome:
 
 - GitHub review mode no longer requires a dummy top-level `gitlab` block
-- review-platform selection stays under `review.platform`
+- repo-level platform selection stays under top-level `platform`
 - provider-local GitLab workflow settings remain available for GitLab-backed
   remediation and dashboard paths that still require them
 - review-domain packaging should be tightened where Phase 1 and Phase 2 left

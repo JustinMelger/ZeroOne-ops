@@ -158,9 +158,7 @@ def test_settings_allow_github_review_config_without_gitlab_block(
         """
         {
           "base_branch": "main",
-          "review": {
-            "platform": "github"
-          }
+          "platform": "github"
         }
         """.strip(),
         encoding="utf-8",
@@ -168,11 +166,35 @@ def test_settings_allow_github_review_config_without_gitlab_block(
 
     config = load_config()
 
-    assert config.review.platform == "github"
+    assert config.platform == "github"
     assert config.gitlab is None
 
 
-def test_settings_require_gitlab_block_for_gitlab_review_mode(
+def test_settings_require_gitlab_block_for_gitlab_platform(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "platform": "gitlab"
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    try:
+        load_config()
+    except SettingsError as error:
+        assert "platform=gitlab requires a top-level gitlab configuration block." in str(error)
+    else:  # pragma: no cover - defensive guard
+        raise AssertionError("Expected SettingsError for missing gitlab block in gitlab mode")
+
+
+def test_settings_migrate_legacy_review_platform_to_top_level_platform(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -183,21 +205,17 @@ def test_settings_require_gitlab_block_for_gitlab_review_mode(
         {
           "base_branch": "main",
           "review": {
-            "platform": "gitlab"
+            "platform": "github"
           }
         }
         """.strip(),
         encoding="utf-8",
     )
 
-    try:
-        load_config()
-    except SettingsError as error:
-        assert "review.platform=gitlab requires a top-level gitlab configuration block." in str(
-            error
-        )
-    else:  # pragma: no cover - defensive guard
-        raise AssertionError("Expected SettingsError for missing gitlab block in gitlab mode")
+    config = load_config()
+
+    assert config.platform == "github"
+    assert config.gitlab is None
 
 
 def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatch) -> None:

@@ -148,13 +148,14 @@ templates when wiring the bot into another repository.
 Config structure direction:
 
 - top-level shared runtime settings stay at the root
+- platform selection stays at the root
 - review-specific behavior lives under `review`
 - remediation-specific rollout policy now lives under `remediation`
 - Sonar-specific local fixture behavior now lives under `sonarqube`
 
 For example:
 
-- `review.platform`
+- `platform`
 - `review.inline_comments_enabled`
 - `remediation.bootstrap_severities`
 - `remediation.max_retry_count`

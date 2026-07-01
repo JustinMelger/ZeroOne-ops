@@ -787,7 +787,7 @@ The example is intentionally scoped to review only:
 
 Current config note:
 
-- keep `review.platform` set to `github`
+- keep top-level `platform` set to `github`
 - use the example workflow comments for the smallest valid review-only JSON
   shape
 

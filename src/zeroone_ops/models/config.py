@@ -39,7 +39,6 @@ class ApprovalConfig(BaseModel):
 class ReviewConfig(BaseModel):
     """Configure pull-request review behavior."""
 
-    platform: Literal["gitlab", "github"] = "gitlab"
     max_changed_files: int = 10
     max_context_lines_before: int = 30
     max_context_lines_after: int = 30
@@ -196,6 +195,7 @@ class AppConfig(BaseModel):
     """
 
     execution_mode: Literal["local", "ci"] = "ci"
+    platform: Literal["gitlab", "github"] = "gitlab"
     base_branch: str
     branch_prefix: str = "zeroone-ops"
     dry_run: bool = False
@@ -246,14 +246,18 @@ class AppConfig(BaseModel):
         if sonarqube:
             data["sonarqube"] = sonarqube
 
+        review = dict(data.get("review", {}))
+        if "platform" not in data and "platform" in review:
+            data["platform"] = review["platform"]
+
         return data
 
     @model_validator(mode="after")
     def _validate_provider_requirements(self) -> AppConfig:
         """Validate provider-specific configuration requirements."""
-        if self.review.platform == "gitlab" and self.gitlab is None:
+        if self.platform == "gitlab" and self.gitlab is None:
             raise ValueError(
-                "review.platform=gitlab requires a top-level gitlab configuration block."
+                "platform=gitlab requires a top-level gitlab configuration block."
             )
         return self
 

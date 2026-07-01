@@ -112,7 +112,7 @@ def _build_review_platform_runtime(
     GitLabDashboardClient | None,
 ]:
     """Build platform-specific review dependencies for the active review workflow."""
-    if config.review.platform == "github":
+    if config.platform == "github":
         github_config = load_github_connection_config()
         return (
             GitHubReviewClient(github_config),
