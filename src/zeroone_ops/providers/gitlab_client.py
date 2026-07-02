@@ -7,8 +7,8 @@ from urllib.parse import quote_plus, urlencode
 
 import httpx
 
+from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import GitLabConnectionConfig
-from zeroone_ops.models.gitlab import MergeRequestInfo
 
 
 class GitLabClientError(RuntimeError):
@@ -42,7 +42,7 @@ class GitLabClient:
         project_id: str,
         source_branch: str,
         target_branch: str,
-    ) -> MergeRequestInfo | None:
+    ) -> ChangeRequestInfo | None:
         """Find an existing open merge request for a branch pair."""
         encoded_project_id = quote_plus(project_id)
         response = self._http_client.get(
@@ -70,7 +70,7 @@ class GitLabClient:
         description: str,
         labels: list[str] | None = None,
         assignee_id: int | None = None,
-    ) -> MergeRequestInfo:
+    ) -> ChangeRequestInfo:
         """Create a merge request in GitLab."""
         encoded_project_id = quote_plus(project_id)
         request_data: list[tuple[str, str]] = [
@@ -157,14 +157,14 @@ def _parse_json_response(response: httpx.Response) -> dict[str, Any] | list[Any]
     return payload
 
 
-def _normalize_merge_request(payload: dict[str, Any]) -> MergeRequestInfo:
+def _normalize_merge_request(payload: dict[str, Any]) -> ChangeRequestInfo:
     """Normalize a GitLab merge request payload."""
     iid = payload.get("iid")
     web_url = payload.get("web_url")
     title = payload.get("title")
     if not isinstance(iid, int) or not isinstance(web_url, str) or not isinstance(title, str):
         raise GitLabClientError("Unexpected GitLab merge request structure.")
-    return MergeRequestInfo(iid=iid, web_url=web_url, title=title)
+    return ChangeRequestInfo(iid=iid, web_url=web_url, title=title)
 
 
 def _encode_form_data(items: list[tuple[str, str]]) -> bytes:

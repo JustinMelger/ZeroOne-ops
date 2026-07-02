@@ -34,6 +34,7 @@ class RunStatus(StrEnum):
     AWAITING_APPROVAL = "awaiting_approval"
     REJECTED = "rejected"
     MR_CREATED = "mr_created"
+    CHANGE_REQUEST_CREATED = "mr_created"
     REVIEWED = "reviewed"
     SYNCED = "synced"
     RECONCILED = "reconciled"
@@ -166,6 +167,16 @@ class RunRecord(BaseModel):
     failure: FailureDetails | None = None
     review_diagnostics: ReviewRunDiagnostics | None = None
 
+    @property
+    def change_request_url(self) -> str | None:
+        """Return the neutral change-request URL alias."""
+        return self.mr_url
+
+    @change_request_url.setter
+    def change_request_url(self, value: str | None) -> None:
+        """Persist the neutral change-request URL through the legacy field."""
+        self.mr_url = value
+
 
 class IssueState(BaseModel):
     """Represent the latest known lifecycle state for an issue.
@@ -189,6 +200,16 @@ class IssueState(BaseModel):
     last_error: str | None = None
     failure: FailureDetails | None = None
     updated_at: datetime = Field(default_factory=utc_now)
+
+    @property
+    def change_request_url(self) -> str | None:
+        """Return the neutral change-request URL alias."""
+        return self.mr_url
+
+    @change_request_url.setter
+    def change_request_url(self, value: str | None) -> None:
+        """Persist the neutral change-request URL through the legacy field."""
+        self.mr_url = value
 
 
 class PriorReviewFindingState(BaseModel):
@@ -245,6 +266,16 @@ class DashboardItemState(BaseModel):
     mr_url: str | None = None
     last_error: str | None = None
     updated_at: datetime = Field(default_factory=utc_now)
+
+    @property
+    def change_request_url(self) -> str | None:
+        """Return the neutral change-request URL alias."""
+        return self.mr_url
+
+    @change_request_url.setter
+    def change_request_url(self, value: str | None) -> None:
+        """Persist the neutral change-request URL through the legacy field."""
+        self.mr_url = value
 
 
 class RemediationExclusionState(BaseModel):

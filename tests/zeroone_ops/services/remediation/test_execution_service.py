@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from zeroone_ops.models.analysis import PatchProposal, ValidationResult
+from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
@@ -8,7 +9,6 @@ from zeroone_ops.models.config import (
     GitLabConfig,
     RemediationConfig,
 )
-from zeroone_ops.models.gitlab import MergeRequestInfo
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
 from zeroone_ops.services.remediation.execution_service import ExecutionService
@@ -164,8 +164,14 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
 
     monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analyze_issue)
 
-    def approve_request(issue, changed_files, validation, commit_message, mr_title) -> bool:
-        del issue, changed_files, validation, commit_message, mr_title
+    def approve_request(
+        issue,
+        changed_files,
+        validation,
+        commit_message,
+        change_request_title,
+    ) -> bool:
+        del issue, changed_files, validation, commit_message, change_request_title
         return True
 
     monkeypatch.setattr(service.approval_service, "request", approve_request)
@@ -271,7 +277,7 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
         captured["title"] = title
         captured["description"] = description
 
-        return MergeRequestInfo(
+        return ChangeRequestInfo(
             iid=10,
             web_url="https://gitlab.example.com/group/project/-/merge_requests/10",
             title="fix: patch service",
@@ -344,8 +350,14 @@ def test_execute_returns_rejected_when_local_approval_declines(
 
     monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analyze_issue)
 
-    def reject_approval(issue, changed_files, validation, commit_message, mr_title) -> bool:
-        del issue, changed_files, validation, commit_message, mr_title
+    def reject_approval(
+        issue,
+        changed_files,
+        validation,
+        commit_message,
+        change_request_title,
+    ) -> bool:
+        del issue, changed_files, validation, commit_message, change_request_title
         target_file.write_text("value = 2\n", encoding="utf-8")
         return False
 

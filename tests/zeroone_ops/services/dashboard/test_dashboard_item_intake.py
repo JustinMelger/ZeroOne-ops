@@ -2,6 +2,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
@@ -18,7 +19,6 @@ from zeroone_ops.models.dashboard import (
     DashboardSeverityPolicyStateEntry,
     empty_sections,
 )
-from zeroone_ops.models.gitlab import MergeRequestInfo
 from zeroone_ops.models.state import (
     AppState,
     DashboardItemState,
@@ -81,11 +81,11 @@ class FakeMergeRequestService:
         project_id: str,
         source_branch: str,
         target_branch: str,
-    ) -> MergeRequestInfo | None:
+    ) -> ChangeRequestInfo | None:
         del project_id, target_branch
         if source_branch not in self.branches_with_open_mr:
             return None
-        return MergeRequestInfo(
+        return ChangeRequestInfo(
             iid=1,
             web_url="https://gitlab.example.com/group/project/-/merge_requests/1",
             title="fix: existing issue",

@@ -1,3 +1,4 @@
+from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
@@ -6,7 +7,6 @@ from zeroone_ops.models.config import (
     GitLabConnectionConfig,
     RemediationConfig,
 )
-from zeroone_ops.models.gitlab import MergeRequestInfo
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.services.remediation.publish_service import PublishService
 
@@ -136,10 +136,10 @@ def test_publish_service_uses_pushed_branch_consistently(monkeypatch) -> None:
         description: str,
         labels: list[str],
         assignee_id: int | None = None,
-    ) -> MergeRequestInfo:
+    ) -> ChangeRequestInfo:
         del self, project_id, target_branch, title, description, labels, assignee_id
         captured["source_branch"] = source_branch
-        return MergeRequestInfo(
+        return ChangeRequestInfo(
             iid=17,
             web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
             title="fix: remediate python:S2259 in service.py",
@@ -210,10 +210,10 @@ def test_publish_service_assigns_created_merge_request_by_configured_username(
         description: str,
         labels: list[str],
         assignee_id: int | None = None,
-    ) -> MergeRequestInfo:
+    ) -> ChangeRequestInfo:
         del self, project_id, source_branch, target_branch, title, description, labels
         captured["assignee_id"] = assignee_id
-        return MergeRequestInfo(
+        return ChangeRequestInfo(
             iid=17,
             web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
             title="fix: remediate python:S2259 in service.py",
@@ -272,7 +272,7 @@ def test_publish_service_assigns_reused_merge_request_by_configured_username(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.remediation.publish_service.ChangeRequestService.find_open",
-        lambda self, project_id, source_branch, target_branch: MergeRequestInfo(
+        lambda self, project_id, source_branch, target_branch: ChangeRequestInfo(
             iid=17,
             web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
             title="fix: remediate python:S2259 in service.py",

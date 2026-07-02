@@ -21,7 +21,7 @@ from zeroone_ops.services.dashboard.dashboard_item_selector import (
     DashboardItemSelector,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
-from zeroone_ops.services.shared.mr_service import MergeRequestService
+from zeroone_ops.services.shared.mr_service import ChangeRequestService
 from zeroone_ops.settings import SettingsError, load_gitlab_connection_config
 from zeroone_ops.utils.git import build_issue_branch_name
 
@@ -63,7 +63,7 @@ class DashboardItemIntakeService:
         config: AppConfig | None = None,
         dashboard_service: DashboardService,
         selector: DashboardItemSelector | None = None,
-        merge_request_service: MergeRequestService | None = None,
+        merge_request_service: ChangeRequestService | None = None,
     ) -> None:
         """Initialize the dashboard item intake service."""
         self.repo_root = repo_root
@@ -133,7 +133,7 @@ class DashboardItemIntakeService:
         *,
         policy_state: DashboardPolicyState,
         gitlab_config: GitLabConnectionConfig | None,
-        merge_request_service: MergeRequestService | None,
+        merge_request_service: ChangeRequestService | None,
     ) -> Counter[str]:
         """Return skip-reason counts for the current dashboard item candidates."""
         skip_reason_counts: Counter[str] = Counter()
@@ -167,7 +167,7 @@ class DashboardItemIntakeService:
         *,
         policy_state: DashboardPolicyState,
         gitlab_config: GitLabConnectionConfig | None,
-        merge_request_service: MergeRequestService | None,
+        merge_request_service: ChangeRequestService | None,
     ) -> DashboardItem | None:
         """Return the first dashboard item that survives intake checks."""
         for item in items:
@@ -191,7 +191,7 @@ class DashboardItemIntakeService:
         *,
         policy_state: DashboardPolicyState,
         gitlab_config: GitLabConnectionConfig | None,
-        merge_request_service: MergeRequestService | None,
+        merge_request_service: ChangeRequestService | None,
     ) -> str | None:
         """Return the stable reason one dashboard item should be skipped."""
         selector_reason = self.selector.skip_reason(item, state)
@@ -290,7 +290,7 @@ class DashboardItemIntakeService:
         item: DashboardItem,
         *,
         gitlab_config: GitLabConnectionConfig | None,
-        merge_request_service: MergeRequestService | None,
+        merge_request_service: ChangeRequestService | None,
     ) -> str | None:
         """Return whether one dashboard item is already represented by an open MR."""
         if item.merge_request_url:
@@ -375,13 +375,13 @@ class DashboardItemIntakeService:
     def _build_merge_request_service(
         self,
         gitlab_config: GitLabConnectionConfig | None,
-    ) -> MergeRequestService | None:
-        """Return the configured merge request lookup service when available."""
+    ) -> ChangeRequestService | None:
+        """Return the configured change-request lookup service when available."""
         if self.merge_request_service is not None:
             return self.merge_request_service
         if gitlab_config is None:
             return None
-        return MergeRequestService(GitLabClient(gitlab_config))
+        return ChangeRequestService(GitLabClient(gitlab_config))
 
     def _build_no_item_message(
         self,

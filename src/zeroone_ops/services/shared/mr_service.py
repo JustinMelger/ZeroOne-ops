@@ -5,7 +5,7 @@ This module wraps change-request publication through the GitLab provider.
 
 from __future__ import annotations
 
-from zeroone_ops.models.gitlab import MergeRequestInfo
+from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.providers.gitlab_client import GitLabClient
 
 
@@ -33,7 +33,7 @@ class ChangeRequestService:
         description: str,
         labels: list[str],
         assignee_id: int | None = None,
-    ) -> MergeRequestInfo:
+    ) -> ChangeRequestInfo:
         """Create a change request.
 
         Args:
@@ -63,7 +63,7 @@ class ChangeRequestService:
         project_id: str,
         source_branch: str,
         target_branch: str,
-    ) -> MergeRequestInfo | None:
+    ) -> ChangeRequestInfo | None:
         """Find an existing open change request."""
         return self.gitlab_client.find_open_merge_request(
             project_id=project_id,

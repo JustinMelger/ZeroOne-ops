@@ -223,7 +223,7 @@ class ExecutionService:
                 changed_files=patch.files_touched,
                 validation=validation_result,
                 commit_message=patch.commit_message,
-                mr_title=patch.mr_title,
+                change_request_title=patch.change_request_title,
             )
             if not approved:
                 self._rollback_pre_commit(analysis_result)
@@ -262,8 +262,8 @@ class ExecutionService:
         publish_result = self._publish_branch_and_create_change_request(
             selected_issue=selected_issue,
             branch_name=branch_name or "",
-            mr_title=patch.mr_title,
-            mr_description=patch.mr_description,
+            mr_title=patch.change_request_title,
+            mr_description=patch.change_request_description,
         )
         if publish_result.error_message is not None:
             return ExecutionResult(

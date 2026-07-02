@@ -43,6 +43,27 @@ class DashboardRunStateService:
             last_run_id=record.run_id,
         )
 
+    def mark_change_request_created(
+        self,
+        *,
+        record: RunRecord,
+        dashboard_item_id: str,
+        branch_name: str | None,
+        change_request_url: str,
+    ) -> None:
+        """Persist a created or reused change request for one dashboard item."""
+        record.status = RunStatus.CHANGE_REQUEST_CREATED
+        record.dashboard_item_id = dashboard_item_id
+        record.branch_name = branch_name
+        record.change_request_url = change_request_url
+        record.updated_at = utc_now()
+        self.state.dashboard_items[dashboard_item_id] = DashboardItemState(
+            status=RunStatus.CHANGE_REQUEST_CREATED.value,
+            last_run_id=record.run_id,
+            branch_name=branch_name,
+            mr_url=change_request_url,
+        )
+
     def mark_mr_created(
         self,
         *,
@@ -51,17 +72,12 @@ class DashboardRunStateService:
         branch_name: str | None,
         mr_url: str,
     ) -> None:
-        """Persist a created or reused merge request for one dashboard item."""
-        record.status = RunStatus.MR_CREATED
-        record.dashboard_item_id = dashboard_item_id
-        record.branch_name = branch_name
-        record.mr_url = mr_url
-        record.updated_at = utc_now()
-        self.state.dashboard_items[dashboard_item_id] = DashboardItemState(
-            status=RunStatus.MR_CREATED.value,
-            last_run_id=record.run_id,
+        """Persist a created or reused merge request through the neutral helper."""
+        self.mark_change_request_created(
+            record=record,
+            dashboard_item_id=dashboard_item_id,
             branch_name=branch_name,
-            mr_url=mr_url,
+            change_request_url=mr_url,
         )
 
     def mark_done(

@@ -93,8 +93,8 @@ class EditRenderer:
             files_touched=files_touched,
             unified_diff=(f"diff --git a/{target_file} b/{target_file}\n{unified_diff_text}"),
             commit_message=proposal.commit_message,
-            mr_title=proposal.mr_title,
-            mr_description=proposal.mr_description,
+            mr_title=proposal.change_request_title,
+            mr_description=proposal.change_request_description,
         )
 
     def _apply_edit(self, content: str, edit: TextEdit) -> str:

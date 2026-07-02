@@ -265,11 +265,11 @@ class DashboardRemediationRunner:
                 )
 
         if change_request_url is not None:
-            self.run_state_service.dashboard.mark_mr_created(
+            self.run_state_service.dashboard.mark_change_request_created(
                 record=record,
                 dashboard_item_id=work_item.dashboard_item_id,
                 branch_name=execution_result.branch_name,
-                mr_url=change_request_url,
+                change_request_url=change_request_url,
             )
 
         self.run_state_service.dashboard.finish_success()
