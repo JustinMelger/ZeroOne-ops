@@ -38,8 +38,8 @@ def _echo_review_summary(*, dry_run: bool) -> None:
         typer.echo(f"branch_name={summary.branch_name}")
     if summary.commit_sha is not None:
         typer.echo(f"commit_sha={summary.commit_sha}")
-    if summary.mr_url is not None:
-        typer.echo(f"mr_url={summary.mr_url}")
+    if summary.change_request_url is not None:
+        typer.echo(f"change_request_url={summary.change_request_url}")
     typer.echo(summary.message)
     typer.echo(f"state_path={summary.state_path}")
 
@@ -58,8 +58,8 @@ def _echo_dashboard_summary(*, dry_run: bool) -> None:
         typer.echo(f"branch_name={summary.branch_name}")
     if summary.commit_sha is not None:
         typer.echo(f"commit_sha={summary.commit_sha}")
-    if summary.mr_url is not None:
-        typer.echo(f"mr_url={summary.mr_url}")
+    if summary.change_request_url is not None:
+        typer.echo(f"change_request_url={summary.change_request_url}")
     typer.echo(summary.message)
     typer.echo(f"state_path={summary.state_path}")
 
@@ -112,8 +112,8 @@ def dashboard_remediate_command(
         typer.echo(f"branch_name={summary.branch_name}")
     if summary.commit_sha is not None:
         typer.echo(f"commit_sha={summary.commit_sha}")
-    if summary.mr_url is not None:
-        typer.echo(f"mr_url={summary.mr_url}")
+    if summary.change_request_url is not None:
+        typer.echo(f"change_request_url={summary.change_request_url}")
     typer.echo(summary.message)
     typer.echo(f"state_path={summary.state_path}")
 
@@ -139,8 +139,8 @@ def dashboard_reconcile_command(
         typer.echo(f"branch_name={summary.branch_name}")
     if summary.commit_sha is not None:
         typer.echo(f"commit_sha={summary.commit_sha}")
-    if summary.mr_url is not None:
-        typer.echo(f"mr_url={summary.mr_url}")
+    if summary.change_request_url is not None:
+        typer.echo(f"change_request_url={summary.change_request_url}")
     typer.echo(summary.message)
     typer.echo(f"state_path={summary.state_path}")
 

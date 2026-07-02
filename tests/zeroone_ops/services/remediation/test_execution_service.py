@@ -96,8 +96,8 @@ def fake_publish_reused(**kwargs) -> PublishResult:
     del kwargs
     return PublishResult(
         branch_name="zeroone-ops/fix",
-        mr_url="https://gitlab.example.com/group/project/-/merge_requests/9",
-        mr_action="reused",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/9",
+        change_request_action="reused",
     )
 
 
@@ -218,8 +218,10 @@ def test_execute_reuses_existing_merge_request_in_ci_mode(tmp_path: Path, monkey
     assert result.failure is None
     assert result.branch_name == "zeroone-ops/fix"
     assert result.commit_sha == "abc123"
-    assert result.mr_action == "reused"
-    assert result.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/9"
+    assert result.change_request_action == "reused"
+    assert (
+        result.change_request_url == "https://gitlab.example.com/group/project/-/merge_requests/9"
+    )
     assert result.publish_attempted is True
 
 
@@ -251,7 +253,7 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
 
     monkeypatch.setattr(service.branch_manager, "push_current_branch", fake_push_current_branch)
     monkeypatch.setattr(
-        "zeroone_ops.services.remediation.publish_service.MergeRequestService.find_open",
+        "zeroone_ops.services.remediation.publish_service.ChangeRequestService.find_open",
         fake_find_open_none,
     )
 
@@ -276,15 +278,17 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.remediation.publish_service.MergeRequestService.create",
+        "zeroone_ops.services.remediation.publish_service.ChangeRequestService.create",
         capture_create,
     )
 
     result = service.execute(selected_issue=build_issue(), dry_run=False)
 
     assert result.failure is None
-    assert result.mr_action == "created"
-    assert result.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/10"
+    assert result.change_request_action == "created"
+    assert (
+        result.change_request_url == "https://gitlab.example.com/group/project/-/merge_requests/10"
+    )
     assert captured["title"] == "fix: remediate python:S2259 in service.py"
     assert captured["description"] == "\n".join(
         [

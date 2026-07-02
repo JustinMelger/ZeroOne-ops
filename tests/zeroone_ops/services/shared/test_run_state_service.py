@@ -96,7 +96,7 @@ def test_fail_issue_persists_structured_failure(tmp_path: Path) -> None:
     assert loaded.runs[0].failure == failure
 
 
-def test_build_summary_includes_merge_request_action(tmp_path: Path) -> None:
+def test_build_summary_includes_change_request_action(tmp_path: Path) -> None:
     state_path = tmp_path / ".zeroone-ops-state.json"
     config = build_config(state_path)
     store = StateStore(
@@ -111,12 +111,12 @@ def test_build_summary_includes_merge_request_action(tmp_path: Path) -> None:
         run_id="run-1",
         status=RunStatus.MR_CREATED,
         message="Published successfully.",
-        mr_url="https://gitlab.example.com/group/project/-/merge_requests/9",
-        mr_action="reused",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/9",
+        change_request_action="reused",
     )
 
     assert (
-        summary.message == "[ci] Published successfully. Merge request reused: "
+        summary.message == "[ci] Published successfully. Change request reused: "
         "https://gitlab.example.com/group/project/-/merge_requests/9"
     )
 

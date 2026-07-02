@@ -1,6 +1,6 @@
-"""Merge request service.
+"""Change-request publication service.
 
-This module wraps merge request creation through the GitLab provider.
+This module wraps change-request publication through the GitLab provider.
 """
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from zeroone_ops.models.gitlab import MergeRequestInfo
 from zeroone_ops.providers.gitlab_client import GitLabClient
 
 
-class MergeRequestService:
-    """Create merge requests through the GitLab client.
+class ChangeRequestService:
+    """Create provider-backed change requests through the GitLab client.
 
     Args:
         gitlab_client: GitLab provider implementation.
@@ -34,16 +34,16 @@ class MergeRequestService:
         labels: list[str],
         assignee_id: int | None = None,
     ) -> MergeRequestInfo:
-        """Create a merge request.
+        """Create a change request.
 
         Args:
             project_id: GitLab project identifier.
             source_branch: Source branch name.
             target_branch: Target branch name.
-            title: Merge request title.
-            description: Merge request description.
-            labels: Labels to attach to the merge request.
-            assignee_id: Optional assignee id to attach to the merge request.
+            title: Change-request title.
+            description: Change-request description.
+            labels: Labels to attach to the change request.
+            assignee_id: Optional assignee id to attach to the change request.
 
         Returns:
             Metadata for the created merge request.
@@ -64,7 +64,7 @@ class MergeRequestService:
         source_branch: str,
         target_branch: str,
     ) -> MergeRequestInfo | None:
-        """Find an existing open merge request."""
+        """Find an existing open change request."""
         return self.gitlab_client.find_open_merge_request(
             project_id=project_id,
             source_branch=source_branch,
@@ -78,9 +78,12 @@ class MergeRequestService:
         merge_request_iid: int,
         assignee_id: int,
     ) -> None:
-        """Assign an existing merge request."""
+        """Assign an existing change request."""
         self.gitlab_client.update_merge_request_assignee(
             project_id=project_id,
             merge_request_iid=merge_request_iid,
             assignee_id=assignee_id,
         )
+
+
+MergeRequestService = ChangeRequestService

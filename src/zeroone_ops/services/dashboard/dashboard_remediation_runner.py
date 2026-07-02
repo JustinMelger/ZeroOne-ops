@@ -170,6 +170,8 @@ class DashboardRemediationRunner:
             context=context,
             dry_run=active_dry_run,
         )
+        change_request_url = _change_request_url(execution_result)
+        change_request_action = _change_request_action(execution_result)
         record.branch_name = execution_result.branch_name
         record.commit_sha = execution_result.commit_sha
 
@@ -235,16 +237,16 @@ class DashboardRemediationRunner:
 
         if (
             live_dashboard_updates
-            and execution_result.mr_url is not None
+            and change_request_url is not None
             and execution_result.commit_sha
         ):
-            record.mr_url = execution_result.mr_url
+            record.mr_url = change_request_url
             mr_opened_update = DashboardRemediationUpdater(self.dashboard_service).mark_mr_opened(
                 project_id=project_id,
                 dashboard_item_id=work_item.dashboard_item_id,
                 run_id=run_id,
                 branch_name=execution_result.branch_name or "",
-                merge_request_url=execution_result.mr_url,
+                merge_request_url=change_request_url,
                 commit_sha=execution_result.commit_sha,
                 retry_count=retry_count,
                 retry_eligible=False,
@@ -262,12 +264,12 @@ class DashboardRemediationRunner:
                     dashboard_error_message=mr_opened_update.error_message,
                 )
 
-        if execution_result.mr_url is not None:
+        if change_request_url is not None:
             self.run_state_service.dashboard.mark_mr_created(
                 record=record,
                 dashboard_item_id=work_item.dashboard_item_id,
                 branch_name=execution_result.branch_name,
-                mr_url=execution_result.mr_url,
+                mr_url=change_request_url,
             )
 
         self.run_state_service.dashboard.finish_success()
@@ -285,8 +287,8 @@ class DashboardRemediationRunner:
             dashboard_item_id=work_item.dashboard_item_id,
             branch_name=record.branch_name,
             commit_sha=record.commit_sha,
-            mr_url=execution_result.mr_url,
-            mr_action=execution_result.mr_action,
+            change_request_url=change_request_url,
+            change_request_action=change_request_action,
         )
 
     def _fail_dashboard_update(
@@ -329,3 +331,21 @@ def _with_dashboard_recovery_note(
             f"{', '.join(recovered_stale_item_ids)}."
         )
     return f"{message} {recovery_note}"
+
+
+def _change_request_url(execution_result: object) -> str | None:
+    """Return the neutral or legacy published change-request URL."""
+    return getattr(
+        execution_result,
+        "change_request_url",
+        getattr(execution_result, "mr_url", None),
+    )
+
+
+def _change_request_action(execution_result: object) -> str | None:
+    """Return the neutral or legacy published change-request action."""
+    return getattr(
+        execution_result,
+        "change_request_action",
+        getattr(execution_result, "mr_action", None),
+    )

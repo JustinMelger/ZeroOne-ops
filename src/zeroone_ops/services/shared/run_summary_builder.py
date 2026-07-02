@@ -20,7 +20,12 @@ class RunSummary:
     dashboard_item_id: str | None = None
     branch_name: str | None = None
     commit_sha: str | None = None
-    mr_url: str | None = None
+    change_request_url: str | None = None
+
+    @property
+    def mr_url(self) -> str | None:
+        """Return the legacy merge-request URL alias."""
+        return self.change_request_url
 
 
 class RunSummaryBuilder:
@@ -41,16 +46,22 @@ class RunSummaryBuilder:
         dashboard_item_id: str | None = None,
         branch_name: str | None = None,
         commit_sha: str | None = None,
+        change_request_url: str | None = None,
+        change_request_action: str | None = None,
         mr_url: str | None = None,
         mr_action: str | None = None,
     ) -> RunSummary:
         """Build one CLI-facing run summary."""
+        if change_request_url is None:
+            change_request_url = mr_url
+        if change_request_action is None:
+            change_request_action = mr_action
         summary = f"[{self.execution_mode}] {message}"
-        if mr_url is not None:
-            if mr_action is None:
-                summary = f"{summary} Merge request: {mr_url}"
+        if change_request_url is not None:
+            if change_request_action is None:
+                summary = f"{summary} Change request: {change_request_url}"
             else:
-                summary = f"{summary} Merge request {mr_action}: {mr_url}"
+                summary = f"{summary} Change request {change_request_action}: {change_request_url}"
         return RunSummary(
             run_id=run_id,
             status=status,
@@ -60,5 +71,5 @@ class RunSummaryBuilder:
             dashboard_item_id=dashboard_item_id,
             branch_name=branch_name,
             commit_sha=commit_sha,
-            mr_url=mr_url,
+            change_request_url=change_request_url,
         )

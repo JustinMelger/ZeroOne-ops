@@ -272,6 +272,8 @@ class RunStateService:
         dashboard_item_id: str | None = None,
         branch_name: str | None = None,
         commit_sha: str | None = None,
+        change_request_url: str | None = None,
+        change_request_action: str | None = None,
         mr_url: str | None = None,
         mr_action: str | None = None,
     ) -> RunSummary:
@@ -284,6 +286,8 @@ class RunStateService:
             dashboard_item_id=dashboard_item_id,
             branch_name=branch_name,
             commit_sha=commit_sha,
+            change_request_url=change_request_url,
+            change_request_action=change_request_action,
             mr_url=mr_url,
             mr_action=mr_action,
         )

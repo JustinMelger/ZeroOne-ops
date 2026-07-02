@@ -52,7 +52,7 @@ class StubBranchManager:
 def test_publish_service_builds_deterministic_description() -> None:
     service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
 
-    description = service.build_mr_description(
+    description = service.build_change_request_description(
         selected_issue=build_issue(),
         change_summary="summary",
     )
@@ -81,7 +81,7 @@ def test_publish_service_builds_deterministic_description() -> None:
 def test_publish_service_uses_generic_profile_for_unknown_source() -> None:
     service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
 
-    description = service.build_mr_description(
+    description = service.build_change_request_description(
         selected_issue=RemediationExecutionTarget(
             item_id="pipeline:1",
             source_type="pipeline_failure",
@@ -99,10 +99,10 @@ def test_publish_service_uses_generic_profile_for_unknown_source() -> None:
     assert "- Item reference: `job-1`" in description
 
 
-def test_publish_service_builds_conventional_commit_merge_request_title() -> None:
+def test_publish_service_builds_conventional_commit_change_request_title() -> None:
     service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
 
-    title = service.build_mr_title(
+    title = service.build_change_request_title(
         selected_issue=build_issue(),
         proposed_title="patch service please",
     )
@@ -123,7 +123,7 @@ def test_publish_service_uses_pushed_branch_consistently(monkeypatch) -> None:
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.remediation.publish_service.MergeRequestService.find_open",
+        "zeroone_ops.services.remediation.publish_service.ChangeRequestService.find_open",
         lambda self, project_id, source_branch, target_branch: None,
     )
 
@@ -146,7 +146,7 @@ def test_publish_service_uses_pushed_branch_consistently(monkeypatch) -> None:
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.remediation.publish_service.MergeRequestService.create",
+        "zeroone_ops.services.remediation.publish_service.ChangeRequestService.create",
         capture_create,
     )
 
@@ -193,7 +193,7 @@ def test_publish_service_assigns_created_merge_request_by_configured_username(
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.remediation.publish_service.MergeRequestService.find_open",
+        "zeroone_ops.services.remediation.publish_service.ChangeRequestService.find_open",
         lambda self, project_id, source_branch, target_branch: None,
     )
     monkeypatch.setattr(
@@ -220,7 +220,7 @@ def test_publish_service_assigns_created_merge_request_by_configured_username(
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.services.remediation.publish_service.MergeRequestService.create",
+        "zeroone_ops.services.remediation.publish_service.ChangeRequestService.create",
         capture_create,
     )
 
@@ -232,7 +232,7 @@ def test_publish_service_assigns_created_merge_request_by_configured_username(
     )
 
     assert captured["assignee_id"] == 42
-    assert result.mr_action == "created"
+    assert result.change_request_action == "created"
 
 
 def test_publish_service_assigns_reused_merge_request_by_configured_username(
@@ -271,7 +271,7 @@ def test_publish_service_assigns_reused_merge_request_by_configured_username(
         lambda self, username: 42 if username == "justin" else 0,
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.remediation.publish_service.MergeRequestService.find_open",
+        "zeroone_ops.services.remediation.publish_service.ChangeRequestService.find_open",
         lambda self, project_id, source_branch, target_branch: MergeRequestInfo(
             iid=17,
             web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
@@ -291,7 +291,7 @@ def test_publish_service_assigns_reused_merge_request_by_configured_username(
         captured["assignee_id"] = assignee_id
 
     monkeypatch.setattr(
-        "zeroone_ops.services.remediation.publish_service.MergeRequestService.assign",
+        "zeroone_ops.services.remediation.publish_service.ChangeRequestService.assign",
         capture_assign,
     )
 
@@ -304,4 +304,4 @@ def test_publish_service_assigns_reused_merge_request_by_configured_username(
 
     assert captured["merge_request_iid"] == 17
     assert captured["assignee_id"] == 42
-    assert result.mr_action == "reused"
+    assert result.change_request_action == "reused"
