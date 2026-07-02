@@ -97,10 +97,12 @@ def test_sync_dashboard_sonar_dry_run_reports_eligible_issue_count(
         """
         {
           "base_branch": "main",
-          "supported_severities": ["LOW"],
+          "remediation": {
+            "target_branch": "main",
+            "bootstrap_severities": ["LOW"]
+          },
           "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -138,10 +140,12 @@ def test_sync_dashboard_sonar_ci_mode_publishes_dashboard_summary(
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "supported_severities": ["LOW"],
+          "remediation": {
+            "target_branch": "main",
+            "bootstrap_severities": ["LOW"]
+          },
           "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -186,10 +190,12 @@ def test_sync_dashboard_sonar_reports_no_eligible_issues_in_ci_mode(
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "supported_severities": ["LOW"],
+          "remediation": {
+            "target_branch": "main",
+            "bootstrap_severities": ["LOW"]
+          },
           "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }

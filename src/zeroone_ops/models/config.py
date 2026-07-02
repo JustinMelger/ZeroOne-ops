@@ -7,7 +7,7 @@ environment overrides.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import AliasChoices, BaseModel, Field, model_validator
 
@@ -212,6 +212,16 @@ class AppConfig(BaseModel):
     gitlab: GitLabConfig | None = None
     state: StateConfig = Field(default_factory=StateConfig)
 
+    _REMOVED_FLAT_CONFIG_KEYS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "supported_severities",
+            "bootstrap_severities",
+            "max_retry_count",
+            "analysis",
+            "mock_sonar_issues_path",
+        }
+    )
+
     @model_validator(mode="before")
     @classmethod
     def _migrate_legacy_fields(cls, value: object) -> object:
@@ -219,24 +229,15 @@ class AppConfig(BaseModel):
         if not isinstance(value, dict):
             return value
         data = dict(value)
+        removed_keys = sorted(key for key in cls._REMOVED_FLAT_CONFIG_KEYS if key in data)
+        if removed_keys:
+            keys = ", ".join(removed_keys)
+            raise ValueError(
+                "Removed flat config keys are no longer supported: "
+                f"{keys}. Use nested remediation/sonarqube config instead."
+            )
 
         remediation = dict(data.get("remediation", {}))
-        if (
-            "bootstrap_severities" in data
-            and "bootstrap_severities" not in remediation
-            and "supported_severities" not in remediation
-        ):
-            remediation["bootstrap_severities"] = data.pop("bootstrap_severities")
-        if (
-            "supported_severities" in data
-            and "bootstrap_severities" not in remediation
-            and "supported_severities" not in remediation
-        ):
-            remediation["supported_severities"] = data.pop("supported_severities")
-        if "max_retry_count" in data and "max_retry_count" not in remediation:
-            remediation["max_retry_count"] = data.pop("max_retry_count")
-        if "analysis" in data and "analysis" not in remediation:
-            remediation["analysis"] = data.pop("analysis")
         raw_gitlab = data.get("gitlab")
         gitlab = raw_gitlab if isinstance(raw_gitlab, dict) else {}
         if (
@@ -249,8 +250,6 @@ class AppConfig(BaseModel):
             data["remediation"] = remediation
 
         sonarqube = dict(data.get("sonarqube", {}))
-        if "mock_sonar_issues_path" in data and "mock_issues_path" not in sonarqube:
-            sonarqube["mock_issues_path"] = data.pop("mock_sonar_issues_path")
         if sonarqube:
             data["sonarqube"] = sonarqube
 

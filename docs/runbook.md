@@ -60,8 +60,9 @@ Authority note:
 - operators should change ongoing severity policy through strict
   `/zeroone policy ...` dashboard comments
 
-Compatibility aliases still work during migration, but new repository
-rollouts should use the nested shape and `bootstrap_severities`.
+Only the remaining nested migration aliases still work during migration. The
+old flat top-level config keys no longer load, and new repository rollouts
+should use the nested shape and `bootstrap_severities`.
 
 The bot currently excludes rename-style issues by design. Rename changes need
 symbol-reference safety checks that are not part of v1 yet.

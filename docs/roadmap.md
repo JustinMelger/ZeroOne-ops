@@ -180,7 +180,8 @@ Shipped product state:
 - remaining cleanup candidates:
   - move `validation_commands` under the remediation config surface once that
     contract is intentionally locked
-  - remove remaining flat-config compatibility and older migration-era aliases
+  - remove remaining migration-era nested aliases once the current
+    `platform` and `remediation.target_branch` transitions are no longer needed
   - move GitLab-specific merge-request services out of `services/shared` once
     provider-neutral publish/review boundaries are mature enough
 

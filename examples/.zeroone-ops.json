@@ -53,10 +53,5 @@
   },
   "state": {
     "path": ".zeroone-ops-state.json"
-  },
-  "_deprecated_supported_severities": "Deprecated legacy top-level compatibility alias. Use remediation.bootstrap_severities.",
-  "_deprecated_bootstrap_severities_top_level": "Deprecated legacy top-level compatibility alias. Use remediation.bootstrap_severities.",
-  "_deprecated_max_retry_count_top_level": "Deprecated legacy top-level compatibility alias. Use remediation.max_retry_count.",
-  "_deprecated_analysis_top_level": "Deprecated legacy top-level compatibility alias. Use remediation.analysis.",
-  "_deprecated_mock_sonar_issues_path_top_level": "Deprecated legacy top-level compatibility alias. Use sonarqube.mock_issues_path."
+  }
 }

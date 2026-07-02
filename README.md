@@ -167,7 +167,8 @@ baseline for seeding dashboard severity policy in a repository, not as the
 primary steady-state operator control once dashboard policy exists.
 When config leaves severity empty and no dashboard policy exists yet, the
 default bootstrap baseline is `low` and `medium` enabled with `high` disabled.
-Compatibility aliases still load during migration, but new configs should use
+Only the remaining nested migration aliases still load during migration. The
+old flat top-level config keys no longer load, and new configs should use
 `remediation.bootstrap_severities` and the nested structure.
 
 To test the real OpenAI path instead of local fixtures:

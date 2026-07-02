@@ -479,7 +479,7 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
     assert config.sonarqube.mock_issues_path == Path("fixtures/sonar/issues.json")
 
 
-def test_settings_keep_legacy_flat_remediation_and_sonar_keys_compatible(
+def test_settings_reject_removed_flat_remediation_and_sonar_keys(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -506,14 +506,16 @@ def test_settings_keep_legacy_flat_remediation_and_sonar_keys_compatible(
         encoding="utf-8",
     )
 
-    config = load_config()
-
-    assert config.remediation.bootstrap_severities == ["LOW"]
-    assert config.remediation.max_retry_count == 3
-    assert config.remediation.analysis.context_lines_before == 2
-    assert config.remediation.analysis.context_lines_after == 3
-    assert config.remediation.analysis.max_file_bytes == 999
-    assert config.sonarqube.mock_issues_path == Path("fixtures/sonar/issues.json")
+    try:
+        load_config()
+    except SettingsError as error:
+        assert "Removed flat config keys are no longer supported" in str(error)
+        assert "supported_severities" in str(error)
+        assert "max_retry_count" in str(error)
+        assert "analysis" in str(error)
+        assert "mock_sonar_issues_path" in str(error)
+    else:  # pragma: no cover - defensive guard
+        raise AssertionError("Expected SettingsError for removed flat config keys")
 
 
 def test_settings_keep_legacy_nested_supported_severities_compatible(
