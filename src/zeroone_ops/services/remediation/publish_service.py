@@ -63,6 +63,9 @@ class PublishService:
             workflow_gitlab_config = self.config.require_gitlab_config(
                 reason="Remediation publish",
             )
+            target_branch = self.config.require_remediation_target_branch(
+                reason="Remediation publish",
+            )
             gitlab_config = load_gitlab_connection_config()
             pushed_branch = self.branch_manager.push_current_branch()
             gitlab_client = GitLabClient(gitlab_config)
@@ -74,7 +77,7 @@ class PublishService:
             existing_mr = merge_request_service.find_open(
                 project_id=gitlab_config.project_id,
                 source_branch=pushed_branch,
-                target_branch=workflow_gitlab_config.target_branch,
+                target_branch=target_branch,
             )
             if existing_mr is not None:
                 if assignee_id is not None:
@@ -91,7 +94,7 @@ class PublishService:
             created_mr = merge_request_service.create(
                 project_id=gitlab_config.project_id,
                 source_branch=pushed_branch,
-                target_branch=workflow_gitlab_config.target_branch,
+                target_branch=target_branch,
                 title=self.build_mr_title(
                     selected_issue=selected_issue,
                     proposed_title=mr_title,

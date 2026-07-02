@@ -2,7 +2,10 @@
   "platform": "gitlab",
   "base_branch": "main",
   "review": {},
-  "gitlab": {
+  "remediation": {
     "target_branch": "main"
+  },
+  "gitlab": {
+    "labels": []
   }
 }

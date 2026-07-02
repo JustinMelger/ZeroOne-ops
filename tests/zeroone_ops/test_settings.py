@@ -34,8 +34,10 @@ def test_settings_load_environment_from_dotenv(tmp_path: Path, monkeypatch) -> N
         """
         {
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -62,8 +64,10 @@ def test_settings_allow_execution_mode_override(tmp_path: Path, monkeypatch) -> 
         {
           "execution_mode": "ci",
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -218,6 +222,30 @@ def test_settings_migrate_legacy_review_platform_to_top_level_platform(
     assert config.gitlab is None
 
 
+def test_settings_migrate_legacy_gitlab_target_branch_to_remediation_target_branch(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.remediation.target_branch == "main"
+
+
 def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ZEROONE_OPS_WRITE_SOLUTION_ARTIFACTS_IN_CI", "true")
@@ -228,8 +256,10 @@ def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatc
           "execution_mode": "ci",
           "write_solution_artifacts_in_ci": false,
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -249,6 +279,9 @@ def test_settings_load_helper_following_review_config(tmp_path: Path, monkeypatc
         """
         {
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "review": {
             "enable_helper_following": false,
             "log_helper_following": true,
@@ -258,7 +291,6 @@ def test_settings_load_helper_following_review_config(tmp_path: Path, monkeypatc
             "max_followed_helper_lines_per_review": 160
           },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -284,11 +316,13 @@ def test_settings_load_inline_comments_review_flag(tmp_path: Path, monkeypatch) 
         """
         {
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "review": {
             "inline_comments_enabled": true
           },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -311,8 +345,10 @@ def test_settings_default_gitlab_merge_request_assignee_username_is_none(
         """
         {
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -335,8 +371,10 @@ def test_settings_load_gitlab_merge_request_assignee_username(
         """
         {
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "gitlab": {
-            "target_branch": "main",
             "labels": [],
             "merge_request_assignee_username": "justin"
           }
@@ -361,6 +399,7 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
         {
           "base_branch": "main",
           "remediation": {
+            "target_branch": "main",
             "bootstrap_severities": ["LOW", "MEDIUM"],
             "max_retry_count": 2,
             "analysis": {
@@ -373,7 +412,6 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
             "mock_issues_path": "fixtures/sonar/issues.json"
           },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -439,10 +477,10 @@ def test_settings_keep_legacy_nested_supported_severities_compatible(
         {
           "base_branch": "main",
           "remediation": {
+            "target_branch": "main",
             "supported_severities": ["LOW"]
           },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -475,8 +513,10 @@ def test_settings_load_default_zeroone_ops_config(tmp_path: Path, monkeypatch) -
         {
           "execution_mode": "ci",
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -498,8 +538,10 @@ def test_settings_use_explicit_zeroone_ops_config_path(tmp_path: Path, monkeypat
         """
         {
           "base_branch": "default",
+          "remediation": {
+            "target_branch": "default"
+          },
           "gitlab": {
-            "target_branch": "default",
             "labels": []
           }
         }
@@ -510,8 +552,10 @@ def test_settings_use_explicit_zeroone_ops_config_path(tmp_path: Path, monkeypat
         """
         {
           "base_branch": "custom",
+          "remediation": {
+            "target_branch": "custom"
+          },
           "gitlab": {
-            "target_branch": "custom",
             "labels": []
           }
         }

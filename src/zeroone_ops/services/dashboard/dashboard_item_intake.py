@@ -308,13 +308,13 @@ class DashboardItemIntakeService:
             issue_key=item.source_reference,
             file_path=item.file,
         )
-        workflow_gitlab_config = self.config.require_gitlab_config(
+        target_branch = self.config.require_remediation_target_branch(
             reason="Dashboard review intake",
         )
         existing_merge_request = merge_request_service.find_open(
             project_id=gitlab_config.project_id,
             source_branch=branch_name,
-            target_branch=workflow_gitlab_config.target_branch,
+            target_branch=target_branch,
         )
         if existing_merge_request is None:
             return None

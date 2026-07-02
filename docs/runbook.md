@@ -604,7 +604,7 @@ The repository-level `.zeroone-ops.json` has a small required core.
 Required JSON fields:
 
 - `base_branch`
-- `gitlab.target_branch`
+- `remediation.target_branch`
 
 Everything else in the JSON config is optional and falls back to application
 defaults unless your repository needs custom behavior.
@@ -622,7 +622,7 @@ Minimal valid example:
 ```json
 {
   "base_branch": "main",
-  "gitlab": {
+  "remediation": {
     "target_branch": "main"
   }
 }

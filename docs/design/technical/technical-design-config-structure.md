@@ -210,6 +210,7 @@ Why:
 ```json
 {
   "execution_mode": "ci",
+  "platform": "gitlab",
   "base_branch": "main",
   "branch_prefix": "zeroone-ops",
   "dry_run": false,
@@ -218,8 +219,10 @@ Why:
     "uv run mypy src",
     "uv run ruff check ."
   ],
+  "remediation": {
+    "target_branch": "main"
+  },
   "gitlab": {
-    "target_branch": "main",
     "labels": ["zeroone-ops", "sonarqube"],
     "merge_request_assignee_username": "justin"
   },
@@ -227,7 +230,6 @@ Why:
     "path": ".zeroone-ops-state.json"
   },
   "review": {
-    "platform": "gitlab",
     "max_changed_files": 5,
     "enable_function_context": true,
     "max_function_context_lines": 200,

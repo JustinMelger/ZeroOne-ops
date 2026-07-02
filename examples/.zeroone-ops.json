@@ -34,6 +34,7 @@
     "max_review_feedback_retries": 1
   },
   "remediation": {
+    "target_branch": "main",
     "bootstrap_severities": ["LOW"],
     "max_retry_count": 1,
     "analysis": {
@@ -46,7 +47,6 @@
     "mock_issues_path": "fixtures/sonar/issues.json"
   },
   "gitlab": {
-    "target_branch": "main",
     "labels": ["zeroone-ops", "sonarqube"],
     "_comment_merge_request_assignee_username": "Optional GitLab username to assign remediation merge requests to.",
     "merge_request_assignee_username": "justin"

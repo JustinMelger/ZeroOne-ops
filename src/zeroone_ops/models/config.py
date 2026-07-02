@@ -63,13 +63,12 @@ class GitLabConfig(BaseModel):
     """Configure GitLab merge request behavior.
 
     Attributes:
-        target_branch: Merge request target branch.
         labels: Labels to attach to created merge requests.
         merge_request_assignee_username: Optional GitLab username to assign
             created remediation merge requests to.
     """
 
-    target_branch: str
+    target_branch: str | None = None
     labels: list[str] = Field(default_factory=list)
     merge_request_assignee_username: str | None = None
 
@@ -153,6 +152,7 @@ class StateConfig(BaseModel):
 class RemediationConfig(BaseModel):
     """Configure remediation workflow behavior."""
 
+    target_branch: str | None = None
     bootstrap_severities: list[str] = Field(
         default_factory=list,
         validation_alias=AliasChoices("bootstrap_severities", "supported_severities"),
@@ -237,6 +237,13 @@ class AppConfig(BaseModel):
             remediation["max_retry_count"] = data.pop("max_retry_count")
         if "analysis" in data and "analysis" not in remediation:
             remediation["analysis"] = data.pop("analysis")
+        gitlab = dict(data.get("gitlab", {}))
+        if (
+            "target_branch" not in remediation
+            and isinstance(gitlab.get("target_branch"), str)
+            and gitlab["target_branch"]
+        ):
+            remediation["target_branch"] = gitlab["target_branch"]
         if remediation:
             data["remediation"] = remediation
 
@@ -257,6 +264,8 @@ class AppConfig(BaseModel):
         """Validate provider-specific configuration requirements."""
         if self.platform == "gitlab" and self.gitlab is None:
             raise ValueError("platform=gitlab requires a top-level gitlab configuration block.")
+        if self.remediation.target_branch is None and self.gitlab is not None:
+            self.remediation.target_branch = self.gitlab.target_branch
         return self
 
     def require_gitlab_config(self, *, reason: str) -> GitLabConfig:
@@ -273,3 +282,9 @@ class AppConfig(BaseModel):
             configured as required.
         """
         return self.execution_mode == "local" and self.approval.required
+
+    def require_remediation_target_branch(self, *, reason: str) -> str:
+        """Return the shared remediation target branch or fail with a scoped message."""
+        if self.remediation.target_branch is None:
+            raise ValueError(f"{reason} requires remediation.target_branch to be configured.")
+        return self.remediation.target_branch
