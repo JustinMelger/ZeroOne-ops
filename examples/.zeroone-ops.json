@@ -1,5 +1,6 @@
 {
   "execution_mode": "ci",
+  "platform": "gitlab",
   "base_branch": "main",
   "branch_prefix": "zeroone-ops",
   "dry_run": false,
@@ -12,7 +13,6 @@
     "required": true
   },
   "review": {
-    "platform": "gitlab",
     "max_changed_files": 5,
     "enable_function_context": true,
     "max_function_context_lines": 200,
@@ -34,6 +34,7 @@
     "max_review_feedback_retries": 1
   },
   "remediation": {
+    "target_branch": "main",
     "bootstrap_severities": ["LOW"],
     "max_retry_count": 1,
     "analysis": {
@@ -46,17 +47,11 @@
     "mock_issues_path": "fixtures/sonar/issues.json"
   },
   "gitlab": {
-    "target_branch": "main",
     "labels": ["zeroone-ops", "sonarqube"],
     "_comment_merge_request_assignee_username": "Optional GitLab username to assign remediation merge requests to.",
     "merge_request_assignee_username": "justin"
   },
   "state": {
     "path": ".zeroone-ops-state.json"
-  },
-  "_deprecated_supported_severities": "Deprecated legacy top-level compatibility alias. Use remediation.bootstrap_severities.",
-  "_deprecated_bootstrap_severities_top_level": "Deprecated legacy top-level compatibility alias. Use remediation.bootstrap_severities.",
-  "_deprecated_max_retry_count_top_level": "Deprecated legacy top-level compatibility alias. Use remediation.max_retry_count.",
-  "_deprecated_analysis_top_level": "Deprecated legacy top-level compatibility alias. Use remediation.analysis.",
-  "_deprecated_mock_sonar_issues_path_top_level": "Deprecated legacy top-level compatibility alias. Use sonarqube.mock_issues_path."
+  }
 }

@@ -187,29 +187,30 @@ That means:
 
 ## 9. Compatibility Strategy
 
-This migration should be compatibility-first.
+This migration started compatibility-first, but the old flat top-level keys are
+now removed.
 
 Recommended approach:
 
 1. support the new nested shape in config loading
-2. keep reading the legacy flat keys during migration
-3. prefer new nested values when both are present
+2. reject removed flat top-level keys with a scoped configuration error
+3. keep only narrowly scoped nested migration aliases where still needed
 4. update shipped examples and runbook to the new structure
-5. remove legacy keys only after remediation has been live in real repos long
-   enough to justify cleanup
+5. remove the remaining nested migration aliases once the transition is fully
+   complete
 
 Why:
 
 - review is already live in multiple repos
-- remediation rollout should not require a flag-day migration
-- example configs should guide new repos toward the new shape while old repos
-  continue working
+- example configs should guide new repos toward the new shape
+- the remaining compatibility surface should stay explicit and narrowly scoped
 
 ## 10. Example Target Shape
 
 ```json
 {
   "execution_mode": "ci",
+  "platform": "gitlab",
   "base_branch": "main",
   "branch_prefix": "zeroone-ops",
   "dry_run": false,
@@ -218,8 +219,10 @@ Why:
     "uv run mypy src",
     "uv run ruff check ."
   ],
+  "remediation": {
+    "target_branch": "main"
+  },
   "gitlab": {
-    "target_branch": "main",
     "labels": ["zeroone-ops", "sonarqube"],
     "merge_request_assignee_username": "justin"
   },
@@ -227,7 +230,6 @@ Why:
     "path": ".zeroone-ops-state.json"
   },
   "review": {
-    "platform": "gitlab",
     "max_changed_files": 5,
     "enable_function_context": true,
     "max_function_context_lines": 200,
@@ -262,26 +264,23 @@ Why:
 }
 ```
 
-Deprecated compatibility-only flat keys:
+Removed flat keys:
 
-- `supported_severities`
-  Use `remediation.bootstrap_severities`.
+- top-level `supported_severities`
 - top-level `bootstrap_severities`
-  Use `remediation.bootstrap_severities`.
 - top-level `max_retry_count`
-  Use `remediation.max_retry_count`.
 - top-level `analysis`
-  Use `remediation.analysis`.
 - top-level `mock_sonar_issues_path`
-  Use `sonarqube.mock_issues_path`.
+
+Use the nested `remediation` and `sonarqube` fields instead.
 
 ## 11. Implementation Phases
 
 ### Phase 1: Loader Compatibility
 
 - add nested `remediation` and `sonarqube` config models
-- teach settings loading to accept both old flat keys and new nested keys
-- prefer nested keys when both are present
+- reject the removed flat keys at load time with a scoped configuration error
+- keep the nested config shape as the only supported public contract
 
 ## 12. Review Inline Comment Feature Flag
 
@@ -336,8 +335,8 @@ Recommended first behavior:
 
 ### Phase 4: Post-Rollout Cleanup
 
-- once remediation has been live across repos long enough, decide whether to
-  remove legacy flat-key compatibility
+- once the remaining nested aliases have served their migration window, remove
+  them as well
 
 ## 12. Guardrails
 

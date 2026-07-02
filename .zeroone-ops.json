@@ -1,5 +1,6 @@
 {
   "execution_mode": "ci",
+  "platform": "github",
   "base_branch": "main",
   "branch_prefix": "zeroone-ops",
   "dry_run": false,
@@ -14,7 +15,6 @@
     "required": true
   },
   "review": {
-    "platform": "github",
     "max_changed_files": 10,
     "max_findings_per_review": 3,
     "max_prior_review_passes": 2,
@@ -27,6 +27,7 @@
     "inline_comments_enabled": true
   },
   "remediation": {
+    "target_branch": "main",
     "bootstrap_severities": ["LOW"],
     "max_retry_count": 1,
     "analysis": {
@@ -39,7 +40,6 @@
     "mock_issues_path": "fixtures/sonar/issues.json"
   },
   "gitlab": {
-    "target_branch": "main",
     "labels": ["zeroone-ops", "sonarqube"]
   },
   "state": {

@@ -7,7 +7,7 @@ environment overrides.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import AliasChoices, BaseModel, Field, model_validator
 
@@ -39,7 +39,6 @@ class ApprovalConfig(BaseModel):
 class ReviewConfig(BaseModel):
     """Configure pull-request review behavior."""
 
-    platform: Literal["gitlab", "github"] = "gitlab"
     max_changed_files: int = 10
     max_context_lines_before: int = 30
     max_context_lines_after: int = 30
@@ -64,13 +63,12 @@ class GitLabConfig(BaseModel):
     """Configure GitLab merge request behavior.
 
     Attributes:
-        target_branch: Merge request target branch.
         labels: Labels to attach to created merge requests.
         merge_request_assignee_username: Optional GitLab username to assign
             created remediation merge requests to.
     """
 
-    target_branch: str
+    target_branch: str | None = None
     labels: list[str] = Field(default_factory=list)
     merge_request_assignee_username: str | None = None
 
@@ -154,6 +152,7 @@ class StateConfig(BaseModel):
 class RemediationConfig(BaseModel):
     """Configure remediation workflow behavior."""
 
+    target_branch: str | None = None
     bootstrap_severities: list[str] = Field(
         default_factory=list,
         validation_alias=AliasChoices("bootstrap_severities", "supported_severities"),
@@ -196,6 +195,7 @@ class AppConfig(BaseModel):
     """
 
     execution_mode: Literal["local", "ci"] = "ci"
+    platform: Literal["gitlab", "github"] = "gitlab"
     base_branch: str
     branch_prefix: str = "zeroone-ops"
     dry_run: bool = False
@@ -212,6 +212,16 @@ class AppConfig(BaseModel):
     gitlab: GitLabConfig | None = None
     state: StateConfig = Field(default_factory=StateConfig)
 
+    _REMOVED_FLAT_CONFIG_KEYS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "supported_severities",
+            "bootstrap_severities",
+            "max_retry_count",
+            "analysis",
+            "mock_sonar_issues_path",
+        }
+    )
+
     @model_validator(mode="before")
     @classmethod
     def _migrate_legacy_fields(cls, value: object) -> object:
@@ -219,42 +229,45 @@ class AppConfig(BaseModel):
         if not isinstance(value, dict):
             return value
         data = dict(value)
+        removed_keys = sorted(key for key in cls._REMOVED_FLAT_CONFIG_KEYS if key in data)
+        if removed_keys:
+            keys = ", ".join(removed_keys)
+            raise ValueError(
+                "Removed flat config keys are no longer supported: "
+                f"{keys}. Use nested remediation/sonarqube config instead."
+            )
 
         remediation = dict(data.get("remediation", {}))
+        raw_gitlab = data.get("gitlab")
+        gitlab = raw_gitlab if isinstance(raw_gitlab, dict) else {}
         if (
-            "bootstrap_severities" in data
-            and "bootstrap_severities" not in remediation
-            and "supported_severities" not in remediation
+            "target_branch" not in remediation
+            and isinstance(gitlab.get("target_branch"), str)
+            and gitlab["target_branch"]
         ):
-            remediation["bootstrap_severities"] = data.pop("bootstrap_severities")
-        if (
-            "supported_severities" in data
-            and "bootstrap_severities" not in remediation
-            and "supported_severities" not in remediation
-        ):
-            remediation["supported_severities"] = data.pop("supported_severities")
-        if "max_retry_count" in data and "max_retry_count" not in remediation:
-            remediation["max_retry_count"] = data.pop("max_retry_count")
-        if "analysis" in data and "analysis" not in remediation:
-            remediation["analysis"] = data.pop("analysis")
+            remediation["target_branch"] = gitlab["target_branch"]
         if remediation:
             data["remediation"] = remediation
 
         sonarqube = dict(data.get("sonarqube", {}))
-        if "mock_sonar_issues_path" in data and "mock_issues_path" not in sonarqube:
-            sonarqube["mock_issues_path"] = data.pop("mock_sonar_issues_path")
         if sonarqube:
             data["sonarqube"] = sonarqube
+
+        review = dict(data.get("review", {}))
+        if "platform" not in data and "platform" in review:
+            data["platform"] = review["platform"]
 
         return data
 
     @model_validator(mode="after")
     def _validate_provider_requirements(self) -> AppConfig:
         """Validate provider-specific configuration requirements."""
-        if self.review.platform == "gitlab" and self.gitlab is None:
-            raise ValueError(
-                "review.platform=gitlab requires a top-level gitlab configuration block."
-            )
+        if self.platform == "gitlab" and self.gitlab is None:
+            raise ValueError("platform=gitlab requires a top-level gitlab configuration block.")
+        if self.remediation.target_branch is None and self.gitlab is not None:
+            self.remediation.target_branch = self.gitlab.target_branch
+        if self.platform == "gitlab" and self.remediation.target_branch is None:
+            raise ValueError("platform=gitlab requires remediation.target_branch to be configured.")
         return self
 
     def require_gitlab_config(self, *, reason: str) -> GitLabConfig:
@@ -271,3 +284,9 @@ class AppConfig(BaseModel):
             configured as required.
         """
         return self.execution_mode == "local" and self.approval.required
+
+    def require_remediation_target_branch(self, *, reason: str) -> str:
+        """Return the shared remediation target branch or fail with a scoped message."""
+        if self.remediation.target_branch is None:
+            raise ValueError(f"{reason} requires remediation.target_branch to be configured.")
+        return self.remediation.target_branch

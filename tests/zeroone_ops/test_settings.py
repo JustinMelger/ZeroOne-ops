@@ -34,8 +34,10 @@ def test_settings_load_environment_from_dotenv(tmp_path: Path, monkeypatch) -> N
         """
         {
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -62,8 +64,10 @@ def test_settings_allow_execution_mode_override(tmp_path: Path, monkeypatch) -> 
         {
           "execution_mode": "ci",
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -158,9 +162,7 @@ def test_settings_allow_github_review_config_without_gitlab_block(
         """
         {
           "base_branch": "main",
-          "review": {
-            "platform": "github"
-          }
+          "platform": "github"
         }
         """.strip(),
         encoding="utf-8",
@@ -168,11 +170,35 @@ def test_settings_allow_github_review_config_without_gitlab_block(
 
     config = load_config()
 
-    assert config.review.platform == "github"
+    assert config.platform == "github"
     assert config.gitlab is None
 
 
-def test_settings_require_gitlab_block_for_gitlab_review_mode(
+def test_settings_require_gitlab_block_for_gitlab_platform(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "platform": "gitlab"
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    try:
+        load_config()
+    except SettingsError as error:
+        assert "platform=gitlab requires a top-level gitlab configuration block." in str(error)
+    else:  # pragma: no cover - defensive guard
+        raise AssertionError("Expected SettingsError for missing gitlab block in gitlab mode")
+
+
+def test_settings_migrate_legacy_review_platform_to_top_level_platform(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -183,7 +209,79 @@ def test_settings_require_gitlab_block_for_gitlab_review_mode(
         {
           "base_branch": "main",
           "review": {
-            "platform": "gitlab"
+            "platform": "github"
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.platform == "github"
+    assert config.gitlab is None
+
+
+def test_settings_migrate_legacy_gitlab_target_branch_to_remediation_target_branch(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "gitlab": {
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.remediation.target_branch == "main"
+
+
+def test_settings_allow_null_gitlab_block_for_github_platform(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "platform": "github",
+          "gitlab": null
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.platform == "github"
+    assert config.gitlab is None
+
+
+def test_settings_require_remediation_target_branch_for_gitlab_platform(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "platform": "gitlab",
+          "gitlab": {
+            "labels": []
           }
         }
         """.strip(),
@@ -193,11 +291,9 @@ def test_settings_require_gitlab_block_for_gitlab_review_mode(
     try:
         load_config()
     except SettingsError as error:
-        assert "review.platform=gitlab requires a top-level gitlab configuration block." in str(
-            error
-        )
+        assert "platform=gitlab requires remediation.target_branch to be configured." in str(error)
     else:  # pragma: no cover - defensive guard
-        raise AssertionError("Expected SettingsError for missing gitlab block in gitlab mode")
+        raise AssertionError("Expected SettingsError for missing remediation target branch")
 
 
 def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatch) -> None:
@@ -210,8 +306,10 @@ def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatc
           "execution_mode": "ci",
           "write_solution_artifacts_in_ci": false,
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -231,6 +329,9 @@ def test_settings_load_helper_following_review_config(tmp_path: Path, monkeypatc
         """
         {
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "review": {
             "enable_helper_following": false,
             "log_helper_following": true,
@@ -240,7 +341,6 @@ def test_settings_load_helper_following_review_config(tmp_path: Path, monkeypatc
             "max_followed_helper_lines_per_review": 160
           },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -266,11 +366,13 @@ def test_settings_load_inline_comments_review_flag(tmp_path: Path, monkeypatch) 
         """
         {
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "review": {
             "inline_comments_enabled": true
           },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -293,8 +395,10 @@ def test_settings_default_gitlab_merge_request_assignee_username_is_none(
         """
         {
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -317,8 +421,10 @@ def test_settings_load_gitlab_merge_request_assignee_username(
         """
         {
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "gitlab": {
-            "target_branch": "main",
             "labels": [],
             "merge_request_assignee_username": "justin"
           }
@@ -343,6 +449,7 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
         {
           "base_branch": "main",
           "remediation": {
+            "target_branch": "main",
             "bootstrap_severities": ["LOW", "MEDIUM"],
             "max_retry_count": 2,
             "analysis": {
@@ -355,7 +462,6 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
             "mock_issues_path": "fixtures/sonar/issues.json"
           },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -373,7 +479,7 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
     assert config.sonarqube.mock_issues_path == Path("fixtures/sonar/issues.json")
 
 
-def test_settings_keep_legacy_flat_remediation_and_sonar_keys_compatible(
+def test_settings_reject_removed_flat_remediation_and_sonar_keys(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -400,14 +506,16 @@ def test_settings_keep_legacy_flat_remediation_and_sonar_keys_compatible(
         encoding="utf-8",
     )
 
-    config = load_config()
-
-    assert config.remediation.bootstrap_severities == ["LOW"]
-    assert config.remediation.max_retry_count == 3
-    assert config.remediation.analysis.context_lines_before == 2
-    assert config.remediation.analysis.context_lines_after == 3
-    assert config.remediation.analysis.max_file_bytes == 999
-    assert config.sonarqube.mock_issues_path == Path("fixtures/sonar/issues.json")
+    try:
+        load_config()
+    except SettingsError as error:
+        assert "Removed flat config keys are no longer supported" in str(error)
+        assert "supported_severities" in str(error)
+        assert "max_retry_count" in str(error)
+        assert "analysis" in str(error)
+        assert "mock_sonar_issues_path" in str(error)
+    else:  # pragma: no cover - defensive guard
+        raise AssertionError("Expected SettingsError for removed flat config keys")
 
 
 def test_settings_keep_legacy_nested_supported_severities_compatible(
@@ -421,10 +529,10 @@ def test_settings_keep_legacy_nested_supported_severities_compatible(
         {
           "base_branch": "main",
           "remediation": {
+            "target_branch": "main",
             "supported_severities": ["LOW"]
           },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -457,8 +565,10 @@ def test_settings_load_default_zeroone_ops_config(tmp_path: Path, monkeypatch) -
         {
           "execution_mode": "ci",
           "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
           "gitlab": {
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -480,8 +590,10 @@ def test_settings_use_explicit_zeroone_ops_config_path(tmp_path: Path, monkeypat
         """
         {
           "base_branch": "default",
+          "remediation": {
+            "target_branch": "default"
+          },
           "gitlab": {
-            "target_branch": "default",
             "labels": []
           }
         }
@@ -492,8 +604,10 @@ def test_settings_use_explicit_zeroone_ops_config_path(tmp_path: Path, monkeypat
         """
         {
           "base_branch": "custom",
+          "remediation": {
+            "target_branch": "custom"
+          },
           "gitlab": {
-            "target_branch": "custom",
             "labels": []
           }
         }

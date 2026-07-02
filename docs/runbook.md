@@ -60,8 +60,9 @@ Authority note:
 - operators should change ongoing severity policy through strict
   `/zeroone policy ...` dashboard comments
 
-Compatibility aliases still work during migration, but new repository
-rollouts should use the nested shape and `bootstrap_severities`.
+Only the remaining nested migration aliases still work during migration. The
+old flat top-level config keys no longer load, and new repository rollouts
+should use the nested shape and `bootstrap_severities`.
 
 The bot currently excludes rename-style issues by design. Rename changes need
 symbol-reference safety checks that are not part of v1 yet.
@@ -604,7 +605,7 @@ The repository-level `.zeroone-ops.json` has a small required core.
 Required JSON fields:
 
 - `base_branch`
-- `gitlab.target_branch`
+- `remediation.target_branch`
 
 Everything else in the JSON config is optional and falls back to application
 defaults unless your repository needs custom behavior.
@@ -622,7 +623,7 @@ Minimal valid example:
 ```json
 {
   "base_branch": "main",
-  "gitlab": {
+  "remediation": {
     "target_branch": "main"
   }
 }
@@ -787,7 +788,7 @@ The example is intentionally scoped to review only:
 
 Current config note:
 
-- keep `review.platform` set to `github`
+- keep top-level `platform` set to `github`
 - use the example workflow comments for the smallest valid review-only JSON
   shape
 

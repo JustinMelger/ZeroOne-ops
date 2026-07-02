@@ -148,13 +148,14 @@ templates when wiring the bot into another repository.
 Config structure direction:
 
 - top-level shared runtime settings stay at the root
+- platform selection stays at the root
 - review-specific behavior lives under `review`
 - remediation-specific rollout policy now lives under `remediation`
 - Sonar-specific local fixture behavior now lives under `sonarqube`
 
 For example:
 
-- `review.platform`
+- `platform`
 - `review.inline_comments_enabled`
 - `remediation.bootstrap_severities`
 - `remediation.max_retry_count`
@@ -166,7 +167,8 @@ baseline for seeding dashboard severity policy in a repository, not as the
 primary steady-state operator control once dashboard policy exists.
 When config leaves severity empty and no dashboard policy exists yet, the
 default bootstrap baseline is `low` and `medium` enabled with `high` disabled.
-Compatibility aliases still load during migration, but new configs should use
+Only the remaining nested migration aliases still load during migration. The
+old flat top-level config keys no longer load, and new configs should use
 `remediation.bootstrap_severities` and the nested structure.
 
 To test the real OpenAI path instead of local fixtures:

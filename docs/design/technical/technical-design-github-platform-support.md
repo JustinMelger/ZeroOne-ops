@@ -417,6 +417,15 @@ after the default CI detection story is clear.
 - support GitHub branch + PR publication for remediation
 - keep the existing remediation execution core intact where possible
 - do not assume GitLab MR-specific publication semantics
+- completed Phase 4a config-prep slice:
+  - moved repo provider selection to top-level `platform`
+  - moved remediation publication targeting to shared `remediation.target_branch`
+  - kept provider-local publication metadata explicit under provider blocks
+- do one provider-neutrality sweep before GitHub remediation publish lands
+- identify remaining GitLab-shaped remediation publish names, models, and
+  traceability fields
+- move only genuinely shared contracts into neutral surfaces
+- keep provider-local publication semantics explicit where they differ
 
 ### Phase 5: GitHub Control Plane Design And Implementation
 
@@ -623,7 +632,7 @@ Primary phase:
 Problem:
 
 - the first GitHub summary-support implementation relied on a required
-  top-level `gitlab` config block even when `review.platform=github`
+  top-level `gitlab` config block even when `platform=github`
 - that was acceptable for an internal implementation checkpoint, but it was
   not an honest long-term review configuration contract
 
@@ -640,7 +649,7 @@ Chosen design direction:
 Implemented Phase 2b config outcome:
 
 - GitHub review mode no longer requires a dummy top-level `gitlab` block
-- review-platform selection stays under `review.platform`
+- repo-level platform selection stays under top-level `platform`
 - provider-local GitLab workflow settings remain available for GitLab-backed
   remediation and dashboard paths that still require them
 - review-domain packaging should be tightened where Phase 1 and Phase 2 left
