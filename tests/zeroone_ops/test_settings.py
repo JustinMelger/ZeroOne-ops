@@ -246,6 +246,56 @@ def test_settings_migrate_legacy_gitlab_target_branch_to_remediation_target_bran
     assert config.remediation.target_branch == "main"
 
 
+def test_settings_allow_null_gitlab_block_for_github_platform(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "platform": "github",
+          "gitlab": null
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.platform == "github"
+    assert config.gitlab is None
+
+
+def test_settings_require_remediation_target_branch_for_gitlab_platform(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "platform": "gitlab",
+          "gitlab": {
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    try:
+        load_config()
+    except SettingsError as error:
+        assert "platform=gitlab requires remediation.target_branch to be configured." in str(error)
+    else:  # pragma: no cover - defensive guard
+        raise AssertionError("Expected SettingsError for missing remediation target branch")
+
+
 def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ZEROONE_OPS_WRITE_SOLUTION_ARTIFACTS_IN_CI", "true")

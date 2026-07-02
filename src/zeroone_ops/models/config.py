@@ -237,7 +237,8 @@ class AppConfig(BaseModel):
             remediation["max_retry_count"] = data.pop("max_retry_count")
         if "analysis" in data and "analysis" not in remediation:
             remediation["analysis"] = data.pop("analysis")
-        gitlab = dict(data.get("gitlab", {}))
+        raw_gitlab = data.get("gitlab")
+        gitlab = raw_gitlab if isinstance(raw_gitlab, dict) else {}
         if (
             "target_branch" not in remediation
             and isinstance(gitlab.get("target_branch"), str)
@@ -266,6 +267,8 @@ class AppConfig(BaseModel):
             raise ValueError("platform=gitlab requires a top-level gitlab configuration block.")
         if self.remediation.target_branch is None and self.gitlab is not None:
             self.remediation.target_branch = self.gitlab.target_branch
+        if self.platform == "gitlab" and self.remediation.target_branch is None:
+            raise ValueError("platform=gitlab requires remediation.target_branch to be configured.")
         return self
 
     def require_gitlab_config(self, *, reason: str) -> GitLabConfig:

@@ -417,6 +417,15 @@ after the default CI detection story is clear.
 - support GitHub branch + PR publication for remediation
 - keep the existing remediation execution core intact where possible
 - do not assume GitLab MR-specific publication semantics
+- completed Phase 4a config-prep slice:
+  - moved repo provider selection to top-level `platform`
+  - moved remediation publication targeting to shared `remediation.target_branch`
+  - kept provider-local publication metadata explicit under provider blocks
+- do one provider-neutrality sweep before GitHub remediation publish lands
+- identify remaining GitLab-shaped remediation publish names, models, and
+  traceability fields
+- move only genuinely shared contracts into neutral surfaces
+- keep provider-local publication semantics explicit where they differ
 
 ### Phase 5: GitHub Control Plane Design And Implementation
 
