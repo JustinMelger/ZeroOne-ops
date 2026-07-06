@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import cast
 
 from zeroone_ops.models.dashboard import (
     CURRENT_DASHBOARD_SCHEMA_VERSION,
@@ -18,6 +19,7 @@ from zeroone_ops.models.dashboard import (
     DashboardPolicyState,
     DashboardPolicyView,
     DashboardSection,
+    DashboardSectionKey,
     DashboardSeverityPolicyEntry,
     build_dashboard_manifest,
     normalize_dashboard_section_key,
@@ -976,7 +978,11 @@ class DashboardRenderer:
 
     def _section_title(self, section: DashboardSection) -> str:
         """Return the canonical shared section title for rendering."""
-        return SECTION_TITLES.get(normalize_dashboard_section_key(section.key), section.title)
+        normalized_key = cast(
+            DashboardSectionKey,
+            normalize_dashboard_section_key(section.key),
+        )
+        return SECTION_TITLES.get(normalized_key, section.title)
 
     def _review_outcome_marker(self, outcome: str) -> str:
         """Return one lightweight marker for a review outcome."""

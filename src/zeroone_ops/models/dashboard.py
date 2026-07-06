@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import AliasChoices, BaseModel, Field
 
@@ -284,8 +284,9 @@ def empty_sections() -> list[DashboardSection]:
 
 def build_dashboard_manifest(sections: list[DashboardSection]) -> DashboardManifest:
     """Build the canonical dashboard integrity manifest from sections."""
-    section_item_counts = {
-        normalize_dashboard_section_key(section.key): len(section.items) for section in sections
+    section_item_counts: dict[DashboardSectionKey, int] = {
+        cast(DashboardSectionKey, normalize_dashboard_section_key(section.key)): len(section.items)
+        for section in sections
     }
     workflow_item_count = sum(
         count for key, count in section_item_counts.items() if key != "change_request_reviews"
