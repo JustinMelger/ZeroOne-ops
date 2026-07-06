@@ -68,6 +68,30 @@ def test_select_skips_items_with_active_local_dashboard_state(tmp_path: Path) ->
     assert selected.id == "sonar:2"
 
 
+def test_select_skips_items_with_legacy_change_request_state_in_local_state(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    (tmp_path / "src" / "other.py").write_text("value = False\n", encoding="utf-8")
+    selector = DashboardItemSelector(repo_root=tmp_path)
+    state = AppState(
+        repository=RepositoryState(base_branch="main"),
+        dashboard_items={"sonar:1": DashboardItemState(status="mr_opened", last_run_id="run-1")},
+    )
+
+    selected = selector.select(
+        [
+            build_item(item_id="sonar:1"),
+            build_item(item_id="sonar:2", file_path="src/other.py"),
+        ],
+        state,
+    )
+
+    assert selected is not None
+    assert selected.id == "sonar:2"
+
+
 def test_skip_reason_reports_unsupported_status(tmp_path: Path) -> None:
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")

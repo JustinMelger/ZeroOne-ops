@@ -57,9 +57,9 @@ class FakeDashboardService:
             items=[item for item in existing.values() if item.status == "in_progress"],
         )
         sections[2] = DashboardSection(
-            key="merge_requests_opened",
-            title="Merge Requests Opened",
-            items=[item for item in existing.values() if item.status == "mr_opened"],
+            key="change_requests_opened",
+            title="Change Requests Opened",
+            items=[item for item in existing.values() if item.status == "change_request_opened"],
         )
         sections[3] = DashboardSection(
             key="completed",
@@ -170,7 +170,7 @@ def test_mark_in_progress_can_consume_retry_fields() -> None:
     assert result.updated_item.retry_block_reason is None
 
 
-def test_mark_mr_opened_writes_traceability_fields() -> None:
+def test_mark_change_request_opened_writes_traceability_fields() -> None:
     dashboard_service = FakeDashboardService(
         build_document(
             items=[build_item(status="in_progress").model_copy(update={"last_run_id": "run-1"})]
@@ -178,7 +178,7 @@ def test_mark_mr_opened_writes_traceability_fields() -> None:
     )
     updater = DashboardRemediationUpdater(dashboard_service)
 
-    result = updater.mark_mr_opened(
+    result = updater.mark_change_request_opened(
         project_id="123",
         dashboard_item_id="sonar:1",
         run_id="run-1",
@@ -190,7 +190,7 @@ def test_mark_mr_opened_writes_traceability_fields() -> None:
 
     assert result.error_message is None
     assert result.updated_item is not None
-    assert result.updated_item.status == "mr_opened"
+    assert result.updated_item.status == "change_request_opened"
     assert result.updated_item.branch_name == "zeroone-ops/ax123/service"
     assert result.updated_item.merge_request_url is not None
     assert result.updated_item.merge_request_iid == 1
@@ -228,7 +228,7 @@ def test_mark_done_moves_item_to_completed_and_preserves_traceability() -> None:
     dashboard_service = FakeDashboardService(
         build_document(
             items=[
-                build_item(status="mr_opened").model_copy(
+                build_item(status="change_request_opened").model_copy(
                     update={
                         "branch_name": "zeroone-ops/ax123/service",
                         "change_request_url": (
@@ -266,7 +266,7 @@ def test_mark_open_reopens_item_and_clears_merge_request_linkage() -> None:
     dashboard_service = FakeDashboardService(
         build_document(
             items=[
-                build_item(status="mr_opened").model_copy(
+                build_item(status="change_request_opened").model_copy(
                     update={
                         "branch_name": "zeroone-ops/ax123/service",
                         "change_request_url": (
@@ -302,7 +302,7 @@ def test_reconciliation_updates_preserve_existing_remediation_metadata() -> None
     dashboard_service = FakeDashboardService(
         build_document(
             items=[
-                build_item(status="mr_opened").model_copy(
+                build_item(status="change_request_opened").model_copy(
                     update={
                         "branch_name": "zeroone-ops/ax123/service",
                         "change_request_url": (
@@ -340,7 +340,7 @@ def test_reconciliation_updates_preserve_existing_remediation_metadata() -> None
 
 
 def test_replayed_transition_for_same_run_is_idempotent() -> None:
-    existing_item = build_item(status="mr_opened").model_copy(
+    existing_item = build_item(status="change_request_opened").model_copy(
         update={
             "last_run_id": "run-1",
             "branch_name": "zeroone-ops/ax123/service",
@@ -352,7 +352,7 @@ def test_replayed_transition_for_same_run_is_idempotent() -> None:
     dashboard_service = FakeDashboardService(build_document(items=[existing_item]))
     updater = DashboardRemediationUpdater(dashboard_service)
 
-    result = updater.mark_mr_opened(
+    result = updater.mark_change_request_opened(
         project_id="123",
         dashboard_item_id="sonar:1",
         run_id="run-1",

@@ -34,7 +34,7 @@ _DEFAULT_ENABLED_SEVERITIES: frozenset[str] = frozenset({"low", "medium"})
 
 _SKIP_REASON_MESSAGES = {
     "active_local_state": "already tracked as active locally",
-    "active_merge_request": "already represented by an active merge request",
+    "active_merge_request": "already represented by an active change request",
     "blocked_by_severity_policy": "blocked by severity policy",
     "excluded_by_policy": "explicitly excluded from automation",
     "missing_file_path": "without a target file path",

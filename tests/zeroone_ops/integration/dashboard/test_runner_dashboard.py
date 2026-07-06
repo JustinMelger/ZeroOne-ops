@@ -325,7 +325,7 @@ def test_dashboard_policy_dry_run_returns_policy_processing_summary(
     assert "2 prefixed, 1 accepted, 1 rejected" in summary.message
 
 
-def test_dashboard_reconcile_dry_run_selects_mr_opened_item(
+def test_dashboard_reconcile_dry_run_selects_change_request_opened_item(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -352,7 +352,7 @@ def test_dashboard_reconcile_dry_run_selects_mr_opened_item(
         id="sonar:AX123",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="python:S1125 in src/service.py",
         summary="Replace boolean equality with direct truthiness.",
         priority="low",
@@ -478,7 +478,7 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
         id="sonar:AX123",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="python:S1125 in src/service.py",
         summary="Replace boolean equality with direct truthiness.",
         priority="low",
@@ -601,7 +601,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
         id="sonar:OPEN",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="python:S1125 in src/open.py",
         summary="Keep review open.",
         priority="low",
@@ -618,7 +618,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
         id="sonar:MERGED",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="python:S1125 in src/merged.py",
         summary="Already merged.",
         priority="low",
@@ -716,7 +716,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
     assert "checked 2 dashboard items" in summary.message
     assert "1 marked done" in summary.message
     assert "1 still open" in summary.message
-    assert "sonar:MERGED: Merge request !9 was merged." in summary.message
+    assert "sonar:MERGED: Change request !9 was merged." in summary.message
     assert state.dashboard_items["sonar:MERGED"].status == "done"
 
 
@@ -747,7 +747,7 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
         id="sonar:AX123",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="python:S1125 in src/service.py",
         summary="Replace boolean equality with direct truthiness.",
         priority="low",
@@ -870,7 +870,7 @@ def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
         id="sonar:AX123",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="python:S1125 in src/service.py",
         summary="Replace boolean equality with direct truthiness.",
         priority="low",
@@ -1000,7 +1000,7 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
         id="sonar:AX123",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="python:S1125 in src/service.py",
         summary="Replace boolean equality with direct truthiness.",
         priority="low",
@@ -1129,7 +1129,7 @@ def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
         id="sonar:AX123",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="python:S1125 in src/service.py",
         summary="Replace boolean equality with direct truthiness.",
         priority="low",
@@ -1221,7 +1221,7 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
         id="sonar:AX123",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="python:S1125 in src/service.py",
         summary="Replace boolean equality with direct truthiness.",
         priority="low",
@@ -1345,7 +1345,7 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
         id="sonar:AX123",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="python:S1125 in src/service.py",
         summary="Replace boolean equality with direct truthiness.",
         priority="low",
@@ -1460,7 +1460,7 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         id="sonar:BROKEN",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="python:S1125 in src/broken.py",
         summary="Broken MR traceability.",
         priority="low",
@@ -1477,7 +1477,7 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         id="sonar:MERGED",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="python:S1125 in src/merged.py",
         summary="Merged MR should still reconcile.",
         priority="low",
@@ -1656,7 +1656,7 @@ def test_dashboard_remediate_live_run_requires_ci_mode(tmp_path: Path, monkeypat
     assert last_run.failure.stage == FailureStage.ISSUE_INTAKE
 
 
-def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
+def test_dashboard_remediate_ci_success_marks_dashboard_change_request_opened(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -1770,7 +1770,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
             },
         )()
 
-    def mark_mr_opened(
+    def mark_change_request_opened(
         self,
         *,
         project_id: str,
@@ -1795,7 +1795,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
             retry_eligible,
             retry_block_reason,
         )
-        recorded_updates.append(("mr_opened", dashboard_item_id))
+        recorded_updates.append(("change_request_opened", dashboard_item_id))
         return type(
             "UpdateResult",
             (),
@@ -1811,8 +1811,8 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
         mark_in_progress,
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_mr_opened",
-        mark_mr_opened,
+        "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_change_request_opened",
+        mark_change_request_opened,
     )
     monkeypatch.setattr(
         "zeroone_ops.services.remediation.execution_service.ExecutionService.execute_with_context",
@@ -1842,7 +1842,10 @@ def test_dashboard_remediate_ci_success_marks_dashboard_mr_opened(
     assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
     assert "Selected dashboard item sonar:AX123 in src/service.py" in summary.message
     assert "Change request created:" in summary.message
-    assert recorded_updates == [("in_progress", "sonar:AX123"), ("mr_opened", "sonar:AX123")]
+    assert recorded_updates == [
+        ("in_progress", "sonar:AX123"),
+        ("change_request_opened", "sonar:AX123"),
+    ]
 
 
 def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
@@ -1949,7 +1952,7 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
             },
         )()
 
-    def mark_mr_opened(
+    def mark_change_request_opened(
         self,
         *,
         project_id: str,
@@ -1973,7 +1976,9 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
             commit_sha,
             change_request_number,
         )
-        recorded_updates.append(("mr_opened", retry_count, retry_eligible, retry_block_reason))
+        recorded_updates.append(
+            ("change_request_opened", retry_count, retry_eligible, retry_block_reason)
+        )
         return type(
             "UpdateResult",
             (),
@@ -1989,8 +1994,8 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
         mark_in_progress,
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_mr_opened",
-        mark_mr_opened,
+        "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_change_request_opened",
+        mark_change_request_opened,
     )
 
     def execute_with_context(self, selected_issue, context, dry_run):  # noqa: ANN001
@@ -2026,7 +2031,7 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
     assert summary.status.value == "mr_created"
     assert recorded_updates == [
         ("in_progress", 1, False, None),
-        ("mr_opened", 1, False, None),
+        ("change_request_opened", 1, False, None),
     ]
 
 
@@ -2170,17 +2175,17 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
         "Recovered stale in_progress dashboard item before remediation: sonar:AX123."
         in summary.message
     )
-    assert updated_statuses == ["open", "in_progress", "mr_opened"]
+    assert updated_statuses == ["open", "in_progress", "change_request_opened"]
     assert recovery_logs
     assert "stale in_progress recovery" in recovery_logs[0]
     final_item = current_document.items_by_id()["sonar:AX123"]
-    assert final_item.status == "mr_opened"
+    assert final_item.status == "change_request_opened"
     assert final_item.last_run_id == state.runs[-1].run_id
     assert final_item.merge_request_url == summary.mr_url
     assert state.active_dashboard_item_id is None
 
 
-def test_dashboard_remediate_fails_when_mr_opened_update_cannot_persist(
+def test_dashboard_remediate_fails_when_change_request_opened_update_cannot_persist(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -2300,7 +2305,7 @@ def test_dashboard_remediate_fails_when_mr_opened_update_cannot_persist(
             },
         )()
 
-    def mark_mr_opened(
+    def mark_change_request_opened(
         self,
         *,
         project_id: str,
@@ -2372,8 +2377,8 @@ def test_dashboard_remediate_fails_when_mr_opened_update_cannot_persist(
         mark_in_progress,
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_mr_opened",
-        mark_mr_opened,
+        "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_change_request_opened",
+        mark_change_request_opened,
     )
     monkeypatch.setattr(
         "zeroone_ops.services.remediation.execution_service.ExecutionService.execute_with_context",

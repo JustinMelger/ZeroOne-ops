@@ -36,6 +36,22 @@ def build_item(*, item_id: str, status: str = "open") -> DashboardItem:
     )
 
 
+def empty_change_requests_opened_section() -> DashboardSection:
+    return DashboardSection(
+        key="change_requests_opened",
+        title="Change Requests Opened",
+        items=[],
+    )
+
+
+def empty_change_request_reviews_section() -> DashboardSection:
+    return DashboardSection(
+        key="change_request_reviews",
+        title="Change Request Reviews",
+        items=[],
+    )
+
+
 def test_parse_round_trips_rendered_dashboard_body() -> None:
     renderer = DashboardRenderer()
     parser = DashboardParser()
@@ -48,13 +64,9 @@ def test_parse_round_trips_rendered_dashboard_body() -> None:
                 items=[build_item(item_id="sonar:1")],
             ),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(
-                key="merge_requests_opened",
-                title="Merge Requests Opened",
-                items=[],
-            ),
+            empty_change_requests_opened_section(),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(
                 key="rejected_or_ignored",
                 title="Rejected Or Ignored",
@@ -95,13 +107,9 @@ def test_parse_round_trips_dashboard_item_datetime_metadata() -> None:
                 ],
             ),
             DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
-            DashboardSection(
-                key="merge_requests_opened",
-                title="Merge Requests Opened",
-                items=[],
-            ),
+            empty_change_requests_opened_section(),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(
                 key="rejected_or_ignored",
                 title="Rejected Or Ignored",
@@ -136,13 +144,9 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
                 items=[build_item(item_id="sonar:1")],
             ),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(
-                key="merge_requests_opened",
-                title="Merge Requests Opened",
-                items=[],
-            ),
+            empty_change_requests_opened_section(),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(
                 key="rejected_or_ignored",
                 title="Rejected Or Ignored",
@@ -153,7 +157,7 @@ def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None
     )
 
     assert "### Overview" in body
-    assert "| Open | In progress | MR opened | Failed | Done |" in body
+    assert "| Open | In progress | Change requests opened | Failed | Done |" in body
     assert "| 1 | 0 | 0 | 0 | 0 |" in body
     assert "### Queue Auto-fix" in body
     assert "### Needs Review" in body
@@ -179,13 +183,9 @@ def test_rendered_dashboard_body_keeps_new_workflow_layout_when_empty() -> None:
         sections=[
             DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(
-                key="merge_requests_opened",
-                title="Merge Requests Opened",
-                items=[],
-            ),
+            empty_change_requests_opened_section(),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(
                 key="rejected_or_ignored",
                 title="Rejected Or Ignored",
@@ -197,7 +197,7 @@ def test_rendered_dashboard_body_keeps_new_workflow_layout_when_empty() -> None:
 
     assert "## Open Candidates" in body
     assert "### Overview" in body
-    assert "| Open | In progress | MR opened | Failed | Done |" in body
+    assert "| Open | In progress | Change requests opened | Failed | Done |" in body
     assert "| 0 | 0 | 0 | 0 | 0 |" in body
     assert "### Queue Auto-fix" in body
     assert "### Needs Review" in body
@@ -206,7 +206,7 @@ def test_rendered_dashboard_body_keeps_new_workflow_layout_when_empty() -> None:
     assert "### Dismissed" in body
     assert "### Work Type Breakdown" in body
     assert "## In Progress" not in body
-    assert "## Merge Requests Opened" not in body
+    assert "## Change Requests Opened" not in body
     assert "\n## Completed\n" not in body
 
 
@@ -230,13 +230,9 @@ def test_manual_review_rejection_stays_out_of_active_workflow_tables() -> None:
                 ],
             ),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(
-                key="merge_requests_opened",
-                title="Merge Requests Opened",
-                items=[],
-            ),
+            empty_change_requests_opened_section(),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(
                 key="rejected_or_ignored",
                 title="Rejected Or Ignored",
@@ -276,8 +272,8 @@ def test_rendered_review_section_uses_specialized_review_summary_layout() -> Non
         title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
-                key="merge_request_reviews",
-                title="Merge Request Reviews",
+                key="change_request_reviews",
+                title="Change Request Reviews",
                 items=[review_item],
             )
         ],
@@ -350,8 +346,8 @@ def test_rendered_review_section_groups_repeated_passes_by_merge_request() -> No
         title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
-                key="merge_request_reviews",
-                title="Merge Request Reviews",
+                key="change_request_reviews",
+                title="Change Request Reviews",
                 items=review_items,
             )
         ],
@@ -371,7 +367,9 @@ def test_rendered_review_section_groups_repeated_passes_by_merge_request() -> No
 
 def test_rendered_review_section_projects_linked_remediation_review_metadata() -> None:
     renderer = DashboardRenderer()
-    remediation_review_item = build_item(item_id="sonar:reviewed", status="mr_opened").model_copy(
+    remediation_review_item = build_item(
+        item_id="sonar:reviewed", status="change_request_opened"
+    ).model_copy(
         update={
             "change_request_number": 77,
             "change_request_url": "https://gitlab.example.com/group/project/-/merge_requests/77",
@@ -393,14 +391,14 @@ def test_rendered_review_section_projects_linked_remediation_review_metadata() -
             ),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
             DashboardSection(
-                key="merge_requests_opened",
-                title="Merge Requests Opened",
+                key="change_requests_opened",
+                title="Change Requests Opened",
                 items=[remediation_review_item],
             ),
             DashboardSection(key="completed", title="Completed", items=[]),
             DashboardSection(
-                key="merge_request_reviews",
-                title="Merge Request Reviews",
+                key="change_request_reviews",
+                title="Change Request Reviews",
                 items=[],
             ),
             DashboardSection(
@@ -463,8 +461,8 @@ def test_rendered_review_section_prefers_status_updated_at_when_review_timestamp
         title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
-                key="merge_request_reviews",
-                title="Merge Request Reviews",
+                key="change_request_reviews",
+                title="Change Request Reviews",
                 items=review_items,
             )
         ],
@@ -482,9 +480,11 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
         sections=[
             DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(
+                key="change_requests_opened", title="Change Requests Opened", items=[]
+            ),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
             DashboardSection(
                 key="recent_failures",
@@ -525,9 +525,11 @@ def test_rendered_dashboard_body_surfaces_retry_eligible_failure_guidance() -> N
                 ],
             ),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(
+                key="change_requests_opened", title="Change Requests Opened", items=[]
+            ),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
             DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
         ],
@@ -558,9 +560,11 @@ def test_rendered_dashboard_body_surfaces_retry_blocked_failure_guidance() -> No
                 ],
             ),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(
+                key="change_requests_opened", title="Change Requests Opened", items=[]
+            ),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
             DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
         ],
@@ -590,10 +594,10 @@ def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() ->
                 items=[build_item(item_id="sonar:progress", status="in_progress")],
             ),
             DashboardSection(
-                key="merge_requests_opened",
-                title="Merge Requests Opened",
+                key="change_requests_opened",
+                title="Change Requests Opened",
                 items=[
-                    build_item(item_id="sonar:mr", status="mr_opened").model_copy(
+                    build_item(item_id="sonar:mr", status="change_request_opened").model_copy(
                         update={
                             "merge_request_iid": 42,
                             "merge_request_url": (
@@ -604,14 +608,14 @@ def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() ->
                 ],
             ),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
             DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
         ],
     )
 
     assert "### Overview" in body
-    assert "| Open | In progress | MR opened | Failed | Done |" in body
+    assert "| Open | In progress | Change requests opened | Failed | Done |" in body
     assert "| 1 | 1 | 1 | 0 | 0 |" in body
     assert "### Queue Auto-fix" in body
     assert "### Needs Review" in body
@@ -624,7 +628,7 @@ def test_rendered_workflow_section_uses_specialized_workflow_summary_layout() ->
     assert "`sonar:progress`" in body
     assert "`sonar:mr`" in body
     assert "Queue Auto-fix" in body
-    assert "📦 Mr Opened" in body
+    assert "📦 Change Request Opened" in body
 
 
 def test_render_hides_legacy_empty_workflow_sections_when_combined_view_is_present() -> None:
@@ -639,9 +643,11 @@ def test_render_hides_legacy_empty_workflow_sections_when_combined_view_is_prese
                 items=[build_item(item_id="sonar:open", status="open")],
             ),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(
+                key="change_requests_opened", title="Change Requests Opened", items=[]
+            ),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
             DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
         ],
@@ -649,7 +655,7 @@ def test_render_hides_legacy_empty_workflow_sections_when_combined_view_is_prese
 
     assert "## Open Candidates" in body
     assert "## In Progress" not in body
-    assert "## Merge Requests Opened" not in body
+    assert "## Change Requests Opened" not in body
     assert "\n## Completed\n" not in body
     assert "## Rejected Or Ignored" not in body
     assert "## Recent Failures" not in body
@@ -672,9 +678,11 @@ def test_rendered_workflow_bucket_shows_overflow_note_when_capped() -> None:
                 ],
             ),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(
+                key="change_requests_opened", title="Change Requests Opened", items=[]
+            ),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
             DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
         ],
@@ -710,9 +718,11 @@ def test_workflow_queue_orders_items_by_area_and_file() -> None:
                 ],
             ),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(
+                key="change_requests_opened", title="Change Requests Opened", items=[]
+            ),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
             DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
         ],
@@ -734,7 +744,7 @@ def test_parse_accepts_legacy_workflow_summary_without_area_column() -> None:
 
 ### Overview
 
-| Open | In progress | MR opened | Failed | Done |
+| Open | In progress | Change requests opened | Failed | Done |
 |---|---|---|---|---|
 | 1 | 0 | 0 | 0 | 0 |
 
@@ -784,7 +794,7 @@ No items.
 
 </details>
 
-## Merge Request Reviews
+## Change Request Reviews
 
 No items.
 
@@ -826,9 +836,11 @@ def test_parse_round_trips_hidden_workflow_items_from_machine_block() -> None:
                 ],
             ),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(
+                key="change_requests_opened", title="Change Requests Opened", items=[]
+            ),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
             DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
         ],
@@ -878,9 +890,11 @@ def test_render_prefers_policy_eligible_queue_items_under_bucket_cap() -> None:
                 items=[*blocked_items, eligible_item],
             ),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(key="merge_requests_opened", title="Merge Requests Opened", items=[]),
+            DashboardSection(
+                key="change_requests_opened", title="Change Requests Opened", items=[]
+            ),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
             DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
         ],
@@ -906,10 +920,10 @@ def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table()
             DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
             DashboardSection(
-                key="merge_requests_opened",
-                title="Merge Requests Opened",
+                key="change_requests_opened",
+                title="Change Requests Opened",
                 items=[
-                    build_item(item_id="sonar:reviewed", status="mr_opened").model_copy(
+                    build_item(item_id="sonar:reviewed", status="change_request_opened").model_copy(
                         update={
                             "merge_request_iid": 17,
                             "merge_request_url": (
@@ -925,7 +939,7 @@ def test_rendered_dashboard_body_surfaces_linked_review_state_in_summary_table()
                 ],
             ),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
             DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
         ],
@@ -956,12 +970,8 @@ def test_completed_workflow_items_render_review_outcome_not_raw_review_note() ->
             ),
             DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
-            DashboardSection(
-                key="merge_requests_opened",
-                title="Merge Requests Opened",
-                items=[],
-            ),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_requests_opened_section(),
+            empty_change_request_reviews_section(),
             DashboardSection(
                 key="rejected_or_ignored",
                 title="Rejected Or Ignored",
@@ -983,10 +993,10 @@ def test_parse_round_trips_dashboard_item_review_metadata() -> None:
         title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
-                key="merge_requests_opened",
-                title="Merge Requests Opened",
+                key="change_requests_opened",
+                title="Change Requests Opened",
                 items=[
-                    build_item(item_id="sonar:1", status="mr_opened").model_copy(
+                    build_item(item_id="sonar:1", status="change_request_opened").model_copy(
                         update={
                             "merge_request_iid": 17,
                             "merge_request_url": (
@@ -1008,7 +1018,7 @@ def test_parse_round_trips_dashboard_item_review_metadata() -> None:
             DashboardSection(key="open_candidates", title="Open Candidates", items=[]),
             DashboardSection(key="in_progress", title="In Progress", items=[]),
             DashboardSection(key="completed", title="Completed", items=[]),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
             DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
         ],
@@ -1044,7 +1054,7 @@ unexpected free-form text
 
 No items.
 
-## Merge Requests Opened
+## Change Requests Opened
 
 No items.
 
@@ -1052,7 +1062,7 @@ No items.
 
 No items.
 
-## Merge Request Reviews
+## Change Request Reviews
 
 No items.
 
@@ -1087,7 +1097,7 @@ def test_parse_accepts_summary_table_followed_by_multiple_item_blocks() -> None:
 
 ### Overview
 
-| Open | In progress | MR opened | Failed | Done |
+| Open | In progress | Change requests opened | Failed | Done |
 |---|---|---|---|---|
 | 2 | 0 | 0 | 0 | 0 |
 
@@ -1165,7 +1175,7 @@ No items.
 
 </details>
 
-## Merge Request Reviews
+## Change Request Reviews
 
 No items.
 
@@ -1217,7 +1227,7 @@ def test_parse_rejects_item_heading_id_mismatch() -> None:
 
 No items.
 
-## Merge Requests Opened
+## Change Requests Opened
 
 No items.
 
@@ -1225,7 +1235,7 @@ No items.
 
 No items.
 
-## Merge Request Reviews
+## Change Request Reviews
 
 No items.
 
@@ -1284,7 +1294,7 @@ def test_parse_rejects_unsupported_summary_table_shape() -> None:
 
 No items.
 
-## Merge Requests Opened
+## Change Requests Opened
 
 No items.
 
@@ -1292,7 +1302,7 @@ No items.
 
 No items.
 
-## Merge Request Reviews
+## Change Request Reviews
 
 No items.
 
@@ -1350,7 +1360,7 @@ def test_parse_accepts_unknown_projection_layout_when_item_blocks_are_valid() ->
 
 No items.
 
-## Merge Requests Opened
+## Change Requests Opened
 
 No items.
 
@@ -1358,7 +1368,7 @@ No items.
 
 No items.
 
-## Merge Request Reviews
+## Change Request Reviews
 
 No items.
 
@@ -1398,7 +1408,7 @@ def test_parse_accepts_unknown_projection_layout_without_item_blocks() -> None:
 
 No items.
 
-## Merge Requests Opened
+## Change Requests Opened
 
 No items.
 
@@ -1406,7 +1416,7 @@ No items.
 
 No items.
 
-## Merge Request Reviews
+## Change Request Reviews
 
 ### Future Review Projection
 
@@ -1522,8 +1532,8 @@ def test_render_uses_placeholders_for_missing_file_and_rule_fields() -> None:
         title="AI Code Ops Work Queue",
         sections=[
             DashboardSection(
-                key="merge_request_reviews",
-                title="Merge Request Reviews",
+                key="change_request_reviews",
+                title="Change Request Reviews",
                 items=[item],
             )
         ],
@@ -1555,16 +1565,16 @@ def test_parse_round_trips_workflow_items_from_combined_workflow_section() -> No
                 items=[build_item(item_id="sonar:progress", status="in_progress")],
             ),
             DashboardSection(
-                key="merge_requests_opened",
-                title="Merge Requests Opened",
-                items=[build_item(item_id="sonar:mr", status="mr_opened")],
+                key="change_requests_opened",
+                title="Change Requests Opened",
+                items=[build_item(item_id="sonar:mr", status="change_request_opened")],
             ),
             DashboardSection(
                 key="completed",
                 title="Completed",
                 items=[build_item(item_id="sonar:done", status="done")],
             ),
-            DashboardSection(key="merge_request_reviews", title="Merge Request Reviews", items=[]),
+            empty_change_request_reviews_section(),
             DashboardSection(key="rejected_or_ignored", title="Rejected Or Ignored", items=[]),
             DashboardSection(key="recent_failures", title="Recent Failures", items=[]),
         ],
@@ -1638,7 +1648,7 @@ and do not mutate operator policy.
 
 ### Overview
 
-| Open | In progress | MR opened | Failed | Done |
+| Open | In progress | Change requests opened | Failed | Done |
 |---|---|---|---|---|
 | 0 | 0 | 0 | 0 | 0 |
 
@@ -1740,7 +1750,7 @@ and do not mutate operator policy.
 
 ### Overview
 
-| Open | In progress | MR opened | Failed | Done |
+| Open | In progress | Change requests opened | Failed | Done |
 |---|---|---|---|---|
 | 0 | 0 | 0 | 0 | 0 |
 
@@ -1846,7 +1856,7 @@ and do not mutate operator policy.
 
 ### Overview
 
-| Open | In progress | MR opened | Failed | Done |
+| Open | In progress | Change requests opened | Failed | Done |
 |---|---|---|---|---|
 | 0 | 0 | 0 | 0 | 0 |
 
@@ -1901,8 +1911,8 @@ Machine-managed remediation and review items for this repository.
   "section_item_counts": {
     "completed": 0,
     "in_progress": 0,
-    "merge_request_reviews": 0,
-    "merge_requests_opened": 0,
+    "change_request_reviews": 0,
+    "change_requests_opened": 0,
     "open_candidates": 99,
     "recent_failures": 0,
     "rejected_or_ignored": 0
@@ -1944,7 +1954,7 @@ and do not mutate operator policy.
 
 ### Overview
 
-| Open | In progress | MR opened | Failed | Done |
+| Open | In progress | Change requests opened | Failed | Done |
 |---|---|---|---|---|
 | 0 | 0 | 0 | 0 | 0 |
 
@@ -1999,8 +2009,8 @@ def test_parse_rejects_manifest_era_dashboard_without_schema_marker() -> None:
   "section_item_counts": {
     "completed": 0,
     "in_progress": 0,
-    "merge_request_reviews": 0,
-    "merge_requests_opened": 0,
+    "change_request_reviews": 0,
+    "change_requests_opened": 0,
     "open_candidates": 0,
     "recent_failures": 0,
     "rejected_or_ignored": 0
@@ -2042,7 +2052,7 @@ and do not mutate operator policy.
 
 ### Overview
 
-| Open | In progress | MR opened | Failed | Done |
+| Open | In progress | Change requests opened | Failed | Done |
 |---|---|---|---|---|
 | 0 | 0 | 0 | 0 | 0 |
 

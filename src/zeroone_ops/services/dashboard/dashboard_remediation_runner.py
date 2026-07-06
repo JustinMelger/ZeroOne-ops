@@ -241,7 +241,9 @@ class DashboardRemediationRunner:
             and execution_result.commit_sha
         ):
             record.mr_url = change_request_url
-            mr_opened_update = DashboardRemediationUpdater(self.dashboard_service).mark_mr_opened(
+            change_request_opened_update = DashboardRemediationUpdater(
+                self.dashboard_service
+            ).mark_change_request_opened(
                 project_id=project_id,
                 dashboard_item_id=work_item.dashboard_item_id,
                 run_id=run_id,
@@ -252,16 +254,16 @@ class DashboardRemediationRunner:
                 retry_eligible=False,
                 retry_block_reason=None,
             )
-            if mr_opened_update.error_message is not None:
+            if change_request_opened_update.error_message is not None:
                 return self._fail_dashboard_update(
                     record=record,
                     dashboard_item_id=work_item.dashboard_item_id,
                     workflow_message=_with_dashboard_recovery_note(
-                        "Remediation succeeded and created a merge request, but the dashboard "
+                        "Remediation succeeded and created a change request, but the dashboard "
                         "state could not be updated.",
                         recovered_stale_item_ids=recovered_stale_item_ids,
                     ),
-                    dashboard_error_message=mr_opened_update.error_message,
+                    dashboard_error_message=change_request_opened_update.error_message,
                 )
 
         if change_request_url is not None:

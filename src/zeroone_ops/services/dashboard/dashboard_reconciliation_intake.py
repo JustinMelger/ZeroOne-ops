@@ -5,7 +5,11 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 
-from zeroone_ops.models.dashboard import DashboardDocument, DashboardItem
+from zeroone_ops.models.dashboard import (
+    DashboardDocument,
+    DashboardItem,
+    normalize_dashboard_status,
+)
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 
 _SKIP_REASON_MESSAGES = {
@@ -78,7 +82,7 @@ class DashboardReconciliationIntakeService:
 
     def _skip_reason(self, item: DashboardItem) -> str | None:
         """Return the stable reason one dashboard item should be skipped."""
-        if item.status != "mr_opened":
+        if normalize_dashboard_status(item.status) != "change_request_opened":
             return "unsupported_status"
         if item.change_request_url is None:
             return "missing_change_request_url"

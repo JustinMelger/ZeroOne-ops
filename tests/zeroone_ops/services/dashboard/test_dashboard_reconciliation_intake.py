@@ -12,7 +12,7 @@ from zeroone_ops.services.dashboard.dashboard_reconciliation_intake import (
 def build_item(
     *,
     item_id: str,
-    status: str = "mr_opened",
+    status: str = "change_request_opened",
     merge_request_url: str | None = "https://gitlab.example.com/group/project/-/merge_requests/1",
     branch_name: str | None = "zeroone-ops/issue-1/service",
     commit_sha: str | None = "abc123",
@@ -39,8 +39,8 @@ def build_item(
 def build_document(*, items: list[DashboardItem]) -> DashboardDocument:
     sections = empty_sections()
     sections[2] = DashboardSection(
-        key="merge_requests_opened",
-        title="Merge Requests Opened",
+        key="change_requests_opened",
+        title="Change Requests Opened",
         items=items,
     )
     return DashboardDocument(

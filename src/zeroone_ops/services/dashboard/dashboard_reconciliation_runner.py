@@ -302,7 +302,7 @@ class DashboardReconciliationRunner:
         if reconciled_count == 0:
             outcome = (
                 f"Reconciliation checked {selected_count} dashboard items and found "
-                f"{noop_count} still-open merge requests."
+                f"{noop_count} still-open change requests."
             )
         message = f"{outcome} " + "; ".join(decision_parts)
         if failed_parts:
