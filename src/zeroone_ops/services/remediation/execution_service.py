@@ -37,10 +37,20 @@ class ExecutionResult:
     failure: FailureDetails | None = None
     branch_name: str | None = None
     commit_sha: str | None = None
-    mr_url: str | None = None
-    mr_action: str | None = None
+    change_request_url: str | None = None
+    change_request_action: str | None = None
     publish_attempted: bool = False
     final_status: RunStatus | None = None
+
+    @property
+    def mr_url(self) -> str | None:
+        """Return the legacy merge-request URL alias."""
+        return self.change_request_url
+
+    @property
+    def mr_action(self) -> str | None:
+        """Return the legacy merge-request action alias."""
+        return self.change_request_action
 
 
 class ExecutionService:
@@ -213,7 +223,7 @@ class ExecutionService:
                 changed_files=patch.files_touched,
                 validation=validation_result,
                 commit_message=patch.commit_message,
-                mr_title=patch.mr_title,
+                change_request_title=patch.change_request_title,
             )
             if not approved:
                 self._rollback_pre_commit(analysis_result)
@@ -249,11 +259,10 @@ class ExecutionService:
                 commit_sha=commit_sha,
             )
 
-        publish_result = self._publish_branch_and_create_mr(
+        publish_result = self._publish_branch_and_create_change_request(
             selected_issue=selected_issue,
-            branch_name=branch_name or "",
-            mr_title=patch.mr_title,
-            mr_description=patch.mr_description,
+            mr_title=patch.change_request_title,
+            mr_description=patch.change_request_description,
         )
         if publish_result.error_message is not None:
             return ExecutionResult(
@@ -273,8 +282,8 @@ class ExecutionService:
             status_message=analysis_result.summary,
             branch_name=branch_name,
             commit_sha=commit_sha,
-            mr_url=publish_result.mr_url,
-            mr_action=publish_result.mr_action,
+            change_request_url=publish_result.change_request_url,
+            change_request_action=publish_result.change_request_action,
             publish_attempted=True,
         )
 
@@ -286,18 +295,16 @@ class ExecutionService:
             and analysis_result.validation_passed is True
         )
 
-    def _publish_branch_and_create_mr(
+    def _publish_branch_and_create_change_request(
         self,
         *,
         selected_issue: RemediationExecutionTarget,
-        branch_name: str,
         mr_title: str,
         mr_description: str,
     ) -> PublishResult:
         """Delegate publish behavior to the dedicated publish service."""
         return self.publish_service.publish(
             selected_issue=selected_issue,
-            branch_name=branch_name,
             mr_title=mr_title,
             mr_description=mr_description,
         )

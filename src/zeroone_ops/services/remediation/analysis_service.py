@@ -185,7 +185,7 @@ class AnalysisService:
         artifact_service.write_patch(issue_key=selected_issue.source_ref, patch=patch)
         summary = (
             f"{summary}. Proposed files: {', '.join(patch.files_touched)}. "
-            f"MR title: {patch.mr_title}. "
+            f"Change request title: {patch.change_request_title}. "
             "Diff rendered by bot from structured edit proposal."
         )
         should_apply_patch = not dry_run or self.config.apply_patch_in_dry_run

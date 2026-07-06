@@ -19,7 +19,7 @@ class ApprovalService:
         changed_files: list[str],
         validation: ValidationResult,
         commit_message: str,
-        mr_title: str,
+        change_request_title: str,
     ) -> bool:
         """Prompt the operator for approval.
 
@@ -28,7 +28,7 @@ class ApprovalService:
             changed_files: Repository-relative files changed by the proposal.
             validation: Validation result for the proposed change.
             commit_message: Proposed commit message.
-            mr_title: Proposed merge request title.
+            change_request_title: Proposed change-request title.
 
         Returns:
             ``True`` if the operator approves publishing, otherwise ``False``.
@@ -37,6 +37,6 @@ class ApprovalService:
         print(f"Changed files: {', '.join(changed_files) if changed_files else 'none'}")
         print(f"Validation: {validation.summary}")
         print(f"Commit message: {commit_message}")
-        print(f"Merge request title: {mr_title}")
+        print(f"Change request title: {change_request_title}")
         response = input("Approve change? [y/N]: ").strip().lower()
         return response in {"y", "yes"}

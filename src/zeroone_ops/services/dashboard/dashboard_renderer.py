@@ -5,10 +5,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import cast
 
 from zeroone_ops.models.dashboard import (
     CURRENT_DASHBOARD_SCHEMA_VERSION,
     DASHBOARD_SCHEMA_MARKER,
+    SECTION_TITLES,
     DashboardDocument,
     DashboardIssueClassExclusionEntry,
     DashboardIssueClassInventoryEntry,
@@ -17,8 +19,11 @@ from zeroone_ops.models.dashboard import (
     DashboardPolicyState,
     DashboardPolicyView,
     DashboardSection,
+    DashboardSectionKey,
     DashboardSeverityPolicyEntry,
     build_dashboard_manifest,
+    normalize_dashboard_section_key,
+    normalize_dashboard_status,
 )
 
 WORKFLOW_BUCKET_DISPLAY_LIMITS: dict[str, int] = {
@@ -216,16 +221,17 @@ class DashboardRenderer:
         workflow_items: list[DashboardItem],
         review_projection_items: list[DashboardItem],
     ) -> list[str]:
-        if section.key in {
+        normalized_section_key = normalize_dashboard_section_key(section.key)
+        if normalized_section_key in {
             "in_progress",
-            "merge_requests_opened",
+            "change_requests_opened",
             "completed",
             "rejected_or_ignored",
             "recent_failures",
         }:
             return []
-        lines = [f"## {section.title}", ""]
-        if section.key == "open_candidates":
+        lines = [f"## {self._section_title(section)}", ""]
+        if normalized_section_key == "open_candidates":
             workflow_lines, visible_items, hidden_items = self._render_workflow_section(
                 workflow_items
             )
@@ -238,7 +244,7 @@ class DashboardRenderer:
                 lines.extend(self._render_hidden_workflow_items_block(hidden_items))
                 lines.append("")
             return lines
-        if section.key == "merge_request_reviews":
+        if normalized_section_key == "change_request_reviews":
             lines.extend(self._render_merge_request_review_section(review_projection_items))
             lines.append("")
             for item in section.items:
@@ -265,14 +271,14 @@ class DashboardRenderer:
         items = [
             item
             for section in sections
-            if section.key != "merge_request_reviews"
+            if normalize_dashboard_section_key(section.key) != "change_request_reviews"
             for item in section.items
         ]
         status_order = {
             "open": 0,
             "failed": 1,
             "in_progress": 2,
-            "mr_opened": 3,
+            "change_request_opened": 3,
             "rejected": 4,
             "ignored": 5,
             "done": 6,
@@ -280,7 +286,7 @@ class DashboardRenderer:
         return sorted(
             items,
             key=lambda item: (
-                status_order.get(item.status, 99),
+                status_order.get(normalize_dashboard_status(item.status), 99),
                 self._workflow_policy_rank(item, policy_state=policy_state),
                 self._workflow_area_key(item),
                 self._workflow_file_key(item),
@@ -361,7 +367,11 @@ class DashboardRenderer:
         else:
             lines.append("No items.")
         lines.extend(["", "### In Flight", ""])
-        in_flight_items = [item for item in items if item.status in {"in_progress", "mr_opened"}]
+        in_flight_items = [
+            item
+            for item in items
+            if normalize_dashboard_status(item.status) in {"in_progress", "change_request_opened"}
+        ]
         if in_flight_items:
             limit = self._bucket_limit("in_flight")
             visible_items.extend(in_flight_items[:limit])
@@ -410,16 +420,24 @@ class DashboardRenderer:
 
     def _render_workflow_overview_table(self, items: list[DashboardItem]) -> list[str]:
         """Render one compact metrics table for workflow items."""
-        open_count = sum(1 for item in items if item.status == "open")
-        in_progress_count = sum(1 for item in items if item.status == "in_progress")
-        mr_opened_count = sum(1 for item in items if item.status == "mr_opened")
-        failed_count = sum(1 for item in items if item.status == "failed")
-        done_count = sum(1 for item in items if item.status == "done")
+        open_count = sum(1 for item in items if normalize_dashboard_status(item.status) == "open")
+        in_progress_count = sum(
+            1 for item in items if normalize_dashboard_status(item.status) == "in_progress"
+        )
+        change_request_opened_count = sum(
+            1
+            for item in items
+            if normalize_dashboard_status(item.status) == "change_request_opened"
+        )
+        failed_count = sum(
+            1 for item in items if normalize_dashboard_status(item.status) == "failed"
+        )
+        done_count = sum(1 for item in items if normalize_dashboard_status(item.status) == "done")
         return [
-            "| Open | In progress | MR opened | Failed | Done |",
+            "| Open | In progress | Change requests opened | Failed | Done |",
             "|---|---|---|---|---|",
             (
-                f"| {open_count} | {in_progress_count} | {mr_opened_count} | "
+                f"| {open_count} | {in_progress_count} | {change_request_opened_count} | "
                 f"{failed_count} | {done_count} |"
             ),
         ]
@@ -692,10 +710,10 @@ class DashboardRenderer:
 
     def _render_merge_request_label(self, item: DashboardItem) -> str:
         """Render one merge request label for the review summary tables."""
-        if item.merge_request_iid is not None:
-            label = f"!{item.merge_request_iid}"
-            if item.merge_request_url:
-                return f"[{label}]({item.merge_request_url})"
+        if item.change_request_number is not None:
+            label = f"!{item.change_request_number}"
+            if item.change_request_url:
+                return f"[{label}]({item.change_request_url})"
             return label
         return f"`{item.id}`"
 
@@ -709,8 +727,9 @@ class DashboardRenderer:
         if item.review_status is not None:
             label = mapping.get(item.review_status, item.review_status.replace("_", " "))
             return f"{self._review_outcome_marker(item.review_status)} {label}"
-        label = item.status.replace("_", " ").title()
-        return f"{self._status_marker(item.status)} {label}"
+        normalized_status = normalize_dashboard_status(item.status)
+        label = normalized_status.replace("_", " ").title()
+        return f"{self._status_marker(normalized_status)} {label}"
 
     def _render_priority(self, item: DashboardItem) -> str:
         """Render one human-readable priority label."""
@@ -741,7 +760,11 @@ class DashboardRenderer:
 
     def _render_workflow_status(self, item: DashboardItem) -> str:
         """Render one human-readable workflow status label."""
-        return f"{self._status_marker(item.status)} {item.status.replace('_', ' ').title()}"
+        normalized_status = normalize_dashboard_status(item.status)
+        return (
+            f"{self._status_marker(normalized_status)} "
+            f"{normalized_status.replace('_', ' ').title()}"
+        )
 
     def _render_workflow_summary(self, item: DashboardItem) -> str:
         """Render one compact workflow summary."""
@@ -796,8 +819,8 @@ class DashboardRenderer:
         """Render one compact in-flight summary."""
         if item.review_status is not None:
             return self._render_review_outcome(item)
-        if item.merge_request_iid is not None and item.merge_request_url:
-            return f"[View MR]({item.merge_request_url})"
+        if item.change_request_number is not None and item.change_request_url:
+            return f"[View CR]({item.change_request_url})"
         return self._render_workflow_summary(item)
 
     def _render_completed_summary(self, item: DashboardItem) -> str:
@@ -914,10 +937,10 @@ class DashboardRenderer:
 
     def _review_group_key(self, item: DashboardItem) -> str:
         """Return the grouping key for merge-request review items."""
-        if item.merge_request_url:
-            return item.merge_request_url
-        if item.merge_request_iid is not None:
-            return f"mr:{item.merge_request_iid}"
+        if item.change_request_url:
+            return item.change_request_url
+        if item.change_request_number is not None:
+            return f"cr:{item.change_request_number}"
         return item.source_reference
 
     def _build_review_group(self, items: list[DashboardItem]) -> _ReviewGroup:
@@ -945,13 +968,21 @@ class DashboardRenderer:
         markers = {
             "open": "🔵",
             "in_progress": "🟠",
-            "mr_opened": "📦",
+            "change_request_opened": "📦",
             "failed": "🔴",
             "done": "✅",
             "rejected": "⚪",
             "ignored": "⚪",
         }
-        return markers.get(status, "•")
+        return markers.get(normalize_dashboard_status(status), "•")
+
+    def _section_title(self, section: DashboardSection) -> str:
+        """Return the canonical shared section title for rendering."""
+        normalized_key = cast(
+            DashboardSectionKey,
+            normalize_dashboard_section_key(section.key),
+        )
+        return SECTION_TITLES.get(normalized_key, section.title)
 
     def _review_outcome_marker(self, outcome: str) -> str:
         """Return one lightweight marker for a review outcome."""

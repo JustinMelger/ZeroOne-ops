@@ -30,8 +30,9 @@ from zeroone_ops.services.dashboard.dashboard_renderer import DashboardRenderer
 DEFAULT_SECTION_ITEM_LIMITS: dict[DashboardSectionKey, int] = {
     "open_candidates": 50,
     "in_progress": 25,
-    "merge_requests_opened": 25,
-    "merge_request_reviews": 25,
+    "change_requests_opened": 25,
+    "completed": 25,
+    "change_request_reviews": 25,
     "rejected_or_ignored": 25,
     "recent_failures": 25,
 }

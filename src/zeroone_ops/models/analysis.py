@@ -115,6 +115,16 @@ class PatchProposal(BaseModel):
     mr_title: str
     mr_description: str
 
+    @property
+    def change_request_title(self) -> str:
+        """Return the neutral change-request title alias."""
+        return self.mr_title
+
+    @property
+    def change_request_description(self) -> str:
+        """Return the neutral change-request description alias."""
+        return self.mr_description
+
 
 class TextEdit(BaseModel):
     """Represent one exact text replacement in a repository file.
@@ -148,6 +158,16 @@ class StructuredEditProposal(BaseModel):
     commit_message: str
     mr_title: str
     mr_description: str
+
+    @property
+    def change_request_title(self) -> str:
+        """Return the neutral change-request title alias."""
+        return self.mr_title
+
+    @property
+    def change_request_description(self) -> str:
+        """Return the neutral change-request description alias."""
+        return self.mr_description
 
 
 class ValidationCommandResult(BaseModel):

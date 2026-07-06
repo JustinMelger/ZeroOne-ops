@@ -2,6 +2,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
@@ -18,7 +19,6 @@ from zeroone_ops.models.dashboard import (
     DashboardSeverityPolicyStateEntry,
     empty_sections,
 )
-from zeroone_ops.models.gitlab import MergeRequestInfo
 from zeroone_ops.models.state import (
     AppState,
     DashboardItemState,
@@ -72,20 +72,20 @@ class FakeDashboardService:
         return self.document
 
 
-class FakeMergeRequestService:
-    def __init__(self, branches_with_open_mr: set[str]) -> None:
-        self.branches_with_open_mr = branches_with_open_mr
+class FakeChangeRequestLookup:
+    def __init__(self, branches_with_open_change_request: set[str]) -> None:
+        self.branches_with_open_change_request = branches_with_open_change_request
 
-    def find_open(
+    def find_open_change_request(
         self,
-        project_id: str,
+        *,
         source_branch: str,
         target_branch: str,
-    ) -> MergeRequestInfo | None:
-        del project_id, target_branch
-        if source_branch not in self.branches_with_open_mr:
+    ) -> ChangeRequestInfo | None:
+        del target_branch
+        if source_branch not in self.branches_with_open_change_request:
             return None
-        return MergeRequestInfo(
+        return ChangeRequestInfo(
             iid=1,
             web_url="https://gitlab.example.com/group/project/-/merge_requests/1",
             title="fix: existing issue",
@@ -198,7 +198,7 @@ def test_select_item_skips_item_with_existing_open_merge_request(
                 ]
             )
         ),
-        merge_request_service=FakeMergeRequestService({"zeroone-ops/issue-1/service"}),
+        change_request_lookup=FakeChangeRequestLookup({"zeroone-ops/issue-1/service"}),
     )
 
     result = service.select_item(project_id="123", state=build_state())
@@ -436,7 +436,7 @@ def test_select_item_allows_reopened_item_with_cleared_merge_request_linkage(
                 ]
             )
         ),
-        merge_request_service=FakeMergeRequestService(set()),
+        change_request_lookup=FakeChangeRequestLookup(set()),
     )
 
     result = service.select_item(project_id="123", state=build_state())

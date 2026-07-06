@@ -53,22 +53,66 @@ class DashboardRemediationUpdater:
         dashboard_item_id: str,
         run_id: str,
         branch_name: str,
-        merge_request_url: str,
+        change_request_url: str | None = None,
         commit_sha: str,
+        change_request_number: int | None = None,
+        merge_request_url: str | None = None,
         merge_request_iid: int | None = None,
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
     ) -> DashboardRemediationUpdateResult:
-        """Mark one dashboard item as having an open merge request."""
+        """Compatibility wrapper for the neutral change-request transition."""
+        return self.mark_change_request_opened(
+            project_id=project_id,
+            dashboard_item_id=dashboard_item_id,
+            run_id=run_id,
+            branch_name=branch_name,
+            change_request_url=change_request_url,
+            commit_sha=commit_sha,
+            change_request_number=change_request_number,
+            merge_request_url=merge_request_url,
+            merge_request_iid=merge_request_iid,
+            retry_count=retry_count,
+            retry_eligible=retry_eligible,
+            retry_block_reason=retry_block_reason,
+        )
+
+    def mark_change_request_opened(
+        self,
+        *,
+        project_id: str,
+        dashboard_item_id: str,
+        run_id: str,
+        branch_name: str,
+        change_request_url: str | None = None,
+        commit_sha: str,
+        change_request_number: int | None = None,
+        merge_request_url: str | None = None,
+        merge_request_iid: int | None = None,
+        retry_count: int | None = None,
+        retry_eligible: bool | None = None,
+        retry_block_reason: str | None = None,
+    ) -> DashboardRemediationUpdateResult:
+        """Mark one dashboard item as having an open change request."""
+        if change_request_url is None:
+            change_request_url = merge_request_url
+        if change_request_number is None:
+            change_request_number = merge_request_iid
+        if change_request_url is None:
+            return DashboardRemediationUpdateResult(
+                error_message=(
+                    "Dashboard remediation update failed: change request URL is required."
+                ),
+            )
         return self._update_item(
             project_id=project_id,
             dashboard_item_id=dashboard_item_id,
-            status="mr_opened",
+            status="change_request_opened",
             run_id=run_id,
             branch_name=branch_name,
-            merge_request_url=merge_request_url,
-            merge_request_iid=merge_request_iid,
+            change_request_url=change_request_url,
+            change_request_number=change_request_number,
             commit_sha=commit_sha,
             retry_count=retry_count,
             retry_eligible=retry_eligible,
@@ -156,7 +200,7 @@ class DashboardRemediationUpdater:
             status="open",
             run_id=run_id,
             log_excerpt=summary,
-            clear_merge_request_traceability=True,
+            clear_change_request_traceability=True,
             retry_count=retry_count,
             retry_eligible=retry_eligible,
             retry_block_reason=retry_block_reason,
@@ -170,11 +214,11 @@ class DashboardRemediationUpdater:
         status: str,
         run_id: str,
         branch_name: str | None = None,
-        merge_request_url: str | None = None,
-        merge_request_iid: int | None = None,
+        change_request_url: str | None = None,
+        change_request_number: int | None = None,
         commit_sha: str | None = None,
         log_excerpt: str | None = None,
-        clear_merge_request_traceability: bool = False,
+        clear_change_request_traceability: bool = False,
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
@@ -190,11 +234,11 @@ class DashboardRemediationUpdater:
                     status=status,
                     run_id=run_id,
                     branch_name=branch_name,
-                    merge_request_url=merge_request_url,
-                    merge_request_iid=merge_request_iid,
+                    change_request_url=change_request_url,
+                    change_request_number=change_request_number,
                     commit_sha=commit_sha,
                     log_excerpt=log_excerpt,
-                    clear_merge_request_traceability=clear_merge_request_traceability,
+                    clear_change_request_traceability=clear_change_request_traceability,
                     retry_count=retry_count,
                     retry_eligible=retry_eligible,
                     retry_block_reason=retry_block_reason,
@@ -208,11 +252,11 @@ class DashboardRemediationUpdater:
                     status=status,
                     run_id=run_id,
                     branch_name=branch_name,
-                    merge_request_url=merge_request_url,
-                    merge_request_iid=merge_request_iid,
+                    change_request_url=change_request_url,
+                    change_request_number=change_request_number,
                     commit_sha=commit_sha,
                     log_excerpt=log_excerpt,
-                    clear_merge_request_traceability=clear_merge_request_traceability,
+                    clear_change_request_traceability=clear_change_request_traceability,
                     retry_count=retry_count,
                     retry_eligible=retry_eligible,
                     retry_block_reason=retry_block_reason,
@@ -240,11 +284,11 @@ class DashboardRemediationUpdater:
         status: str,
         run_id: str,
         branch_name: str | None,
-        merge_request_url: str | None,
-        merge_request_iid: int | None,
+        change_request_url: str | None,
+        change_request_number: int | None,
         commit_sha: str | None,
         log_excerpt: str | None,
-        clear_merge_request_traceability: bool,
+        clear_change_request_traceability: bool,
         retry_count: int | None,
         retry_eligible: bool | None,
         retry_block_reason: str | None,
@@ -256,22 +300,22 @@ class DashboardRemediationUpdater:
                 "last_run_id": run_id,
                 "status_updated_at": datetime.now(UTC),
                 "branch_name": branch_name if branch_name is not None else current_item.branch_name,
-                "merge_request_url": (
+                "change_request_url": (
                     None
-                    if clear_merge_request_traceability
+                    if clear_change_request_traceability
                     else (
-                        merge_request_url
-                        if merge_request_url is not None
-                        else current_item.merge_request_url
+                        change_request_url
+                        if change_request_url is not None
+                        else current_item.change_request_url
                     )
                 ),
-                "merge_request_iid": (
+                "change_request_number": (
                     None
-                    if clear_merge_request_traceability
+                    if clear_change_request_traceability
                     else (
-                        merge_request_iid
-                        if merge_request_iid is not None
-                        else current_item.merge_request_iid
+                        change_request_number
+                        if change_request_number is not None
+                        else current_item.change_request_number
                     )
                 ),
                 "commit_sha": commit_sha if commit_sha is not None else current_item.commit_sha,
@@ -299,11 +343,11 @@ class DashboardRemediationUpdater:
         status: str,
         run_id: str,
         branch_name: str | None,
-        merge_request_url: str | None,
-        merge_request_iid: int | None,
+        change_request_url: str | None,
+        change_request_number: int | None,
         commit_sha: str | None,
         log_excerpt: str | None,
-        clear_merge_request_traceability: bool,
+        clear_change_request_traceability: bool,
         retry_count: int | None,
         retry_eligible: bool | None,
         retry_block_reason: str | None,
@@ -313,8 +357,13 @@ class DashboardRemediationUpdater:
             current_item.status == status
             and current_item.last_run_id == run_id
             and (branch_name is None or current_item.branch_name == branch_name)
-            and (merge_request_url is None or current_item.merge_request_url == merge_request_url)
-            and (merge_request_iid is None or current_item.merge_request_iid == merge_request_iid)
+            and (
+                change_request_url is None or current_item.change_request_url == change_request_url
+            )
+            and (
+                change_request_number is None
+                or current_item.change_request_number == change_request_number
+            )
             and (commit_sha is None or current_item.commit_sha == commit_sha)
             and (log_excerpt is None or current_item.log_excerpt == log_excerpt)
             and (retry_count is None or current_item.retry_count == retry_count)
@@ -329,10 +378,10 @@ class DashboardRemediationUpdater:
                 or current_item.retry_block_reason == retry_block_reason
             )
             and (
-                not clear_merge_request_traceability
+                not clear_change_request_traceability
                 or (
-                    current_item.merge_request_url is None
-                    and current_item.merge_request_iid is None
+                    current_item.change_request_url is None
+                    and current_item.change_request_number is None
                 )
             )
         )

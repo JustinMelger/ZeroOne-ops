@@ -25,7 +25,7 @@ class DashboardReconciliationDecision:
 
 
 class DashboardReconciliationService:
-    """Resolve reconciliation actions from dashboard and merge request state."""
+    """Resolve reconciliation actions from dashboard and change-request state."""
 
     def __init__(
         self,
@@ -43,19 +43,19 @@ class DashboardReconciliationService:
         project_id: str,
         item: DashboardItem,
     ) -> DashboardReconciliationDecision:
-        """Return the reconciliation action for one `mr_opened` item."""
-        merge_request_iid = item.merge_request_iid or merge_request_iid_from_url(
-            item.merge_request_url
+        """Return the reconciliation action for one open change-request item."""
+        merge_request_iid = item.change_request_number or merge_request_iid_from_url(
+            item.change_request_url
         )
         if merge_request_iid is None:
             return DashboardReconciliationDecision(
                 action="failed",
                 message=(
-                    f"Dashboard item {item.id} cannot be reconciled because its merge "
-                    "request IID could not be determined."
+                    f"Dashboard item {item.id} cannot be reconciled because its change "
+                    "request number could not be determined."
                 ),
                 retry_eligible=False,
-                retry_block_reason="Merge request IID is missing.",
+                retry_block_reason="Change request number is missing.",
             )
         try:
             merge_request = self.review_client.get_merge_request_state(
@@ -66,16 +66,16 @@ class DashboardReconciliationService:
             return DashboardReconciliationDecision(
                 action="failed",
                 message=(
-                    f"Dashboard item {item.id} cannot be reconciled because merge "
+                    f"Dashboard item {item.id} cannot be reconciled because change "
                     f"request metadata is inaccessible: {error}"
                 ),
                 retry_eligible=False,
-                retry_block_reason="Merge request metadata is inaccessible.",
+                retry_block_reason="Change request metadata is inaccessible.",
             )
         if merge_request.state == "opened":
             return DashboardReconciliationDecision(
                 action="noop",
-                message=f"Merge request !{merge_request.iid} is still open.",
+                message=f"Change request !{merge_request.iid} is still open.",
                 retry_eligible=item.retry_eligible,
                 retry_block_reason=item.retry_block_reason,
                 merge_request_state=merge_request,
@@ -83,7 +83,7 @@ class DashboardReconciliationService:
         if merge_request.state == "merged":
             return DashboardReconciliationDecision(
                 action="done",
-                message=f"Merge request !{merge_request.iid} was merged.",
+                message=f"Change request !{merge_request.iid} was merged.",
                 retry_eligible=False,
                 retry_block_reason=None,
                 merge_request_state=merge_request,
@@ -96,7 +96,7 @@ class DashboardReconciliationService:
                 return DashboardReconciliationDecision(
                     action="failed",
                     message=(
-                        f"Merge request !{merge_request.iid} was closed, but stored "
+                        f"Change request !{merge_request.iid} was closed, but stored "
                         "branch or commit traceability no longer matches."
                     ),
                     retry_eligible=False,
@@ -107,7 +107,7 @@ class DashboardReconciliationService:
                 return DashboardReconciliationDecision(
                     action="done",
                     message=(
-                        f"Merge request !{merge_request.iid} was closed without merge, "
+                        f"Change request !{merge_request.iid} was closed without merge, "
                         "and the dashboard shows the Sonar issue is no longer active."
                     ),
                     retry_eligible=False,
@@ -119,7 +119,7 @@ class DashboardReconciliationService:
                 return DashboardReconciliationDecision(
                     action="open",
                     message=(
-                        f"Merge request !{merge_request.iid} was closed without merge. "
+                        f"Change request !{merge_request.iid} was closed without merge. "
                         "Reopening dashboard item with review-guided retry eligibility."
                     ),
                     retry_eligible=True,
@@ -130,7 +130,7 @@ class DashboardReconciliationService:
                 return DashboardReconciliationDecision(
                     action="open",
                     message=(
-                        f"Merge request !{merge_request.iid} was closed without merge. "
+                        f"Change request !{merge_request.iid} was closed without merge. "
                         "Reopening dashboard item."
                     ),
                     retry_eligible=False,
@@ -140,7 +140,7 @@ class DashboardReconciliationService:
             return DashboardReconciliationDecision(
                 action="failed",
                 message=(
-                    f"Merge request !{merge_request.iid} was closed without merge, "
+                    f"Change request !{merge_request.iid} was closed without merge, "
                     f"but retry is blocked: {retry_block_reason}"
                 ),
                 retry_eligible=False,
@@ -150,11 +150,11 @@ class DashboardReconciliationService:
         return DashboardReconciliationDecision(
             action="failed",
             message=(
-                f"Merge request !{merge_request.iid} returned unsupported state "
+                f"Change request !{merge_request.iid} returned unsupported state "
                 f"`{merge_request.state}`."
             ),
             retry_eligible=False,
-            retry_block_reason=f"Unsupported merge request state: {merge_request.state}.",
+            retry_block_reason=f"Unsupported change request state: {merge_request.state}.",
             merge_request_state=merge_request,
         )
 

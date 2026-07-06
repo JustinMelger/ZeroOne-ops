@@ -2,19 +2,9 @@
 
 from pydantic import BaseModel
 
+from zeroone_ops.models.change_request import ChangeRequestInfo
 
-class MergeRequestInfo(BaseModel):
-    """Represent a created GitLab merge request.
-
-    Attributes:
-        iid: GitLab merge request internal ID.
-        web_url: Browser URL for the merge request.
-        title: Merge request title.
-    """
-
-    iid: int
-    web_url: str
-    title: str
+MergeRequestInfo = ChangeRequestInfo
 
 
 class GitLabMergeRequestState(BaseModel):

@@ -7,6 +7,7 @@ import re
 
 from zeroone_ops.models.dashboard import (
     CURRENT_DASHBOARD_SCHEMA_VERSION,
+    LEGACY_SECTION_TITLES,
     SECTION_ORDER,
     SECTION_TITLES,
     DashboardDocument,
@@ -16,6 +17,7 @@ from zeroone_ops.models.dashboard import (
     DashboardPolicyView,
     DashboardSection,
     build_dashboard_manifest,
+    normalize_dashboard_section_key,
     section_key_for_item,
 )
 
@@ -161,14 +163,19 @@ class DashboardParser:
             )
 
     def _extract_section_content(self, body: str, section_title: str) -> str:
-        pattern = re.compile(
-            rf"^## {re.escape(section_title)}\n(?P<content>.*?)(?=^## |\Z)",
-            re.MULTILINE | re.DOTALL,
-        )
-        match = pattern.search(body)
-        if match is None:
-            return ""
-        return match.group("content").strip()
+        section_titles = [section_title]
+        legacy_title = LEGACY_SECTION_TITLES.get(section_title)
+        if legacy_title is not None:
+            section_titles.append(legacy_title)
+        for candidate_title in section_titles:
+            pattern = re.compile(
+                rf"^## {re.escape(candidate_title)}\n(?P<content>.*?)(?=^## |\Z)",
+                re.MULTILINE | re.DOTALL,
+            )
+            match = pattern.search(body)
+            if match is not None:
+                return match.group("content").strip()
+        return ""
 
     def _parse_section_items(self, section_key: str, content: str) -> list[DashboardItem]:
         if not content or content == "No items.":
@@ -257,7 +264,7 @@ class DashboardParser:
         review_items: list[DashboardItem] = []
         workflow_items: list[DashboardItem] = []
         for section in sections:
-            if section.key == "merge_request_reviews":
+            if normalize_dashboard_section_key(section.key) == "change_request_reviews":
                 review_items.extend(section.items)
             else:
                 workflow_items.extend(section.items)
@@ -266,7 +273,7 @@ class DashboardParser:
             key: DashboardSection(key=key, title=SECTION_TITLES[key], items=[])
             for key in SECTION_ORDER
         }
-        redistributed["merge_request_reviews"].items = review_items
+        redistributed["change_request_reviews"].items = review_items
         for item in workflow_items:
             redistributed[section_key_for_item(item)].items.append(item)
         return [redistributed[key] for key in SECTION_ORDER]

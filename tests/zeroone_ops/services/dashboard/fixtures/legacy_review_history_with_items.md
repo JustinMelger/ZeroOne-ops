@@ -4,7 +4,7 @@ Machine-managed remediation and review items for this repository.
 
 No items.
 
-## Merge Request Reviews
+## Change Request Reviews
 
 ### Overview
 

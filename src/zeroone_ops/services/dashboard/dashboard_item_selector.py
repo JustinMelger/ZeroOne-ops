@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from zeroone_ops.models.dashboard import DashboardItem
+from zeroone_ops.models.dashboard import DashboardItem, normalize_dashboard_status
 from zeroone_ops.models.state import AppState
 
-ACTIVE_DASHBOARD_ITEM_STATUSES = frozenset({"in_progress", "mr_opened"})
+ACTIVE_DASHBOARD_ITEM_STATUSES = frozenset({"in_progress", "change_request_opened"})
 SUPPORTED_REMEDIATION_ITEM_TYPES = frozenset({"code_smell_fix"})
 SUPPORTED_REMEDIATION_SOURCES = frozenset({"sonarqube"})
 
@@ -49,7 +49,8 @@ class DashboardItemSelector:
         dashboard_item_state = state.dashboard_items.get(item.id)
         if (
             dashboard_item_state is not None
-            and dashboard_item_state.status in ACTIVE_DASHBOARD_ITEM_STATUSES
+            and normalize_dashboard_status(dashboard_item_state.status)
+            in ACTIVE_DASHBOARD_ITEM_STATUSES
         ):
             return "active_local_state"
         return None

@@ -15,11 +15,11 @@
     "required": true
   },
   "review": {
-    "max_changed_files": 10,
-    "max_findings_per_review": 3,
-    "max_prior_review_passes": 2,
-    "max_context_lines_before": 200,
-    "max_context_lines_after": 200,
+    "max_changed_files": 50,
+    "max_findings_per_review": 5,
+    "max_prior_review_passes": 5,
+    "max_context_lines_before": 400,
+    "max_context_lines_after": 400,
     "supported_paths": ["src/", "tests/", "app/"],
     "ignored_paths": ["src/generated/"],
     "skip_draft_merge_requests": true,

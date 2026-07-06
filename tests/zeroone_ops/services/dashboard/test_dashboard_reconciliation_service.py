@@ -17,7 +17,7 @@ def build_item(
         id="sonar:1",
         source="sonarqube",
         type="code_smell_fix",
-        status="mr_opened",
+        status="change_request_opened",
         title="Fix issue",
         summary="Fix the issue safely.",
         priority="low",
@@ -148,7 +148,7 @@ def test_decide_returns_failed_when_merge_request_metadata_is_inaccessible() -> 
     assert decision.action == "failed"
     assert "metadata is inaccessible" in decision.message
     assert decision.retry_eligible is False
-    assert decision.retry_block_reason == "Merge request metadata is inaccessible."
+    assert decision.retry_block_reason == "Change request metadata is inaccessible."
 
 
 def test_decide_returns_retry_eligible_open_for_closed_merge_request_with_findings() -> None:

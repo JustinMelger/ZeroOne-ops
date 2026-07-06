@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from zeroone_ops.models.config import AppConfig, GitLabConnectionConfig
+from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.dashboard import (
     DashboardDocument,
     DashboardItem,
@@ -16,13 +16,16 @@ from zeroone_ops.models.dashboard import (
     DashboardSeverityPolicyStateEntry,
 )
 from zeroone_ops.models.state import AppState
-from zeroone_ops.providers.gitlab_client import GitLabClient
+from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.services.dashboard.dashboard_item_selector import (
     DashboardItemSelector,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
-from zeroone_ops.services.shared.mr_service import MergeRequestService
-from zeroone_ops.settings import SettingsError, load_gitlab_connection_config
+from zeroone_ops.services.shared.change_request_lookup import (
+    ChangeRequestLookup,
+    build_change_request_lookup,
+)
+from zeroone_ops.settings import SettingsError
 from zeroone_ops.utils.git import build_issue_branch_name
 
 LOGGER = logging.getLogger(__name__)
@@ -31,7 +34,7 @@ _DEFAULT_ENABLED_SEVERITIES: frozenset[str] = frozenset({"low", "medium"})
 
 _SKIP_REASON_MESSAGES = {
     "active_local_state": "already tracked as active locally",
-    "active_merge_request": "already represented by an active merge request",
+    "active_merge_request": "already represented by an active change request",
     "blocked_by_severity_policy": "blocked by severity policy",
     "excluded_by_policy": "explicitly excluded from automation",
     "missing_file_path": "without a target file path",
@@ -63,14 +66,14 @@ class DashboardItemIntakeService:
         config: AppConfig | None = None,
         dashboard_service: DashboardService,
         selector: DashboardItemSelector | None = None,
-        merge_request_service: MergeRequestService | None = None,
+        change_request_lookup: ChangeRequestLookup | None = None,
     ) -> None:
         """Initialize the dashboard item intake service."""
         self.repo_root = repo_root
         self.config = config
         self.dashboard_service = dashboard_service
         self.selector = selector or DashboardItemSelector(repo_root=repo_root)
-        self.merge_request_service = merge_request_service
+        self.change_request_lookup = change_request_lookup
 
     def select_item(
         self,
@@ -90,21 +93,18 @@ class DashboardItemIntakeService:
             update={"policy_state": self._resolved_policy_state(document.policy_state)}
         )
         items = [item for section in document.sections for item in section.items]
-        gitlab_config = self._load_gitlab_config()
-        merge_request_service = self._build_merge_request_service(gitlab_config)
+        change_request_lookup = self._build_change_request_lookup()
         skip_reason_counts = self._skip_reason_counts(
             items,
             state,
             policy_state=document.policy_state,
-            gitlab_config=gitlab_config,
-            merge_request_service=merge_request_service,
+            change_request_lookup=change_request_lookup,
         )
         selected_item = self._select_item(
             items,
             state,
             policy_state=document.policy_state,
-            gitlab_config=gitlab_config,
-            merge_request_service=merge_request_service,
+            change_request_lookup=change_request_lookup,
         )
         if selected_item is None:
             return DashboardItemIntakeResult(
@@ -132,8 +132,7 @@ class DashboardItemIntakeService:
         state: AppState,
         *,
         policy_state: DashboardPolicyState,
-        gitlab_config: GitLabConnectionConfig | None,
-        merge_request_service: MergeRequestService | None,
+        change_request_lookup: ChangeRequestLookup | None,
     ) -> Counter[str]:
         """Return skip-reason counts for the current dashboard item candidates."""
         skip_reason_counts: Counter[str] = Counter()
@@ -142,8 +141,7 @@ class DashboardItemIntakeService:
                 item,
                 state,
                 policy_state=policy_state,
-                gitlab_config=gitlab_config,
-                merge_request_service=merge_request_service,
+                change_request_lookup=change_request_lookup,
             )
             if skip_reason is None:
                 continue
@@ -166,8 +164,7 @@ class DashboardItemIntakeService:
         state: AppState,
         *,
         policy_state: DashboardPolicyState,
-        gitlab_config: GitLabConnectionConfig | None,
-        merge_request_service: MergeRequestService | None,
+        change_request_lookup: ChangeRequestLookup | None,
     ) -> DashboardItem | None:
         """Return the first dashboard item that survives intake checks."""
         for item in items:
@@ -176,8 +173,7 @@ class DashboardItemIntakeService:
                     item,
                     state,
                     policy_state=policy_state,
-                    gitlab_config=gitlab_config,
-                    merge_request_service=merge_request_service,
+                    change_request_lookup=change_request_lookup,
                 )
                 is None
             ):
@@ -190,8 +186,7 @@ class DashboardItemIntakeService:
         state: AppState,
         *,
         policy_state: DashboardPolicyState,
-        gitlab_config: GitLabConnectionConfig | None,
-        merge_request_service: MergeRequestService | None,
+        change_request_lookup: ChangeRequestLookup | None,
     ) -> str | None:
         """Return the stable reason one dashboard item should be skipped."""
         selector_reason = self.selector.skip_reason(item, state)
@@ -203,8 +198,7 @@ class DashboardItemIntakeService:
             return "excluded_by_policy"
         return self._active_merge_request_skip_reason(
             item,
-            gitlab_config=gitlab_config,
-            merge_request_service=merge_request_service,
+            change_request_lookup=change_request_lookup,
         )
 
     def _is_blocked_by_severity_policy(
@@ -289,16 +283,14 @@ class DashboardItemIntakeService:
         self,
         item: DashboardItem,
         *,
-        gitlab_config: GitLabConnectionConfig | None,
-        merge_request_service: MergeRequestService | None,
+        change_request_lookup: ChangeRequestLookup | None,
     ) -> str | None:
         """Return whether one dashboard item is already represented by an open MR."""
-        if item.merge_request_url:
+        if item.change_request_url:
             return "active_merge_request"
         if (
             self.config is None
-            or gitlab_config is None
-            or merge_request_service is None
+            or change_request_lookup is None
             or item.source != "sonarqube"
             or item.file is None
         ):
@@ -311,8 +303,7 @@ class DashboardItemIntakeService:
         target_branch = self.config.require_remediation_target_branch(
             reason="Dashboard review intake",
         )
-        existing_merge_request = merge_request_service.find_open(
-            project_id=gitlab_config.project_id,
+        existing_merge_request = change_request_lookup.find_open_change_request(
             source_branch=branch_name,
             target_branch=target_branch,
         )
@@ -365,23 +356,16 @@ class DashboardItemIntakeService:
             return False
         return item.status_updated_at <= datetime.now(UTC) - _STALE_IN_PROGRESS_WINDOW
 
-    def _load_gitlab_config(self) -> GitLabConnectionConfig | None:
-        """Load GitLab config when remote duplicate lookup is available."""
+    def _build_change_request_lookup(self) -> ChangeRequestLookup | None:
+        """Return the configured change-request lookup when provider state is available."""
+        if self.change_request_lookup is not None:
+            return self.change_request_lookup
+        if self.config is None:
+            return None
         try:
-            return load_gitlab_connection_config()
-        except SettingsError:
+            return build_change_request_lookup(self.config)
+        except (GitLabClientError, SettingsError):
             return None
-
-    def _build_merge_request_service(
-        self,
-        gitlab_config: GitLabConnectionConfig | None,
-    ) -> MergeRequestService | None:
-        """Return the configured merge request lookup service when available."""
-        if self.merge_request_service is not None:
-            return self.merge_request_service
-        if gitlab_config is None:
-            return None
-        return MergeRequestService(GitLabClient(gitlab_config))
 
     def _build_no_item_message(
         self,

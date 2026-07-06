@@ -135,6 +135,32 @@ class RunStateService:
             ),
         )
 
+    def mark_change_request_created(
+        self,
+        *,
+        record: RunRecord,
+        issue_key: str,
+        attempt_count: int,
+        branch_name: str | None,
+        change_request_url: str,
+    ) -> None:
+        """Persist a created or reused change request."""
+        record.status = RunStatus.CHANGE_REQUEST_CREATED
+        record.branch_name = branch_name
+        record.change_request_url = change_request_url
+        record.updated_at = utc_now()
+        self.state_store.set_issue_state(
+            self.state,
+            issue_key=issue_key,
+            issue_state=IssueState(
+                status=RunStatus.CHANGE_REQUEST_CREATED.value,
+                last_run_id=record.run_id,
+                attempt_count=attempt_count,
+                branch_name=branch_name,
+                mr_url=change_request_url,
+            ),
+        )
+
     def mark_mr_created(
         self,
         *,
@@ -144,21 +170,13 @@ class RunStateService:
         branch_name: str | None,
         mr_url: str,
     ) -> None:
-        """Persist a created or reused merge request."""
-        record.status = RunStatus.MR_CREATED
-        record.branch_name = branch_name
-        record.mr_url = mr_url
-        record.updated_at = utc_now()
-        self.state_store.set_issue_state(
-            self.state,
+        """Persist a created or reused merge request through the neutral helper."""
+        self.mark_change_request_created(
+            record=record,
             issue_key=issue_key,
-            issue_state=IssueState(
-                status=RunStatus.MR_CREATED.value,
-                last_run_id=record.run_id,
-                attempt_count=attempt_count,
-                branch_name=branch_name,
-                mr_url=mr_url,
-            ),
+            attempt_count=attempt_count,
+            branch_name=branch_name,
+            change_request_url=mr_url,
         )
 
     def fail_issue(
@@ -272,6 +290,8 @@ class RunStateService:
         dashboard_item_id: str | None = None,
         branch_name: str | None = None,
         commit_sha: str | None = None,
+        change_request_url: str | None = None,
+        change_request_action: str | None = None,
         mr_url: str | None = None,
         mr_action: str | None = None,
     ) -> RunSummary:
@@ -284,6 +304,8 @@ class RunStateService:
             dashboard_item_id=dashboard_item_id,
             branch_name=branch_name,
             commit_sha=commit_sha,
+            change_request_url=change_request_url,
+            change_request_action=change_request_action,
             mr_url=mr_url,
             mr_action=mr_action,
         )

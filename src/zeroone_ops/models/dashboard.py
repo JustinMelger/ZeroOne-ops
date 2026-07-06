@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 CURRENT_DASHBOARD_SCHEMA_VERSION = 2
 DASHBOARD_SCHEMA_MARKER = (
@@ -15,6 +15,7 @@ DASHBOARD_SCHEMA_MARKER = (
 DashboardStatus = Literal[
     "open",
     "in_progress",
+    "change_request_opened",
     "mr_opened",
     "done",
     "rejected",
@@ -32,8 +33,10 @@ DashboardAutomationStatus = Literal[
 DashboardSectionKey = Literal[
     "open_candidates",
     "in_progress",
+    "change_requests_opened",
     "merge_requests_opened",
     "completed",
+    "change_request_reviews",
     "merge_request_reviews",
     "rejected_or_ignored",
     "recent_failures",
@@ -43,9 +46,9 @@ DashboardSectionKey = Literal[
 SECTION_TITLES: dict[DashboardSectionKey, str] = {
     "open_candidates": "Open Candidates",
     "in_progress": "In Progress",
-    "merge_requests_opened": "Merge Requests Opened",
+    "change_requests_opened": "Change Requests Opened",
     "completed": "Completed",
-    "merge_request_reviews": "Merge Request Reviews",
+    "change_request_reviews": "Change Request Reviews",
     "rejected_or_ignored": "Rejected Or Ignored",
     "recent_failures": "Recent Failures",
 }
@@ -53,12 +56,33 @@ SECTION_TITLES: dict[DashboardSectionKey, str] = {
 SECTION_ORDER: tuple[DashboardSectionKey, ...] = (
     "open_candidates",
     "in_progress",
-    "merge_requests_opened",
+    "change_requests_opened",
     "completed",
-    "merge_request_reviews",
+    "change_request_reviews",
     "rejected_or_ignored",
     "recent_failures",
 )
+
+LEGACY_SECTION_TITLES: dict[str, str] = {
+    "Change Requests Opened": "Merge Requests Opened",
+    "Change Request Reviews": "Merge Request Reviews",
+}
+
+
+def normalize_dashboard_status(status: str) -> str:
+    """Return the canonical provider-neutral dashboard status."""
+    if status == "mr_opened":
+        return "change_request_opened"
+    return status
+
+
+def normalize_dashboard_section_key(section_key: str) -> str:
+    """Return the canonical provider-neutral dashboard section key."""
+    if section_key == "merge_requests_opened":
+        return "change_requests_opened"
+    if section_key == "merge_request_reviews":
+        return "change_request_reviews"
+    return section_key
 
 
 class DashboardSeverityPolicyEntry(BaseModel):
@@ -166,8 +190,14 @@ class DashboardItem(BaseModel):
     last_run_id: str | None = None
     status_updated_at: datetime | None = None
     commit_sha: str | None = None
-    merge_request_iid: int | None = None
-    merge_request_url: str | None = None
+    change_request_number: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("change_request_number", "merge_request_iid"),
+    )
+    change_request_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("change_request_url", "merge_request_url"),
+    )
     upstream_active: bool | None = None
     reviewed_head_sha: str | None = None
     review_status: str | None = None
@@ -181,6 +211,26 @@ class DashboardItem(BaseModel):
     retry_eligible: bool | None = None
     retry_block_reason: str | None = None
     log_excerpt: str | None = None
+
+    @property
+    def merge_request_iid(self) -> int | None:
+        """Return the legacy merge-request number alias."""
+        return self.change_request_number
+
+    @merge_request_iid.setter
+    def merge_request_iid(self, value: int | None) -> None:
+        """Store the legacy merge-request number alias."""
+        self.change_request_number = value
+
+    @property
+    def merge_request_url(self) -> str | None:
+        """Return the legacy merge-request URL alias."""
+        return self.change_request_url
+
+    @merge_request_url.setter
+    def merge_request_url(self, value: str | None) -> None:
+        """Store the legacy merge-request URL alias."""
+        self.change_request_url = value
 
 
 class DashboardSection(BaseModel):
@@ -212,16 +262,17 @@ class DashboardDocument(BaseModel):
 def section_key_for_item(item: DashboardItem) -> DashboardSectionKey:
     """Map one dashboard item to its section."""
     if item.type == "review_status" or item.source == "pull_request_review":
-        return "merge_request_reviews"
-    if item.status == "open":
+        return "change_request_reviews"
+    normalized_status = normalize_dashboard_status(item.status)
+    if normalized_status == "open":
         return "open_candidates"
-    if item.status == "in_progress":
+    if normalized_status == "in_progress":
         return "in_progress"
-    if item.status == "mr_opened":
-        return "merge_requests_opened"
-    if item.status == "done":
+    if normalized_status == "change_request_opened":
+        return "change_requests_opened"
+    if normalized_status == "done":
         return "completed"
-    if item.status in {"rejected", "ignored"}:
+    if normalized_status in {"rejected", "ignored"}:
         return "rejected_or_ignored"
     return "recent_failures"
 
@@ -233,9 +284,12 @@ def empty_sections() -> list[DashboardSection]:
 
 def build_dashboard_manifest(sections: list[DashboardSection]) -> DashboardManifest:
     """Build the canonical dashboard integrity manifest from sections."""
-    section_item_counts = {section.key: len(section.items) for section in sections}
+    section_item_counts: dict[DashboardSectionKey, int] = {
+        cast(DashboardSectionKey, normalize_dashboard_section_key(section.key)): len(section.items)
+        for section in sections
+    }
     workflow_item_count = sum(
-        count for key, count in section_item_counts.items() if key != "merge_request_reviews"
+        count for key, count in section_item_counts.items() if key != "change_request_reviews"
     )
     total_item_count = sum(section_item_counts.values())
     return DashboardManifest(
