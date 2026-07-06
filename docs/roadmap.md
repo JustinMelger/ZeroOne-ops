@@ -307,9 +307,15 @@ These are important, but intentionally not part of the immediate rollout phase.
   - moved repo provider selection to top-level `platform`
   - moved remediation publication targeting to shared `remediation.target_branch`
   - kept provider-local publication metadata explicit under provider blocks
-- do one provider-neutrality sweep before GitHub remediation publish lands
-- identify remaining GitLab-shaped remediation publish names, models, and
-  traceability fields
+- completed shared publish seam slices:
+  - extracted remediation publish behind a provider-local change-request
+    publisher seam
+  - extracted dashboard active-change-request lookup behind a provider-local
+    lookup seam
+- next slice:
+  - neutralize shared `merge_request_*` model, state, and traceability fields
+- do one strict provider-neutrality sweep across non-provider packages before
+  GitHub remediation publish lands
 - move only genuinely shared contracts into neutral surfaces
 - keep provider-local publication semantics explicit where they differ
 - support GitHub branch and pull request publication for remediation

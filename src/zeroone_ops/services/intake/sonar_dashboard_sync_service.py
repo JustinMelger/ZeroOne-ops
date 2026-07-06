@@ -92,8 +92,8 @@ class SonarDashboardSyncService:
             last_run_id=existing.last_run_id if existing is not None else None,
             status_updated_at=existing.status_updated_at if existing is not None else None,
             commit_sha=existing.commit_sha if existing is not None else None,
-            merge_request_iid=existing.merge_request_iid if existing is not None else None,
-            merge_request_url=existing.merge_request_url if existing is not None else None,
+            change_request_number=existing.change_request_number if existing is not None else None,
+            change_request_url=existing.change_request_url if existing is not None else None,
             upstream_active=True,
             log_excerpt=existing.log_excerpt if existing is not None else None,
         )

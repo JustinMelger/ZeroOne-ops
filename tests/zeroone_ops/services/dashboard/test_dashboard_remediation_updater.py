@@ -183,8 +183,8 @@ def test_mark_mr_opened_writes_traceability_fields() -> None:
         dashboard_item_id="sonar:1",
         run_id="run-1",
         branch_name="zeroone-ops/ax123/service",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/1",
-        merge_request_iid=1,
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/1",
+        change_request_number=1,
         commit_sha="abc123",
     )
 
@@ -231,7 +231,7 @@ def test_mark_done_moves_item_to_completed_and_preserves_traceability() -> None:
                 build_item(status="mr_opened").model_copy(
                     update={
                         "branch_name": "zeroone-ops/ax123/service",
-                        "merge_request_url": (
+                        "change_request_url": (
                             "https://gitlab.example.com/group/project/-/merge_requests/1"
                         ),
                         "commit_sha": "abc123",
@@ -269,7 +269,7 @@ def test_mark_open_reopens_item_and_clears_merge_request_linkage() -> None:
                 build_item(status="mr_opened").model_copy(
                     update={
                         "branch_name": "zeroone-ops/ax123/service",
-                        "merge_request_url": (
+                        "change_request_url": (
                             "https://gitlab.example.com/group/project/-/merge_requests/1"
                         ),
                         "commit_sha": "abc123",
@@ -305,10 +305,10 @@ def test_reconciliation_updates_preserve_existing_remediation_metadata() -> None
                 build_item(status="mr_opened").model_copy(
                     update={
                         "branch_name": "zeroone-ops/ax123/service",
-                        "merge_request_url": (
+                        "change_request_url": (
                             "https://gitlab.example.com/group/project/-/merge_requests/1"
                         ),
-                        "merge_request_iid": 1,
+                        "change_request_number": 1,
                         "commit_sha": "abc123",
                         "validation_commands": ["uv run pytest", "uv run mypy src"],
                         "constraints": "Single-file only. No public API changes.",
@@ -344,8 +344,8 @@ def test_replayed_transition_for_same_run_is_idempotent() -> None:
         update={
             "last_run_id": "run-1",
             "branch_name": "zeroone-ops/ax123/service",
-            "merge_request_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
-            "merge_request_iid": 1,
+            "change_request_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
+            "change_request_number": 1,
             "commit_sha": "abc123",
         }
     )
@@ -357,8 +357,8 @@ def test_replayed_transition_for_same_run_is_idempotent() -> None:
         dashboard_item_id="sonar:1",
         run_id="run-1",
         branch_name="zeroone-ops/ax123/service",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/1",
-        merge_request_iid=1,
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/1",
+        change_request_number=1,
         commit_sha="abc123",
     )
 

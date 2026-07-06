@@ -286,7 +286,7 @@ class DashboardItemIntakeService:
         change_request_lookup: ChangeRequestLookup | None,
     ) -> str | None:
         """Return whether one dashboard item is already represented by an open MR."""
-        if item.merge_request_url:
+        if item.change_request_url:
             return "active_merge_request"
         if (
             self.config is None

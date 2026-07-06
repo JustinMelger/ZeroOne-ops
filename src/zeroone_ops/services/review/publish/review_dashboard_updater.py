@@ -80,14 +80,14 @@ def _find_linked_remediation_item(
             continue
         if item.type == "review_status" or item.source == "pull_request_review":
             continue
-        if item.merge_request_iid == merge_request.change_request_number:
+        if item.change_request_number == merge_request.change_request_number:
             return item
     for item in items:
         if not isinstance(item, DashboardItem):
             continue
         if item.type == "review_status" or item.source == "pull_request_review":
             continue
-        if item.merge_request_url == merge_request.web_url:
+        if item.change_request_url == merge_request.web_url:
             return item
     return None
 
@@ -144,8 +144,8 @@ def _build_review_status_item(
         summary=summary,
         priority="low",
         source_reference=merge_request.web_url,
-        merge_request_iid=merge_request.change_request_number,
-        merge_request_url=merge_request.web_url,
+        change_request_number=merge_request.change_request_number,
+        change_request_url=merge_request.web_url,
         reviewed_head_sha=merge_request.head_sha,
         review_status=review_result.classification,
         review_findings_count=len(review_result.findings),

@@ -373,8 +373,8 @@ def test_rendered_review_section_projects_linked_remediation_review_metadata() -
     renderer = DashboardRenderer()
     remediation_review_item = build_item(item_id="sonar:reviewed", status="mr_opened").model_copy(
         update={
-            "merge_request_iid": 77,
-            "merge_request_url": "https://gitlab.example.com/group/project/-/merge_requests/77",
+            "change_request_number": 77,
+            "change_request_url": "https://gitlab.example.com/group/project/-/merge_requests/77",
             "reviewed_head_sha": "def456ghi789",
             "review_status": "findings_present",
             "review_findings_count": 2,

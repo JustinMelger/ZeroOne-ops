@@ -246,7 +246,7 @@ class DashboardRemediationRunner:
                 dashboard_item_id=work_item.dashboard_item_id,
                 run_id=run_id,
                 branch_name=execution_result.branch_name or "",
-                merge_request_url=change_request_url,
+                change_request_url=change_request_url,
                 commit_sha=execution_result.commit_sha,
                 retry_count=retry_count,
                 retry_eligible=False,

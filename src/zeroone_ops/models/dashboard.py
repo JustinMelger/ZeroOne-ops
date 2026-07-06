@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 CURRENT_DASHBOARD_SCHEMA_VERSION = 2
 DASHBOARD_SCHEMA_MARKER = (
@@ -166,8 +166,14 @@ class DashboardItem(BaseModel):
     last_run_id: str | None = None
     status_updated_at: datetime | None = None
     commit_sha: str | None = None
-    merge_request_iid: int | None = None
-    merge_request_url: str | None = None
+    change_request_number: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("change_request_number", "merge_request_iid"),
+    )
+    change_request_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("change_request_url", "merge_request_url"),
+    )
     upstream_active: bool | None = None
     reviewed_head_sha: str | None = None
     review_status: str | None = None
@@ -181,6 +187,26 @@ class DashboardItem(BaseModel):
     retry_eligible: bool | None = None
     retry_block_reason: str | None = None
     log_excerpt: str | None = None
+
+    @property
+    def merge_request_iid(self) -> int | None:
+        """Return the legacy merge-request number alias."""
+        return self.change_request_number
+
+    @merge_request_iid.setter
+    def merge_request_iid(self, value: int | None) -> None:
+        """Store the legacy merge-request number alias."""
+        self.change_request_number = value
+
+    @property
+    def merge_request_url(self) -> str | None:
+        """Return the legacy merge-request URL alias."""
+        return self.change_request_url
+
+    @merge_request_url.setter
+    def merge_request_url(self, value: str | None) -> None:
+        """Store the legacy merge-request URL alias."""
+        self.change_request_url = value
 
 
 class DashboardSection(BaseModel):

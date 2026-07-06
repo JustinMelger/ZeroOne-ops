@@ -692,10 +692,10 @@ class DashboardRenderer:
 
     def _render_merge_request_label(self, item: DashboardItem) -> str:
         """Render one merge request label for the review summary tables."""
-        if item.merge_request_iid is not None:
-            label = f"!{item.merge_request_iid}"
-            if item.merge_request_url:
-                return f"[{label}]({item.merge_request_url})"
+        if item.change_request_number is not None:
+            label = f"!{item.change_request_number}"
+            if item.change_request_url:
+                return f"[{label}]({item.change_request_url})"
             return label
         return f"`{item.id}`"
 
@@ -796,8 +796,8 @@ class DashboardRenderer:
         """Render one compact in-flight summary."""
         if item.review_status is not None:
             return self._render_review_outcome(item)
-        if item.merge_request_iid is not None and item.merge_request_url:
-            return f"[View MR]({item.merge_request_url})"
+        if item.change_request_number is not None and item.change_request_url:
+            return f"[View MR]({item.change_request_url})"
         return self._render_workflow_summary(item)
 
     def _render_completed_summary(self, item: DashboardItem) -> str:
@@ -914,10 +914,10 @@ class DashboardRenderer:
 
     def _review_group_key(self, item: DashboardItem) -> str:
         """Return the grouping key for merge-request review items."""
-        if item.merge_request_url:
-            return item.merge_request_url
-        if item.merge_request_iid is not None:
-            return f"mr:{item.merge_request_iid}"
+        if item.change_request_url:
+            return item.change_request_url
+        if item.change_request_number is not None:
+            return f"cr:{item.change_request_number}"
         return item.source_reference
 
     def _build_review_group(self, items: list[DashboardItem]) -> _ReviewGroup:

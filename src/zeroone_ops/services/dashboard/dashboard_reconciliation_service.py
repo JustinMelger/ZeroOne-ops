@@ -44,8 +44,8 @@ class DashboardReconciliationService:
         item: DashboardItem,
     ) -> DashboardReconciliationDecision:
         """Return the reconciliation action for one `mr_opened` item."""
-        merge_request_iid = item.merge_request_iid or merge_request_iid_from_url(
-            item.merge_request_url
+        merge_request_iid = item.change_request_number or merge_request_iid_from_url(
+            item.change_request_url
         )
         if merge_request_iid is None:
             return DashboardReconciliationDecision(

@@ -11,7 +11,7 @@ from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 _SKIP_REASON_MESSAGES = {
     "missing_branch_name": "without a stored branch name",
     "missing_commit_sha": "without a stored commit SHA",
-    "missing_merge_request_url": "without a linked merge request URL",
+    "missing_change_request_url": "without a linked change request URL",
     "unsupported_status": "with unsupported status",
 }
 
@@ -80,8 +80,8 @@ class DashboardReconciliationIntakeService:
         """Return the stable reason one dashboard item should be skipped."""
         if item.status != "mr_opened":
             return "unsupported_status"
-        if item.merge_request_url is None:
-            return "missing_merge_request_url"
+        if item.change_request_url is None:
+            return "missing_change_request_url"
         if item.branch_name is None:
             return "missing_branch_name"
         if item.commit_sha is None:

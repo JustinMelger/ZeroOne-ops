@@ -78,7 +78,7 @@ class DashboardReconciliationRunner:
         record.dashboard_item_id = first_item.id
         record.branch_name = first_item.branch_name
         record.commit_sha = first_item.commit_sha
-        record.mr_url = first_item.merge_request_url
+        record.mr_url = first_item.change_request_url
         record.updated_at = utc_now()
 
         if active_dry_run:
@@ -94,7 +94,7 @@ class DashboardReconciliationRunner:
                 dashboard_item_id=first_item.id,
                 branch_name=first_item.branch_name,
                 commit_sha=first_item.commit_sha,
-                mr_url=first_item.merge_request_url,
+                mr_url=first_item.change_request_url,
             )
 
         return self._run_live(
@@ -165,7 +165,7 @@ class DashboardReconciliationRunner:
             record.dashboard_item_id = item.id
             record.branch_name = item.branch_name
             record.commit_sha = item.commit_sha
-            record.mr_url = item.merge_request_url
+            record.mr_url = item.change_request_url
             record.updated_at = utc_now()
             decision_parts.append(f"{item.id}: {decision.message}")
 
@@ -195,7 +195,7 @@ class DashboardReconciliationRunner:
                     dashboard_item_id=item.id,
                     branch_name=item.branch_name,
                     commit_sha=item.commit_sha,
-                    mr_url=item.merge_request_url,
+                    mr_url=item.change_request_url,
                 )
                 reconciled_count += 1
                 done_count += 1
@@ -223,7 +223,7 @@ class DashboardReconciliationRunner:
                     dashboard_item_id=item.id,
                     branch_name=item.branch_name,
                     commit_sha=item.commit_sha,
-                    mr_url=item.merge_request_url,
+                    mr_url=item.change_request_url,
                 )
                 reconciled_count += 1
                 reopened_count += 1
@@ -251,7 +251,7 @@ class DashboardReconciliationRunner:
                 error_message=decision.message,
                 branch_name=item.branch_name,
                 commit_sha=item.commit_sha,
-                mr_url=item.merge_request_url,
+                mr_url=item.change_request_url,
             )
             failed_parts.append(f"{item.id} ({decision.message})")
             reconciled_count += 1
