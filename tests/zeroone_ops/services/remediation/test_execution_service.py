@@ -11,6 +11,9 @@ from zeroone_ops.models.config import (
 )
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
+from zeroone_ops.services.remediation.change_request_publisher import (
+    PublishedChangeRequest,
+)
 from zeroone_ops.services.remediation.execution_service import ExecutionService
 from zeroone_ops.services.remediation.publish_service import PublishResult
 from zeroone_ops.services.shared.branch_manager import BranchManagerError
@@ -99,19 +102,6 @@ def fake_publish_reused(**kwargs) -> PublishResult:
         change_request_url="https://gitlab.example.com/group/project/-/merge_requests/9",
         change_request_action="reused",
     )
-
-
-def fake_gitlab_config():
-    return type(
-        "GitLabConfigStub",
-        (),
-        {"project_id": "123", "url": "https://gitlab.example.com", "token": "token"},
-    )()
-
-
-def fake_find_open_none(self, project_id, source_branch, target_branch):
-    del self, project_id, source_branch, target_branch
-    return None
 
 
 def test_execute_returns_analysis_summary_in_dry_run(tmp_path: Path, monkeypatch) -> None:
@@ -249,44 +239,25 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
     monkeypatch.setattr(service.branch_manager, "commit_and_push", fake_commit)
     captured: dict[str, str] = {}
 
-    monkeypatch.setattr(
-        "zeroone_ops.services.remediation.publish_service.load_gitlab_connection_config",
-        fake_gitlab_config,
-    )
-
     def fake_push_current_branch() -> str:
         return "zeroone-ops/fix"
 
     monkeypatch.setattr(service.branch_manager, "push_current_branch", fake_push_current_branch)
-    monkeypatch.setattr(
-        "zeroone_ops.services.remediation.publish_service.ChangeRequestService.find_open",
-        fake_find_open_none,
-    )
 
-    def capture_create(
-        self,
-        project_id,
-        source_branch,
-        target_branch,
-        title,
-        description,
-        labels,
-        assignee_id=None,
-    ):
-        del self, project_id, source_branch, target_branch, labels, assignee_id
-        captured["title"] = title
-        captured["description"] = description
+    class StubPublisher:
+        def publish(self, request):  # noqa: ANN001
+            captured["title"] = request.title
+            captured["description"] = request.description
+            return PublishedChangeRequest(
+                info=ChangeRequestInfo(
+                    iid=10,
+                    web_url="https://gitlab.example.com/group/project/-/merge_requests/10",
+                    title="fix: patch service",
+                ),
+                action="created",
+            )
 
-        return ChangeRequestInfo(
-            iid=10,
-            web_url="https://gitlab.example.com/group/project/-/merge_requests/10",
-            title="fix: patch service",
-        )
-
-    monkeypatch.setattr(
-        "zeroone_ops.services.remediation.publish_service.ChangeRequestService.create",
-        capture_create,
-    )
+    service.publish_service.change_request_publisher = StubPublisher()
 
     result = service.execute(selected_issue=build_issue(), dry_run=False)
 

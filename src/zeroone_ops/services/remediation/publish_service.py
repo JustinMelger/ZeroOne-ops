@@ -13,13 +13,16 @@ from zeroone_ops.models.remediation import (
     RemediationExecutionTarget,
     remediation_profile_for,
 )
-from zeroone_ops.providers.gitlab_client import GitLabClient, GitLabClientError
+from zeroone_ops.providers.gitlab_client import GitLabClientError
+from zeroone_ops.services.remediation.change_request_publisher import (
+    ChangeRequestPublishRequest,
+    RemediationChangeRequestPublisher,
+    build_remediation_change_request_publisher,
+)
 from zeroone_ops.services.shared.branch_manager import (
     BranchManager,
     BranchManagerError,
 )
-from zeroone_ops.services.shared.mr_service import ChangeRequestService
-from zeroone_ops.settings import load_gitlab_connection_config
 
 
 @dataclass
@@ -50,78 +53,63 @@ class PublishService:
         branch_manager: Branch manager implementation.
     """
 
-    def __init__(self, *, config: AppConfig, branch_manager: BranchManager) -> None:
+    def __init__(
+        self,
+        *,
+        config: AppConfig,
+        branch_manager: BranchManager,
+        change_request_publisher: RemediationChangeRequestPublisher | None = None,
+    ) -> None:
         """Initialize the publish service.
 
         Args:
             config: Loaded application configuration.
             branch_manager: Branch manager implementation.
+            change_request_publisher: Optional provider-local publisher override.
         """
         self.config = config
         self.branch_manager = branch_manager
+        self.change_request_publisher = change_request_publisher
 
     def publish(
         self,
         *,
         selected_issue: RemediationExecutionTarget,
-        branch_name: str,
         mr_title: str,
         mr_description: str,
     ) -> PublishResult:
         """Push the current branch and create or reuse a change request."""
         try:
-            workflow_gitlab_config = self.config.require_gitlab_config(
-                reason="Remediation publish",
-            )
+            labels, assignee_username = self._publication_options()
             target_branch = self.config.require_remediation_target_branch(
                 reason="Remediation publish",
             )
-            gitlab_config = load_gitlab_connection_config()
             pushed_branch = self.branch_manager.push_current_branch()
-            gitlab_client = GitLabClient(gitlab_config)
-            change_request_service = ChangeRequestService(gitlab_client)
-            assignee_id: int | None = None
-            assignee_username = workflow_gitlab_config.merge_request_assignee_username
-            if assignee_username is not None:
-                assignee_id = gitlab_client.find_user_id_by_username(assignee_username)
-            existing_change_request = change_request_service.find_open(
-                project_id=gitlab_config.project_id,
-                source_branch=pushed_branch,
-                target_branch=target_branch,
+            publisher = self.change_request_publisher or build_remediation_change_request_publisher(
+                self.config
             )
-            if existing_change_request is not None:
-                if assignee_id is not None:
-                    change_request_service.assign(
-                        project_id=gitlab_config.project_id,
-                        merge_request_iid=existing_change_request.iid,
-                        assignee_id=assignee_id,
-                    )
-                return PublishResult(
-                    branch_name=pushed_branch,
-                    change_request_url=existing_change_request.web_url,
-                    change_request_action="reused",
+            published_change_request = publisher.publish(
+                ChangeRequestPublishRequest(
+                    source_branch=pushed_branch,
+                    target_branch=target_branch,
+                    title=self.build_change_request_title(
+                        selected_issue=selected_issue,
+                        proposed_title=mr_title,
+                    ),
+                    description=self.build_change_request_description(
+                        selected_issue=selected_issue,
+                        change_summary=mr_description,
+                    ),
+                    labels=labels,
+                    assignee_username=assignee_username,
                 )
-            created_change_request = change_request_service.create(
-                project_id=gitlab_config.project_id,
-                source_branch=pushed_branch,
-                target_branch=target_branch,
-                title=self.build_change_request_title(
-                    selected_issue=selected_issue,
-                    proposed_title=mr_title,
-                ),
-                description=self.build_change_request_description(
-                    selected_issue=selected_issue,
-                    change_summary=mr_description,
-                ),
-                labels=workflow_gitlab_config.labels,
-                assignee_id=assignee_id,
             )
         except (BranchManagerError, GitLabClientError, RuntimeError) as error:
             return PublishResult(error_message=f"Publish failed: {error}")
         return PublishResult(
             branch_name=pushed_branch,
-            change_request_url=created_change_request.web_url,
-            change_request_action="created",
+            change_request_url=published_change_request.info.web_url,
+            change_request_action=published_change_request.action,
         )
 
     def build_change_request_title(
@@ -196,3 +184,15 @@ class PublishService:
             selected_issue=selected_issue,
             change_summary=change_summary,
         )
+
+    def _publication_options(self) -> tuple[list[str], str | None]:
+        """Return provider-local publish options for the current repository config."""
+        if self.config.platform == "gitlab":
+            workflow_gitlab_config = self.config.require_gitlab_config(
+                reason="Remediation publish",
+            )
+            return (
+                workflow_gitlab_config.labels,
+                workflow_gitlab_config.merge_request_assignee_username,
+            )
+        return ([], None)

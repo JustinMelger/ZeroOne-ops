@@ -261,7 +261,6 @@ class ExecutionService:
 
         publish_result = self._publish_branch_and_create_change_request(
             selected_issue=selected_issue,
-            branch_name=branch_name or "",
             mr_title=patch.change_request_title,
             mr_description=patch.change_request_description,
         )
@@ -300,14 +299,12 @@ class ExecutionService:
         self,
         *,
         selected_issue: RemediationExecutionTarget,
-        branch_name: str,
         mr_title: str,
         mr_description: str,
     ) -> PublishResult:
         """Delegate publish behavior to the dedicated publish service."""
         return self.publish_service.publish(
             selected_issue=selected_issue,
-            branch_name=branch_name,
             mr_title=mr_title,
             mr_description=mr_description,
         )
