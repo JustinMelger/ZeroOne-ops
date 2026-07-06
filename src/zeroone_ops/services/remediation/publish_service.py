@@ -84,10 +84,10 @@ class PublishService:
             target_branch = self.config.require_remediation_target_branch(
                 reason="Remediation publish",
             )
-            pushed_branch = self.branch_manager.push_current_branch()
             publisher = self.change_request_publisher or build_remediation_change_request_publisher(
                 self.config
             )
+            pushed_branch = self.branch_manager.push_current_branch()
             published_change_request = publisher.publish(
                 ChangeRequestPublishRequest(
                     source_branch=pushed_branch,

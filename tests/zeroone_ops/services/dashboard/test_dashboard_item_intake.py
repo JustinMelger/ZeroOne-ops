@@ -72,18 +72,18 @@ class FakeDashboardService:
         return self.document
 
 
-class FakeMergeRequestService:
-    def __init__(self, branches_with_open_mr: set[str]) -> None:
-        self.branches_with_open_mr = branches_with_open_mr
+class FakeChangeRequestLookup:
+    def __init__(self, branches_with_open_change_request: set[str]) -> None:
+        self.branches_with_open_change_request = branches_with_open_change_request
 
-    def find_open(
+    def find_open_change_request(
         self,
-        project_id: str,
+        *,
         source_branch: str,
         target_branch: str,
     ) -> ChangeRequestInfo | None:
-        del project_id, target_branch
-        if source_branch not in self.branches_with_open_mr:
+        del target_branch
+        if source_branch not in self.branches_with_open_change_request:
             return None
         return ChangeRequestInfo(
             iid=1,
@@ -198,7 +198,7 @@ def test_select_item_skips_item_with_existing_open_merge_request(
                 ]
             )
         ),
-        merge_request_service=FakeMergeRequestService({"zeroone-ops/issue-1/service"}),
+        change_request_lookup=FakeChangeRequestLookup({"zeroone-ops/issue-1/service"}),
     )
 
     result = service.select_item(project_id="123", state=build_state())
@@ -436,7 +436,7 @@ def test_select_item_allows_reopened_item_with_cleared_merge_request_linkage(
                 ]
             )
         ),
-        merge_request_service=FakeMergeRequestService(set()),
+        change_request_lookup=FakeChangeRequestLookup(set()),
     )
 
     result = service.select_item(project_id="123", state=build_state())

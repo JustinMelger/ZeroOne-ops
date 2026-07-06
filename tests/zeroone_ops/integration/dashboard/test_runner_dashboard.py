@@ -2100,8 +2100,8 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
         upsert_items,
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.shared.mr_service.MergeRequestService.find_open",
-        lambda self, project_id, source_branch, target_branch: None,
+        "zeroone_ops.services.shared.change_request_lookup.GitLabChangeRequestLookup.find_open_change_request",
+        lambda self, source_branch, target_branch: None,
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
