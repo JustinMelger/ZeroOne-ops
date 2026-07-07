@@ -691,6 +691,21 @@ How much of the current remediation publish path is genuinely provider-neutral,
 and how much should be extracted behind a dedicated branch/PR publication seam
 before GitHub remediation support starts?
 
+Locked direction:
+
+- Phase 4 should aim for functional parity with the current GitLab remediation
+  publish flow rather than a reduced GitHub-only variant.
+- parity should be defined at the workflow-outcome level:
+  - create or reuse a remediation change request
+  - publish from the remediation branch to the configured target branch
+  - persist branch, commit, and change-request traceability
+  - surface publish success or failure back into shared state and summaries
+  - support retry-safe behavior around existing open remediation change requests
+- implementation details may still remain provider-local where GitHub and
+  GitLab semantics differ.
+- Phase 4 should not pull GitHub control-plane concerns into remediation
+  publish; those belong to Phase 5.
+
 ### 16.7 GitHub Control Plane Direction
 
 Primary phases:
