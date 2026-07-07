@@ -706,6 +706,21 @@ Locked direction:
 - Phase 4 should not pull GitHub control-plane concerns into remediation
   publish; those belong to Phase 5.
 
+Locked Phase 4 behavior rules:
+
+- reuse only open remediation change requests for the same source branch and
+  target branch pair
+- do not reuse closed remediation change requests, even if the branch still
+  exists remotely
+- support labels in Phase 4 where the provider allows them
+- support assignee mapping only where the provider mapping is straightforward;
+  reviewer-specific flows can remain a later concern
+- keep the pushed remediation branch in place if change-request publication
+  fails after push, and report the failure clearly instead of attempting
+  rollback cleanup
+- preserve `created` versus `reused` publication outcomes consistently across
+  GitLab and GitHub
+
 ### 16.7 GitHub Control Plane Direction
 
 Primary phases:
