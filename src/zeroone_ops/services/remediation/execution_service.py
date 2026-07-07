@@ -42,16 +42,6 @@ class ExecutionResult:
     publish_attempted: bool = False
     final_status: RunStatus | None = None
 
-    @property
-    def mr_url(self) -> str | None:
-        """Return the legacy merge-request URL alias."""
-        return self.change_request_url
-
-    @property
-    def mr_action(self) -> str | None:
-        """Return the legacy merge-request action alias."""
-        return self.change_request_action
-
 
 class ExecutionService:
     """Execute analysis, git, and publish flow for a selected issue.

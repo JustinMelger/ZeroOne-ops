@@ -416,7 +416,7 @@ def test_dashboard_reconcile_dry_run_selects_change_request_opened_item(
     assert summary.dashboard_item_id == "sonar:AX123"
     assert summary.branch_name == "zeroone-ops/AX123/service"
     assert summary.commit_sha == "abc123"
-    assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/7"
+    assert summary.change_request_url == "https://gitlab.example.com/group/project/-/merge_requests/7"
     assert "Dry-run would reconcile 1 dashboard item: sonar:AX123" in summary.message
     assert state.runs[-1].dashboard_item_id == "sonar:AX123"
 
@@ -1825,8 +1825,8 @@ def test_dashboard_remediate_ci_success_marks_dashboard_change_request_opened(
                 "failure": None,
                 "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": "abc123",
-                "mr_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
-                "mr_action": "created",
+                "change_request_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
+                "change_request_action": "created",
                 "publish_attempted": True,
                 "final_status": None,
             },
@@ -1839,7 +1839,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_change_request_opened(
     assert summary.dashboard_item_id == "sonar:AX123"
     assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha == "abc123"
-    assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
+    assert summary.change_request_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
     assert "Selected dashboard item sonar:AX123 in src/service.py" in summary.message
     assert "Change request created:" in summary.message
     assert recorded_updates == [
@@ -2014,8 +2014,8 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
                 "failure": None,
                 "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": "abc123",
-                "mr_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
-                "mr_action": "created",
+                "change_request_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
+                "change_request_action": "created",
                 "publish_attempted": True,
                 "final_status": None,
             },
@@ -2153,8 +2153,8 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
                 "failure": None,
                 "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": "abc123",
-                "mr_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
-                "mr_action": "created",
+                "change_request_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
+                "change_request_action": "created",
                 "publish_attempted": True,
                 "final_status": None,
             },
@@ -2181,7 +2181,7 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
     final_item = current_document.items_by_id()["sonar:AX123"]
     assert final_item.status == "change_request_opened"
     assert final_item.last_run_id == state.runs[-1].run_id
-    assert final_item.merge_request_url == summary.mr_url
+    assert final_item.merge_request_url == summary.change_request_url
     assert state.active_dashboard_item_id is None
 
 
@@ -2353,8 +2353,8 @@ def test_dashboard_remediate_fails_when_change_request_opened_update_cannot_pers
                 "failure": None,
                 "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": "abc123",
-                "mr_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
-                "mr_action": "created",
+                "change_request_url": "https://gitlab.example.com/group/project/-/merge_requests/1",
+                "change_request_action": "created",
                 "publish_attempted": True,
                 "final_status": None,
             },
@@ -2398,7 +2398,7 @@ def test_dashboard_remediate_fails_when_change_request_opened_update_cannot_pers
     assert "Dashboard lifecycle update failed" in summary.message
     assert last_run.failure is not None
     assert last_run.failure.stage == FailureStage.DASHBOARD_UPDATE
-    assert last_run.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
+    assert last_run.change_request_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
 
 
 def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
@@ -2567,8 +2567,8 @@ def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
                 )(),
                 "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": None,
-                "mr_url": None,
-                "mr_action": None,
+                "change_request_url": None,
+                "change_request_action": None,
                 "publish_attempted": False,
                 "final_status": None,
             },
@@ -2768,8 +2768,8 @@ def test_dashboard_remediate_ci_failure_marks_dashboard_failed(
                 )(),
                 "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": None,
-                "mr_url": None,
-                "mr_action": None,
+                "change_request_url": None,
+                "change_request_action": None,
                 "publish_attempted": False,
                 "final_status": None,
             },
@@ -2955,8 +2955,8 @@ def test_dashboard_remediate_ci_rejection_marks_dashboard_rejected(
                 "failure": None,
                 "branch_name": "zeroone-ops/ax123/service",
                 "commit_sha": None,
-                "mr_url": None,
-                "mr_action": None,
+                "change_request_url": None,
+                "change_request_action": None,
                 "publish_attempted": False,
                 "final_status": type("FinalStatus", (), {"value": "rejected"})(),
             },
@@ -3416,7 +3416,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
     assert summary.dashboard_item_id == "sonar:AX123"
     assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha is None
-    assert summary.mr_url is None
+    assert summary.change_request_url is None
     assert "Commit failed: git commit failed" in summary.message
     assert recorded_updates == [("in_progress", "sonar:AX123"), ("failed", "sonar:AX123")]
     assert target_file.read_text(encoding="utf-8") == "value = 1\n"
@@ -3427,5 +3427,5 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
     assert dashboard_state.last_run_id == last_run.run_id
     assert dashboard_state.branch_name == "zeroone-ops/ax123/service"
     assert dashboard_state.commit_sha is None
-    assert dashboard_state.mr_url is None
+    assert dashboard_state.change_request_url is None
     assert dashboard_state.last_error == "Commit failed: git commit failed"

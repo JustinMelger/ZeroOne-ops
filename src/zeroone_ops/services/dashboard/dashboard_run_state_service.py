@@ -64,22 +64,6 @@ class DashboardRunStateService:
             change_request_url=change_request_url,
         )
 
-    def mark_mr_created(
-        self,
-        *,
-        record: RunRecord,
-        dashboard_item_id: str,
-        branch_name: str | None,
-        mr_url: str,
-    ) -> None:
-        """Persist a created or reused merge request through the neutral helper."""
-        self.mark_change_request_created(
-            record=record,
-            dashboard_item_id=dashboard_item_id,
-            branch_name=branch_name,
-            change_request_url=mr_url,
-        )
-
     def mark_done(
         self,
         *,
@@ -88,11 +72,8 @@ class DashboardRunStateService:
         branch_name: str | None = None,
         commit_sha: str | None = None,
         change_request_url: str | None = None,
-        mr_url: str | None = None,
     ) -> None:
         """Persist one dashboard item as no longer requiring remediation."""
-        if change_request_url is None:
-            change_request_url = mr_url
         record.dashboard_item_id = dashboard_item_id
         record.branch_name = branch_name
         record.commit_sha = commit_sha
@@ -115,11 +96,8 @@ class DashboardRunStateService:
         branch_name: str | None = None,
         commit_sha: str | None = None,
         change_request_url: str | None = None,
-        mr_url: str | None = None,
     ) -> None:
         """Persist one dashboard item as reopened for future remediation."""
-        if change_request_url is None:
-            change_request_url = mr_url
         record.dashboard_item_id = dashboard_item_id
         record.branch_name = branch_name
         record.commit_sha = commit_sha
@@ -143,11 +121,8 @@ class DashboardRunStateService:
         branch_name: str | None = None,
         commit_sha: str | None = None,
         change_request_url: str | None = None,
-        mr_url: str | None = None,
     ) -> None:
         """Persist one dashboard item as failed without aborting the whole run."""
-        if change_request_url is None:
-            change_request_url = mr_url
         record.dashboard_item_id = dashboard_item_id
         record.branch_name = branch_name
         record.commit_sha = commit_sha

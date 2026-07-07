@@ -170,8 +170,8 @@ class DashboardRemediationRunner:
             context=context,
             dry_run=active_dry_run,
         )
-        change_request_url = _change_request_url(execution_result)
-        change_request_action = _change_request_action(execution_result)
+        change_request_url = execution_result.change_request_url
+        change_request_action = execution_result.change_request_action
         record.branch_name = execution_result.branch_name
         record.commit_sha = execution_result.commit_sha
 
@@ -240,7 +240,7 @@ class DashboardRemediationRunner:
             and change_request_url is not None
             and execution_result.commit_sha
         ):
-            record.mr_url = change_request_url
+            record.change_request_url = change_request_url
             change_request_opened_update = DashboardRemediationUpdater(
                 self.dashboard_service
             ).mark_change_request_opened(
@@ -333,21 +333,3 @@ def _with_dashboard_recovery_note(
             f"{', '.join(recovered_stale_item_ids)}."
         )
     return f"{message} {recovery_note}"
-
-
-def _change_request_url(execution_result: object) -> str | None:
-    """Return the neutral or legacy published change-request URL."""
-    return getattr(
-        execution_result,
-        "change_request_url",
-        getattr(execution_result, "mr_url", None),
-    )
-
-
-def _change_request_action(execution_result: object) -> str | None:
-    """Return the neutral or legacy published change-request action."""
-    return getattr(
-        execution_result,
-        "change_request_action",
-        getattr(execution_result, "mr_action", None),
-    )

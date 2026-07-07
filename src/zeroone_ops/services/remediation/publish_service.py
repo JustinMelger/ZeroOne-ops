@@ -34,16 +34,6 @@ class PublishResult:
     change_request_action: str | None = None
     error_message: str | None = None
 
-    @property
-    def mr_url(self) -> str | None:
-        """Return the legacy merge-request URL alias."""
-        return self.change_request_url
-
-    @property
-    def mr_action(self) -> str | None:
-        """Return the legacy merge-request action alias."""
-        return self.change_request_action
-
 
 class PublishService:
     """Push branches and create or reuse provider-backed change requests.
