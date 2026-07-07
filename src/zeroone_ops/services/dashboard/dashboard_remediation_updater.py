@@ -46,38 +46,6 @@ class DashboardRemediationUpdater:
             retry_block_reason=retry_block_reason,
         )
 
-    def mark_mr_opened(
-        self,
-        *,
-        project_id: str,
-        dashboard_item_id: str,
-        run_id: str,
-        branch_name: str,
-        change_request_url: str | None = None,
-        commit_sha: str,
-        change_request_number: int | None = None,
-        merge_request_url: str | None = None,
-        merge_request_iid: int | None = None,
-        retry_count: int | None = None,
-        retry_eligible: bool | None = None,
-        retry_block_reason: str | None = None,
-    ) -> DashboardRemediationUpdateResult:
-        """Compatibility wrapper for the neutral change-request transition."""
-        return self.mark_change_request_opened(
-            project_id=project_id,
-            dashboard_item_id=dashboard_item_id,
-            run_id=run_id,
-            branch_name=branch_name,
-            change_request_url=change_request_url,
-            commit_sha=commit_sha,
-            change_request_number=change_request_number,
-            merge_request_url=merge_request_url,
-            merge_request_iid=merge_request_iid,
-            retry_count=retry_count,
-            retry_eligible=retry_eligible,
-            retry_block_reason=retry_block_reason,
-        )
-
     def mark_change_request_opened(
         self,
         *,
@@ -88,17 +56,11 @@ class DashboardRemediationUpdater:
         change_request_url: str | None = None,
         commit_sha: str,
         change_request_number: int | None = None,
-        merge_request_url: str | None = None,
-        merge_request_iid: int | None = None,
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
     ) -> DashboardRemediationUpdateResult:
         """Mark one dashboard item as having an open change request."""
-        if change_request_url is None:
-            change_request_url = merge_request_url
-        if change_request_number is None:
-            change_request_number = merge_request_iid
         if change_request_url is None:
             return DashboardRemediationUpdateResult(
                 error_message=(
