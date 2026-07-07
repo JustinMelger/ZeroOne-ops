@@ -7,6 +7,7 @@ from zeroone_ops.models.analysis import (
     IssueContext,
     PriorReviewFeedback,
     RepositoryGuidanceContext,
+    StructuredEditProposal,
 )
 from zeroone_ops.models.config import OpenAIConnectionConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
@@ -84,8 +85,8 @@ def test_load_structured_edit_fixture_returns_proposal(tmp_path: Path) -> None:
             }
           ],
           "commit_message": "fix(sonar): update service [AX1]",
-          "mr_title": "fix: update service",
-          "mr_description": "summary"
+          "change_request_title": "fix: update service",
+          "change_request_description": "summary"
         }
         """.strip(),
         encoding="utf-8",
@@ -95,7 +96,22 @@ def test_load_structured_edit_fixture_returns_proposal(tmp_path: Path) -> None:
 
     assert proposal.issue_key == "AX1"
     assert proposal.edits[0].file_path == "src/service.py"
-    assert proposal.mr_title == "fix: update service"
+    assert proposal.change_request_title == "fix: update service"
+
+
+def test_structured_edit_proposal_accepts_legacy_merge_request_fields() -> None:
+    proposal = StructuredEditProposal.model_validate(
+        {
+            "issue_key": "AX1",
+            "edits": [],
+            "commit_message": "fix(sonar): update service [AX1]",
+            "mr_title": "fix: update service",
+            "mr_description": "summary",
+        }
+    )
+
+    assert proposal.change_request_title == "fix: update service"
+    assert proposal.change_request_description == "summary"
 
 
 def test_load_review_overlap_fixture_returns_overlap_result(tmp_path: Path) -> None:

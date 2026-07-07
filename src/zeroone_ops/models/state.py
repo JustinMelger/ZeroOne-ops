@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 def utc_now() -> datetime:
@@ -34,7 +34,7 @@ class RunStatus(StrEnum):
     AWAITING_APPROVAL = "awaiting_approval"
     REJECTED = "rejected"
     MR_CREATED = "mr_created"
-    CHANGE_REQUEST_CREATED = "mr_created"
+    CHANGE_REQUEST_CREATED = "change_request_created"
     REVIEWED = "reviewed"
     SYNCED = "synced"
     RECONCILED = "reconciled"
@@ -146,7 +146,7 @@ class RunRecord(BaseModel):
         issue_key: Selected issue key, if any.
         branch_name: Generated branch name, if any.
         commit_sha: Commit SHA after publishing, if any.
-        mr_url: Merge request URL after publishing, if any.
+        change_request_url: Change request URL after publishing, if any.
         status: Current or final run status.
         started_at: Run start time.
         updated_at: Last update time.
@@ -159,7 +159,10 @@ class RunRecord(BaseModel):
     dashboard_item_id: str | None = None
     branch_name: str | None = None
     commit_sha: str | None = None
-    mr_url: str | None = None
+    change_request_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("change_request_url", "mr_url"),
+    )
     status: RunStatus
     started_at: datetime
     updated_at: datetime
@@ -168,14 +171,14 @@ class RunRecord(BaseModel):
     review_diagnostics: ReviewRunDiagnostics | None = None
 
     @property
-    def change_request_url(self) -> str | None:
-        """Return the neutral change-request URL alias."""
-        return self.mr_url
+    def mr_url(self) -> str | None:
+        """Return the legacy merge-request URL alias."""
+        return self.change_request_url
 
-    @change_request_url.setter
-    def change_request_url(self, value: str | None) -> None:
-        """Persist the neutral change-request URL through the legacy field."""
-        self.mr_url = value
+    @mr_url.setter
+    def mr_url(self, value: str | None) -> None:
+        """Persist the legacy merge-request URL alias."""
+        self.change_request_url = value
 
 
 class IssueState(BaseModel):
@@ -185,7 +188,7 @@ class IssueState(BaseModel):
         status: Latest lifecycle status.
         last_run_id: Most recent run touching the issue.
         branch_name: Generated branch name, if any.
-        mr_url: Merge request URL, if any.
+        change_request_url: Change request URL, if any.
         attempt_count: Number of automated attempts made.
         last_error: Most recent error for the issue.
         failure: Structured failure details for the latest failed attempt.
@@ -195,21 +198,24 @@ class IssueState(BaseModel):
     status: str
     last_run_id: str
     branch_name: str | None = None
-    mr_url: str | None = None
+    change_request_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("change_request_url", "mr_url"),
+    )
     attempt_count: int = 0
     last_error: str | None = None
     failure: FailureDetails | None = None
     updated_at: datetime = Field(default_factory=utc_now)
 
     @property
-    def change_request_url(self) -> str | None:
-        """Return the neutral change-request URL alias."""
-        return self.mr_url
+    def mr_url(self) -> str | None:
+        """Return the legacy merge-request URL alias."""
+        return self.change_request_url
 
-    @change_request_url.setter
-    def change_request_url(self, value: str | None) -> None:
-        """Persist the neutral change-request URL through the legacy field."""
-        self.mr_url = value
+    @mr_url.setter
+    def mr_url(self, value: str | None) -> None:
+        """Persist the legacy merge-request URL alias."""
+        self.change_request_url = value
 
 
 class PriorReviewFindingState(BaseModel):
@@ -263,19 +269,22 @@ class DashboardItemState(BaseModel):
     last_run_id: str
     branch_name: str | None = None
     commit_sha: str | None = None
-    mr_url: str | None = None
+    change_request_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("change_request_url", "mr_url"),
+    )
     last_error: str | None = None
     updated_at: datetime = Field(default_factory=utc_now)
 
     @property
-    def change_request_url(self) -> str | None:
-        """Return the neutral change-request URL alias."""
-        return self.mr_url
+    def mr_url(self) -> str | None:
+        """Return the legacy merge-request URL alias."""
+        return self.change_request_url
 
-    @change_request_url.setter
-    def change_request_url(self, value: str | None) -> None:
-        """Persist the neutral change-request URL through the legacy field."""
-        self.mr_url = value
+    @mr_url.setter
+    def mr_url(self, value: str | None) -> None:
+        """Persist the legacy merge-request URL alias."""
+        self.change_request_url = value
 
 
 class RemediationExclusionState(BaseModel):

@@ -157,26 +157,8 @@ class RunStateService:
                 last_run_id=record.run_id,
                 attempt_count=attempt_count,
                 branch_name=branch_name,
-                mr_url=change_request_url,
+                change_request_url=change_request_url,
             ),
-        )
-
-    def mark_mr_created(
-        self,
-        *,
-        record: RunRecord,
-        issue_key: str,
-        attempt_count: int,
-        branch_name: str | None,
-        mr_url: str,
-    ) -> None:
-        """Persist a created or reused merge request through the neutral helper."""
-        self.mark_change_request_created(
-            record=record,
-            issue_key=issue_key,
-            attempt_count=attempt_count,
-            branch_name=branch_name,
-            change_request_url=mr_url,
         )
 
     def fail_issue(
@@ -201,7 +183,7 @@ class RunStateService:
                 last_run_id=record.run_id,
                 attempt_count=attempt_count,
                 branch_name=record.branch_name,
-                mr_url=record.mr_url,
+                change_request_url=record.change_request_url,
                 last_error=error_message,
                 failure=failure,
             ),
@@ -292,8 +274,6 @@ class RunStateService:
         commit_sha: str | None = None,
         change_request_url: str | None = None,
         change_request_action: str | None = None,
-        mr_url: str | None = None,
-        mr_action: str | None = None,
     ) -> RunSummary:
         """Build a CLI-facing run summary."""
         return self.summary_builder.build(
@@ -306,6 +286,4 @@ class RunStateService:
             commit_sha=commit_sha,
             change_request_url=change_request_url,
             change_request_action=change_request_action,
-            mr_url=mr_url,
-            mr_action=mr_action,
         )

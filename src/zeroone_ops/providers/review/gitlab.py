@@ -7,6 +7,7 @@ from urllib.parse import quote_plus
 
 import httpx
 
+from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.config import GitLabConnectionConfig
 from zeroone_ops.models.gitlab import GitLabMergeRequestState, MergeRequestNote
 from zeroone_ops.models.review import (
@@ -32,6 +33,14 @@ class GitLabReviewClientProtocol(Protocol):
         merge_request_iid: int,
     ) -> ChangeRequestReviewCandidate:
         """Fetch one merge request with change metadata."""
+
+    def get_change_request_state(
+        self,
+        *,
+        project_id: str,
+        change_request_number: int,
+    ) -> ChangeRequestState:
+        """Fetch one change-request state for reconciliation."""
 
     def get_merge_request_state(
         self,
@@ -130,6 +139,18 @@ class GitLabReviewClient:
         if not isinstance(payload, dict):
             raise GitLabClientError("Unexpected GitLab merge request detail payload.")
         return _normalize_review_candidate(payload)
+
+    def get_change_request_state(
+        self,
+        *,
+        project_id: str,
+        change_request_number: int,
+    ) -> ChangeRequestState:
+        """Fetch one change request state using provider-neutral naming."""
+        return self.get_merge_request_state(
+            project_id=project_id,
+            merge_request_iid=change_request_number,
+        )
 
     def get_merge_request_state(
         self,

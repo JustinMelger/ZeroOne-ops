@@ -312,10 +312,13 @@ These are important, but intentionally not part of the immediate rollout phase.
     publisher seam
   - extracted dashboard active-change-request lookup behind a provider-local
     lookup seam
-- next slice:
-  - neutralize shared `merge_request_*` model, state, and traceability fields
-- do one strict provider-neutrality sweep across non-provider packages before
-  GitHub remediation publish lands
+- completed provider-neutrality sweep across shared remediation and dashboard
+  seams:
+  - neutralized shared `merge_request_*` model, state, and traceability fields
+  - neutralized shared dashboard reconciliation state and change-request
+    vocabulary
+- intentionally kept compatibility aliases in dashboard models/parsers for
+  persisted legacy `merge_request_*` fields
 - move only genuinely shared contracts into neutral surfaces
 - keep provider-local publication semantics explicit where they differ
 - support GitHub branch and pull request publication for remediation

@@ -22,11 +22,6 @@ class RunSummary:
     commit_sha: str | None = None
     change_request_url: str | None = None
 
-    @property
-    def mr_url(self) -> str | None:
-        """Return the legacy merge-request URL alias."""
-        return self.change_request_url
-
 
 class RunSummaryBuilder:
     """Build consistent run summaries for workflow runners."""
@@ -48,14 +43,8 @@ class RunSummaryBuilder:
         commit_sha: str | None = None,
         change_request_url: str | None = None,
         change_request_action: str | None = None,
-        mr_url: str | None = None,
-        mr_action: str | None = None,
     ) -> RunSummary:
         """Build one CLI-facing run summary."""
-        if change_request_url is None:
-            change_request_url = mr_url
-        if change_request_action is None:
-            change_request_action = mr_action
         summary = f"[{self.execution_mode}] {message}"
         if change_request_url is not None:
             if change_request_action is None:

@@ -109,7 +109,7 @@ def test_build_summary_includes_change_request_action(tmp_path: Path) -> None:
 
     summary = service.build_summary(
         run_id="run-1",
-        status=RunStatus.MR_CREATED,
+        status=RunStatus.CHANGE_REQUEST_CREATED,
         message="Published successfully.",
         change_request_url="https://gitlab.example.com/group/project/-/merge_requests/9",
         change_request_action="reused",
@@ -168,7 +168,9 @@ def test_mark_dashboard_selected_updates_dashboard_item_state(tmp_path: Path) ->
     assert loaded.dashboard_items["sonar:1"].last_run_id == "run-1"
 
 
-def test_mark_dashboard_mr_created_persists_dashboard_item_state(tmp_path: Path) -> None:
+def test_mark_dashboard_change_request_created_persists_dashboard_item_state(
+    tmp_path: Path,
+) -> None:
     state_path = tmp_path / ".zeroone-ops-state.json"
     config = build_config(state_path)
     store = StateStore(
@@ -180,19 +182,19 @@ def test_mark_dashboard_mr_created_persists_dashboard_item_state(tmp_path: Path)
     service = RunStateService(config=config, state_store=store, state=build_state())
 
     record = service.start_run("run-1")
-    service.dashboard.mark_mr_created(
+    service.dashboard.mark_change_request_created(
         record=record,
         dashboard_item_id="sonar:1",
         branch_name="zeroone-ops/ax123/service",
-        mr_url="https://gitlab.example.com/group/project/-/merge_requests/1",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/1",
     )
     service.dashboard.finish_success()
 
     loaded = store.load()
-    assert loaded.dashboard_items["sonar:1"].status == "mr_created"
+    assert loaded.dashboard_items["sonar:1"].status == "change_request_created"
     assert loaded.dashboard_items["sonar:1"].branch_name == "zeroone-ops/ax123/service"
     assert (
-        loaded.dashboard_items["sonar:1"].mr_url
+        loaded.dashboard_items["sonar:1"].change_request_url
         == "https://gitlab.example.com/group/project/-/merge_requests/1"
     )
 
@@ -214,7 +216,7 @@ def test_mark_dashboard_done_persists_completed_dashboard_item_state(tmp_path: P
         dashboard_item_id="sonar:1",
         branch_name="zeroone-ops/ax123/service",
         commit_sha="abc123",
-        mr_url="https://gitlab.example.com/group/project/-/merge_requests/1",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/1",
     )
     service.dashboard.finish_success()
 
@@ -224,7 +226,7 @@ def test_mark_dashboard_done_persists_completed_dashboard_item_state(tmp_path: P
     assert loaded.dashboard_items["sonar:1"].branch_name == "zeroone-ops/ax123/service"
     assert loaded.dashboard_items["sonar:1"].commit_sha == "abc123"
     assert (
-        loaded.dashboard_items["sonar:1"].mr_url
+        loaded.dashboard_items["sonar:1"].change_request_url
         == "https://gitlab.example.com/group/project/-/merge_requests/1"
     )
 
@@ -246,7 +248,7 @@ def test_mark_dashboard_reopened_persists_open_dashboard_item_state(tmp_path: Pa
         dashboard_item_id="sonar:1",
         branch_name="zeroone-ops/ax123/service",
         commit_sha="abc123",
-        mr_url="https://gitlab.example.com/group/project/-/merge_requests/1",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/1",
     )
     service.dashboard.finish_success()
 
@@ -271,7 +273,7 @@ def test_fail_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -
     record = service.start_run("run-1")
     record.branch_name = "zeroone-ops/ax123/service"
     record.commit_sha = "abc123"
-    record.mr_url = "https://gitlab.example.com/group/project/-/merge_requests/1"
+    record.change_request_url = "https://gitlab.example.com/group/project/-/merge_requests/1"
     summary = service.dashboard.fail_item(
         record=record,
         dashboard_item_id="sonar:1",
@@ -285,7 +287,9 @@ def test_fail_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -
     assert summary.dashboard_item_id == "sonar:1"
     assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha == "abc123"
-    assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
+    assert (
+        summary.change_request_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
+    )
 
 
 def test_reject_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -> None:
@@ -301,7 +305,7 @@ def test_reject_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path)
 
     record = service.start_run("run-1")
     record.commit_sha = "abc123"
-    record.mr_url = "https://gitlab.example.com/group/project/-/merge_requests/1"
+    record.change_request_url = "https://gitlab.example.com/group/project/-/merge_requests/1"
     summary = service.dashboard.reject_item(
         record=record,
         dashboard_item_id="sonar:1",
@@ -312,7 +316,9 @@ def test_reject_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path)
     assert summary.dashboard_item_id == "sonar:1"
     assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha == "abc123"
-    assert summary.mr_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
+    assert (
+        summary.change_request_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
+    )
 
 
 def test_build_state_starts_with_no_remediation_exclusions() -> None:

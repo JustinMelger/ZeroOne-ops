@@ -34,16 +34,6 @@ class PublishResult:
     change_request_action: str | None = None
     error_message: str | None = None
 
-    @property
-    def mr_url(self) -> str | None:
-        """Return the legacy merge-request URL alias."""
-        return self.change_request_url
-
-    @property
-    def mr_action(self) -> str | None:
-        """Return the legacy merge-request action alias."""
-        return self.change_request_action
-
 
 class PublishService:
     """Push branches and create or reuse provider-backed change requests.
@@ -75,10 +65,16 @@ class PublishService:
         self,
         *,
         selected_issue: RemediationExecutionTarget,
-        mr_title: str,
-        mr_description: str,
+        change_request_title: str | None = None,
+        change_request_description: str | None = None,
     ) -> PublishResult:
         """Push the current branch and create or reuse a change request."""
+        if change_request_title is None:
+            return PublishResult(error_message="Publish failed: change request title is required.")
+        if change_request_description is None:
+            return PublishResult(
+                error_message="Publish failed: change request description is required."
+            )
         try:
             labels, assignee_username = self._publication_options()
             target_branch = self.config.require_remediation_target_branch(
@@ -94,11 +90,11 @@ class PublishService:
                     target_branch=target_branch,
                     title=self.build_change_request_title(
                         selected_issue=selected_issue,
-                        proposed_title=mr_title,
+                        proposed_title=change_request_title,
                     ),
                     description=self.build_change_request_description(
                         selected_issue=selected_issue,
-                        change_summary=mr_description,
+                        change_summary=change_request_description,
                     ),
                     labels=labels,
                     assignee_username=assignee_username,
@@ -159,30 +155,6 @@ class PublishService:
                 "## Notes",
                 profile.diff_note,
             ]
-        )
-
-    def build_mr_title(
-        self,
-        *,
-        selected_issue: RemediationExecutionTarget,
-        proposed_title: str,
-    ) -> str:
-        """Return the legacy merge-request title alias."""
-        return self.build_change_request_title(
-            selected_issue=selected_issue,
-            proposed_title=proposed_title,
-        )
-
-    def build_mr_description(
-        self,
-        *,
-        selected_issue: RemediationExecutionTarget,
-        change_summary: str,
-    ) -> str:
-        """Return the legacy merge-request description alias."""
-        return self.build_change_request_description(
-            selected_issue=selected_issue,
-            change_summary=change_summary,
         )
 
     def _publication_options(self) -> tuple[list[str], str | None]:

@@ -19,8 +19,8 @@ def test_write_solution_artifact_persists_analysis_and_patch(tmp_path: Path) -> 
         files_touched=["src/service.py"],
         unified_diff="diff --git a/src/service.py b/src/service.py\n",
         commit_message="fix(sonar): update service [AX1]",
-        mr_title="fix: update service",
-        mr_description="summary",
+        change_request_title="fix: update service",
+        change_request_description="summary",
     )
 
     write_solution_artifact(output_path, issue_key="AX1", analysis=analysis)
@@ -31,7 +31,7 @@ def test_write_solution_artifact_persists_analysis_and_patch(tmp_path: Path) -> 
     assert output_path.exists()
     assert '"issue_key": "AX1"' in payload
     assert '"summary": "Summary"' in payload
-    assert '"mr_title": "fix: update service"' in payload
+    assert '"change_request_title": "fix: update service"' in payload
 
 
 def test_write_solution_artifact_can_record_rejection_and_clear_patch(tmp_path: Path) -> None:
@@ -41,8 +41,8 @@ def test_write_solution_artifact_can_record_rejection_and_clear_patch(tmp_path: 
         files_touched=["src/service.py"],
         unified_diff="diff --git a/src/service.py b/src/service.py\n",
         commit_message="fix(sonar): update service [AX1]",
-        mr_title="fix: update service",
-        mr_description="summary",
+        change_request_title="fix: update service",
+        change_request_description="summary",
     )
 
     write_solution_artifact(output_path, issue_key="AX1", patch=patch)

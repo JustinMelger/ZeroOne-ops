@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class AnalysisClassification(StrEnum):
@@ -104,26 +104,30 @@ class PatchProposal(BaseModel):
         files_touched: Files modified by the patch.
         unified_diff: Unified diff to apply.
         commit_message: Proposed commit message.
-        mr_title: Proposed merge request title.
-        mr_description: Proposed merge request description.
+        change_request_title: Proposed change request title.
+        change_request_description: Proposed change request description.
     """
 
     issue_key: str
     files_touched: list[str] = Field(default_factory=list)
     unified_diff: str
     commit_message: str
-    mr_title: str
-    mr_description: str
+    change_request_title: str = Field(
+        validation_alias=AliasChoices("change_request_title", "mr_title")
+    )
+    change_request_description: str = Field(
+        validation_alias=AliasChoices("change_request_description", "mr_description")
+    )
 
     @property
-    def change_request_title(self) -> str:
-        """Return the neutral change-request title alias."""
-        return self.mr_title
+    def mr_title(self) -> str:
+        """Return the legacy merge-request title alias."""
+        return self.change_request_title
 
     @property
-    def change_request_description(self) -> str:
-        """Return the neutral change-request description alias."""
-        return self.mr_description
+    def mr_description(self) -> str:
+        """Return the legacy merge-request description alias."""
+        return self.change_request_description
 
 
 class TextEdit(BaseModel):
@@ -149,25 +153,29 @@ class StructuredEditProposal(BaseModel):
         issue_key: SonarQube issue key.
         edits: Exact text edits to apply.
         commit_message: Proposed commit message.
-        mr_title: Proposed merge request title.
-        mr_description: Proposed merge request description.
+        change_request_title: Proposed change request title.
+        change_request_description: Proposed change request description.
     """
 
     issue_key: str
     edits: list[TextEdit] = Field(default_factory=list)
     commit_message: str
-    mr_title: str
-    mr_description: str
+    change_request_title: str = Field(
+        validation_alias=AliasChoices("change_request_title", "mr_title")
+    )
+    change_request_description: str = Field(
+        validation_alias=AliasChoices("change_request_description", "mr_description")
+    )
 
     @property
-    def change_request_title(self) -> str:
-        """Return the neutral change-request title alias."""
-        return self.mr_title
+    def mr_title(self) -> str:
+        """Return the legacy merge-request title alias."""
+        return self.change_request_title
 
     @property
-    def change_request_description(self) -> str:
-        """Return the neutral change-request description alias."""
-        return self.mr_description
+    def mr_description(self) -> str:
+        """Return the legacy merge-request description alias."""
+        return self.change_request_description
 
 
 class ValidationCommandResult(BaseModel):

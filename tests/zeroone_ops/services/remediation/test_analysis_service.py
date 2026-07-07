@@ -128,8 +128,8 @@ def test_analyze_issue_applies_patch_in_dry_run_from_fixture(
             "    }\n"
             "  ],\n"
             '  "commit_message": "fix(sonar): patch service [FIXTURE-1]",\n'
-            '  "mr_title": "fix: patch service",\n'
-            '  "mr_description": "summary"\n'
+            '  "change_request_title": "fix: patch service",\n'
+            '  "change_request_description": "summary"\n'
             "}"
         ),
         encoding="utf-8",
@@ -187,8 +187,8 @@ def test_analyze_issue_runs_validation_after_patch_apply(tmp_path: Path, monkeyp
             "    }\n"
             "  ],\n"
             '  "commit_message": "fix(sonar): patch service [FIXTURE-1]",\n'
-            '  "mr_title": "fix: patch service",\n'
-            '  "mr_description": "summary"\n'
+            '  "change_request_title": "fix: patch service",\n'
+            '  "change_request_description": "summary"\n'
             "}"
         ),
         encoding="utf-8",
@@ -246,8 +246,8 @@ def test_analyze_issue_rolls_back_when_validation_fails(tmp_path: Path, monkeypa
             "    }\n"
             "  ],\n"
             '  "commit_message": "fix(sonar): patch service [FIXTURE-1]",\n'
-            '  "mr_title": "fix: patch service",\n'
-            '  "mr_description": "summary"\n'
+            '  "change_request_title": "fix: patch service",\n'
+            '  "change_request_description": "summary"\n'
             "}"
         ),
         encoding="utf-8",
@@ -316,8 +316,8 @@ def test_analyze_issue_rolls_back_when_patch_apply_fails(
             "    }\n"
             "  ],\n"
             '  "commit_message": "fix(sonar): patch service [FIXTURE-1]",\n'
-            '  "mr_title": "fix: patch service",\n'
-            '  "mr_description": "summary"\n'
+            '  "change_request_title": "fix: patch service",\n'
+            '  "change_request_description": "summary"\n'
             "}"
         ),
         encoding="utf-8",
@@ -382,8 +382,8 @@ def test_analyze_issue_skips_solution_artifact_in_ci_mode(tmp_path: Path, monkey
                 )
             ],
             commit_message="fix(sonar): patch service [FIXTURE-1]",
-            mr_title="fix: patch service",
-            mr_description="summary",
+            change_request_title="fix: patch service",
+            change_request_description="summary",
         ),
     )
 
@@ -446,8 +446,8 @@ def test_analyze_issue_retries_validation_with_regenerated_structured_edit(
                     )
                 ],
                 commit_message="fix(sonar): patch service [FIXTURE-1]",
-                mr_title="fix: patch service",
-                mr_description="summary",
+                change_request_title="fix: patch service",
+                change_request_description="summary",
             )
 
     retry_client = RetryLLMClient()
@@ -518,8 +518,8 @@ def test_analyze_issue_prefers_bot_rendered_diff_from_structured_edit(
                     )
                 ],
                 commit_message="fix(sonar): patch service [FIXTURE-1]",
-                mr_title="fix: patch service",
-                mr_description="summary",
+                change_request_title="fix: patch service",
+                change_request_description="summary",
             )
 
     service = AnalysisService(
@@ -591,8 +591,8 @@ def test_analyze_issue_rejects_unrenderable_structured_edit_without_raw_diff_fal
                     )
                 ],
                 commit_message="fix(sonar): patch service [FIXTURE-1]",
-                mr_title="fix: patch service",
-                mr_description="summary",
+                change_request_title="fix: patch service",
+                change_request_description="summary",
             )
 
     service = AnalysisService(
@@ -668,8 +668,8 @@ def test_analyze_issue_rejects_multi_file_structured_edit_for_v1(
                     ),
                 ],
                 commit_message="fix(sonar): patch service [FIXTURE-1]",
-                mr_title="fix: patch service",
-                mr_description="summary",
+                change_request_title="fix: patch service",
+                change_request_description="summary",
             )
 
     service = AnalysisService(
@@ -766,8 +766,8 @@ def test_analyze_issue_allows_repository_guidance_to_shape_in_scope_fix(
                     )
                 ],
                 commit_message="fix(sonar): patch service [FIXTURE-1]",
-                mr_title="fix: patch service",
-                mr_description="summary",
+                change_request_title="fix: patch service",
+                change_request_description="summary",
             )
 
     guidance_client = GuidanceAwareLLMClient()

@@ -58,8 +58,8 @@ def build_patch() -> PatchProposal:
         files_touched=["src/service.py"],
         unified_diff="diff --git a/src/service.py b/src/service.py\n",
         commit_message="fix(sonar): patch service [FIXTURE-1]",
-        mr_title="fix: patch service",
-        mr_description="summary",
+        change_request_title="fix: patch service",
+        change_request_description="summary",
     )
 
 
