@@ -73,6 +73,19 @@ class GitLabConfig(BaseModel):
     merge_request_assignee_username: str | None = None
 
 
+class GitHubConfig(BaseModel):
+    """Configure GitHub pull request behavior.
+
+    Attributes:
+        labels: Labels to attach to created pull requests.
+        pull_request_assignee_username: Optional GitHub username to assign
+            created remediation pull requests to.
+    """
+
+    labels: list[str] = Field(default_factory=list)
+    pull_request_assignee_username: str | None = None
+
+
 class GitLabConnectionConfig(BaseModel):
     """Configure GitLab API connectivity.
 
@@ -191,6 +204,7 @@ class AppConfig(BaseModel):
         remediation: Remediation-related settings.
         sonarqube: SonarQube producer settings.
     gitlab: GitLab merge request settings when GitLab workflows are used.
+    github: GitHub pull request settings when GitHub workflows are used.
         state: State persistence settings.
     """
 
@@ -210,6 +224,7 @@ class AppConfig(BaseModel):
     remediation: RemediationConfig = Field(default_factory=RemediationConfig)
     sonarqube: SonarQubeConfig = Field(default_factory=SonarQubeConfig)
     gitlab: GitLabConfig | None = None
+    github: GitHubConfig | None = None
     state: StateConfig = Field(default_factory=StateConfig)
 
     _REMOVED_FLAT_CONFIG_KEYS: ClassVar[frozenset[str]] = frozenset(

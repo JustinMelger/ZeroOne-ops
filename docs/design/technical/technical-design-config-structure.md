@@ -226,6 +226,10 @@ Why:
     "labels": ["zeroone-ops", "sonarqube"],
     "merge_request_assignee_username": "justin"
   },
+  "github": {
+    "labels": ["zeroone-ops", "sonarqube"],
+    "pull_request_assignee_username": "justin"
+  },
   "state": {
     "path": ".zeroone-ops-state.json"
   },

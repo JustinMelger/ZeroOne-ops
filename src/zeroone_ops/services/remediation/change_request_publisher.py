@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
-from zeroone_ops.providers.gitlab_client import GitLabClient, GitLabClientError
-from zeroone_ops.settings import load_gitlab_connection_config
+from zeroone_ops.providers.github_client import GitHubClient, GitHubClientError
+from zeroone_ops.providers.gitlab_client import GitLabClient
+from zeroone_ops.settings import (
+    load_github_connection_config,
+    load_gitlab_connection_config,
+)
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -77,6 +84,72 @@ class GitLabRemediationChangeRequestPublisher:
         return PublishedChangeRequest(info=created_change_request, action="created")
 
 
+class GitHubRemediationChangeRequestPublisher:
+    """Publish remediation change requests through GitHub."""
+
+    def __init__(self, github_client: GitHubClient) -> None:
+        """Initialize the GitHub remediation publisher."""
+        self.github_client = github_client
+
+    def publish(self, request: ChangeRequestPublishRequest) -> PublishedChangeRequest:
+        """Create or reuse one GitHub pull request."""
+        existing_change_request = self.github_client.find_open_pull_request(
+            repository_id=self.github_client.config.repository,
+            source_branch=request.source_branch,
+            target_branch=request.target_branch,
+        )
+        if existing_change_request is not None:
+            if request.assignee_username is not None:
+                self.github_client.assign_issue(
+                    repository_id=self.github_client.config.repository,
+                    issue_number=existing_change_request.iid,
+                    assignee_username=request.assignee_username,
+                )
+            return PublishedChangeRequest(info=existing_change_request, action="reused")
+
+        created_change_request = self.github_client.create_pull_request(
+            repository_id=self.github_client.config.repository,
+            source_branch=request.source_branch,
+            target_branch=request.target_branch,
+            title=request.title,
+            description=request.description,
+        )
+        self._apply_created_pull_request_metadata(
+            created_change_request=created_change_request,
+            request=request,
+        )
+        return PublishedChangeRequest(info=created_change_request, action="created")
+
+    def _apply_created_pull_request_metadata(
+        self,
+        *,
+        created_change_request: ChangeRequestInfo,
+        request: ChangeRequestPublishRequest,
+    ) -> None:
+        """Apply non-authoritative metadata without hiding a successful pull-request create."""
+        try:
+            self.github_client.add_issue_labels(
+                repository_id=self.github_client.config.repository,
+                issue_number=created_change_request.iid,
+                labels=request.labels,
+            )
+            if request.assignee_username is not None:
+                self.github_client.assign_issue(
+                    repository_id=self.github_client.config.repository,
+                    issue_number=created_change_request.iid,
+                    assignee_username=request.assignee_username,
+                )
+        except GitHubClientError:
+            LOGGER.warning(
+                "GitHub remediation pull request metadata update failed after create",
+                extra={
+                    "repository": self.github_client.config.repository,
+                    "pull_request_number": created_change_request.iid,
+                },
+                exc_info=True,
+            )
+
+
 def build_remediation_change_request_publisher(
     config: AppConfig,
 ) -> RemediationChangeRequestPublisher:
@@ -86,7 +159,7 @@ def build_remediation_change_request_publisher(
             GitLabClient(load_gitlab_connection_config())
         )
     if config.platform == "github":
-        raise RuntimeError(
-            "Remediation change-request publish is not implemented for platform=github."
+        return GitHubRemediationChangeRequestPublisher(
+            GitHubClient(load_github_connection_config())
         )
-    raise GitLabClientError(f"Unsupported remediation publish platform: {config.platform}")
+    raise RuntimeError(f"Unsupported remediation publish platform: {config.platform}")

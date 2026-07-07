@@ -39,7 +39,7 @@
   "sonarqube": {
     "mock_issues_path": "fixtures/sonar/issues.json"
   },
-  "gitlab": {
+  "github": {
     "labels": ["zeroone-ops", "sonarqube"]
   },
   "state": {

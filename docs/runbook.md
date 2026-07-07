@@ -633,10 +633,12 @@ Fuller example:
 
 - [examples/.zeroone-ops.json](../examples/.zeroone-ops.json)
 
-Optional remediation MR ownership:
+Optional remediation change-request ownership:
 
 - set `gitlab.merge_request_assignee_username` when created remediation merge
   requests should be assigned to a specific GitLab username for review
+- set `github.pull_request_assignee_username` when created remediation pull
+  requests should be assigned to a specific GitHub username for review
 
 ### Recommended First Test
 

@@ -174,6 +174,37 @@ def test_settings_allow_github_review_config_without_gitlab_block(
     assert config.gitlab is None
 
 
+def test_settings_load_github_pull_request_publish_config(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "platform": "github",
+          "remediation": {
+            "target_branch": "main"
+          },
+          "github": {
+            "labels": ["zeroone-ops", "autofix"],
+            "pull_request_assignee_username": "justin"
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.platform == "github"
+    assert config.github is not None
+    assert config.github.labels == ["zeroone-ops", "autofix"]
+    assert config.github.pull_request_assignee_username == "justin"
+
+
 def test_settings_require_gitlab_block_for_gitlab_platform(
     tmp_path: Path,
     monkeypatch,
