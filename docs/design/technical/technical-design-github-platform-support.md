@@ -341,6 +341,37 @@ Possible directions later could include:
 This should be designed deliberately rather than inherited accidentally from
 the GitLab issue model.
 
+Locked direction:
+
+- Phase 5 should use a hybrid GitHub-native control plane.
+- Phase 5a should start with one dedicated policy issue for repository-wide
+  operator policy.
+- authoritative state should live on normal GitHub objects:
+  - issue labels and state
+  - pull-request labels and state
+  - explicit issue/PR linkage
+- remediation issues and remediation pull requests should carry item-level
+  execution truth.
+- no persistent summary issue should be required in the first slice.
+- any later persistent summary surface should be derived and read-only rather
+  than the primary source of truth.
+- operator actions in the first slice should prefer native GitHub state changes
+  such as labels and close/reopen rather than markdown parsing or comment
+  command dependence.
+- review and remediation status should flow back into any later summary surface
+  only as a concise mirror of the authoritative GitHub objects.
+- the shared codebase should model this as one provider-neutral control-plane
+  state domain rather than one universal dashboard surface.
+- provider-local adapters should own:
+  - authoritative policy storage
+  - authoritative work-item / change-request state storage
+  - optional rendered overview publication
+- shared orchestration should depend on control-plane capabilities and state,
+  not on GitLab dashboard markdown semantics.
+- naming should gradually move toward `control_plane`, `policy`, `work_queue`,
+  and `overview` for shared concepts, while `dashboard` remains a provider-local
+  GitLab implementation term where appropriate.
+
 ## 11. Configuration Direction
 
 Review and remediation policy should stay mostly provider-neutral:
@@ -426,18 +457,45 @@ after the default CI detection story is clear.
     publisher seam
   - extracted dashboard active-change-request lookup behind a provider-local
     lookup seam
-- next slice:
-  - neutralize shared `merge_request_*` model, state, and traceability fields
-- do one strict provider-neutrality sweep across non-provider packages before
-  GitHub remediation publish lands
-- move only genuinely shared contracts into neutral surfaces
-- keep provider-local publication semantics explicit where they differ
+- completed provider-neutrality sweep across non-provider packages:
+  - neutralized shared `merge_request_*` model, state, and traceability fields
+  - kept genuinely shared contracts neutral while preserving provider-local
+    publication semantics where they differ
+- Phase 4 scope is complete for GitHub remediation publish support
+- continue live GitHub validation under rollout rather than leaving Phase 4
+  open for control-plane concerns
 
-### Phase 5: GitHub Control Plane Design And Implementation
+### Phase 5: GitHub Control Plane
 
-- design the GitHub-native work queue / dashboard-equivalent surface
-- design operator control and policy interaction on GitHub
-- connect remediation and review status back into that surface
+- keep one shared control-plane state domain with provider-local storage/view
+  adapters
+
+#### Phase 5a: GitHub Policy Surface
+
+- start with one dedicated policy issue for repository-wide operator policy
+- define the bounded operator-editable policy shape on GitHub
+- keep the policy issue authoritative for repo-wide policy only
+
+#### Phase 5b: GitHub Work-Item Control Plane
+
+- keep remediation issues, pull requests, labels, and state transitions
+  authoritative
+- define item-level lifecycle and issue/PR linkage
+- design operator control interaction on the authoritative item surfaces
+
+#### Phase 5c: GitHub Status Projection
+
+- connect remediation and review workflow status back into the GitHub control
+  plane
+- project shared workflow state onto authoritative GitHub objects without
+  making rendered markdown authoritative
+
+#### Phase 5d: Optional Derived Overview
+
+- do not require a persistent summary issue in the first slice
+- allow a persistent summary issue later only as a derived visibility layer
+- add a summary surface only if operator usage proves native GitHub views are
+  insufficient
 
 ### Phase 6: Full GitHub Dogfooding
 
@@ -725,16 +783,28 @@ Locked Phase 4 behavior rules:
 
 Primary phases:
 
-- Phase 5: GitHub Control Plane Design And Implementation
+- Phase 5: GitHub Control Plane
+- Phase 5a: GitHub Policy Surface
+- Phase 5b: GitHub Work-Item Control Plane
+- Phase 5c: GitHub Status Projection
+- Phase 5d: Optional Derived Overview
 - Phase 6: GitHub Platform Rollout
 
 What should the GitHub-native work-queue / control-plane shape be?
 
-Possible directions:
+Locked answer:
 
-- one persistent issue similar to the current GitLab dashboard
-- a label and issue/PR state driven workflow
-- another lighter GitHub-native control surface
+- use a hybrid control plane
+- start with one dedicated policy issue for repository-wide operator policy
+- keep remediation issues, pull requests, labels, and state transitions as the
+  authoritative execution surface
+- do not require a persistent summary issue in the first slice
+- allow a persistent summary issue later only as a derived visibility layer
+- do not make machine-managed summary markdown the primary source of truth
 
-This is the biggest later product-design question and should not be answered by
-accident through transport reuse alone.
+Why:
+
+- it preserves GitHub-native operator ergonomics
+- it avoids rebuilding the GitLab dashboard too literally on a weaker surface
+- it keeps automation boundaries clear between durable state and rendered
+  visibility

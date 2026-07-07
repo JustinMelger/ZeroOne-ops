@@ -301,40 +301,70 @@ These are important, but intentionally not part of the immediate rollout phase.
 
 #### Open GitHub Platform Slices
 
-- [ ] Phase 4: GitHub Remediation Publish Support
-
-- completed Phase 4a config-prep slice:
+- completed Phase 4: GitHub Remediation Publish Support
+  - completed Phase 4a config-prep slice:
   - moved repo provider selection to top-level `platform`
   - moved remediation publication targeting to shared `remediation.target_branch`
   - kept provider-local publication metadata explicit under provider blocks
-- completed shared publish seam slices:
+  - completed shared publish seam slices:
   - extracted remediation publish behind a provider-local change-request
     publisher seam
   - extracted dashboard active-change-request lookup behind a provider-local
     lookup seam
-- completed provider-neutrality sweep across shared remediation and dashboard
-  seams:
+  - completed provider-neutrality sweep across shared remediation and dashboard
+    seams:
   - neutralized shared `merge_request_*` model, state, and traceability fields
   - neutralized shared dashboard reconciliation state and change-request
     vocabulary
-- intentionally kept compatibility aliases in dashboard models/parsers for
-  persisted legacy `merge_request_*` fields
-- move only genuinely shared contracts into neutral surfaces
-- keep provider-local publication semantics explicit where they differ
-- support GitHub branch and pull request publication for remediation
-- preserve the current remediation execution core where it is genuinely
-  provider-neutral
-- avoid GitLab-specific merge-request assumptions in remediation publish flow
+  - intentionally kept compatibility aliases in dashboard models/parsers for
+    persisted legacy `merge_request_*` fields
+  - kept genuinely shared contracts neutral while preserving provider-local
+    publication semantics where they differ
+  - supported GitHub branch and pull request publication for remediation
+  - preserved the current remediation execution core where it is genuinely
+    provider-neutral
+  - avoided GitLab-specific merge-request assumptions in remediation publish
+    flow
+  - follow-up live validation should continue under Phase 6 rollout, not as
+    open Phase 4 scope
 
-- [ ] Phase 5: GitHub Control Plane Design And Implementation
+- [ ] Phase 5: GitHub Control Plane
 
-- design a GitHub-native dashboard or work-queue equivalent
-- design the operator control and policy interaction model on GitHub
-- connect remediation and review workflow status back into that control plane
+- locked direction: use a hybrid GitHub-native control plane
+- keep one shared control-plane state domain and provider-local storage/view
+  adapters instead of forcing both platforms into one dashboard-shaped model
+
+- [ ] Phase 5a: GitHub Policy Surface
+
+- start with one dedicated policy issue for repository-wide operator policy
+- define the bounded operator-editable policy shape on GitHub
+- keep this issue authoritative for repo-wide policy only
+
+- [ ] Phase 5b: GitHub Work-Item Control Plane
+
+- keep remediation issues, pull requests, labels, and state transitions
+  authoritative
+- define item-level lifecycle and linkage between remediation issues and PRs
+- design the operator control interaction model on the authoritative item
+  surfaces
+
+- [ ] Phase 5c: GitHub Status Projection
+
+- connect remediation and review workflow status back into the GitHub control
+  plane
+- project shared workflow state onto authoritative GitHub objects without
+  making rendered markdown authoritative
+
+- [ ] Phase 5d: Optional Derived Overview
+
+- do not require a persistent summary issue in the first slice
+- allow any later summary issue only as derived and read-only
+- add a summary surface only if operator usage proves native GitHub views are
+  insufficient
 
 - [ ] Phase 6: GitHub Platform Rollout
 
-- dogfood GitHub review support on this repository first
+- completed: dogfooded GitHub review support on this repository first
 - expand into broader GitHub-native workflow usage as later slices land
 - validate product clarity before claiming broader platform parity
 
