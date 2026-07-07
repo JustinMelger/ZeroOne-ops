@@ -31,8 +31,8 @@ def test_apply_updates_file_from_unified_diff(tmp_path: Path) -> None:
             "+new\n"
         ),
         commit_message="fix(sonar): update sample [AX1]",
-        mr_title="fix: update sample",
-        mr_description="summary",
+        change_request_title="fix: update sample",
+        change_request_description="summary",
     )
 
     PatchApplier(repo_root).apply(proposal)
@@ -48,8 +48,8 @@ def test_apply_rejects_paths_outside_repo(tmp_path: Path) -> None:
         files_touched=["../outside.txt"],
         unified_diff="diff --git a/../outside.txt b/../outside.txt\n",
         commit_message="fix(sonar): invalid [AX1]",
-        mr_title="fix: invalid",
-        mr_description="summary",
+        change_request_title="fix: invalid",
+        change_request_description="summary",
     )
 
     with pytest.raises(PatchApplyError, match="escapes repository root"):
@@ -73,8 +73,8 @@ def test_apply_rejects_malformed_hunk_header_counts(tmp_path: Path) -> None:
             "+new\n"
         ),
         commit_message="fix(sonar): invalid sample [AX1]",
-        mr_title="fix: invalid sample",
-        mr_description="summary",
+        change_request_title="fix: invalid sample",
+        change_request_description="summary",
     )
 
     with pytest.raises(PatchApplyError, match="hunk header line counts do not match body"):

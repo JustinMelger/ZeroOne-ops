@@ -77,14 +77,8 @@ class PublishService:
         selected_issue: RemediationExecutionTarget,
         change_request_title: str | None = None,
         change_request_description: str | None = None,
-        mr_title: str | None = None,
-        mr_description: str | None = None,
     ) -> PublishResult:
         """Push the current branch and create or reuse a change request."""
-        if change_request_title is None:
-            change_request_title = mr_title
-        if change_request_description is None:
-            change_request_description = mr_description
         if change_request_title is None:
             return PublishResult(error_message="Publish failed: change request title is required.")
         if change_request_description is None:
@@ -171,30 +165,6 @@ class PublishService:
                 "## Notes",
                 profile.diff_note,
             ]
-        )
-
-    def build_mr_title(
-        self,
-        *,
-        selected_issue: RemediationExecutionTarget,
-        proposed_title: str,
-    ) -> str:
-        """Return the legacy merge-request title alias."""
-        return self.build_change_request_title(
-            selected_issue=selected_issue,
-            proposed_title=proposed_title,
-        )
-
-    def build_mr_description(
-        self,
-        *,
-        selected_issue: RemediationExecutionTarget,
-        change_summary: str,
-    ) -> str:
-        """Return the legacy merge-request description alias."""
-        return self.build_change_request_description(
-            selected_issue=selected_issue,
-            change_summary=change_summary,
         )
 
     def _publication_options(self) -> tuple[list[str], str | None]:

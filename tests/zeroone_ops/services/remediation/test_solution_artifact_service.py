@@ -29,8 +29,8 @@ def build_patch() -> PatchProposal:
         files_touched=["src/service.py"],
         unified_diff="diff --git a/src/service.py b/src/service.py\n",
         commit_message="fix(sonar): update service [AX1]",
-        mr_title="fix: update service",
-        mr_description="summary",
+        change_request_title="fix: update service",
+        change_request_description="summary",
     )
 
 
@@ -46,8 +46,8 @@ def build_structured_edit() -> StructuredEditProposal:
             )
         ],
         commit_message="fix(sonar): update service [AX1]",
-        mr_title="fix: update service",
-        mr_description="summary",
+        change_request_title="fix: update service",
+        change_request_description="summary",
     )
 
 
@@ -67,7 +67,7 @@ def test_solution_artifact_service_writes_analysis_structured_edit_and_patch(
     assert '"summary": "Summary"' in payload
     assert '"structured_edit"' in payload
     assert '"search_text": "value = 1"' in payload
-    assert '"mr_title": "fix: update service"' in payload
+    assert '"change_request_title": "fix: update service"' in payload
 
 
 def test_solution_artifact_service_skips_writes_when_disabled(tmp_path: Path) -> None:
