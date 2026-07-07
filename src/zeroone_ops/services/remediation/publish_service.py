@@ -86,9 +86,7 @@ class PublishService:
         if change_request_description is None:
             change_request_description = mr_description
         if change_request_title is None:
-            return PublishResult(
-                error_message="Publish failed: change request title is required."
-            )
+            return PublishResult(error_message="Publish failed: change request title is required.")
         if change_request_description is None:
             return PublishResult(
                 error_message="Publish failed: change request description is required."

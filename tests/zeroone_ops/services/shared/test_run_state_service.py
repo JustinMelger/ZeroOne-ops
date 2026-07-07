@@ -288,8 +288,7 @@ def test_fail_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path) -
     assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha == "abc123"
     assert (
-        summary.change_request_url
-        == "https://gitlab.example.com/group/project/-/merge_requests/1"
+        summary.change_request_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
     )
 
 
@@ -318,8 +317,7 @@ def test_reject_dashboard_item_summary_keeps_traceability_fields(tmp_path: Path)
     assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha == "abc123"
     assert (
-        summary.change_request_url
-        == "https://gitlab.example.com/group/project/-/merge_requests/1"
+        summary.change_request_url == "https://gitlab.example.com/group/project/-/merge_requests/1"
     )
 
 
