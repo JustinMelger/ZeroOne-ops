@@ -2,19 +2,10 @@
 
 from pydantic import BaseModel
 
-from zeroone_ops.models.change_request import ChangeRequestInfo
+from zeroone_ops.models.change_request import ChangeRequestInfo, ChangeRequestState
 
 MergeRequestInfo = ChangeRequestInfo
-
-
-class GitLabMergeRequestState(BaseModel):
-    """Represent the reconciliation-relevant state of one GitLab merge request."""
-
-    iid: int
-    web_url: str
-    source_branch: str
-    head_sha: str
-    state: str
+GitLabMergeRequestState = ChangeRequestState
 
 
 class MergeRequestNote(BaseModel):

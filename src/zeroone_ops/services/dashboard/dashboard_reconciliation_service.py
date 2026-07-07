@@ -7,8 +7,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.dashboard import DashboardItem
-from zeroone_ops.models.gitlab import GitLabMergeRequestState
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.review.gitlab import GitLabReviewClientProtocol
 
@@ -21,7 +21,7 @@ class DashboardReconciliationDecision:
     message: str
     retry_eligible: bool | None = None
     retry_block_reason: str | None = None
-    merge_request_state: GitLabMergeRequestState | None = None
+    change_request_state: ChangeRequestState | None = None
 
 
 class DashboardReconciliationService:
@@ -44,10 +44,10 @@ class DashboardReconciliationService:
         item: DashboardItem,
     ) -> DashboardReconciliationDecision:
         """Return the reconciliation action for one open change-request item."""
-        merge_request_iid = item.change_request_number or merge_request_iid_from_url(
+        change_request_number = item.change_request_number or change_request_number_from_url(
             item.change_request_url
         )
-        if merge_request_iid is None:
+        if change_request_number is None:
             return DashboardReconciliationDecision(
                 action="failed",
                 message=(
@@ -58,9 +58,9 @@ class DashboardReconciliationService:
                 retry_block_reason="Change request number is missing.",
             )
         try:
-            merge_request = self.review_client.get_merge_request_state(
+            change_request = self.review_client.get_change_request_state(
                 project_id=project_id,
-                merge_request_iid=merge_request_iid,
+                change_request_number=change_request_number,
             )
         except (GitLabClientError, httpx.HTTPError) as error:
             return DashboardReconciliationDecision(
@@ -72,90 +72,90 @@ class DashboardReconciliationService:
                 retry_eligible=False,
                 retry_block_reason="Change request metadata is inaccessible.",
             )
-        if merge_request.state == "opened":
+        if change_request.state == "opened":
             return DashboardReconciliationDecision(
                 action="noop",
-                message=f"Change request !{merge_request.iid} is still open.",
+                message=f"Change request {change_request.iid} is still open.",
                 retry_eligible=item.retry_eligible,
                 retry_block_reason=item.retry_block_reason,
-                merge_request_state=merge_request,
+                change_request_state=change_request,
             )
-        if merge_request.state == "merged":
+        if change_request.state == "merged":
             return DashboardReconciliationDecision(
                 action="done",
-                message=f"Change request !{merge_request.iid} was merged.",
+                message=f"Change request {change_request.iid} was merged.",
                 retry_eligible=False,
                 retry_block_reason=None,
-                merge_request_state=merge_request,
+                change_request_state=change_request,
             )
-        if merge_request.state == "closed":
+        if change_request.state == "closed":
             if (
-                item.branch_name != merge_request.source_branch
-                or item.commit_sha != merge_request.head_sha
+                item.branch_name != change_request.source_branch
+                or item.commit_sha != change_request.head_sha
             ):
                 return DashboardReconciliationDecision(
                     action="failed",
                     message=(
-                        f"Change request !{merge_request.iid} was closed, but stored "
+                        f"Change request {change_request.iid} was closed, but stored "
                         "branch or commit traceability no longer matches."
                     ),
                     retry_eligible=False,
                     retry_block_reason="Stored branch or commit traceability no longer matches.",
-                    merge_request_state=merge_request,
+                    change_request_state=change_request,
                 )
             if item.source == "sonarqube" and item.upstream_active is False:
                 return DashboardReconciliationDecision(
                     action="done",
                     message=(
-                        f"Change request !{merge_request.iid} was closed without merge, "
+                        f"Change request {change_request.iid} was closed without merge, "
                         "and the dashboard shows the Sonar issue is no longer active."
                     ),
                     retry_eligible=False,
                     retry_block_reason=None,
-                    merge_request_state=merge_request,
+                    change_request_state=change_request,
                 )
             retry_eligible, retry_block_reason = self._retry_state_for_closed_item(item)
             if retry_eligible:
                 return DashboardReconciliationDecision(
                     action="open",
                     message=(
-                        f"Change request !{merge_request.iid} was closed without merge. "
+                        f"Change request {change_request.iid} was closed without merge. "
                         "Reopening dashboard item with review-guided retry eligibility."
                     ),
                     retry_eligible=True,
                     retry_block_reason=None,
-                    merge_request_state=merge_request,
+                    change_request_state=change_request,
                 )
             if retry_block_reason == "No linked review outcome available.":
                 return DashboardReconciliationDecision(
                     action="open",
                     message=(
-                        f"Change request !{merge_request.iid} was closed without merge. "
+                        f"Change request {change_request.iid} was closed without merge. "
                         "Reopening dashboard item."
                     ),
                     retry_eligible=False,
                     retry_block_reason=retry_block_reason,
-                    merge_request_state=merge_request,
+                    change_request_state=change_request,
                 )
             return DashboardReconciliationDecision(
                 action="failed",
                 message=(
-                    f"Change request !{merge_request.iid} was closed without merge, "
+                    f"Change request {change_request.iid} was closed without merge, "
                     f"but retry is blocked: {retry_block_reason}"
                 ),
                 retry_eligible=False,
                 retry_block_reason=retry_block_reason,
-                merge_request_state=merge_request,
+                change_request_state=change_request,
             )
         return DashboardReconciliationDecision(
             action="failed",
             message=(
-                f"Change request !{merge_request.iid} returned unsupported state "
-                f"`{merge_request.state}`."
+                f"Change request {change_request.iid} returned unsupported state "
+                f"`{change_request.state}`."
             ),
             retry_eligible=False,
-            retry_block_reason=f"Unsupported change request state: {merge_request.state}.",
-            merge_request_state=merge_request,
+            retry_block_reason=f"Unsupported change request state: {change_request.state}.",
+            change_request_state=change_request,
         )
 
     def _retry_state_for_closed_item(self, item: DashboardItem) -> tuple[bool, str]:
@@ -175,8 +175,8 @@ class DashboardReconciliationService:
         return True, ""
 
 
-def merge_request_iid_from_url(url: str | None) -> int | None:
-    """Extract a merge request IID from a GitLab merge request URL."""
+def change_request_number_from_url(url: str | None) -> int | None:
+    """Extract a change-request number from a GitLab-style change-request URL."""
     if url is None:
         return None
     path_parts = [part for part in urlparse(url).path.split("/") if part]

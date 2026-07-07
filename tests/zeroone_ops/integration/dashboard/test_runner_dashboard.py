@@ -385,13 +385,13 @@ def test_dashboard_reconcile_dry_run_selects_change_request_opened_item(
         )(),
     )
 
-    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+    def fake_get_change_request_state(*, project_id: str, change_request_number: int):  # noqa: ANN202
         del project_id
         return type(
             "GitLabMergeRequestState",
             (),
             {
-                "iid": merge_request_iid,
+                "iid": change_request_number,
                 "web_url": selected_item.merge_request_url,
                 "source_branch": selected_item.branch_name,
                 "head_sha": selected_item.commit_sha,
@@ -400,8 +400,8 @@ def test_dashboard_reconcile_dry_run_selects_change_request_opened_item(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
-        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_change_request_state",
+        lambda self, **kwargs: fake_get_change_request_state(**kwargs),
     )
 
     summary = dashboard_reconcile(dry_run=True)
@@ -513,13 +513,13 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
         )(),
     )
 
-    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+    def fake_get_change_request_state(*, project_id: str, change_request_number: int):  # noqa: ANN202
         del project_id
         return type(
             "GitLabMergeRequestState",
             (),
             {
-                "iid": merge_request_iid,
+                "iid": change_request_number,
                 "web_url": selected_item.merge_request_url,
                 "source_branch": selected_item.branch_name,
                 "head_sha": selected_item.commit_sha,
@@ -555,8 +555,8 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
-        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_change_request_state",
+        lambda self, **kwargs: fake_get_change_request_state(**kwargs),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
@@ -654,15 +654,15 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
         )(),
     )
 
-    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+    def fake_get_change_request_state(*, project_id: str, change_request_number: int):  # noqa: ANN202
         del project_id
-        item = open_item if merge_request_iid == 8 else merged_item
-        state = "opened" if merge_request_iid == 8 else "merged"
+        item = open_item if change_request_number == 8 else merged_item
+        state = "opened" if change_request_number == 8 else "merged"
         return type(
             "GitLabMergeRequestState",
             (),
             {
-                "iid": merge_request_iid,
+                "iid": change_request_number,
                 "web_url": item.merge_request_url,
                 "source_branch": item.branch_name,
                 "head_sha": item.commit_sha,
@@ -698,8 +698,8 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
-        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_change_request_state",
+        lambda self, **kwargs: fake_get_change_request_state(**kwargs),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
@@ -718,7 +718,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
     assert "checked 2 dashboard items" in summary.message
     assert "1 marked done" in summary.message
     assert "1 still open" in summary.message
-    assert "sonar:MERGED: Change request !9 was merged." in summary.message
+    assert "sonar:MERGED: Change request 9 was merged." in summary.message
     assert state.dashboard_items["sonar:MERGED"].status == "done"
 
 
@@ -782,13 +782,13 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
         )(),
     )
 
-    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+    def fake_get_change_request_state(*, project_id: str, change_request_number: int):  # noqa: ANN202
         del project_id
         return type(
             "GitLabMergeRequestState",
             (),
             {
-                "iid": merge_request_iid,
+                "iid": change_request_number,
                 "web_url": selected_item.merge_request_url,
                 "source_branch": selected_item.branch_name,
                 "head_sha": selected_item.commit_sha,
@@ -824,8 +824,8 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
-        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_change_request_state",
+        lambda self, **kwargs: fake_get_change_request_state(**kwargs),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_open",
@@ -909,13 +909,13 @@ def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
         )(),
     )
 
-    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+    def fake_get_change_request_state(*, project_id: str, change_request_number: int):  # noqa: ANN202
         del project_id
         return type(
             "GitLabMergeRequestState",
             (),
             {
-                "iid": merge_request_iid,
+                "iid": change_request_number,
                 "web_url": selected_item.merge_request_url,
                 "source_branch": selected_item.branch_name,
                 "head_sha": selected_item.commit_sha,
@@ -924,8 +924,8 @@ def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
-        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_change_request_state",
+        lambda self, **kwargs: fake_get_change_request_state(**kwargs),
     )
     recorded_updates: list[tuple[int | None, bool | None, str | None]] = []
 
@@ -1038,13 +1038,13 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
         )(),
     )
 
-    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+    def fake_get_change_request_state(*, project_id: str, change_request_number: int):  # noqa: ANN202
         del project_id
         return type(
             "GitLabMergeRequestState",
             (),
             {
-                "iid": merge_request_iid,
+                "iid": change_request_number,
                 "web_url": selected_item.merge_request_url,
                 "source_branch": selected_item.branch_name,
                 "head_sha": selected_item.commit_sha,
@@ -1053,8 +1053,8 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
-        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_change_request_state",
+        lambda self, **kwargs: fake_get_change_request_state(**kwargs),
     )
     recorded_updates: list[tuple[int | None, bool | None, str | None]] = []
 
@@ -1164,13 +1164,13 @@ def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
         )(),
     )
 
-    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+    def fake_get_change_request_state(*, project_id: str, change_request_number: int):  # noqa: ANN202
         del project_id
         return type(
             "GitLabMergeRequestState",
             (),
             {
-                "iid": merge_request_iid,
+                "iid": change_request_number,
                 "web_url": selected_item.merge_request_url,
                 "source_branch": "other-branch",
                 "head_sha": "different",
@@ -1179,8 +1179,8 @@ def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
-        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_change_request_state",
+        lambda self, **kwargs: fake_get_change_request_state(**kwargs),
     )
 
     summary = dashboard_reconcile(dry_run=False)
@@ -1257,13 +1257,13 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
         )(),
     )
 
-    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+    def fake_get_change_request_state(*, project_id: str, change_request_number: int):  # noqa: ANN202
         del project_id
         return type(
             "GitLabMergeRequestState",
             (),
             {
-                "iid": merge_request_iid,
+                "iid": change_request_number,
                 "web_url": selected_item.merge_request_url,
                 "source_branch": selected_item.branch_name,
                 "head_sha": selected_item.commit_sha,
@@ -1299,8 +1299,8 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
-        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_change_request_state",
+        lambda self, **kwargs: fake_get_change_request_state(**kwargs),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_done",
@@ -1380,8 +1380,8 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
         )(),
     )
 
-    def failing_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
-        del project_id, merge_request_iid
+    def failing_get_change_request_state(*, project_id: str, change_request_number: int):  # noqa: ANN202
+        del project_id, change_request_number
         raise GitLabClientError("GitLab returned 404")
 
     def fake_mark_failed(
@@ -1412,8 +1412,8 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
-        lambda self, **kwargs: failing_get_merge_request_state(**kwargs),
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_change_request_state",
+        lambda self, **kwargs: failing_get_change_request_state(**kwargs),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
@@ -1513,15 +1513,15 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         )(),
     )
 
-    def fake_get_merge_request_state(*, project_id: str, merge_request_iid: int):  # noqa: ANN202
+    def fake_get_change_request_state(*, project_id: str, change_request_number: int):  # noqa: ANN202
         del project_id
-        if merge_request_iid == 7:
+        if change_request_number == 7:
             raise GitLabClientError("GitLab returned 404")
         return type(
             "GitLabMergeRequestState",
             (),
             {
-                "iid": merge_request_iid,
+                "iid": change_request_number,
                 "web_url": merged_item.merge_request_url,
                 "source_branch": merged_item.branch_name,
                 "head_sha": merged_item.commit_sha,
@@ -1586,8 +1586,8 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_merge_request_state",
-        lambda self, **kwargs: fake_get_merge_request_state(**kwargs),
+        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_change_request_state",
+        lambda self, **kwargs: fake_get_change_request_state(**kwargs),
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",

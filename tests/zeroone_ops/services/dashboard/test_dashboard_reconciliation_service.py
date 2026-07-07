@@ -1,9 +1,9 @@
+from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.dashboard import DashboardItem
-from zeroone_ops.models.gitlab import GitLabMergeRequestState
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.services.dashboard.dashboard_reconciliation_service import (
     DashboardReconciliationService,
-    merge_request_iid_from_url,
+    change_request_number_from_url,
 )
 
 
@@ -33,33 +33,35 @@ def build_item(
 
 
 class FakeReviewClient:
-    def __init__(self, merge_request_state: GitLabMergeRequestState) -> None:
-        self.merge_request_state = merge_request_state
+    def __init__(self, change_request_state: ChangeRequestState) -> None:
+        self.change_request_state = change_request_state
 
-    def get_merge_request_state(
+    def get_change_request_state(
         self,
         *,
         project_id: str,
-        merge_request_iid: int,
-    ) -> GitLabMergeRequestState:
-        del project_id, merge_request_iid
-        return self.merge_request_state
+        change_request_number: int,
+    ) -> ChangeRequestState:
+        del project_id, change_request_number
+        return self.change_request_state
 
 
 class FailingReviewClient:
-    def get_merge_request_state(
+    def get_change_request_state(
         self,
         *,
         project_id: str,
-        merge_request_iid: int,
-    ) -> GitLabMergeRequestState:
-        del project_id, merge_request_iid
+        change_request_number: int,
+    ) -> ChangeRequestState:
+        del project_id, change_request_number
         raise GitLabClientError("GitLab returned 404")
 
 
-def test_merge_request_iid_from_url_extracts_iid() -> None:
+def test_change_request_number_from_url_extracts_number() -> None:
     assert (
-        merge_request_iid_from_url("https://gitlab.example.com/group/project/-/merge_requests/7")
+        change_request_number_from_url(
+            "https://gitlab.example.com/group/project/-/merge_requests/7"
+        )
         == 7
     )
 
@@ -67,7 +69,7 @@ def test_merge_request_iid_from_url_extracts_iid() -> None:
 def test_decide_returns_done_for_merged_merge_request() -> None:
     decision = DashboardReconciliationService(
         FakeReviewClient(
-            GitLabMergeRequestState(
+            ChangeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
                 source_branch="zeroone-ops/issue-1/service",
@@ -84,7 +86,7 @@ def test_decide_returns_done_for_merged_merge_request() -> None:
 def test_decide_returns_open_for_closed_merge_request_with_matching_traceability() -> None:
     decision = DashboardReconciliationService(
         FakeReviewClient(
-            GitLabMergeRequestState(
+            ChangeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
                 source_branch="zeroone-ops/issue-1/service",
@@ -103,7 +105,7 @@ def test_decide_returns_open_for_closed_merge_request_with_matching_traceability
 def test_decide_returns_done_for_closed_merge_request_when_dashboard_marks_item_inactive() -> None:
     decision = DashboardReconciliationService(
         FakeReviewClient(
-            GitLabMergeRequestState(
+            ChangeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
                 source_branch="zeroone-ops/issue-1/service",
@@ -123,7 +125,7 @@ def test_decide_returns_done_for_closed_merge_request_when_dashboard_marks_item_
 def test_decide_returns_failed_for_closed_merge_request_with_mismatched_traceability() -> None:
     decision = DashboardReconciliationService(
         FakeReviewClient(
-            GitLabMergeRequestState(
+            ChangeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
                 source_branch="other-branch",
@@ -154,7 +156,7 @@ def test_decide_returns_failed_when_merge_request_metadata_is_inaccessible() -> 
 def test_decide_returns_retry_eligible_open_for_closed_merge_request_with_findings() -> None:
     decision = DashboardReconciliationService(
         FakeReviewClient(
-            GitLabMergeRequestState(
+            ChangeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
                 source_branch="zeroone-ops/issue-1/service",
@@ -182,7 +184,7 @@ def test_decide_returns_retry_eligible_open_for_closed_merge_request_with_findin
 def test_decide_returns_failed_when_review_feedback_retry_limit_is_reached() -> None:
     decision = DashboardReconciliationService(
         FakeReviewClient(
-            GitLabMergeRequestState(
+            ChangeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
                 source_branch="zeroone-ops/issue-1/service",
@@ -210,7 +212,7 @@ def test_decide_returns_failed_when_review_feedback_retry_limit_is_reached() -> 
 def test_decide_returns_failed_for_manual_review_only_outcome() -> None:
     decision = DashboardReconciliationService(
         FakeReviewClient(
-            GitLabMergeRequestState(
+            ChangeRequestState(
                 iid=7,
                 web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
                 source_branch="zeroone-ops/issue-1/service",

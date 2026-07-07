@@ -15,3 +15,13 @@ class ChangeRequestInfo(BaseModel):
     iid: int
     web_url: str
     title: str
+
+
+class ChangeRequestState(BaseModel):
+    """Represent reconciliation-relevant state for one change request."""
+
+    iid: int
+    web_url: str
+    source_branch: str
+    head_sha: str
+    state: str
