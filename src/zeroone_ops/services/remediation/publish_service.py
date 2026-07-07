@@ -75,10 +75,24 @@ class PublishService:
         self,
         *,
         selected_issue: RemediationExecutionTarget,
-        mr_title: str,
-        mr_description: str,
+        change_request_title: str | None = None,
+        change_request_description: str | None = None,
+        mr_title: str | None = None,
+        mr_description: str | None = None,
     ) -> PublishResult:
         """Push the current branch and create or reuse a change request."""
+        if change_request_title is None:
+            change_request_title = mr_title
+        if change_request_description is None:
+            change_request_description = mr_description
+        if change_request_title is None:
+            return PublishResult(
+                error_message="Publish failed: change request title is required."
+            )
+        if change_request_description is None:
+            return PublishResult(
+                error_message="Publish failed: change request description is required."
+            )
         try:
             labels, assignee_username = self._publication_options()
             target_branch = self.config.require_remediation_target_branch(
@@ -94,11 +108,11 @@ class PublishService:
                     target_branch=target_branch,
                     title=self.build_change_request_title(
                         selected_issue=selected_issue,
-                        proposed_title=mr_title,
+                        proposed_title=change_request_title,
                     ),
                     description=self.build_change_request_description(
                         selected_issue=selected_issue,
-                        change_summary=mr_description,
+                        change_summary=change_request_description,
                     ),
                     labels=labels,
                     assignee_username=assignee_username,

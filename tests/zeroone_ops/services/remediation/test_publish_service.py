@@ -143,8 +143,8 @@ def test_publish_service_uses_pushed_branch_consistently() -> None:
 
     result = service.publish(
         selected_issue=build_issue(),
-        mr_title="ignored",
-        mr_description="summary",
+        change_request_title="ignored",
+        change_request_description="summary",
     )
 
     assert publisher.request is not None
@@ -176,8 +176,8 @@ def test_publish_service_assigns_created_merge_request_by_configured_username() 
 
     result = service.publish(
         selected_issue=build_issue(),
-        mr_title="ignored",
-        mr_description="summary",
+        change_request_title="ignored",
+        change_request_description="summary",
     )
 
     assert publisher.request is not None
@@ -218,10 +218,38 @@ def test_publish_service_assigns_reused_merge_request_by_configured_username() -
 
     result = service.publish(
         selected_issue=build_issue(),
-        mr_title="ignored",
-        mr_description="summary",
+        change_request_title="ignored",
+        change_request_description="summary",
     )
 
     assert publisher.request is not None
     assert publisher.request.assignee_username == "justin"
     assert result.change_request_action == "reused"
+
+
+def test_publish_service_requires_change_request_title() -> None:
+    service = PublishService(
+        config=build_config(),
+        branch_manager=StubBranchManager(),  # type: ignore[arg-type]
+    )
+
+    result = service.publish(
+        selected_issue=build_issue(),
+        change_request_description="summary",
+    )
+
+    assert result.error_message == "Publish failed: change request title is required."
+
+
+def test_publish_service_requires_change_request_description() -> None:
+    service = PublishService(
+        config=build_config(),
+        branch_manager=StubBranchManager(),  # type: ignore[arg-type]
+    )
+
+    result = service.publish(
+        selected_issue=build_issue(),
+        change_request_title="ignored",
+    )
+
+    assert result.error_message == "Publish failed: change request description is required."

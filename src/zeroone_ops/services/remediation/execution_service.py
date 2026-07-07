@@ -261,8 +261,8 @@ class ExecutionService:
 
         publish_result = self._publish_branch_and_create_change_request(
             selected_issue=selected_issue,
-            mr_title=patch.change_request_title,
-            mr_description=patch.change_request_description,
+            change_request_title=patch.change_request_title,
+            change_request_description=patch.change_request_description,
         )
         if publish_result.error_message is not None:
             return ExecutionResult(
@@ -299,14 +299,14 @@ class ExecutionService:
         self,
         *,
         selected_issue: RemediationExecutionTarget,
-        mr_title: str,
-        mr_description: str,
+        change_request_title: str,
+        change_request_description: str,
     ) -> PublishResult:
         """Delegate publish behavior to the dedicated publish service."""
         return self.publish_service.publish(
             selected_issue=selected_issue,
-            mr_title=mr_title,
-            mr_description=mr_description,
+            change_request_title=change_request_title,
+            change_request_description=change_request_description,
         )
 
     def _rollback_pre_commit(self, analysis_result: AnalysisResult) -> None:

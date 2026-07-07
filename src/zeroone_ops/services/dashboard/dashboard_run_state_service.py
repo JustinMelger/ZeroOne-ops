@@ -61,7 +61,7 @@ class DashboardRunStateService:
             status=RunStatus.CHANGE_REQUEST_CREATED.value,
             last_run_id=record.run_id,
             branch_name=branch_name,
-            mr_url=change_request_url,
+            change_request_url=change_request_url,
         )
 
     def mark_mr_created(
@@ -87,13 +87,16 @@ class DashboardRunStateService:
         dashboard_item_id: str,
         branch_name: str | None = None,
         commit_sha: str | None = None,
+        change_request_url: str | None = None,
         mr_url: str | None = None,
     ) -> None:
         """Persist one dashboard item as no longer requiring remediation."""
+        if change_request_url is None:
+            change_request_url = mr_url
         record.dashboard_item_id = dashboard_item_id
         record.branch_name = branch_name
         record.commit_sha = commit_sha
-        record.mr_url = mr_url
+        record.change_request_url = change_request_url
         record.updated_at = utc_now()
         self.state.active_dashboard_item_id = None
         self.state.dashboard_items[dashboard_item_id] = DashboardItemState(
@@ -101,7 +104,7 @@ class DashboardRunStateService:
             last_run_id=record.run_id,
             branch_name=branch_name,
             commit_sha=commit_sha,
-            mr_url=mr_url,
+            change_request_url=change_request_url,
         )
 
     def mark_reopened(
@@ -111,13 +114,16 @@ class DashboardRunStateService:
         dashboard_item_id: str,
         branch_name: str | None = None,
         commit_sha: str | None = None,
+        change_request_url: str | None = None,
         mr_url: str | None = None,
     ) -> None:
         """Persist one dashboard item as reopened for future remediation."""
+        if change_request_url is None:
+            change_request_url = mr_url
         record.dashboard_item_id = dashboard_item_id
         record.branch_name = branch_name
         record.commit_sha = commit_sha
-        record.mr_url = mr_url
+        record.change_request_url = change_request_url
         record.updated_at = utc_now()
         self.state.active_dashboard_item_id = None
         self.state.dashboard_items[dashboard_item_id] = DashboardItemState(
@@ -125,7 +131,7 @@ class DashboardRunStateService:
             last_run_id=record.run_id,
             branch_name=branch_name,
             commit_sha=commit_sha,
-            mr_url=mr_url,
+            change_request_url=change_request_url,
         )
 
     def mark_failed(
@@ -136,13 +142,16 @@ class DashboardRunStateService:
         error_message: str,
         branch_name: str | None = None,
         commit_sha: str | None = None,
+        change_request_url: str | None = None,
         mr_url: str | None = None,
     ) -> None:
         """Persist one dashboard item as failed without aborting the whole run."""
+        if change_request_url is None:
+            change_request_url = mr_url
         record.dashboard_item_id = dashboard_item_id
         record.branch_name = branch_name
         record.commit_sha = commit_sha
-        record.mr_url = mr_url
+        record.change_request_url = change_request_url
         record.updated_at = utc_now()
         self.state.active_dashboard_item_id = None
         self.state.dashboard_items[dashboard_item_id] = DashboardItemState(
@@ -150,7 +159,7 @@ class DashboardRunStateService:
             last_run_id=record.run_id,
             branch_name=branch_name,
             commit_sha=commit_sha,
-            mr_url=mr_url,
+            change_request_url=change_request_url,
             last_error=error_message,
         )
 
@@ -174,7 +183,7 @@ class DashboardRunStateService:
             last_run_id=record.run_id,
             branch_name=record.branch_name,
             commit_sha=record.commit_sha,
-            mr_url=record.mr_url,
+            change_request_url=record.change_request_url,
             last_error=error_message,
         )
         self.state_store.save(self.state)
@@ -185,7 +194,7 @@ class DashboardRunStateService:
             dashboard_item_id=dashboard_item_id,
             branch_name=record.branch_name,
             commit_sha=record.commit_sha,
-            mr_url=record.mr_url,
+            change_request_url=record.change_request_url,
         )
 
     def reject_item(
@@ -216,7 +225,7 @@ class DashboardRunStateService:
             dashboard_item_id=dashboard_item_id,
             branch_name=record.branch_name,
             commit_sha=record.commit_sha,
-            mr_url=record.mr_url,
+            change_request_url=record.change_request_url,
         )
 
     def finish_success(self) -> None:

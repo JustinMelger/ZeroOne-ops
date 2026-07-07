@@ -157,7 +157,7 @@ class RunStateService:
                 last_run_id=record.run_id,
                 attempt_count=attempt_count,
                 branch_name=branch_name,
-                mr_url=change_request_url,
+                change_request_url=change_request_url,
             ),
         )
 
@@ -201,7 +201,7 @@ class RunStateService:
                 last_run_id=record.run_id,
                 attempt_count=attempt_count,
                 branch_name=record.branch_name,
-                mr_url=record.mr_url,
+                change_request_url=record.change_request_url,
                 last_error=error_message,
                 failure=failure,
             ),

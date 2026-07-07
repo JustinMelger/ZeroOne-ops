@@ -1835,7 +1835,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_change_request_opened(
 
     summary = dashboard_remediate(dry_run=False)
 
-    assert summary.status.value == "mr_created"
+    assert summary.status.value == "change_request_created"
     assert summary.dashboard_item_id == "sonar:AX123"
     assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha == "abc123"
@@ -2028,7 +2028,7 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
 
     summary = dashboard_remediate(dry_run=False)
 
-    assert summary.status.value == "mr_created"
+    assert summary.status.value == "change_request_created"
     assert recorded_updates == [
         ("in_progress", 1, False, None),
         ("change_request_opened", 1, False, None),
@@ -2169,7 +2169,7 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
         sonarqube_project_key=None,
     ).load()
 
-    assert summary.status.value == "mr_created"
+    assert summary.status.value == "change_request_created"
     assert summary.dashboard_item_id == "sonar:AX123"
     assert (
         "Recovered stale in_progress dashboard item before remediation: sonar:AX123."
