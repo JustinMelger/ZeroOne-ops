@@ -5,6 +5,7 @@ from zeroone_ops.models.dashboard import (
     DashboardSeverityPolicyStateEntry,
 )
 from zeroone_ops.models.github import GitHubIssueComment, GitHubIssueInfo
+from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.services.control_plane.github_policy_issue_service import (
     GitHubPolicyIssueProcessResult,
     GitHubPolicyIssueService,
@@ -53,6 +54,7 @@ class FakeGitHubPolicyClient:
         self.updated_issue: GitHubIssueInfo | None = None
         self.comments: list[GitHubIssueComment] = []
         self.permissions_by_username: dict[str, str] = {}
+        self.permission_error_usernames: set[str] = set()
 
     def find_open_issue(
         self,
@@ -118,6 +120,8 @@ class FakeGitHubPolicyClient:
         username: str,
     ) -> str:
         del repository_id
+        if username in self.permission_error_usernames:
+            raise GitHubClientError("permission lookup failed")
         return self.permissions_by_username[username]
 
 
@@ -224,6 +228,38 @@ def test_process_policy_ignores_non_admin_comments() -> None:
         )
     ]
     client.permissions_by_username["maintainer"] = "write"
+    service = GitHubPolicyIssueService(
+        client,
+        policy_view_builder=FakePolicyViewBuilder(),
+    )
+
+    result = service.process_policy(repository_id="octo-org/octo-repo", persist=False)
+
+    assert result.comment_count == 1
+    assert result.authorized_comment_count == 0
+    assert result.matched_prefix_count == 0
+    assert result.accepted_action_count == 0
+    assert result.rejected_prefix_count == 0
+
+
+def test_process_policy_ignores_comments_with_unresolvable_permission() -> None:
+    existing_issue = GitHubIssueInfo(
+        id=10,
+        number=11,
+        web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+        title="ZeroOne Ops Policy",
+        body="",
+    )
+    client = FakeGitHubPolicyClient(existing_issue=existing_issue)
+    client.comments = [
+        GitHubIssueComment(
+            id=12,
+            body="/zeroone policy severity enable high",
+            author_username="ghost-user",
+            created_at="2026-07-08T10:00:00Z",
+        )
+    ]
+    client.permission_error_usernames.add("ghost-user")
     service = GitHubPolicyIssueService(
         client,
         policy_view_builder=FakePolicyViewBuilder(),

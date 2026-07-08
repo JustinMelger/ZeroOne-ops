@@ -291,10 +291,7 @@ def test_github_enterprise_base_path_is_preserved_for_policy_issue_requests() ->
 
 def test_get_repository_permission_returns_role_name_when_present() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        assert (
-            request.url.path
-            == "/repos/octo-org/octo-repo/collaborators/justin/permission"
-        )
+        assert request.url.path == "/repos/octo-org/octo-repo/collaborators/justin/permission"
         assert request.method == "GET"
         return httpx.Response(200, json={"permission": "write", "role_name": "admin"})
 

@@ -11,10 +11,17 @@ from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.state import RunStatus, utc_now
+from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.review.github import GitHubReviewClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
+from zeroone_ops.services.control_plane.github_policy_issue_service import (
+    GitHubPolicyIssueService,
+)
+from zeroone_ops.services.control_plane.github_policy_processing_runner import (
+    GitHubPolicyProcessingRunner,
+)
 from zeroone_ops.services.dashboard.dashboard_policy_processing_runner import (
     DashboardPolicyProcessingRunner,
 )
@@ -270,7 +277,7 @@ def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:
 
 
 def dashboard_policy(*, dry_run: bool = False) -> RunSummary:
-    """Run dedicated dashboard policy processing."""
+    """Run dedicated policy processing on the active platform."""
     config = load_config()
     state_store = StateStore(
         config.state.path,
@@ -284,6 +291,26 @@ def dashboard_policy(*, dry_run: bool = False) -> RunSummary:
     run_id = _build_run_id()
     record = run_state_service.start_run(run_id)
     active_dry_run = dry_run or config.dry_run
+
+    if config.platform == "github":
+        github_config = load_github_connection_config()
+        return GitHubPolicyProcessingRunner(
+            policy_issue_service=GitHubPolicyIssueService(
+                GitHubPolicyClient(github_config),
+                policy_view_builder=DashboardPolicyViewBuilder(
+                    repo_root=Path.cwd(),
+                    config=config,
+                    state=state,
+                ),
+            ),
+            run_state_service=run_state_service,
+        ).run(
+            repository_id=github_config.repository,
+            record=record,
+            active_dry_run=active_dry_run,
+            execution_mode=config.execution_mode,
+        )
+
     gitlab_config = load_gitlab_connection_config()
     return DashboardPolicyProcessingRunner(
         dashboard_service=DashboardService(

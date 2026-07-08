@@ -153,7 +153,7 @@ def dashboard_policy_command(
         help="Run without updating dashboard policy state.",
     ),
 ) -> None:
-    """Run the dedicated dashboard policy-processing workflow."""
+    """Run the dedicated policy-processing workflow."""
     configure_logging()
     summary = dashboard_policy(dry_run=dry_run)
     typer.echo(f"run_id={summary.run_id}")

@@ -8,6 +8,7 @@ from typing import Protocol
 from zeroone_ops.models.dashboard import DashboardItem, DashboardPolicyState, DashboardPolicyView
 from zeroone_ops.models.github import GitHubIssueComment, GitHubIssueInfo
 from zeroone_ops.models.policy import PolicyActionParseResult, PolicyCommentSource
+from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.services.control_plane.github_policy_issue_parser import (
     GitHubPolicyIssueParser,
@@ -226,10 +227,13 @@ class GitHubPolicyIssueService:
                 continue
             permission = permission_by_username.get(username)
             if permission is None:
-                permission = self.client.get_repository_permission(
-                    repository_id=repository_id,
-                    username=username,
-                )
+                try:
+                    permission = self.client.get_repository_permission(
+                        repository_id=repository_id,
+                        username=username,
+                    )
+                except GitHubClientError:
+                    permission = ""
                 permission_by_username[username] = permission
             if permission == self.required_repository_permission:
                 authorized.append(comment)
