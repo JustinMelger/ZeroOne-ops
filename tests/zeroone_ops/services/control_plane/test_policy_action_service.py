@@ -58,3 +58,23 @@ def test_apply_actions_replays_latest_command_by_created_at() -> None:
     severity_by_name = {entry.severity: entry for entry in policy_state.severity_policy}
     assert severity_by_name["high"].enabled is True
     assert severity_by_name["high"].comment_id == 2
+
+
+def test_apply_actions_ignores_unparsable_created_at_metadata() -> None:
+    service = PolicyActionService()
+
+    policy_state = service.apply_actions(
+        policy_state=PolicyState(),
+        sources=[
+            build_source(
+                1,
+                "/zeroone policy severity disable high",
+                created_at="not-a-timestamp",
+            ),
+        ],
+    )
+
+    severity_by_name = {entry.severity: entry for entry in policy_state.severity_policy}
+    assert severity_by_name["high"].enabled is False
+    assert severity_by_name["high"].comment_id == 1
+    assert severity_by_name["high"].updated_at is None

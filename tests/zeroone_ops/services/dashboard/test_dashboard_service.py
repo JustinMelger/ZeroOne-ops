@@ -375,6 +375,35 @@ def test_process_policy_dry_run_reports_counts_without_updating_issue() -> None:
     assert severity_by_name["high"].enabled is False
 
 
+def test_process_policy_preserves_legacy_note_id_serialization_in_dashboard_body() -> None:
+    existing_issue = GitLabIssueInfo(
+        id=10,
+        iid=11,
+        web_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        description="",
+    )
+    client = FakeDashboardClient(existing_issue=existing_issue)
+    client.notes = [
+        GitLabIssueNote(
+            id=12,
+            body="/zeroone policy severity disable high",
+            author_username="operator",
+            created_at="2026-04-29T10:00:00.000Z",
+        )
+    ]
+    service = DashboardService(
+        client,
+        policy_view_builder=FakePolicyViewBuilder(),
+    )
+
+    service.process_policy(project_id="123", persist=True)
+
+    assert client.updated_issue is not None
+    assert '"note_id": 12' in client.updated_issue.description
+    assert '"comment_id"' not in client.updated_issue.description
+
+
 def test_process_policy_dry_run_marks_missing_dashboard_without_persisting() -> None:
     service = DashboardService(FakeDashboardClient(), policy_view_builder=FakePolicyViewBuilder())
 

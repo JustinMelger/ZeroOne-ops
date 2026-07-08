@@ -253,10 +253,9 @@ class PolicyActionService:
             updated_by=source.author_username if source is not None else None,
             comment_id=source.id if source is not None else None,
         )
-        if source is not None and source.created_at:
-            updated_entry.updated_at = datetime.fromisoformat(
-                source.created_at.replace("Z", "+00:00")
-            )
+        updated_entry.updated_at = _parse_optional_timestamp(
+            source.created_at if source is not None else None
+        )
         severity_entries = list(policy_state.severity_policy)
         for index, entry in enumerate(severity_entries):
             if entry.severity == severity:
@@ -286,10 +285,9 @@ class PolicyActionService:
             updated_by=source.author_username if source is not None else None,
             comment_id=source.id if source is not None else None,
         )
-        if source is not None and source.created_at:
-            updated_entry.updated_at = datetime.fromisoformat(
-                source.created_at.replace("Z", "+00:00")
-            )
+        updated_entry.updated_at = _parse_optional_timestamp(
+            source.created_at if source is not None else None
+        )
         entries = list(policy_state.issue_class_exclusions)
         for index, entry in enumerate(entries):
             if entry.source == source_name and entry.issue_key == issue_key:
@@ -326,3 +324,13 @@ def _severity_literal(value: str) -> PolicySeverity:
     if value == "high":
         return "high"
     raise ValueError(f"Unsupported severity literal: {value}")
+
+
+def _parse_optional_timestamp(value: str | None) -> datetime | None:
+    """Return one parsed timestamp or ``None`` when the source value is unusable."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None

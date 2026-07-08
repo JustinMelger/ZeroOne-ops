@@ -83,6 +83,11 @@ class DashboardPolicyActionService:
             note_id,
         )
 
+    @property
+    def shared_service(self) -> PolicyActionService:
+        """Expose the shared service for provider-local orchestration wiring."""
+        return self._service
+
 
 def _policy_source_from_note(note: GitLabIssueNote) -> PolicyCommentSource:
     """Return the provider-neutral policy source for one GitLab note."""

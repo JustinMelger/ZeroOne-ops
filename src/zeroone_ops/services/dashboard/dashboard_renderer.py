@@ -121,7 +121,7 @@ class DashboardRenderer:
 
     def _render_policy_state_block(self, policy_state: DashboardPolicyState) -> list[str]:
         """Render the canonical machine-readable dashboard policy state block."""
-        payload = policy_state.model_dump(mode="json", exclude_none=True)
+        payload = policy_state.model_dump(mode="json", exclude_none=True, by_alias=True)
         return [
             "<details>",
             "<summary><code>zeroone-policy-state</code> machine state</summary>",

@@ -30,6 +30,7 @@ class PolicySeverityStateEntry(BaseModel):
     comment_id: int | None = Field(
         default=None,
         validation_alias=AliasChoices("comment_id", "note_id"),
+        serialization_alias="note_id",
     )
 
     @property
@@ -54,6 +55,7 @@ class PolicyIssueClassStateEntry(BaseModel):
     comment_id: int | None = Field(
         default=None,
         validation_alias=AliasChoices("comment_id", "note_id"),
+        serialization_alias="note_id",
     )
 
     @property

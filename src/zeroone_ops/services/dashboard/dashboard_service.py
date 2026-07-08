@@ -15,7 +15,12 @@ from zeroone_ops.models.dashboard import (
     section_key_for_item,
 )
 from zeroone_ops.models.gitlab import GitLabIssueNote
+from zeroone_ops.models.policy import PolicyCommentSource
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
+from zeroone_ops.services.control_plane.policy_processing_service import (
+    PolicyProcessingResult,
+    PolicyProcessingService,
+)
 from zeroone_ops.services.dashboard.dashboard_parser import DashboardParser
 from zeroone_ops.services.dashboard.dashboard_policy_action_service import (
     DashboardPolicyActionParseResult,
@@ -69,6 +74,7 @@ class DashboardService:
         section_item_limits: dict[DashboardSectionKey, int] | None = None,
         policy_view_builder: DashboardPolicyViewBuilderProtocol | None = None,
         policy_action_service: DashboardPolicyActionService | None = None,
+        policy_processing_service: PolicyProcessingService | None = None,
     ) -> None:
         """Initialize the dashboard service."""
         self.client = client
@@ -77,9 +83,13 @@ class DashboardService:
         self.title = title
         self.labels = labels or ["ai-code-ops", "dashboard"]
         self.section_item_limits = section_item_limits or DEFAULT_SECTION_ITEM_LIMITS.copy()
+        dashboard_policy_action_service = policy_action_service or DashboardPolicyActionService()
         self.policy_service = DashboardPolicyService(
             policy_view_builder=policy_view_builder,
-            policy_action_service=policy_action_service or DashboardPolicyActionService(),
+            policy_action_service=dashboard_policy_action_service,
+        )
+        self.policy_processing_service = policy_processing_service or PolicyProcessingService(
+            dashboard_policy_action_service.shared_service
         )
 
     def load_or_create(self, *, project_id: str) -> DashboardDocument:
@@ -206,9 +216,16 @@ class DashboardService:
             project_id=project_id,
             issue_iid=document.issue_iid,
         )
-        parsed_results = self.policy_service.policy_action_service.parse_notes(notes)
-        initial_policy_state = self.policy_service.resolve_policy_state(document.policy_state)
-        document = self._apply_policy(document, notes=notes)
+        processing_result = self._process_policy_notes(
+            document=document,
+            notes=notes,
+        )
+        parsed_results = processing_result.parsed_results
+        initial_policy_state = processing_result.initial_policy_state
+        document = self._apply_policy(
+            document,
+            policy_state=processing_result.resolved_policy_state,
+        )
         rendered = self.renderer.render_document(document)
         dashboard_changed = (
             rendered != issue.description
@@ -232,11 +249,9 @@ class DashboardService:
         return DashboardPolicyProcessResult(
             document=document,
             note_count=len(notes),
-            matched_prefix_count=sum(1 for result in parsed_results if result.matched_prefix),
-            accepted_action_count=sum(1 for result in parsed_results if result.accepted),
-            rejected_prefix_count=sum(
-                1 for result in parsed_results if result.matched_prefix and not result.accepted
-            ),
+            matched_prefix_count=processing_result.matched_prefix_count,
+            accepted_action_count=processing_result.accepted_action_count,
+            rejected_prefix_count=processing_result.rejected_prefix_count,
             dashboard_changed=dashboard_changed,
             notes=notes,
             parsed_results=parsed_results,
@@ -274,10 +289,29 @@ class DashboardService:
         document: DashboardDocument,
         *,
         notes: list[GitLabIssueNote] | None = None,
+        policy_state: DashboardPolicyState | None = None,
     ) -> DashboardDocument:
         """Apply canonical dashboard policy state and rendered view to one document."""
-        updated = self.policy_service.apply_to_document(document, notes=notes)
+        updated = self.policy_service.apply_to_document(
+            document,
+            notes=notes,
+            policy_state=policy_state,
+        )
         return updated.model_copy(update={"schema_version": CURRENT_DASHBOARD_SCHEMA_VERSION})
+
+    def _process_policy_notes(
+        self,
+        *,
+        document: DashboardDocument,
+        notes: list[GitLabIssueNote],
+    ) -> PolicyProcessingResult:
+        """Replay provider notes into canonical policy state through the shared core."""
+        sources = [_policy_source_from_note(note) for note in notes]
+        initial_policy_state = self.policy_service.resolve_policy_state(document.policy_state)
+        return self.policy_processing_service.process(
+            initial_policy_state=initial_policy_state,
+            sources=sources,
+        )
 
     def _merge_items(
         self,
@@ -325,6 +359,16 @@ class DashboardService:
         if limit is None or limit <= 0:
             return items
         return items[:limit]
+
+
+def _policy_source_from_note(note: GitLabIssueNote) -> PolicyCommentSource:
+    """Return the provider-neutral policy source for one GitLab note."""
+    return PolicyCommentSource(
+        id=note.id,
+        body=note.body,
+        author_username=note.author_username,
+        created_at=note.created_at,
+    )
 
 
 def _item_sort_key(item: DashboardItem) -> tuple[str, str, str, str]:
