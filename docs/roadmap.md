@@ -340,7 +340,7 @@ These are important, but intentionally not part of the immediate rollout phase.
   model, so a later API/database backend can replace them without changing
   policy semantics
 
-- [ ] Phase 5a: GitHub Policy Surface
+- [x] Phase 5a: GitHub Policy Surface
 
 - start with one dedicated policy issue for repository-wide operator policy
 - define the bounded operator-editable policy shape on GitHub
@@ -367,6 +367,15 @@ These are important, but intentionally not part of the immediate rollout phase.
   - keep provider markdown/comment formats as projections over structured
     control-plane state so Phase 5a remains compatible with a future
     API/database backend
+- implemented:
+  - added provider-local GitHub policy issue transport and processing runner
+  - routed GitHub policy comment replay through shared policy parsing and
+    replay services
+  - enforced GitHub-native admin permission gating for policy mutations
+  - kept malformed or unauthorized commands non-authoritative in the first
+    slice
+  - kept the composition root explicit so provider-local GitHub bootstrap is
+    isolated from shared policy core logic
 
 - [ ] Phase 5b: GitHub Work-Item Control Plane
 
