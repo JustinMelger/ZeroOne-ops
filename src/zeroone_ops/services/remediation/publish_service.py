@@ -13,6 +13,7 @@ from zeroone_ops.models.remediation import (
     RemediationExecutionTarget,
     remediation_profile_for,
 )
+from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.services.remediation.change_request_publisher import (
     ChangeRequestPublishRequest,
@@ -100,7 +101,7 @@ class PublishService:
                     assignee_username=assignee_username,
                 )
             )
-        except (BranchManagerError, GitLabClientError, RuntimeError) as error:
+        except (BranchManagerError, GitLabClientError, GitHubClientError, RuntimeError) as error:
             return PublishResult(error_message=f"Publish failed: {error}")
         return PublishResult(
             branch_name=pushed_branch,
@@ -166,5 +167,13 @@ class PublishService:
             return (
                 workflow_gitlab_config.labels,
                 workflow_gitlab_config.merge_request_assignee_username,
+            )
+        if self.config.platform == "github":
+            workflow_github_config = self.config.github
+            if workflow_github_config is None:
+                return ([], None)
+            return (
+                workflow_github_config.labels,
+                workflow_github_config.pull_request_assignee_username,
             )
         return ([], None)

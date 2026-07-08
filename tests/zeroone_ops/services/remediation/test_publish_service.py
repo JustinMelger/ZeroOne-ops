@@ -3,6 +3,7 @@ from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
     ApprovalConfig,
+    GitHubConfig,
     GitLabConfig,
     RemediationConfig,
 )
@@ -225,6 +226,90 @@ def test_publish_service_assigns_reused_merge_request_by_configured_username() -
     assert publisher.request is not None
     assert publisher.request.assignee_username == "justin"
     assert result.change_request_action == "reused"
+
+
+def test_publish_service_uses_github_publication_options() -> None:
+    publisher = StubChangeRequestPublisher(
+        result=PublishedChangeRequest(
+            info=ChangeRequestInfo(
+                iid=23,
+                web_url="https://github.com/octo-org/octo-repo/pull/23",
+                title="fix: remediate python:S2259 in service.py",
+            ),
+            action="created",
+        )
+    )
+    service = PublishService(
+        config=AppConfig(
+            execution_mode="ci",
+            platform="github",
+            base_branch="main",
+            validation_commands=[],
+            approval=ApprovalConfig(),
+            remediation=RemediationConfig(
+                target_branch="main",
+                bootstrap_severities=["MAJOR"],
+                analysis=AnalysisConfig(),
+            ),
+            github=GitHubConfig(
+                labels=["zeroone-ops", "autofix"],
+                pull_request_assignee_username="justin",
+            ),
+        ),
+        branch_manager=StubBranchManager(),  # type: ignore[arg-type]
+        change_request_publisher=publisher,
+    )
+
+    result = service.publish(
+        selected_issue=build_issue(),
+        change_request_title="ignored",
+        change_request_description="summary",
+    )
+
+    assert publisher.request is not None
+    assert publisher.request.labels == ["zeroone-ops", "autofix"]
+    assert publisher.request.assignee_username == "justin"
+    assert result.change_request_url == "https://github.com/octo-org/octo-repo/pull/23"
+    assert result.change_request_action == "created"
+
+
+def test_publish_service_allows_github_publish_without_github_block() -> None:
+    publisher = StubChangeRequestPublisher(
+        result=PublishedChangeRequest(
+            info=ChangeRequestInfo(
+                iid=24,
+                web_url="https://github.com/octo-org/octo-repo/pull/24",
+                title="fix: remediate python:S2259 in service.py",
+            ),
+            action="created",
+        )
+    )
+    service = PublishService(
+        config=AppConfig(
+            execution_mode="ci",
+            platform="github",
+            base_branch="main",
+            validation_commands=[],
+            approval=ApprovalConfig(),
+            remediation=RemediationConfig(
+                target_branch="main",
+                bootstrap_severities=["MAJOR"],
+                analysis=AnalysisConfig(),
+            ),
+        ),
+        branch_manager=StubBranchManager(),  # type: ignore[arg-type]
+        change_request_publisher=publisher,
+    )
+
+    service.publish(
+        selected_issue=build_issue(),
+        change_request_title="ignored",
+        change_request_description="summary",
+    )
+
+    assert publisher.request is not None
+    assert publisher.request.labels == []
+    assert publisher.request.assignee_username is None
 
 
 def test_publish_service_requires_change_request_title() -> None:

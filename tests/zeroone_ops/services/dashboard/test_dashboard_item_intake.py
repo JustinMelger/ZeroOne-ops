@@ -7,6 +7,7 @@ from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
     ApprovalConfig,
+    GitHubConfig,
     GitLabConfig,
     RemediationConfig,
 )
@@ -119,17 +120,24 @@ def build_state() -> AppState:
     return AppState(repository=RepositoryState(base_branch="main"))
 
 
-def build_config(*, execution_mode: str = "ci") -> AppConfig:
+def build_config(
+    *,
+    execution_mode: str = "ci",
+    platform: str = "gitlab",
+) -> AppConfig:
     return AppConfig(
         execution_mode=execution_mode,
+        platform=platform,
         base_branch="main",
         validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
+            target_branch="main",
             bootstrap_severities=["LOW"],
             analysis=AnalysisConfig(),
         ),
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=(GitLabConfig(target_branch="main") if platform == "gitlab" else None),
+        github=(GitHubConfig() if platform == "github" else None),
     )
 
 
@@ -190,6 +198,35 @@ def test_select_item_skips_item_with_existing_open_merge_request(
     service = DashboardItemIntakeService(
         repo_root=tmp_path,
         config=build_config(),
+        dashboard_service=FakeDashboardService(
+            build_document(
+                items=[
+                    build_item(item_id="sonar:1"),
+                    build_item(item_id="sonar:2", file_path="src/other.py"),
+                ]
+            )
+        ),
+        change_request_lookup=FakeChangeRequestLookup({"zeroone-ops/issue-1/service"}),
+    )
+
+    result = service.select_item(project_id="123", state=build_state())
+
+    assert result.selected_item is not None
+    assert result.selected_item.id == "sonar:2"
+
+
+def test_select_item_skips_item_with_existing_open_github_pull_request(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    (tmp_path / "src" / "other.py").write_text("value = False\n", encoding="utf-8")
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    service = DashboardItemIntakeService(
+        repo_root=tmp_path,
+        config=build_config(platform="github"),
         dashboard_service=FakeDashboardService(
             build_document(
                 items=[

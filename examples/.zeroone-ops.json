@@ -51,6 +51,11 @@
     "_comment_merge_request_assignee_username": "Optional GitLab username to assign remediation merge requests to.",
     "merge_request_assignee_username": "justin"
   },
+  "github": {
+    "labels": ["zeroone-ops", "sonarqube"],
+    "_comment_pull_request_assignee_username": "Optional GitHub username to assign remediation pull requests to.",
+    "pull_request_assignee_username": "justin"
+  },
   "state": {
     "path": ".zeroone-ops-state.json"
   }
