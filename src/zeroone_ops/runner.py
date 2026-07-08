@@ -10,7 +10,7 @@ import secrets
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
-from zeroone_ops.models.state import RunStatus, utc_now
+from zeroone_ops.models.state import AppState, RunStatus, utc_now
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.review.github import GitHubReviewClient
@@ -64,6 +64,42 @@ def _build_run_id() -> str:
     """Build a unique run identifier."""
     timestamp = utc_now().strftime("%Y%m%dT%H%M%SZ")
     return f"{timestamp}-{secrets.token_hex(4)}"
+
+
+def _build_dashboard_policy_view_builder(
+    *,
+    repo_root: Path,
+    config: AppConfig,
+    state: AppState,
+) -> DashboardPolicyViewBuilder:
+    """Build the shared policy-view builder used by control-plane workflows."""
+    return DashboardPolicyViewBuilder(
+        repo_root=repo_root,
+        config=config,
+        state=state,
+    )
+
+
+def _build_github_policy_processing_runner(
+    *,
+    repo_root: Path,
+    config: AppConfig,
+    state: AppState,
+    run_state_service: RunStateService,
+) -> GitHubPolicyProcessingRunner:
+    """Build the GitHub policy-processing runner and its provider-local transport."""
+    github_config = load_github_connection_config()
+    return GitHubPolicyProcessingRunner(
+        policy_issue_service=GitHubPolicyIssueService(
+            GitHubPolicyClient(github_config),
+            policy_view_builder=_build_dashboard_policy_view_builder(
+                repo_root=repo_root,
+                config=config,
+                state=state,
+            ),
+        ),
+        run_state_service=run_state_service,
+    )
 
 
 def review(*, dry_run: bool = False) -> RunSummary:
@@ -279,6 +315,7 @@ def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:
 def dashboard_policy(*, dry_run: bool = False) -> RunSummary:
     """Run dedicated policy processing on the active platform."""
     config = load_config()
+    repo_root = Path.cwd()
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,
@@ -294,15 +331,10 @@ def dashboard_policy(*, dry_run: bool = False) -> RunSummary:
 
     if config.platform == "github":
         github_config = load_github_connection_config()
-        return GitHubPolicyProcessingRunner(
-            policy_issue_service=GitHubPolicyIssueService(
-                GitHubPolicyClient(github_config),
-                policy_view_builder=DashboardPolicyViewBuilder(
-                    repo_root=Path.cwd(),
-                    config=config,
-                    state=state,
-                ),
-            ),
+        return _build_github_policy_processing_runner(
+            repo_root=repo_root,
+            config=config,
+            state=state,
             run_state_service=run_state_service,
         ).run(
             repository_id=github_config.repository,
@@ -315,8 +347,8 @@ def dashboard_policy(*, dry_run: bool = False) -> RunSummary:
     return DashboardPolicyProcessingRunner(
         dashboard_service=DashboardService(
             GitLabDashboardClient(gitlab_config),
-            policy_view_builder=DashboardPolicyViewBuilder(
-                repo_root=Path.cwd(),
+            policy_view_builder=_build_dashboard_policy_view_builder(
+                repo_root=repo_root,
                 config=config,
                 state=state,
             ),
