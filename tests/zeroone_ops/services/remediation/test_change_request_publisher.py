@@ -207,6 +207,31 @@ def test_github_change_request_publisher_reuses_existing_change_request() -> Non
     assert client.labels is None
 
 
+def test_github_change_request_publisher_keeps_reused_result_when_assign_fails() -> None:
+    client = StubGitHubClient()
+    client.existing = ChangeRequestInfo(
+        iid=17,
+        web_url="https://github.com/octo-org/octo-repo/pull/17",
+        title="fix: remediate python:S2259 in service.py",
+    )
+    client.fail_assign_issue = True
+    publisher = GitHubRemediationChangeRequestPublisher(client)  # type: ignore[arg-type]
+
+    result = publisher.publish(
+        ChangeRequestPublishRequest(
+            source_branch="zeroone-ops/fix",
+            target_branch="main",
+            title="fix: remediate python:S2259 in service.py",
+            description="summary",
+            labels=["zeroone-ops"],
+            assignee_username="justin",
+        )
+    )
+
+    assert result.action == "reused"
+    assert result.info.web_url == "https://github.com/octo-org/octo-repo/pull/17"
+
+
 def test_github_change_request_publisher_creates_change_request_when_missing() -> None:
     client = StubGitHubClient()
     publisher = GitHubRemediationChangeRequestPublisher(client)  # type: ignore[arg-type]

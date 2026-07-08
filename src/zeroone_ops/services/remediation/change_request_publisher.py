@@ -99,12 +99,10 @@ class GitHubRemediationChangeRequestPublisher:
             target_branch=request.target_branch,
         )
         if existing_change_request is not None:
-            if request.assignee_username is not None:
-                self.github_client.assign_issue(
-                    repository_id=self.github_client.config.repository,
-                    issue_number=existing_change_request.iid,
-                    assignee_username=request.assignee_username,
-                )
+            self._apply_existing_pull_request_assignee(
+                existing_change_request=existing_change_request,
+                request=request,
+            )
             return PublishedChangeRequest(info=existing_change_request, action="reused")
 
         created_change_request = self.github_client.create_pull_request(
@@ -180,6 +178,31 @@ class GitHubRemediationChangeRequestPublisher:
                 extra={
                     "repository": self.github_client.config.repository,
                     "pull_request_number": created_change_request.iid,
+                },
+                exc_info=True,
+            )
+
+    def _apply_existing_pull_request_assignee(
+        self,
+        *,
+        existing_change_request: ChangeRequestInfo,
+        request: ChangeRequestPublishRequest,
+    ) -> None:
+        """Apply assignee on reuse without hiding a successfully reused pull request."""
+        if request.assignee_username is None:
+            return
+        try:
+            self.github_client.assign_issue(
+                repository_id=self.github_client.config.repository,
+                issue_number=existing_change_request.iid,
+                assignee_username=request.assignee_username,
+            )
+        except GitHubClientError:
+            LOGGER.warning(
+                "GitHub remediation pull request assignee update failed on reuse",
+                extra={
+                    "repository": self.github_client.config.repository,
+                    "pull_request_number": existing_change_request.iid,
                 },
                 exc_info=True,
             )

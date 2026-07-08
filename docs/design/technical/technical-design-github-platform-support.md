@@ -486,6 +486,14 @@ after the default CI detection story is clear.
 - start with one dedicated policy issue for repository-wide operator policy
 - define the bounded operator-editable policy shape on GitHub
 - keep the policy issue authoritative for repo-wide policy only
+- start with strict `issue_comment` commands on the policy issue as the first
+  operator write path
+- support bounded repo-wide policy mutations for:
+  - severity enable/disable
+  - issue-class exclude/include
+- replay accepted commands into canonical structured policy state
+- keep rendered issue body state derived from structured policy instead of
+  treating free-form markdown edits as authoritative
 
 #### Phase 5b: GitHub Work-Item Control Plane
 
@@ -496,6 +504,17 @@ after the default CI detection story is clear.
 - define the promotion rule from producer candidate to GitHub work item
 - do not materialize every raw producer finding as a GitHub issue
 - keep GitHub work-item volume bounded across multiple producers
+- current lean: treat operator relevance as a coordination threshold rather than
+  a producer or severity threshold
+- keep all producer candidates visible through aggregated inventory even when
+  they are not promoted into first-class GitHub work items
+- promote a candidate into a GitHub work item when it needs durable shared
+  coordination, for example when it:
+  - is selected for remediation
+  - becomes blocked and needs human attention
+  - becomes retry-eligible and should stay visible
+  - is acted on explicitly by an operator
+  - is linked to an open remediation pull request
 
 #### Phase 5c: GitHub Status Projection
 
@@ -503,6 +522,9 @@ after the default CI detection story is clear.
   plane
 - project shared workflow state onto authoritative GitHub objects without
   making rendered markdown authoritative
+- keep review projection as concise status and traceability only
+- do not mirror full review-note content into the control plane
+- keep the review note/comment as the primary human-facing review surface
 
 #### Phase 5d: Optional Derived Overview
 

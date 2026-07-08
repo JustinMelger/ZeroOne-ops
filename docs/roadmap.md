@@ -341,6 +341,10 @@ These are important, but intentionally not part of the immediate rollout phase.
 - start with one dedicated policy issue for repository-wide operator policy
 - define the bounded operator-editable policy shape on GitHub
 - keep this issue authoritative for repo-wide policy only
+- use strict `issue_comment` commands on the policy issue as the first write
+  path
+- support repo-wide severity enablement and issue-class exclusions in that
+  bounded command surface
 
 - [ ] Phase 5b: GitHub Work-Item Control Plane
 
@@ -350,6 +354,9 @@ These are important, but intentionally not part of the immediate rollout phase.
 - design the operator control interaction model on the authoritative item
   surfaces
 - define a producer-neutral promotion rule from candidate to GitHub work item
+- current lean: promote only candidates that need durable shared coordination
+- keep non-promoted backlog visible through aggregated inventory rather than
+  one GitHub issue per candidate
 - do not materialize every raw producer finding as a GitHub issue
 
 - [ ] Phase 5c: GitHub Status Projection
@@ -358,6 +365,8 @@ These are important, but intentionally not part of the immediate rollout phase.
   plane
 - project shared workflow state onto authoritative GitHub objects without
   making rendered markdown authoritative
+- keep review projection compact: status, traceability, and actionable
+  follow-up state rather than full review prose
 
 - [ ] Phase 5d: Optional Derived Overview
 
