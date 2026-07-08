@@ -53,12 +53,11 @@ include = [
 
 [tool.uv]
 default-groups = ["dev"]
-exclude-newer = "14 days"
+exclude-newer = "7 days"
 
 [tool.uv.exclude-newer-package]
 # Temporary security overrides; remove once these releases fall within the
 # global exclude-newer window.
-mlflow-tracing = "2026-06-02T00:00:00Z"
 
 [dependency-groups]
 dev = [

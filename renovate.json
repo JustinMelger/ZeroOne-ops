@@ -33,7 +33,7 @@
         "patch",
         "minor"
       ],
-      "minimumReleaseAge": "14 days",
+      "minimumReleaseAge": "7 days",
       "groupName": "python dependencies",
       "matchPackageNames": [
         "!python"
@@ -47,7 +47,7 @@
       "matchDepTypes": [
         "devDependencies"
       ],
-      "minimumReleaseAge": "14 days",
+      "minimumReleaseAge": "7 days",
       "groupName": "python dev dependencies",
       "matchPackageNames": [
         "!python"
