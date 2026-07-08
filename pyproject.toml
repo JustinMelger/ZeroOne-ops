@@ -18,17 +18,6 @@ dependencies = [
   "urllib3==2.7.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-  "bandit>=1.8.3",
-  "import-linter>=2.3",
-  "mypy>=1.15.0",
-  "pip-audit>=2.9.0",
-  "pytest>=8.3.5",
-  "pytest-cov>=6.1.1",
-  "ruff>=0.11.4",
-]
-
 [project.scripts]
 zeroone-ops = "zeroone_ops.cli:main"
 ai-sonar-bot = "zeroone_ops.cli:main"
@@ -62,11 +51,11 @@ exclude-newer = "7 days"
 [dependency-groups]
 dev = [
   "bandit>=1.8.3",
-  "import-linter>=2.3",
-  "mypy>=1.15.0",
+  "import-linter>=2.12",
+  "mypy>=2.1.0",
   "pip-audit>=2.9.0",
-  "pytest>=8.3.5",
-  "pytest-cov>=6.1.1",
+  "pytest>=9.1.1",
+  "pytest-cov>=7.1.0",
   "ruff>=0.11.4",
 ]
 
