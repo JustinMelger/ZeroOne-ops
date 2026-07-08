@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 
 from zeroone_ops.models.policy import (
     PolicyAction,
@@ -217,10 +217,11 @@ class PolicyActionService:
         self,
         sources: list[PolicyCommentSource],
         comment_id: int | None,
-    ) -> tuple[str, int]:
+    ) -> tuple[int, float, str, int]:
         """Return one deterministic sort key for policy replay."""
         source = next((candidate for candidate in sources if candidate.id == comment_id), None)
-        return ((source.created_at or "") if source is not None else "", comment_id or 0)
+        created_at = source.created_at if source is not None else None
+        return (*_sortable_timestamp_key(created_at), comment_id or 0)
 
     def _normalize_command(self, body: str | None) -> str | None:
         """Return one strict single-line command when the body uses the policy prefix."""
@@ -334,3 +335,12 @@ def _parse_optional_timestamp(value: str | None) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _sortable_timestamp_key(value: str | None) -> tuple[int, float, str]:
+    """Return a replay sort key that prefers parsed time ordering over raw text."""
+    parsed = _parse_optional_timestamp(value)
+    if parsed is None:
+        return (1, 0.0, value or "")
+    normalized = parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+    return (0, normalized.astimezone(UTC).timestamp(), "")

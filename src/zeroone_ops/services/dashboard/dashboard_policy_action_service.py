@@ -76,7 +76,11 @@ class DashboardPolicyActionService:
             source=_policy_source_from_note(note) if note is not None else None,
         )
 
-    def _note_sort_key(self, notes: list[GitLabIssueNote], note_id: int | None) -> tuple[str, int]:
+    def _note_sort_key(
+        self,
+        notes: list[GitLabIssueNote],
+        note_id: int | None,
+    ) -> tuple[int, float, str, int]:
         """Return one deterministic sort key for policy-note replay."""
         return self._service.source_sort_key(
             [_policy_source_from_note(note) for note in notes],

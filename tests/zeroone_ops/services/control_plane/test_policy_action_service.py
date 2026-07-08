@@ -78,3 +78,27 @@ def test_apply_actions_ignores_unparsable_created_at_metadata() -> None:
     assert severity_by_name["high"].enabled is False
     assert severity_by_name["high"].comment_id == 1
     assert severity_by_name["high"].updated_at is None
+
+
+def test_apply_actions_orders_valid_offset_timestamps_by_actual_time() -> None:
+    service = PolicyActionService()
+
+    policy_state = service.apply_actions(
+        policy_state=PolicyState(),
+        sources=[
+            build_source(
+                1,
+                "/zeroone policy severity enable high",
+                created_at="2026-04-28T10:00:00+01:00",
+            ),
+            build_source(
+                2,
+                "/zeroone policy severity disable high",
+                created_at="2026-04-28T09:30:00Z",
+            ),
+        ],
+    )
+
+    severity_by_name = {entry.severity: entry for entry in policy_state.severity_policy}
+    assert severity_by_name["high"].enabled is False
+    assert severity_by_name["high"].comment_id == 2
