@@ -36,9 +36,7 @@ class PolicyProcessingResult:
     def rejected_prefix_count(self) -> int:
         """Return the number of rejected prefixed commands."""
         return sum(
-            1
-            for result in self.parsed_results
-            if result.matched_prefix and not result.accepted
+            1 for result in self.parsed_results if result.matched_prefix and not result.accepted
         )
 
 
