@@ -491,9 +491,109 @@ after the default CI detection story is clear.
 - support bounded repo-wide policy mutations for:
   - severity enable/disable
   - issue-class exclude/include
+- defer `/zeroone policy show|inspect` in the first GitHub slice
 - replay accepted commands into canonical structured policy state
 - keep rendered issue body state derived from structured policy instead of
   treating free-form markdown edits as authoritative
+- discover the policy issue by:
+  - canonical title `ZeroOne Ops Policy`
+  - dedicated identifying label `zeroone-policy`
+  - create-on-demand when missing
+  - fail clearly on ambiguous multiple matches rather than guessing
+- authorize policy commands through GitHub-native repository permissions rather
+  than a config-managed username allowlist
+- require `admin` repository authority for accepted policy commands in the
+  first slice
+- reuse the current strict `/zeroone policy` command grammar in the first
+  GitHub slice rather than inventing a second policy syntax
+- reuse the current GitLab policy semantics in the first GitHub slice:
+  - severity enable/disable
+  - issue-class exclude/include
+- do not reuse the full GitLab dashboard policy rendering literally; keep the
+  GitHub policy issue body as a smaller provider-local rendering of the same
+  underlying policy state
+- process policy comments through a dedicated workflow boundary rather than
+  coupling policy mutation to remediation or review runs
+- keep the first implementation stateless and idempotent:
+  - replay the bounded accepted policy comments on every policy run
+  - sort deterministically and let the latest valid command win for one target
+  - do not add processed-comment cursors in the first slice
+- keep acknowledgement optional in the first slice:
+  - policy mutation should not depend on reply comments to function
+  - do not post reply comments for malformed or unauthorized commands in the
+    first slice
+  - keep malformed/rejected/unauthorized command visibility in logs and metrics
+    only
+  - later acknowledgement UX can remain follow-up work
+- keep the first rendered policy issue body compact and machine-owned:
+  - header explaining the issue purpose and that direct body edits are not
+    authoritative
+  - current severity policy table
+  - current issue-class exclusions table or an explicit empty-state line
+  - exact supported command reference with examples
+  - short notes covering authorization and machine-rendered status
+- do not include grouped backlog inventory or broader overview content in the
+  first policy issue body
+
+#### Phase 5a Repo Design Pass
+
+Small-layout outcome:
+
+- do not start Phase 5a by moving the full GitLab dashboard domain into a new
+  package tree
+- do not place new GitHub policy logic directly under the existing
+  `services/dashboard/*` package unless the logic is explicitly GitLab-dashboard
+  specific
+
+Recommended minimum structure:
+
+- shared provider-neutral policy state and orchestration should move toward a
+  small `control_plane` or `policy` area
+- GitLab dashboard rendering and parsing should remain provider-local for now
+- GitHub policy issue transport should land in provider-local code rather than
+  in the shared dashboard package
+
+Recommended first implementation seams:
+
+- shared domain/state:
+  - provider-neutral policy state model
+  - provider-neutral policy command/action model
+  - policy replay/orchestration service
+- provider-local adapters:
+  - GitLab dashboard policy note transport and rendered dashboard view
+  - GitHub policy issue comment transport and rendered policy issue view
+
+Recommended first package direction:
+
+- keep existing GitLab dashboard services in place for now
+- extract only the pieces that are already genuinely shared:
+  - policy action grammar and typed actions
+  - canonical policy state application/replay
+- add GitHub policy-issue-specific code in provider-local modules instead of
+  expanding the dashboard package with GitHub-specific transport concerns
+
+Guardrail:
+
+- `dashboard` should remain a provider-local GitLab implementation term
+- new Phase 5a shared code should prefer names like `control_plane`, `policy`,
+  and `overview`
+- broader repo cleanup can follow once Phase 5a proves the seam shape in code
+- keep the policy issue body machine-owned for canonical rendered state and
+  operator guidance, not as a free-form editable contract
+- keep provider markdown and provider comments as transport/projection only:
+  - shared business rules should operate on structured policy state, typed
+    policy actions, and replay/application services
+  - GitHub issue bodies, issue comments, and GitLab dashboard markdown should
+    not become the real domain model
+  - no shared control-plane rule should depend on markdown layout details to
+    remain correct
+- keep the Phase 5a seams compatible with a later API/database control plane:
+  - provider-backed control surfaces are the first storage adapters, not the
+    final architecture
+  - shared orchestration should be able to swap a provider-backed adapter for a
+    database/API-backed adapter without changing policy semantics
+  - rendering the GitHub policy issue or GitLab dashboard should stay a
+    projection step over authoritative structured state
 
 #### Phase 5b: GitHub Work-Item Control Plane
 
