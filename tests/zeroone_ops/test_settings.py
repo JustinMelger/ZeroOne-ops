@@ -205,6 +205,36 @@ def test_settings_load_github_pull_request_publish_config(
     assert config.github.pull_request_assignee_username == "justin"
 
 
+def test_settings_require_remediation_target_branch_for_github_publish_config(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "platform": "github",
+          "github": {
+            "labels": ["zeroone-ops"]
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    try:
+        load_config()
+    except SettingsError as error:
+        assert (
+            "platform=github remediation publish requires "
+            "remediation.target_branch to be configured." in str(error)
+        )
+    else:  # pragma: no cover - defensive guard
+        raise AssertionError("Expected SettingsError for missing remediation target branch")
+
+
 def test_settings_require_gitlab_block_for_gitlab_platform(
     tmp_path: Path,
     monkeypatch,

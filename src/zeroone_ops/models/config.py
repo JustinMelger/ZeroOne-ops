@@ -283,6 +283,15 @@ class AppConfig(BaseModel):
             self.remediation.target_branch = self.gitlab.target_branch
         if self.platform == "gitlab" and self.remediation.target_branch is None:
             raise ValueError("platform=gitlab requires remediation.target_branch to be configured.")
+        if (
+            self.platform == "github"
+            and self.github is not None
+            and self.remediation.target_branch is None
+        ):
+            raise ValueError(
+                "platform=github remediation publish requires "
+                "remediation.target_branch to be configured."
+            )
         return self
 
     def require_gitlab_config(self, *, reason: str) -> GitLabConfig:

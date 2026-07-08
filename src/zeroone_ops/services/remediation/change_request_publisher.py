@@ -127,21 +127,56 @@ class GitHubRemediationChangeRequestPublisher:
         request: ChangeRequestPublishRequest,
     ) -> None:
         """Apply non-authoritative metadata without hiding a successful pull-request create."""
+        self._apply_created_pull_request_labels(
+            created_change_request=created_change_request,
+            request=request,
+        )
+        self._apply_created_pull_request_assignee(
+            created_change_request=created_change_request,
+            request=request,
+        )
+
+    def _apply_created_pull_request_labels(
+        self,
+        *,
+        created_change_request: ChangeRequestInfo,
+        request: ChangeRequestPublishRequest,
+    ) -> None:
+        """Apply labels after create without hiding a successful pull-request create."""
         try:
             self.github_client.add_issue_labels(
                 repository_id=self.github_client.config.repository,
                 issue_number=created_change_request.iid,
                 labels=request.labels,
             )
-            if request.assignee_username is not None:
-                self.github_client.assign_issue(
-                    repository_id=self.github_client.config.repository,
-                    issue_number=created_change_request.iid,
-                    assignee_username=request.assignee_username,
-                )
         except GitHubClientError:
             LOGGER.warning(
-                "GitHub remediation pull request metadata update failed after create",
+                "GitHub remediation pull request label update failed after create",
+                extra={
+                    "repository": self.github_client.config.repository,
+                    "pull_request_number": created_change_request.iid,
+                },
+                exc_info=True,
+            )
+
+    def _apply_created_pull_request_assignee(
+        self,
+        *,
+        created_change_request: ChangeRequestInfo,
+        request: ChangeRequestPublishRequest,
+    ) -> None:
+        """Apply assignee after create without hiding a successful pull-request create."""
+        if request.assignee_username is None:
+            return
+        try:
+            self.github_client.assign_issue(
+                repository_id=self.github_client.config.repository,
+                issue_number=created_change_request.iid,
+                assignee_username=request.assignee_username,
+            )
+        except GitHubClientError:
+            LOGGER.warning(
+                "GitHub remediation pull request assignee update failed after create",
                 extra={
                     "repository": self.github_client.config.repository,
                     "pull_request_number": created_change_request.iid,

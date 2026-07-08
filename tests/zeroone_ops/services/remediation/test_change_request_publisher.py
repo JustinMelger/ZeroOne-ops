@@ -250,6 +250,26 @@ def test_github_change_request_publisher_keeps_created_result_when_label_update_
     assert result.info.web_url == "https://github.com/octo-org/octo-repo/pull/19"
 
 
+def test_github_change_request_publisher_still_assigns_when_label_update_fails() -> None:
+    client = StubGitHubClient()
+    client.fail_label_update = True
+    publisher = GitHubRemediationChangeRequestPublisher(client)  # type: ignore[arg-type]
+
+    result = publisher.publish(
+        ChangeRequestPublishRequest(
+            source_branch="zeroone-ops/fix",
+            target_branch="main",
+            title="fix: remediate python:S2259 in service.py",
+            description="summary",
+            labels=["zeroone-ops"],
+            assignee_username="justin",
+        )
+    )
+
+    assert result.action == "created"
+    assert client.assignee_username == "justin"
+
+
 def test_github_change_request_publisher_keeps_created_result_when_assign_fails() -> None:
     client = StubGitHubClient()
     client.fail_assign_issue = True
