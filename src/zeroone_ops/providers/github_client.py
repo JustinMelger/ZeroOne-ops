@@ -44,7 +44,7 @@ class GitHubClient:
         """Return an open pull request for a source/base branch pair when present."""
         owner, _repo = _split_repository_id(repository_id)
         response = self._http_client.get(
-            f"/repos/{repository_id}/pulls",
+            _repository_path(repository_id, "pulls"),
             params={
                 "state": "open",
                 "head": f"{owner}:{source_branch}",
@@ -73,7 +73,7 @@ class GitHubClient:
     ) -> ChangeRequestInfo:
         """Create one GitHub pull request."""
         response = self._http_client.post(
-            f"/repos/{repository_id}/pulls",
+            _repository_path(repository_id, "pulls"),
             json={
                 "title": title,
                 "body": description,
@@ -98,7 +98,7 @@ class GitHubClient:
         if not labels:
             return
         response = self._http_client.post(
-            f"/repos/{repository_id}/issues/{issue_number}/labels",
+            _repository_path(repository_id, f"issues/{issue_number}/labels"),
             json={"labels": labels},
         )
         _parse_list_response(response, error_message="Unexpected GitHub issue labels payload.")
@@ -112,10 +112,15 @@ class GitHubClient:
     ) -> None:
         """Assign a pull request through the issue assignees endpoint."""
         response = self._http_client.post(
-            f"/repos/{repository_id}/issues/{issue_number}/assignees",
+            _repository_path(repository_id, f"issues/{issue_number}/assignees"),
             json={"assignees": [assignee_username]},
         )
         _parse_dict_response(response, error_message="Unexpected GitHub issue assignee payload.")
+
+
+def _repository_path(repository_id: str, suffix: str) -> str:
+    """Build one repository-scoped request path without discarding the base URL path."""
+    return f"repos/{repository_id}/{suffix}"
 
 
 def _split_repository_id(repository_id: str) -> tuple[str, str]:

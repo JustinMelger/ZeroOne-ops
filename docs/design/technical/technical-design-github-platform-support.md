@@ -368,6 +368,17 @@ Locked direction:
   - optional rendered overview publication
 - shared orchestration should depend on control-plane capabilities and state,
   not on GitLab dashboard markdown semantics.
+- the control plane should stay producer-neutral:
+  - raw producer findings are candidate inputs
+  - not every candidate should become a first-class GitHub work item
+  - only promoted work items should be materialized as authoritative GitHub
+    control-plane objects
+- this same boundary should keep current provider surfaces replaceable:
+  - the GitLab dashboard should remain one provider-local implementation
+  - the GitHub hybrid control plane should remain one provider-local
+    implementation
+  - a future external app should be able to adopt the same shared control-plane
+    state model without rewriting shared orchestration
 - naming should gradually move toward `control_plane`, `policy`, `work_queue`,
   and `overview` for shared concepts, while `dashboard` remains a provider-local
   GitLab implementation term where appropriate.
@@ -482,6 +493,9 @@ after the default CI detection story is clear.
   authoritative
 - define item-level lifecycle and issue/PR linkage
 - design operator control interaction on the authoritative item surfaces
+- define the promotion rule from producer candidate to GitHub work item
+- do not materialize every raw producer finding as a GitHub issue
+- keep GitHub work-item volume bounded across multiple producers
 
 #### Phase 5c: GitHub Status Projection
 

@@ -333,6 +333,8 @@ These are important, but intentionally not part of the immediate rollout phase.
 - locked direction: use a hybrid GitHub-native control plane
 - keep one shared control-plane state domain and provider-local storage/view
   adapters instead of forcing both platforms into one dashboard-shaped model
+- keep the boundary compatible with a future external control-plane app rather
+  than binding shared orchestration to the current GitLab dashboard surface
 
 - [ ] Phase 5a: GitHub Policy Surface
 
@@ -347,6 +349,8 @@ These are important, but intentionally not part of the immediate rollout phase.
 - define item-level lifecycle and linkage between remediation issues and PRs
 - design the operator control interaction model on the authoritative item
   surfaces
+- define a producer-neutral promotion rule from candidate to GitHub work item
+- do not materialize every raw producer finding as a GitHub issue
 
 - [ ] Phase 5c: GitHub Status Projection
 

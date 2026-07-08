@@ -154,3 +154,31 @@ def test_assign_issue_posts_expected_payload() -> None:
         issue_number=21,
         assignee_username="justin",
     )
+
+
+def test_github_enterprise_base_path_is_preserved_for_requests() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v3/repos/octo-org/octo-repo/pulls"
+        assert request.method == "GET"
+        return httpx.Response(200, json=[])
+
+    client = GitHubClient(
+        GitHubConnectionConfig(
+            api_url="https://github.example.com/api/v3",
+            server_url="https://github.example.com",
+            token="token",
+            repository="octo-org/octo-repo",
+        ),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://github.example.com/api/v3",
+        ),
+    )
+
+    pull_request = client.find_open_pull_request(
+        repository_id="octo-org/octo-repo",
+        source_branch="zeroone-ops/fix",
+        target_branch="main",
+    )
+
+    assert pull_request is None
