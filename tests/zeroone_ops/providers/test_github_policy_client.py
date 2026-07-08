@@ -287,3 +287,28 @@ def test_github_enterprise_base_path_is_preserved_for_policy_issue_requests() ->
     )
 
     assert issue is None
+
+
+def test_get_repository_permission_returns_role_name_when_present() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert (
+            request.url.path
+            == "/repos/octo-org/octo-repo/collaborators/justin/permission"
+        )
+        assert request.method == "GET"
+        return httpx.Response(200, json={"permission": "write", "role_name": "admin"})
+
+    client = GitHubPolicyClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.github.example.com",
+        ),
+    )
+
+    permission = client.get_repository_permission(
+        repository_id="octo-org/octo-repo",
+        username="justin",
+    )
+
+    assert permission == "admin"

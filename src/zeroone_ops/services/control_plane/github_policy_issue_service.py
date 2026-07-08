@@ -28,6 +28,7 @@ class GitHubPolicyIssueProcessResult:
 
     issue: GitHubIssueInfo
     comment_count: int
+    authorized_comment_count: int
     matched_prefix_count: int
     accepted_action_count: int
     rejected_prefix_count: int
@@ -73,6 +74,7 @@ class GitHubPolicyIssueService:
         policy_view_builder: GitHubPolicyViewBuilderProtocol,
         policy_action_service: PolicyActionService | None = None,
         policy_processing_service: PolicyProcessingService | None = None,
+        required_repository_permission: str = "admin",
     ) -> None:
         """Initialize the GitHub policy issue service."""
         self.client = client
@@ -85,6 +87,7 @@ class GitHubPolicyIssueService:
         self.policy_processing_service = policy_processing_service or PolicyProcessingService(
             self.policy_action_service
         )
+        self.required_repository_permission = required_repository_permission
 
     def load_or_create(self, *, repository_id: str) -> GitHubIssueInfo:
         """Load the policy issue or create it if missing."""
@@ -145,6 +148,7 @@ class GitHubPolicyIssueService:
             return GitHubPolicyIssueProcessResult(
                 issue=issue,
                 comment_count=0,
+                authorized_comment_count=0,
                 matched_prefix_count=0,
                 accepted_action_count=0,
                 rejected_prefix_count=0,
@@ -160,9 +164,13 @@ class GitHubPolicyIssueService:
             repository_id=repository_id,
             issue_number=issue.number,
         )
+        authorized_comments = self._authorized_comments(
+            repository_id=repository_id,
+            comments=comments,
+        )
         processing_result = self._process_policy_comments(
             body=issue.body,
-            comments=comments,
+            comments=authorized_comments,
         )
         rendered = self._render_body(policy_state=processing_result.resolved_policy_state)
         issue_changed = rendered != issue.body
@@ -175,6 +183,7 @@ class GitHubPolicyIssueService:
         return GitHubPolicyIssueProcessResult(
             issue=issue,
             comment_count=len(comments),
+            authorized_comment_count=len(authorized_comments),
             matched_prefix_count=processing_result.matched_prefix_count,
             accepted_action_count=processing_result.accepted_action_count,
             rejected_prefix_count=processing_result.rejected_prefix_count,
@@ -201,6 +210,30 @@ class GitHubPolicyIssueService:
     def _render_body(self, *, policy_state: DashboardPolicyState) -> str:
         policy_view = self.policy_view_builder.build([], policy_state=policy_state)
         return self.renderer.render(policy_state=policy_state, policy_view=policy_view)
+
+    def _authorized_comments(
+        self,
+        *,
+        repository_id: str,
+        comments: list[GitHubIssueComment],
+    ) -> list[GitHubIssueComment]:
+        """Return comments from users authorized to mutate repository-wide policy."""
+        permission_by_username: dict[str, str] = {}
+        authorized: list[GitHubIssueComment] = []
+        for comment in comments:
+            username = comment.author_username
+            if not username:
+                continue
+            permission = permission_by_username.get(username)
+            if permission is None:
+                permission = self.client.get_repository_permission(
+                    repository_id=repository_id,
+                    username=username,
+                )
+                permission_by_username[username] = permission
+            if permission == self.required_repository_permission:
+                authorized.append(comment)
+        return authorized
 
 
 def _policy_source_from_comment(comment: GitHubIssueComment) -> PolicyCommentSource:

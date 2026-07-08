@@ -52,6 +52,7 @@ class FakeGitHubPolicyClient:
         self.created_issue: GitHubIssueInfo | None = None
         self.updated_issue: GitHubIssueInfo | None = None
         self.comments: list[GitHubIssueComment] = []
+        self.permissions_by_username: dict[str, str] = {}
 
     def find_open_issue(
         self,
@@ -110,6 +111,15 @@ class FakeGitHubPolicyClient:
         del repository_id, issue_number
         return list(self.comments)
 
+    def get_repository_permission(
+        self,
+        *,
+        repository_id: str,
+        username: str,
+    ) -> str:
+        del repository_id
+        return self.permissions_by_username[username]
+
 
 def test_load_or_create_creates_policy_issue_when_missing() -> None:
     service = GitHubPolicyIssueService(
@@ -147,6 +157,7 @@ def test_process_policy_replays_comments_and_reports_counts() -> None:
             created_at="2026-07-08T10:01:00Z",
         ),
     ]
+    client.permissions_by_username["justin"] = "admin"
     service = GitHubPolicyIssueService(
         client,
         policy_view_builder=FakePolicyViewBuilder(),
@@ -156,6 +167,7 @@ def test_process_policy_replays_comments_and_reports_counts() -> None:
 
     assert isinstance(result, GitHubPolicyIssueProcessResult)
     assert result.comment_count == 2
+    assert result.authorized_comment_count == 2
     assert result.matched_prefix_count == 2
     assert result.accepted_action_count == 1
     assert result.rejected_prefix_count == 1
@@ -184,6 +196,7 @@ def test_process_policy_persists_replayed_state_into_issue_body() -> None:
             created_at="2026-07-08T10:00:00Z",
         )
     ]
+    client.permissions_by_username["justin"] = "admin"
 
     result = service.process_policy(repository_id="octo-org/octo-repo", persist=True)
 
@@ -191,3 +204,35 @@ def test_process_policy_persists_replayed_state_into_issue_body() -> None:
     assert client.updated_issue is not None
     assert '"note_id": 12' in client.updated_issue.body
     assert "`high` | enabled" in client.updated_issue.body
+
+
+def test_process_policy_ignores_non_admin_comments() -> None:
+    existing_issue = GitHubIssueInfo(
+        id=10,
+        number=11,
+        web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+        title="ZeroOne Ops Policy",
+        body="",
+    )
+    client = FakeGitHubPolicyClient(existing_issue=existing_issue)
+    client.comments = [
+        GitHubIssueComment(
+            id=12,
+            body="/zeroone policy severity enable high",
+            author_username="maintainer",
+            created_at="2026-07-08T10:00:00Z",
+        )
+    ]
+    client.permissions_by_username["maintainer"] = "write"
+    service = GitHubPolicyIssueService(
+        client,
+        policy_view_builder=FakePolicyViewBuilder(),
+    )
+
+    result = service.process_policy(repository_id="octo-org/octo-repo", persist=False)
+
+    assert result.comment_count == 1
+    assert result.authorized_comment_count == 0
+    assert result.matched_prefix_count == 0
+    assert result.accepted_action_count == 0
+    assert result.rejected_prefix_count == 0

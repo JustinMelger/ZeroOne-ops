@@ -132,6 +132,27 @@ class GitHubPolicyClient:
             page += 1
         return items
 
+    def get_repository_permission(
+        self,
+        *,
+        repository_id: str,
+        username: str,
+    ) -> str:
+        """Return the GitHub repository permission for one username."""
+        payload = _parse_dict_response(
+            self._http_client.get(
+                _repository_path(repository_id, f"collaborators/{username}/permission")
+            ),
+            error_message="Unexpected GitHub collaborator permission payload.",
+        )
+        permission = payload.get("permission")
+        role_name = payload.get("role_name")
+        if isinstance(role_name, str) and role_name:
+            return role_name
+        if isinstance(permission, str) and permission:
+            return permission
+        raise GitHubClientError("Unexpected GitHub collaborator permission payload.")
+
 
 def _repository_path(repository_id: str, suffix: str) -> str:
     """Build one repository-scoped request path without discarding the base URL path."""
