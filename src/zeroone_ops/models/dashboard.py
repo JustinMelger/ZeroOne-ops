@@ -7,6 +7,12 @@ from typing import Literal, cast
 
 from pydantic import AliasChoices, BaseModel, Field
 
+from zeroone_ops.models.policy import (
+    PolicyIssueClassStateEntry,
+    PolicySeverityStateEntry,
+    PolicyState,
+)
+
 CURRENT_DASHBOARD_SCHEMA_VERSION = 2
 DASHBOARD_SCHEMA_MARKER = (
     f"<!-- zeroone-ops:dashboard-schema:v{CURRENT_DASHBOARD_SCHEMA_VERSION} -->"
@@ -93,26 +99,8 @@ class DashboardSeverityPolicyEntry(BaseModel):
     reason: str | None = None
 
 
-class DashboardSeverityPolicyStateEntry(BaseModel):
-    """Represent one canonical dashboard-backed severity policy entry."""
-
-    severity: Literal["low", "medium", "high"]
-    enabled: bool
-    reason: str | None = None
-    updated_at: datetime | None = None
-    updated_by: str | None = None
-    note_id: int | None = None
-
-
-class DashboardIssueClassPolicyStateEntry(BaseModel):
-    """Represent one canonical dashboard-backed issue-class policy entry."""
-
-    source: str
-    issue_key: str
-    reason: str
-    updated_at: datetime | None = None
-    updated_by: str | None = None
-    note_id: int | None = None
+DashboardSeverityPolicyStateEntry = PolicySeverityStateEntry
+DashboardIssueClassPolicyStateEntry = PolicyIssueClassStateEntry
 
 
 class DashboardIssueClassExclusionEntry(BaseModel):
@@ -144,11 +132,7 @@ class DashboardPolicyView(BaseModel):
     issue_class_inventory: list[DashboardIssueClassInventoryEntry] = Field(default_factory=list)
 
 
-class DashboardPolicyState(BaseModel):
-    """Represent the canonical machine-owned dashboard policy state."""
-
-    severity_policy: list[DashboardSeverityPolicyStateEntry] = Field(default_factory=list)
-    issue_class_exclusions: list[DashboardIssueClassPolicyStateEntry] = Field(default_factory=list)
+DashboardPolicyState = PolicyState
 
 
 class DashboardManifest(BaseModel):

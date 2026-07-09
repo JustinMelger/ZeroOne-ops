@@ -14,6 +14,7 @@ from zeroone_ops.models.dashboard import (
     DashboardSection,
     empty_sections,
 )
+from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.models.review import (
     CandidateReviewFinding,
@@ -30,6 +31,9 @@ from zeroone_ops.runner import (
     dashboard_reconcile,
     dashboard_remediate,
     sync_dashboard_sonar,
+)
+from zeroone_ops.services.control_plane.github_policy_issue_service import (
+    GitHubPolicyIssueProcessResult,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardPolicyProcessResult
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
@@ -323,6 +327,57 @@ def test_dashboard_policy_dry_run_returns_policy_processing_summary(
     assert summary.status.value == "synced"
     assert "Dry-run would process 3 dashboard notes" in summary.message
     assert "2 prefixed, 1 accepted, 1 rejected" in summary.message
+
+
+def test_dashboard_policy_dry_run_returns_github_policy_processing_summary(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "platform": "github",
+          "base_branch": "main",
+          "validation_commands": [],
+          "remediation": {
+            "target_branch": "main"
+          },
+          "github": {
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.control_plane.github_policy_issue_service."
+        "GitHubPolicyIssueService.process_policy",
+        lambda self, repository_id, persist=True: GitHubPolicyIssueProcessResult(
+            issue=GitHubIssueInfo(
+                id=10,
+                number=11,
+                web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+                title="ZeroOne Ops Policy",
+                body="",
+            ),
+            comment_count=3,
+            authorized_comment_count=2,
+            matched_prefix_count=2,
+            accepted_action_count=1,
+            rejected_prefix_count=1,
+            issue_changed=True,
+        ),
+    )
+
+    summary = dashboard_policy(dry_run=True)
+
+    assert summary.status.value == "synced"
+    assert "Dry-run would process 3 GitHub policy comments" in summary.message
+    assert "2 authorized, 2 prefixed, 1 accepted, 1 rejected" in summary.message
 
 
 def test_dashboard_reconcile_dry_run_selects_change_request_opened_item(

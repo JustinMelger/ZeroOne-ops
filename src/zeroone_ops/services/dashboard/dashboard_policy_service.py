@@ -54,23 +54,24 @@ class DashboardPolicyService:
         document: DashboardDocument,
         *,
         notes: list[GitLabIssueNote] | None = None,
+        policy_state: DashboardPolicyState | None = None,
     ) -> DashboardDocument:
         """Return the document with canonical policy state and rendered view applied."""
         if self.policy_view_builder is None:
             return document
-        policy_state = self.resolve_policy_state(document.policy_state)
+        resolved_policy_state = policy_state or self.resolve_policy_state(document.policy_state)
         if notes:
-            policy_state = self.policy_action_service.apply_actions(
-                policy_state=policy_state,
+            resolved_policy_state = self.policy_action_service.apply_actions(
+                policy_state=resolved_policy_state,
                 notes=notes,
             )
         policy_view = self.policy_view_builder.build(
             list(document.items_by_id().values()),
-            policy_state=policy_state,
+            policy_state=resolved_policy_state,
         )
         return document.model_copy(
             update={
-                "policy_state": policy_state,
+                "policy_state": resolved_policy_state,
                 "policy_view": (
                     policy_view
                     if isinstance(policy_view, DashboardPolicyView)

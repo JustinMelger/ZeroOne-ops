@@ -335,8 +335,12 @@ These are important, but intentionally not part of the immediate rollout phase.
   adapters instead of forcing both platforms into one dashboard-shaped model
 - keep the boundary compatible with a future external control-plane app rather
   than binding shared orchestration to the current GitLab dashboard surface
+- treat GitHub issues/comments and GitLab dashboard markdown as
+  provider-specific transport/rendering, not as the long-term shared domain
+  model, so a later API/database backend can replace them without changing
+  policy semantics
 
-- [ ] Phase 5a: GitHub Policy Surface
+- [x] Phase 5a: GitHub Policy Surface
 
 - start with one dedicated policy issue for repository-wide operator policy
 - define the bounded operator-editable policy shape on GitHub
@@ -345,6 +349,33 @@ These are important, but intentionally not part of the immediate rollout phase.
   path
 - support repo-wide severity enablement and issue-class exclusions in that
   bounded command surface
+- defer `policy show|inspect` in the first GitHub slice
+- discover the policy issue via title `ZeroOne Ops Policy` and label
+  `zeroone-policy`, then create it on demand when missing
+- authorize commands through GitHub-native permissions and require
+  `admin` authority
+- reuse the current strict `/zeroone policy` grammar in the first GitHub slice
+- reuse GitLab policy semantics but keep a slimmer GitHub-specific issue body
+- keep the first implementation stateless via deterministic full comment replay
+- leave acknowledgement replies as follow-up UX, not a blocker for `5a`
+- do not post reply comments for malformed or unauthorized commands in `5a`
+- keep the first policy issue body compact: current policy, exact commands, and
+  short machine-owned notes only
+- small repo-design prep only:
+  - extract genuinely shared policy replay/state seams
+  - keep GitHub policy issue transport out of the GitLab dashboard package
+  - keep provider markdown/comment formats as projections over structured
+    control-plane state so Phase 5a remains compatible with a future
+    API/database backend
+- implemented:
+  - added provider-local GitHub policy issue transport and processing runner
+  - routed GitHub policy comment replay through shared policy parsing and
+    replay services
+  - enforced GitHub-native admin permission gating for policy mutations
+  - kept malformed or unauthorized commands non-authoritative in the first
+    slice
+  - kept the composition root explicit so provider-local GitHub bootstrap is
+    isolated from shared policy core logic
 
 - [ ] Phase 5b: GitHub Work-Item Control Plane
 
