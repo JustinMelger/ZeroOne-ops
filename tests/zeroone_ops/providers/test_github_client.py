@@ -182,3 +182,72 @@ def test_github_enterprise_base_path_is_preserved_for_requests() -> None:
     )
 
     assert pull_request is None
+
+
+def test_get_pull_request_state_normalizes_open_state() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/repos/octo-org/octo-repo/pulls/21"
+        assert request.method == "GET"
+        return httpx.Response(
+            200,
+            json={
+                "number": 21,
+                "html_url": "https://github.com/octo-org/octo-repo/pull/21",
+                "state": "open",
+                "merged_at": None,
+                "head": {
+                    "ref": "zeroone-ops/fix",
+                    "sha": "abc123",
+                },
+            },
+        )
+
+    client = GitHubClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.github.example.com",
+        ),
+    )
+
+    pull_request = client.get_pull_request_state(
+        repository_id="octo-org/octo-repo",
+        pull_request_number=21,
+    )
+
+    assert pull_request.iid == 21
+    assert pull_request.state == "opened"
+    assert pull_request.source_branch == "zeroone-ops/fix"
+    assert pull_request.head_sha == "abc123"
+
+
+def test_get_pull_request_state_normalizes_merged_state() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "number": 21,
+                "html_url": "https://github.com/octo-org/octo-repo/pull/21",
+                "state": "closed",
+                "merged_at": "2026-07-10T12:00:00Z",
+                "head": {
+                    "ref": "zeroone-ops/fix",
+                    "sha": "abc123",
+                },
+            },
+        )
+
+    client = GitHubClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.github.example.com",
+        ),
+    )
+
+    pull_request = client.get_pull_request_state(
+        repository_id="octo-org/octo-repo",
+        pull_request_number=21,
+    )
+
+    assert pull_request.state == "merged"
