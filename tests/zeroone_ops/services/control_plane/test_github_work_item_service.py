@@ -235,9 +235,7 @@ def test_github_work_item_service_preserves_existing_link_when_retry_has_no_repl
         number=17,
         web_url="https://github.example.com/octo-org/octo-repo/pull/17",
     )
-    original = build_work_item().model_copy(
-        update={"linked_change_request": linked_change_request}
-    )
+    original = build_work_item().model_copy(update={"linked_change_request": linked_change_request})
     client = FakeGitHubWorkItemClient()
     client.issues = [
         GitHubIssueInfo(

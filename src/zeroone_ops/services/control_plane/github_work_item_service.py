@@ -132,9 +132,6 @@ class GitHubWorkItemService:
         if parsed is None:
             return work_item
         update: dict[str, object] = {"work_item_id": parsed.work_item_id}
-        if (
-            work_item.linked_change_request is None
-            and parsed.linked_change_request is not None
-        ):
+        if work_item.linked_change_request is None and parsed.linked_change_request is not None:
             update["linked_change_request"] = parsed.linked_change_request
         return work_item.model_copy(update=update)
