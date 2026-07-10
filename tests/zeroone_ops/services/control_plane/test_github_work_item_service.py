@@ -1,5 +1,9 @@
 from zeroone_ops.models.github import GitHubIssueInfo
-from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
+from zeroone_ops.models.work_item import (
+    ChangeRequestRef,
+    WorkItemSourceRef,
+    WorkItemState,
+)
 from zeroone_ops.services.control_plane.github_work_item_parser import GitHubWorkItemParser
 from zeroone_ops.services.control_plane.github_work_item_renderer import (
     GitHubWorkItemRenderer,
@@ -223,3 +227,36 @@ def test_github_work_item_service_reuses_matching_issue_without_work_item_label(
     assert result.action == "updated"
     assert result.work_item.work_item_id == "work-1"
     assert client.updated_issue is not None
+
+
+def test_github_work_item_service_preserves_existing_link_when_retry_has_no_replacement() -> None:
+    renderer = GitHubWorkItemRenderer()
+    linked_change_request = ChangeRequestRef(
+        number=17,
+        web_url="https://github.example.com/octo-org/octo-repo/pull/17",
+    )
+    original = build_work_item().model_copy(
+        update={"linked_change_request": linked_change_request}
+    )
+    client = FakeGitHubWorkItemClient()
+    client.issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(original),
+            body=renderer.render_body(original),
+        )
+    ]
+    service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+
+    result = service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item(status="blocked"),
+    )
+
+    assert result.action == "updated"
+    assert result.work_item.work_item_id == "work-1"
+    assert result.work_item.linked_change_request == linked_change_request
+    assert client.updated_issue is not None
+    assert "pull/17" in client.updated_issue.body

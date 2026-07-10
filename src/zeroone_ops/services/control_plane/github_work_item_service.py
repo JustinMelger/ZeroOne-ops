@@ -70,7 +70,7 @@ class GitHubWorkItemService:
                 action="created",
                 work_item=rendered_work_item,
             )
-        rendered_work_item = self._preserve_existing_work_item_id(
+        rendered_work_item = self._merge_existing_authoritative_state(
             existing_issue=existing_issue,
             work_item=work_item,
         )
@@ -121,14 +121,20 @@ class GitHubWorkItemService:
                 return issue
         return None
 
-    def _preserve_existing_work_item_id(
+    def _merge_existing_authoritative_state(
         self,
         *,
         existing_issue: GitHubIssueInfo,
         work_item: WorkItemState,
     ) -> WorkItemState:
-        """Return a work item that preserves the existing stable work-item ID when present."""
+        """Return a work item that preserves authoritative existing state when needed."""
         parsed = self.parser.parse_work_item_state(existing_issue.body)
         if parsed is None:
             return work_item
-        return work_item.model_copy(update={"work_item_id": parsed.work_item_id})
+        update: dict[str, object] = {"work_item_id": parsed.work_item_id}
+        if (
+            work_item.linked_change_request is None
+            and parsed.linked_change_request is not None
+        ):
+            update["linked_change_request"] = parsed.linked_change_request
+        return work_item.model_copy(update=update)
