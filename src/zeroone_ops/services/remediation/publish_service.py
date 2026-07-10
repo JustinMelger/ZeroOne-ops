@@ -5,6 +5,7 @@ This module owns branch push and provider-backed change-request publication.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -38,6 +39,8 @@ from zeroone_ops.services.shared.branch_manager import (
     BranchManagerError,
 )
 from zeroone_ops.settings import load_github_connection_config
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -96,6 +99,7 @@ class PublishService:
             return PublishResult(
                 error_message="Publish failed: change request description is required."
             )
+        github_work_item: WorkItemState | None = None
         try:
             labels, assignee_username = self._publication_options()
             target_branch = self.config.require_remediation_target_branch(
@@ -126,13 +130,16 @@ class PublishService:
                     assignee_username=assignee_username,
                 )
             )
-            self._upsert_github_work_item(
+            self._sync_github_work_item_change_request_link(
                 selected_issue=selected_issue,
-                status="in_progress",
-                linked_change_request=published_change_request.info,
+                published_change_request=published_change_request.info,
                 existing_work_item=github_work_item,
             )
         except (BranchManagerError, GitLabClientError, GitHubClientError, RuntimeError) as error:
+            self._mark_github_work_item_blocked_after_failure(
+                selected_issue=selected_issue,
+                existing_work_item=github_work_item,
+            )
             return PublishResult(error_message=f"Publish failed: {error}")
         return PublishResult(
             branch_name=pushed_branch,
@@ -214,7 +221,7 @@ class PublishService:
         *,
         selected_issue: RemediationExecutionTarget,
         status: str,
-        linked_change_request: ChangeRequestInfo | None,
+        linked_change_request: ChangeRequestInfo | ChangeRequestRef | None,
         existing_work_item: WorkItemState | None = None,
     ) -> WorkItemState | None:
         """Create or update the authoritative GitHub work-item issue when on GitHub."""
@@ -242,7 +249,7 @@ class PublishService:
         selected_issue: RemediationExecutionTarget,
         status: WorkItemStatus,
         repository_scope: str,
-        linked_change_request: ChangeRequestInfo | None,
+        linked_change_request: ChangeRequestInfo | ChangeRequestRef | None,
         existing_work_item: WorkItemState | None,
     ) -> WorkItemState:
         """Build the canonical GitHub work-item state for remediation publication."""
@@ -266,10 +273,7 @@ class PublishService:
             linked_change_request=(
                 None
                 if linked_change_request is None
-                else ChangeRequestRef(
-                    number=linked_change_request.iid,
-                    web_url=linked_change_request.web_url,
-                )
+                else self._normalize_change_request_ref(linked_change_request)
             ),
         )
 
@@ -278,3 +282,58 @@ class PublishService:
         if self.github_repository_id is not None:
             return self.github_repository_id
         return load_github_connection_config().repository
+
+    def _mark_github_work_item_blocked_after_failure(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Best-effort transition of GitHub work-item state after publish failure."""
+        if existing_work_item is None:
+            return
+        try:
+            self._upsert_github_work_item(
+                selected_issue=selected_issue,
+                status="blocked",
+                linked_change_request=existing_work_item.linked_change_request,
+                existing_work_item=existing_work_item,
+            )
+        except (GitHubClientError, RuntimeError):
+            return
+
+    def _sync_github_work_item_change_request_link(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        published_change_request: ChangeRequestInfo,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Best-effort sync of the linked change request onto GitHub work-item state."""
+        try:
+            self._upsert_github_work_item(
+                selected_issue=selected_issue,
+                status="in_progress",
+                linked_change_request=published_change_request,
+                existing_work_item=existing_work_item,
+            )
+        except (GitHubClientError, RuntimeError):
+            LOGGER.warning(
+                "GitHub work-item linkage sync failed after change-request publication",
+                extra={
+                    "change_request_url": published_change_request.web_url,
+                },
+                exc_info=True,
+            )
+
+    def _normalize_change_request_ref(
+        self,
+        change_request: ChangeRequestInfo | ChangeRequestRef,
+    ) -> ChangeRequestRef:
+        """Return the canonical linked change-request reference."""
+        if isinstance(change_request, ChangeRequestRef):
+            return change_request
+        return ChangeRequestRef(
+            number=change_request.iid,
+            web_url=change_request.web_url,
+        )

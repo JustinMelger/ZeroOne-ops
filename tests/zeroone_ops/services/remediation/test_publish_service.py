@@ -52,8 +52,13 @@ def build_issue() -> RemediationExecutionTarget:
 
 
 class StubBranchManager:
+    def __init__(self, *, push_error: str | None = None) -> None:
+        self.push_error = push_error
+
     def push_current_branch(self, *, remote_name: str = "origin") -> str:
         del remote_name
+        if self.push_error is not None:
+            raise RuntimeError(self.push_error)
         return "zeroone-ops/fix"
 
 
@@ -72,15 +77,19 @@ class StubChangeRequestPublisher:
             action="created",
         )
         self.request = None
+        self.error_message: str | None = None
 
     def publish(self, request):  # noqa: ANN001
+        if self.error_message is not None:
+            raise RuntimeError(self.error_message)
         self.request = request
         return self.result
 
 
 class StubGitHubWorkItemService:
-    def __init__(self) -> None:
+    def __init__(self, *, error_on_call: int | None = None) -> None:
         self.calls: list[tuple[str, WorkItemState]] = []
+        self.error_on_call = error_on_call
 
     def upsert_work_item(
         self,
@@ -89,6 +98,8 @@ class StubGitHubWorkItemService:
         work_item: WorkItemState,
     ) -> GitHubWorkItemUpsertResult:
         self.calls.append((repository_id, work_item))
+        if self.error_on_call == len(self.calls):
+            raise RuntimeError("work item sync failed")
         return GitHubWorkItemUpsertResult(
             issue=GitHubIssueInfo(
                 id=31,
@@ -396,6 +407,93 @@ def test_publish_service_upserts_github_work_item_before_and_after_publish() -> 
     assert second_call[1].work_item_id == first_call[1].work_item_id
     assert second_call[1].linked_change_request is not None
     assert second_call[1].linked_change_request.number == 23
+
+
+def test_publish_service_marks_github_work_item_blocked_when_publish_fails() -> None:
+    publisher = StubChangeRequestPublisher()
+    publisher.error_message = "pull request create failed"
+    work_item_service = StubGitHubWorkItemService()
+    service = PublishService(
+        config=AppConfig(
+            execution_mode="ci",
+            platform="github",
+            base_branch="main",
+            validation_commands=[],
+            approval=ApprovalConfig(),
+            remediation=RemediationConfig(
+                target_branch="main",
+                bootstrap_severities=["MAJOR"],
+                analysis=AnalysisConfig(),
+            ),
+            github=GitHubConfig(
+                labels=["zeroone-ops", "autofix"],
+                pull_request_assignee_username="justin",
+            ),
+        ),
+        branch_manager=StubBranchManager(),  # type: ignore[arg-type]
+        change_request_publisher=publisher,
+        github_work_item_service=work_item_service,  # type: ignore[arg-type]
+        github_repository_id="octo-org/octo-repo",
+    )
+
+    result = service.publish(
+        selected_issue=build_issue(),
+        change_request_title="ignored",
+        change_request_description="summary",
+    )
+
+    assert result.error_message == "Publish failed: pull request create failed"
+    assert len(work_item_service.calls) == 2
+    assert work_item_service.calls[0][1].status == "in_progress"
+    assert work_item_service.calls[1][1].status == "blocked"
+    assert work_item_service.calls[1][1].work_item_id == work_item_service.calls[0][1].work_item_id
+
+
+def test_publish_service_keeps_success_when_post_publish_work_item_sync_fails() -> None:
+    publisher = StubChangeRequestPublisher(
+        result=PublishedChangeRequest(
+            info=ChangeRequestInfo(
+                iid=23,
+                web_url="https://github.com/octo-org/octo-repo/pull/23",
+                title="fix: remediate python:S2259 in service.py",
+            ),
+            action="created",
+        )
+    )
+    work_item_service = StubGitHubWorkItemService(error_on_call=2)
+    service = PublishService(
+        config=AppConfig(
+            execution_mode="ci",
+            platform="github",
+            base_branch="main",
+            validation_commands=[],
+            approval=ApprovalConfig(),
+            remediation=RemediationConfig(
+                target_branch="main",
+                bootstrap_severities=["MAJOR"],
+                analysis=AnalysisConfig(),
+            ),
+            github=GitHubConfig(
+                labels=["zeroone-ops", "autofix"],
+                pull_request_assignee_username="justin",
+            ),
+        ),
+        branch_manager=StubBranchManager(),  # type: ignore[arg-type]
+        change_request_publisher=publisher,
+        github_work_item_service=work_item_service,  # type: ignore[arg-type]
+        github_repository_id="octo-org/octo-repo",
+    )
+
+    result = service.publish(
+        selected_issue=build_issue(),
+        change_request_title="ignored",
+        change_request_description="summary",
+    )
+
+    assert result.error_message is None
+    assert result.change_request_url == "https://github.com/octo-org/octo-repo/pull/23"
+    assert result.change_request_action == "created"
+    assert len(work_item_service.calls) == 2
 
 
 def test_publish_service_requires_change_request_title() -> None:

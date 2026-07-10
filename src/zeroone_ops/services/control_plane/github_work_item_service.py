@@ -102,10 +102,7 @@ class GitHubWorkItemService:
         work_item: WorkItemState,
     ) -> GitHubIssueInfo | None:
         """Return the matching open authoritative work-item issue when present."""
-        for issue in self.client.list_open_issues(
-            repository_id=repository_id,
-            labels=["zeroone-work-item"],
-        ):
+        for issue in self.client.list_open_issues(repository_id=repository_id):
             try:
                 parsed = self.parser.parse_work_item_state(issue.body)
             except (GitHubClientError, ValidationError):

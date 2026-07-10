@@ -198,3 +198,28 @@ def test_github_work_item_service_skips_malformed_issue_state_during_scan() -> N
     assert result.action == "updated"
     assert result.work_item.work_item_id == "work-1"
     assert client.updated_issue is not None
+
+
+def test_github_work_item_service_reuses_matching_issue_without_work_item_label() -> None:
+    renderer = GitHubWorkItemRenderer()
+    original = build_work_item()
+    client = FakeGitHubWorkItemClient()
+    client.issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(original),
+            body=renderer.render_body(original),
+        )
+    ]
+    service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+
+    result = service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item(status="blocked"),
+    )
+
+    assert result.action == "updated"
+    assert result.work_item.work_item_id == "work-1"
+    assert client.updated_issue is not None
