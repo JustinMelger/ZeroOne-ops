@@ -38,22 +38,32 @@ class GitHubWorkItemClient:
         labels: list[str] | None = None,
     ) -> list[GitHubIssueInfo]:
         """List open GitHub issues for one repository and label set."""
-        payload = _parse_list_response(
-            self._http_client.get(
+        page = 1
+        issues: list[GitHubIssueInfo] = []
+        while True:
+            response = self._http_client.get(
                 _repository_path(repository_id, "issues"),
                 params={
                     "state": "open",
                     "labels": ",".join(labels or []),
+                    "page": page,
                     "per_page": 100,
                 },
-            ),
-            error_message="Unexpected GitHub issue list payload.",
-        )
-        return [
-            _normalize_issue_info(item)
-            for item in payload
-            if isinstance(item, dict) and item.get("pull_request") is None
-        ]
+            )
+            payload = _parse_list_response(
+                response,
+                error_message="Unexpected GitHub issue list payload.",
+            )
+            issues.extend(
+                _normalize_issue_info(item)
+                for item in payload
+                if isinstance(item, dict) and item.get("pull_request") is None
+            )
+            next_link = response.links.get("next")
+            if not next_link:
+                break
+            page += 1
+        return issues
 
     def create_issue(
         self,
