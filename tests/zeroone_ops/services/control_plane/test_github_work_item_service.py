@@ -104,6 +104,7 @@ def test_github_work_item_service_creates_when_identity_is_missing() -> None:
     )
 
     assert result.action == "created"
+    assert result.work_item.work_item_id == "work-1"
     assert client.created_issue is not None
     assert client.created_issue.title == "ZeroOne Ops: Remediate Sonar issue AX123 in api.py"
 
@@ -129,6 +130,7 @@ def test_github_work_item_service_updates_matching_open_issue_when_state_changes
     )
 
     assert result.action == "updated"
+    assert result.work_item.work_item_id == "work-1"
     assert client.updated_issue is not None
     assert "`in_progress`" in client.updated_issue.body
 
@@ -154,5 +156,45 @@ def test_github_work_item_service_reuses_matching_open_issue_without_title_autho
     )
 
     assert result.action == "updated"
+    assert result.work_item.work_item_id == "work-1"
     assert client.updated_issue is not None
     assert client.updated_issue.title == renderer.render_title(original)
+
+
+def test_github_work_item_service_skips_malformed_issue_state_during_scan() -> None:
+    renderer = GitHubWorkItemRenderer()
+    original = build_work_item()
+    client = FakeGitHubWorkItemClient()
+    client.issues = [
+        GitHubIssueInfo(
+            id=9,
+            number=10,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/10",
+            title="Malformed work item",
+            body=(
+                "<details>\n"
+                "<summary><code>zeroone-work-item-state</code> machine state</summary>\n\n"
+                "```json\n"
+                "{not-json}\n"
+                "```\n\n"
+                "</details>\n"
+            ),
+        ),
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(original),
+            body=renderer.render_body(original),
+        ),
+    ]
+    service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+
+    result = service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item(status="in_progress"),
+    )
+
+    assert result.action == "updated"
+    assert result.work_item.work_item_id == "work-1"
+    assert client.updated_issue is not None

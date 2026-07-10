@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
+from pydantic import ValidationError
+
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.services.control_plane.github_work_item_parser import GitHubWorkItemParser
 from zeroone_ops.services.control_plane.github_work_item_renderer import (
     GitHubWorkItemRenderer,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -20,6 +26,7 @@ class GitHubWorkItemUpsertResult:
 
     issue: GitHubIssueInfo
     action: Literal["created", "updated", "unchanged"]
+    work_item: WorkItemState
 
 
 class GitHubWorkItemService:
@@ -52,6 +59,7 @@ class GitHubWorkItemService:
             work_item=work_item,
         )
         if existing_issue is None:
+            rendered_work_item = work_item
             return GitHubWorkItemUpsertResult(
                 issue=self.client.create_issue(
                     repository_id=repository_id,
@@ -60,9 +68,21 @@ class GitHubWorkItemService:
                     labels=labels,
                 ),
                 action="created",
+                work_item=rendered_work_item,
             )
+        rendered_work_item = self._preserve_existing_work_item_id(
+            existing_issue=existing_issue,
+            work_item=work_item,
+        )
+        title = self.renderer.render_title(rendered_work_item)
+        body = self.renderer.render_body(rendered_work_item)
+        labels = self.renderer.render_labels(rendered_work_item)
         if existing_issue.title == title and existing_issue.body == body:
-            return GitHubWorkItemUpsertResult(issue=existing_issue, action="unchanged")
+            return GitHubWorkItemUpsertResult(
+                issue=existing_issue,
+                action="unchanged",
+                work_item=rendered_work_item,
+            )
         return GitHubWorkItemUpsertResult(
             issue=self.client.update_issue(
                 repository_id=repository_id,
@@ -72,6 +92,7 @@ class GitHubWorkItemService:
                 labels=labels,
             ),
             action="updated",
+            work_item=rendered_work_item,
         )
 
     def _find_open_issue_by_identity(
@@ -85,9 +106,32 @@ class GitHubWorkItemService:
             repository_id=repository_id,
             labels=["zeroone-work-item"],
         ):
-            parsed = self.parser.parse_work_item_state(issue.body)
+            try:
+                parsed = self.parser.parse_work_item_state(issue.body)
+            except (GitHubClientError, ValidationError):
+                LOGGER.warning(
+                    "GitHub work-item issue scan skipped malformed machine state",
+                    extra={
+                        "issue_number": issue.number,
+                        "issue_url": issue.web_url,
+                    },
+                    exc_info=True,
+                )
+                continue
             if parsed is None:
                 continue
             if parsed.identity_key == work_item.identity_key:
                 return issue
         return None
+
+    def _preserve_existing_work_item_id(
+        self,
+        *,
+        existing_issue: GitHubIssueInfo,
+        work_item: WorkItemState,
+    ) -> WorkItemState:
+        """Return a work item that preserves the existing stable work-item ID when present."""
+        parsed = self.parser.parse_work_item_state(existing_issue.body)
+        if parsed is None:
+            return work_item
+        return work_item.model_copy(update={"work_item_id": parsed.work_item_id})

@@ -7,14 +7,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
+from uuid import uuid4
 
+from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import (
     RemediationExecutionTarget,
     remediation_profile_for,
 )
+from zeroone_ops.models.work_item import (
+    ChangeRequestRef,
+    WorkItemSourceRef,
+    WorkItemState,
+    WorkItemStatus,
+)
 from zeroone_ops.providers.github_client import GitHubClientError
+from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_client import GitLabClientError
+from zeroone_ops.services.control_plane.github_work_item_service import (
+    GitHubWorkItemService,
+)
 from zeroone_ops.services.remediation.change_request_publisher import (
     ChangeRequestPublishRequest,
     RemediationChangeRequestPublisher,
@@ -24,6 +37,7 @@ from zeroone_ops.services.shared.branch_manager import (
     BranchManager,
     BranchManagerError,
 )
+from zeroone_ops.settings import load_github_connection_config
 
 
 @dataclass
@@ -50,6 +64,8 @@ class PublishService:
         config: AppConfig,
         branch_manager: BranchManager,
         change_request_publisher: RemediationChangeRequestPublisher | None = None,
+        github_work_item_service: GitHubWorkItemService | None = None,
+        github_repository_id: str | None = None,
     ) -> None:
         """Initialize the publish service.
 
@@ -57,10 +73,14 @@ class PublishService:
             config: Loaded application configuration.
             branch_manager: Branch manager implementation.
             change_request_publisher: Optional provider-local publisher override.
+            github_work_item_service: Optional GitHub work-item service override.
+            github_repository_id: Optional GitHub repository ID override for tests.
         """
         self.config = config
         self.branch_manager = branch_manager
         self.change_request_publisher = change_request_publisher
+        self.github_work_item_service = github_work_item_service
+        self.github_repository_id = github_repository_id
 
     def publish(
         self,
@@ -84,6 +104,11 @@ class PublishService:
             publisher = self.change_request_publisher or build_remediation_change_request_publisher(
                 self.config
             )
+            github_work_item = self._upsert_github_work_item(
+                selected_issue=selected_issue,
+                status="in_progress",
+                linked_change_request=None,
+            )
             pushed_branch = self.branch_manager.push_current_branch()
             published_change_request = publisher.publish(
                 ChangeRequestPublishRequest(
@@ -100,6 +125,12 @@ class PublishService:
                     labels=labels,
                     assignee_username=assignee_username,
                 )
+            )
+            self._upsert_github_work_item(
+                selected_issue=selected_issue,
+                status="in_progress",
+                linked_change_request=published_change_request.info,
+                existing_work_item=github_work_item,
             )
         except (BranchManagerError, GitLabClientError, GitHubClientError, RuntimeError) as error:
             return PublishResult(error_message=f"Publish failed: {error}")
@@ -177,3 +208,73 @@ class PublishService:
                 workflow_github_config.pull_request_assignee_username,
             )
         return ([], None)
+
+    def _upsert_github_work_item(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        status: str,
+        linked_change_request: ChangeRequestInfo | None,
+        existing_work_item: WorkItemState | None = None,
+    ) -> WorkItemState | None:
+        """Create or update the authoritative GitHub work-item issue when on GitHub."""
+        if self.config.platform != "github":
+            return None
+        repository_id = self._github_repository_id()
+        service = self.github_work_item_service or GitHubWorkItemService(
+            GitHubWorkItemClient(load_github_connection_config())
+        )
+        work_item = self._build_github_work_item(
+            selected_issue=selected_issue,
+            status=cast(WorkItemStatus, status),
+            repository_scope=repository_id,
+            linked_change_request=linked_change_request,
+            existing_work_item=existing_work_item,
+        )
+        return service.upsert_work_item(
+            repository_id=repository_id,
+            work_item=work_item,
+        ).work_item
+
+    def _build_github_work_item(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        status: WorkItemStatus,
+        repository_scope: str,
+        linked_change_request: ChangeRequestInfo | None,
+        existing_work_item: WorkItemState | None,
+    ) -> WorkItemState:
+        """Build the canonical GitHub work-item state for remediation publication."""
+        return WorkItemState(
+            work_item_id=(
+                existing_work_item.work_item_id
+                if existing_work_item is not None
+                else f"work-{uuid4().hex}"
+            ),
+            kind="remediation",
+            status=status,
+            source=WorkItemSourceRef(
+                source=selected_issue.source_type,
+                source_item_key=selected_issue.source_ref,
+                repository_scope=repository_scope,
+            ),
+            summary=selected_issue.title,
+            severity=selected_issue.severity,
+            file_path=selected_issue.file_path,
+            line=selected_issue.line,
+            linked_change_request=(
+                None
+                if linked_change_request is None
+                else ChangeRequestRef(
+                    number=linked_change_request.iid,
+                    web_url=linked_change_request.web_url,
+                )
+            ),
+        )
+
+    def _github_repository_id(self) -> str:
+        """Return the GitHub repository ID for work-item publication."""
+        if self.github_repository_id is not None:
+            return self.github_repository_id
+        return load_github_connection_config().repository

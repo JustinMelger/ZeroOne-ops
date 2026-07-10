@@ -7,7 +7,12 @@ from zeroone_ops.models.config import (
     GitLabConfig,
     RemediationConfig,
 )
+from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.remediation import RemediationExecutionTarget
+from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.services.control_plane.github_work_item_service import (
+    GitHubWorkItemUpsertResult,
+)
 from zeroone_ops.services.remediation.change_request_publisher import (
     PublishedChangeRequest,
 )
@@ -71,6 +76,30 @@ class StubChangeRequestPublisher:
     def publish(self, request):  # noqa: ANN001
         self.request = request
         return self.result
+
+
+class StubGitHubWorkItemService:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, WorkItemState]] = []
+
+    def upsert_work_item(
+        self,
+        *,
+        repository_id: str,
+        work_item: WorkItemState,
+    ) -> GitHubWorkItemUpsertResult:
+        self.calls.append((repository_id, work_item))
+        return GitHubWorkItemUpsertResult(
+            issue=GitHubIssueInfo(
+                id=31,
+                number=31,
+                web_url="https://github.com/octo-org/octo-repo/issues/31",
+                title="ZeroOne Ops: work item",
+                body="",
+            ),
+            action="created" if len(self.calls) == 1 else "updated",
+            work_item=work_item,
+        )
 
 
 def test_publish_service_builds_deterministic_description() -> None:
@@ -258,6 +287,8 @@ def test_publish_service_uses_github_publication_options() -> None:
         ),
         branch_manager=StubBranchManager(),  # type: ignore[arg-type]
         change_request_publisher=publisher,
+        github_work_item_service=StubGitHubWorkItemService(),  # type: ignore[arg-type]
+        github_repository_id="octo-org/octo-repo",
     )
 
     result = service.publish(
@@ -299,6 +330,8 @@ def test_publish_service_allows_github_publish_without_github_block() -> None:
         ),
         branch_manager=StubBranchManager(),  # type: ignore[arg-type]
         change_request_publisher=publisher,
+        github_work_item_service=StubGitHubWorkItemService(),  # type: ignore[arg-type]
+        github_repository_id="octo-org/octo-repo",
     )
 
     service.publish(
@@ -310,6 +343,59 @@ def test_publish_service_allows_github_publish_without_github_block() -> None:
     assert publisher.request is not None
     assert publisher.request.labels == []
     assert publisher.request.assignee_username is None
+
+
+def test_publish_service_upserts_github_work_item_before_and_after_publish() -> None:
+    publisher = StubChangeRequestPublisher(
+        result=PublishedChangeRequest(
+            info=ChangeRequestInfo(
+                iid=23,
+                web_url="https://github.com/octo-org/octo-repo/pull/23",
+                title="fix: remediate python:S2259 in service.py",
+            ),
+            action="created",
+        )
+    )
+    work_item_service = StubGitHubWorkItemService()
+    service = PublishService(
+        config=AppConfig(
+            execution_mode="ci",
+            platform="github",
+            base_branch="main",
+            validation_commands=[],
+            approval=ApprovalConfig(),
+            remediation=RemediationConfig(
+                target_branch="main",
+                bootstrap_severities=["MAJOR"],
+                analysis=AnalysisConfig(),
+            ),
+            github=GitHubConfig(
+                labels=["zeroone-ops", "autofix"],
+                pull_request_assignee_username="justin",
+            ),
+        ),
+        branch_manager=StubBranchManager(),  # type: ignore[arg-type]
+        change_request_publisher=publisher,
+        github_work_item_service=work_item_service,  # type: ignore[arg-type]
+        github_repository_id="octo-org/octo-repo",
+    )
+
+    result = service.publish(
+        selected_issue=build_issue(),
+        change_request_title="ignored",
+        change_request_description="summary",
+    )
+
+    assert result.change_request_url == "https://github.com/octo-org/octo-repo/pull/23"
+    assert len(work_item_service.calls) == 2
+    first_call = work_item_service.calls[0]
+    second_call = work_item_service.calls[1]
+    assert first_call[0] == "octo-org/octo-repo"
+    assert first_call[1].status == "in_progress"
+    assert first_call[1].linked_change_request is None
+    assert second_call[1].work_item_id == first_call[1].work_item_id
+    assert second_call[1].linked_change_request is not None
+    assert second_call[1].linked_change_request.number == 23
 
 
 def test_publish_service_requires_change_request_title() -> None:
