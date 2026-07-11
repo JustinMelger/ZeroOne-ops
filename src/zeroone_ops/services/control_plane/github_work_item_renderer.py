@@ -10,6 +10,8 @@ from zeroone_ops.models.work_item import WorkItemState
 class GitHubWorkItemRenderer:
     """Render authoritative GitHub work-item issues."""
 
+    AUTHORITATIVE_WORK_ITEM_LABEL = "zeroone-work-item"
+
     def render_title(self, work_item: WorkItemState) -> str:
         """Render one compact provider-local work-item title."""
         return f"ZeroOne Ops: {work_item.summary}"
@@ -58,7 +60,7 @@ class GitHubWorkItemRenderer:
     def render_labels(self, work_item: WorkItemState) -> list[str]:
         """Render the provider-local label projection for one work item."""
         labels = [
-            "zeroone-work-item",
+            self.AUTHORITATIVE_WORK_ITEM_LABEL,
             f"zeroone-status:{work_item.status}",
             f"zeroone-source:{work_item.source.source}",
         ]

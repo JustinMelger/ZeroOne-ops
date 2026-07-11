@@ -35,6 +35,7 @@ class FakeGitHubWorkItemClient:
         self.issues: list[GitHubIssueInfo] = []
         self.created_issue: GitHubIssueInfo | None = None
         self.updated_issue: GitHubIssueInfo | None = None
+        self.list_labels: list[str] | None = None
 
     def list_open_issues(
         self,
@@ -42,7 +43,8 @@ class FakeGitHubWorkItemClient:
         repository_id: str,
         labels: list[str] | None = None,
     ) -> list[GitHubIssueInfo]:
-        del repository_id, labels
+        del repository_id
+        self.list_labels = labels
         return list(self.issues)
 
     def create_issue(
@@ -136,6 +138,7 @@ def test_github_work_item_service_updates_matching_open_issue_when_state_changes
     assert result.action == "updated"
     assert result.work_item.work_item_id == "work-1"
     assert client.updated_issue is not None
+    assert client.list_labels == ["zeroone-work-item"]
     assert "`in_progress`" in client.updated_issue.body
 
 
@@ -204,7 +207,7 @@ def test_github_work_item_service_skips_malformed_issue_state_during_scan() -> N
     assert client.updated_issue is not None
 
 
-def test_github_work_item_service_reuses_matching_issue_without_work_item_label() -> None:
+def test_github_work_item_service_filters_reuse_scan_to_authoritative_work_item_label() -> None:
     renderer = GitHubWorkItemRenderer()
     original = build_work_item()
     client = FakeGitHubWorkItemClient()
@@ -227,6 +230,7 @@ def test_github_work_item_service_reuses_matching_issue_without_work_item_label(
     assert result.action == "updated"
     assert result.work_item.work_item_id == "work-1"
     assert client.updated_issue is not None
+    assert client.list_labels == ["zeroone-work-item"]
 
 
 def test_github_work_item_service_preserves_existing_link_when_retry_has_no_replacement() -> None:
