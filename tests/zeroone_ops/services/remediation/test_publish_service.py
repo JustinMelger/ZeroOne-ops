@@ -7,15 +7,12 @@ from zeroone_ops.models.config import (
     GitLabConfig,
     RemediationConfig,
 )
-from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.remediation import RemediationExecutionTarget
-from zeroone_ops.models.work_item import WorkItemState
-from zeroone_ops.services.control_plane.github_work_item_service import (
-    GitHubWorkItemUpsertResult,
-)
+from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, WorkItemState
 from zeroone_ops.services.remediation.change_request_publisher import (
     PublishedChangeRequest,
 )
+from zeroone_ops.services.remediation.control_plane import RemediationControlPlane
 from zeroone_ops.services.remediation.publish_service import PublishService
 
 
@@ -86,31 +83,70 @@ class StubChangeRequestPublisher:
         return self.result
 
 
-class StubGitHubWorkItemService:
+class StubRemediationControlPlane(RemediationControlPlane):
     def __init__(self, *, error_on_call: int | None = None) -> None:
-        self.calls: list[tuple[str, WorkItemState]] = []
+        self.calls: list[WorkItemState] = []
         self.error_on_call = error_on_call
 
-    def upsert_work_item(
+    def mark_publish_started(
         self,
         *,
-        repository_id: str,
-        work_item: WorkItemState,
-    ) -> GitHubWorkItemUpsertResult:
-        self.calls.append((repository_id, work_item))
+        selected_issue: RemediationExecutionTarget,
+    ) -> WorkItemState:
+        work_item = WorkItemState(
+            work_item_id="work-1",
+            kind="remediation",
+            status="in_progress",
+            source=WorkItemSourceRef(
+                source=selected_issue.source_type,
+                source_item_key=selected_issue.source_ref,
+                repository_scope="octo-org/octo-repo",
+            ),
+            summary=selected_issue.title,
+            severity=selected_issue.severity,
+            file_path=selected_issue.file_path,
+            line=selected_issue.line,
+        )
+        self.calls.append(work_item)
         if self.error_on_call == len(self.calls):
             raise RuntimeError("work item sync failed")
-        return GitHubWorkItemUpsertResult(
-            issue=GitHubIssueInfo(
-                id=31,
-                number=31,
-                web_url="https://github.com/octo-org/octo-repo/issues/31",
-                title="ZeroOne Ops: work item",
-                body="",
-            ),
-            action="created" if len(self.calls) == 1 else "updated",
-            work_item=work_item,
+        return work_item
+
+    def mark_publish_blocked(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        del selected_issue
+        if existing_work_item is None:
+            return
+        self.calls.append(existing_work_item.model_copy(update={"status": "blocked"}))
+        if self.error_on_call == len(self.calls):
+            raise RuntimeError("work item sync failed")
+
+    def sync_change_request_link(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        published_change_request: ChangeRequestInfo,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        del selected_issue
+        if existing_work_item is None:
+            return
+        updated_work_item = existing_work_item.model_copy(
+            update={
+                "status": "in_progress",
+                "linked_change_request": ChangeRequestRef(
+                    number=published_change_request.iid,
+                    web_url=published_change_request.web_url,
+                ),
+            }
         )
+        self.calls.append(updated_work_item)
+        if self.error_on_call == len(self.calls):
+            return
 
 
 def test_publish_service_builds_deterministic_description() -> None:
@@ -298,8 +334,7 @@ def test_publish_service_uses_github_publication_options() -> None:
         ),
         branch_manager=StubBranchManager(),  # type: ignore[arg-type]
         change_request_publisher=publisher,
-        github_work_item_service=StubGitHubWorkItemService(),  # type: ignore[arg-type]
-        github_repository_id="octo-org/octo-repo",
+        remediation_control_plane=StubRemediationControlPlane(),
     )
 
     result = service.publish(
@@ -341,8 +376,7 @@ def test_publish_service_allows_github_publish_without_github_block() -> None:
         ),
         branch_manager=StubBranchManager(),  # type: ignore[arg-type]
         change_request_publisher=publisher,
-        github_work_item_service=StubGitHubWorkItemService(),  # type: ignore[arg-type]
-        github_repository_id="octo-org/octo-repo",
+        remediation_control_plane=StubRemediationControlPlane(),
     )
 
     service.publish(
@@ -367,7 +401,7 @@ def test_publish_service_upserts_github_work_item_before_and_after_publish() -> 
             action="created",
         )
     )
-    work_item_service = StubGitHubWorkItemService()
+    work_item_service = StubRemediationControlPlane()
     service = PublishService(
         config=AppConfig(
             execution_mode="ci",
@@ -387,8 +421,7 @@ def test_publish_service_upserts_github_work_item_before_and_after_publish() -> 
         ),
         branch_manager=StubBranchManager(),  # type: ignore[arg-type]
         change_request_publisher=publisher,
-        github_work_item_service=work_item_service,  # type: ignore[arg-type]
-        github_repository_id="octo-org/octo-repo",
+        remediation_control_plane=work_item_service,
     )
 
     result = service.publish(
@@ -401,18 +434,17 @@ def test_publish_service_upserts_github_work_item_before_and_after_publish() -> 
     assert len(work_item_service.calls) == 2
     first_call = work_item_service.calls[0]
     second_call = work_item_service.calls[1]
-    assert first_call[0] == "octo-org/octo-repo"
-    assert first_call[1].status == "in_progress"
-    assert first_call[1].linked_change_request is None
-    assert second_call[1].work_item_id == first_call[1].work_item_id
-    assert second_call[1].linked_change_request is not None
-    assert second_call[1].linked_change_request.number == 23
+    assert first_call.status == "in_progress"
+    assert first_call.linked_change_request is None
+    assert second_call.work_item_id == first_call.work_item_id
+    assert second_call.linked_change_request is not None
+    assert second_call.linked_change_request.number == 23
 
 
 def test_publish_service_marks_github_work_item_blocked_when_publish_fails() -> None:
     publisher = StubChangeRequestPublisher()
     publisher.error_message = "pull request create failed"
-    work_item_service = StubGitHubWorkItemService()
+    work_item_service = StubRemediationControlPlane()
     service = PublishService(
         config=AppConfig(
             execution_mode="ci",
@@ -432,8 +464,7 @@ def test_publish_service_marks_github_work_item_blocked_when_publish_fails() -> 
         ),
         branch_manager=StubBranchManager(),  # type: ignore[arg-type]
         change_request_publisher=publisher,
-        github_work_item_service=work_item_service,  # type: ignore[arg-type]
-        github_repository_id="octo-org/octo-repo",
+        remediation_control_plane=work_item_service,
     )
 
     result = service.publish(
@@ -444,9 +475,9 @@ def test_publish_service_marks_github_work_item_blocked_when_publish_fails() -> 
 
     assert result.error_message == "Publish failed: pull request create failed"
     assert len(work_item_service.calls) == 2
-    assert work_item_service.calls[0][1].status == "in_progress"
-    assert work_item_service.calls[1][1].status == "blocked"
-    assert work_item_service.calls[1][1].work_item_id == work_item_service.calls[0][1].work_item_id
+    assert work_item_service.calls[0].status == "in_progress"
+    assert work_item_service.calls[1].status == "blocked"
+    assert work_item_service.calls[1].work_item_id == work_item_service.calls[0].work_item_id
 
 
 def test_publish_service_keeps_success_when_post_publish_work_item_sync_fails() -> None:
@@ -460,7 +491,7 @@ def test_publish_service_keeps_success_when_post_publish_work_item_sync_fails() 
             action="created",
         )
     )
-    work_item_service = StubGitHubWorkItemService(error_on_call=2)
+    work_item_service = StubRemediationControlPlane(error_on_call=2)
     service = PublishService(
         config=AppConfig(
             execution_mode="ci",
@@ -480,8 +511,7 @@ def test_publish_service_keeps_success_when_post_publish_work_item_sync_fails() 
         ),
         branch_manager=StubBranchManager(),  # type: ignore[arg-type]
         change_request_publisher=publisher,
-        github_work_item_service=work_item_service,  # type: ignore[arg-type]
-        github_repository_id="octo-org/octo-repo",
+        remediation_control_plane=work_item_service,
     )
 
     result = service.publish(
