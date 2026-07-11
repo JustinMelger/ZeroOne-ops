@@ -84,9 +84,17 @@ class StubChangeRequestPublisher:
 
 
 class StubRemediationControlPlane(RemediationControlPlane):
-    def __init__(self, *, error_on_call: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        error_on_call: int | None = None,
+        sync_error_message: str | None = None,
+        blocked_error_message: str | None = None,
+    ) -> None:
         self.calls: list[WorkItemState] = []
         self.error_on_call = error_on_call
+        self.sync_error_message = sync_error_message
+        self.blocked_error_message = blocked_error_message
 
     def mark_publish_started(
         self,
@@ -122,6 +130,8 @@ class StubRemediationControlPlane(RemediationControlPlane):
         if existing_work_item is None:
             return
         self.calls.append(existing_work_item.model_copy(update={"status": "blocked"}))
+        if self.blocked_error_message is not None:
+            raise RuntimeError(self.blocked_error_message)
         if self.error_on_call == len(self.calls):
             raise RuntimeError("work item sync failed")
 
@@ -145,6 +155,8 @@ class StubRemediationControlPlane(RemediationControlPlane):
             }
         )
         self.calls.append(updated_work_item)
+        if self.sync_error_message is not None:
+            raise RuntimeError(self.sync_error_message)
         if self.error_on_call == len(self.calls):
             return
 
@@ -491,7 +503,9 @@ def test_publish_service_keeps_success_when_post_publish_work_item_sync_fails() 
             action="created",
         )
     )
-    work_item_service = StubRemediationControlPlane(error_on_call=2)
+    work_item_service = StubRemediationControlPlane(
+        sync_error_message="post-publish work item sync failed"
+    )
     service = PublishService(
         config=AppConfig(
             execution_mode="ci",
@@ -524,6 +538,44 @@ def test_publish_service_keeps_success_when_post_publish_work_item_sync_fails() 
     assert result.change_request_url == "https://github.com/octo-org/octo-repo/pull/23"
     assert result.change_request_action == "created"
     assert len(work_item_service.calls) == 2
+
+
+def test_publish_service_preserves_original_publish_error_when_blocked_cleanup_fails() -> None:
+    publisher = StubChangeRequestPublisher()
+    publisher.error_message = "pull request create failed"
+    work_item_service = StubRemediationControlPlane(blocked_error_message="blocked cleanup failed")
+    service = PublishService(
+        config=AppConfig(
+            execution_mode="ci",
+            platform="github",
+            base_branch="main",
+            validation_commands=[],
+            approval=ApprovalConfig(),
+            remediation=RemediationConfig(
+                target_branch="main",
+                bootstrap_severities=["MAJOR"],
+                analysis=AnalysisConfig(),
+            ),
+            github=GitHubConfig(
+                labels=["zeroone-ops", "autofix"],
+                pull_request_assignee_username="justin",
+            ),
+        ),
+        branch_manager=StubBranchManager(),  # type: ignore[arg-type]
+        change_request_publisher=publisher,
+        remediation_control_plane=work_item_service,
+    )
+
+    result = service.publish(
+        selected_issue=build_issue(),
+        change_request_title="ignored",
+        change_request_description="summary",
+    )
+
+    assert result.error_message == "Publish failed: pull request create failed"
+    assert len(work_item_service.calls) == 2
+    assert work_item_service.calls[0].status == "in_progress"
+    assert work_item_service.calls[1].status == "blocked"
 
 
 def test_publish_service_requires_change_request_title() -> None:
