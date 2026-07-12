@@ -608,13 +608,171 @@ Guardrail:
   a producer or severity threshold
 - keep all producer candidates visible through aggregated inventory even when
   they are not promoted into first-class GitHub work items
-- promote a candidate into a GitHub work item when it needs durable shared
-  coordination, for example when it:
+- lock the first authoritative GitHub work-item shape as one GitHub issue
+- treat the remediation pull request as linked execution state, not as the
+  primary work-item record
+- keep the shared domain neutral and avoid dashboard-shaped names in this phase;
+  prefer names like `WorkItem`, `WorkItemStatus`, and `ChangeRequestRef`
+- use one bounded machine-readable issue block for the authoritative contract;
+  labels remain filter and status signals, not the full data contract
+- require the first work-item issue payload to carry at least:
+  - `work_item_id`
+  - `source`
+  - `source_item_key`
+  - `kind`
+  - `status`
+  - `severity`
+  - optional linked change-request reference
+  - created-by-system marker
+- lock the first shared status set to:
+  - `candidate`
+  - `approved`
+  - `in_progress`
+  - `blocked`
+  - `completed`
+  - `dismissed`
+- promote a candidate into a GitHub work item only when it needs durable shared
+  coordination in the first slice, specifically when it:
   - is selected for remediation
   - becomes blocked and needs human attention
-  - becomes retry-eligible and should stay visible
-  - is acted on explicitly by an operator
   - is linked to an open remediation pull request
+- do not promote retry-eligible items by default in the first slice
+- keep non-promoted backlog visibility aggregate-only in `5b.1`:
+  - derived counts or grouped summary are allowed
+  - no second authoritative per-item surface is allowed outside promoted
+    GitHub work-item issues
+- keep the first operator control surface label- and state-driven on the
+  authoritative issue; do not add comment-command mutation on work items yet
+- keep the first work-item entry path bot-created only; operator-authored
+  work-item issue intake can follow after the issue contract is proven stable
+- lock linkage to zero or one active remediation pull request per work item
+- if a linked remediation pull request closes unmerged, move the work item back
+  to `approved` or `blocked` based on the failure outcome rather than keeping
+  the pull request as the source of truth
+- narrow the first implementation slice to:
+  - shared work-item domain models
+  - provider-local GitHub work-item issue renderer and parser
+  - bot-created promoted work items only
+  - one linked remediation pull-request reference
+  - minimal status and label mapping
+  - no operator-created work items yet
+  - no derived summary issue
+  - no comment-command surface on work items
+  - no fake generic adapter that hides real GitHub/GitLab transport differences
+
+##### Phase 5b.1 Invariants
+
+Status ownership:
+
+- the canonical source of truth for one GitHub work item must be the
+  machine-readable state block in the authoritative work-item issue body
+- GitHub labels must be projections of canonical work-item state and must not
+  become the primary source of truth
+- remediation pull-request state is linked execution evidence, not canonical
+  work-item state by itself
+- any local persisted state remains a cache and must be reconstructable from
+  authoritative GitHub objects
+
+Identity and reuse:
+
+- `work_item_id` must be system-generated and stable for the life of one
+  created work item
+- reuse matching must be based on stable identity fields from canonical state,
+  not on issue title text or incidental labels
+- the first reuse key should be provider-neutral source identity plus
+  work-item kind
+- if an open work item already exists for the same canonical identity, reuse it
+- if only closed matching work items exist, create a new work item in `5b.1`
+  rather than reopening by default
+- reopening closed matching work items can be added later only as an explicit
+  policy with tests
+
+Label projection:
+
+- labels are an operator-facing projection layer and must remain derivable from
+  canonical work-item state
+- shared orchestration must not branch on raw GitHub label text as domain logic
+- provider-local GitHub code may map canonical status and flags onto labels, but
+  shared services must depend on structured work-item state instead
+
+Linked pull-request transitions:
+
+- one work item may have zero or one active remediation pull request
+- a remediation pull request must link back to its authoritative work-item issue
+- the authoritative work-item issue must carry the current linked pull-request
+  reference when one exists
+- if a linked remediation pull request merges successfully, the work item moves
+  to `completed`
+- if a linked remediation pull request closes unmerged, the work item must move
+  back to `approved` or `blocked` based on failure outcome classification
+- the first implementation slice should keep this failure classification
+  explicit and bounded rather than infer broad semantics from arbitrary pull
+  request closure events
+
+##### Phase 5b.1 Locked Defaults
+
+Failure classification on unmerged pull-request close:
+
+- if a remediation pull request is closed unmerged after validation or fix
+  generation failure, move the work item to `blocked`
+- if a remediation pull request is closed unmerged because publication failed
+  after branch push or another transport-side failure prevented a clean
+  remediation handoff, move the work item to `blocked`
+- if a remediation pull request is manually closed by an operator without
+  signaling that the work item is permanently dismissed, move the work item
+  back to `approved`
+- if a remediation pull request is superseded by a newer remediation pull
+  request for the same work item, keep the work item active and linked to the
+  newer pull request rather than treating the old close as terminal
+
+Work-item kind set:
+
+- lock `5b.1` to a single kind: remediation work item
+- do not generalize kind-specific behavior until a second real work-item kind
+  exists in code
+
+Source identity normalization:
+
+- define the first provider-neutral source identity from:
+  - producer source name
+  - producer-stable item key
+  - repository scope when needed by the producer
+- for Sonar-derived work, the stable source key should use the Sonar issue key
+  rather than mutable presentation fields such as title text or severity labels
+- branch names, issue titles, and rendered issue bodies must not participate in
+  the canonical reuse key
+
+Work-item title rendering:
+
+- titles are provider-local display output only and are not authoritative for
+  reuse or identity
+- the first GitHub work-item title should stay compact and consistent:
+  - fixed prefix identifying ZeroOne Ops ownership
+  - short human summary of the remediation target
+  - no machine-only identifiers in the visible title unless needed for operator
+    disambiguation
+
+Minimal label set:
+
+- keep the first GitHub label set intentionally small
+- the first slice should map canonical work-item state onto only the minimum
+  operational labels:
+  - one ownership label for ZeroOne Ops-managed work items
+  - one status label derived from canonical work-item status
+  - optional producer label when it materially helps operator filtering
+- do not encode full business logic in labels and do not require labels for any
+  field already present in canonical work-item state
+
+Creation timing:
+
+- create or update the authoritative GitHub work-item issue at the moment a
+  candidate is promoted into durable coordination state
+- do not wait for remediation pull-request creation to succeed before creating
+  the work item
+- after pull-request creation succeeds, update the authoritative work item with
+  the linked pull-request reference
+- this keeps failure reporting visible even when remediation execution does not
+  reach successful pull-request publication
 
 #### Phase 5c: GitHub Status Projection
 

@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from zeroone_ops.models.change_request import ChangeRequestInfo
+from zeroone_ops.models.change_request import ChangeRequestInfo, ChangeRequestState
 from zeroone_ops.models.config import GitHubConnectionConfig
 
 
@@ -87,6 +87,34 @@ class GitHubClient:
         )
         return _normalize_pull_request_info(payload)
 
+    def get_change_request_state(
+        self,
+        *,
+        repository_id: str,
+        change_request_number: int,
+    ) -> ChangeRequestState:
+        """Fetch one GitHub pull-request state using provider-neutral naming."""
+        return self.get_pull_request_state(
+            repository_id=repository_id,
+            pull_request_number=change_request_number,
+        )
+
+    def get_pull_request_state(
+        self,
+        *,
+        repository_id: str,
+        pull_request_number: int,
+    ) -> ChangeRequestState:
+        """Fetch one GitHub pull-request state for reconciliation."""
+        response = self._http_client.get(
+            _repository_path(repository_id, f"pulls/{pull_request_number}")
+        )
+        payload = _parse_dict_response(
+            response,
+            error_message="Unexpected GitHub pull request state payload.",
+        )
+        return _normalize_pull_request_state(payload)
+
     def add_issue_labels(
         self,
         *,
@@ -143,6 +171,39 @@ def _normalize_pull_request_info(payload: dict[str, Any]) -> ChangeRequestInfo:
     if not isinstance(title, str):
         raise GitHubClientError("Unexpected GitHub pull request title.")
     return ChangeRequestInfo(iid=number, web_url=web_url, title=title)
+
+
+def _normalize_pull_request_state(payload: dict[str, Any]) -> ChangeRequestState:
+    """Normalize one GitHub pull-request payload into shared reconciliation state."""
+    number = payload.get("number")
+    web_url = payload.get("html_url")
+    state = payload.get("state")
+    merged_at = payload.get("merged_at")
+    head = payload.get("head")
+    if not isinstance(number, int):
+        raise GitHubClientError("Unexpected GitHub pull request number.")
+    if not isinstance(web_url, str):
+        raise GitHubClientError("Unexpected GitHub pull request URL.")
+    if not isinstance(state, str):
+        raise GitHubClientError("Unexpected GitHub pull request state.")
+    if not isinstance(head, dict):
+        raise GitHubClientError("Unexpected GitHub pull request head payload.")
+    source_branch = head.get("ref")
+    head_sha = head.get("sha")
+    if not isinstance(source_branch, str):
+        raise GitHubClientError("Unexpected GitHub pull request source branch.")
+    if not isinstance(head_sha, str):
+        raise GitHubClientError("Unexpected GitHub pull request head SHA.")
+    normalized_state = (
+        "merged" if merged_at is not None else ("opened" if state == "open" else state)
+    )
+    return ChangeRequestState(
+        iid=number,
+        web_url=web_url,
+        source_branch=source_branch,
+        head_sha=head_sha,
+        state=normalized_state,
+    )
 
 
 def _parse_dict_response(

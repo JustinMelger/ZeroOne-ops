@@ -1,18 +1,18 @@
-"""Publish service.
-
-This module owns branch push and provider-backed change-request publication.
-"""
+"""Publish service."""
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
+from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import (
     RemediationExecutionTarget,
     remediation_profile_for,
 )
+from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.services.remediation.change_request_publisher import (
@@ -20,10 +20,16 @@ from zeroone_ops.services.remediation.change_request_publisher import (
     RemediationChangeRequestPublisher,
     build_remediation_change_request_publisher,
 )
+from zeroone_ops.services.remediation.control_plane import (
+    RemediationControlPlane,
+    build_remediation_control_plane,
+)
 from zeroone_ops.services.shared.branch_manager import (
     BranchManager,
     BranchManagerError,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -50,6 +56,7 @@ class PublishService:
         config: AppConfig,
         branch_manager: BranchManager,
         change_request_publisher: RemediationChangeRequestPublisher | None = None,
+        remediation_control_plane: RemediationControlPlane | None = None,
     ) -> None:
         """Initialize the publish service.
 
@@ -57,10 +64,13 @@ class PublishService:
             config: Loaded application configuration.
             branch_manager: Branch manager implementation.
             change_request_publisher: Optional provider-local publisher override.
+            remediation_control_plane: Optional provider-local control-plane override.
         """
         self.config = config
         self.branch_manager = branch_manager
         self.change_request_publisher = change_request_publisher
+        self._remediation_control_plane_override = remediation_control_plane
+        self._remediation_control_plane: RemediationControlPlane | None = None
 
     def publish(
         self,
@@ -76,6 +86,7 @@ class PublishService:
             return PublishResult(
                 error_message="Publish failed: change request description is required."
             )
+        control_plane_work_item = None
         try:
             labels, assignee_username = self._publication_options()
             target_branch = self.config.require_remediation_target_branch(
@@ -83,6 +94,9 @@ class PublishService:
             )
             publisher = self.change_request_publisher or build_remediation_change_request_publisher(
                 self.config
+            )
+            control_plane_work_item = self._mark_control_plane_publish_started_best_effort(
+                selected_issue=selected_issue,
             )
             pushed_branch = self.branch_manager.push_current_branch()
             published_change_request = publisher.publish(
@@ -101,7 +115,17 @@ class PublishService:
                     assignee_username=assignee_username,
                 )
             )
+            self._sync_control_plane_change_request_link_best_effort(
+                selected_issue=selected_issue,
+                published_change_request=published_change_request.info,
+                existing_work_item=control_plane_work_item,
+            )
         except (BranchManagerError, GitLabClientError, GitHubClientError, RuntimeError) as error:
+            self._mark_control_plane_blocked_best_effort(
+                selected_issue=selected_issue,
+                existing_work_item=control_plane_work_item,
+                original_error=error,
+            )
             return PublishResult(error_message=f"Publish failed: {error}")
         return PublishResult(
             branch_name=pushed_branch,
@@ -177,3 +201,69 @@ class PublishService:
                 workflow_github_config.pull_request_assignee_username,
             )
         return ([], None)
+
+    def _remediation_control_plane_instance(self) -> RemediationControlPlane:
+        """Return the provider-local remediation control plane, building defaults lazily."""
+        if self._remediation_control_plane_override is not None:
+            return self._remediation_control_plane_override
+        if self._remediation_control_plane is None:
+            self._remediation_control_plane = build_remediation_control_plane(self.config)
+        return self._remediation_control_plane
+
+    def _mark_control_plane_publish_started_best_effort(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+    ) -> WorkItemState | None:
+        """Project publish-start state without blocking change-request publication."""
+        try:
+            return self._remediation_control_plane_instance().mark_publish_started(
+                selected_issue=selected_issue,
+            )
+        except (GitHubClientError, RuntimeError):
+            LOGGER.warning(
+                "Remediation control-plane publish-start sync failed before publish",
+                exc_info=True,
+            )
+            return None
+
+    def _sync_control_plane_change_request_link_best_effort(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        published_change_request: ChangeRequestInfo,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Sync the published change request onto control-plane state without altering success."""
+        try:
+            self._remediation_control_plane_instance().sync_change_request_link(
+                selected_issue=selected_issue,
+                published_change_request=published_change_request,
+                existing_work_item=existing_work_item,
+            )
+        except (GitHubClientError, RuntimeError):
+            LOGGER.warning(
+                "Remediation control-plane change-request sync failed after publish",
+                extra={"change_request_url": published_change_request.web_url},
+                exc_info=True,
+            )
+
+    def _mark_control_plane_blocked_best_effort(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+        original_error: Exception,
+    ) -> None:
+        """Mark control-plane state as blocked without overwriting the original publish error."""
+        try:
+            self._remediation_control_plane_instance().mark_publish_blocked(
+                selected_issue=selected_issue,
+                existing_work_item=existing_work_item,
+            )
+        except (GitHubClientError, RuntimeError):
+            LOGGER.warning(
+                "Remediation control-plane blocked-state cleanup failed after publish failure",
+                extra={"original_error": str(original_error)},
+                exc_info=True,
+            )

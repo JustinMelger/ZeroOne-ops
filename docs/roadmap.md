@@ -386,8 +386,23 @@ These are important, but intentionally not part of the immediate rollout phase.
   surfaces
 - define a producer-neutral promotion rule from candidate to GitHub work item
 - current lean: promote only candidates that need durable shared coordination
+- lock the first authoritative work-item record as one GitHub issue with one
+  bounded machine-readable state block
+- treat the remediation PR as linked execution state, not as the primary record
+- lock the first shared status set to `candidate`, `approved`, `in_progress`,
+  `blocked`, `completed`, and `dismissed`
+- first-slice promotion triggers:
+  - selected for remediation
+  - blocked and needs operator attention
+  - linked to an open remediation PR
+- do not promote retry-eligible items by default in the first slice
+- first operator control surface: labels and state on the authoritative issue,
+  not comment commands
+- first entry path: bot-created promoted work items only
 - keep non-promoted backlog visible through aggregated inventory rather than
   one GitHub issue per candidate
+- lock first-slice backlog visibility to derived aggregate counts only, not
+  another authoritative per-item surface
 - do not materialize every raw producer finding as a GitHub issue
 
 - [ ] Phase 5c: GitHub Status Projection
