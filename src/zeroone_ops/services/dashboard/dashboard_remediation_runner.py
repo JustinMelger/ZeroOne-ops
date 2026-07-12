@@ -180,6 +180,10 @@ class DashboardRemediationRunner:
                 retry_block_reason=None,
             )
             if in_progress_result.error_message is not None:
+                self._mark_execution_blocked_best_effort(
+                    work_item=work_item,
+                    existing_work_item=promoted_work_item,
+                )
                 return self._fail_dashboard_update(
                     record=record,
                     dashboard_item_id=work_item.dashboard_item_id,

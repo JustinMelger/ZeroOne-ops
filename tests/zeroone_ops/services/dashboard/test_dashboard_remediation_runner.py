@@ -409,3 +409,87 @@ def test_runner_ignores_promotion_materialization_failure(
 
     assert summary.status.value == "selected"
     assert len(control_plane.calls) == 1
+
+
+def test_runner_blocks_promoted_work_item_when_dashboard_start_update_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_state_service, state = build_run_state_service(tmp_path)
+    record = run_state_service.start_run("run-1")
+    control_plane = StubRemediationControlPlane()
+    selected_item = build_selected_item()
+    work_item = build_work_item()
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        lambda self, project_id, state: type(
+            "DashboardIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.dashboard.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        lambda self, item: type(
+            "NormalizationResult",
+            (),
+            {
+                "work_item": work_item,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.remediation.remediation_context_builder."
+        "RemediationContextBuilder.build",
+        lambda self, item: IssueContext(
+            issue_key=item.dashboard_item_id,
+            file_path=item.file_path,
+            line=item.line,
+            file_size_bytes=12,
+            snippet=CodeContextSnippet(start_line=40, end_line=44, content="42: value = value"),
+            full_file_included=True,
+            truncated=False,
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.dashboard.dashboard_remediation_updater."
+        "DashboardRemediationUpdater.mark_in_progress",
+        lambda self, **kwargs: type(
+            "UpdateResult",
+            (),
+            {
+                "dashboard_issue_url": None,
+                "updated_item": selected_item,
+                "error_message": "dashboard write failed",
+            },
+        )(),
+    )
+
+    summary = DashboardRemediationRunner(
+        repo_root=tmp_path,
+        config=build_config(),
+        dashboard_service=cast(DashboardService, DummyDashboardService()),
+        run_state_service=run_state_service,
+        remediation_control_plane=control_plane,
+    ).run(
+        project_id="123",
+        state=state,
+        run_id="run-1",
+        record=record,
+        active_dry_run=False,
+    )
+
+    assert summary.status.value == "failed"
+    assert "Dashboard lifecycle update failed" in summary.message
+    assert len(control_plane.calls) == 1
+    assert len(control_plane.blocked_calls) == 1
+    blocked_issue, blocked_work_item = control_plane.blocked_calls[0]
+    assert blocked_issue.source_ref == "AX123"
+    assert blocked_work_item is not None
+    assert blocked_work_item.work_item_id == "work-1"
