@@ -257,7 +257,7 @@ class PublishService:
     ) -> None:
         """Mark control-plane state as blocked without overwriting the original publish error."""
         try:
-            self._remediation_control_plane_instance().mark_publish_blocked(
+            self._remediation_control_plane_instance().mark_execution_blocked(
                 selected_issue=selected_issue,
                 existing_work_item=existing_work_item,
             )

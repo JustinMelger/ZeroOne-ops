@@ -151,6 +151,17 @@ class StubRemediationControlPlane(RemediationControlPlane):
         if self.error_on_call == len(self.calls):
             raise RuntimeError("work item sync failed")
 
+    def mark_execution_blocked(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        self.mark_publish_blocked(
+            selected_issue=selected_issue,
+            existing_work_item=existing_work_item,
+        )
+
     def sync_change_request_link(
         self,
         *,

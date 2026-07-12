@@ -47,6 +47,14 @@ class RemediationControlPlane(Protocol):
     ) -> WorkItemState | None:
         """Record that remediation publish has started."""
 
+    def mark_execution_blocked(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Best-effort transition after a promoted remediation flow fails early."""
+
     def mark_publish_blocked(
         self,
         *,
@@ -86,6 +94,15 @@ class NoOpRemediationControlPlane:
         """Ignore publish-start projection when no control plane is active."""
         del selected_issue
         return None
+
+    def mark_execution_blocked(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Ignore blocked-state projection when no control plane is active."""
+        del selected_issue, existing_work_item
 
     def mark_publish_blocked(
         self,
@@ -163,6 +180,18 @@ class GitHubRemediationControlPlane:
         existing_work_item: WorkItemState | None,
     ) -> None:
         """Best-effort transition of GitHub work-item state after publish failure."""
+        self.mark_execution_blocked(
+            selected_issue=selected_issue,
+            existing_work_item=existing_work_item,
+        )
+
+    def mark_execution_blocked(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Best-effort transition of GitHub work-item state after a failed execution path."""
         if existing_work_item is None:
             return
         try:

@@ -15,7 +15,7 @@ from zeroone_ops.models.config import (
 from zeroone_ops.models.dashboard import DashboardItem
 from zeroone_ops.models.remediation import RemediationExecutionTarget, RemediationWorkItem
 from zeroone_ops.models.state import AppState, RepositoryState
-from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
 from zeroone_ops.services.control_plane.remediation_work_item_promotion_service import (
     RemediationWorkItemPromotionContext,
 )
@@ -34,6 +34,7 @@ class DummyDashboardService:
 class StubRemediationControlPlane:
     def __init__(self, *, raise_on_materialize: bool = False) -> None:
         self.calls: list[tuple[RemediationWorkItem, RemediationWorkItemPromotionContext]] = []
+        self.blocked_calls: list[tuple[RemediationExecutionTarget, WorkItemState | None]] = []
         self.raise_on_materialize = raise_on_materialize
 
     def materialize_promoted_work_item(
@@ -41,10 +42,24 @@ class StubRemediationControlPlane:
         *,
         work_item: RemediationWorkItem,
         promotion_context: RemediationWorkItemPromotionContext,
-    ) -> None:
+    ) -> WorkItemState | None:
         self.calls.append((work_item, promotion_context))
         if self.raise_on_materialize:
             raise RuntimeError("promotion materialization failed")
+        return WorkItemState(
+            work_item_id="work-1",
+            kind="remediation",
+            status="approved",
+            source=WorkItemSourceRef(
+                source=work_item.source_type,
+                source_item_key=work_item.source_ref,
+                repository_scope="octo-org/octo-repo",
+            ),
+            summary=work_item.title,
+            severity=work_item.severity,
+            file_path=work_item.file_path,
+            line=work_item.line,
+        )
 
     def mark_publish_started(
         self,
@@ -61,6 +76,14 @@ class StubRemediationControlPlane:
         existing_work_item: WorkItemState | None,
     ) -> None:
         del selected_issue, existing_work_item
+
+    def mark_execution_blocked(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        self.blocked_calls.append((selected_issue, existing_work_item))
 
     def sync_change_request_link(
         self,
@@ -291,6 +314,11 @@ def test_runner_materializes_before_context_failure_on_live_execution(
     assert summary.status.value == "failed"
     assert "Context unavailable" in summary.message
     assert len(control_plane.calls) == 1
+    assert len(control_plane.blocked_calls) == 1
+    blocked_issue, blocked_work_item = control_plane.blocked_calls[0]
+    assert blocked_issue.source_ref == "AX123"
+    assert blocked_work_item is not None
+    assert blocked_work_item.work_item_id == "work-1"
 
 
 def test_runner_ignores_promotion_materialization_failure(

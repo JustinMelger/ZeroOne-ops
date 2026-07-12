@@ -6,7 +6,9 @@ import logging
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
+from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RunRecord
+from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.services.control_plane.remediation_work_item_promotion_service import (
     RemediationWorkItemPromotionContext,
 )
@@ -25,7 +27,6 @@ from zeroone_ops.services.remediation.control_plane import (
     build_remediation_control_plane,
 )
 from zeroone_ops.services.remediation.execution_service import ExecutionService
-from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.services.remediation.remediation_context_builder import (
     RemediationContextBuilder,
 )
@@ -129,8 +130,9 @@ class DashboardRemediationRunner:
 
         work_item = normalization_result.work_item
         live_dashboard_updates = not active_dry_run and self.config.execution_mode == "ci"
+        promoted_work_item = None
         if live_dashboard_updates:
-            self._materialize_promoted_work_item_best_effort(
+            promoted_work_item = self._materialize_promoted_work_item_best_effort(
                 work_item=work_item,
                 promotion_context=RemediationWorkItemPromotionContext(
                     selected_for_remediation=True,
@@ -139,6 +141,10 @@ class DashboardRemediationRunner:
         context = RemediationContextBuilder(self.repo_root, self.config).build(work_item)
         if context is None:
             message = f"Context unavailable for dashboard item {work_item.dashboard_item_id}."
+            self._mark_execution_blocked_best_effort(
+                work_item=work_item,
+                existing_work_item=promoted_work_item,
+            )
             if not active_dry_run:
                 DashboardRemediationUpdater(self.dashboard_service).mark_failed(
                     project_id=project_id,
@@ -197,6 +203,10 @@ class DashboardRemediationRunner:
         record.commit_sha = execution_result.commit_sha
 
         if execution_result.failure is not None:
+            self._mark_execution_blocked_best_effort(
+                work_item=work_item,
+                existing_work_item=promoted_work_item,
+            )
             if live_dashboard_updates:
                 failed_update = DashboardRemediationUpdater(self.dashboard_service).mark_failed(
                     project_id=project_id,
@@ -347,16 +357,36 @@ class DashboardRemediationRunner:
         *,
         work_item: RemediationWorkItem,
         promotion_context: RemediationWorkItemPromotionContext,
-    ) -> None:
+    ) -> WorkItemState | None:
         """Project promoted work-item state without blocking remediation execution."""
         try:
-            self._remediation_control_plane_instance().materialize_promoted_work_item(
+            return self._remediation_control_plane_instance().materialize_promoted_work_item(
                 work_item=work_item,
                 promotion_context=promotion_context,
             )
         except Exception:
             LOGGER.warning(
                 "Remediation control-plane promotion materialization failed before execution",
+                extra={"dashboard_item_id": work_item.dashboard_item_id},
+                exc_info=True,
+            )
+            return None
+
+    def _mark_execution_blocked_best_effort(
+        self,
+        *,
+        work_item: RemediationWorkItem,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Project blocked work-item state without altering the primary failure result."""
+        try:
+            self._remediation_control_plane_instance().mark_execution_blocked(
+                selected_issue=remediation_work_item_to_execution_target(work_item),
+                existing_work_item=existing_work_item,
+            )
+        except Exception:
+            LOGGER.warning(
+                "Remediation control-plane blocked-state sync failed before publish",
                 extra={"dashboard_item_id": work_item.dashboard_item_id},
                 exc_info=True,
             )
