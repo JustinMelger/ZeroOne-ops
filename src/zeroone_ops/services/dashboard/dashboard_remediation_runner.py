@@ -6,6 +6,9 @@ from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RunRecord
+from zeroone_ops.services.control_plane.remediation_work_item_promotion_service import (
+    RemediationWorkItemPromotionContext,
+)
 from zeroone_ops.services.dashboard.dashboard_item_intake import (
     DashboardItemIntakeService,
 )
@@ -16,6 +19,10 @@ from zeroone_ops.services.dashboard.dashboard_remediation_updater import (
     DashboardRemediationUpdater,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
+from zeroone_ops.services.remediation.control_plane import (
+    RemediationControlPlane,
+    build_remediation_control_plane,
+)
 from zeroone_ops.services.remediation.execution_service import ExecutionService
 from zeroone_ops.services.remediation.remediation_context_builder import (
     RemediationContextBuilder,
@@ -39,12 +46,15 @@ class DashboardRemediationRunner:
         config: AppConfig,
         dashboard_service: DashboardService,
         run_state_service: RunStateService,
+        remediation_control_plane: RemediationControlPlane | None = None,
     ) -> None:
         """Initialize the remediation workflow runner."""
         self.repo_root = repo_root
         self.config = config
         self.dashboard_service = dashboard_service
         self.run_state_service = run_state_service
+        self._remediation_control_plane_override = remediation_control_plane
+        self._remediation_control_plane: RemediationControlPlane | None = None
 
     def run(
         self,
@@ -114,6 +124,14 @@ class DashboardRemediationRunner:
             )
 
         work_item = normalization_result.work_item
+        live_dashboard_updates = not active_dry_run and self.config.execution_mode == "ci"
+        if live_dashboard_updates:
+            self._remediation_control_plane_instance().materialize_promoted_work_item(
+                work_item=work_item,
+                promotion_context=RemediationWorkItemPromotionContext(
+                    selected_for_remediation=True,
+                ),
+            )
         context = RemediationContextBuilder(self.repo_root, self.config).build(work_item)
         if context is None:
             message = f"Context unavailable for dashboard item {work_item.dashboard_item_id}."
@@ -137,7 +155,6 @@ class DashboardRemediationRunner:
                 ),
             )
 
-        live_dashboard_updates = not active_dry_run and self.config.execution_mode == "ci"
         retry_count = intake_result.selected_item.retry_count or 0
         if intake_result.selected_item.retry_eligible:
             retry_count += 1
@@ -312,6 +329,14 @@ class DashboardRemediationRunner:
                 message=message,
             ),
         )
+
+    def _remediation_control_plane_instance(self) -> RemediationControlPlane:
+        """Return the remediation control plane, building defaults lazily."""
+        if self._remediation_control_plane_override is not None:
+            return self._remediation_control_plane_override
+        if self._remediation_control_plane is None:
+            self._remediation_control_plane = build_remediation_control_plane(self.config)
+        return self._remediation_control_plane
 
 
 def _with_dashboard_recovery_note(
