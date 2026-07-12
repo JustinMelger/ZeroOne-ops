@@ -602,6 +602,8 @@ Guardrail:
 - define item-level lifecycle and issue/PR linkage
 - design operator control interaction on the authoritative item surfaces
 - define the promotion rule from producer candidate to GitHub work item
+- implement the first promotion rule as shared control-plane domain logic, not
+  provider-local GitHub transport logic
 - do not materialize every raw producer finding as a GitHub issue
 - keep GitHub work-item volume bounded across multiple producers
 - current lean: treat operator relevance as a coordination threshold rather than
@@ -651,6 +653,7 @@ Guardrail:
   the pull request as the source of truth
 - narrow the first implementation slice to:
   - shared work-item domain models
+  - shared remediation work-item promotion decision service
   - provider-local GitHub work-item issue renderer and parser
   - bot-created promoted work items only
   - one linked remediation pull-request reference
@@ -661,6 +664,34 @@ Guardrail:
   - no fake generic adapter that hides real GitHub/GitLab transport differences
 
 ##### Phase 5b.1 Invariants
+
+Promotion-decision contract:
+
+- the first shared promotion service must evaluate normalized
+  `RemediationWorkItem` candidates rather than raw dashboard items or already
+  selected execution targets
+- the first service contract should stay narrow:
+  - input: one normalized remediation work item plus bounded promotion context
+  - output: `promote` or `backlog_only` plus one stable reason
+- the first bounded promotion context should include only:
+  - `selected_for_remediation`
+  - `blocked_requires_attention`
+  - `linked_change_request_open`
+- do not include provider-local GitHub flags, severity thresholds, or summary
+  rendering fields in the first shared promotion contract
+- the first reason set should stay bounded to:
+  - `selected_for_remediation`
+  - `blocked_requires_attention`
+  - `linked_change_request_open`
+  - `default_backlog_only`
+- when multiple promotion triggers are true, use stable precedence so tests and
+  later summaries remain deterministic:
+  - `selected_for_remediation`
+  - `blocked_requires_attention`
+  - `linked_change_request_open`
+- the first consumer of this decision should be the candidate-to-GitHub
+  work-item materialization boundary, not the publish path, because publish is
+  already a promoted execution path
 
 Status ownership:
 
