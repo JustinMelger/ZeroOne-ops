@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
+from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RunRecord
+from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.services.control_plane.remediation_work_item_promotion_service import (
+    RemediationWorkItemPromotionContext,
+)
 from zeroone_ops.services.dashboard.dashboard_item_intake import (
     DashboardItemIntakeService,
 )
@@ -16,6 +22,10 @@ from zeroone_ops.services.dashboard.dashboard_remediation_updater import (
     DashboardRemediationUpdater,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
+from zeroone_ops.services.remediation.control_plane import (
+    RemediationControlPlane,
+    build_remediation_control_plane,
+)
 from zeroone_ops.services.remediation.execution_service import ExecutionService
 from zeroone_ops.services.remediation.remediation_context_builder import (
     RemediationContextBuilder,
@@ -28,6 +38,8 @@ from zeroone_ops.services.shared.run_state_service import (
     RunSummary,
 )
 
+LOGGER = logging.getLogger(__name__)
+
 
 class DashboardRemediationRunner:
     """Run the dashboard remediation workflow with injected dependencies."""
@@ -39,12 +51,15 @@ class DashboardRemediationRunner:
         config: AppConfig,
         dashboard_service: DashboardService,
         run_state_service: RunStateService,
+        remediation_control_plane: RemediationControlPlane | None = None,
     ) -> None:
         """Initialize the remediation workflow runner."""
         self.repo_root = repo_root
         self.config = config
         self.dashboard_service = dashboard_service
         self.run_state_service = run_state_service
+        self._remediation_control_plane_override = remediation_control_plane
+        self._remediation_control_plane: RemediationControlPlane | None = None
 
     def run(
         self,
@@ -114,9 +129,22 @@ class DashboardRemediationRunner:
             )
 
         work_item = normalization_result.work_item
+        live_dashboard_updates = not active_dry_run and self.config.execution_mode == "ci"
+        promoted_work_item = None
+        if live_dashboard_updates:
+            promoted_work_item = self._materialize_promoted_work_item_best_effort(
+                work_item=work_item,
+                promotion_context=RemediationWorkItemPromotionContext(
+                    selected_for_remediation=True,
+                ),
+            )
         context = RemediationContextBuilder(self.repo_root, self.config).build(work_item)
         if context is None:
             message = f"Context unavailable for dashboard item {work_item.dashboard_item_id}."
+            self._mark_execution_blocked_best_effort(
+                work_item=work_item,
+                existing_work_item=promoted_work_item,
+            )
             if not active_dry_run:
                 DashboardRemediationUpdater(self.dashboard_service).mark_failed(
                     project_id=project_id,
@@ -137,7 +165,6 @@ class DashboardRemediationRunner:
                 ),
             )
 
-        live_dashboard_updates = not active_dry_run and self.config.execution_mode == "ci"
         retry_count = intake_result.selected_item.retry_count or 0
         if intake_result.selected_item.retry_eligible:
             retry_count += 1
@@ -153,6 +180,10 @@ class DashboardRemediationRunner:
                 retry_block_reason=None,
             )
             if in_progress_result.error_message is not None:
+                self._mark_execution_blocked_best_effort(
+                    work_item=work_item,
+                    existing_work_item=promoted_work_item,
+                )
                 return self._fail_dashboard_update(
                     record=record,
                     dashboard_item_id=work_item.dashboard_item_id,
@@ -176,6 +207,10 @@ class DashboardRemediationRunner:
         record.commit_sha = execution_result.commit_sha
 
         if execution_result.failure is not None:
+            self._mark_execution_blocked_best_effort(
+                work_item=work_item,
+                existing_work_item=promoted_work_item,
+            )
             if live_dashboard_updates:
                 failed_update = DashboardRemediationUpdater(self.dashboard_service).mark_failed(
                     project_id=project_id,
@@ -208,6 +243,10 @@ class DashboardRemediationRunner:
             execution_result.final_status is not None
             and execution_result.final_status.value == "rejected"
         ):
+            self._mark_execution_dismissed_best_effort(
+                work_item=work_item,
+                existing_work_item=promoted_work_item,
+            )
             if live_dashboard_updates:
                 rejected_update = DashboardRemediationUpdater(self.dashboard_service).mark_rejected(
                     project_id=project_id,
@@ -273,6 +312,11 @@ class DashboardRemediationRunner:
                 branch_name=execution_result.branch_name,
                 change_request_url=change_request_url,
             )
+        elif live_dashboard_updates:
+            self._mark_execution_completed_best_effort(
+                work_item=work_item,
+                existing_work_item=promoted_work_item,
+            )
 
         self.run_state_service.dashboard.finish_success()
         return self.run_state_service.build_summary(
@@ -312,6 +356,91 @@ class DashboardRemediationRunner:
                 message=message,
             ),
         )
+
+    def _remediation_control_plane_instance(self) -> RemediationControlPlane:
+        """Return the remediation control plane, building defaults lazily."""
+        if self._remediation_control_plane_override is not None:
+            return self._remediation_control_plane_override
+        if self._remediation_control_plane is None:
+            self._remediation_control_plane = build_remediation_control_plane(self.config)
+        return self._remediation_control_plane
+
+    def _materialize_promoted_work_item_best_effort(
+        self,
+        *,
+        work_item: RemediationWorkItem,
+        promotion_context: RemediationWorkItemPromotionContext,
+    ) -> WorkItemState | None:
+        """Project promoted work-item state without blocking remediation execution."""
+        try:
+            return self._remediation_control_plane_instance().materialize_promoted_work_item(
+                work_item=work_item,
+                promotion_context=promotion_context,
+            )
+        except Exception:
+            LOGGER.warning(
+                "Remediation control-plane promotion materialization failed before execution",
+                extra={"dashboard_item_id": work_item.dashboard_item_id},
+                exc_info=True,
+            )
+            return None
+
+    def _mark_execution_blocked_best_effort(
+        self,
+        *,
+        work_item: RemediationWorkItem,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Project blocked work-item state without altering the primary failure result."""
+        try:
+            self._remediation_control_plane_instance().mark_execution_blocked(
+                selected_issue=remediation_work_item_to_execution_target(work_item),
+                existing_work_item=existing_work_item,
+            )
+        except Exception:
+            LOGGER.warning(
+                "Remediation control-plane blocked-state sync failed before publish",
+                extra={"dashboard_item_id": work_item.dashboard_item_id},
+                exc_info=True,
+            )
+
+    def _mark_execution_dismissed_best_effort(
+        self,
+        *,
+        work_item: RemediationWorkItem,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Project dismissed work-item state without altering the primary rejection result."""
+        try:
+            self._remediation_control_plane_instance().mark_execution_dismissed(
+                selected_issue=remediation_work_item_to_execution_target(work_item),
+                existing_work_item=existing_work_item,
+            )
+        except Exception:
+            LOGGER.warning(
+                "Remediation control-plane dismissed-state sync failed after rejection",
+                extra={"dashboard_item_id": work_item.dashboard_item_id},
+                exc_info=True,
+            )
+
+    def _mark_execution_completed_best_effort(
+        self,
+        *,
+        work_item: RemediationWorkItem,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Project completed work-item state without altering the primary success result."""
+        try:
+            self._remediation_control_plane_instance().mark_execution_completed(
+                selected_issue=remediation_work_item_to_execution_target(work_item),
+                existing_work_item=existing_work_item,
+            )
+        except Exception:
+            LOGGER.warning(
+                "Remediation control-plane completed-state sync failed after successful execution",
+                extra={"dashboard_item_id": work_item.dashboard_item_id},
+                exc_info=True,
+            )
 
 
 def _with_dashboard_recovery_note(
