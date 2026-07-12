@@ -394,7 +394,6 @@ These are important, but intentionally not part of the immediate rollout phase.
 - first-slice promotion triggers:
   - selected for remediation
   - blocked and needs operator attention
-  - explicitly acted on by an operator
   - linked to an open remediation PR
 - do not promote retry-eligible items by default in the first slice
 - first operator control surface: labels and state on the authoritative issue,
@@ -402,6 +401,8 @@ These are important, but intentionally not part of the immediate rollout phase.
 - first entry path: bot-created promoted work items only
 - keep non-promoted backlog visible through aggregated inventory rather than
   one GitHub issue per candidate
+- lock first-slice backlog visibility to derived aggregate counts only, not
+  another authoritative per-item surface
 - do not materialize every raw producer finding as a GitHub issue
 
 - [ ] Phase 5c: GitHub Status Projection

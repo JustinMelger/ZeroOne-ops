@@ -635,9 +635,12 @@ Guardrail:
   coordination in the first slice, specifically when it:
   - is selected for remediation
   - becomes blocked and needs human attention
-  - is acted on explicitly by an operator
   - is linked to an open remediation pull request
 - do not promote retry-eligible items by default in the first slice
+- keep non-promoted backlog visibility aggregate-only in `5b.1`:
+  - derived counts or grouped summary are allowed
+  - no second authoritative per-item surface is allowed outside promoted
+    GitHub work-item issues
 - keep the first operator control surface label- and state-driven on the
   authoritative issue; do not add comment-command mutation on work items yet
 - keep the first work-item entry path bot-created only; operator-authored
