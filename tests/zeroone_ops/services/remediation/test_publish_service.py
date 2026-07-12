@@ -9,8 +9,11 @@ from zeroone_ops.models.config import (
     GitLabConfig,
     RemediationConfig,
 )
-from zeroone_ops.models.remediation import RemediationExecutionTarget
+from zeroone_ops.models.remediation import RemediationExecutionTarget, RemediationWorkItem
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, WorkItemState
+from zeroone_ops.services.control_plane.remediation_work_item_promotion_service import (
+    RemediationWorkItemPromotionContext,
+)
 from zeroone_ops.services.remediation import publish_service as publish_service_module
 from zeroone_ops.services.remediation.change_request_publisher import (
     ChangeRequestPublishRequest,
@@ -99,6 +102,15 @@ class StubRemediationControlPlane(RemediationControlPlane):
         self.error_on_call = error_on_call
         self.sync_error_message = sync_error_message
         self.blocked_error_message = blocked_error_message
+
+    def materialize_promoted_work_item(
+        self,
+        *,
+        work_item: RemediationWorkItem,
+        promotion_context: RemediationWorkItemPromotionContext,
+    ) -> WorkItemState | None:
+        del work_item, promotion_context
+        return None
 
     def mark_publish_started(
         self,
