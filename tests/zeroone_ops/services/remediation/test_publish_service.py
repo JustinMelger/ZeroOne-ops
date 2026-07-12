@@ -162,6 +162,22 @@ class StubRemediationControlPlane(RemediationControlPlane):
             existing_work_item=existing_work_item,
         )
 
+    def mark_execution_dismissed(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        del selected_issue, existing_work_item
+
+    def mark_execution_completed(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        del selected_issue, existing_work_item
+
     def sync_change_request_link(
         self,
         *,

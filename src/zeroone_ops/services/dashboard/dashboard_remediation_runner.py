@@ -243,7 +243,7 @@ class DashboardRemediationRunner:
             execution_result.final_status is not None
             and execution_result.final_status.value == "rejected"
         ):
-            self._mark_execution_blocked_best_effort(
+            self._mark_execution_dismissed_best_effort(
                 work_item=work_item,
                 existing_work_item=promoted_work_item,
             )
@@ -311,6 +311,11 @@ class DashboardRemediationRunner:
                 dashboard_item_id=work_item.dashboard_item_id,
                 branch_name=execution_result.branch_name,
                 change_request_url=change_request_url,
+            )
+        elif live_dashboard_updates:
+            self._mark_execution_completed_best_effort(
+                work_item=work_item,
+                existing_work_item=promoted_work_item,
             )
 
         self.run_state_service.dashboard.finish_success()
@@ -395,6 +400,44 @@ class DashboardRemediationRunner:
         except Exception:
             LOGGER.warning(
                 "Remediation control-plane blocked-state sync failed before publish",
+                extra={"dashboard_item_id": work_item.dashboard_item_id},
+                exc_info=True,
+            )
+
+    def _mark_execution_dismissed_best_effort(
+        self,
+        *,
+        work_item: RemediationWorkItem,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Project dismissed work-item state without altering the primary rejection result."""
+        try:
+            self._remediation_control_plane_instance().mark_execution_dismissed(
+                selected_issue=remediation_work_item_to_execution_target(work_item),
+                existing_work_item=existing_work_item,
+            )
+        except Exception:
+            LOGGER.warning(
+                "Remediation control-plane dismissed-state sync failed after rejection",
+                extra={"dashboard_item_id": work_item.dashboard_item_id},
+                exc_info=True,
+            )
+
+    def _mark_execution_completed_best_effort(
+        self,
+        *,
+        work_item: RemediationWorkItem,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Project completed work-item state without altering the primary success result."""
+        try:
+            self._remediation_control_plane_instance().mark_execution_completed(
+                selected_issue=remediation_work_item_to_execution_target(work_item),
+                existing_work_item=existing_work_item,
+            )
+        except Exception:
+            LOGGER.warning(
+                "Remediation control-plane completed-state sync failed after successful execution",
                 extra={"dashboard_item_id": work_item.dashboard_item_id},
                 exc_info=True,
             )

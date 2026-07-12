@@ -35,6 +35,8 @@ class StubRemediationControlPlane:
     def __init__(self, *, raise_on_materialize: bool = False) -> None:
         self.calls: list[tuple[RemediationWorkItem, RemediationWorkItemPromotionContext]] = []
         self.blocked_calls: list[tuple[RemediationExecutionTarget, WorkItemState | None]] = []
+        self.dismissed_calls: list[tuple[RemediationExecutionTarget, WorkItemState | None]] = []
+        self.completed_calls: list[tuple[RemediationExecutionTarget, WorkItemState | None]] = []
         self.raise_on_materialize = raise_on_materialize
 
     def materialize_promoted_work_item(
@@ -84,6 +86,22 @@ class StubRemediationControlPlane:
         existing_work_item: WorkItemState | None,
     ) -> None:
         self.blocked_calls.append((selected_issue, existing_work_item))
+
+    def mark_execution_dismissed(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        self.dismissed_calls.append((selected_issue, existing_work_item))
+
+    def mark_execution_completed(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        self.completed_calls.append((selected_issue, existing_work_item))
 
     def sync_change_request_link(
         self,
@@ -247,6 +265,11 @@ def test_runner_materializes_promoted_work_item_for_live_execution(
     assert promotion_context.selected_for_remediation is True
     assert promotion_context.blocked_requires_attention is False
     assert promotion_context.linked_change_request_open is False
+    assert len(control_plane.completed_calls) == 1
+    completed_issue, completed_work_item = control_plane.completed_calls[0]
+    assert completed_issue.source_ref == "AX123"
+    assert completed_work_item is not None
+    assert completed_work_item.work_item_id == "work-1"
 
 
 def test_runner_materializes_before_context_failure_on_live_execution(
@@ -495,7 +518,7 @@ def test_runner_blocks_promoted_work_item_when_dashboard_start_update_fails(
     assert blocked_work_item.work_item_id == "work-1"
 
 
-def test_runner_blocks_promoted_work_item_when_execution_is_rejected(
+def test_runner_dismisses_promoted_work_item_when_execution_is_rejected(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -593,8 +616,9 @@ def test_runner_blocks_promoted_work_item_when_execution_is_rejected(
     assert summary.status.value == "rejected"
     assert "Manual remediation required." in summary.message
     assert len(control_plane.calls) == 1
-    assert len(control_plane.blocked_calls) == 1
-    blocked_issue, blocked_work_item = control_plane.blocked_calls[0]
-    assert blocked_issue.source_ref == "AX123"
-    assert blocked_work_item is not None
-    assert blocked_work_item.work_item_id == "work-1"
+    assert len(control_plane.blocked_calls) == 0
+    assert len(control_plane.dismissed_calls) == 1
+    dismissed_issue, dismissed_work_item = control_plane.dismissed_calls[0]
+    assert dismissed_issue.source_ref == "AX123"
+    assert dismissed_work_item is not None
+    assert dismissed_work_item.work_item_id == "work-1"

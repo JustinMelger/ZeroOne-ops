@@ -55,6 +55,22 @@ class RemediationControlPlane(Protocol):
     ) -> None:
         """Best-effort transition after a promoted remediation flow fails early."""
 
+    def mark_execution_dismissed(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Best-effort transition after remediation is intentionally rejected."""
+
+    def mark_execution_completed(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Best-effort transition after remediation completes without a change request."""
+
     def mark_publish_blocked(
         self,
         *,
@@ -102,6 +118,24 @@ class NoOpRemediationControlPlane:
         existing_work_item: WorkItemState | None,
     ) -> None:
         """Ignore blocked-state projection when no control plane is active."""
+        del selected_issue, existing_work_item
+
+    def mark_execution_dismissed(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Ignore dismissed-state projection when no control plane is active."""
+        del selected_issue, existing_work_item
+
+    def mark_execution_completed(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Ignore completed-state projection when no control plane is active."""
         del selected_issue, existing_work_item
 
     def mark_publish_blocked(
@@ -198,6 +232,44 @@ class GitHubRemediationControlPlane:
             self._upsert_work_item(
                 selected_issue=selected_issue,
                 status="blocked",
+                linked_change_request=existing_work_item.linked_change_request,
+                existing_work_item=existing_work_item,
+            )
+        except (GitHubClientError, RuntimeError):
+            return
+
+    def mark_execution_dismissed(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Best-effort transition of GitHub work-item state after rejected remediation."""
+        if existing_work_item is None:
+            return
+        try:
+            self._upsert_work_item(
+                selected_issue=selected_issue,
+                status="dismissed",
+                linked_change_request=existing_work_item.linked_change_request,
+                existing_work_item=existing_work_item,
+            )
+        except (GitHubClientError, RuntimeError):
+            return
+
+    def mark_execution_completed(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+    ) -> None:
+        """Best-effort transition of GitHub work-item state after successful completion."""
+        if existing_work_item is None:
+            return
+        try:
+            self._upsert_work_item(
+                selected_issue=selected_issue,
+                status="completed",
                 linked_change_request=existing_work_item.linked_change_request,
                 existing_work_item=existing_work_item,
             )
