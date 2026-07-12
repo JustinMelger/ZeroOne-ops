@@ -32,8 +32,9 @@ class DummyDashboardService:
 
 
 class StubRemediationControlPlane:
-    def __init__(self) -> None:
+    def __init__(self, *, raise_on_materialize: bool = False) -> None:
         self.calls: list[tuple[RemediationWorkItem, RemediationWorkItemPromotionContext]] = []
+        self.raise_on_materialize = raise_on_materialize
 
     def materialize_promoted_work_item(
         self,
@@ -42,7 +43,8 @@ class StubRemediationControlPlane:
         promotion_context: RemediationWorkItemPromotionContext,
     ) -> None:
         self.calls.append((work_item, promotion_context))
-        return None
+        if self.raise_on_materialize:
+            raise RuntimeError("promotion materialization failed")
 
     def mark_publish_started(
         self,
@@ -288,4 +290,94 @@ def test_runner_materializes_before_context_failure_on_live_execution(
 
     assert summary.status.value == "failed"
     assert "Context unavailable" in summary.message
+    assert len(control_plane.calls) == 1
+
+
+def test_runner_ignores_promotion_materialization_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_state_service, state = build_run_state_service(tmp_path)
+    record = run_state_service.start_run("run-1")
+    control_plane = StubRemediationControlPlane(raise_on_materialize=True)
+    selected_item = build_selected_item()
+    work_item = build_work_item()
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
+        lambda self, project_id, state: type(
+            "DashboardIntakeResult",
+            (),
+            {
+                "selected_item": selected_item,
+                "item_count": 1,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.dashboard.dashboard_item_normalizer.DashboardItemNormalizer.normalize",
+        lambda self, item: type(
+            "NormalizationResult",
+            (),
+            {
+                "work_item": work_item,
+                "message": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.remediation.remediation_context_builder."
+        "RemediationContextBuilder.build",
+        lambda self, item: IssueContext(
+            issue_key=item.dashboard_item_id,
+            file_path=item.file_path,
+            line=item.line,
+            file_size_bytes=12,
+            snippet=CodeContextSnippet(start_line=40, end_line=44, content="42: value = value"),
+            full_file_included=True,
+            truncated=False,
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.dashboard.dashboard_remediation_updater."
+        "DashboardRemediationUpdater.mark_in_progress",
+        lambda self, **kwargs: type(
+            "UpdateResult",
+            (),
+            {"dashboard_issue_url": None, "updated_item": selected_item, "error_message": None},
+        )(),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.remediation.execution_service.ExecutionService.execute_with_context",
+        lambda self, selected_issue, context, dry_run: type(
+            "ExecutionResult",
+            (),
+            {
+                "failure": None,
+                "final_status": None,
+                "status_message": "Remediation completed.",
+                "branch_name": "zeroone-ops/ax123/service",
+                "commit_sha": "abc123",
+                "change_request_url": None,
+                "change_request_action": None,
+            },
+        )(),
+    )
+
+    summary = DashboardRemediationRunner(
+        repo_root=tmp_path,
+        config=build_config(),
+        dashboard_service=cast(DashboardService, DummyDashboardService()),
+        run_state_service=run_state_service,
+        remediation_control_plane=control_plane,
+    ).run(
+        project_id="123",
+        state=state,
+        run_id="run-1",
+        record=record,
+        active_dry_run=False,
+    )
+
+    assert summary.status.value == "selected"
     assert len(control_plane.calls) == 1

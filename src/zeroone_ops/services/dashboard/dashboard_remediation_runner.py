@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
@@ -24,6 +25,7 @@ from zeroone_ops.services.remediation.control_plane import (
     build_remediation_control_plane,
 )
 from zeroone_ops.services.remediation.execution_service import ExecutionService
+from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.services.remediation.remediation_context_builder import (
     RemediationContextBuilder,
 )
@@ -34,6 +36,8 @@ from zeroone_ops.services.shared.run_state_service import (
     RunStateService,
     RunSummary,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 class DashboardRemediationRunner:
@@ -126,7 +130,7 @@ class DashboardRemediationRunner:
         work_item = normalization_result.work_item
         live_dashboard_updates = not active_dry_run and self.config.execution_mode == "ci"
         if live_dashboard_updates:
-            self._remediation_control_plane_instance().materialize_promoted_work_item(
+            self._materialize_promoted_work_item_best_effort(
                 work_item=work_item,
                 promotion_context=RemediationWorkItemPromotionContext(
                     selected_for_remediation=True,
@@ -337,6 +341,25 @@ class DashboardRemediationRunner:
         if self._remediation_control_plane is None:
             self._remediation_control_plane = build_remediation_control_plane(self.config)
         return self._remediation_control_plane
+
+    def _materialize_promoted_work_item_best_effort(
+        self,
+        *,
+        work_item: RemediationWorkItem,
+        promotion_context: RemediationWorkItemPromotionContext,
+    ) -> None:
+        """Project promoted work-item state without blocking remediation execution."""
+        try:
+            self._remediation_control_plane_instance().materialize_promoted_work_item(
+                work_item=work_item,
+                promotion_context=promotion_context,
+            )
+        except Exception:
+            LOGGER.warning(
+                "Remediation control-plane promotion materialization failed before execution",
+                extra={"dashboard_item_id": work_item.dashboard_item_id},
+                exc_info=True,
+            )
 
 
 def _with_dashboard_recovery_note(
