@@ -1713,6 +1713,55 @@ def test_dashboard_remediate_live_run_requires_ci_mode(tmp_path: Path, monkeypat
     assert last_run.failure.stage == FailureStage.ISSUE_INTAKE
 
 
+def test_dashboard_remediate_github_fails_with_explicit_phase_boundary(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "platform": "github",
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "remediation": {
+            "target_branch": "main"
+          },
+          "github": {
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    def unexpected_load_gitlab_connection_config():  # noqa: ANN202
+        raise AssertionError("gitlab config should not load for github remediation")
+
+    monkeypatch.setattr(
+        "zeroone_ops.runner.load_gitlab_connection_config",
+        unexpected_load_gitlab_connection_config,
+    )
+
+    summary = dashboard_remediate(dry_run=False)
+    state = StateStore(
+        tmp_path / ".zeroone-ops-state.json",
+        base_branch="main",
+        gitlab_project_id=None,
+        sonarqube_project_key=None,
+    ).load()
+    last_run = state.runs[-1]
+
+    assert summary.status.value == "failed"
+    assert "GitHub remediation intake is not implemented yet" in summary.message
+    assert last_run.failure is not None
+    assert last_run.failure.stage == FailureStage.ISSUE_INTAKE
+
+
 def test_dashboard_remediate_ci_success_marks_dashboard_change_request_opened(
     tmp_path: Path,
     monkeypatch,

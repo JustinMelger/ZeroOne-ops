@@ -10,7 +10,7 @@ import secrets
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
-from zeroone_ops.models.state import AppState, RunStatus, utc_now
+from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RunStatus, utc_now
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.review.github import GitHubReviewClient
@@ -191,6 +191,20 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
     record = run_state_service.start_run(run_id)
     repo_root = Path.cwd()
     active_dry_run = dry_run or config.dry_run
+    if config.platform == "github":
+        message = (
+            "GitHub remediation intake is not implemented yet. "
+            "Phase 5b currently supports GitHub work-item projection only after "
+            "a remediation candidate has already been selected."
+        )
+        return run_state_service.fail_run(
+            record=record,
+            error_message=message,
+            failure=FailureDetails(
+                stage=FailureStage.ISSUE_INTAKE,
+                message=message,
+            ),
+        )
     gitlab_config = load_gitlab_connection_config()
     return DashboardRemediationRunner(
         repo_root=repo_root,
