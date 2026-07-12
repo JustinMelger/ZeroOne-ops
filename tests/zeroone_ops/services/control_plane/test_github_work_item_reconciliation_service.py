@@ -75,3 +75,29 @@ def test_reconcile_keeps_in_progress_for_open_pull_request() -> None:
     assert result.action == "unchanged"
     assert result.work_item.status == "in_progress"
     assert "still open" in result.message
+
+
+def test_reconcile_returns_updated_when_open_pull_request_changes_work_item_state() -> None:
+    result = GitHubWorkItemReconciliationService().reconcile(
+        work_item=build_work_item().model_copy(
+            update={
+                "status": "approved",
+                "linked_change_request": ChangeRequestRef(
+                    number=9,
+                    web_url="https://github.com/octo-org/octo-repo/pull/9",
+                ),
+            }
+        ),
+        change_request_state=ChangeRequestState(
+            iid=21,
+            web_url="https://github.com/octo-org/octo-repo/pull/21",
+            source_branch="zeroone-ops/fix",
+            head_sha="abc123",
+            state="opened",
+        ),
+    )
+
+    assert result.action == "updated"
+    assert result.work_item.status == "in_progress"
+    assert result.work_item.linked_change_request is not None
+    assert result.work_item.linked_change_request.number == 21

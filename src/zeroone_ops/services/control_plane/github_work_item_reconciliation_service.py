@@ -38,8 +38,9 @@ class GitHubWorkItemReconciliationService:
                     "linked_change_request": linked_change_request,
                 }
             )
+            action = "unchanged" if reconciled == work_item else "updated"
             return GitHubWorkItemReconciliationResult(
-                action="unchanged",
+                action=action,
                 work_item=reconciled,
                 message=f"Pull request {change_request_state.iid} is still open.",
             )
