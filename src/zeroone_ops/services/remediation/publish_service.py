@@ -69,9 +69,8 @@ class PublishService:
         self.config = config
         self.branch_manager = branch_manager
         self.change_request_publisher = change_request_publisher
-        self.remediation_control_plane = (
-            remediation_control_plane or build_remediation_control_plane(config)
-        )
+        self._remediation_control_plane_override = remediation_control_plane
+        self._remediation_control_plane: RemediationControlPlane | None = None
 
     def publish(
         self,
@@ -96,7 +95,7 @@ class PublishService:
             publisher = self.change_request_publisher or build_remediation_change_request_publisher(
                 self.config
             )
-            control_plane_work_item = self.remediation_control_plane.mark_publish_started(
+            control_plane_work_item = self._mark_control_plane_publish_started_best_effort(
                 selected_issue=selected_issue,
             )
             pushed_branch = self.branch_manager.push_current_branch()
@@ -203,6 +202,31 @@ class PublishService:
             )
         return ([], None)
 
+    def _remediation_control_plane_instance(self) -> RemediationControlPlane:
+        """Return the provider-local remediation control plane, building defaults lazily."""
+        if self._remediation_control_plane_override is not None:
+            return self._remediation_control_plane_override
+        if self._remediation_control_plane is None:
+            self._remediation_control_plane = build_remediation_control_plane(self.config)
+        return self._remediation_control_plane
+
+    def _mark_control_plane_publish_started_best_effort(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+    ) -> WorkItemState | None:
+        """Project publish-start state without blocking change-request publication."""
+        try:
+            return self._remediation_control_plane_instance().mark_publish_started(
+                selected_issue=selected_issue,
+            )
+        except (GitHubClientError, RuntimeError):
+            LOGGER.warning(
+                "Remediation control-plane publish-start sync failed before publish",
+                exc_info=True,
+            )
+            return None
+
     def _sync_control_plane_change_request_link_best_effort(
         self,
         *,
@@ -212,7 +236,7 @@ class PublishService:
     ) -> None:
         """Sync the published change request onto control-plane state without altering success."""
         try:
-            self.remediation_control_plane.sync_change_request_link(
+            self._remediation_control_plane_instance().sync_change_request_link(
                 selected_issue=selected_issue,
                 published_change_request=published_change_request,
                 existing_work_item=existing_work_item,
@@ -233,7 +257,7 @@ class PublishService:
     ) -> None:
         """Mark control-plane state as blocked without overwriting the original publish error."""
         try:
-            self.remediation_control_plane.mark_publish_blocked(
+            self._remediation_control_plane_instance().mark_publish_blocked(
                 selected_issue=selected_issue,
                 existing_work_item=existing_work_item,
             )

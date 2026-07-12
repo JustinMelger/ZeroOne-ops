@@ -1,3 +1,5 @@
+import pytest
+
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import (
     AnalysisConfig,
@@ -9,7 +11,9 @@ from zeroone_ops.models.config import (
 )
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, WorkItemState
+from zeroone_ops.services.remediation import publish_service as publish_service_module
 from zeroone_ops.services.remediation.change_request_publisher import (
+    ChangeRequestPublishRequest,
     PublishedChangeRequest,
 )
 from zeroone_ops.services.remediation.control_plane import RemediationControlPlane
@@ -73,10 +77,10 @@ class StubChangeRequestPublisher:
             ),
             action="created",
         )
-        self.request = None
+        self.request: ChangeRequestPublishRequest | None = None
         self.error_message: str | None = None
 
-    def publish(self, request):  # noqa: ANN001
+    def publish(self, request: ChangeRequestPublishRequest) -> PublishedChangeRequest:
         if self.error_message is not None:
             raise RuntimeError(self.error_message)
         self.request = request
@@ -538,6 +542,108 @@ def test_publish_service_keeps_success_when_post_publish_work_item_sync_fails() 
     assert result.change_request_url == "https://github.com/octo-org/octo-repo/pull/23"
     assert result.change_request_action == "created"
     assert len(work_item_service.calls) == 2
+
+
+def test_publish_service_keeps_success_when_pre_publish_work_item_sync_fails() -> None:
+    publisher = StubChangeRequestPublisher(
+        result=PublishedChangeRequest(
+            info=ChangeRequestInfo(
+                iid=23,
+                web_url="https://github.com/octo-org/octo-repo/pull/23",
+                title="fix: remediate python:S2259 in service.py",
+            ),
+            action="created",
+        )
+    )
+    work_item_service = StubRemediationControlPlane(error_on_call=1)
+    service = PublishService(
+        config=AppConfig(
+            execution_mode="ci",
+            platform="github",
+            base_branch="main",
+            validation_commands=[],
+            approval=ApprovalConfig(),
+            remediation=RemediationConfig(
+                target_branch="main",
+                bootstrap_severities=["MAJOR"],
+                analysis=AnalysisConfig(),
+            ),
+            github=GitHubConfig(
+                labels=["zeroone-ops", "autofix"],
+                pull_request_assignee_username="justin",
+            ),
+        ),
+        branch_manager=StubBranchManager(),  # type: ignore[arg-type]
+        change_request_publisher=publisher,
+        remediation_control_plane=work_item_service,
+    )
+
+    result = service.publish(
+        selected_issue=build_issue(),
+        change_request_title="ignored",
+        change_request_description="summary",
+    )
+
+    assert result.error_message is None
+    assert result.change_request_url == "https://github.com/octo-org/octo-repo/pull/23"
+    assert result.change_request_action == "created"
+    assert len(work_item_service.calls) == 1
+
+
+def test_publish_service_builds_default_control_plane_lazily(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    publisher = StubChangeRequestPublisher(
+        result=PublishedChangeRequest(
+            info=ChangeRequestInfo(
+                iid=23,
+                web_url="https://github.com/octo-org/octo-repo/pull/23",
+                title="fix: remediate python:S2259 in service.py",
+            ),
+            action="created",
+        )
+    )
+
+    def fail_build_control_plane(config: AppConfig) -> RemediationControlPlane:
+        del config
+        raise RuntimeError("control plane config unavailable")
+
+    monkeypatch.setattr(
+        publish_service_module,
+        "build_remediation_control_plane",
+        fail_build_control_plane,
+    )
+
+    service = PublishService(
+        config=AppConfig(
+            execution_mode="ci",
+            platform="github",
+            base_branch="main",
+            validation_commands=[],
+            approval=ApprovalConfig(),
+            remediation=RemediationConfig(
+                target_branch="main",
+                bootstrap_severities=["MAJOR"],
+                analysis=AnalysisConfig(),
+            ),
+            github=GitHubConfig(
+                labels=["zeroone-ops", "autofix"],
+                pull_request_assignee_username="justin",
+            ),
+        ),
+        branch_manager=StubBranchManager(),  # type: ignore[arg-type]
+        change_request_publisher=publisher,
+    )
+
+    result = service.publish(
+        selected_issue=build_issue(),
+        change_request_title="ignored",
+        change_request_description="summary",
+    )
+
+    assert result.error_message is None
+    assert result.change_request_url == "https://github.com/octo-org/octo-repo/pull/23"
+    assert result.change_request_action == "created"
 
 
 def test_publish_service_preserves_original_publish_error_when_blocked_cleanup_fails() -> None:
