@@ -243,6 +243,10 @@ class DashboardRemediationRunner:
             execution_result.final_status is not None
             and execution_result.final_status.value == "rejected"
         ):
+            self._mark_execution_blocked_best_effort(
+                work_item=work_item,
+                existing_work_item=promoted_work_item,
+            )
             if live_dashboard_updates:
                 rejected_update = DashboardRemediationUpdater(self.dashboard_service).mark_rejected(
                     project_id=project_id,
