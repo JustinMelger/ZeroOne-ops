@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from zeroone_ops.models.review import ReviewClassification
+
 WorkItemKind = Literal["remediation"]
 WorkItemStatus = Literal[
     "candidate",
@@ -32,6 +34,15 @@ class WorkItemSourceRef(BaseModel):
     repository_scope: str | None = None
 
 
+class ProjectedReviewState(BaseModel):
+    """Represent bounded review status and traceability for one work item."""
+
+    classification: ReviewClassification
+    reviewed_sha: str
+    review_note_url: str
+    follow_up_required: bool
+
+
 class WorkItemState(BaseModel):
     """Represent one canonical provider-neutral work item."""
 
@@ -44,6 +55,7 @@ class WorkItemState(BaseModel):
     file_path: str | None = None
     line: int | None = None
     linked_change_request: ChangeRequestRef | None = None
+    projected_review: ProjectedReviewState | None = None
     created_by_system: Literal["zeroone_ops"] = "zeroone_ops"
 
     @property

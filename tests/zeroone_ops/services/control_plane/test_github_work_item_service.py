@@ -1,6 +1,7 @@
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.work_item import (
     ChangeRequestRef,
+    ProjectedReviewState,
     WorkItemSourceRef,
     WorkItemState,
 )
@@ -98,6 +99,36 @@ def test_github_work_item_renderer_and_parser_round_trip() -> None:
     assert parsed is not None
     assert parsed.work_item_id == "work-1"
     assert parsed.identity_key == build_work_item().identity_key
+    assert parsed.projected_review is None
+
+
+def test_github_work_item_renderer_and_parser_round_trip_with_projected_review() -> None:
+    renderer = GitHubWorkItemRenderer()
+    parser = GitHubWorkItemParser()
+    work_item = build_work_item().model_copy(
+        update={
+            "projected_review": ProjectedReviewState(
+                classification="findings_present",
+                reviewed_sha="abc123def",
+                review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-1",
+                follow_up_required=True,
+            )
+        }
+    )
+
+    body = renderer.render_body(work_item)
+    parsed = parser.parse_work_item_state(body)
+
+    assert "## Review Projection" in body
+    assert "- Classification: `findings_present`" in body
+    assert "- Reviewed SHA: `abc123def`" in body
+    assert "- Follow-up required: `yes`" in body
+    assert parsed is not None
+    assert parsed.projected_review is not None
+    assert parsed.projected_review.classification == "findings_present"
+    assert parsed.projected_review.reviewed_sha == "abc123def"
+    assert parsed.projected_review.review_note_url.endswith("issuecomment-1")
+    assert parsed.projected_review.follow_up_required is True
 
 
 def test_github_work_item_service_creates_when_identity_is_missing() -> None:

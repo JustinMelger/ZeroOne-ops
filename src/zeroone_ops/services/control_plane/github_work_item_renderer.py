@@ -53,6 +53,21 @@ class GitHubWorkItemRenderer:
                     f"- URL: {work_item.linked_change_request.web_url}",
                 ]
             )
+        lines.extend(["", "## Review Projection", ""])
+        if work_item.projected_review is None:
+            lines.append("No projected review status.")
+        else:
+            lines.extend(
+                [
+                    f"- Classification: `{work_item.projected_review.classification}`",
+                    f"- Reviewed SHA: `{work_item.projected_review.reviewed_sha}`",
+                    f"- Review note URL: {work_item.projected_review.review_note_url}",
+                    (
+                        "- Follow-up required: "
+                        f"`{'yes' if work_item.projected_review.follow_up_required else 'no'}`"
+                    ),
+                ]
+            )
         lines.extend(["", "## Machine State", ""])
         lines.extend(self._render_state_block(work_item))
         return "\n".join(lines).rstrip() + "\n"
