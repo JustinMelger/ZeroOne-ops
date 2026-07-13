@@ -5,6 +5,20 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.46.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.45.1...zeroone-ops-v0.46.0) (2026-07-13)
+
+
+### Features
+
+* **platform:** control plane policy ([#238](https://github.com/JustinMelger/ZeroOne-ops/issues/238)) ([d5e30ee](https://github.com/JustinMelger/ZeroOne-ops/commit/d5e30eecce0230d7460566d4c6a1790c5a006f58))
+* **platform:** GitHub remedy ([#234](https://github.com/JustinMelger/ZeroOne-ops/issues/234)) ([dffbb72](https://github.com/JustinMelger/ZeroOne-ops/commit/dffbb723c5b1ec069b47023c4a93bbf68bee704b))
+* **platform:** github work item promotion ([#243](https://github.com/JustinMelger/ZeroOne-ops/issues/243)) ([cb8e527](https://github.com/JustinMelger/ZeroOne-ops/commit/cb8e527e88bd1fa4a2a38af7859044bae36d7330))
+
+
+### Bug Fixes
+
+* **deps:** update python dependencies ([#213](https://github.com/JustinMelger/ZeroOne-ops/issues/213)) ([28540d0](https://github.com/JustinMelger/ZeroOne-ops/commit/28540d063857827d65e9a77eef0b9a7404e5dc6d))
+
 ## [0.45.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.45.0...zeroone-ops-v0.45.1) (2026-06-23)
 
 
