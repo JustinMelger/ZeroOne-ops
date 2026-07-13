@@ -63,6 +63,10 @@ class GitHubWorkItemReconciliationService:
         if change_request_state.state == "closed":
             if closed_unmerged_outcome is None:
                 raise ValueError("closed_unmerged_outcome is required for closed pull requests.")
+            if closed_unmerged_outcome not in {"approved", "blocked"}:
+                raise ValueError(
+                    "closed_unmerged_outcome must be 'approved' or 'blocked'."
+                )
             reconciled = work_item.model_copy(
                 update={
                     "status": closed_unmerged_outcome,

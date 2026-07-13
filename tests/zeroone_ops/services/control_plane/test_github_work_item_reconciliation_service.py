@@ -1,6 +1,11 @@
+from typing import cast
+
+import pytest
+
 from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, WorkItemState
 from zeroone_ops.services.control_plane.github_work_item_reconciliation_service import (
+    ClosedUnmergedWorkItemOutcome,
     GitHubWorkItemReconciliationService,
 )
 
@@ -79,6 +84,21 @@ def test_reconcile_returns_blocked_for_closed_unmerged_pull_request() -> None:
     assert result.work_item.status == "blocked"
     assert result.work_item.linked_change_request is None
     assert "closed without merge" in result.message
+
+
+def test_reconcile_rejects_invalid_closed_unmerged_outcome() -> None:
+    with pytest.raises(ValueError, match="must be 'approved' or 'blocked'"):
+        GitHubWorkItemReconciliationService().reconcile(
+            work_item=build_work_item(),
+            change_request_state=ChangeRequestState(
+                iid=21,
+                web_url="https://github.com/octo-org/octo-repo/pull/21",
+                source_branch="zeroone-ops/fix",
+                head_sha="abc123",
+                state="closed",
+            ),
+            closed_unmerged_outcome=cast(ClosedUnmergedWorkItemOutcome, "dismissed"),
+        )
 
 
 def test_reconcile_keeps_in_progress_for_open_pull_request() -> None:
