@@ -53,10 +53,31 @@ def test_reconcile_returns_approved_for_closed_unmerged_pull_request() -> None:
             head_sha="abc123",
             state="closed",
         ),
+        closed_unmerged_outcome="approved",
     )
 
     assert result.action == "reopened"
     assert result.work_item.status == "approved"
+    assert result.work_item.linked_change_request is None
+    assert "closed without merge" in result.message
+
+
+def test_reconcile_returns_blocked_for_closed_unmerged_pull_request() -> None:
+    result = GitHubWorkItemReconciliationService().reconcile(
+        work_item=build_work_item(),
+        change_request_state=ChangeRequestState(
+            iid=21,
+            web_url="https://github.com/octo-org/octo-repo/pull/21",
+            source_branch="zeroone-ops/fix",
+            head_sha="abc123",
+            state="closed",
+        ),
+        closed_unmerged_outcome="blocked",
+    )
+
+    assert result.action == "blocked"
+    assert result.work_item.status == "blocked"
+    assert result.work_item.linked_change_request is None
     assert "closed without merge" in result.message
 
 

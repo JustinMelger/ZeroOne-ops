@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemState
+
+ClosedUnmergedWorkItemOutcome = Literal["approved", "blocked"]
 
 
 @dataclass(frozen=True)
@@ -25,6 +28,7 @@ class GitHubWorkItemReconciliationService:
         *,
         work_item: WorkItemState,
         change_request_state: ChangeRequestState,
+        closed_unmerged_outcome: ClosedUnmergedWorkItemOutcome | None = None,
     ) -> GitHubWorkItemReconciliationResult:
         """Return the reconciled work-item state for one linked pull request."""
         linked_change_request = ChangeRequestRef(
@@ -57,14 +61,17 @@ class GitHubWorkItemReconciliationService:
                 message=f"Pull request {change_request_state.iid} was merged.",
             )
         if change_request_state.state == "closed":
+            if closed_unmerged_outcome is None:
+                raise ValueError("closed_unmerged_outcome is required for closed pull requests.")
             reconciled = work_item.model_copy(
                 update={
-                    "status": "approved",
-                    "linked_change_request": linked_change_request,
+                    "status": closed_unmerged_outcome,
+                    "linked_change_request": None,
                 }
             )
+            action = "reopened" if closed_unmerged_outcome == "approved" else "blocked"
             return GitHubWorkItemReconciliationResult(
-                action="reopened",
+                action=action,
                 work_item=reconciled,
                 message=f"Pull request {change_request_state.iid} was closed without merge.",
             )
