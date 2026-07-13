@@ -28,7 +28,7 @@ class GitHubWorkItemReconciliationService:
         *,
         work_item: WorkItemState,
         change_request_state: ChangeRequestState,
-        closed_unmerged_outcome: ClosedUnmergedWorkItemOutcome | None = None,
+        closed_unmerged_outcome: ClosedUnmergedWorkItemOutcome,
     ) -> GitHubWorkItemReconciliationResult:
         """Return the reconciled work-item state for one linked pull request."""
         linked_change_request = ChangeRequestRef(
@@ -61,8 +61,6 @@ class GitHubWorkItemReconciliationService:
                 message=f"Pull request {change_request_state.iid} was merged.",
             )
         if change_request_state.state == "closed":
-            if closed_unmerged_outcome is None:
-                raise ValueError("closed_unmerged_outcome is required for closed pull requests.")
             if closed_unmerged_outcome not in {"approved", "blocked"}:
                 raise ValueError("closed_unmerged_outcome must be 'approved' or 'blocked'.")
             reconciled = work_item.model_copy(

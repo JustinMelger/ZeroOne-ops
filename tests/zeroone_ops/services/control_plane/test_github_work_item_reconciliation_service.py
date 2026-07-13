@@ -41,6 +41,7 @@ def test_reconcile_returns_completed_for_merged_pull_request() -> None:
             head_sha="abc123",
             state="merged",
         ),
+        closed_unmerged_outcome="approved",
     )
 
     assert result.action == "completed"
@@ -111,6 +112,7 @@ def test_reconcile_keeps_in_progress_for_open_pull_request() -> None:
             head_sha="abc123",
             state="opened",
         ),
+        closed_unmerged_outcome="approved",
     )
 
     assert result.action == "unchanged"
@@ -136,6 +138,7 @@ def test_reconcile_returns_updated_when_open_pull_request_changes_work_item_stat
             head_sha="abc123",
             state="opened",
         ),
+        closed_unmerged_outcome="approved",
     )
 
     assert result.action == "updated"
