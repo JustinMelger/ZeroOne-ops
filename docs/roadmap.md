@@ -377,7 +377,7 @@ These are important, but intentionally not part of the immediate rollout phase.
   - kept the composition root explicit so provider-local GitHub bootstrap is
     isolated from shared policy core logic
 
-- [ ] Phase 5b: GitHub Work-Item Control Plane
+- [x] Phase 5b: GitHub Work-Item Control Plane
 
 - keep remediation issues, pull requests, labels, and state transitions
   authoritative
@@ -404,6 +404,29 @@ These are important, but intentionally not part of the immediate rollout phase.
 - lock first-slice backlog visibility to derived aggregate counts only, not
   another authoritative per-item surface
 - do not materialize every raw producer finding as a GitHub issue
+- implemented:
+  - added a shared promotion decision service for remediation work items
+  - added provider-local GitHub work-item issue transport, parsing, and
+    rendering around one authoritative machine-readable state block
+  - materialized promoted remediation work items into authoritative GitHub
+    issues only when durable coordination is required
+  - kept bot-created promoted work items as the only first entry path
+  - projected remediation lifecycle transitions onto the first shared work-item
+    states: `approved`, `in_progress`, `blocked`, `completed`, and
+    `dismissed`
+  - linked remediation PR publication back onto the authoritative work item
+    without making PRs the primary record
+  - preserved one active remediation PR link per work item and cleared stale
+    links when closed-unmerged reconciliation returns the item to queue or
+    blocked state
+  - classified closed-unmerged GitHub PR reconciliation explicitly as
+    `approved` or `blocked` instead of inferring one generic reopen outcome
+  - kept non-promoted backlog visibility out of per-item GitHub issues in the
+    first slice
+
+- next phase starts at `5c`: status projection back into the GitHub control
+  plane should build on the now-implemented work-item lifecycle and promotion
+  seams
 
 - [ ] Phase 5c: GitHub Status Projection
 
