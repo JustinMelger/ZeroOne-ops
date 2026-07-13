@@ -815,6 +815,76 @@ Creation timing:
 - do not mirror full review-note content into the control plane
 - keep the review note/comment as the primary human-facing review surface
 
+Locked workflow baseline:
+
+- follow the GitLab implementation at the workflow-rule level:
+  - remediation lifecycle remains the primary workflow state
+  - review projection is secondary status and traceability
+  - human-facing review prose is never authoritative control-plane state
+- do not copy the GitLab dashboard storage shape into GitHub
+- implement the same workflow semantics through provider-local GitHub storage
+  and rendering
+
+Locked first-slice storage boundary:
+
+- project review status only onto an already-promoted authoritative GitHub work
+  item
+- do not create a new GitHub work item from review projection alone in `5c`
+- if no promoted work item exists for the reviewed change, do not project
+  review state into the control plane
+- keep the review note/comment as the only GitHub surface in that case
+
+Locked first-slice projected fields:
+
+- use shared review classification semantics rather than introducing a new
+  GitHub-only vocabulary:
+  - `no_findings`
+  - `findings_present`
+  - `manual_review_only`
+- store only bounded review traceability and follow-up state on the
+  authoritative work item:
+  - projected review classification
+  - reviewed SHA
+  - latest review note URL
+  - compact follow-up-needed flag derived from the classification
+- do not copy finding prose, summaries, evidence, or suggested fixes into the
+  authoritative control-plane state
+
+Locked rendering shape:
+
+- render projected review state as one small machine-owned section inside the
+  authoritative GitHub work-item issue body
+- keep that section compact and deterministic:
+  - projected review classification
+  - reviewed SHA
+  - latest review note URL
+  - follow-up-needed flag
+- do not duplicate the human review note body or the inline review findings in
+  that section
+- treat the rendered section as a provider-local projection over structured
+  state rather than as the canonical source of truth
+
+Locked update timing and precedence:
+
+- update GitHub review projection only after a review run has completed and a
+  publishable review result exists
+- remediation lifecycle remains primary:
+  - review projection must not overwrite remediation execution state such as
+    `approved`, `in_progress`, `blocked`, `completed`, or `dismissed`
+- review projection may update only review-specific metadata and
+  follow-up-needed state on the authoritative work item
+- latest successful projected review result wins for review metadata fields
+  without rewriting unrelated remediation traceability
+
+Out of scope for `5c`:
+
+- developer reply or emoji feedback loops on review comments
+- creating work items from repo-wide review results that have no promoted
+  remediation item
+- mirroring full review output into the control plane
+- derived overview publication beyond the existing authoritative work-item
+  issue
+
 #### Phase 5d: Optional Derived Overview
 
 - do not require a persistent summary issue in the first slice
