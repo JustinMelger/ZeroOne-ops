@@ -34,7 +34,10 @@ class GitHubReviewProjectionService:
         review_note_url: str | None,
     ) -> GitHubReviewProjectionResult:
         """Project one published review onto an existing promoted remediation work item."""
-        source_ref = _review_work_item_source(context)
+        source_ref = _review_work_item_source(
+            context=context,
+            repository_id=repository_id,
+        )
         if source_ref is None:
             return GitHubReviewProjectionResult(action="no_remediation_context")
         if review_note_url is None:
@@ -68,7 +71,11 @@ class GitHubReviewProjectionService:
         )
 
 
-def _review_work_item_source(context: ChangeRequestReviewContext) -> WorkItemSourceRef | None:
+def _review_work_item_source(
+    *,
+    context: ChangeRequestReviewContext,
+    repository_id: str,
+) -> WorkItemSourceRef | None:
     """Return the remediation work-item source identity carried in review context."""
     remediation_context = context.remediation_context
     if remediation_context is None:
@@ -79,7 +86,7 @@ def _review_work_item_source(context: ChangeRequestReviewContext) -> WorkItemSou
     return WorkItemSourceRef(
         source=source,
         source_item_key=remediation_context.item_reference,
-        repository_scope=None,
+        repository_scope=repository_id,
     )
 
 

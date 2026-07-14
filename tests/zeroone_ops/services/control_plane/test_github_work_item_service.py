@@ -298,6 +298,42 @@ def test_github_work_item_service_preserves_existing_link_when_retry_has_no_repl
     assert "pull/17" in client.updated_issue.body
 
 
+def test_github_work_item_service_preserves_existing_projected_review_when_status_changes() -> None:
+    renderer = GitHubWorkItemRenderer()
+    original = build_work_item().model_copy(
+        update={
+            "projected_review": ProjectedReviewState(
+                classification="findings_present",
+                reviewed_sha="abc123def",
+                review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-1",
+                follow_up_required=True,
+            )
+        }
+    )
+    client = FakeGitHubWorkItemClient()
+    client.issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(original),
+            body=renderer.render_body(original),
+        )
+    ]
+    service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+
+    result = service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item(status="in_progress"),
+    )
+
+    assert result.action == "updated"
+    assert result.work_item.projected_review is not None
+    assert result.work_item.projected_review.classification == "findings_present"
+    assert client.updated_issue is not None
+    assert "## Review Projection" in client.updated_issue.body
+
+
 def test_github_work_item_service_persists_explicit_link_clear_from_reconciliation() -> None:
     renderer = GitHubWorkItemRenderer()
     linked_change_request = ChangeRequestRef(

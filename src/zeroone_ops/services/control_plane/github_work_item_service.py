@@ -167,4 +167,10 @@ class GitHubWorkItemService:
             and parsed.linked_change_request is not None
         ):
             update["linked_change_request"] = parsed.linked_change_request
+        if (
+            "projected_review" not in work_item.model_fields_set
+            and work_item.projected_review is None
+            and parsed.projected_review is not None
+        ):
+            update["projected_review"] = parsed.projected_review
         return work_item.model_copy(update=update)

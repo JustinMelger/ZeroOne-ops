@@ -1,6 +1,10 @@
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.review import ChangeRequestReviewContext, RemediationReviewContext
-from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
+from zeroone_ops.models.work_item import (
+    ProjectedReviewState,
+    WorkItemSourceRef,
+    WorkItemState,
+)
 from zeroone_ops.services.control_plane.github_review_projection_service import (
     GitHubReviewProjectionService,
 )
@@ -15,7 +19,7 @@ def build_work_item() -> WorkItemState:
         source=WorkItemSourceRef(
             source="sonarqube",
             source_item_key="AX123",
-            repository_scope=None,
+            repository_scope="octo-org/octo-repo",
         ),
         summary="Remediate Sonar issue AX123 in api.py",
         severity="high",
@@ -156,3 +160,84 @@ def test_project_review_noops_without_remediation_context() -> None:
 
     assert result.action == "no_remediation_context"
     assert result.work_item is None
+
+
+def test_project_review_preserves_repo_scoped_identity() -> None:
+    client = FakeGitHubWorkItemClient()
+    work_item_service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+    work_item_service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item(),
+    )
+
+    result = GitHubReviewProjectionService(work_item_service).project_review(
+        repository_id="octo-org/octo-repo",
+        context=build_context(),
+        classification="no_findings",
+        reviewed_sha="def456",
+        review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-2",
+    )
+
+    assert result.action == "updated"
+    assert result.work_item is not None
+    assert result.work_item.source.repository_scope == "octo-org/octo-repo"
+    assert result.work_item.projected_review is not None
+    assert result.work_item.projected_review.reviewed_sha == "def456"
+
+
+def test_project_review_noops_when_existing_work_item_uses_mismatched_scope() -> None:
+    client = FakeGitHubWorkItemClient()
+    work_item_service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+    work_item_service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item().model_copy(
+            update={
+                "source": WorkItemSourceRef(
+                    source="sonarqube",
+                    source_item_key="AX123",
+                    repository_scope=None,
+                )
+            }
+        ),
+    )
+
+    result = GitHubReviewProjectionService(work_item_service).project_review(
+        repository_id="octo-org/octo-repo",
+        context=build_context(),
+        classification="no_findings",
+        reviewed_sha="def456",
+        review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-2",
+    )
+
+    assert result.action == "no_matching_work_item"
+    assert result.work_item is None
+
+
+def test_project_review_survives_follow_up_status_upsert() -> None:
+    client = FakeGitHubWorkItemClient()
+    work_item_service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+    existing = work_item_service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item(),
+    )
+    projected = GitHubReviewProjectionService(work_item_service).project_review(
+        repository_id="octo-org/octo-repo",
+        context=build_context(),
+        classification="findings_present",
+        reviewed_sha="abc123",
+        review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-1",
+    )
+    assert projected.work_item is not None
+
+    follow_up = work_item_service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=existing.work_item.model_copy(update={"status": "in_progress"}),
+    )
+
+    assert follow_up.work_item.projected_review is not None
+    assert follow_up.work_item.projected_review == ProjectedReviewState(
+        classification="findings_present",
+        reviewed_sha="abc123",
+        review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-1",
+        follow_up_required=True,
+    )
