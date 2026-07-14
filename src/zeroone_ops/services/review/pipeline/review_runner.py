@@ -24,10 +24,17 @@ from zeroone_ops.models.state import (
     ReviewRunDiagnostics,
     RunRecord,
 )
+from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPlatformProtocol,
     ReviewPlatformClientError,
+)
+from zeroone_ops.services.control_plane.github_review_projection_service import (
+    GitHubReviewProjectionService,
+)
+from zeroone_ops.services.control_plane.github_work_item_service import (
+    GitHubWorkItemService,
 )
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
@@ -68,6 +75,7 @@ from zeroone_ops.services.review.publish.review_finalization_service import (
 from zeroone_ops.services.review.publish.review_publisher import ReviewPublisher
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
+from zeroone_ops.settings import load_github_connection_config
 
 LOGGER = logging.getLogger(__name__)
 _UNRESOLVED_BOT_AUTHOR_USERNAME = object()
@@ -383,9 +391,11 @@ class ReviewRunner:
                     ),
                 )
             )
+        review_projection_service = self._build_review_projection_service()
         finalization_result = ReviewFinalizationService(
             review_publisher=ReviewPublisher(self.review_client),
             dashboard_updater=dashboard_updater,
+            review_projection_service=review_projection_service,
         ).finalize(
             run_id=run_id,
             repository_id=repository_id,
@@ -413,6 +423,7 @@ class ReviewRunner:
         note_url = finalization_result.note_url
         publish_warning = finalization_result.publish_warning
         dashboard_warning = finalization_result.dashboard_warning
+        projection_warning = finalization_result.projection_warning
 
         inline_comment_decisions = finalization_result.inline_comment_decisions
         _log_inline_comment_rollout(
@@ -445,18 +456,30 @@ class ReviewRunner:
             status=summary.status,
             message=(
                 f"[{self.config.execution_mode}] {summary.message}"
-                if publish_warning is None and dashboard_warning is None
+                if publish_warning is None
+                and dashboard_warning is None
+                and projection_warning is None
                 else " ".join(
                     part
                     for part in (
                         f"[{self.config.execution_mode}] {summary.message}",
                         publish_warning,
                         dashboard_warning,
+                        projection_warning,
                     )
                     if part
                 )
             ),
             state_path=summary.state_path,
+        )
+
+    def _build_review_projection_service(self) -> GitHubReviewProjectionService | None:
+        """Build provider-local review projection support when the platform supports it."""
+        if self.config.platform != "github":
+            return None
+        github_config = load_github_connection_config()
+        return GitHubReviewProjectionService(
+            GitHubWorkItemService(GitHubWorkItemClient(github_config))
         )
 
     def _resolve_prior_comment_author_username(
