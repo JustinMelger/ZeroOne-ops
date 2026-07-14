@@ -9,7 +9,7 @@ from typing import Literal
 from pydantic import ValidationError
 
 from zeroone_ops.models.github import GitHubIssueInfo
-from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.models.work_item import WorkItemKind, WorkItemSourceRef, WorkItemState
 from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.services.control_plane.github_work_item_parser import GitHubWorkItemParser
@@ -26,6 +26,14 @@ class GitHubWorkItemUpsertResult:
 
     issue: GitHubIssueInfo
     action: Literal["created", "updated", "unchanged"]
+    work_item: WorkItemState
+
+
+@dataclass(frozen=True)
+class GitHubWorkItemLookupResult:
+    """Capture one matched authoritative work-item issue and its parsed state."""
+
+    issue: GitHubIssueInfo
     work_item: WorkItemState
 
 
@@ -95,13 +103,14 @@ class GitHubWorkItemService:
             work_item=rendered_work_item,
         )
 
-    def _find_open_issue_by_identity(
+    def find_open_work_item_by_source(
         self,
         *,
         repository_id: str,
-        work_item: WorkItemState,
-    ) -> GitHubIssueInfo | None:
-        """Return the matching open authoritative work-item issue when present."""
+        kind: WorkItemKind,
+        source: WorkItemSourceRef,
+    ) -> GitHubWorkItemLookupResult | None:
+        """Return the matching open authoritative work item when present."""
         authoritative_label = self.renderer.AUTHORITATIVE_WORK_ITEM_LABEL
         for issue in self.client.list_open_issues(
             repository_id=repository_id,
@@ -121,9 +130,25 @@ class GitHubWorkItemService:
                 continue
             if parsed is None:
                 continue
-            if parsed.identity_key == work_item.identity_key:
-                return issue
+            if parsed.kind != kind:
+                continue
+            if parsed.source == source:
+                return GitHubWorkItemLookupResult(issue=issue, work_item=parsed)
         return None
+
+    def _find_open_issue_by_identity(
+        self,
+        *,
+        repository_id: str,
+        work_item: WorkItemState,
+    ) -> GitHubIssueInfo | None:
+        """Return the matching open authoritative work-item issue when present."""
+        lookup_result = self.find_open_work_item_by_source(
+            repository_id=repository_id,
+            kind=work_item.kind,
+            source=work_item.source,
+        )
+        return None if lookup_result is None else lookup_result.issue
 
     def _merge_existing_authoritative_state(
         self,
@@ -136,6 +161,10 @@ class GitHubWorkItemService:
         if parsed is None:
             return work_item
         update: dict[str, object] = {"work_item_id": parsed.work_item_id}
-        if work_item.linked_change_request is None and parsed.linked_change_request is not None:
+        if (
+            "linked_change_request" not in work_item.model_fields_set
+            and work_item.linked_change_request is None
+            and parsed.linked_change_request is not None
+        ):
             update["linked_change_request"] = parsed.linked_change_request
         return work_item.model_copy(update=update)
