@@ -5,6 +5,14 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.46.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.46.0...zeroone-ops-v0.46.1) (2026-07-14)
+
+
+### Bug Fixes
+
+* **control-plane:** classify closed github work items ([#246](https://github.com/JustinMelger/ZeroOne-ops/issues/246)) ([efd06f1](https://github.com/JustinMelger/ZeroOne-ops/commit/efd06f1648139d89ca54d73f84ea595eb96ed5c9))
+* **dashboard:** accept legacy manifest section keys ([#249](https://github.com/JustinMelger/ZeroOne-ops/issues/249)) ([eeb2930](https://github.com/JustinMelger/ZeroOne-ops/commit/eeb293058c118202719d8d89738951bf7fbc7adc))
+
 ## [0.46.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.45.1...zeroone-ops-v0.46.0) (2026-07-13)
 
 
