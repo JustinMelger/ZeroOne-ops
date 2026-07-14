@@ -1897,6 +1897,106 @@ No items.
     assert document.sections[0].items == []
 
 
+def test_parse_accepts_manifest_era_dashboard_with_legacy_manifest_section_keys() -> None:
+    parser = DashboardParser()
+    body = """<!-- zeroone-ops:dashboard-schema:v2 -->
+
+Machine-managed remediation and review items for this repository.
+
+<details>
+<summary><code>zeroone-dashboard-manifest</code> machine state</summary>
+
+```json
+{
+  "section_item_counts": {
+    "completed": 0,
+    "in_progress": 0,
+    "merge_request_reviews": 0,
+    "merge_requests_opened": 0,
+    "open_candidates": 0,
+    "recent_failures": 0,
+    "rejected_or_ignored": 0
+  },
+  "total_item_count": 0,
+  "workflow_item_count": 0
+}
+```
+
+</details>
+
+## Automation Severity Policy
+
+| Severity | Automation Status | Reason |
+|---|---|---|
+| `low` | eligible for automation | - |
+| `medium` | eligible for automation | - |
+| `high` | blocked by severity policy | configured default |
+
+## Excluded Issue Classes
+
+No items.
+
+## Issue Class Inventory
+
+No items.
+
+## Operator Policy Actions
+
+Use strict dashboard issue comments with the exact `/zeroone policy` prefix.
+
+| Action | Command |
+|---|---|
+
+Direct markdown edits and raw checkbox changes in this dashboard are display-only
+and do not mutate operator policy.
+
+## Open Candidates
+
+### Overview
+
+| Open | In progress | Change requests opened | Failed | Done |
+|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 |
+
+### Queue Auto-fix
+
+No items.
+
+### Needs Review
+
+No items.
+
+### In Flight
+
+No items.
+
+### Completed
+
+No items.
+
+### Dismissed
+
+No items.
+
+### Work Type Breakdown
+
+No items.
+"""
+
+    document = parser.parse(
+        issue_id=10,
+        issue_iid=11,
+        issue_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        body=body,
+    )
+
+    assert document.schema_version == 2
+    assert document.manifest is not None
+    assert document.manifest.section_item_counts["change_request_reviews"] == 0
+    assert document.manifest.section_item_counts["change_requests_opened"] == 0
+
+
 def test_parse_rejects_manifest_mismatch() -> None:
     parser = DashboardParser()
     body = """<!-- zeroone-ops:dashboard-schema:v2 -->

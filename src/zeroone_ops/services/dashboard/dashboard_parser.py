@@ -144,6 +144,8 @@ class DashboardParser:
             payload = json.loads(match.group("payload"))
         except json.JSONDecodeError as error:
             raise DashboardParseError("Dashboard manifest block contained invalid JSON.") from error
+        if isinstance(payload, dict):
+            payload = _normalize_manifest_payload(payload)
         return DashboardManifest.model_validate(payload)
 
     def _validate_manifest(
@@ -277,3 +279,16 @@ class DashboardParser:
         for item in workflow_items:
             redistributed[section_key_for_item(item)].items.append(item)
         return [redistributed[key] for key in SECTION_ORDER]
+
+
+def _normalize_manifest_payload(payload: dict[str, object]) -> dict[str, object]:
+    """Normalize legacy manifest section keys before strict validation."""
+    normalized = dict(payload)
+    section_item_counts = normalized.get("section_item_counts")
+    if not isinstance(section_item_counts, dict):
+        return normalized
+    normalized["section_item_counts"] = {
+        normalize_dashboard_section_key(str(key)): value
+        for key, value in section_item_counts.items()
+    }
+    return normalized
