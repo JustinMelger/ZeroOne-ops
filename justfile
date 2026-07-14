@@ -14,7 +14,7 @@ typecheck:
     uv run mypy src
 
 security:
-    uv run pip-audit --ignore-vuln PYSEC-2026-196 --ignore-vuln GHSA-537c-gmf6-5ccf --ignore-vuln GHSA-6v7p-g79w-8964
+    uv run pip-audit
     uv run bandit -r src
 
 test:
