@@ -67,7 +67,29 @@ Shipped product state:
 
 ## Immediate Focus
 
-### 1. Rollout And Validation
+### 1. Post-Phase-5 Cleanup
+
+- treat the GitHub control-plane architecture as implemented and ready for
+  cleanup hardening rather than another broad feature branch
+- tighten package boundaries around `control_plane`, provider-local GitHub
+  transport, and shared orchestration seams
+- remove or rename remaining false-neutral wrappers where provider-local
+  behavior is still hidden behind shared names
+- keep cleanup slices behavior-neutral unless they fix a real rollout issue
+- prefer source/test layout cleanup that mirrors the current control-plane
+  domain structure
+
+### 2. New Producer For Dogfooding
+
+- add one additional remediation producer that can run on this repository
+  without SonarQube availability
+- use that producer to live-validate the promoted GitHub work-item and review
+  projection paths end-to-end
+- keep the producer bounded and provider-neutral at the workflow boundary
+- prefer a producer that gives fast local feedback over a broad discovery
+  surface
+
+### 3. Rollout And Validation
 
 - validate the current review and remediation flows in live repositories
 - treat dashboard operator policy as a testing and hardening track rather than
@@ -77,14 +99,14 @@ Shipped product state:
 - prefer small bounded fixes over another architecture round while rollout
   signal is still forming
 
-### 2. Results Collection
+### 4. Results Collection
 
 - keep extending the live feedback logs with concrete examples
 - track recurring review-artifact contradictions and suppression cases
 - track exclusion usage and repeated remediation skip patterns
 - treat these as the evidence base for later architecture work
 
-### 3. Review Active Testing And Hardening
+### 5. Review Active Testing And Hardening
 
 - treat the staged review architecture as delivered and now in active testing
 - use live review examples to drive hardening, not another architecture split
@@ -328,7 +350,7 @@ These are important, but intentionally not part of the immediate rollout phase.
   - follow-up live validation should continue under Phase 6 rollout, not as
     open Phase 4 scope
 
-- [ ] Phase 5: GitHub Control Plane
+- [x] Phase 5: GitHub Control Plane
 
 - locked direction: use a hybrid GitHub-native control plane
 - keep one shared control-plane state domain and provider-local storage/view
@@ -424,11 +446,11 @@ These are important, but intentionally not part of the immediate rollout phase.
   - kept non-promoted backlog visibility out of per-item GitHub issues in the
     first slice
 
-- next phase starts at `5c`: status projection back into the GitHub control
-  plane should build on the now-implemented work-item lifecycle and promotion
-  seams
+- Phase 5 control-plane implementation is complete; next work moves to cleanup
+  hardening and a new producer that can exercise the GitHub path on this
+  repository
 
-- [ ] Phase 5c: GitHub Status Projection
+- [x] Phase 5c: GitHub Status Projection
 
 - connect remediation and review workflow status back into the GitHub control
   plane
@@ -436,19 +458,42 @@ These are important, but intentionally not part of the immediate rollout phase.
   making rendered markdown authoritative
 - keep review projection compact: status, traceability, and actionable
   follow-up state rather than full review prose
+- implemented:
+  - projected published GitHub remediation review status onto existing promoted
+    GitHub work items only
+  - kept projection best-effort and non-authoritative relative to the primary
+    review publish path
+  - used provider-local review projection rather than pushing GitHub-specific
+    state into shared review artifact logic
+  - aligned review projection identity with promoted remediation work-item
+    identity, including repository scope
+  - preserved projected review state across later remediation lifecycle and
+    reconciliation upserts
 
-- [ ] Phase 5d: Optional Derived Overview
+- [x] Phase 5d: Optional Derived Overview
 
-- do not require a persistent summary issue in the first slice
-- allow any later summary issue only as derived and read-only
-- add a summary surface only if operator usage proves native GitHub views are
-  insufficient
+- intentionally kept parked:
+  - do not require a persistent summary issue in the first slice
+  - allow any later summary issue only as derived and read-only
+  - add a summary surface only if operator usage proves native GitHub views are
+    insufficient
+
+- implemented Phase 5 summary:
+  - repository-wide GitHub policy issue and strict policy command replay
+  - promoted GitHub work-item control plane with authoritative machine state
+  - bounded review status projection onto existing promoted work items
+  - intentionally no mandatory derived overview issue in the first slice
 
 - [ ] Phase 6: GitHub Platform Rollout
 
 - completed: dogfooded GitHub review support on this repository first
 - expand into broader GitHub-native workflow usage as later slices land
 - validate product clarity before claiming broader platform parity
+
+#### Next Phase 6 Entry Slice
+
+- post-Phase-5 cleanup of control-plane seams and package boundaries
+- one new remediation producer for live dogfooding on this repository
 
 ## Reference Docs
 
