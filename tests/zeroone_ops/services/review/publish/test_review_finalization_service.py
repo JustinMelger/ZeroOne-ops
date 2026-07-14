@@ -45,7 +45,7 @@ def test_finalize_projects_review_after_successful_publish() -> None:
             )
         ),
         dashboard_updater=None,
-        review_projection_service=projection_service,
+        review_projection_factory=lambda: projection_service,
     )
 
     result = finalization.finalize(
@@ -80,7 +80,9 @@ def test_finalize_ignores_no_matching_work_item_projection() -> None:
             )
         ),
         dashboard_updater=None,
-        review_projection_service=FakeReviewProjectionService(action="no_matching_work_item"),
+        review_projection_factory=lambda: FakeReviewProjectionService(
+            action="no_matching_work_item"
+        ),
     )
 
     result = finalization.finalize(
@@ -107,7 +109,7 @@ def test_finalize_downgrades_projection_failures_to_warning() -> None:
             )
         ),
         dashboard_updater=None,
-        review_projection_service=FakeReviewProjectionService(
+        review_projection_factory=lambda: FakeReviewProjectionService(
             error=RuntimeError("projection boom")
         ),
     )
@@ -137,7 +139,7 @@ def test_finalize_skips_projection_during_dry_run() -> None:
             )
         ),
         dashboard_updater=None,
-        review_projection_service=projection_service,
+        review_projection_factory=lambda: projection_service,
     )
 
     result = finalization.finalize(

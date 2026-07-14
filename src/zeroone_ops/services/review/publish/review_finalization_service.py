@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -75,12 +76,12 @@ class ReviewFinalizationService:
         *,
         review_publisher: ReviewArtifactPublisher,
         dashboard_updater: ReviewDashboardUpdater | None,
-        review_projection_service: ReviewProjectionService | None = None,
+        review_projection_factory: Callable[[], ReviewProjectionService | None] | None = None,
     ) -> None:
         """Initialize the finalization service."""
         self.review_publisher = review_publisher
         self.dashboard_updater = dashboard_updater
-        self.review_projection_service = review_projection_service
+        self.review_projection_factory = review_projection_factory
 
     def finalize(
         self,
@@ -185,26 +186,28 @@ class ReviewFinalizationService:
                 )
 
         projection_warning = None
-        if self.review_projection_service is not None:
+        if self.review_projection_factory is not None:
             try:
-                projection_result = self.review_projection_service.project_review(
-                    repository_id=repository_id,
-                    context=context,
-                    classification=finalized_review_result.classification,
-                    reviewed_sha=context.head_sha,
-                    review_note_url=note_url,
-                )
-                projection_action = getattr(projection_result, "action", None)
-                if projection_action in {"updated", "unchanged"}:
-                    LOGGER.info(
-                        "review projection mirrored",
-                        extra={
-                            "run_id": run_id,
-                            "change_request_number": context.change_request_number,
-                            "head_sha": context.head_sha,
-                            "projection_action": projection_action,
-                        },
+                review_projection_service = self.review_projection_factory()
+                if review_projection_service is not None:
+                    projection_result = review_projection_service.project_review(
+                        repository_id=repository_id,
+                        context=context,
+                        classification=finalized_review_result.classification,
+                        reviewed_sha=context.head_sha,
+                        review_note_url=note_url,
                     )
+                    projection_action = getattr(projection_result, "action", None)
+                    if projection_action in {"updated", "unchanged"}:
+                        LOGGER.info(
+                            "review projection mirrored",
+                            extra={
+                                "run_id": run_id,
+                                "change_request_number": context.change_request_number,
+                                "head_sha": context.head_sha,
+                                "projection_action": projection_action,
+                            },
+                        )
             except Exception as error:
                 projection_warning = f"Review projection warning: {error}"
                 LOGGER.warning(

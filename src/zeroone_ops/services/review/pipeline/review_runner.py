@@ -391,11 +391,10 @@ class ReviewRunner:
                     ),
                 )
             )
-        review_projection_service = self._build_review_projection_service()
         finalization_result = ReviewFinalizationService(
             review_publisher=ReviewPublisher(self.review_client),
             dashboard_updater=dashboard_updater,
-            review_projection_service=review_projection_service,
+            review_projection_factory=self._build_review_projection_service,
         ).finalize(
             run_id=run_id,
             repository_id=repository_id,
