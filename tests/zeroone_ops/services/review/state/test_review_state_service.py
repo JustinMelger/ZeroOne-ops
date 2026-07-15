@@ -80,6 +80,8 @@ def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
         artifact=build_artifact(),
         note_id=55,
         note_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
+        projection_retry_pending=True,
+        projection_retry_warning="Review projection warning: projection boom",
         dry_run=False,
     )
 
@@ -107,6 +109,45 @@ def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
     assert loaded.reviews["17:abc123"].findings[0].region_hint == "return-order"
     assert loaded.reviews["17:abc123"].note_id == 55
     assert loaded.reviews["17:abc123"].note_url is not None
+    assert loaded.reviews["17:abc123"].projection_retry_pending is True
+    assert (
+        loaded.reviews["17:abc123"].projection_retry_warning
+        == "Review projection warning: projection boom"
+    )
+
+
+def test_update_projection_retry_state_persists_repair_outcome(tmp_path) -> None:
+    store = StateStore(
+        tmp_path / ".zeroone-ops-state.json",
+        base_branch="main",
+        gitlab_project_id="123",
+        sonarqube_project_key=None,
+    )
+    service = ReviewStateService(state_store=store, state=build_state())
+    record = service.start_run("run-1")
+    service.mark_reviewed(
+        record=record,
+        merge_request=build_merge_request(),
+        artifact=build_artifact(),
+        note_id=55,
+        note_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
+        projection_retry_pending=True,
+        projection_retry_warning="Review projection warning: projection boom",
+        dry_run=False,
+    )
+
+    service.update_projection_retry_state(
+        change_request_number=17,
+        head_sha="abc123",
+        last_run_id="run-2",
+        pending=False,
+        warning=None,
+    )
+
+    loaded = store.load().reviews["17:abc123"]
+    assert loaded.projection_retry_pending is False
+    assert loaded.projection_retry_warning is None
+    assert loaded.last_run_id == "run-2"
 
 
 def test_mark_reviewed_mirrors_publish_artifact_metadata_into_local_state(tmp_path) -> None:

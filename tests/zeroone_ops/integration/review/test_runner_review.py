@@ -19,6 +19,7 @@ from zeroone_ops.models.review import (
     PriorReviewPass,
     PublishableReviewArtifact,
     PublishableReviewFinding,
+    RemediationReviewContext,
     ReviewComment,
     ReviewFileContext,
     ReviewFinding,
@@ -110,6 +111,11 @@ class _ParseNoteResult:
     def __init__(self, *, prior_review_pass: PriorReviewPass | None, message: str) -> None:
         self.prior_review_pass = prior_review_pass
         self.message = message
+
+
+class _ProjectionResult:
+    def __init__(self, *, action: str) -> None:
+        self.action = action
 
 
 def build_dashboard_document(*, items: list[DashboardItem]) -> DashboardDocument:
@@ -1952,3 +1958,113 @@ def test_review_github_reuses_same_sha_note_when_username_lookup_is_unresolved(
     assert summary.status.value == "reviewed"
     assert "No new changes after the last review." in summary.message
     assert "Earlier classification: findings_present." in summary.message
+
+
+def test_review_same_sha_live_run_repairs_pending_projection_without_reanalysis(
+    tmp_path: Path, monkeypatch
+) -> None:
+    class FakeProjectionService:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def project_review(self, **kwargs: object) -> _ProjectionResult:
+            self.calls.append(kwargs)
+            return _ProjectionResult(action="updated")
+
+    projection_service = FakeProjectionService()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITHUB_TOKEN", "github-token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    event_path = tmp_path / "github-event.json"
+    event_path.write_text(
+        '{"pull_request": {"number": 23, "head": {"sha": "abc123"}}}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "review": {
+            "platform": "github"
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    state_store = StateStore(
+        tmp_path / ".zeroone-ops-state.json",
+        base_branch="main",
+        gitlab_project_id=None,
+        sonarqube_project_key=None,
+    )
+    state = AppState(repository=RepositoryState(base_branch="main"))
+    state.reviews["23:abc123"] = ChangeRequestReviewState(
+        change_request_number=23,
+        head_sha="abc123",
+        status="findings_present",
+        last_run_id="prior-run",
+        findings_count=1,
+        summary="One finding.",
+        note_url="https://github.com/octo-org/octo-repo/pull/23#issuecomment-1",
+        projection_retry_pending=True,
+        projection_retry_warning="Review projection warning: transient failure",
+    )
+    state_store.save(state)
+
+    monkeypatch.setattr(
+        "zeroone_ops.providers.review.github.GitHubReviewClient.get_change_request",
+        _stub_get_change_request(
+            ChangeRequestReviewCandidate(
+                change_request_number=23,
+                title="feat: github review flow",
+                description="summary",
+                source_branch="feature/github-review",
+                target_branch="main",
+                web_url="https://github.com/octo-org/octo-repo/pull/23",
+                head_sha="abc123",
+                changes=[],
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
+        _stub_build_context(
+            ChangeRequestReviewContext(
+                change_request_number=23,
+                title="feat: github review flow",
+                description="summary",
+                source_branch="feature/github-review",
+                target_branch="main",
+                web_url="https://github.com/octo-org/octo-repo/pull/23",
+                head_sha="abc123",
+                remediation_context=RemediationReviewContext(
+                    source="SonarQube",
+                    item_reference="AX123",
+                ),
+                changed_files=[],
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.pipeline.review_runner.ReviewRunner._build_review_projection_service",
+        lambda self: projection_service,
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
+        lambda self, context: (_ for _ in ()).throw(AssertionError("analysis should not run")),
+    )
+
+    summary = review(dry_run=False)
+
+    assert summary.status.value == "reviewed"
+    assert "No new changes after the last review." in summary.message
+    assert "Repaired pending review projection." in summary.message
+    assert len(projection_service.calls) == 1
+    loaded = state_store.load().reviews["23:abc123"]
+    assert loaded.projection_retry_pending is False
+    assert loaded.projection_retry_warning is None
+    assert loaded.last_run_id != "prior-run"

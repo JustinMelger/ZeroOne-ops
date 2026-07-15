@@ -100,6 +100,8 @@ class ReviewStateService:
         artifact: PublishableReviewArtifact,
         note_id: int | None,
         note_url: str | None,
+        projection_retry_pending: bool = False,
+        projection_retry_warning: str | None = None,
         dry_run: bool,
     ) -> RunSummary:
         """Persist a reviewed change-request revision and return the summary."""
@@ -121,6 +123,8 @@ class ReviewStateService:
                 findings=_build_prior_review_findings_from_artifact(artifact),
                 note_id=note_id,
                 note_url=note_url,
+                projection_retry_pending=projection_retry_pending,
+                projection_retry_warning=projection_retry_warning,
             )
             self._trim_prior_reviews_for_change_request(merge_request.change_request_number)
         self.state_store.save(self.state)
@@ -140,6 +144,30 @@ class ReviewStateService:
             message=base_message,
             state_path=self.state_store.path,
         )
+
+    def update_projection_retry_state(
+        self,
+        *,
+        change_request_number: int,
+        head_sha: str,
+        last_run_id: str,
+        pending: bool,
+        warning: str | None,
+    ) -> None:
+        """Persist the current projection-retry state for one reviewed revision."""
+        review_state = self.state.reviews.get(
+            build_review_revision_key(
+                change_request_number=change_request_number,
+                head_sha=head_sha,
+            )
+        )
+        if review_state is None:
+            return
+        review_state.projection_retry_pending = pending
+        review_state.projection_retry_warning = warning
+        review_state.last_run_id = last_run_id
+        review_state.updated_at = utc_now()
+        self.state_store.save(self.state)
 
     def mark_same_sha_reused(
         self,
