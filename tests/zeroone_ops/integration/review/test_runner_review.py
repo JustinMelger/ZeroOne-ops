@@ -488,7 +488,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
     summary = review(dry_run=True)
 
     assert summary.status.value == "reviewed"
-    assert "Reviewed change request !17 at abc123." in summary.message
+    assert "Reviewed change request #17 at abc123." in summary.message
     assert "Dry-run skipped note publication." in summary.message
 
 
@@ -818,7 +818,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
-    assert "Reviewed change request !17 at abc123." in summary.message
+    assert "Reviewed change request #17 at abc123." in summary.message
     assert (
         "Review note: https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
         in summary.message
@@ -1375,7 +1375,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
 
     assert summary.status.value == "reviewed"
     assert observed["artifact"].follow_up_lines == []
-    assert "Reviewed change request !17 at def456." in summary.message
+    assert "Reviewed change request #17 at def456." in summary.message
 
 
 def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
@@ -1500,7 +1500,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
-    assert "Reviewed change request !17 at abc123." in summary.message
+    assert "Reviewed change request #17 at abc123." in summary.message
     assert observed["artifact"].classification == "no_findings"
     assert observed["artifact"].summary == "No actionable findings in this review pass."
     assert observed["artifact"].follow_up_lines == []

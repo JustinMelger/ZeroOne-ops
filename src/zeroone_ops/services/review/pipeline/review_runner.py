@@ -162,7 +162,7 @@ class ReviewRunner:
             )
             summary = self.review_state_service.mark_same_sha_reused(
                 record=record,
-                merge_request=selected_change_request,
+                change_request=selected_change_request,
                 prior_classification=existing_review.classification,
             )
             return RunSummary(
@@ -464,7 +464,7 @@ class ReviewRunner:
         )
         summary = self.review_state_service.mark_reviewed(
             record=record,
-            merge_request=selected_change_request,
+            change_request=selected_change_request,
             artifact=publish_artifact,
             note_id=note_id,
             note_url=note_url,

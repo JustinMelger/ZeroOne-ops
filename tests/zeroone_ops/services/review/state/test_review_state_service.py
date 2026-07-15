@@ -27,7 +27,7 @@ def build_state() -> AppState:
     return AppState(repository=RepositoryState(base_branch="main"))
 
 
-def build_merge_request() -> ChangeRequestReviewCandidate:
+def build_change_request() -> ChangeRequestReviewCandidate:
     return ChangeRequestReviewCandidate(
         change_request_number=17,
         title="feat: review flow",
@@ -76,7 +76,7 @@ def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
 
     summary = service.mark_reviewed(
         record=record,
-        merge_request=build_merge_request(),
+        change_request=build_change_request(),
         artifact=build_artifact(),
         note_id=55,
         note_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
@@ -127,7 +127,7 @@ def test_update_projection_retry_state_persists_repair_outcome(tmp_path) -> None
     record = service.start_run("run-1")
     service.mark_reviewed(
         record=record,
-        merge_request=build_merge_request(),
+        change_request=build_change_request(),
         artifact=build_artifact(),
         note_id=55,
         note_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
@@ -162,7 +162,7 @@ def test_mark_reviewed_mirrors_publish_artifact_metadata_into_local_state(tmp_pa
 
     service.mark_reviewed(
         record=record,
-        merge_request=build_merge_request(),
+        change_request=build_change_request(),
         artifact=PublishableReviewArtifact(
             classification="findings_present",
             summary="One medium-risk finding.",
@@ -265,7 +265,7 @@ def test_mark_reviewed_preserves_continuity_metadata_contract_end_to_end(tmp_pat
 
     service.mark_reviewed(
         record=record,
-        merge_request=build_merge_request(),
+        change_request=build_change_request(),
         artifact=artifact,
         note_id=55,
         note_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
@@ -308,7 +308,7 @@ def test_mark_reviewed_dry_run_does_not_persist_review_revision(tmp_path) -> Non
 
     summary = service.mark_reviewed(
         record=record,
-        merge_request=build_merge_request(),
+        change_request=build_change_request(),
         artifact=PublishableReviewArtifact(
             classification="no_findings",
             summary="No findings.",
@@ -336,7 +336,7 @@ def test_mark_reviewed_manual_review_only_uses_clear_summary_language(tmp_path) 
 
     summary = service.mark_reviewed(
         record=record,
-        merge_request=build_merge_request(),
+        change_request=build_change_request(),
         artifact=PublishableReviewArtifact(
             classification="manual_review_only",
             summary="The available context was insufficient.",
@@ -370,7 +370,7 @@ def test_mark_reviewed_trims_prior_review_history_per_merge_request(tmp_path) ->
         record = service.start_run(run_id)
         service.mark_reviewed(
             record=record,
-            merge_request=build_merge_request().model_copy(update={"head_sha": head_sha}),
+            change_request=build_change_request().model_copy(update={"head_sha": head_sha}),
             artifact=build_artifact(),
             note_id=None,
             note_url=None,
@@ -401,7 +401,7 @@ def test_load_prior_review_context_returns_recent_passes_for_same_mr(tmp_path) -
         record = service.start_run(run_id)
         service.mark_reviewed(
             record=record,
-            merge_request=build_merge_request().model_copy(update={"head_sha": head_sha}),
+            change_request=build_change_request().model_copy(update={"head_sha": head_sha}),
             artifact=build_artifact(),
             note_id=None,
             note_url=f"https://gitlab.example.com/note/{run_id}",
@@ -445,7 +445,7 @@ def test_mark_reviewed_persists_canonical_identity_with_human_summary(tmp_path) 
 
     service.mark_reviewed(
         record=record,
-        merge_request=build_merge_request(),
+        change_request=build_change_request(),
         artifact=PublishableReviewArtifact(
             classification="findings_present",
             summary="Two findings.",

@@ -96,7 +96,7 @@ class ReviewStateService:
         self,
         *,
         record: RunRecord,
-        merge_request: ChangeRequestReviewCandidate,
+        change_request: ChangeRequestReviewCandidate,
         artifact: PublishableReviewArtifact,
         note_id: int | None,
         note_url: str | None,
@@ -109,12 +109,12 @@ class ReviewStateService:
         record.updated_at = utc_now()
         if not dry_run:
             dedup_key = build_review_revision_key(
-                change_request_number=merge_request.change_request_number,
-                head_sha=merge_request.head_sha,
+                change_request_number=change_request.change_request_number,
+                head_sha=change_request.head_sha,
             )
             self.state.reviews[dedup_key] = ChangeRequestReviewState(
-                change_request_number=merge_request.change_request_number,
-                head_sha=merge_request.head_sha,
+                change_request_number=change_request.change_request_number,
+                head_sha=change_request.head_sha,
                 status=artifact.classification,
                 last_run_id=record.run_id,
                 findings_count=len(artifact.findings),
@@ -126,12 +126,12 @@ class ReviewStateService:
                 projection_retry_pending=projection_retry_pending,
                 projection_retry_warning=projection_retry_warning,
             )
-            self._trim_prior_reviews_for_change_request(merge_request.change_request_number)
+            self._trim_prior_reviews_for_change_request(change_request.change_request_number)
         self.state_store.save(self.state)
         summary_clause = _review_classification_summary(artifact)
         base_message = (
-            f"Reviewed change request !{merge_request.change_request_number} "
-            f"at {merge_request.head_sha}. "
+            f"Reviewed change request #{change_request.change_request_number} "
+            f"at {change_request.head_sha}. "
             f"Classification: {artifact.classification}. {summary_clause}"
         )
         if dry_run:
@@ -173,7 +173,7 @@ class ReviewStateService:
         self,
         *,
         record: RunRecord,
-        merge_request: ChangeRequestReviewCandidate,
+        change_request: ChangeRequestReviewCandidate,
         prior_classification: str | None,
     ) -> RunSummary:
         """Persist an operational same-SHA reuse outcome and return the summary."""
@@ -181,8 +181,8 @@ class ReviewStateService:
         record.updated_at = utc_now()
         self.state_store.save(self.state)
         message = (
-            f"Reviewed change request !{merge_request.change_request_number} "
-            f"at {merge_request.head_sha}. "
+            f"Reviewed change request #{change_request.change_request_number} "
+            f"at {change_request.head_sha}. "
         )
         message += "No new changes after the last review."
         if prior_classification is not None:
