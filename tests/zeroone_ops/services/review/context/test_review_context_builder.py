@@ -217,6 +217,64 @@ def test_build_filters_ignored_paths_even_when_supported(tmp_path: Path) -> None
     assert result.context.changed_files[0].file_path == "src/service.py"
 
 
+def test_build_skips_unreadable_changed_files_when_other_readable_files_remain(
+    tmp_path: Path,
+) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text("line1\n", encoding="utf-8")
+    (source_dir / "binary.py").write_bytes(b"prefix\xafsuffix")
+    merge_request = build_merge_request(
+        changes=[
+            ChangeRequestChangedFile(
+                old_path="src/binary.py",
+                new_path="src/binary.py",
+                diff="@@ -1,1 +1,1 @@",
+            ),
+            ChangeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -1,1 +1,1 @@",
+            ),
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(supported_paths=["src/"]),
+    ).build(merge_request)
+
+    assert result.context is not None
+    assert len(result.context.changed_files) == 1
+    assert result.context.changed_files[0].file_path == "src/service.py"
+
+
+def test_build_fails_cleanly_when_all_supported_changed_files_are_unreadable(
+    tmp_path: Path,
+) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "binary.py").write_bytes(b"prefix\xafsuffix")
+    merge_request = build_merge_request(
+        changes=[
+            ChangeRequestChangedFile(
+                old_path="src/binary.py",
+                new_path="src/binary.py",
+                diff="@@ -1,1 +1,1 @@",
+            )
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(supported_paths=["src/"]),
+    ).build(merge_request)
+
+    assert result.context is None
+    assert "no readable supported non-deleted changed files" in result.message
+    assert "src/binary.py" in result.message
+
+
 def test_build_parses_remediation_authored_merge_request_context(tmp_path: Path) -> None:
     source_dir = tmp_path / "src"
     source_dir.mkdir()

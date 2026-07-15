@@ -57,12 +57,12 @@ class ReviewContextBuilder:
         change_request: ChangeRequestReviewCandidate,
     ) -> ReviewContextBuildResult:
         """Build review context for one change request."""
-        supported_changes = [
+        candidate_changes = [
             change
             for change in change_request.changes
             if not change.deleted_file and self._is_supported_path(change.new_path)
         ]
-        if len(supported_changes) == 0:
+        if len(candidate_changes) == 0:
             return ReviewContextBuildResult(
                 context=None,
                 message=(
@@ -70,19 +70,20 @@ class ReviewContextBuilder:
                     "The change request has no supported non-deleted changed files."
                 ),
             )
-        if len(supported_changes) > self.config.review.max_changed_files:
+        if len(candidate_changes) > self.config.review.max_changed_files:
             return ReviewContextBuildResult(
                 context=None,
                 message=(
                     "Could not build review context. "
-                    f"The change request changes {len(supported_changes)} supported files, "
+                    f"The change request changes {len(candidate_changes)} supported files, "
                     f"which exceeds the v1 limit of {self.config.review.max_changed_files}."
                 ),
             )
 
         changed_files: list[ReviewFileContext] = []
         remaining_helper_lines = self.config.review.max_followed_helper_lines_per_review
-        for change in supported_changes:
+        unreadable_paths: list[str] = []
+        for change in candidate_changes:
             target = self.repo_root / change.new_path
             if not target.exists():
                 return ReviewContextBuildResult(
@@ -92,7 +93,15 @@ class ReviewContextBuilder:
                         f"Changed file is missing in the local repository: {change.new_path}"
                     ),
                 )
-            raw_content = target.read_text(encoding="utf-8")
+            try:
+                raw_content = target.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                unreadable_paths.append(change.new_path)
+                LOGGER.info(
+                    "review context skipped unreadable changed file",
+                    extra={"file_path": change.new_path},
+                )
+                continue
             lines = raw_content.splitlines()
             line_count = len(lines)
             changed_start, changed_end = _changed_line_window(change.diff, line_count)
@@ -163,6 +172,19 @@ class ReviewContextBuilder:
                     renamed_file=change.renamed_file,
                     helper_context=helper_context,
                 )
+            )
+
+        if len(changed_files) == 0:
+            unreadable_detail = (
+                f" Unreadable files: {', '.join(unreadable_paths)}." if unreadable_paths else ""
+            )
+            return ReviewContextBuildResult(
+                context=None,
+                message=(
+                    "Could not build review context. "
+                    "The change request has no readable supported non-deleted changed files."
+                    f"{unreadable_detail}"
+                ),
             )
 
         return ReviewContextBuildResult(

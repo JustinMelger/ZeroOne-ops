@@ -262,7 +262,7 @@ def _project_local_imported_functions(
         try:
             raw_content = target_path.read_text(encoding="utf-8")
             imported_tree = ast.parse(raw_content)
-        except (OSError, SyntaxError):
+        except (OSError, SyntaxError, UnicodeDecodeError):
             continue
         available_functions = _module_level_python_functions(imported_tree)
         imported_lines = raw_content.splitlines()
