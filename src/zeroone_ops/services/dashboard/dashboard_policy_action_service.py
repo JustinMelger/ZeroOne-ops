@@ -10,7 +10,9 @@ from zeroone_ops.models.policy import (
     PolicyCommentSource,
     PolicySeverity,
 )
-from zeroone_ops.services.control_plane.policy_action_service import PolicyActionService
+from zeroone_ops.services.control_plane.policy.policy_action_service import (
+    PolicyActionService,
+)
 
 DashboardPolicyAction = PolicyAction
 DashboardPolicyActionParseResult = PolicyActionParseResult

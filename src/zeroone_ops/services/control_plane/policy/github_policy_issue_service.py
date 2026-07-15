@@ -10,14 +10,14 @@ from zeroone_ops.models.github import GitHubIssueComment, GitHubIssueInfo
 from zeroone_ops.models.policy import PolicyActionParseResult, PolicyCommentSource
 from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
-from zeroone_ops.services.control_plane.github_policy_issue_parser import (
+from zeroone_ops.services.control_plane.policy.github_policy_issue_parser import (
     GitHubPolicyIssueParser,
 )
-from zeroone_ops.services.control_plane.github_policy_issue_renderer import (
+from zeroone_ops.services.control_plane.policy.github_policy_issue_renderer import (
     GitHubPolicyIssueRenderer,
 )
-from zeroone_ops.services.control_plane.policy_action_service import PolicyActionService
-from zeroone_ops.services.control_plane.policy_processing_service import (
+from zeroone_ops.services.control_plane.policy.policy_action_service import PolicyActionService
+from zeroone_ops.services.control_plane.policy.policy_processing_service import (
     PolicyProcessingResult,
     PolicyProcessingService,
 )

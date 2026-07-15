@@ -32,7 +32,7 @@ from zeroone_ops.runner import (
     dashboard_remediate,
     sync_dashboard_sonar,
 )
-from zeroone_ops.services.control_plane.github_policy_issue_service import (
+from zeroone_ops.services.control_plane.policy.github_policy_issue_service import (
     GitHubPolicyIssueProcessResult,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardPolicyProcessResult
@@ -354,7 +354,7 @@ def test_dashboard_policy_dry_run_returns_github_policy_processing_summary(
         encoding="utf-8",
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.control_plane.github_policy_issue_service."
+        "zeroone_ops.services.control_plane.policy.github_policy_issue_service."
         "GitHubPolicyIssueService.process_policy",
         lambda self, repository_id, persist=True: GitHubPolicyIssueProcessResult(
             issue=GitHubIssueInfo(

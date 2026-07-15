@@ -33,10 +33,10 @@ from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPlatformProtocol,
     ReviewPlatformClientError,
 )
-from zeroone_ops.services.control_plane.github_review_projection_service import (
+from zeroone_ops.services.control_plane.review_projection.github_review_projection_service import (
     GitHubReviewProjectionService,
 )
-from zeroone_ops.services.control_plane.github_work_item_service import (
+from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
 )
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder

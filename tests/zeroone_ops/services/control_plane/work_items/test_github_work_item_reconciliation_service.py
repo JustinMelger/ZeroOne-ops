@@ -4,7 +4,7 @@ import pytest
 
 from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, WorkItemState
-from zeroone_ops.services.control_plane.github_work_item_reconciliation_service import (
+from zeroone_ops.services.control_plane.work_items.github_work_item_reconciliation_service import (
     ClosedUnmergedWorkItemOutcome,
     GitHubWorkItemReconciliationService,
 )

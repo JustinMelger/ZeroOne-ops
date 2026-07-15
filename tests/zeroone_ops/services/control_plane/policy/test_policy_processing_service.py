@@ -3,7 +3,7 @@ from zeroone_ops.models.policy import (
     PolicySeverityStateEntry,
     PolicyState,
 )
-from zeroone_ops.services.control_plane.policy_processing_service import (
+from zeroone_ops.services.control_plane.policy.policy_processing_service import (
     PolicyProcessingService,
 )
 

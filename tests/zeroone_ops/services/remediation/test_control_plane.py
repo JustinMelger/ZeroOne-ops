@@ -6,7 +6,7 @@ from zeroone_ops.models.config import (
     GitLabConfig,
     RemediationConfig,
 )
-from zeroone_ops.services.control_plane.github_work_item_service import (
+from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
 )
 from zeroone_ops.services.remediation.control_plane import (

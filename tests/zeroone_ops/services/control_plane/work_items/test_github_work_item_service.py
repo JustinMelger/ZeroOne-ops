@@ -5,14 +5,16 @@ from zeroone_ops.models.work_item import (
     WorkItemSourceRef,
     WorkItemState,
 )
-from zeroone_ops.services.control_plane.github_work_item_parser import GitHubWorkItemParser
-from zeroone_ops.services.control_plane.github_work_item_reconciliation_service import (
+from zeroone_ops.services.control_plane.work_items.github_work_item_parser import (
+    GitHubWorkItemParser,
+)
+from zeroone_ops.services.control_plane.work_items.github_work_item_reconciliation_service import (
     GitHubWorkItemReconciliationService,
 )
-from zeroone_ops.services.control_plane.github_work_item_renderer import (
+from zeroone_ops.services.control_plane.work_items.github_work_item_renderer import (
     GitHubWorkItemRenderer,
 )
-from zeroone_ops.services.control_plane.github_work_item_service import (
+from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
 )
 

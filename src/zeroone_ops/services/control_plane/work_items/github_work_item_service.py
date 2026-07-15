@@ -12,8 +12,10 @@ from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.work_item import WorkItemKind, WorkItemSourceRef, WorkItemState
 from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
-from zeroone_ops.services.control_plane.github_work_item_parser import GitHubWorkItemParser
-from zeroone_ops.services.control_plane.github_work_item_renderer import (
+from zeroone_ops.services.control_plane.work_items.github_work_item_parser import (
+    GitHubWorkItemParser,
+)
+from zeroone_ops.services.control_plane.work_items.github_work_item_renderer import (
     GitHubWorkItemRenderer,
 )
 
