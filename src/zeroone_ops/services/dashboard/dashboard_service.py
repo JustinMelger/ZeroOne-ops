@@ -17,7 +17,7 @@ from zeroone_ops.models.dashboard import (
 from zeroone_ops.models.gitlab import GitLabIssueNote
 from zeroone_ops.models.policy import PolicyCommentSource
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
-from zeroone_ops.services.control_plane.policy_processing_service import (
+from zeroone_ops.services.control_plane.policy.policy_processing_service import (
     PolicyProcessingResult,
     PolicyProcessingService,
 )

@@ -113,61 +113,17 @@ Shipped product state:
 - prefer evaluator growth, observability, wording cleanup, and continuity
   stability over new review-surface expansion
 - keep growing evaluator coverage and contradiction-focused review examples
-- compare same-SHA reruns using the new staged-review observability and reuse
-  behavior
-- harden developer-facing wording so published review notes stay in review
-  terms and make the narrowest supported claim
-- use live examples to improve continuity quality without reopening the staged
-  architecture itself
-- keep bounded repair parked as a later option only if live validator
-  downgrade patterns prove there are narrow safe repair classes
-- keep the remaining inline-comment rollout work scoped to:
-  - feature-flagged test deployment validation
-  - compact CI diagnostics for trusted vs weak anchor decisions
-  - compact CI diagnostics for reused vs new inline-comment outcomes
-  - per-repo enablement only after identity and location trust look good in
-    practice
+- harden developer-facing wording and continuity quality from live examples
+- finish rollout validation for inline comments and same-SHA reuse behavior
 
 #### Open Review Feedback Slices
 
 - [ ] Phase 1: Developer-Friendly Summary Note
 
-- redesign the authoritative summary note so it reads like concise developer
-  feedback instead of a repetitive generated report
-- reduce repeated boilerplate and compress confidence/caution wording
-- improve the top summary/verdict block for faster scanability
-- use verdict vocabulary:
-  - `Block`
-  - `Concern`
-  - `Clear`
-- use risk vocabulary:
-  - `High`
-  - `Medium`
-  - `Low`
-- use confidence vocabulary:
-  - `High`
-  - `Medium`
-  - `Low`
-- keep confidence compressed to the bare label only when it is shown
-- use a compact top block in this order:
-  - verdict
-  - risk
-  - confidence
-  - since last review
-- show `Since last review` only when prior review history materially changes how the
-  current note should be read
-- keep one short summary sentence after the top block
-- keep each finding explanation short and clear so a developer can immediately
-  understand the issue and why it matters
-- default to one short issue sentence per finding
-- add a second short consequence sentence only when the impact is not already
-  obvious from the issue itself, which is most common for behavioral changes
-  and silent misconfiguration rather than direct runtime failures
-- tighten manual-review-only fallback UX so internal validator downgrade reasons
-  do not leak into the visible developer note
-- keep numbered findings in the first UX slice
-- do not add grouped root-cause rendering in the first UX slice
-- use a smaller `Clear` note shape than findings-present notes
+- make the authoritative review note read like concise developer feedback
+- keep the top verdict block compact and easy to scan
+- keep finding explanations short, concrete, and actionable
+- keep detailed wording rules in the review design docs rather than the roadmap
 
 #### Active GitHub Review Rollout
 
@@ -175,8 +131,8 @@ Shipped product state:
   surface
 - keep dogfooding the GitHub inline-comment path for continuity and transport
   edge cases
-- cleanup GitHub review client helper growth by splitting transport,
-  normalization, and inline-thread helper concerns once the slice stabilizes
+- split GitHub review helper growth only where it improves transport,
+  normalization, or thread-boundary clarity
 
 #### Parked Operator-Feedback Research
 
@@ -187,31 +143,22 @@ Shipped product state:
 - continuity consumption of operator feedback is parked pending a smaller,
   safer first implementation plan
 - keep the existing feedback-state and continuity research as design input, not
-  as the active next implementation slice
+  as the active implementation slice
 
-### 4. Cleanup
+### 6. General Cleanup
 
 - continue small codebase and docs cleanup where it improves operator or
   maintainer clarity
 - keep these slices behavior-neutral unless a real rollout issue is being fixed
-- completed cleanup slice:
-  - remediation path consolidation
-  - removed the remaining direct Sonar remediation intake/execution path
-  - reduced Sonar-shaped assumptions in the active dashboard-backed remediation
-    path
-- remaining cleanup candidates:
-  - move `validation_commands` under the remediation config surface once that
-    contract is intentionally locked
-  - remove remaining migration-era nested aliases once the current
-    `platform` and `remediation.target_branch` transitions are no longer needed
-  - move GitLab-specific merge-request services out of `services/shared` once
-    provider-neutral publish/review boundaries are mature enough
+- current cleanup candidates:
+  - finish config and state debt removal where migration compatibility is no
+    longer needed
+  - move remaining GitLab-specific shared services behind clearer provider-local
+    boundaries
+  - keep cleanup tied to clarity or real rollout issues, not speculative
+    refactors
 
-### 5. Remediation Repository Guidance
-
-The implementation slices are now shipped and in active testing.
-
-Current rollout focus:
+### 7. Remediation Guidance Validation
 
 - observe whether repository guidance improves remediation quality without
   broadening selected issue scope
@@ -220,26 +167,7 @@ Current rollout focus:
 - tune prompt strength only from real remediation feedback, not speculative
   pre-adjustments
 
-- add bounded repository guidance to remediation analysis and structured-edit
-  prompts
-- reuse the same repository guidance source/path discovery as review
-- include all bounded guidance rather than trying to pre-filter relevance in the
-  first version
-- keep repository guidance untrusted in remediation, just like in review
-- use repository guidance only to shape fix implementation choices
-- do not let repository guidance expand the selected issue scope
-- do not let remediation become a second review-authority surface
-
-#### Implemented Remediation Guidance Slices
-
-- shared guidance discovery reuse
-- remediation context wiring
-- prompt integration for analysis and structured-edit paths
-- boundary tests proving guidance stays fix-shaping only
-
-### 6. Dashboard Workflow Refinement
-
-The first dashboard hardening pass is now shipped.
+### 8. Dashboard Workflow Refinement
 
 Next feedback-driven refinements:
 
@@ -252,248 +180,54 @@ Next feedback-driven refinements:
 - continue preferring explanation and scanability improvements before adding
   mutable retry or reset commands
 
-## Future Tracks
+## Parked For Later
 
-These are important, but intentionally not part of the immediate rollout phase.
-
-### Review Pipeline Hardening
-
-- broader evaluator set built from real live review outcomes
-- staged-review observability and same-SHA reuse are now in place; use them to
-  drive wording, continuity, and evaluator improvements from live examples
-- possible later bounded artifact repair for contradiction classes proven safe
-  by live validator downgrade examples
-
-### Review Continuity And Feedback
-
-- stronger continuity benchmark coverage and live validation examples
-- MR-scoped structured operator feedback for repeated reviews
-- more authoritative reconciliation behavior for unresolved/new/resolved claims
-
-### Broader Workflow Expansion
-
-- GitHub platform support as a first-class product track, with review as the
-  first implementation slice and broader remediation/control-plane parity to
-  follow deliberately
-- additional remediation producers such as pipeline-failure and security-scan
-  inputs
-- dashboard readability and grouped review-history improvements where they help
-  operators
-
-#### Implemented GitHub Platform Slices
-
-- Phase 1a: provider-neutral review core
-  - provider-neutral review client seam
-  - neutral shared identifiers and transport errors
-  - domain review vocabulary (`ChangeRequest...`, `ReviewComment`)
-  - reduced direct GitLab coupling in runner, intake, and prior-context loading
-- Phase 1b: review neutrality cleanup
-  - removed temporary shared-core compatibility aliases and fallback fields
-  - renamed remaining shared review-path modules and wording to domain language
-  - migrated persisted shared review state to `ChangeRequestReviewState` with
-    load-time migration for older local state
-- Phase 2b: GitHub review config and documentation cleanup
-  - removed the dummy top-level `gitlab` requirement for GitHub review mode
-  - grouped GitHub review support under review-domain packages
-  - documented the GitHub review config shape and workflow example
-  - mirrored the review integration test suite to the cleaned package
-    boundaries
-- Phase 2: GitHub review summary support
-  - support GitHub pull request intake from CI context
-  - load GitHub pull request changed files and bounded review context
-  - publish deterministic GitHub pull request summary comments
-  - support same-SHA reuse and prior-summary continuity on GitHub
-  - stop conservatively when the triggering pull request head SHA no longer
-    matches the live provider head SHA
-  - reduce review artifact validation to strict structural invariants so valid
-    `no_findings` follow-up notes do not downgrade to `manual_review_only` from
-    phrase-based heuristic matching
-- Phase 3: GitHub review inline comments
-  - add GitHub inline comment transport
-  - suppress automatic inline re-posting on later runs for the same canonical
-    finding identity when prior inline-comment metadata already exists
-  - keep still-valid findings in the authoritative summary comment even when
-    inline re-publication is suppressed
-  - keep the summary comment authoritative
-  - preserve trusted-location and identity gating before inline publication
-
-- Provider-local GitLab review services, transport models, and GitLab CI
-  environment names intentionally remain provider-specific and are not shared
-  review-core debt.
-
-#### Open GitHub Platform Slices
-
-- completed Phase 4: GitHub Remediation Publish Support
-  - completed Phase 4a config-prep slice:
-  - moved repo provider selection to top-level `platform`
-  - moved remediation publication targeting to shared `remediation.target_branch`
-  - kept provider-local publication metadata explicit under provider blocks
-  - completed shared publish seam slices:
-  - extracted remediation publish behind a provider-local change-request
-    publisher seam
-  - extracted dashboard active-change-request lookup behind a provider-local
-    lookup seam
-  - completed provider-neutrality sweep across shared remediation and dashboard
-    seams:
-  - neutralized shared `merge_request_*` model, state, and traceability fields
-  - neutralized shared dashboard reconciliation state and change-request
-    vocabulary
-  - intentionally kept compatibility aliases in dashboard models/parsers for
-    persisted legacy `merge_request_*` fields
-  - kept genuinely shared contracts neutral while preserving provider-local
-    publication semantics where they differ
-  - supported GitHub branch and pull request publication for remediation
-  - preserved the current remediation execution core where it is genuinely
-    provider-neutral
-  - avoided GitLab-specific merge-request assumptions in remediation publish
-    flow
-  - follow-up live validation should continue under Phase 6 rollout, not as
-    open Phase 4 scope
-
-- [x] Phase 5: GitHub Control Plane
-
-- locked direction: use a hybrid GitHub-native control plane
-- keep one shared control-plane state domain and provider-local storage/view
-  adapters instead of forcing both platforms into one dashboard-shaped model
-- keep the boundary compatible with a future external control-plane app rather
-  than binding shared orchestration to the current GitLab dashboard surface
-- treat GitHub issues/comments and GitLab dashboard markdown as
-  provider-specific transport/rendering, not as the long-term shared domain
-  model, so a later API/database backend can replace them without changing
-  policy semantics
-
-- [x] Phase 5a: GitHub Policy Surface
-
-- start with one dedicated policy issue for repository-wide operator policy
-- define the bounded operator-editable policy shape on GitHub
-- keep this issue authoritative for repo-wide policy only
-- use strict `issue_comment` commands on the policy issue as the first write
-  path
-- support repo-wide severity enablement and issue-class exclusions in that
-  bounded command surface
-- defer `policy show|inspect` in the first GitHub slice
-- discover the policy issue via title `ZeroOne Ops Policy` and label
-  `zeroone-policy`, then create it on demand when missing
-- authorize commands through GitHub-native permissions and require
-  `admin` authority
-- reuse the current strict `/zeroone policy` grammar in the first GitHub slice
-- reuse GitLab policy semantics but keep a slimmer GitHub-specific issue body
-- keep the first implementation stateless via deterministic full comment replay
-- leave acknowledgement replies as follow-up UX, not a blocker for `5a`
-- do not post reply comments for malformed or unauthorized commands in `5a`
-- keep the first policy issue body compact: current policy, exact commands, and
-  short machine-owned notes only
-- small repo-design prep only:
-  - extract genuinely shared policy replay/state seams
-  - keep GitHub policy issue transport out of the GitLab dashboard package
-  - keep provider markdown/comment formats as projections over structured
-    control-plane state so Phase 5a remains compatible with a future
-    API/database backend
-- implemented:
-  - added provider-local GitHub policy issue transport and processing runner
-  - routed GitHub policy comment replay through shared policy parsing and
-    replay services
-  - enforced GitHub-native admin permission gating for policy mutations
-  - kept malformed or unauthorized commands non-authoritative in the first
-    slice
-  - kept the composition root explicit so provider-local GitHub bootstrap is
-    isolated from shared policy core logic
-
-- [x] Phase 5b: GitHub Work-Item Control Plane
-
-- keep remediation issues, pull requests, labels, and state transitions
-  authoritative
-- define item-level lifecycle and linkage between remediation issues and PRs
-- design the operator control interaction model on the authoritative item
-  surfaces
-- define a producer-neutral promotion rule from candidate to GitHub work item
-- current lean: promote only candidates that need durable shared coordination
-- lock the first authoritative work-item record as one GitHub issue with one
-  bounded machine-readable state block
-- treat the remediation PR as linked execution state, not as the primary record
-- lock the first shared status set to `candidate`, `approved`, `in_progress`,
-  `blocked`, `completed`, and `dismissed`
-- first-slice promotion triggers:
-  - selected for remediation
-  - blocked and needs operator attention
-  - linked to an open remediation PR
-- do not promote retry-eligible items by default in the first slice
-- first operator control surface: labels and state on the authoritative issue,
-  not comment commands
-- first entry path: bot-created promoted work items only
-- keep non-promoted backlog visible through aggregated inventory rather than
-  one GitHub issue per candidate
-- lock first-slice backlog visibility to derived aggregate counts only, not
-  another authoritative per-item surface
-- do not materialize every raw producer finding as a GitHub issue
-- implemented:
-  - added a shared promotion decision service for remediation work items
-  - added provider-local GitHub work-item issue transport, parsing, and
-    rendering around one authoritative machine-readable state block
-  - materialized promoted remediation work items into authoritative GitHub
-    issues only when durable coordination is required
-  - kept bot-created promoted work items as the only first entry path
-  - projected remediation lifecycle transitions onto the first shared work-item
-    states: `approved`, `in_progress`, `blocked`, `completed`, and
-    `dismissed`
-  - linked remediation PR publication back onto the authoritative work item
-    without making PRs the primary record
-  - preserved one active remediation PR link per work item and cleared stale
-    links when closed-unmerged reconciliation returns the item to queue or
-    blocked state
-  - classified closed-unmerged GitHub PR reconciliation explicitly as
-    `approved` or `blocked` instead of inferring one generic reopen outcome
-  - kept non-promoted backlog visibility out of per-item GitHub issues in the
-    first slice
-
-- Phase 5 control-plane implementation is complete; next work moves to cleanup
-  hardening and a new producer that can exercise the GitHub path on this
-  repository
-
-- [x] Phase 5c: GitHub Status Projection
-
-- connect remediation and review workflow status back into the GitHub control
+- broader review evaluator growth beyond the current rollout-driven hardening
+- richer operator-feedback consumption for repeated reviews
+- additional remediation producers beyond the next dogfooding producer
+- broader dashboard readability/history improvements after current rollout
+  feedback stabilizes
+- any later move from CLI-backed state to an external API/database control
   plane
-- project shared workflow state onto authoritative GitHub objects without
-  making rendered markdown authoritative
-- keep review projection compact: status, traceability, and actionable
-  follow-up state rather than full review prose
-- implemented:
-  - projected published GitHub remediation review status onto existing promoted
-    GitHub work items only
-  - kept projection best-effort and non-authoritative relative to the primary
-    review publish path
-  - used provider-local review projection rather than pushing GitHub-specific
-    state into shared review artifact logic
-  - aligned review projection identity with promoted remediation work-item
-    identity, including repository scope
-  - preserved projected review state across later remediation lifecycle and
-    reconciliation upserts
 
-- [x] Phase 5d: Optional Derived Overview
+### GitHub Platform Status
 
-- intentionally kept parked:
-  - do not require a persistent summary issue in the first slice
-  - allow any later summary issue only as derived and read-only
-  - add a summary surface only if operator usage proves native GitHub views are
-    insufficient
+- shipped:
+  - GitHub review support, remediation publish, and control-plane Phase 5 are
+    implemented
+- focused on now:
+  - Phase 6 cleanup, one new dogfooding producer, and rollout validation
+- parked:
+  - any persistent overview issue remains optional and derived only
+  - broader control-plane storage evolution belongs to a later API/database
+    backend phase
 
-- implemented Phase 5 summary:
-  - repository-wide GitHub policy issue and strict policy command replay
-  - promoted GitHub work-item control plane with authoritative machine state
-  - bounded review status projection onto existing promoted work items
-  - intentionally no mandatory derived overview issue in the first slice
-
-- [ ] Phase 6: GitHub Platform Rollout
-
-- completed: dogfooded GitHub review support on this repository first
-- expand into broader GitHub-native workflow usage as later slices land
-- validate product clarity before claiming broader platform parity
-
-#### Next Phase 6 Entry Slice
+#### Phase 6a: Post-Phase-5 Cleanup
 
 - post-Phase-5 cleanup of control-plane seams and package boundaries
-- one new remediation producer for live dogfooding on this repository
+- split oversized control-plane modules by concern where boundaries are now too
+  broad
+- align source and test layout more closely to the control-plane domain map
+- clean up persistence/state naming and any compatibility leftovers that are
+  now clearly debt
+
+#### Phase 6b: New Dogfooding Producer
+
+- add one bounded remediation producer that works on this repository without
+  SonarQube
+- normalize it into the existing remediation/control-plane path
+- use it to live-test:
+  - promotion
+  - work-item lifecycle
+  - review projection
+  - same-SHA projection repair
+
+#### Phase 6c: GitHub Rollout Validation
+
+- validate the new producer plus current GitHub review/remediation behavior in
+  live runs
+- collect operator and developer feedback from that usage
+- prefer narrow rollout fixes before broadening the workflow surface again
 
 ## Reference Docs
 

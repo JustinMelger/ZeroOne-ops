@@ -6,7 +6,7 @@ from zeroone_ops.models.dashboard import (
 )
 from zeroone_ops.models.github import GitHubIssueComment, GitHubIssueInfo
 from zeroone_ops.providers.github_client import GitHubClientError
-from zeroone_ops.services.control_plane.github_policy_issue_service import (
+from zeroone_ops.services.control_plane.policy.github_policy_issue_service import (
     GitHubPolicyIssueProcessResult,
     GitHubPolicyIssueService,
 )

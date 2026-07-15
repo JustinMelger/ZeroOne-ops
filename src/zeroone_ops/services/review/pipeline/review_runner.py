@@ -33,10 +33,10 @@ from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPlatformProtocol,
     ReviewPlatformClientError,
 )
-from zeroone_ops.services.control_plane.github_review_projection_service import (
+from zeroone_ops.services.control_plane.review_projection.github_review_projection_service import (
     GitHubReviewProjectionService,
 )
-from zeroone_ops.services.control_plane.github_work_item_service import (
+from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
 )
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
@@ -162,7 +162,7 @@ class ReviewRunner:
             )
             summary = self.review_state_service.mark_same_sha_reused(
                 record=record,
-                merge_request=selected_change_request,
+                change_request=selected_change_request,
                 prior_classification=existing_review.classification,
             )
             return RunSummary(
@@ -464,7 +464,7 @@ class ReviewRunner:
         )
         summary = self.review_state_service.mark_reviewed(
             record=record,
-            merge_request=selected_change_request,
+            change_request=selected_change_request,
             artifact=publish_artifact,
             note_id=note_id,
             note_url=note_url,

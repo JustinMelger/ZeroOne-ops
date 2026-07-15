@@ -1,23 +1,22 @@
-"""Provider-local GitHub work-item issue orchestration."""
+"""Upsert authoritative GitHub work-item issues."""
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import Literal
 
-from pydantic import ValidationError
-
 from zeroone_ops.models.github import GitHubIssueInfo
-from zeroone_ops.models.work_item import WorkItemKind, WorkItemSourceRef, WorkItemState
-from zeroone_ops.providers.github_client import GitHubClientError
+from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
-from zeroone_ops.services.control_plane.github_work_item_parser import GitHubWorkItemParser
-from zeroone_ops.services.control_plane.github_work_item_renderer import (
+from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
+    GitHubWorkItemLookupService,
+)
+from zeroone_ops.services.control_plane.work_items.github_work_item_parser import (
+    GitHubWorkItemParser,
+)
+from zeroone_ops.services.control_plane.work_items.github_work_item_renderer import (
     GitHubWorkItemRenderer,
 )
-
-LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -29,26 +28,20 @@ class GitHubWorkItemUpsertResult:
     work_item: WorkItemState
 
 
-@dataclass(frozen=True)
-class GitHubWorkItemLookupResult:
-    """Capture one matched authoritative work-item issue and its parsed state."""
-
-    issue: GitHubIssueInfo
-    work_item: WorkItemState
-
-
-class GitHubWorkItemService:
-    """Create, reuse, and update authoritative GitHub work-item issues."""
+class GitHubWorkItemUpsertService:
+    """Create or update authoritative open GitHub work-item issues."""
 
     def __init__(
         self,
         client: GitHubWorkItemClient,
         *,
+        lookup_service: GitHubWorkItemLookupService,
         parser: GitHubWorkItemParser | None = None,
         renderer: GitHubWorkItemRenderer | None = None,
     ) -> None:
-        """Initialize the GitHub work-item service."""
+        """Initialize the upsert service."""
         self.client = client
+        self.lookup_service = lookup_service
         self.parser = parser or GitHubWorkItemParser()
         self.renderer = renderer or GitHubWorkItemRenderer()
 
@@ -62,12 +55,12 @@ class GitHubWorkItemService:
         title = self.renderer.render_title(work_item)
         body = self.renderer.render_body(work_item)
         labels = self.renderer.render_labels(work_item)
-        existing_issue = self._find_open_issue_by_identity(
+        existing = self.lookup_service.find_open_work_item_by_source(
             repository_id=repository_id,
-            work_item=work_item,
+            kind=work_item.kind,
+            source=work_item.source,
         )
-        if existing_issue is None:
-            rendered_work_item = work_item
+        if existing is None:
             return GitHubWorkItemUpsertResult(
                 issue=self.client.create_issue(
                     repository_id=repository_id,
@@ -76,25 +69,25 @@ class GitHubWorkItemService:
                     labels=labels,
                 ),
                 action="created",
-                work_item=rendered_work_item,
+                work_item=work_item,
             )
         rendered_work_item = self._merge_existing_authoritative_state(
-            existing_issue=existing_issue,
+            existing_issue=existing.issue,
             work_item=work_item,
         )
         title = self.renderer.render_title(rendered_work_item)
         body = self.renderer.render_body(rendered_work_item)
         labels = self.renderer.render_labels(rendered_work_item)
-        if existing_issue.title == title and existing_issue.body == body:
+        if existing.issue.title == title and existing.issue.body == body:
             return GitHubWorkItemUpsertResult(
-                issue=existing_issue,
+                issue=existing.issue,
                 action="unchanged",
                 work_item=rendered_work_item,
             )
         return GitHubWorkItemUpsertResult(
             issue=self.client.update_issue(
                 repository_id=repository_id,
-                issue_number=existing_issue.number,
+                issue_number=existing.issue.number,
                 title=title,
                 body=body,
                 labels=labels,
@@ -102,53 +95,6 @@ class GitHubWorkItemService:
             action="updated",
             work_item=rendered_work_item,
         )
-
-    def find_open_work_item_by_source(
-        self,
-        *,
-        repository_id: str,
-        kind: WorkItemKind,
-        source: WorkItemSourceRef,
-    ) -> GitHubWorkItemLookupResult | None:
-        """Return the matching open authoritative work item when present."""
-        authoritative_label = self.renderer.AUTHORITATIVE_WORK_ITEM_LABEL
-        for issue in self.client.list_open_issues(
-            repository_id=repository_id,
-            labels=[authoritative_label],
-        ):
-            try:
-                parsed = self.parser.parse_work_item_state(issue.body)
-            except (GitHubClientError, ValidationError):
-                LOGGER.warning(
-                    "GitHub work-item issue scan skipped malformed machine state",
-                    extra={
-                        "issue_number": issue.number,
-                        "issue_url": issue.web_url,
-                    },
-                    exc_info=True,
-                )
-                continue
-            if parsed is None:
-                continue
-            if parsed.kind != kind:
-                continue
-            if parsed.source == source:
-                return GitHubWorkItemLookupResult(issue=issue, work_item=parsed)
-        return None
-
-    def _find_open_issue_by_identity(
-        self,
-        *,
-        repository_id: str,
-        work_item: WorkItemState,
-    ) -> GitHubIssueInfo | None:
-        """Return the matching open authoritative work-item issue when present."""
-        lookup_result = self.find_open_work_item_by_source(
-            repository_id=repository_id,
-            kind=work_item.kind,
-            source=work_item.source,
-        )
-        return None if lookup_result is None else lookup_result.issue
 
     def _merge_existing_authoritative_state(
         self,

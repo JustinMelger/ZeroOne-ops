@@ -11,7 +11,7 @@ from zeroone_ops.models.config import (
 )
 from zeroone_ops.models.remediation import RemediationExecutionTarget, RemediationWorkItem
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, WorkItemState
-from zeroone_ops.services.control_plane.remediation_work_item_promotion_service import (
+from zeroone_ops.services.control_plane.work_items.remediation_work_item_promotion_service import (
     RemediationWorkItemPromotionContext,
 )
 from zeroone_ops.services.remediation import publish_service as publish_service_module

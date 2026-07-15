@@ -16,10 +16,10 @@ from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.review.github import GitHubReviewClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
-from zeroone_ops.services.control_plane.github_policy_issue_service import (
+from zeroone_ops.services.control_plane.policy.github_policy_issue_service import (
     GitHubPolicyIssueService,
 )
-from zeroone_ops.services.control_plane.github_policy_processing_runner import (
+from zeroone_ops.services.control_plane.policy.github_policy_processing_runner import (
     GitHubPolicyProcessingRunner,
 )
 from zeroone_ops.services.dashboard.dashboard_policy_processing_runner import (

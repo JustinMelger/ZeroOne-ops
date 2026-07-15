@@ -9,7 +9,7 @@ from zeroone_ops.models.state import (
     RunStatus,
     utc_now,
 )
-from zeroone_ops.services.control_plane.github_policy_issue_service import (
+from zeroone_ops.services.control_plane.policy.github_policy_issue_service import (
     GitHubPolicyIssueProcessResult,
     GitHubPolicyIssueService,
 )

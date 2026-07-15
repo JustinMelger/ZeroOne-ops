@@ -6,7 +6,9 @@ from dataclasses import dataclass
 
 from zeroone_ops.models.review import ChangeRequestReviewContext, ReviewClassification
 from zeroone_ops.models.work_item import ProjectedReviewState, WorkItemSourceRef, WorkItemState
-from zeroone_ops.services.control_plane.github_work_item_service import GitHubWorkItemService
+from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
+    GitHubWorkItemService,
+)
 
 
 @dataclass(frozen=True)

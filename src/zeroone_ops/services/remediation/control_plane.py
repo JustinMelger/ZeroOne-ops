@@ -17,10 +17,10 @@ from zeroone_ops.models.work_item import (
 )
 from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
-from zeroone_ops.services.control_plane.github_work_item_service import (
+from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
 )
-from zeroone_ops.services.control_plane.remediation_work_item_promotion_service import (
+from zeroone_ops.services.control_plane.work_items.remediation_work_item_promotion_service import (
     RemediationWorkItemPromotionContext,
     RemediationWorkItemPromotionService,
 )

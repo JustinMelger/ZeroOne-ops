@@ -1,9 +1,9 @@
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.remediation import RemediationExecutionTarget, RemediationWorkItem
-from zeroone_ops.services.control_plane.github_work_item_service import (
+from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
 )
-from zeroone_ops.services.control_plane.remediation_work_item_promotion_service import (
+from zeroone_ops.services.control_plane.work_items.remediation_work_item_promotion_service import (
     RemediationWorkItemPromotionContext,
 )
 from zeroone_ops.services.remediation.control_plane import GitHubRemediationControlPlane

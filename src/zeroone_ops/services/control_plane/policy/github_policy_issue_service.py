@@ -8,16 +8,21 @@ from typing import Protocol
 from zeroone_ops.models.dashboard import DashboardItem, DashboardPolicyState, DashboardPolicyView
 from zeroone_ops.models.github import GitHubIssueComment, GitHubIssueInfo
 from zeroone_ops.models.policy import PolicyActionParseResult, PolicyCommentSource
-from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
-from zeroone_ops.services.control_plane.github_policy_issue_parser import (
+from zeroone_ops.services.control_plane.policy.github_policy_comment_authorization_service import (
+    GitHubPolicyCommentAuthorizationService,
+)
+from zeroone_ops.services.control_plane.policy.github_policy_issue_parser import (
     GitHubPolicyIssueParser,
 )
-from zeroone_ops.services.control_plane.github_policy_issue_renderer import (
+from zeroone_ops.services.control_plane.policy.github_policy_issue_renderer import (
     GitHubPolicyIssueRenderer,
 )
-from zeroone_ops.services.control_plane.policy_action_service import PolicyActionService
-from zeroone_ops.services.control_plane.policy_processing_service import (
+from zeroone_ops.services.control_plane.policy.github_policy_issue_store import (
+    GitHubPolicyIssueStore,
+)
+from zeroone_ops.services.control_plane.policy.policy_action_service import PolicyActionService
+from zeroone_ops.services.control_plane.policy.policy_processing_service import (
     PolicyProcessingResult,
     PolicyProcessingService,
 )
@@ -84,32 +89,34 @@ class GitHubPolicyIssueService:
         self.title = title
         self.labels = labels or ["zeroone-policy"]
         self.policy_view_builder = policy_view_builder
+        self.issue_store = GitHubPolicyIssueStore(
+            client,
+            title=self.title,
+            labels=self.labels,
+        )
         self.policy_action_service = policy_action_service or PolicyActionService()
         self.policy_processing_service = policy_processing_service or PolicyProcessingService(
             self.policy_action_service
         )
-        self.required_repository_permission = required_repository_permission
+        self.comment_authorization_service = GitHubPolicyCommentAuthorizationService(
+            client,
+            required_repository_permission=required_repository_permission,
+        )
 
     def load_or_create(self, *, repository_id: str) -> GitHubIssueInfo:
         """Load the policy issue or create it if missing."""
-        issue = self.client.find_open_issue(
-            repository_id=repository_id,
-            title=self.title,
-            labels=self.labels,
-        )
+        issue = self.issue_store.find_open_issue(repository_id=repository_id)
         if issue is None:
             policy_state = self.policy_view_builder.resolve_policy_state(None)
             policy_view = self.policy_view_builder.build([], policy_state=policy_state)
-            return self.client.create_issue(
+            return self.issue_store.create_issue(
                 repository_id=repository_id,
-                title=self.title,
                 body=self.renderer.render(policy_state=policy_state, policy_view=policy_view),
-                labels=self.labels,
             )
         policy_state = self.parser.parse_policy_state(issue.body)
         rendered = self._render_body(policy_state=policy_state)
         if rendered != issue.body:
-            return self.client.update_issue(
+            return self.issue_store.update_issue_body(
                 repository_id=repository_id,
                 issue_number=issue.number,
                 body=rendered,
@@ -123,27 +130,21 @@ class GitHubPolicyIssueService:
         persist: bool = True,
     ) -> GitHubPolicyIssueProcessResult:
         """Load the policy issue, replay comments, and optionally persist changes."""
-        issue = self.client.find_open_issue(
-            repository_id=repository_id,
-            title=self.title,
-            labels=self.labels,
-        )
+        issue = self.issue_store.find_open_issue(repository_id=repository_id)
         if issue is None:
             initial_policy_state = self.policy_view_builder.resolve_policy_state(None)
             body = self._render_body(policy_state=initial_policy_state)
             if persist:
-                issue = self.client.create_issue(
+                issue = self.issue_store.create_issue(
                     repository_id=repository_id,
-                    title=self.title,
                     body=body,
-                    labels=self.labels,
                 )
             else:
                 issue = GitHubIssueInfo(
                     id=0,
                     number=0,
                     web_url="",
-                    title=self.title,
+                    title=self.issue_store.title,
                     body=body,
                 )
             return GitHubPolicyIssueProcessResult(
@@ -165,7 +166,7 @@ class GitHubPolicyIssueService:
             repository_id=repository_id,
             issue_number=issue.number,
         )
-        authorized_comments = self._authorized_comments(
+        authorized_comments = self.comment_authorization_service.authorized_comments(
             repository_id=repository_id,
             comments=comments,
         )
@@ -176,7 +177,7 @@ class GitHubPolicyIssueService:
         rendered = self._render_body(policy_state=processing_result.resolved_policy_state)
         issue_changed = rendered != issue.body
         if persist and issue_changed:
-            issue = self.client.update_issue(
+            issue = self.issue_store.update_issue_body(
                 repository_id=repository_id,
                 issue_number=issue.number,
                 body=rendered,
@@ -211,33 +212,6 @@ class GitHubPolicyIssueService:
     def _render_body(self, *, policy_state: DashboardPolicyState) -> str:
         policy_view = self.policy_view_builder.build([], policy_state=policy_state)
         return self.renderer.render(policy_state=policy_state, policy_view=policy_view)
-
-    def _authorized_comments(
-        self,
-        *,
-        repository_id: str,
-        comments: list[GitHubIssueComment],
-    ) -> list[GitHubIssueComment]:
-        """Return comments from users authorized to mutate repository-wide policy."""
-        permission_by_username: dict[str, str] = {}
-        authorized: list[GitHubIssueComment] = []
-        for comment in comments:
-            username = comment.author_username
-            if not username:
-                continue
-            permission = permission_by_username.get(username)
-            if permission is None:
-                try:
-                    permission = self.client.get_repository_permission(
-                        repository_id=repository_id,
-                        username=username,
-                    )
-                except GitHubClientError:
-                    permission = ""
-                permission_by_username[username] = permission
-            if permission == self.required_repository_permission:
-                authorized.append(comment)
-        return authorized
 
 
 def _policy_source_from_comment(comment: GitHubIssueComment) -> PolicyCommentSource:
