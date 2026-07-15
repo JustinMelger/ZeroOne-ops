@@ -259,6 +259,8 @@ class ChangeRequestReviewState(BaseModel):
     findings: list[PriorReviewFindingState] = Field(default_factory=list)
     note_id: int | None = None
     note_url: str | None = None
+    projection_retry_pending: bool = False
+    projection_retry_warning: str | None = None
     updated_at: datetime = Field(default_factory=utc_now)
 
 

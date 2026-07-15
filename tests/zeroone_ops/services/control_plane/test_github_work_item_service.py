@@ -1,10 +1,14 @@
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.work_item import (
     ChangeRequestRef,
+    ProjectedReviewState,
     WorkItemSourceRef,
     WorkItemState,
 )
 from zeroone_ops.services.control_plane.github_work_item_parser import GitHubWorkItemParser
+from zeroone_ops.services.control_plane.github_work_item_reconciliation_service import (
+    GitHubWorkItemReconciliationService,
+)
 from zeroone_ops.services.control_plane.github_work_item_renderer import (
     GitHubWorkItemRenderer,
 )
@@ -98,6 +102,36 @@ def test_github_work_item_renderer_and_parser_round_trip() -> None:
     assert parsed is not None
     assert parsed.work_item_id == "work-1"
     assert parsed.identity_key == build_work_item().identity_key
+    assert parsed.projected_review is None
+
+
+def test_github_work_item_renderer_and_parser_round_trip_with_projected_review() -> None:
+    renderer = GitHubWorkItemRenderer()
+    parser = GitHubWorkItemParser()
+    work_item = build_work_item().model_copy(
+        update={
+            "projected_review": ProjectedReviewState(
+                classification="findings_present",
+                reviewed_sha="abc123def",
+                review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-1",
+                follow_up_required=True,
+            )
+        }
+    )
+
+    body = renderer.render_body(work_item)
+    parsed = parser.parse_work_item_state(body)
+
+    assert "## Review Projection" in body
+    assert "- Classification: `findings_present`" in body
+    assert "- Reviewed SHA: `abc123def`" in body
+    assert "- Follow-up required: `yes`" in body
+    assert parsed is not None
+    assert parsed.projected_review is not None
+    assert parsed.projected_review.classification == "findings_present"
+    assert parsed.projected_review.reviewed_sha == "abc123def"
+    assert parsed.projected_review.review_note_url.endswith("issuecomment-1")
+    assert parsed.projected_review.follow_up_required is True
 
 
 def test_github_work_item_service_creates_when_identity_is_missing() -> None:
@@ -262,3 +296,86 @@ def test_github_work_item_service_preserves_existing_link_when_retry_has_no_repl
     assert result.work_item.linked_change_request == linked_change_request
     assert client.updated_issue is not None
     assert "pull/17" in client.updated_issue.body
+
+
+def test_github_work_item_service_preserves_existing_projected_review_when_status_changes() -> None:
+    renderer = GitHubWorkItemRenderer()
+    original = build_work_item().model_copy(
+        update={
+            "projected_review": ProjectedReviewState(
+                classification="findings_present",
+                reviewed_sha="abc123def",
+                review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-1",
+                follow_up_required=True,
+            )
+        }
+    )
+    client = FakeGitHubWorkItemClient()
+    client.issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(original),
+            body=renderer.render_body(original),
+        )
+    ]
+    service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+
+    result = service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item(status="in_progress"),
+    )
+
+    assert result.action == "updated"
+    assert result.work_item.projected_review is not None
+    assert result.work_item.projected_review.classification == "findings_present"
+    assert client.updated_issue is not None
+    assert "## Review Projection" in client.updated_issue.body
+
+
+def test_github_work_item_service_persists_explicit_link_clear_from_reconciliation() -> None:
+    renderer = GitHubWorkItemRenderer()
+    linked_change_request = ChangeRequestRef(
+        number=17,
+        web_url="https://github.example.com/octo-org/octo-repo/pull/17",
+    )
+    original = build_work_item(status="in_progress").model_copy(
+        update={"linked_change_request": linked_change_request}
+    )
+    client = FakeGitHubWorkItemClient()
+    client.issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(original),
+            body=renderer.render_body(original),
+        )
+    ]
+    service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+    reconciled = GitHubWorkItemReconciliationService().reconcile(
+        work_item=original,
+        change_request_state=type(
+            "State",
+            (),
+            {
+                "iid": 17,
+                "web_url": "https://github.example.com/octo-org/octo-repo/pull/17",
+                "source_branch": "zeroone-ops/fix",
+                "head_sha": "abc123",
+                "state": "closed",
+            },
+        )(),
+        closed_unmerged_outcome="approved",
+    )
+
+    result = service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=reconciled.work_item,
+    )
+
+    assert result.action == "updated"
+    assert result.work_item.linked_change_request is None
+    assert client.updated_issue is not None
+    assert "No linked change request." in client.updated_issue.body

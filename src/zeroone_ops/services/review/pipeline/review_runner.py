@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import cast
 
 import httpx
 
@@ -12,10 +13,12 @@ from zeroone_ops.models.review import (
     ChangeRequestReviewCandidate,
     PriorReviewContext,
     PriorReviewPass,
+    ReviewClassification,
     ReviewComment,
     ReviewResult,
 )
 from zeroone_ops.models.state import (
+    ChangeRequestReviewState,
     FailureDetails,
     FailureStage,
     ReviewDiagnosticCandidate,
@@ -24,10 +27,17 @@ from zeroone_ops.models.state import (
     ReviewRunDiagnostics,
     RunRecord,
 )
+from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPlatformProtocol,
     ReviewPlatformClientError,
+)
+from zeroone_ops.services.control_plane.github_review_projection_service import (
+    GitHubReviewProjectionService,
+)
+from zeroone_ops.services.control_plane.github_work_item_service import (
+    GitHubWorkItemService,
 )
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
@@ -68,6 +78,7 @@ from zeroone_ops.services.review.publish.review_finalization_service import (
 from zeroone_ops.services.review.publish.review_publisher import ReviewPublisher
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
+from zeroone_ops.settings import load_github_connection_config
 
 LOGGER = logging.getLogger(__name__)
 _UNRESOLVED_BOT_AUTHOR_USERNAME = object()
@@ -139,6 +150,16 @@ class ReviewRunner:
             change_request=selected_change_request,
         )
         if existing_review is not None:
+            same_sha_state = self.review_state_service.state.reviews.get(
+                f"{selected_change_request.change_request_number}:{selected_change_request.head_sha}"
+            )
+            projection_retry_message = self._retry_same_sha_projection_if_needed(
+                run_id=run_id,
+                repository_id=repository_id,
+                change_request=selected_change_request,
+                review_state=same_sha_state,
+                active_dry_run=active_dry_run,
+            )
             summary = self.review_state_service.mark_same_sha_reused(
                 record=record,
                 merge_request=selected_change_request,
@@ -147,7 +168,14 @@ class ReviewRunner:
             return RunSummary(
                 run_id=summary.run_id,
                 status=summary.status,
-                message=f"[{self.config.execution_mode}] {summary.message}",
+                message=" ".join(
+                    part
+                    for part in (
+                        f"[{self.config.execution_mode}] {summary.message}",
+                        projection_retry_message,
+                    )
+                    if part
+                ),
                 state_path=summary.state_path,
             )
 
@@ -386,6 +414,7 @@ class ReviewRunner:
         finalization_result = ReviewFinalizationService(
             review_publisher=ReviewPublisher(self.review_client),
             dashboard_updater=dashboard_updater,
+            review_projection_factory=self._build_review_projection_service,
         ).finalize(
             run_id=run_id,
             repository_id=repository_id,
@@ -413,6 +442,7 @@ class ReviewRunner:
         note_url = finalization_result.note_url
         publish_warning = finalization_result.publish_warning
         dashboard_warning = finalization_result.dashboard_warning
+        projection_warning = finalization_result.projection_warning
 
         inline_comment_decisions = finalization_result.inline_comment_decisions
         _log_inline_comment_rollout(
@@ -438,6 +468,8 @@ class ReviewRunner:
             artifact=publish_artifact,
             note_id=note_id,
             note_url=note_url,
+            projection_retry_pending=projection_warning is not None,
+            projection_retry_warning=projection_warning,
             dry_run=active_dry_run,
         )
         return RunSummary(
@@ -445,19 +477,121 @@ class ReviewRunner:
             status=summary.status,
             message=(
                 f"[{self.config.execution_mode}] {summary.message}"
-                if publish_warning is None and dashboard_warning is None
+                if publish_warning is None
+                and dashboard_warning is None
+                and projection_warning is None
                 else " ".join(
                     part
                     for part in (
                         f"[{self.config.execution_mode}] {summary.message}",
                         publish_warning,
                         dashboard_warning,
+                        projection_warning,
                     )
                     if part
                 )
             ),
             state_path=summary.state_path,
         )
+
+    def _build_review_projection_service(self) -> GitHubReviewProjectionService | None:
+        """Build provider-local review projection support when the platform supports it."""
+        if self.config.platform != "github":
+            return None
+        github_config = load_github_connection_config()
+        return GitHubReviewProjectionService(
+            GitHubWorkItemService(GitHubWorkItemClient(github_config))
+        )
+
+    def _retry_same_sha_projection_if_needed(
+        self,
+        *,
+        run_id: str,
+        repository_id: str,
+        change_request: ChangeRequestReviewCandidate,
+        review_state: ChangeRequestReviewState | None,
+        active_dry_run: bool,
+    ) -> str | None:
+        """Retry one pending projection side effect without re-entering review analysis."""
+        if (
+            active_dry_run
+            or self.config.platform != "github"
+            or review_state is None
+            or not review_state.projection_retry_pending
+        ):
+            return None
+        warning_message = self._repair_same_sha_projection(
+            run_id=run_id,
+            repository_id=repository_id,
+            change_request=change_request,
+            classification=review_state.status,
+            note_url=review_state.note_url,
+        )
+        self.review_state_service.update_projection_retry_state(
+            change_request_number=change_request.change_request_number,
+            head_sha=change_request.head_sha,
+            last_run_id=run_id,
+            pending=warning_message is not None,
+            warning=warning_message,
+        )
+        if warning_message is not None:
+            return warning_message
+        return "Repaired pending review projection."
+
+    def _repair_same_sha_projection(
+        self,
+        *,
+        run_id: str,
+        repository_id: str,
+        change_request: ChangeRequestReviewCandidate,
+        classification: str | None,
+        note_url: str | None,
+    ) -> str | None:
+        """Retry projection only for one previously published same-SHA review."""
+        if classification not in _AUTHORITATIVE_REVIEW_CLASSIFICATIONS:
+            return (
+                "Review projection warning: authoritative same-SHA classification was unavailable."
+            )
+        if note_url is None:
+            return "Review projection warning: persisted review note URL was unavailable."
+        context_result = ReviewContextBuilder(
+            repo_root=self.repo_root,
+            config=self.config,
+        ).build(change_request)
+        context = context_result.context
+        if context is None:
+            return f"Review projection warning: {context_result.message}"
+        projection_service = self._build_review_projection_service()
+        if projection_service is None:
+            return None
+        try:
+            projection_result = projection_service.project_review(
+                repository_id=repository_id,
+                context=context,
+                classification=cast(ReviewClassification, classification),
+                reviewed_sha=context.head_sha,
+                review_note_url=note_url,
+            )
+        except Exception as error:
+            LOGGER.warning(
+                "review same-sha projection repair failed",
+                extra={
+                    "run_id": run_id,
+                    "change_request_number": change_request.change_request_number,
+                    "head_sha": change_request.head_sha,
+                },
+            )
+            return f"Review projection warning: {error}"
+        LOGGER.info(
+            "review same-sha projection repair completed",
+            extra={
+                "run_id": run_id,
+                "change_request_number": change_request.change_request_number,
+                "head_sha": change_request.head_sha,
+                "projection_action": projection_result.action,
+            },
+        )
+        return None
 
     def _resolve_prior_comment_author_username(
         self,

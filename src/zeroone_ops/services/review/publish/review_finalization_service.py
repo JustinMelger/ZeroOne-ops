@@ -3,21 +3,54 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Protocol
 
 from zeroone_ops.models.review import (
     ChangeRequestReviewCandidate,
     ChangeRequestReviewContext,
     PublishableReviewArtifact,
+    ReviewClassification,
     ReviewResult,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
 from zeroone_ops.services.review.publish.review_dashboard_updater import (
     ReviewDashboardUpdater,
 )
-from zeroone_ops.services.review.publish.review_publisher import ReviewPublisher
+from zeroone_ops.services.review.publish.review_publisher import ReviewPublishResult
 
 LOGGER = logging.getLogger(__name__)
+
+
+class ReviewProjectionService(Protocol):
+    """Project a finalized review result onto provider-local state when supported."""
+
+    def project_review(
+        self,
+        *,
+        repository_id: str,
+        context: ChangeRequestReviewContext,
+        classification: ReviewClassification,
+        reviewed_sha: str,
+        review_note_url: str | None,
+    ) -> object:
+        """Project one finalized review result."""
+
+
+class ReviewArtifactPublisher(Protocol):
+    """Publish one finalized review artifact."""
+
+    def publish_artifact(
+        self,
+        *,
+        repository_id: str,
+        change_request_number: int,
+        context: ChangeRequestReviewContext,
+        artifact: PublishableReviewArtifact,
+        inline_comment_decisions: list[ReviewInlineCommentDecision] | None = None,
+    ) -> ReviewPublishResult:
+        """Publish one artifact and return a publish result object."""
 
 
 @dataclass(frozen=True)
@@ -31,6 +64,7 @@ class ReviewFinalizationResult:
     inline_comment_decisions: list[ReviewInlineCommentDecision]
     publish_warning: str | None = None
     dashboard_warning: str | None = None
+    projection_warning: str | None = None
     error_message: str | None = None
 
 
@@ -40,12 +74,14 @@ class ReviewFinalizationService:
     def __init__(
         self,
         *,
-        review_publisher: ReviewPublisher,
+        review_publisher: ReviewArtifactPublisher,
         dashboard_updater: ReviewDashboardUpdater | None,
+        review_projection_factory: Callable[[], ReviewProjectionService | None] | None = None,
     ) -> None:
         """Initialize the finalization service."""
         self.review_publisher = review_publisher
         self.dashboard_updater = dashboard_updater
+        self.review_projection_factory = review_projection_factory
 
     def finalize(
         self,
@@ -149,6 +185,40 @@ class ReviewFinalizationService:
                     },
                 )
 
+        projection_warning = None
+        if self.review_projection_factory is not None:
+            try:
+                review_projection_service = self.review_projection_factory()
+                if review_projection_service is not None:
+                    projection_result = review_projection_service.project_review(
+                        repository_id=repository_id,
+                        context=context,
+                        classification=finalized_review_result.classification,
+                        reviewed_sha=context.head_sha,
+                        review_note_url=note_url,
+                    )
+                    projection_action = getattr(projection_result, "action", None)
+                    if projection_action in {"updated", "unchanged"}:
+                        LOGGER.info(
+                            "review projection mirrored",
+                            extra={
+                                "run_id": run_id,
+                                "change_request_number": context.change_request_number,
+                                "head_sha": context.head_sha,
+                                "projection_action": projection_action,
+                            },
+                        )
+            except Exception as error:
+                projection_warning = f"Review projection warning: {error}"
+                LOGGER.warning(
+                    "review projection warning",
+                    extra={
+                        "run_id": run_id,
+                        "change_request_number": context.change_request_number,
+                        "head_sha": context.head_sha,
+                    },
+                )
+
         return ReviewFinalizationResult(
             artifact=finalized_artifact,
             review_result=finalized_review_result,
@@ -158,4 +228,5 @@ class ReviewFinalizationService:
             or inline_comment_decisions,
             publish_warning=publish_warning,
             dashboard_warning=dashboard_warning,
+            projection_warning=projection_warning,
         )
