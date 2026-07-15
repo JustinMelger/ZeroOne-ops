@@ -27,7 +27,7 @@ class ChangeRequestLookup(Protocol):
 
 
 class GitLabChangeRequestLookup:
-    """Look up active GitLab merge requests for shared orchestration."""
+    """Look up active GitLab change requests for shared orchestration."""
 
     def __init__(self, gitlab_client: GitLabClient) -> None:
         """Initialize the GitLab-backed change-request lookup."""
@@ -39,7 +39,7 @@ class GitLabChangeRequestLookup:
         source_branch: str,
         target_branch: str,
     ) -> ChangeRequestInfo | None:
-        """Return one open GitLab merge request for the source and target branches."""
+        """Return one open GitLab change request for the source and target branches."""
         return self.gitlab_client.find_open_merge_request(
             project_id=self.gitlab_client.config.project_id,
             source_branch=source_branch,
