@@ -16,6 +16,7 @@ from zeroone_ops.runner import (
     review,
     sync_dashboard_sonar,
 )
+from zeroone_ops.services.shared.run_state_service import RunSummary
 
 app = typer.Typer(add_completion=False, help="ZeroOne Ops CLI.")
 review_app = typer.Typer(add_completion=False, help="Merge request review workflow.")
@@ -27,27 +28,17 @@ app.add_typer(dashboard_app, name="dashboard")
 def _echo_review_summary(*, dry_run: bool) -> None:
     """Run the review workflow and print the CLI-facing summary."""
     configure_logging()
-    summary = review(dry_run=dry_run)
-    typer.echo(f"run_id={summary.run_id}")
-    typer.echo(f"status={summary.status.value}")
-    if summary.issue_key is not None:
-        typer.echo(f"issue_key={summary.issue_key}")
-    if summary.dashboard_item_id is not None:
-        typer.echo(f"dashboard_item_id={summary.dashboard_item_id}")
-    if summary.branch_name is not None:
-        typer.echo(f"branch_name={summary.branch_name}")
-    if summary.commit_sha is not None:
-        typer.echo(f"commit_sha={summary.commit_sha}")
-    if summary.change_request_url is not None:
-        typer.echo(f"change_request_url={summary.change_request_url}")
-    typer.echo(summary.message)
-    typer.echo(f"state_path={summary.state_path}")
+    _echo_summary(review(dry_run=dry_run))
 
 
 def _echo_dashboard_summary(*, dry_run: bool) -> None:
     """Run one dashboard workflow and print the CLI-facing summary."""
     configure_logging()
-    summary = sync_dashboard_sonar(dry_run=dry_run)
+    _echo_summary(sync_dashboard_sonar(dry_run=dry_run))
+
+
+def _echo_summary(summary: RunSummary) -> None:
+    """Print one workflow summary in the CLI contract format."""
     typer.echo(f"run_id={summary.run_id}")
     typer.echo(f"status={summary.status.value}")
     if summary.issue_key is not None:
@@ -101,21 +92,7 @@ def dashboard_remediate_command(
 ) -> None:
     """Run the dashboard-backed remediation workflow."""
     configure_logging()
-    summary = dashboard_remediate(dry_run=dry_run)
-    typer.echo(f"run_id={summary.run_id}")
-    typer.echo(f"status={summary.status.value}")
-    if summary.issue_key is not None:
-        typer.echo(f"issue_key={summary.issue_key}")
-    if summary.dashboard_item_id is not None:
-        typer.echo(f"dashboard_item_id={summary.dashboard_item_id}")
-    if summary.branch_name is not None:
-        typer.echo(f"branch_name={summary.branch_name}")
-    if summary.commit_sha is not None:
-        typer.echo(f"commit_sha={summary.commit_sha}")
-    if summary.change_request_url is not None:
-        typer.echo(f"change_request_url={summary.change_request_url}")
-    typer.echo(summary.message)
-    typer.echo(f"state_path={summary.state_path}")
+    _echo_summary(dashboard_remediate(dry_run=dry_run))
 
 
 @dashboard_app.command("reconcile")
@@ -128,21 +105,7 @@ def dashboard_reconcile_command(
 ) -> None:
     """Run the dashboard reconciliation workflow."""
     configure_logging()
-    summary = dashboard_reconcile(dry_run=dry_run)
-    typer.echo(f"run_id={summary.run_id}")
-    typer.echo(f"status={summary.status.value}")
-    if summary.issue_key is not None:
-        typer.echo(f"issue_key={summary.issue_key}")
-    if summary.dashboard_item_id is not None:
-        typer.echo(f"dashboard_item_id={summary.dashboard_item_id}")
-    if summary.branch_name is not None:
-        typer.echo(f"branch_name={summary.branch_name}")
-    if summary.commit_sha is not None:
-        typer.echo(f"commit_sha={summary.commit_sha}")
-    if summary.change_request_url is not None:
-        typer.echo(f"change_request_url={summary.change_request_url}")
-    typer.echo(summary.message)
-    typer.echo(f"state_path={summary.state_path}")
+    _echo_summary(dashboard_reconcile(dry_run=dry_run))
 
 
 @dashboard_app.command("policy")
@@ -155,11 +118,7 @@ def dashboard_policy_command(
 ) -> None:
     """Run the dedicated policy-processing workflow."""
     configure_logging()
-    summary = dashboard_policy(dry_run=dry_run)
-    typer.echo(f"run_id={summary.run_id}")
-    typer.echo(f"status={summary.status.value}")
-    typer.echo(summary.message)
-    typer.echo(f"state_path={summary.state_path}")
+    _echo_summary(dashboard_policy(dry_run=dry_run))
 
 
 def main() -> None:
