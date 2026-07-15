@@ -176,9 +176,7 @@ class ReviewContextBuilder:
 
         if len(changed_files) == 0:
             unreadable_detail = (
-                f" Unreadable files: {', '.join(unreadable_paths)}."
-                if unreadable_paths
-                else ""
+                f" Unreadable files: {', '.join(unreadable_paths)}." if unreadable_paths else ""
             )
             return ReviewContextBuildResult(
                 context=None,
