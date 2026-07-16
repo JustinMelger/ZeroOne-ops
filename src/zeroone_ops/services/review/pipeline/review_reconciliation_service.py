@@ -91,14 +91,7 @@ class ReviewReconciliationService:
             )
 
         candidate_result = candidate_stage_result.candidate_result
-        active_candidates = (
-            []
-            if candidate_result is None
-            else self._accepted_candidates(
-                candidate_result.findings,
-                candidate_stage_result.accepted_candidate_ids,
-            )
-        )
+        active_candidates = [] if candidate_result is None else list(candidate_result.findings)
         overlap_packet = self._build_precision_overlap_packet(
             context=context,
             active_candidates=active_candidates,
@@ -128,7 +121,9 @@ class ReviewReconciliationService:
             context=context,
             precision_decision=precision_decision,
             active_candidates=active_candidates,
-            grounding_dropped_candidates=candidate_stage_result.dropped_candidates,
+            pre_precision_dropped_candidates=(
+                candidate_stage_result.pre_precision_dropped_candidates
+            ),
         )
         review_result = reconciled_decision.to_review_result()
         overlap_result = self._reconcile_overlap(context=context, review_result=review_result)
@@ -164,7 +159,7 @@ class ReviewReconciliationService:
         context: ChangeRequestReviewContext,
         precision_decision: PrecisionReviewDecision,
         active_candidates: list[CandidateReviewFinding],
-        grounding_dropped_candidates: tuple[DroppedCandidate, ...],
+        pre_precision_dropped_candidates: tuple[DroppedCandidate, ...],
     ) -> ReconciledReviewDecision:
         """Validate and normalize precision output into the final decision contract."""
         active_candidates_by_id = {
@@ -183,7 +178,7 @@ class ReviewReconciliationService:
                         "Precision pass returned accepted findings with unsupported "
                         "candidate lineage."
                     ),
-                    dropped_candidates=grounding_dropped_candidates,
+                    dropped_candidates=pre_precision_dropped_candidates,
                 )
             accepted_source_id_list.extend(finding.source_candidate_ids)
             accepted_source_ids.update(source_ids)
@@ -191,10 +186,9 @@ class ReviewReconciliationService:
             return self._invalid_precision_fallback(
                 context=context,
                 message=(
-                    "Precision pass assigned the same grounded candidate to multiple "
-                    "accepted findings."
+                    "Precision pass assigned the same candidate to multiple accepted findings."
                 ),
-                dropped_candidates=grounding_dropped_candidates,
+                dropped_candidates=pre_precision_dropped_candidates,
             )
 
         dropped_candidate_id_list = [
@@ -204,20 +198,20 @@ class ReviewReconciliationService:
         if not dropped_candidate_ids.issubset(active_candidate_ids):
             return self._invalid_precision_fallback(
                 context=context,
-                message="Precision pass returned dropped candidates outside the grounded set.",
-                dropped_candidates=grounding_dropped_candidates,
+                message="Precision pass returned dropped candidates outside the candidate set.",
+                dropped_candidates=pre_precision_dropped_candidates,
             )
         if len(dropped_candidate_id_list) != len(dropped_candidate_ids):
             return self._invalid_precision_fallback(
                 context=context,
-                message="Precision pass dropped the same grounded candidate more than once.",
-                dropped_candidates=grounding_dropped_candidates,
+                message="Precision pass dropped the same candidate more than once.",
+                dropped_candidates=pre_precision_dropped_candidates,
             )
         if accepted_source_ids & dropped_candidate_ids:
             return self._invalid_precision_fallback(
                 context=context,
-                message=("Precision pass both retained and dropped the same grounded candidate."),
-                dropped_candidates=grounding_dropped_candidates,
+                message=("Precision pass both retained and dropped the same candidate."),
+                dropped_candidates=pre_precision_dropped_candidates,
             )
 
         if precision_decision.review_classification == "findings_present":
@@ -225,7 +219,7 @@ class ReviewReconciliationService:
                 return self._invalid_precision_fallback(
                     context=context,
                     message="Precision pass declared findings_present without accepted findings.",
-                    dropped_candidates=grounding_dropped_candidates,
+                    dropped_candidates=pre_precision_dropped_candidates,
                 )
         elif precision_decision.accepted_findings:
             return self._invalid_precision_fallback(
@@ -233,15 +227,15 @@ class ReviewReconciliationService:
                 message=(
                     "Precision pass returned accepted findings with a non-findings classification."
                 ),
-                dropped_candidates=grounding_dropped_candidates,
+                dropped_candidates=pre_precision_dropped_candidates,
             )
 
         covered_candidate_ids = accepted_source_ids | dropped_candidate_ids
         if covered_candidate_ids != active_candidate_ids:
             return self._invalid_precision_fallback(
                 context=context,
-                message=("Precision pass did not account for every grounded candidate explicitly."),
-                dropped_candidates=grounding_dropped_candidates,
+                message=("Precision pass did not account for every candidate explicitly."),
+                dropped_candidates=pre_precision_dropped_candidates,
             )
 
         truncated_precision_decision = self._truncate_precision_findings(precision_decision)
@@ -264,7 +258,7 @@ class ReviewReconciliationService:
             pipeline_version="review-staged-v1",
         )
         reconciled_decision.dropped_candidates = [
-            *grounding_dropped_candidates,
+            *pre_precision_dropped_candidates,
             *reconciled_decision.dropped_candidates,
         ]
         return reconciled_decision
@@ -316,7 +310,7 @@ class ReviewReconciliationService:
             return None
         provisional_review_result = ReviewResult(
             classification="findings_present",
-            summary="Grounded candidate findings awaiting precision review.",
+            summary="Candidate findings awaiting precision review.",
             findings=[
                 ReviewFinding(
                     severity=candidate.severity,
@@ -413,15 +407,6 @@ class ReviewReconciliationService:
         if prior_review_context is None or not prior_review_context.passes:
             return False
         return prior_review_context.passes[0].reviewed_head_sha == context.head_sha
-
-    def _accepted_candidates(
-        self,
-        candidates: list[CandidateReviewFinding],
-        accepted_candidate_ids: tuple[str, ...],
-    ) -> list[CandidateReviewFinding]:
-        """Return accepted candidates in the original candidate list order."""
-        accepted_ids = set(accepted_candidate_ids)
-        return [candidate for candidate in candidates if candidate.candidate_id in accepted_ids]
 
     def _precision_finding_sort_key(
         self,

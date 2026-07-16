@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from zeroone_ops.models.config import (
@@ -125,15 +126,16 @@ def build_candidate_stage_result() -> ReviewCandidateStageResult:
                 )
             ],
         ),
-        accepted_candidate_ids=("candidate-1", "candidate-2"),
-        dropped_candidates=(),
-        message="Candidate review generated 2 candidates and accepted 2 findings.",
+        candidate_ids=("candidate-1", "candidate-2"),
+        pre_precision_dropped_candidates=(),
+        message="Candidate review generated 2 candidates and forwarded 2 findings to precision.",
     )
 
 
 class FakePrecisionLLMClient:
     def __init__(self, decision: PrecisionReviewDecision) -> None:
         self.decision = decision
+        self.received_candidates: list[CandidateReviewFinding] | None = None
 
     def review_precision_reconciliation(
         self,
@@ -148,13 +150,13 @@ class FakePrecisionLLMClient:
     ) -> PrecisionReviewDecision:
         del (
             context,
-            candidates,
             overlap_packet,
             candidate_stage_summary,
             candidate_stage_classification,
             candidate_stage_rationale,
             max_findings,
         )
+        self.received_candidates = list(candidates)
         return self.decision
 
 
@@ -257,6 +259,48 @@ def test_reconcile_uses_precision_output_as_final_review_meaning(monkeypatch) ->
     assert result.reconciled_decision.accepted_findings[0].source_candidate_ids == ["candidate-1"]
     assert result.reconciled_decision.dropped_candidates[0].candidate_id == "candidate-2"
     assert result.reconciled_decision.reconciled_at == datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
+
+
+def test_reconcile_forwards_full_candidate_set_to_precision() -> None:
+    client = FakePrecisionLLMClient(
+        PrecisionReviewDecision(
+            review_classification="no_findings",
+            decision_summary="No actionable findings remain after precision review.",
+            decision_rationale="The candidates do not justify an actionable issue.",
+            confidence_level=0.6,
+            accepted_findings=[],
+            advisory_notes=[],
+            dropped_candidates=[
+                {
+                    "candidate_id": "candidate-1",
+                    "drop_reason": "duplicate",
+                    "notes": "Covered elsewhere.",
+                },
+                {
+                    "candidate_id": "candidate-2",
+                    "drop_reason": "unsupported_scope",
+                    "notes": "Too weak to keep.",
+                },
+            ],
+        )
+    )
+    service = ReviewReconciliationService(build_config(), llm_client_builder=lambda: client)
+    candidate_stage_result = replace(
+        build_candidate_stage_result(),
+        candidate_ids=("candidate-1",),
+    )
+
+    result = service.reconcile(
+        context=build_context(),
+        candidate_stage_result=candidate_stage_result,
+    )
+
+    assert result.review_result is not None
+    assert client.received_candidates is not None
+    assert [candidate.candidate_id for candidate in client.received_candidates] == [
+        "candidate-1",
+        "candidate-2",
+    ]
 
 
 def test_reconcile_attaches_continuity_status_from_overlap_result() -> None:
@@ -379,8 +423,8 @@ def test_reconcile_returns_candidate_failure_when_no_authoritative_review_exists
         candidate_stage_result=ReviewCandidateStageResult(
             candidate_result=None,
             raw_review_result=None,
-            accepted_candidate_ids=(),
-            dropped_candidates=(),
+            candidate_ids=(),
+            pre_precision_dropped_candidates=(),
             message="LLM backend not configured for change-request review.",
         ),
     )
@@ -492,5 +536,5 @@ def test_reconcile_downgrades_when_precision_reuses_candidate_across_findings() 
     assert result.review_result.classification == "manual_review_only"
     assert result.reconciled_decision is not None
     assert result.reconciled_decision.decision_rationale == (
-        "Precision pass assigned the same grounded candidate to multiple accepted findings."
+        "Precision pass assigned the same candidate to multiple accepted findings."
     )

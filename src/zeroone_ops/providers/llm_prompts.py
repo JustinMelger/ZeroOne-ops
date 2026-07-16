@@ -199,7 +199,7 @@ def build_review_precision_prompt(
             ),
         ),
         candidate_findings=_format_untrusted_block(
-            label="Grounded candidate findings",
+            label="Candidate findings",
             content=candidate_block,
         ),
         prior_review_context=_format_precision_prior_review_context(

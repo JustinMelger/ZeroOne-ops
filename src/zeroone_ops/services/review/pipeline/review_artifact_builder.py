@@ -19,6 +19,7 @@ _INTERNAL_PIPELINE_RATIONALE_MARKERS = (
     "candidate-backed evidence",
     "provided candidate set",
     "supplied candidate set",
+    "forwarded candidate set",
 )
 
 

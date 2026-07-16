@@ -744,7 +744,7 @@ Recommended observability contract:
   rollouts can be inspected without extra tooling,
 - use it to compare same-SHA reruns across:
   - candidate generation drift,
-  - grounding drift,
+  - candidate forwarding drift,
   - precision selection drift,
   - final artifact drift.
 
@@ -754,8 +754,8 @@ Suggested per-run diagnostic shape:
 class ReviewRunDiagnostics(BaseModel):
     reviewed_head_sha: str
     candidate_findings: list[DiagnosticCandidate]
-    grounding_accepted_candidate_ids: list[str]
-    grounding_dropped_candidates: list[DroppedCandidate]
+    candidate_forwarded_ids: list[str]
+    candidate_stage_dropped_candidates: list[DroppedCandidate]
     precision_accepted_candidate_ids: list[str]
     precision_dropped_candidates: list[DroppedCandidate]
     inline_comment_decisions: list[InlineCommentDecision]

@@ -62,14 +62,14 @@ class _CandidateStageResult:
         *,
         candidate_result: CandidateReviewResult | None,
         raw_review_result: ReviewResult,
-        accepted_candidate_ids: tuple[str, ...],
-        dropped_candidates: tuple[str, ...],
+        candidate_ids: tuple[str, ...],
+        pre_precision_dropped_candidates: tuple[str, ...],
         message: str,
     ) -> None:
         self.candidate_result = candidate_result
         self.raw_review_result = raw_review_result
-        self.accepted_candidate_ids = accepted_candidate_ids
-        self.dropped_candidates = dropped_candidates
+        self.candidate_ids = candidate_ids
+        self.pre_precision_dropped_candidates = pre_precision_dropped_candidates
         self.message = message
 
 
@@ -241,8 +241,8 @@ def _stub_candidate_stage(
     *,
     candidate_result: CandidateReviewResult | None,
     raw_review_result: ReviewResult,
-    accepted_candidate_ids: tuple[str, ...] = (),
-    dropped_candidates: tuple[str, ...] = (),
+    candidate_ids: tuple[str, ...] = (),
+    pre_precision_dropped_candidates: tuple[str, ...] = (),
     message: str,
 ) -> Callable[[object, ChangeRequestReviewContext], _CandidateStageResult]:
     def _analyze(
@@ -253,8 +253,8 @@ def _stub_candidate_stage(
         return _CandidateStageResult(
             candidate_result=candidate_result,
             raw_review_result=raw_review_result,
-            accepted_candidate_ids=accepted_candidate_ids,
-            dropped_candidates=dropped_candidates,
+            candidate_ids=candidate_ids,
+            pre_precision_dropped_candidates=pre_precision_dropped_candidates,
             message=message,
         )
 
@@ -481,7 +481,7 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
                 summary="No findings.",
                 findings=[],
             ),
-            message="Candidate review generated 0 candidates and accepted 0 findings.",
+            message="Candidate review generated 0 candidates and forwarded 0 findings.",
         ),
     )
 
@@ -568,7 +568,7 @@ def test_review_github_non_dry_run_publishes_summary_comment(
                 summary="No findings.",
                 findings=[],
             ),
-            message="Candidate review generated 0 candidates and accepted 0 findings.",
+            message="Candidate review generated 0 candidates and forwarded 0 findings.",
         ),
     )
 
@@ -774,8 +774,8 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
                     )
                 ],
             ),
-            accepted_candidate_ids=("candidate-1",),
-            message="Candidate review generated 1 candidates and accepted 1 findings.",
+            candidate_ids=("candidate-1",),
+            message="Candidate review generated 1 candidates and forwarded 1 findings.",
         ),
     )
 
@@ -834,7 +834,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     diagnostics = state.runs[-1].review_diagnostics
     assert diagnostics.reviewed_head_sha == "abc123"
     assert diagnostics.candidate_findings[0].candidate_id == "candidate-1"
-    assert diagnostics.grounding_accepted_candidate_ids == ["candidate-1"]
+    assert diagnostics.candidate_forwarded_ids == ["candidate-1"]
     assert diagnostics.precision_accepted_candidate_ids == ["candidate-1"]
     assert diagnostics.inline_comment_decisions == []
     assert diagnostics.final_published_finding_summaries == [
@@ -918,7 +918,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
                 summary="No findings.",
                 findings=[],
             ),
-            message="Candidate review generated 0 candidates and accepted 0 findings.",
+            message="Candidate review generated 0 candidates and forwarded 0 findings.",
         ),
     )
 
@@ -983,7 +983,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     diagnostics = state.runs[-1].review_diagnostics
     assert diagnostics.reviewed_head_sha == "abc123"
     assert diagnostics.candidate_findings == []
-    assert diagnostics.grounding_accepted_candidate_ids == []
+    assert diagnostics.candidate_forwarded_ids == []
     assert diagnostics.precision_accepted_candidate_ids == []
     assert diagnostics.inline_comment_decisions == []
     assert diagnostics.final_published_finding_summaries == []
@@ -1091,8 +1091,8 @@ def test_review_non_dry_run_downgrades_structurally_invalid_artifact_to_manual_r
                     )
                 ],
             ),
-            accepted_candidate_ids=("candidate-1",),
-            message="Candidate review generated 1 candidates and accepted 1 findings.",
+            candidate_ids=("candidate-1",),
+            message="Candidate review generated 1 candidates and forwarded 1 findings.",
         ),
     )
     monkeypatch.setattr(
@@ -1316,8 +1316,8 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
                     )
                 ],
             ),
-            accepted_candidate_ids=("candidate-1",),
-            message="Candidate review generated 1 candidates and accepted 1 findings.",
+            candidate_ids=("candidate-1",),
+            message="Candidate review generated 1 candidates and forwarded 1 findings.",
         ),
     )
     monkeypatch.setattr(
@@ -1453,7 +1453,7 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
                 summary="No findings.",
                 findings=[],
             ),
-            message="Candidate review generated 0 candidates and accepted 0 findings.",
+            message="Candidate review generated 0 candidates and forwarded 0 findings.",
         ),
     )
 
@@ -1873,7 +1873,7 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
                 summary="No findings.",
                 findings=[],
             ),
-            message="Candidate review generated 0 candidates and accepted 0 findings.",
+            message="Candidate review generated 0 candidates and forwarded 0 findings.",
         ),
     )
 

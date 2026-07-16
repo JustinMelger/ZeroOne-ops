@@ -324,8 +324,8 @@ class OpenAILLMClient(LLMClient):
                         "content": (
                             "You are a careful senior software engineer reviewing a bounded "
                             "set of proposed change-request concerns. Judge only the provided "
-                            "grounded candidate set. Decide which candidates survive, which "
-                            "are dropped, and what the final review classification should be. "
+                            "candidate set. Decide which candidates survive, which are "
+                            "dropped, and what the final review classification should be. "
                             "Do not rediscover the change request from scratch, do not invent "
                             "new findings outside the candidate set, and do not act like the "
                             "final artifact validator or note renderer. Return strictly "

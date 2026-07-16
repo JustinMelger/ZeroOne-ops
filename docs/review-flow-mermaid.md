@@ -21,15 +21,11 @@ flowchart TD
     C1 --> C2[Raw structured review result]
     C2 --> C3[Candidate artifact]
 
-    C3 --> G[Grounding checks]
-    G --> G1[Accepted grounded candidates]
-    G --> G2[Dropped grounding candidates]
-
     B --> H[Bounded prior-review context]
-    G1 --> I[App-owned overlap hints]
+    C3 --> I[App-owned overlap hints]
     H --> I
 
-    G1 --> J[Precision / Reconciliation Stage]
+    C3 --> J[Precision / Reconciliation Stage]
     H --> J
     I --> J
     B --> J
@@ -41,7 +37,6 @@ flowchart TD
     J3 --> J5[Deterministic retained-finding ordering]
     J4 --> K[ReconciledReviewDecision]
     J5 --> K
-    G2 --> K
 
     K --> L[Overlap Reconciliation Stage]
     L --> L1[LLM overlap prompt]

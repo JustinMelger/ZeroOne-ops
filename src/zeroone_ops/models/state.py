@@ -125,9 +125,19 @@ class ReviewRunDiagnostics(BaseModel):
 
     reviewed_head_sha: str
     candidate_findings: list[ReviewDiagnosticCandidate] = Field(default_factory=list)
-    grounding_accepted_candidate_ids: list[str] = Field(default_factory=list)
-    grounding_dropped_candidates: list[ReviewDiagnosticDroppedCandidate] = Field(
-        default_factory=list
+    candidate_forwarded_ids: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices(
+            "candidate_forwarded_ids",
+            "grounding_accepted_candidate_ids",
+        ),
+    )
+    candidate_stage_dropped_candidates: list[ReviewDiagnosticDroppedCandidate] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices(
+            "candidate_stage_dropped_candidates",
+            "grounding_dropped_candidates",
+        ),
     )
     precision_accepted_candidate_ids: list[str] = Field(default_factory=list)
     precision_dropped_candidates: list[ReviewDiagnosticDroppedCandidate] = Field(
