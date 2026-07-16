@@ -33,7 +33,7 @@ rollout, not after it.
   remediation repos
 - reduce mixed top-level policy fields
 - preserve compatibility during migration
-- make room for additional remediation producers later
+- make room for additional finding sources later
 
 ## 4. Current Problems
 

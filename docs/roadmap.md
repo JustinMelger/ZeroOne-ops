@@ -79,14 +79,16 @@ Shipped product state:
 - prefer source/test layout cleanup that mirrors the current control-plane
   domain structure
 
-### 2. New Producer For Dogfooding
+### 2. Generic Finding Ingestion And Dogfooding
 
-- add one additional remediation producer that can run on this repository
+- define a provider-neutral finding ingestion boundary instead of adding
+  another source-specific producer path
+- wrap the current SonarQube intake behind that shared ingestion contract
+- add one additional dogfooding finding source that can run on this repository
   without SonarQube availability
-- use that producer to live-validate the promoted GitHub work-item and review
+- use that source to live-validate the promoted GitHub work-item and review
   projection paths end-to-end
-- keep the producer bounded and provider-neutral at the workflow boundary
-- prefer a producer that gives fast local feedback over a broad discovery
+- prefer a source that gives fast local feedback over a broad discovery
   surface
 
 ### 3. Rollout And Validation
@@ -184,7 +186,7 @@ Next feedback-driven refinements:
 
 - broader review evaluator growth beyond the current rollout-driven hardening
 - richer operator-feedback consumption for repeated reviews
-- additional remediation producers beyond the next dogfooding producer
+- additional finding sources beyond the first post-Sonar dogfooding source
 - broader dashboard readability/history improvements after current rollout
   feedback stabilizes
 - any later move from CLI-backed state to an external API/database control
@@ -196,7 +198,7 @@ Next feedback-driven refinements:
   - GitHub review support, remediation publish, and control-plane Phase 5 are
     implemented
 - focused on now:
-  - Phase 6 cleanup, one new dogfooding producer, and rollout validation
+  - Phase 6 cleanup, generic finding ingestion, and rollout validation
 - parked:
   - any persistent overview issue remains optional and derived only
   - broader control-plane storage evolution belongs to a later API/database
@@ -211,10 +213,12 @@ Next feedback-driven refinements:
 - clean up persistence/state naming and any compatibility leftovers that are
   now clearly debt
 
-#### Phase 6b: New Dogfooding Producer
+#### Phase 6b: Generic Finding Ingestion
 
-- add one bounded remediation producer that works on this repository without
-  SonarQube
+- define a shared normalized finding contract and ingestion interface
+- wrap the current SonarQube intake behind that boundary
+- add one bounded dogfooding finding source that works on this repository
+  without SonarQube
 - normalize it into the existing remediation/control-plane path
 - use it to live-test:
   - promotion
@@ -224,7 +228,8 @@ Next feedback-driven refinements:
 
 #### Phase 6c: GitHub Rollout Validation
 
-- validate the new producer plus current GitHub review/remediation behavior in
+- validate the new finding ingestion path plus current GitHub
+  review/remediation behavior in
   live runs
 - collect operator and developer feedback from that usage
 - prefer narrow rollout fixes before broadening the workflow surface again
@@ -236,6 +241,8 @@ Use these docs when deeper detail is needed:
 - [README.md](README.md) for the docs index
 - [runbook.md](runbook.md)
 - [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
+- [design/functional/functional-design-finding-ingestion.md](design/functional/functional-design-finding-ingestion.md)
+- [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
 - [design/technical/technical-design-pr-review.md](design/technical/technical-design-pr-review.md)
 - [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)
 - [design/technical/technical-design-pr-review-staged-pipeline.md](design/technical/technical-design-pr-review-staged-pipeline.md)
