@@ -11,6 +11,8 @@ from zeroone_ops.models.review import (
 )
 
 _INTERNAL_PIPELINE_RATIONALE_MARKERS = (
+    "candidate",
+    "candidates",
     "candidate stage",
     "candidate set",
     "candidate findings",
