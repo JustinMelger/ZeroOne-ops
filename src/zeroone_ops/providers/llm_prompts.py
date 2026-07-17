@@ -11,6 +11,7 @@ from zeroone_ops.models.remediation import (
     remediation_profile_for,
 )
 from zeroone_ops.models.review import (
+    CandidateAnnotation,
     CandidateReviewFinding,
     ChangeRequestReviewContext,
     OverlapCandidate,
@@ -164,6 +165,7 @@ def build_review_precision_prompt(
     context: ChangeRequestReviewContext,
     *,
     candidates: list[CandidateReviewFinding],
+    candidate_annotations: list[CandidateAnnotation],
     overlap_packet: OverlapPacket | None,
     candidate_stage_summary: str,
     candidate_stage_classification: str,
@@ -174,8 +176,15 @@ def build_review_precision_prompt(
     changed_files = "\n\n".join(
         _format_changed_file_context(changed_file) for changed_file in context.changed_files
     )
+    annotation_by_id = {annotation.candidate_id: annotation for annotation in candidate_annotations}
     candidate_block = (
-        "\n".join(_format_candidate_review_finding(candidate) for candidate in candidates)
+        "\n".join(
+            _format_candidate_review_finding(
+                candidate,
+                annotation_by_id=annotation_by_id,
+            )
+            for candidate in candidates
+        )
         if candidates
         else "- (none)"
     )
@@ -199,7 +208,7 @@ def build_review_precision_prompt(
             ),
         ),
         candidate_findings=_format_untrusted_block(
-            label="Grounded candidate findings",
+            label="Candidate findings",
             content=candidate_block,
         ),
         prior_review_context=_format_precision_prior_review_context(
@@ -322,8 +331,12 @@ def _format_changed_file_context(changed_file: ReviewFileContext) -> str:
     )
 
 
-def _format_candidate_review_finding(candidate: CandidateReviewFinding) -> str:
-    """Render one grounded candidate finding for the precision prompt."""
+def _format_candidate_review_finding(
+    candidate: CandidateReviewFinding,
+    *,
+    annotation_by_id: dict[str, CandidateAnnotation],
+) -> str:
+    """Render one candidate finding for the precision prompt."""
     location_parts = [
         f"path={candidate.file_path}",
         (
@@ -336,17 +349,23 @@ def _format_candidate_review_finding(candidate: CandidateReviewFinding) -> str:
         f"region_hint={candidate.region_hint}" if candidate.region_hint else None,
     ]
     visible_location_parts = [part for part in location_parts if part is not None]
-    return "\n".join(
-        [
-            f"- candidate_id={candidate.candidate_id}",
-            f"  severity={candidate.severity}",
-            f"  {'; '.join(visible_location_parts)}",
-            f"  title={candidate.title}",
-            f"  evidence={candidate.evidence}",
-            f"  explanation={candidate.explanation}",
-            f"  suggested_follow_up={candidate.suggested_follow_up}",
-        ]
-    )
+    annotation = annotation_by_id.get(candidate.candidate_id)
+    lines = [
+        f"- candidate_id={candidate.candidate_id}",
+        f"  severity={candidate.severity}",
+        f"  {'; '.join(visible_location_parts)}",
+        f"  title={candidate.title}",
+        f"  evidence={candidate.evidence}",
+        f"  explanation={candidate.explanation}",
+        f"  suggested_follow_up={candidate.suggested_follow_up}",
+    ]
+    if annotation is not None:
+        lines.append(
+            "  advisory_flags=" + (", ".join(annotation.flags) if annotation.flags else "(none)")
+        )
+        if annotation.notes:
+            lines.append(f"  advisory_notes={' | '.join(annotation.notes)}")
+    return "\n".join(lines)
 
 
 def _format_precision_prior_review_context(prior_pass: PriorReviewPass | None) -> str:

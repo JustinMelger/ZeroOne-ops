@@ -62,15 +62,15 @@ class _CandidateStageResult:
         *,
         candidate_result: CandidateReviewResult | None,
         raw_review_result: ReviewResult,
-        accepted_candidate_ids: tuple[str, ...],
-        dropped_candidates: tuple[str, ...],
+        forwarded_candidate_ids: tuple[str, ...],
+        pre_precision_dropped_candidates: tuple[str, ...],
         candidate_annotations: tuple[object, ...],
         message: str,
     ) -> None:
         self.candidate_result = candidate_result
         self.raw_review_result = raw_review_result
-        self.accepted_candidate_ids = accepted_candidate_ids
-        self.dropped_candidates = dropped_candidates
+        self.forwarded_candidate_ids = forwarded_candidate_ids
+        self.pre_precision_dropped_candidates = pre_precision_dropped_candidates
         self.candidate_annotations = candidate_annotations
         self.message = message
 
@@ -142,13 +142,14 @@ class _IntegrationPrecisionClient:
         context: ChangeRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
+        candidate_annotations,
         overlap_packet,
         candidate_stage_summary: str,
         candidate_stage_classification: str,
         candidate_stage_rationale: str,
         max_findings: int,
     ) -> PrecisionReviewDecision:
-        del context, overlap_packet, max_findings
+        del context, candidate_annotations, overlap_packet, max_findings
         if candidate_stage_classification == "manual_review_only":
             return PrecisionReviewDecision(
                 review_classification="manual_review_only",
@@ -243,8 +244,8 @@ def _stub_candidate_stage(
     *,
     candidate_result: CandidateReviewResult | None,
     raw_review_result: ReviewResult,
-    accepted_candidate_ids: tuple[str, ...] = (),
-    dropped_candidates: tuple[str, ...] = (),
+    forwarded_candidate_ids: tuple[str, ...] = (),
+    pre_precision_dropped_candidates: tuple[str, ...] = (),
     candidate_annotations: tuple[object, ...] = (),
     message: str,
 ) -> Callable[[object, ChangeRequestReviewContext], _CandidateStageResult]:
@@ -256,8 +257,8 @@ def _stub_candidate_stage(
         return _CandidateStageResult(
             candidate_result=candidate_result,
             raw_review_result=raw_review_result,
-            accepted_candidate_ids=accepted_candidate_ids,
-            dropped_candidates=dropped_candidates,
+            forwarded_candidate_ids=forwarded_candidate_ids,
+            pre_precision_dropped_candidates=pre_precision_dropped_candidates,
             candidate_annotations=candidate_annotations,
             message=message,
         )
@@ -778,8 +779,11 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
                     )
                 ],
             ),
-            accepted_candidate_ids=("candidate-1",),
-            message="Candidate review generated 1 candidates and accepted 1 findings.",
+            forwarded_candidate_ids=("candidate-1",),
+            message=(
+                "Candidate review generated 1 candidates and forwarded 1 findings "
+                "to precision."
+            ),
         ),
     )
 
@@ -838,7 +842,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
     diagnostics = state.runs[-1].review_diagnostics
     assert diagnostics.reviewed_head_sha == "abc123"
     assert diagnostics.candidate_findings[0].candidate_id == "candidate-1"
-    assert diagnostics.grounding_accepted_candidate_ids == ["candidate-1"]
+    assert diagnostics.forwarded_candidate_ids == ["candidate-1"]
     assert diagnostics.precision_accepted_candidate_ids == ["candidate-1"]
     assert diagnostics.inline_comment_decisions == []
     assert diagnostics.final_published_finding_summaries == [
@@ -987,7 +991,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
     diagnostics = state.runs[-1].review_diagnostics
     assert diagnostics.reviewed_head_sha == "abc123"
     assert diagnostics.candidate_findings == []
-    assert diagnostics.grounding_accepted_candidate_ids == []
+    assert diagnostics.forwarded_candidate_ids == []
     assert diagnostics.precision_accepted_candidate_ids == []
     assert diagnostics.inline_comment_decisions == []
     assert diagnostics.final_published_finding_summaries == []
@@ -1095,8 +1099,11 @@ def test_review_non_dry_run_downgrades_structurally_invalid_artifact_to_manual_r
                     )
                 ],
             ),
-            accepted_candidate_ids=("candidate-1",),
-            message="Candidate review generated 1 candidates and accepted 1 findings.",
+            forwarded_candidate_ids=("candidate-1",),
+            message=(
+                "Candidate review generated 1 candidates and forwarded 1 findings "
+                "to precision."
+            ),
         ),
     )
     monkeypatch.setattr(
@@ -1320,8 +1327,11 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
                     )
                 ],
             ),
-            accepted_candidate_ids=("candidate-1",),
-            message="Candidate review generated 1 candidates and accepted 1 findings.",
+            forwarded_candidate_ids=("candidate-1",),
+            message=(
+                "Candidate review generated 1 candidates and forwarded 1 findings "
+                "to precision."
+            ),
         ),
     )
     monkeypatch.setattr(

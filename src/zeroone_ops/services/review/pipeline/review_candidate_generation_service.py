@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
     CandidateAnnotation,
-    CandidateDropReason,
     CandidateReviewFinding,
     CandidateReviewResult,
     CandidateValidationFlag,
@@ -87,14 +86,14 @@ class ReviewCandidateStageResult:
 
     candidate_result: CandidateReviewResult | None
     raw_review_result: ReviewResult | None
-    accepted_candidate_ids: tuple[str, ...]
-    dropped_candidates: tuple[DroppedCandidate, ...]
+    forwarded_candidate_ids: tuple[str, ...]
+    pre_precision_dropped_candidates: tuple[DroppedCandidate, ...]
     candidate_annotations: tuple[CandidateAnnotation, ...]
     message: str
 
 
 class ReviewCandidateGenerationService:
-    """Generate non-authoritative review candidates and ground them safely."""
+    """Generate non-authoritative review candidates and annotate them deterministically."""
 
     def __init__(
         self,
@@ -106,14 +105,14 @@ class ReviewCandidateGenerationService:
         self._llm_client_builder = llm_client_builder
 
     def analyze(self, context: ChangeRequestReviewContext) -> ReviewCandidateStageResult:
-        """Generate candidate findings, then ground them without deciding final truth."""
+        """Generate candidate findings, then annotate them without deciding final truth."""
         llm_client = self._build_llm_client()
         if llm_client is None:
             return ReviewCandidateStageResult(
                 candidate_result=None,
                 raw_review_result=None,
-                accepted_candidate_ids=(),
-                dropped_candidates=(),
+                forwarded_candidate_ids=(),
+                pre_precision_dropped_candidates=(),
                 candidate_annotations=(),
                 message="LLM backend not configured for change-request review.",
             )
@@ -124,30 +123,28 @@ class ReviewCandidateGenerationService:
             return ReviewCandidateStageResult(
                 candidate_result=None,
                 raw_review_result=None,
-                accepted_candidate_ids=(),
-                dropped_candidates=(),
+                forwarded_candidate_ids=(),
+                pre_precision_dropped_candidates=(),
                 candidate_annotations=(),
                 message=f"Structured change-request review failed: {error}",
             )
 
         candidate_result = _candidate_review_result_from_review_result(raw_review_result)
-        accepted_candidate_ids, dropped_candidates, candidate_annotations = (
-            _ground_candidate_findings(
-                context=context,
-                candidate_result=candidate_result,
-            )
+        candidate_ids, candidate_annotations = _annotate_candidate_findings(
+            context=context,
+            candidate_result=candidate_result,
         )
 
         return ReviewCandidateStageResult(
             candidate_result=candidate_result,
             raw_review_result=raw_review_result,
-            accepted_candidate_ids=tuple(accepted_candidate_ids),
-            dropped_candidates=tuple(dropped_candidates),
+            forwarded_candidate_ids=tuple(candidate_ids),
+            pre_precision_dropped_candidates=(),
             candidate_annotations=tuple(candidate_annotations),
             message=(
                 "Candidate review generated "
-                f"{len(candidate_result.findings)} candidates and accepted "
-                f"{len(accepted_candidate_ids)} findings."
+                f"{len(candidate_result.findings)} candidates and forwarded "
+                f"{len(candidate_ids)} findings to precision."
             ),
         )
 
@@ -190,18 +187,16 @@ def _candidate_review_result_from_review_result(
     )
 
 
-def _ground_candidate_findings(
+def _annotate_candidate_findings(
     *,
     context: ChangeRequestReviewContext,
     candidate_result: CandidateReviewResult,
-) -> tuple[list[str], list[DroppedCandidate], list[CandidateAnnotation]]:
-    """Ground candidate findings without deciding final review truth."""
+) -> tuple[list[str], list[CandidateAnnotation]]:
+    """Annotate candidate findings without suppressing them before precision."""
     reviewed_files = {
         changed_file.file_path: changed_file for changed_file in context.changed_files
     }
 
-    accepted_candidates: list[CandidateReviewFinding] = []
-    dropped_candidates: list[DroppedCandidate] = []
     candidate_annotations: list[CandidateAnnotation] = []
     for candidate in candidate_result.findings:
         annotation = _build_candidate_annotation(
@@ -210,21 +205,9 @@ def _ground_candidate_findings(
         )
         if annotation is not None:
             candidate_annotations.append(annotation)
-        validation = _validation_from_annotation(annotation)
-        if validation is None:
-            accepted_candidates.append(candidate)
-        else:
-            drop_reason, notes = validation
-            dropped_candidates.append(
-                DroppedCandidate(
-                    candidate_id=candidate.candidate_id,
-                    drop_reason=drop_reason,
-                    notes=notes,
-                )
-            )
 
-    accepted_candidate_ids = [candidate.candidate_id for candidate in accepted_candidates]
-    return accepted_candidate_ids, dropped_candidates, candidate_annotations
+    candidate_ids = [candidate.candidate_id for candidate in candidate_result.findings]
+    return candidate_ids, candidate_annotations
 
 
 def _build_candidate_annotation(
@@ -315,17 +298,6 @@ def _build_candidate_annotation(
             notes=notes,
         )
     return None
-
-
-def _validation_from_annotation(
-    annotation: CandidateAnnotation | None,
-) -> tuple[CandidateDropReason, str] | None:
-    """Map candidate annotations back to the current hard-drop behavior."""
-    if annotation is None:
-        return None
-    if "off_diff" in annotation.flags:
-        return "off_diff", annotation.notes[0]
-    return "weak_evidence", annotation.notes[0]
 
 
 def _is_speculative_or_low_signal(candidate: CandidateReviewFinding) -> bool:
