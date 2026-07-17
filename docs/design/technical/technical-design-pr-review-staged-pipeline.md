@@ -68,12 +68,14 @@ Responsibilities:
 
 - analyze diff and context for possible concerns,
 - emit structured candidate findings,
+- attach deterministic advisory validation annotations when useful,
 - preserve evidence and uncertainty where useful,
 - favor recall over final polish.
 
 Suggested output shape:
 
 - candidate findings,
+- candidate-local validation annotations,
 - per-finding evidence summary,
 - optional bounded uncertainty metadata,
 - optional notes that help later deduplication or continuity matching.
@@ -83,6 +85,11 @@ Non-responsibilities:
 - final classification,
 - final unresolved/new/resolved continuity labeling,
 - final publish safety decisions.
+
+Candidate findings should reach precision unchanged unless they are
+structurally impossible to represent at all. Deterministic candidate-stage
+checks should inform precision through advisory annotations, not through hard
+pre-precision suppression.
 
 ### 4.2 Review Reconciliation Service
 
@@ -158,6 +165,20 @@ Suggested fields:
 Important rule:
 
 - the candidate artifact should never be treated as the final review note.
+- candidate findings should not disappear before precision has a chance to
+  judge them.
+
+Recommended annotation examples:
+
+- `off_diff`
+- `weak_evidence`
+- `generic_evidence`
+- `ungrounded_wording`
+- `speculative_explanation`
+- `low_signal_follow_up`
+
+These annotations should be advisory inputs to precision, not candidate-stage
+verdicts.
 
 Candidate-stage metadata should be preserved primarily for evaluation and
 quality measurement, not because every internal candidate detail needs to live
@@ -168,6 +189,7 @@ Recommended preserved metadata:
 - candidate identifier,
 - candidate category or finding type,
 - short evidence summary,
+- deterministic validation annotations,
 - candidate confidence or uncertainty when present,
 - structured location fields when visible evidence supports them,
 - reconciliation outcome,
@@ -198,8 +220,10 @@ The next review-bot hardening work should map to stages like this:
 - candidate / discovery stage
   - surface high-recall candidate concerns
   - may notice repository-guidance-backed style or readability concerns
+  - may attach deterministic advisory annotations to each candidate
   - attach optional location hints when visible evidence supports them
   - do not make final publish-surface decisions here
+  - do not silently suppress candidate findings before precision sees them
 - precision / reconciliation stage
   - decide which candidates survive
   - normalize and validate identity-relevant finding inputs
@@ -719,8 +743,8 @@ Recommended metrics or summary fields:
 
 - candidate finding count,
 - candidate finding identifiers/titles for diagnostic comparison,
-- grounding accepted candidate identifiers,
-- grounding dropped candidate identifiers with drop reasons,
+- candidate forwarded identifiers,
+- candidate advisory annotations by identifier,
 - reconciled accepted finding count,
 - reconciled accepted source candidate identifiers,
 - reconciled dropped candidate identifiers with drop reasons,
@@ -744,7 +768,7 @@ Recommended observability contract:
   rollouts can be inspected without extra tooling,
 - use it to compare same-SHA reruns across:
   - candidate generation drift,
-  - grounding drift,
+  - candidate annotation drift,
   - precision selection drift,
   - final artifact drift.
 
@@ -754,13 +778,22 @@ Suggested per-run diagnostic shape:
 class ReviewRunDiagnostics(BaseModel):
     reviewed_head_sha: str
     candidate_findings: list[DiagnosticCandidate]
-    grounding_accepted_candidate_ids: list[str]
-    grounding_dropped_candidates: list[DroppedCandidate]
+    candidate_forwarded_ids: list[str]
+    candidate_annotations: list[CandidateAnnotation]
     precision_accepted_candidate_ids: list[str]
     precision_dropped_candidates: list[DroppedCandidate]
     inline_comment_decisions: list[InlineCommentDecision]
     final_published_finding_summaries: list[str]
     final_classification: ReviewClassification
+```
+
+Suggested candidate annotation shape:
+
+```python
+class CandidateAnnotation(BaseModel):
+    candidate_id: str
+    flags: list[str]
+    notes: list[str] = []
 ```
 
 Suggested inline-comment decision shape:

@@ -101,6 +101,14 @@ class ReviewDiagnosticDroppedCandidate(BaseModel):
     notes: str | None = None
 
 
+class ReviewDiagnosticCandidateAnnotation(BaseModel):
+    """Represent one bounded candidate-annotation record for run diagnostics."""
+
+    candidate_id: str
+    flags: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
 class ReviewInlineCommentDecision(BaseModel):
     """Represent one bounded inline-comment decision for rollout diagnostics."""
 
@@ -125,10 +133,21 @@ class ReviewRunDiagnostics(BaseModel):
 
     reviewed_head_sha: str
     candidate_findings: list[ReviewDiagnosticCandidate] = Field(default_factory=list)
-    grounding_accepted_candidate_ids: list[str] = Field(default_factory=list)
-    grounding_dropped_candidates: list[ReviewDiagnosticDroppedCandidate] = Field(
-        default_factory=list
+    forwarded_candidate_ids: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices(
+            "forwarded_candidate_ids",
+            "grounding_accepted_candidate_ids",
+        ),
     )
+    pre_precision_dropped_candidates: list[ReviewDiagnosticDroppedCandidate] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices(
+            "pre_precision_dropped_candidates",
+            "grounding_dropped_candidates",
+        ),
+    )
+    candidate_annotations: list[ReviewDiagnosticCandidateAnnotation] = Field(default_factory=list)
     precision_accepted_candidate_ids: list[str] = Field(default_factory=list)
     precision_dropped_candidates: list[ReviewDiagnosticDroppedCandidate] = Field(
         default_factory=list

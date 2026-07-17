@@ -22,6 +22,7 @@ from zeroone_ops.models.state import (
     FailureDetails,
     FailureStage,
     ReviewDiagnosticCandidate,
+    ReviewDiagnosticCandidateAnnotation,
     ReviewDiagnosticDroppedCandidate,
     ReviewInlineCommentDecision,
     ReviewRunDiagnostics,
@@ -269,10 +270,11 @@ class ReviewRunner:
                     if candidate_stage_result.candidate_result is None
                     else len(candidate_stage_result.candidate_result.findings)
                 ),
-                "grounded_candidate_count": len(candidate_stage_result.accepted_candidate_ids),
-                "grounding_dropped_candidate_count": len(candidate_stage_result.dropped_candidates),
-                "accepted_candidate_count": len(candidate_stage_result.accepted_candidate_ids),
-                "dropped_candidate_count": len(candidate_stage_result.dropped_candidates),
+                "forwarded_candidate_count": len(candidate_stage_result.forwarded_candidate_ids),
+                "candidate_annotation_count": len(candidate_stage_result.candidate_annotations),
+                "pre_precision_dropped_candidate_count": len(
+                    candidate_stage_result.pre_precision_dropped_candidates
+                ),
                 "classification": review_result.classification,
                 "finding_count": len(review_result.findings),
             },
@@ -903,14 +905,22 @@ def _build_review_run_diagnostics(
     return ReviewRunDiagnostics(
         reviewed_head_sha=head_sha,
         candidate_findings=candidate_findings,
-        grounding_accepted_candidate_ids=list(candidate_stage_result.accepted_candidate_ids),
-        grounding_dropped_candidates=[
+        forwarded_candidate_ids=list(candidate_stage_result.forwarded_candidate_ids),
+        pre_precision_dropped_candidates=[
             ReviewDiagnosticDroppedCandidate(
                 candidate_id=candidate.candidate_id,
                 drop_reason=candidate.drop_reason,
                 notes=candidate.notes,
             )
-            for candidate in candidate_stage_result.dropped_candidates
+            for candidate in candidate_stage_result.pre_precision_dropped_candidates
+        ],
+        candidate_annotations=[
+            ReviewDiagnosticCandidateAnnotation(
+                candidate_id=annotation.candidate_id,
+                flags=list(annotation.flags),
+                notes=list(annotation.notes),
+            )
+            for annotation in candidate_stage_result.candidate_annotations
         ],
         precision_accepted_candidate_ids=precision_accepted_candidate_ids,
         precision_dropped_candidates=precision_dropped_candidates,
