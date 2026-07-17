@@ -127,6 +127,7 @@ def build_candidate_stage_result() -> ReviewCandidateStageResult:
         ),
         accepted_candidate_ids=("candidate-1", "candidate-2"),
         dropped_candidates=(),
+        candidate_annotations=(),
         message="Candidate review generated 2 candidates and accepted 2 findings.",
     )
 
@@ -381,6 +382,7 @@ def test_reconcile_returns_candidate_failure_when_no_authoritative_review_exists
             raw_review_result=None,
             accepted_candidate_ids=(),
             dropped_candidates=(),
+            candidate_annotations=(),
             message="LLM backend not configured for change-request review.",
         ),
     )

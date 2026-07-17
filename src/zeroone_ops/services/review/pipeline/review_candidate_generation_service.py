@@ -8,9 +8,11 @@ from dataclasses import dataclass
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
+    CandidateAnnotation,
     CandidateDropReason,
     CandidateReviewFinding,
     CandidateReviewResult,
+    CandidateValidationFlag,
     ChangeRequestReviewContext,
     DroppedCandidate,
     ReviewFileContext,
@@ -87,6 +89,7 @@ class ReviewCandidateStageResult:
     raw_review_result: ReviewResult | None
     accepted_candidate_ids: tuple[str, ...]
     dropped_candidates: tuple[DroppedCandidate, ...]
+    candidate_annotations: tuple[CandidateAnnotation, ...]
     message: str
 
 
@@ -111,6 +114,7 @@ class ReviewCandidateGenerationService:
                 raw_review_result=None,
                 accepted_candidate_ids=(),
                 dropped_candidates=(),
+                candidate_annotations=(),
                 message="LLM backend not configured for change-request review.",
             )
 
@@ -122,13 +126,16 @@ class ReviewCandidateGenerationService:
                 raw_review_result=None,
                 accepted_candidate_ids=(),
                 dropped_candidates=(),
+                candidate_annotations=(),
                 message=f"Structured change-request review failed: {error}",
             )
 
         candidate_result = _candidate_review_result_from_review_result(raw_review_result)
-        accepted_candidate_ids, dropped_candidates = _ground_candidate_findings(
-            context=context,
-            candidate_result=candidate_result,
+        accepted_candidate_ids, dropped_candidates, candidate_annotations = (
+            _ground_candidate_findings(
+                context=context,
+                candidate_result=candidate_result,
+            )
         )
 
         return ReviewCandidateStageResult(
@@ -136,6 +143,7 @@ class ReviewCandidateGenerationService:
             raw_review_result=raw_review_result,
             accepted_candidate_ids=tuple(accepted_candidate_ids),
             dropped_candidates=tuple(dropped_candidates),
+            candidate_annotations=tuple(candidate_annotations),
             message=(
                 "Candidate review generated "
                 f"{len(candidate_result.findings)} candidates and accepted "
@@ -186,7 +194,7 @@ def _ground_candidate_findings(
     *,
     context: ChangeRequestReviewContext,
     candidate_result: CandidateReviewResult,
-) -> tuple[list[str], list[DroppedCandidate]]:
+) -> tuple[list[str], list[DroppedCandidate], list[CandidateAnnotation]]:
     """Ground candidate findings without deciding final review truth."""
     reviewed_files = {
         changed_file.file_path: changed_file for changed_file in context.changed_files
@@ -194,8 +202,15 @@ def _ground_candidate_findings(
 
     accepted_candidates: list[CandidateReviewFinding] = []
     dropped_candidates: list[DroppedCandidate] = []
+    candidate_annotations: list[CandidateAnnotation] = []
     for candidate in candidate_result.findings:
-        validation = _validate_candidate_finding(candidate=candidate, reviewed_files=reviewed_files)
+        annotation = _build_candidate_annotation(
+            candidate=candidate,
+            reviewed_files=reviewed_files,
+        )
+        if annotation is not None:
+            candidate_annotations.append(annotation)
+        validation = _validation_from_annotation(annotation)
         if validation is None:
             accepted_candidates.append(candidate)
         else:
@@ -209,26 +224,47 @@ def _ground_candidate_findings(
             )
 
     accepted_candidate_ids = [candidate.candidate_id for candidate in accepted_candidates]
-    return accepted_candidate_ids, dropped_candidates
+    return accepted_candidate_ids, dropped_candidates, candidate_annotations
 
 
-def _validate_candidate_finding(
+def _build_candidate_annotation(
     *,
     candidate: CandidateReviewFinding,
     reviewed_files: dict[str, ReviewFileContext],
-) -> tuple[CandidateDropReason, str] | None:
-    """Return drop metadata when one candidate is not grounded enough to keep."""
+) -> CandidateAnnotation | None:
+    """Return advisory validation annotations for one candidate when applicable."""
+    flags: list[CandidateValidationFlag] = []
+    notes: list[str] = []
+
     reviewed_file = reviewed_files.get(candidate.file_path)
     if reviewed_file is None:
-        return "off_diff", "Candidate references a file outside the reviewed diff."
+        flags.append("off_diff")
+        notes.append("Candidate references a file outside the reviewed diff.")
+        return CandidateAnnotation(
+            candidate_id=candidate.candidate_id,
+            flags=flags,
+            notes=notes,
+        )
 
     evidence = candidate.evidence.strip()
     if len(evidence) < 20:
-        return "weak_evidence", "Candidate evidence is too short to ground safely."
+        flags.append("weak_evidence")
+        notes.append("Candidate evidence is too short to ground safely.")
+        return CandidateAnnotation(
+            candidate_id=candidate.candidate_id,
+            flags=flags,
+            notes=notes,
+        )
 
     normalized_evidence = evidence.lower()
     if normalized_evidence in _GENERIC_EVIDENCE_MARKERS:
-        return "weak_evidence", "Candidate evidence is too generic to ground safely."
+        flags.extend(["weak_evidence", "generic_evidence"])
+        notes.append("Candidate evidence is too generic to ground safely.")
+        return CandidateAnnotation(
+            candidate_id=candidate.candidate_id,
+            flags=flags,
+            notes=notes,
+        )
 
     reviewed_text = "\n".join(
         [
@@ -253,14 +289,43 @@ def _validate_candidate_finding(
     reviewed_tokens = _grounding_tokens(reviewed_text)
     grounding_tokens = _grounding_tokens(grounding_text)
     if not grounding_tokens and not evidence_matches_reviewed_text:
-        return "weak_evidence", "Candidate has no grounded tokens in the reviewed context."
+        flags.extend(["weak_evidence", "ungrounded_wording"])
+        notes.append("Candidate has no grounded tokens in the reviewed context.")
+        return CandidateAnnotation(
+            candidate_id=candidate.candidate_id,
+            flags=flags,
+            notes=notes,
+        )
     if not evidence_matches_reviewed_text and not any(
         token in reviewed_tokens for token in grounding_tokens
     ):
-        return "weak_evidence", "Candidate wording is not grounded in the reviewed context."
+        flags.extend(["weak_evidence", "ungrounded_wording"])
+        notes.append("Candidate wording is not grounded in the reviewed context.")
+        return CandidateAnnotation(
+            candidate_id=candidate.candidate_id,
+            flags=flags,
+            notes=notes,
+        )
     if _is_speculative_or_low_signal(candidate):
-        return "weak_evidence", "Candidate is too speculative or low-signal to publish."
+        flags.extend(_speculative_or_low_signal_flags(candidate))
+        notes.append("Candidate is too speculative or low-signal to publish.")
+        return CandidateAnnotation(
+            candidate_id=candidate.candidate_id,
+            flags=flags,
+            notes=notes,
+        )
     return None
+
+
+def _validation_from_annotation(
+    annotation: CandidateAnnotation | None,
+) -> tuple[CandidateDropReason, str] | None:
+    """Map candidate annotations back to the current hard-drop behavior."""
+    if annotation is None:
+        return None
+    if "off_diff" in annotation.flags:
+        return "off_diff", annotation.notes[0]
+    return "weak_evidence", annotation.notes[0]
 
 
 def _is_speculative_or_low_signal(candidate: CandidateReviewFinding) -> bool:
@@ -280,6 +345,30 @@ def _is_speculative_or_low_signal(candidate: CandidateReviewFinding) -> bool:
     if not any(marker in follow_up for marker in _ACTIONABLE_FOLLOW_UP_MARKERS):
         return True
     return False
+
+
+def _speculative_or_low_signal_flags(
+    candidate: CandidateReviewFinding,
+) -> list[CandidateValidationFlag]:
+    """Return the advisory flags that explain a speculative or low-signal candidate."""
+    explanation = candidate.explanation.strip().lower()
+    follow_up = candidate.suggested_follow_up.strip().lower()
+    flags: list[CandidateValidationFlag] = []
+
+    if any(marker in explanation for marker in _LOW_SIGNAL_EXPLANATION_MARKERS):
+        flags.append("speculative_explanation")
+    elif any(marker in explanation for marker in _SPECULATIVE_MARKERS) and not any(
+        token in explanation
+        for token in ("will", "would", "break", "regression", "missing", "unsafe")
+    ):
+        flags.append("speculative_explanation")
+
+    if not any(marker in follow_up for marker in _ACTIONABLE_FOLLOW_UP_MARKERS):
+        flags.append("low_signal_follow_up")
+
+    if not flags:
+        flags.append("weak_evidence")
+    return flags
 
 
 def _grounding_tokens(text: str) -> set[str]:

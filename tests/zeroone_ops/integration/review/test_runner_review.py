@@ -64,12 +64,14 @@ class _CandidateStageResult:
         raw_review_result: ReviewResult,
         accepted_candidate_ids: tuple[str, ...],
         dropped_candidates: tuple[str, ...],
+        candidate_annotations: tuple[object, ...],
         message: str,
     ) -> None:
         self.candidate_result = candidate_result
         self.raw_review_result = raw_review_result
         self.accepted_candidate_ids = accepted_candidate_ids
         self.dropped_candidates = dropped_candidates
+        self.candidate_annotations = candidate_annotations
         self.message = message
 
 
@@ -243,6 +245,7 @@ def _stub_candidate_stage(
     raw_review_result: ReviewResult,
     accepted_candidate_ids: tuple[str, ...] = (),
     dropped_candidates: tuple[str, ...] = (),
+    candidate_annotations: tuple[object, ...] = (),
     message: str,
 ) -> Callable[[object, ChangeRequestReviewContext], _CandidateStageResult]:
     def _analyze(
@@ -255,6 +258,7 @@ def _stub_candidate_stage(
             raw_review_result=raw_review_result,
             accepted_candidate_ids=accepted_candidate_ids,
             dropped_candidates=dropped_candidates,
+            candidate_annotations=candidate_annotations,
             message=message,
         )
 

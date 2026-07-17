@@ -20,6 +20,14 @@ CandidateDropReason = Literal[
     "off_diff",
     "superseded",
 ]
+CandidateValidationFlag = Literal[
+    "off_diff",
+    "weak_evidence",
+    "generic_evidence",
+    "ungrounded_wording",
+    "speculative_explanation",
+    "low_signal_follow_up",
+]
 ArtifactValidationStatus = Literal["valid", "repaired", "rejected"]
 InlineCommentStatus = Literal["published", "shadow", "superseded"]
 
@@ -227,6 +235,14 @@ class CandidateReviewResult(BaseModel):
     """Represent the structured output of the candidate review stage."""
 
     findings: list[CandidateReviewFinding] = Field(default_factory=list)
+
+
+class CandidateAnnotation(BaseModel):
+    """Represent advisory deterministic validation signals for one candidate."""
+
+    candidate_id: str
+    flags: list[CandidateValidationFlag] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
 
 
 class ReconciledFinding(BaseModel):
