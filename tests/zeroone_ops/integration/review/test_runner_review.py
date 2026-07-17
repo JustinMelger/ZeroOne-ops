@@ -781,8 +781,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
             ),
             forwarded_candidate_ids=("candidate-1",),
             message=(
-                "Candidate review generated 1 candidates and forwarded 1 findings "
-                "to precision."
+                "Candidate review generated 1 candidates and forwarded 1 findings to precision."
             ),
         ),
     )
@@ -1101,8 +1100,7 @@ def test_review_non_dry_run_downgrades_structurally_invalid_artifact_to_manual_r
             ),
             forwarded_candidate_ids=("candidate-1",),
             message=(
-                "Candidate review generated 1 candidates and forwarded 1 findings "
-                "to precision."
+                "Candidate review generated 1 candidates and forwarded 1 findings to precision."
             ),
         ),
     )
@@ -1329,8 +1327,7 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
             ),
             forwarded_candidate_ids=("candidate-1",),
             message=(
-                "Candidate review generated 1 candidates and forwarded 1 findings "
-                "to precision."
+                "Candidate review generated 1 candidates and forwarded 1 findings to precision."
             ),
         ),
     )
