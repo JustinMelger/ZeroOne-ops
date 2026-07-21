@@ -1,3 +1,5 @@
+from pydantic import ValidationError
+
 from zeroone_ops.models.finding import (
     FindingCollectionMetadata,
     FindingCollectionResult,
@@ -66,3 +68,19 @@ def test_finding_collection_result_keeps_findings_and_collection_metadata() -> N
     assert result.metadata.artifact_reference == "artifacts/ruff.sarif"
     assert result.metadata.statistics == {"collected": 1}
     assert result.findings[0].title == "Avoid bare except"
+
+
+def test_normalized_finding_rejects_unsupported_severity_labels() -> None:
+    try:
+        NormalizedFinding(
+            finding_id="src/service.py::unknown",
+            source_id="ruff-sarif",
+            severity="critical",
+            title="Avoid bare except",
+            summary="The file catches all exceptions without narrowing scope.",
+            repository_path="src/service.py",
+        )
+    except ValidationError as error:
+        assert "severity" in str(error)
+    else:  # pragma: no cover - defensive guard
+        raise AssertionError("Expected ValidationError for unsupported normalized severity.")

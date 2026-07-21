@@ -109,6 +109,42 @@ def test_intake_bridge_can_expose_normalized_sonar_findings_without_switching_do
     assert collection.finding_collection.findings[0].finding_id == "AX123"
 
 
+def test_intake_bridge_rejects_findings_that_escape_repo_root(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    config = AppConfig(
+        base_branch="main",
+        validation_commands=[],
+        approval=ApprovalConfig(),
+        remediation=RemediationConfig(bootstrap_severities=["LOW"], analysis=AnalysisConfig()),
+        review=ReviewConfig(),
+        gitlab=GitLabConfig(target_branch="main"),
+        sonarqube=SonarQubeConfig(),
+        state=StateConfig(path=repo_root / ".zeroone-ops-state.json"),
+    )
+
+    fixture = repo_root / "sonar.json"
+    fixture.write_text(
+        (
+            '{"issues":[{"key":"AX123","rule":"python:S1125","severity":"LOW",'
+            '"type":"CODE_SMELL","status":"OPEN",'
+            '"message":"Replace boolean equality with direct truthiness.",'
+            '"component":"sample-project:../outside.py","project":"sample-project",'
+            '"line":42}]}'
+        ),
+        encoding="utf-8",
+    )
+    (repo_root / "src").mkdir(parents=True, exist_ok=True)
+    (repo_root / "src" / "service.py").write_text("value = flag == True\n", encoding="utf-8")
+    config.sonarqube.mock_issues_path = fixture
+
+    collection = IssueIntakeService(
+        repo_root=repo_root,
+        config=config,
+    ).collect_dashboard_sync_issues(dry_run=True, run_id="run-1")
+
+    assert collection.finding_collection.findings == []
+
+
 def test_sync_uses_source_metadata_for_dashboard_fields() -> None:
     dashboard_service = FakeDashboardService()
     service = SonarDashboardSyncService(dashboard_service)

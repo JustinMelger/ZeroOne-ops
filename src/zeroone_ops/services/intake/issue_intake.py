@@ -137,7 +137,8 @@ class IssueIntakeService:
         """
         kept_findings: list[NormalizedFinding] = []
         for finding in finding_collection.findings:
-            if not (self.repo_root / finding.repository_path).exists():
+            resolved_path = self._resolve_repository_path(finding.repository_path)
+            if resolved_path is None or not resolved_path.exists():
                 continue
             decision = self.workflow_policy_service.decide(finding=finding)
             if decision.disposition != "queue_candidate":
@@ -147,6 +148,21 @@ class IssueIntakeService:
             findings=kept_findings,
             metadata=finding_collection.metadata,
         )
+
+    def _resolve_repository_path(self, repository_path: str) -> Path | None:
+        """Return a contained repository path or ``None`` when it escapes the repo root."""
+        candidate = self.repo_root / repository_path
+        try:
+            resolved_repo_root = self.repo_root.resolve()
+            resolved_candidate = candidate.resolve()
+        except OSError:
+            return None
+        if (
+            resolved_candidate != resolved_repo_root
+            and resolved_repo_root not in resolved_candidate.parents
+        ):
+            return None
+        return resolved_candidate
 
 
 def _empty_finding_collection() -> FindingCollectionResult:

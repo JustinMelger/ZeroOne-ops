@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -31,7 +31,7 @@ class NormalizedFinding(BaseModel):
 
     finding_id: str
     source_id: str
-    severity: str
+    severity: Literal["low", "medium", "high"]
     title: str
     summary: str
     repository_path: str
