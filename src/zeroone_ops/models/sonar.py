@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, TypeAlias
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
-NormalizedSeverity: TypeAlias = Literal["low", "medium", "high"]
+type NormalizedSeverity = Literal["low", "medium", "high"]
 
 
 class SonarImpact(BaseModel):
