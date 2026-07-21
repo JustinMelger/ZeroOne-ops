@@ -192,10 +192,7 @@ def _sarif_source_id(tool_name: str | None) -> str:
     """Return a bounded stable source id derived from SARIF tool identity."""
     if tool_name is None:
         return "sarif"
-    parts = [
-        character.lower() if character.isalnum() else "-"
-        for character in tool_name.strip()
-    ]
+    parts = [character.lower() if character.isalnum() else "-" for character in tool_name.strip()]
     slug = "".join(parts).strip("-")
     while "--" in slug:
         slug = slug.replace("--", "-")
