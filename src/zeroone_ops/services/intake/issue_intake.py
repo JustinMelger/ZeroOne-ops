@@ -16,10 +16,7 @@ from zeroone_ops.models.finding import (
     NormalizedFinding,
 )
 from zeroone_ops.providers.sonar_client import SonarClient
-from zeroone_ops.services.intake.sonar_finding_source import (
-    SonarFindingSource,
-    SonarFindingSourceResult,
-)
+from zeroone_ops.services.intake.sonar_finding_source import SonarFindingSource
 from zeroone_ops.settings import SettingsError, load_sonarqube_connection_config
 
 LOGGER = logging.getLogger(__name__)
@@ -78,7 +75,7 @@ class IssueIntakeService:
             )
         source_result = SonarFindingSource().collect_fixture_findings(fixture_path)
         issue_count = len(source_result.issues)
-        finding_collection = self._existing_findings(source_result)
+        finding_collection = self._existing_findings(source_result.collection)
         if not finding_collection.findings:
             return SyncIssueCollectionResult(
                 finding_collection=finding_collection,
@@ -109,7 +106,7 @@ class IssueIntakeService:
 
         source_result = SonarFindingSource(sonar_client).collect_open_findings()
         issue_count = len(source_result.issues)
-        finding_collection = self._existing_findings(source_result)
+        finding_collection = self._existing_findings(source_result.collection)
         if not finding_collection.findings:
             return SyncIssueCollectionResult(
                 finding_collection=finding_collection,
@@ -124,28 +121,24 @@ class IssueIntakeService:
 
     def _existing_findings(
         self,
-        source_result: SonarFindingSourceResult,
+        finding_collection: FindingCollectionResult,
     ) -> FindingCollectionResult:
         """Filter normalized findings to files that exist in the local repository.
 
         Args:
-            source_result: Raw Sonar issues plus normalized findings.
+            finding_collection: Normalized findings collected for dashboard sync.
 
         Returns:
             Only normalized findings whose repository-relative target files exist locally.
         """
         kept_findings: list[NormalizedFinding] = []
-        for issue, finding in zip(
-            source_result.issues,
-            source_result.collection.findings,
-            strict=False,
-        ):
-            if not (self.repo_root / issue.file_path).exists():
+        for finding in finding_collection.findings:
+            if not (self.repo_root / finding.repository_path).exists():
                 continue
             kept_findings.append(finding)
         return FindingCollectionResult(
             findings=kept_findings,
-            metadata=source_result.collection.metadata,
+            metadata=finding_collection.metadata,
         )
 
 

@@ -244,8 +244,8 @@ Design reference:
 
 ##### Phase 6b3: Downstream Normalization
 
-- [ ] adapt downstream remediation/control-plane flow to consume normalized
-  findings instead of SonarQube-local models
+- [x] adapt dashboard-sync downstream flow to consume normalized findings
+  instead of SonarQube-local models
 - [ ] keep one shared default queueing and promotion policy for all normalized
   findings in this phase
 - [ ] defer cross-source dedupe to a later shared reconciliation stage instead

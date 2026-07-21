@@ -69,8 +69,10 @@ def test_sync_normalizes_sonar_issues_into_dashboard_items() -> None:
     assert dashboard_service.items[0].severity == "low"
 
 
-def test_intake_bridge_can_expose_normalized_sonar_findings_without_switching_downstream() -> None:
-    repo_root = Path.cwd()
+def test_intake_bridge_can_expose_normalized_sonar_findings_without_switching_downstream(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path
     config = AppConfig(
         base_branch="main",
         validation_commands=[],
@@ -105,7 +107,6 @@ def test_intake_bridge_can_expose_normalized_sonar_findings_without_switching_do
 
     assert len(collection.finding_collection.findings) == 1
     assert collection.finding_collection.findings[0].finding_id == "AX123"
-    fixture.unlink()
 
 
 def test_sync_uses_source_metadata_for_dashboard_fields() -> None:
