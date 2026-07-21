@@ -123,6 +123,55 @@ def test_collect_artifact_findings_uses_fallback_identity_without_native_key(
     assert finding.severity == "high"
 
 
+def test_collect_artifact_findings_derives_source_id_from_sarif_tool_name(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "codeql.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "CodeQL",
+                  "rules": [
+                    {
+                      "id": "py/path-injection",
+                      "shortDescription": {"text": "Path injection"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "py/path-injection",
+                  "level": "error",
+                  "message": {"text": "Potential path injection."},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/module.py"},
+                        "region": {"startLine": 8}
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert result.metadata.source_id == "codeql-sarif"
+    assert result.findings[0].source_id == "codeql-sarif"
+
+
 def test_collect_artifact_findings_skips_results_without_repository_path(tmp_path: Path) -> None:
     artifact = tmp_path / "ruff.sarif"
     artifact.write_text(
@@ -157,3 +206,44 @@ def test_collect_artifact_findings_skips_results_without_repository_path(tmp_pat
     assert result.metadata.warnings == [
         "Skipped SARIF result E999 because no repository-relative path was found."
     ]
+
+
+def test_collect_artifact_findings_rejects_parent_traversal_paths(tmp_path: Path) -> None:
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff"
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "Bad path"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "../src/service.py"},
+                        "region": {"startLine": 1}
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert result.findings == []
+    assert result.metadata.statistics == {"collected": 0, "skipped": 1}

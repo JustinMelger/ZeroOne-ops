@@ -80,6 +80,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "samples/**/*.py" = ["E712"]
+"samples/ruff_findings/**/*.py" = ["E712", "F841"]
 "tests/**/*.py" = ["D"]
 
 [tool.ruff.format]

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Literal
 
 from zeroone_ops.models.finding import (
@@ -29,21 +29,28 @@ class SarifFindingSource:
         findings: list[NormalizedFinding] = []
         warnings: list[str] = []
         skipped_count = 0
+        artifact_source_ids: set[str] = set()
 
         for run in payload.get("runs", []):
             if not isinstance(run, dict):
                 warnings.append("Skipped SARIF run with unexpected non-object shape.")
                 skipped_count += 1
                 continue
-            findings_for_run, warnings_for_run, skipped_for_run = _collect_run_findings(run)
+            (
+                findings_for_run,
+                warnings_for_run,
+                skipped_for_run,
+                source_id,
+            ) = _collect_run_findings(run)
             findings.extend(findings_for_run)
             warnings.extend(warnings_for_run)
             skipped_count += skipped_for_run
+            artifact_source_ids.add(source_id)
 
         return FindingCollectionResult(
             findings=findings,
             metadata=FindingCollectionMetadata(
-                source_id="ruff-sarif",
+                source_id=_artifact_source_id(artifact_source_ids),
                 artifact_reference=str(artifact_path),
                 warnings=warnings,
                 statistics={
@@ -54,10 +61,13 @@ class SarifFindingSource:
         )
 
 
-def _collect_run_findings(run: JsonDict) -> tuple[list[NormalizedFinding], list[str], int]:
+def _collect_run_findings(
+    run: JsonDict,
+) -> tuple[list[NormalizedFinding], list[str], int, str]:
     """Normalize one SARIF run into findings plus bounded warnings."""
     driver = _dict_value(_dict_value(run, "tool"), "driver")
     tool_name = _string_or_none(driver.get("name"))
+    source_id = _sarif_source_id(tool_name)
     rule_index: dict[str, JsonDict] = {
         str(rule.get("id")): rule
         for rule in _list_value(driver.get("rules"))
@@ -72,7 +82,12 @@ def _collect_run_findings(run: JsonDict) -> tuple[list[NormalizedFinding], list[
             skipped_count += 1
             warnings.append("Skipped SARIF result with unexpected non-object shape.")
             continue
-        finding = _normalize_result(result=result, rule_index=rule_index, tool_name=tool_name)
+        finding = _normalize_result(
+            result=result,
+            rule_index=rule_index,
+            tool_name=tool_name,
+            source_id=source_id,
+        )
         if finding is None:
             skipped_count += 1
             rule_id = result.get("ruleId") or "<unknown-rule>"
@@ -81,7 +96,7 @@ def _collect_run_findings(run: JsonDict) -> tuple[list[NormalizedFinding], list[
             )
             continue
         findings.append(finding)
-    return findings, warnings, skipped_count
+    return findings, warnings, skipped_count, source_id
 
 
 def _normalize_result(
@@ -89,6 +104,7 @@ def _normalize_result(
     result: JsonDict,
     rule_index: dict[str, JsonDict],
     tool_name: str | None,
+    source_id: str,
 ) -> NormalizedFinding | None:
     """Normalize one SARIF result into the shared finding contract."""
     repository_path = _repository_path_from_result(result)
@@ -119,7 +135,7 @@ def _normalize_result(
 
     return NormalizedFinding(
         finding_id=finding_id,
-        source_id="ruff-sarif",
+        source_id=source_id,
         severity=_normalize_sarif_level(level),
         title=title,
         summary=summary,
@@ -155,10 +171,35 @@ def _repository_path_from_result(result: JsonDict) -> str | None:
     normalized = uri.strip()
     if normalized.startswith("file://"):
         normalized = normalized[len("file://") :]
-    normalized = normalized.lstrip("./")
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
     if normalized.startswith("/"):
         return None
-    return normalized or None
+    path = PurePosixPath(normalized)
+    if not normalized or any(part == ".." for part in path.parts):
+        return None
+    return str(path) or None
+
+
+def _artifact_source_id(source_ids: set[str]) -> str:
+    """Return the collection-level source id for one SARIF artifact."""
+    if len(source_ids) == 1:
+        return next(iter(source_ids))
+    return "sarif"
+
+
+def _sarif_source_id(tool_name: str | None) -> str:
+    """Return a bounded stable source id derived from SARIF tool identity."""
+    if tool_name is None:
+        return "sarif"
+    parts = [
+        character.lower() if character.isalnum() else "-"
+        for character in tool_name.strip()
+    ]
+    slug = "".join(parts).strip("-")
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    return f"{slug or 'sarif'}-sarif"
 
 
 def _line_range_from_result(result: JsonDict) -> tuple[int | None, int | None]:

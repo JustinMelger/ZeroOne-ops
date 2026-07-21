@@ -285,6 +285,32 @@ Design reference:
 - collect operator and developer feedback from that usage
 - prefer narrow rollout fixes before broadening the workflow surface again
 
+##### Phase 6c1: GitHub Finding Sync Publication
+
+- [ ] add a real GitHub-side finding sync entrypoint instead of relying on the
+  current GitLab-dashboard-wired dry-run command
+- [ ] publish promoted normalized findings into authoritative GitHub work-item
+  issues from the sync flow
+- [ ] keep the GitHub sync path provider-local at the publication boundary
+  while reusing shared normalized finding intake
+
+##### Phase 6c2: GitHub Finding Lifecycle Projection
+
+- [ ] reconcile repeated finding sync runs against existing GitHub work-item
+  issues instead of only creating fresh projected items
+- [ ] define the stale-item behavior for GitHub finding sync when a previously
+  synced finding no longer appears in the current source run
+- [ ] validate that shared promotion decisions and GitHub work-item state stay
+  aligned across repeated sync runs
+
+##### Phase 6c3: GitHub Operator Validation
+
+- [ ] live-test GitHub finding sync with Ruff SARIF on this repository
+- [ ] verify the operator-facing GitHub work-item rendering is readable and
+  sufficiently traceable for finding-origin diagnostics
+- [ ] collect follow-up decisions on whether GitHub needs a derived summary
+  surface after direct work-item sync is live
+
 ## Reference Docs
 
 Use these docs when deeper detail is needed:
