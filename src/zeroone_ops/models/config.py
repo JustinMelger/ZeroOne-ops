@@ -185,6 +185,12 @@ class SonarQubeConfig(BaseModel):
     mock_issues_path: Path | None = None
 
 
+class SarifConfig(BaseModel):
+    """Configure SARIF finding-source behavior."""
+
+    artifact_paths: list[Path] = Field(default_factory=list)
+
+
 class AppConfig(BaseModel):
     """Represent validated runtime configuration.
 
@@ -203,6 +209,7 @@ class AppConfig(BaseModel):
         review: Review-related settings.
         remediation: Remediation-related settings.
         sonarqube: SonarQube producer settings.
+        sarif: SARIF finding-source settings.
     gitlab: GitLab merge request settings when GitLab workflows are used.
     github: GitHub pull request settings when GitHub workflows are used.
         state: State persistence settings.
@@ -223,6 +230,7 @@ class AppConfig(BaseModel):
     review: ReviewConfig = Field(default_factory=ReviewConfig)
     remediation: RemediationConfig = Field(default_factory=RemediationConfig)
     sonarqube: SonarQubeConfig = Field(default_factory=SonarQubeConfig)
+    sarif: SarifConfig = Field(default_factory=SarifConfig)
     gitlab: GitLabConfig | None = None
     github: GitHubConfig | None = None
     state: StateConfig = Field(default_factory=StateConfig)
@@ -267,6 +275,10 @@ class AppConfig(BaseModel):
         sonarqube = dict(data.get("sonarqube", {}))
         if sonarqube:
             data["sonarqube"] = sonarqube
+
+        sarif = dict(data.get("sarif", {}))
+        if sarif:
+            data["sarif"] = sarif
 
         review = dict(data.get("review", {}))
         if "platform" not in data and "platform" in review:
