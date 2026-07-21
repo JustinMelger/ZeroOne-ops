@@ -161,12 +161,149 @@ Reason:
 
 ## 8. Open Questions
 
-- what minimum finding fields must always be visible to operators?
-- how much source-specific metadata should be visible in the workflow inventory?
-- how should the product describe source identity when multiple sources report
-  similar issues?
-- should different finding sources share the same queueing and prioritization
-  rules by default, or are some source classes operator-tuned later?
+### 8.1 Locked Decision: Shared Identity Model
+
+The product should use one shared concept of issue identity across:
+
+- finding ingestion
+- workflow inventory and control-plane tracking
+- review continuity and overlap matching
+
+If a source exposes a strong native finding key, that key should be kept and
+used.
+
+If a source does not expose a strong durable key, the product should derive a
+fallback identity using the same normalized matching rules already used for
+review overlap.
+
+This keeps the operator workflow consistent:
+
+- the same underlying issue is less likely to appear as unrelated items across
+  different source types
+- continuity and remediation tracking use the same identity logic
+- adding new sources such as Ruff SARIF does not require inventing a separate
+  queue identity model
+
+This is a product-level consistency rule, not a requirement that every source
+look like SonarQube or SARIF internally.
+
+### 8.2 Locked Decision: Minimum Shared Finding Shape
+
+Every normalized finding should carry one small shared shape that downstream
+workflow logic can depend on regardless of source.
+
+The required fields are:
+
+- stable finding identity
+- source identity
+- severity
+- title
+- summary
+- repository-relative path
+- optional line or region
+- remediation-relevant context
+
+This is the minimum shared contract for product behavior.
+Anything beyond that should be treated as optional source detail rather than as
+part of the universal operator workflow model.
+
+### 8.3 Locked Decision: Remediation Context Stays Structured and Small
+
+The remediation-relevant part of a finding should not be an unbounded metadata
+bag.
+
+Instead, normalized findings should carry a small structured remediation context
+object with only the fields selection and remediation execution actually use.
+
+That keeps the operator workflow predictable and prevents each source from
+smuggling tool-local shape into the product boundary.
+
+### 8.4 Locked Decision: Collection Metadata Lives Beside Findings
+
+The product should treat ingestion as returning both:
+
+- normalized findings
+- bounded collection metadata
+
+That metadata supports traceability and diagnostics such as:
+
+- which source revision was collected
+- which artifact or scan was used
+- whether the collection produced bounded warnings or partial results
+
+This information should live at the collection level instead of inflating every
+normalized finding with scan-local details.
+
+### 8.5 Locked Decision: Source Metadata Is Present but Not Workflow-Defining
+
+Some finding sources expose useful extra information that the product should not
+discard, but that information should not define the shared workflow model.
+
+So:
+
+- normalized findings may carry optional source-specific metadata
+- the main operator workflow should not depend on that metadata by default
+- source metadata is primarily for traceability, diagnostics, and detailed views
+
+This keeps the product boundary stable while still preserving source-local
+useful detail for later inspection or enhancement.
+
+### 8.6 Locked Decision: One Shared Default Workflow Policy
+
+Once findings are normalized, the product should treat them as entering one
+shared workflow by default.
+
+That means:
+
+- the same queueing and promotion rules apply first regardless of source
+- the same lifecycle and control-plane behavior applies after promotion
+- source-specific workflow tuning is a later explicit decision, not the default
+
+This is important for product clarity.
+If findings are normalized but immediately diverge into source-local workflow
+rules, then the operator does not actually get a shared ingestion model.
+
+### 8.7 Locked Decision: One Canonical Work Item Can Preserve Multiple Sources
+
+When multiple sources report the same underlying issue, the product should not
+force source adapters to choose precedence during collection.
+
+Instead:
+
+- source adapters normalize findings independently
+- shared reconciliation may later determine that multiple normalized findings
+  describe the same underlying issue
+- the product may then keep one canonical workflow item while preserving the
+  contributing sources as provenance
+
+This gives the operator one shared workflow inventory without losing the fact
+that more than one source backed the same issue.
+
+If the overlap between sources is uncertain, the product should prefer keeping
+them separate rather than deduping aggressively.
+
+### 8.8 Locked Decision: Source Identity Is Low-Emphasis in Queue Views
+
+Source identity should be visible to operators, but it should not dominate the
+main queue or workflow inventory.
+
+The UX rule is:
+
+- single-source items keep source identity low-emphasis in the main queue
+- multi-source items show a compact indicator in the main queue
+- full source provenance appears in the detail view or work-item body
+
+This means:
+
+- the main queue stays optimized for actionability and scanability
+- multi-source reinforcement is visible when it matters
+- detailed provenance remains available for trust, debugging, and traceability
+
+Recommended wording:
+
+- use neutral labels such as `Contributing sources`
+- avoid implying one source is primary unless the product truly has that
+  concept
 
 ## 9. Recommendation
 

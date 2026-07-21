@@ -215,16 +215,54 @@ Next feedback-driven refinements:
 
 #### Phase 6b: Generic Finding Ingestion
 
-- define a shared normalized finding contract and ingestion interface
-- wrap the current SonarQube intake behind that boundary
-- add one bounded dogfooding finding source that works on this repository
-  without SonarQube
-- normalize it into the existing remediation/control-plane path
-- use it to live-test:
-  - promotion
-  - work-item lifecycle
-  - review projection
-  - same-SHA projection repair
+Design reference:
+
+- [design/functional/functional-design-finding-ingestion.md](design/functional/functional-design-finding-ingestion.md)
+- [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
+
+##### Phase 6b1: Shared Finding Contract
+
+- [ ] define the shared normalized finding domain model
+- [ ] implement the bounded required finding fields:
+  - `finding_id`
+  - `source_id`
+  - `severity`
+  - `title`
+  - `summary`
+  - `repository_path`
+  - optional location
+  - structured `remediation_context`
+- [ ] add optional `source_metadata` behind an explicit boundary
+- [ ] define the shared ingestion result/interface
+- [ ] include bounded collection metadata for revision, artifact, and
+  diagnostics in the ingestion result
+
+##### Phase 6b2: SonarQube Behind the Shared Contract
+
+- [ ] implement shared overlap-style fallback identity for normalized findings
+- [ ] wrap the current SonarQube intake behind the shared ingestion contract
+
+##### Phase 6b3: Downstream Normalization
+
+- [ ] adapt downstream remediation/control-plane flow to consume normalized
+  findings instead of SonarQube-local models
+- [ ] keep one shared default queueing and promotion policy for all normalized
+  findings in this phase
+- [ ] defer cross-source dedupe to a later shared reconciliation stage instead
+  of implementing it inside source adapters
+
+##### Phase 6b4: First Dogfooding Source
+
+- [ ] add one bounded dogfooding source that works in this repository without
+  SonarQube
+- [ ] implement Ruff via SARIF as the first dogfooding source
+
+##### Phase 6b5: Rollout Validation
+
+- [ ] live-test normalized ingestion for promotion
+- [ ] live-test normalized ingestion for work-item lifecycle
+- [ ] live-test normalized ingestion for review projection
+- [ ] live-test normalized ingestion for same-SHA projection repair
 
 #### Phase 6c: GitHub Rollout Validation
 

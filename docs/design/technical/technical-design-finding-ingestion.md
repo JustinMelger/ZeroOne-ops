@@ -315,16 +315,229 @@ Recommended migration sequence:
 
 ## 12. Open Questions
 
-- What is the minimum normalized finding contract required for remediation
-  selection and execution?
-- Should normalized findings support optional source-specific extension
-  metadata, and if so where?
-- Where should dedupe precedence live if multiple sources report the same
-  underlying problem?
-- Should ingestion return only findings, or findings plus collection metadata
-  such as source revision, artifact path, or sync statistics?
-- How strict should stable identity be for sources without strong external
-  finding keys?
+### 12.1 Locked Decision: Minimum Normalized Finding Contract
+
+The minimum normalized finding contract should be intentionally small and should
+contain only the fields required for shared downstream selection, remediation,
+projection, and operator understanding.
+
+The minimum contract is:
+
+- `finding_id`
+- `source_id`
+- `severity`
+- `title`
+- `summary`
+- `repository_path`
+- `line_start` optional
+- `line_end` optional
+- `region_hint` optional
+- `remediation_context`
+
+Field intent:
+
+- `finding_id` is the stable normalized identity used by downstream workflow
+  tracking
+- `source_id` identifies the source instance such as SonarQube or Ruff SARIF
+- `repository_path` is repository-relative
+- location fields stay optional because some sources are file-level or weakly
+  anchored
+- `remediation_context` exists for downstream fix selection and execution, not
+  for source-local trace dumping
+
+The minimum contract should not require:
+
+- timestamps
+- artifact paths
+- scan statistics
+- source-specific metadata
+- workflow state
+- cross-source dedupe outcome
+
+Those belong either in collection metadata or optional source extensions.
+
+### 12.2 Locked Decision: Remediation Context Is a Small Structured Object
+
+`remediation_context` should be a small structured object inside the normalized
+finding model.
+
+It should:
+
+- stay provider-neutral and source-neutral
+- contain only fields downstream remediation logic actually uses
+- avoid becoming a loose bag of source-local properties
+
+It may contain bounded fields such as:
+
+- issue category or remediation type
+- rule or diagnostic code when that changes remediation behavior
+- narrow fixability or scope hints if downstream remediation logic consumes them
+
+It should not contain:
+
+- raw source payload
+- renderer-only narrative text
+- arbitrary tool properties
+- collection-level provenance or scan statistics
+
+### 12.3 Locked Decision: Ingestion Returns Findings Plus Collection Metadata
+
+The ingestion boundary should return a bounded collection result, not only a
+bare list of findings.
+
+That collection result should contain:
+
+- normalized findings
+- collection metadata needed for traceability and synchronization
+
+Typical collection metadata may include:
+
+- source revision or scan revision
+- artifact path or artifact identifier
+- tool name or source label
+- bounded sync statistics or warnings
+
+This keeps the normalized finding model small while still preserving the
+information needed for diagnostics, operator traceability, and later sync or
+dedupe decisions.
+
+### 12.4 Locked Decision: Source Metadata Is Optional and Explicitly Bounded
+
+Normalized findings may support optional source-specific metadata, but that
+metadata must live behind an explicit boundary rather than broadening the shared
+finding contract.
+
+The rule is:
+
+- shared normalized finding fields are the product contract
+- source-specific extras may exist in an optional `source_metadata` structure
+- downstream shared workflow logic must not depend on `source_metadata` in
+  Phase 6b
+
+`source_metadata` exists for:
+
+- traceability
+- diagnostics
+- detailed inspection
+- future source-specific enhancements when needed
+
+It does not exist to:
+
+- shape the shared workflow inventory
+- leak tool-local fields into remediation selection by default
+- become a second unbounded remediation context
+
+Examples of source metadata that may live behind this boundary:
+
+- SonarQube effort or debt fields
+- SARIF rule help URLs
+- CodeQL query pack or query metadata
+- tool-native fingerprints
+- raw source categories that are not yet part of the shared contract
+
+If a source-specific field becomes necessary for shared queueing, remediation,
+or projection behavior across multiple sources, that field should be promoted
+deliberately into the normalized contract rather than read ad hoc from
+`source_metadata`.
+
+### 12.5 Locked Decision: Identity Reuses Shared Overlap Matching Rules
+
+Stable finding identity for ingestion should follow the same normalized matching
+rules already used by review overlap and continuity logic, rather than inventing
+a second independent identity heuristic.
+
+The distinction is:
+
+- overlap identity is used for matching and continuity decisions
+- ingestion identity is used for persistence and downstream workflow tracking
+
+Those are different consumers, but they should use the same shared identity
+ingredients and normalization strategy.
+
+The rule is:
+
+- use a strong source-native finding key when one exists
+- otherwise derive a fallback identity using the same matching inputs and
+  normalization principles as overlap
+
+That derived identity should be based on provider-neutral issue semantics such
+as:
+
+- repository path
+- trusted line or region when available
+- symbol or rule identifier when available
+- normalized issue kind or category
+- normalized finding title or summary semantics
+
+When location precision is weak, the derived identity should broaden
+conservatively instead of pretending to be exact.
+
+This means:
+
+- SonarQube-native IDs remain authoritative when present
+- SARIF and other weak-key sources can still produce stable fallback identities
+- ingestion, review continuity, and later dedupe logic all share one concept of
+  "same underlying issue"
+
+Implementation boundary:
+
+- the shared identity helper should live in a neutral finding domain
+- ingestion adapters may call that helper
+- review overlap and continuity services may call that same helper
+- the helper must not depend on review-prompt or provider-local wording
+
+### 12.6 Locked Decision: Shared Default Queueing and Promotion Rules
+
+In Phase 6b, all normalized findings should enter the same shared default
+queueing and promotion policy after they cross the ingestion boundary.
+
+The rule is:
+
+- source-specific collection stays local to the ingestion adapter
+- queueing, promotion, and downstream workflow behavior become source-agnostic
+  by default once a finding is normalized
+
+This means:
+
+- SonarQube findings and Ruff SARIF findings should flow through the same
+  shared promotion boundary
+- the same shared severity, policy, and lifecycle rules should apply first
+- source-specific queue tuning is deferred until there is explicit operator or
+  product pressure to introduce it
+
+This keeps the ingestion seam honest. If normalized findings immediately split
+back into source-local queue rules, then the new shared ingestion contract is
+only cosmetic.
+
+### 12.7 Locked Decision: Cross-Source Dedupe Happens After Normalization
+
+Cross-source dedupe precedence should not live inside source adapters in Phase
+6b.
+
+The rule order is:
+
+- source adapters collect and normalize findings without knowing about other
+  sources
+- normalized findings enter the shared workflow boundary
+- any cross-source dedupe or reconciliation happens later in a shared stage
+
+This means:
+
+- SonarQube adapters do not encode Ruff-specific precedence
+- Ruff adapters do not encode SonarQube-specific precedence
+- later sources such as CodeQL or workflow-failure producers can reuse the same
+  shared reconciliation behavior
+
+The shared dedupe policy should be conservative:
+
+- if two findings are clearly the same by shared identity, keep one canonical
+  work item
+- preserve all contributing source provenance instead of silently discarding
+  secondary source evidence
+- if overlap is uncertain, do not dedupe yet
+
+In other words, dedupe should be explicit shared reconciliation, not implicit
+source-local replacement.
 
 ## 13. Recommendation
 
