@@ -16,6 +16,9 @@ from zeroone_ops.models.finding import (
     NormalizedFinding,
 )
 from zeroone_ops.providers.sonar_client import SonarClient
+from zeroone_ops.services.intake.finding_workflow_policy_service import (
+    FindingWorkflowPolicyService,
+)
 from zeroone_ops.services.intake.sonar_finding_source import SonarFindingSource
 from zeroone_ops.settings import SettingsError, load_sonarqube_connection_config
 
@@ -52,6 +55,7 @@ class IssueIntakeService:
         """
         self.repo_root = repo_root
         self.config = config
+        self.workflow_policy_service = FindingWorkflowPolicyService()
 
     def collect_dashboard_sync_issues(
         self,
@@ -134,6 +138,9 @@ class IssueIntakeService:
         kept_findings: list[NormalizedFinding] = []
         for finding in finding_collection.findings:
             if not (self.repo_root / finding.repository_path).exists():
+                continue
+            decision = self.workflow_policy_service.decide(finding=finding)
+            if decision.disposition != "queue_candidate":
                 continue
             kept_findings.append(finding)
         return FindingCollectionResult(

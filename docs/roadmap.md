@@ -246,7 +246,7 @@ Design reference:
 
 - [x] adapt dashboard-sync downstream flow to consume normalized findings
   instead of SonarQube-local models
-- [ ] keep one shared default queueing and promotion policy for all normalized
+- [x] keep one shared default queueing and promotion policy for all normalized
   findings in this phase
 - [ ] defer cross-source dedupe to a later shared reconciliation stage instead
   of implementing it inside source adapters
