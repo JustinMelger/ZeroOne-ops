@@ -67,13 +67,13 @@ def _find_no_open_merge_request(
     return None
 
 
-def _sync_result(self, project_id: str, issues: list[SonarIssue]):
+def _sync_result(self, project_id: str, findings):
     del self, project_id
     return type(
         "SyncResult",
         (),
         {
-            "synced_count": len(issues),
+            "synced_count": len(findings),
             "dashboard_issue_url": "https://gitlab.example.com/group/project/-/issues/11",
         },
     )()

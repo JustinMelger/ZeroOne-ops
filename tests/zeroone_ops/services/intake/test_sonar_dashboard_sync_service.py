@@ -11,11 +11,13 @@ from zeroone_ops.models.config import (
     StateConfig,
 )
 from zeroone_ops.models.dashboard import DashboardDocument, DashboardItem, DashboardSection
+from zeroone_ops.models.finding import NormalizedFinding
 from zeroone_ops.models.sonar import SonarIssue
 from zeroone_ops.services.intake.issue_intake import IssueIntakeService
 from zeroone_ops.services.intake.sonar_dashboard_sync_service import (
     SonarDashboardSyncService,
 )
+from zeroone_ops.services.intake.sonar_finding_source import sonar_issue_to_normalized_finding
 
 
 class FakeDashboardDocument:
@@ -52,20 +54,7 @@ def test_sync_normalizes_sonar_issues_into_dashboard_items() -> None:
 
     result = service.sync(
         project_id="123",
-        issues=[
-            SonarIssue(
-                key="AX123",
-                rule="python:S1125",
-                severity="LOW",
-                type="CODE_SMELL",
-                status="OPEN",
-                message="Replace boolean equality with direct truthiness.",
-                component="sample-project:src/service.py",
-                project="sample-project",
-                file_path="src/service.py",
-                line=42,
-            )
-        ],
+        findings=[sonar_issue_to_normalized_finding(build_issue())],
     )
 
     assert result.synced_count == 1
@@ -114,10 +103,27 @@ def test_intake_bridge_can_expose_normalized_sonar_findings_without_switching_do
         config=config,
     ).collect_dashboard_sync_issues(dry_run=True, run_id="run-1")
 
-    assert len(collection.issues) == 1
     assert len(collection.finding_collection.findings) == 1
     assert collection.finding_collection.findings[0].finding_id == "AX123"
     fixture.unlink()
+
+
+def test_sync_uses_source_metadata_for_dashboard_fields() -> None:
+    dashboard_service = FakeDashboardService()
+    service = SonarDashboardSyncService(dashboard_service)
+
+    finding = NormalizedFinding.model_validate(
+        sonar_issue_to_normalized_finding(build_issue()).model_dump(mode="python")
+    )
+
+    service.sync(project_id="123", findings=[finding])
+
+    item = dashboard_service.items[0]
+    assert item.source_reference == "AX123"
+    assert item.rule == "python:S1125"
+    assert item.issue_type == "CODE_SMELL"
+    assert item.component == "sample-project:src/service.py"
+    assert item.project == "sample-project"
 
 
 def test_sync_preserves_existing_status_for_current_sonar_items() -> None:
@@ -155,20 +161,7 @@ def test_sync_preserves_existing_status_for_current_sonar_items() -> None:
 
     service.sync(
         project_id="123",
-        issues=[
-            SonarIssue(
-                key="AX123",
-                rule="python:S1125",
-                severity="LOW",
-                type="CODE_SMELL",
-                status="OPEN",
-                message="Replace boolean equality with direct truthiness.",
-                component="sample-project:src/service.py",
-                project="sample-project",
-                file_path="src/service.py",
-                line=42,
-            )
-        ],
+        findings=[sonar_issue_to_normalized_finding(build_issue())],
     )
 
     assert dashboard_service.items[0].status == "mr_opened"
@@ -209,7 +202,7 @@ def test_sync_marks_missing_active_sonar_items_done() -> None:
 
     service.sync(
         project_id="123",
-        issues=[],
+        findings=[],
     )
 
     assert dashboard_service.items[0].id == "sonar:STALE"
@@ -278,7 +271,7 @@ def test_sync_preserves_missing_sonar_items_once_remediation_has_started() -> No
 
     service.sync(
         project_id="123",
-        issues=[],
+        findings=[],
     )
 
     items_by_id = {item.id: item for item in dashboard_service.items}
@@ -288,3 +281,18 @@ def test_sync_preserves_missing_sonar_items_once_remediation_has_started() -> No
     assert items_by_id["sonar:MROPENED"].status == "mr_opened"
     assert items_by_id["sonar:MROPENED"].merge_request_url is not None
     assert items_by_id["sonar:MROPENED"].upstream_active is False
+
+
+def build_issue() -> SonarIssue:
+    return SonarIssue(
+        key="AX123",
+        rule="python:S1125",
+        severity="LOW",
+        type="CODE_SMELL",
+        status="OPEN",
+        message="Replace boolean equality with direct truthiness.",
+        component="sample-project:src/service.py",
+        project="sample-project",
+        file_path="src/service.py",
+        line=42,
+    )

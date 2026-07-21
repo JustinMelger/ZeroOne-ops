@@ -247,7 +247,7 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
         dry_run=active_dry_run,
         run_id=run_id,
     )
-    if not collection.issues:
+    if not collection.finding_collection.findings:
         return RunSummary(
             run_id=run_id,
             status=collection_message_status(collection.message),
@@ -259,7 +259,8 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
             run_id=run_id,
             status=collection_message_status("synced"),
             message=(
-                f"[{config.execution_mode}] Dry-run found {len(collection.issues)} "
+                f"[{config.execution_mode}] Dry-run found "
+                f"{len(collection.finding_collection.findings)} "
                 "SonarQube issues for dashboard sync."
             ),
             state_path=state_store.path,
@@ -276,7 +277,7 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
         )
     ).sync(
         project_id=gitlab_config.project_id,
-        issues=collection.issues,
+        findings=collection.finding_collection.findings,
     )
     return RunSummary(
         run_id=run_id,

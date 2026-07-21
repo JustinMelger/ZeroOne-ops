@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from zeroone_ops.models.dashboard import DashboardDocument, DashboardItem
-from zeroone_ops.models.sonar import SonarIssue
+from zeroone_ops.models.finding import NormalizedFinding
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 
 _DISCOVERY_OWNED_SONAR_STATUSES = frozenset({"open"})
@@ -30,14 +30,14 @@ class SonarDashboardSyncService:
         self,
         *,
         project_id: str,
-        issues: list[SonarIssue],
+        findings: list[NormalizedFinding],
     ) -> SonarDashboardSyncResult:
-        """Upsert eligible SonarQube issues into the dashboard."""
+        """Upsert eligible normalized SonarQube findings into the dashboard."""
         document = self.dashboard_service.load_or_create(project_id=project_id)
-        items = self._build_reconciled_items(document=document, issues=issues)
+        items = self._build_reconciled_items(document=document, findings=findings)
         document = self.dashboard_service.upsert_items(project_id=project_id, items=items)
         return SonarDashboardSyncResult(
-            synced_count=len(issues),
+            synced_count=len(findings),
             dashboard_issue_url=document.issue_url,
         )
 
@@ -45,14 +45,17 @@ class SonarDashboardSyncService:
         self,
         *,
         document: DashboardDocument,
-        issues: list[SonarIssue],
+        findings: list[NormalizedFinding],
     ) -> list[DashboardItem]:
         """Return current Sonar items plus stale-item reconciliation updates."""
         existing_items = document.items_by_id()
-        current_issue_ids = {f"sonar:{issue.key}" for issue in issues}
+        current_issue_ids = {self._dashboard_item_id(finding) for finding in findings}
         items = [
-            self._normalize_issue(issue, existing=existing_items.get(f"sonar:{issue.key}"))
-            for issue in issues
+            self._normalize_finding(
+                finding,
+                existing=existing_items.get(self._dashboard_item_id(finding)),
+            )
+            for finding in findings
         ]
         for item in existing_items.values():
             if item.source != "sonarqube" or item.id in current_issue_ids:
@@ -63,31 +66,40 @@ class SonarDashboardSyncService:
             items.append(item.model_copy(update={"upstream_active": False}))
         return items
 
-    def _normalize_issue(
+    def _normalize_finding(
         self,
-        issue: SonarIssue,
+        finding: NormalizedFinding,
         *,
         existing: DashboardItem | None = None,
     ) -> DashboardItem:
-        """Normalize one SonarQube issue into a dashboard item."""
+        """Normalize one SonarQube finding into a dashboard item."""
+        source_metadata = finding.source_metadata
+        attributes = {} if source_metadata is None else source_metadata.attributes
+        source_reference = source_metadata.native_id if source_metadata is not None else None
+        source_reference = source_reference or finding.finding_id
+        diagnostic_code = finding.remediation_context.diagnostic_code
+        source_severity = attributes.get("source_severity")
+        component = attributes.get("component")
+        project = attributes.get("project")
+        issue_type = attributes.get("type")
         return DashboardItem(
-            id=f"sonar:{issue.key}",
+            id=self._dashboard_item_id(finding),
             source="sonarqube",
             type=existing.type if existing is not None else "code_smell_fix",
             status=existing.status if existing is not None else "open",
-            title=f"{issue.rule} in {issue.file_path}",
-            summary=issue.message,
-            priority=_priority_from_issue(issue),
-            source_reference=issue.key,
-            file=issue.file_path,
-            line=issue.line,
-            rule=issue.rule,
-            issue_type=issue.type,
-            component=issue.component,
-            project=issue.project,
-            severity=issue.automation_severity(),
-            source_severity=issue.source_severity(),
-            automation_severity=issue.automation_severity(),
+            title=finding.title,
+            summary=finding.summary,
+            priority=_priority_from_severity(finding.severity),
+            source_reference=source_reference,
+            file=finding.repository_path,
+            line=finding.line_start,
+            rule=diagnostic_code,
+            issue_type=issue_type if isinstance(issue_type, str) else None,
+            component=component if isinstance(component, str) else None,
+            project=project if isinstance(project, str) else None,
+            severity=finding.severity,
+            source_severity=source_severity if isinstance(source_severity, str) else None,
+            automation_severity=finding.severity,
             branch_name=existing.branch_name if existing is not None else None,
             last_run_id=existing.last_run_id if existing is not None else None,
             status_updated_at=existing.status_updated_at if existing is not None else None,
@@ -98,12 +110,16 @@ class SonarDashboardSyncService:
             log_excerpt=existing.log_excerpt if existing is not None else None,
         )
 
+    def _dashboard_item_id(self, finding: NormalizedFinding) -> str:
+        """Return the stable dashboard item id for one normalized SonarQube finding."""
+        return f"sonar:{finding.finding_id}"
 
-def _priority_from_issue(issue: SonarIssue) -> str:
-    """Map a SonarQube issue to a dashboard priority string."""
-    normalized = issue.severity.upper()
-    if normalized in {"BLOCKER", "CRITICAL", "HIGH"}:
+
+def _priority_from_severity(severity: str) -> str:
+    """Map a normalized severity label to a dashboard priority string."""
+    normalized = severity.upper()
+    if normalized == "HIGH":
         return "high"
-    if normalized in {"MAJOR", "MEDIUM"}:
+    if normalized == "MEDIUM":
         return "medium"
     return "low"
