@@ -19,6 +19,7 @@ from zeroone_ops.providers.sonar_client import SonarClient
 from zeroone_ops.services.intake.finding_workflow_policy_service import (
     FindingWorkflowPolicyService,
 )
+from zeroone_ops.services.intake.sarif_finding_source import SarifFindingSource
 from zeroone_ops.services.intake.sonar_finding_source import SonarFindingSource
 from zeroone_ops.settings import SettingsError, load_sonarqube_connection_config
 
@@ -27,7 +28,7 @@ LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class SyncIssueCollectionResult:
-    """Capture normalized SonarQube findings collected for dashboard inventory sync."""
+    """Capture normalized findings collected for dashboard inventory sync."""
 
     finding_collection: FindingCollectionResult
     issue_count: int
@@ -35,7 +36,7 @@ class SyncIssueCollectionResult:
 
 
 class IssueIntakeService:
-    """Fetch SonarQube issues for dashboard inventory sync.
+    """Fetch normalized findings for dashboard inventory sync.
 
     Args:
         repo_root: Repository root path.
@@ -63,64 +64,80 @@ class IssueIntakeService:
         dry_run: bool,
         run_id: str,
     ) -> SyncIssueCollectionResult:
-        """Fetch SonarQube issues for dashboard sync without remediation filtering."""
-        if dry_run and self.config.sonarqube.mock_issues_path is not None:
-            return self._collect_sync_issues_from_fixture()
-        return self._collect_sync_issues_from_sonarqube(run_id=run_id)
-
-    def _collect_sync_issues_from_fixture(self) -> SyncIssueCollectionResult:
-        """Collect local-file Sonar issues from a fixture for dashboard sync."""
-        fixture_path = self.config.sonarqube.mock_issues_path
-        if fixture_path is None:
+        """Fetch dashboard-syncable normalized findings without remediation filtering."""
+        source_collections = self._source_collections(dry_run=dry_run, run_id=run_id)
+        if not source_collections:
             return SyncIssueCollectionResult(
                 finding_collection=_empty_finding_collection(),
                 issue_count=0,
-                message="No SonarQube fixture path is configured.",
+                message="No configured finding sources collected dashboard-syncable findings.",
             )
-        source_result = SonarFindingSource().collect_fixture_findings(fixture_path)
-        issue_count = len(source_result.issues)
-        finding_collection = self._existing_findings(source_result.collection)
+        finding_collection = self._merge_collections(source_collections)
+        finding_collection = self._existing_findings(finding_collection)
         if not finding_collection.findings:
             return SyncIssueCollectionResult(
                 finding_collection=finding_collection,
-                issue_count=issue_count,
-                message=f"No dashboard-syncable SonarQube issues found in fixture {fixture_path}.",
+                issue_count=int(finding_collection.metadata.statistics.get("collected", 0)),
+                message="No dashboard-syncable findings found.",
             )
         return SyncIssueCollectionResult(
             finding_collection=finding_collection,
-            issue_count=issue_count,
+            issue_count=int(finding_collection.metadata.statistics.get("collected", 0)),
             message="",
         )
 
-    def _collect_sync_issues_from_sonarqube(
+    def _source_collections(
         self,
         *,
+        dry_run: bool,
         run_id: str,
-    ) -> SyncIssueCollectionResult:
-        """Collect local-file Sonar issues from the API for dashboard sync."""
+    ) -> list[FindingCollectionResult]:
+        """Return raw finding collections from configured dashboard sources."""
+        collections: list[FindingCollectionResult] = []
+        if dry_run and self.config.sonarqube.mock_issues_path is not None:
+            collections.append(
+                SonarFindingSource().collect_fixture_findings(
+                    self.config.sonarqube.mock_issues_path
+                ).collection
+            )
+        else:
+            sonar_collection = self._live_sonarqube_collection(run_id=run_id)
+            if sonar_collection is not None:
+                collections.append(sonar_collection)
+        for artifact_path in self.config.sarif.artifact_paths:
+            collections.append(SarifFindingSource().collect_artifact_findings(artifact_path))
+        return collections
+
+    def _live_sonarqube_collection(self, *, run_id: str) -> FindingCollectionResult | None:
+        """Return the live SonarQube finding collection when credentials are configured."""
         try:
             sonar_client = SonarClient(load_sonarqube_connection_config())
         except SettingsError:
             LOGGER.info("skipped SonarQube fetch", extra={"run_id": run_id})
-            return SyncIssueCollectionResult(
-                finding_collection=_empty_finding_collection(),
-                issue_count=0,
-                message="No SonarQube issues collected. SonarQube credentials not configured.",
-            )
+            return None
+        return SonarFindingSource(sonar_client).collect_open_findings().collection
 
-        source_result = SonarFindingSource(sonar_client).collect_open_findings()
-        issue_count = len(source_result.issues)
-        finding_collection = self._existing_findings(source_result.collection)
-        if not finding_collection.findings:
-            return SyncIssueCollectionResult(
-                finding_collection=finding_collection,
-                issue_count=issue_count,
-                message="No dashboard-syncable SonarQube issues found.",
-            )
-        return SyncIssueCollectionResult(
-            finding_collection=finding_collection,
-            issue_count=issue_count,
-            message="",
+    def _merge_collections(
+        self,
+        source_collections: list[FindingCollectionResult],
+    ) -> FindingCollectionResult:
+        """Merge independent source collections without applying cross-source dedupe."""
+        findings: list[NormalizedFinding] = []
+        warnings: list[str] = []
+        statistics: dict[str, int] = {}
+        for collection in source_collections:
+            findings.extend(collection.findings)
+            warnings.extend(collection.metadata.warnings)
+            for key, value in collection.metadata.statistics.items():
+                statistics[key] = statistics.get(key, 0) + value
+        return FindingCollectionResult(
+            findings=findings,
+            metadata=FindingCollectionMetadata(
+                source_id="dashboard_sync",
+                input_collections=[collection.metadata for collection in source_collections],
+                warnings=warnings,
+                statistics=statistics,
+            ),
         )
 
     def _existing_findings(
@@ -166,11 +183,11 @@ class IssueIntakeService:
 
 
 def _empty_finding_collection() -> FindingCollectionResult:
-    """Return an empty SonarQube finding collection for intake failures."""
+    """Return an empty finding collection for intake failures."""
     return FindingCollectionResult(
         findings=[],
         metadata=FindingCollectionMetadata(
-            source_id="sonarqube",
+            source_id="dashboard_sync",
             statistics={"collected": 0},
         ),
     )

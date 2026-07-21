@@ -48,6 +48,7 @@ class FindingCollectionMetadata(BaseModel):
     source_id: str
     source_revision: str | None = None
     artifact_reference: str | None = None
+    input_collections: list[FindingCollectionMetadata] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     statistics: dict[str, int] = Field(default_factory=dict)
 

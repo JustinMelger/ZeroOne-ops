@@ -13,10 +13,10 @@ from zeroone_ops.models.config import (
 from zeroone_ops.models.dashboard import DashboardDocument, DashboardItem, DashboardSection
 from zeroone_ops.models.finding import NormalizedFinding
 from zeroone_ops.models.sonar import SonarIssue
-from zeroone_ops.services.intake.issue_intake import IssueIntakeService
-from zeroone_ops.services.intake.sonar_dashboard_sync_service import (
-    SonarDashboardSyncService,
+from zeroone_ops.services.intake.finding_dashboard_sync_service import (
+    FindingDashboardSyncService,
 )
+from zeroone_ops.services.intake.issue_intake import IssueIntakeService
 from zeroone_ops.services.intake.sonar_finding_source import sonar_issue_to_normalized_finding
 
 
@@ -50,7 +50,7 @@ class FakeDashboardService:
 
 def test_sync_normalizes_sonar_issues_into_dashboard_items() -> None:
     dashboard_service = FakeDashboardService()
-    service = SonarDashboardSyncService(dashboard_service)
+    service = FindingDashboardSyncService(dashboard_service)
 
     result = service.sync(
         project_id="123",
@@ -145,9 +145,97 @@ def test_intake_bridge_rejects_findings_that_escape_repo_root(tmp_path: Path) ->
     assert collection.finding_collection.findings == []
 
 
+def test_intake_bridge_keeps_input_collection_provenance_for_mixed_sources(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path
+    config = AppConfig(
+        base_branch="main",
+        validation_commands=[],
+        approval=ApprovalConfig(),
+        remediation=RemediationConfig(bootstrap_severities=["LOW"], analysis=AnalysisConfig()),
+        review=ReviewConfig(),
+        gitlab=GitLabConfig(target_branch="main"),
+        sonarqube=SonarQubeConfig(),
+        state=StateConfig(path=repo_root / ".zeroone-ops-state.json"),
+    )
+
+    fixture = repo_root / "sonar.json"
+    fixture.write_text(
+        (
+            '{"issues":[{"key":"AX123","rule":"python:S1125","severity":"LOW",'
+            '"type":"CODE_SMELL","status":"OPEN",'
+            '"message":"Replace boolean equality with direct truthiness.",'
+            '"component":"sample-project:src/service.py","project":"sample-project",'
+            '"line":42}]}'
+        ),
+        encoding="utf-8",
+    )
+    (repo_root / "src").mkdir(parents=True, exist_ok=True)
+    (repo_root / "src" / "service.py").write_text("value = flag == True\n", encoding="utf-8")
+    (repo_root / "artifacts").mkdir(parents=True, exist_ok=True)
+    (repo_root / "artifacts" / "ruff.sarif").write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff",
+                  "rules": [
+                    {
+                      "id": "E712",
+                      "shortDescription": {"text": "Avoid equality comparisons to True"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "Use direct truthiness instead of == True."},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 1, "endLine": 1}
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    config.sonarqube.mock_issues_path = fixture
+    config.sarif.artifact_paths = [repo_root / "artifacts" / "ruff.sarif"]
+
+    collection = IssueIntakeService(
+        repo_root=repo_root,
+        config=config,
+    ).collect_dashboard_sync_issues(dry_run=True, run_id="run-1")
+
+    assert len(collection.finding_collection.metadata.input_collections) == 2
+    assert collection.finding_collection.metadata.input_collections[0].source_id == "sonarqube"
+    assert (
+        collection.finding_collection.metadata.input_collections[0].artifact_reference
+        == str(fixture)
+    )
+    assert collection.finding_collection.metadata.input_collections[1].source_id == "ruff-sarif"
+    assert (
+        collection.finding_collection.metadata.input_collections[1].artifact_reference
+        == str(repo_root / "artifacts" / "ruff.sarif")
+    )
+
+
 def test_sync_uses_source_metadata_for_dashboard_fields() -> None:
     dashboard_service = FakeDashboardService()
-    service = SonarDashboardSyncService(dashboard_service)
+    service = FindingDashboardSyncService(dashboard_service)
 
     finding = NormalizedFinding.model_validate(
         sonar_issue_to_normalized_finding(build_issue()).model_dump(mode="python")
@@ -194,7 +282,7 @@ def test_sync_preserves_existing_status_for_current_sonar_items() -> None:
             ],
         )
     )
-    service = SonarDashboardSyncService(dashboard_service)
+    service = FindingDashboardSyncService(dashboard_service)
 
     service.sync(
         project_id="123",
@@ -235,11 +323,12 @@ def test_sync_marks_missing_active_sonar_items_done() -> None:
             ],
         )
     )
-    service = SonarDashboardSyncService(dashboard_service)
+    service = FindingDashboardSyncService(dashboard_service)
 
     service.sync(
         project_id="123",
         findings=[],
+        managed_source_ids={"sonarqube"},
     )
 
     assert dashboard_service.items[0].id == "sonar:STALE"
@@ -304,11 +393,12 @@ def test_sync_preserves_missing_sonar_items_once_remediation_has_started() -> No
             ],
         )
     )
-    service = SonarDashboardSyncService(dashboard_service)
+    service = FindingDashboardSyncService(dashboard_service)
 
     service.sync(
         project_id="123",
         findings=[],
+        managed_source_ids={"sonarqube"},
     )
 
     items_by_id = {item.id: item for item in dashboard_service.items}

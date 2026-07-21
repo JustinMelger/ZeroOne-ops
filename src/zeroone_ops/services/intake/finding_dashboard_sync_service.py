@@ -1,4 +1,4 @@
-"""SonarQube discovery mirroring to the dashboard."""
+"""Normalized finding discovery mirroring to the dashboard."""
 
 from __future__ import annotations
 
@@ -8,19 +8,19 @@ from zeroone_ops.models.dashboard import DashboardDocument, DashboardItem
 from zeroone_ops.models.finding import NormalizedFinding
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 
-_DISCOVERY_OWNED_SONAR_STATUSES = frozenset({"open"})
+_DISCOVERY_OWNED_FINDING_STATUSES = frozenset({"open"})
 
 
 @dataclass(frozen=True)
-class SonarDashboardSyncResult:
-    """Capture the outcome of syncing Sonar issues to the dashboard."""
+class FindingDashboardSyncResult:
+    """Capture the outcome of syncing normalized findings to the dashboard."""
 
     synced_count: int
     dashboard_issue_url: str | None = None
 
 
-class SonarDashboardSyncService:
-    """Mirror eligible SonarQube issues to the dashboard."""
+class FindingDashboardSyncService:
+    """Mirror eligible normalized findings to the dashboard."""
 
     def __init__(self, dashboard_service: DashboardService) -> None:
         """Initialize the sync service."""
@@ -31,12 +31,17 @@ class SonarDashboardSyncService:
         *,
         project_id: str,
         findings: list[NormalizedFinding],
-    ) -> SonarDashboardSyncResult:
-        """Upsert eligible normalized SonarQube findings into the dashboard."""
+        managed_source_ids: set[str] | None = None,
+    ) -> FindingDashboardSyncResult:
+        """Upsert eligible normalized findings into the dashboard."""
         document = self.dashboard_service.load_or_create(project_id=project_id)
-        items = self._build_reconciled_items(document=document, findings=findings)
+        items = self._build_reconciled_items(
+            document=document,
+            findings=findings,
+            managed_source_ids=managed_source_ids,
+        )
         document = self.dashboard_service.upsert_items(project_id=project_id, items=items)
-        return SonarDashboardSyncResult(
+        return FindingDashboardSyncResult(
             synced_count=len(findings),
             dashboard_issue_url=document.issue_url,
         )
@@ -46,10 +51,16 @@ class SonarDashboardSyncService:
         *,
         document: DashboardDocument,
         findings: list[NormalizedFinding],
+        managed_source_ids: set[str] | None,
     ) -> list[DashboardItem]:
-        """Return current Sonar items plus stale-item reconciliation updates."""
+        """Return current finding items plus stale-item reconciliation updates."""
         existing_items = document.items_by_id()
-        current_issue_ids = {self._dashboard_item_id(finding) for finding in findings}
+        current_item_ids = {self._dashboard_item_id(finding) for finding in findings}
+        managed_sources = (
+            set(managed_source_ids)
+            if managed_source_ids is not None
+            else {finding.source_id for finding in findings}
+        )
         items = [
             self._normalize_finding(
                 finding,
@@ -58,9 +69,9 @@ class SonarDashboardSyncService:
             for finding in findings
         ]
         for item in existing_items.values():
-            if item.source != "sonarqube" or item.id in current_issue_ids:
+            if item.source not in managed_sources or item.id in current_item_ids:
                 continue
-            if item.status in _DISCOVERY_OWNED_SONAR_STATUSES:
+            if item.status in _DISCOVERY_OWNED_FINDING_STATUSES:
                 items.append(item.model_copy(update={"status": "done", "upstream_active": False}))
                 continue
             items.append(item.model_copy(update={"upstream_active": False}))
@@ -72,7 +83,7 @@ class SonarDashboardSyncService:
         *,
         existing: DashboardItem | None = None,
     ) -> DashboardItem:
-        """Normalize one SonarQube finding into a dashboard item."""
+        """Normalize one finding into a dashboard item."""
         source_metadata = finding.source_metadata
         attributes = {} if source_metadata is None else source_metadata.attributes
         source_reference = source_metadata.native_id if source_metadata is not None else None
@@ -82,10 +93,15 @@ class SonarDashboardSyncService:
         component = attributes.get("component")
         project = attributes.get("project")
         issue_type = attributes.get("type")
+        item_type = (
+            existing.type
+            if existing is not None
+            else finding.remediation_context.category or "code_smell_fix"
+        )
         return DashboardItem(
             id=self._dashboard_item_id(finding),
-            source="sonarqube",
-            type=existing.type if existing is not None else "code_smell_fix",
+            source=finding.source_id,
+            type=item_type,
             status=existing.status if existing is not None else "open",
             title=finding.title,
             summary=finding.summary,
@@ -111,15 +127,16 @@ class SonarDashboardSyncService:
         )
 
     def _dashboard_item_id(self, finding: NormalizedFinding) -> str:
-        """Return the stable dashboard item id for one normalized SonarQube finding."""
-        return f"sonar:{finding.finding_id}"
+        """Return the stable dashboard item id for one normalized finding."""
+        if finding.source_id == "sonarqube":
+            return f"sonar:{finding.finding_id}"
+        return f"{finding.source_id}:{finding.finding_id}"
 
 
 def _priority_from_severity(severity: str) -> str:
     """Map a normalized severity label to a dashboard priority string."""
-    normalized = severity.upper()
-    if normalized == "HIGH":
+    if severity == "high":
         return "high"
-    if normalized == "MEDIUM":
+    if severity == "medium":
         return "medium"
     return "low"

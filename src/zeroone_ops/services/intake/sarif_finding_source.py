@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Literal
 
 from zeroone_ops.models.finding import (
     FindingCollectionMetadata,
@@ -238,7 +239,7 @@ def _string_or_none(value: object) -> str | None:
     return None
 
 
-def _normalize_sarif_level(level: str | None) -> str:
+def _normalize_sarif_level(level: str | None) -> Literal["low", "medium", "high"]:
     """Map SARIF result levels into normalized workflow severities."""
     normalized = (level or "note").lower()
     if normalized == "error":

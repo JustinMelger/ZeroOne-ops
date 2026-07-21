@@ -70,6 +70,35 @@ def test_finding_collection_result_keeps_findings_and_collection_metadata() -> N
     assert result.findings[0].title == "Avoid bare except"
 
 
+def test_finding_collection_result_keeps_input_collection_provenance() -> None:
+    result = FindingCollectionResult(
+        findings=[],
+        metadata=FindingCollectionMetadata(
+            source_id="dashboard_sync",
+            input_collections=[
+                FindingCollectionMetadata(
+                    source_id="sonarqube",
+                    source_revision="abc123",
+                ),
+                FindingCollectionMetadata(
+                    source_id="ruff-sarif",
+                    artifact_reference="artifacts/ruff.sarif",
+                ),
+            ],
+            statistics={"collected": 2},
+        ),
+    )
+
+    assert len(result.metadata.input_collections) == 2
+    assert result.metadata.input_collections[0].source_id == "sonarqube"
+    assert result.metadata.input_collections[0].source_revision == "abc123"
+    assert result.metadata.input_collections[1].source_id == "ruff-sarif"
+    assert (
+        result.metadata.input_collections[1].artifact_reference
+        == "artifacts/ruff.sarif"
+    )
+
+
 def test_normalized_finding_rejects_unsupported_severity_labels() -> None:
     try:
         NormalizedFinding(

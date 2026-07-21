@@ -278,7 +278,7 @@ def test_sync_dashboard_sonar_dry_run_collects_broad_inventory_not_remediation_s
     summary = sync_dashboard_sonar(dry_run=True)
 
     assert summary.status.value == "synced"
-    assert "Dry-run found 2 SonarQube issues for dashboard sync." in summary.message
+    assert "Dry-run found 2 findings for dashboard sync." in summary.message
 
 
 def test_dashboard_policy_dry_run_returns_policy_processing_summary(

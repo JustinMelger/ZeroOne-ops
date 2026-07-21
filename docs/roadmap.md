@@ -257,7 +257,20 @@ Design reference:
   SonarQube
 - [ ] implement Ruff via SARIF as the first dogfooding source
 
-##### Phase 6b5: Rollout Validation
+##### Phase 6b5: Remediation Normalization
+
+- [ ] close the current phase boundary where non-Sonar normalized findings can
+  sync into the dashboard but still dead-end in Sonar-shaped remediation intake
+- [ ] normalize remediation eligibility around shared finding semantics instead
+  of SonarQube-specific source checks
+- [ ] generalize dashboard-item selection and normalization for supported
+  shared remediation categories
+- [ ] decide the canonical shared remediation category mapping for Ruff/SARIF
+  lint findings versus existing `code_smell_fix` workflow items
+- [ ] keep source-local metadata out of remediation eligibility rules unless a
+  field is promoted into the shared contract
+
+##### Phase 6b6: Rollout Validation
 
 - [ ] live-test normalized ingestion for promotion
 - [ ] live-test normalized ingestion for work-item lifecycle
