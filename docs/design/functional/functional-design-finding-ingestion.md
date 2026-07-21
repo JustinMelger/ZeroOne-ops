@@ -259,6 +259,27 @@ That means:
 - the same lifecycle and control-plane behavior applies after promotion
 - source-specific workflow tuning is a later explicit decision, not the default
 
+### 8.9 Locked Decision: SARIF Enters Through Artifact Paths, Not Tool Execution
+
+For the first dogfooding slice, the product should treat SARIF as an artifact
+input, not as a request to run Ruff or another analyzer itself.
+
+That means:
+
+- the repository pipeline or local workflow generates the SARIF artifact
+- ZeroOne Ops reads the artifact from configured file paths
+- the shared workflow begins at normalized findings, not at analyzer execution
+
+The operator-facing config should therefore use a source-local `sarif` block
+with `artifact_paths`, rather than attaching the path to review or remediation
+settings.
+
+This keeps the product boundary general enough for:
+
+- Ruff on Python repositories
+- CodeQL or Semgrep on other repositories
+- later multi-tool SARIF inputs without renaming the config shape
+
 This is important for product clarity.
 If findings are normalized but immediately diverge into source-local workflow
 rules, then the operator does not actually get a shared ingestion model.

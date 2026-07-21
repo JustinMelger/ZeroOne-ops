@@ -243,6 +243,17 @@ Ruff
 
 This gives fast dogfooding value without making the platform Ruff-specific.
 
+Implementation boundary for the first slice:
+
+- `SarifFindingSource` should read one or more existing SARIF artifacts from
+  disk
+- it should not invoke Ruff or any other analyzer itself
+- analyzer execution stays in the repository pipeline or local workflow layer
+- ingestion starts at the artifact boundary and ends at normalized findings
+
+This keeps tool execution, artifact generation, and finding normalization as
+separate concerns.
+
 ## 9. Downstream Integration Rules
 
 The downstream workflow should consume normalized findings only.
@@ -379,6 +390,37 @@ It should not contain:
 - renderer-only narrative text
 - arbitrary tool properties
 - collection-level provenance or scan statistics
+
+### 12.3 Locked Decision: SARIF Uses a Source-Local Artifact-Paths Config Block
+
+The first SARIF ingestion slice should use a source-local config block instead
+of attaching artifact paths to review or remediation workflow settings.
+
+The config shape should be:
+
+```json
+{
+  "sarif": {
+    "artifact_paths": [
+      "artifacts/ruff.sarif"
+    ]
+  }
+}
+```
+
+Rules:
+
+- the block should be named `sarif`, not `ruff`
+- the field should be `artifact_paths`, not a single `artifact_path`
+- the ingestion source reads existing files from those paths
+- the analyzer pipeline remains responsible for generating the artifacts
+
+Why:
+
+- the source boundary stays format-oriented instead of tool-specific
+- multiple SARIF-producing tools can later share the same ingestion adapter
+- the config can grow to multiple artifacts without another shape migration
+- the path does not get coupled to review or remediation concerns
 
 ### 12.3 Locked Decision: Ingestion Returns Findings Plus Collection Metadata
 
