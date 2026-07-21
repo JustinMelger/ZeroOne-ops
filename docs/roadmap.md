@@ -222,8 +222,8 @@ Design reference:
 
 ##### Phase 6b1: Shared Finding Contract
 
-- [ ] define the shared normalized finding domain model
-- [ ] implement the bounded required finding fields:
+- [x] define the shared normalized finding domain model
+- [x] implement the bounded required finding fields:
   - `finding_id`
   - `source_id`
   - `severity`
@@ -232,14 +232,14 @@ Design reference:
   - `repository_path`
   - optional location
   - structured `remediation_context`
-- [ ] add optional `source_metadata` behind an explicit boundary
-- [ ] define the shared ingestion result/interface
-- [ ] include bounded collection metadata for revision, artifact, and
+- [x] add optional `source_metadata` behind an explicit boundary
+- [x] define the shared ingestion result/interface
+- [x] include bounded collection metadata for revision, artifact, and
   diagnostics in the ingestion result
 
 ##### Phase 6b2: SonarQube Behind the Shared Contract
 
-- [ ] implement shared overlap-style fallback identity for normalized findings
+- [x] implement shared overlap-style fallback identity for normalized findings
 - [ ] wrap the current SonarQube intake behind the shared ingestion contract
 
 ##### Phase 6b3: Downstream Normalization
