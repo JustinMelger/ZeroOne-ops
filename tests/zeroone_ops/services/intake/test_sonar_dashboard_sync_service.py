@@ -222,14 +222,12 @@ def test_intake_bridge_keeps_input_collection_provenance_for_mixed_sources(
 
     assert len(collection.finding_collection.metadata.input_collections) == 2
     assert collection.finding_collection.metadata.input_collections[0].source_id == "sonarqube"
-    assert (
-        collection.finding_collection.metadata.input_collections[0].artifact_reference
-        == str(fixture)
+    assert collection.finding_collection.metadata.input_collections[0].artifact_reference == str(
+        fixture
     )
     assert collection.finding_collection.metadata.input_collections[1].source_id == "ruff-sarif"
-    assert (
-        collection.finding_collection.metadata.input_collections[1].artifact_reference
-        == str(repo_root / "artifacts" / "ruff.sarif")
+    assert collection.finding_collection.metadata.input_collections[1].artifact_reference == str(
+        repo_root / "artifacts" / "ruff.sarif"
     )
 
 

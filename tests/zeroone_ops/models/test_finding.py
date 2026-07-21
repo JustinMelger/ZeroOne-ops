@@ -93,10 +93,7 @@ def test_finding_collection_result_keeps_input_collection_provenance() -> None:
     assert result.metadata.input_collections[0].source_id == "sonarqube"
     assert result.metadata.input_collections[0].source_revision == "abc123"
     assert result.metadata.input_collections[1].source_id == "ruff-sarif"
-    assert (
-        result.metadata.input_collections[1].artifact_reference
-        == "artifacts/ruff.sarif"
-    )
+    assert result.metadata.input_collections[1].artifact_reference == "artifacts/ruff.sarif"
 
 
 def test_normalized_finding_rejects_unsupported_severity_labels() -> None:

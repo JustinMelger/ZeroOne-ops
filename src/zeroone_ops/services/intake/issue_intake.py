@@ -96,9 +96,9 @@ class IssueIntakeService:
         collections: list[FindingCollectionResult] = []
         if dry_run and self.config.sonarqube.mock_issues_path is not None:
             collections.append(
-                SonarFindingSource().collect_fixture_findings(
-                    self.config.sonarqube.mock_issues_path
-                ).collection
+                SonarFindingSource()
+                .collect_fixture_findings(self.config.sonarqube.mock_issues_path)
+                .collection
             )
         else:
             sonar_collection = self._live_sonarqube_collection(run_id=run_id)
