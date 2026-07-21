@@ -240,7 +240,7 @@ Design reference:
 ##### Phase 6b2: SonarQube Behind the Shared Contract
 
 - [x] implement shared overlap-style fallback identity for normalized findings
-- [ ] wrap the current SonarQube intake behind the shared ingestion contract
+- [x] wrap the current SonarQube intake behind the shared ingestion contract
 
 ##### Phase 6b3: Downstream Normalization
 

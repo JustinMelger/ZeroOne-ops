@@ -1,5 +1,18 @@
+from pathlib import Path
+
+from zeroone_ops.models.config import (
+    AnalysisConfig,
+    AppConfig,
+    ApprovalConfig,
+    GitLabConfig,
+    RemediationConfig,
+    ReviewConfig,
+    SonarQubeConfig,
+    StateConfig,
+)
 from zeroone_ops.models.dashboard import DashboardDocument, DashboardItem, DashboardSection
 from zeroone_ops.models.sonar import SonarIssue
+from zeroone_ops.services.intake.issue_intake import IssueIntakeService
 from zeroone_ops.services.intake.sonar_dashboard_sync_service import (
     SonarDashboardSyncService,
 )
@@ -65,6 +78,46 @@ def test_sync_normalizes_sonar_issues_into_dashboard_items() -> None:
     assert dashboard_service.items[0].source_severity == "LOW"
     assert dashboard_service.items[0].automation_severity == "low"
     assert dashboard_service.items[0].severity == "low"
+
+
+def test_intake_bridge_can_expose_normalized_sonar_findings_without_switching_downstream() -> None:
+    repo_root = Path.cwd()
+    config = AppConfig(
+        base_branch="main",
+        validation_commands=[],
+        approval=ApprovalConfig(),
+        remediation=RemediationConfig(bootstrap_severities=["LOW"], analysis=AnalysisConfig()),
+        review=ReviewConfig(),
+        gitlab=GitLabConfig(target_branch="main"),
+        sonarqube=SonarQubeConfig(),
+        state=StateConfig(path=repo_root / ".zeroone-ops-state.json"),
+    )
+
+    fixture = repo_root / "sonar.json"
+    fixture.write_text(
+        (
+            '{"issues":[{"key":"AX123","rule":"python:S1125","severity":"LOW",'
+            '"type":"CODE_SMELL","status":"OPEN",'
+            '"message":"Replace boolean equality with direct truthiness.",'
+            '"component":"sample-project:src/service.py","project":"sample-project",'
+            '"line":42}]}'
+        ),
+        encoding="utf-8",
+    )
+    source_file = repo_root / "src" / "service.py"
+    source_file.parent.mkdir(parents=True, exist_ok=True)
+    source_file.write_text("value = flag == True\n", encoding="utf-8")
+    config.sonarqube.mock_issues_path = fixture
+
+    collection = IssueIntakeService(
+        repo_root=repo_root,
+        config=config,
+    ).collect_dashboard_sync_issues(dry_run=True, run_id="run-1")
+
+    assert len(collection.issues) == 1
+    assert len(collection.finding_collection.findings) == 1
+    assert collection.finding_collection.findings[0].finding_id == "AX123"
+    fixture.unlink()
 
 
 def test_sync_preserves_existing_status_for_current_sonar_items() -> None:

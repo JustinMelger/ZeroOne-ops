@@ -10,8 +10,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
+from zeroone_ops.models.finding import FindingCollectionMetadata, FindingCollectionResult
 from zeroone_ops.models.sonar import SonarIssue
-from zeroone_ops.providers.sonar_client import SonarClient, load_issues_fixture
+from zeroone_ops.providers.sonar_client import SonarClient
+from zeroone_ops.services.intake.sonar_finding_source import SonarFindingSource
 from zeroone_ops.settings import SettingsError, load_sonarqube_connection_config
 
 LOGGER = logging.getLogger(__name__)
@@ -22,6 +24,7 @@ class SyncIssueCollectionResult:
     """Capture SonarQube issues collected for dashboard inventory sync."""
 
     issues: list[SonarIssue]
+    finding_collection: FindingCollectionResult
     issue_count: int
     message: str
 
@@ -65,20 +68,23 @@ class IssueIntakeService:
         if fixture_path is None:
             return SyncIssueCollectionResult(
                 issues=[],
+                finding_collection=_empty_finding_collection(),
                 issue_count=0,
                 message="No SonarQube fixture path is configured.",
             )
-        issues = load_issues_fixture(fixture_path)
-        issue_count = len(issues)
-        sync_issues = self._existing_issues(issues)
+        source_result = SonarFindingSource().collect_fixture_findings(fixture_path)
+        issue_count = len(source_result.issues)
+        sync_issues, finding_collection = self._existing_issues(source_result)
         if not sync_issues:
             return SyncIssueCollectionResult(
                 issues=[],
+                finding_collection=finding_collection,
                 issue_count=issue_count,
                 message=f"No dashboard-syncable SonarQube issues found in fixture {fixture_path}.",
             )
         return SyncIssueCollectionResult(
             issues=sync_issues,
+            finding_collection=finding_collection,
             issue_count=issue_count,
             message="",
         )
@@ -95,32 +101,61 @@ class IssueIntakeService:
             LOGGER.info("skipped SonarQube fetch", extra={"run_id": run_id})
             return SyncIssueCollectionResult(
                 issues=[],
+                finding_collection=_empty_finding_collection(),
                 issue_count=0,
                 message="No SonarQube issues collected. SonarQube credentials not configured.",
             )
 
-        issues = sonar_client.search_open_issues()
-        issue_count = len(issues)
-        sync_issues = self._existing_issues(issues)
+        source_result = SonarFindingSource(sonar_client).collect_open_findings()
+        issue_count = len(source_result.issues)
+        sync_issues, finding_collection = self._existing_issues(source_result)
         if not sync_issues:
             return SyncIssueCollectionResult(
                 issues=[],
+                finding_collection=finding_collection,
                 issue_count=issue_count,
                 message="No dashboard-syncable SonarQube issues found.",
             )
         return SyncIssueCollectionResult(
             issues=sync_issues,
+            finding_collection=finding_collection,
             issue_count=issue_count,
             message="",
         )
 
-    def _existing_issues(self, issues: list[SonarIssue]) -> list[SonarIssue]:
-        """Filter issues to files that exist in the local repository.
+    def _existing_issues(
+        self,
+        source_result,
+    ) -> tuple[list[SonarIssue], FindingCollectionResult]:
+        """Filter issues and normalized findings to files that exist in the local repository.
 
         Args:
-            issues: Candidate issues from SonarQube or a fixture.
+            source_result: Raw Sonar issues plus normalized findings.
 
         Returns:
-            Only issues whose repository-relative target files exist locally.
+            Only issues and normalized findings whose repository-relative target files exist
+            locally.
         """
-        return [issue for issue in issues if (self.repo_root / issue.file_path).exists()]
+        kept_issues: list[SonarIssue] = []
+        kept_findings = []
+        for issue, finding in zip(
+            source_result.issues,
+            source_result.collection.findings,
+            strict=False,
+        ):
+            if not (self.repo_root / issue.file_path).exists():
+                continue
+            kept_issues.append(issue)
+            kept_findings.append(finding)
+        return kept_issues, source_result.collection.model_copy(update={"findings": kept_findings})
+
+
+def _empty_finding_collection() -> FindingCollectionResult:
+    """Return an empty SonarQube finding collection for intake failures."""
+    return FindingCollectionResult(
+        findings=[],
+        metadata=FindingCollectionMetadata(
+            source_id="sonarqube",
+            statistics={"collected": 0},
+        ),
+    )
