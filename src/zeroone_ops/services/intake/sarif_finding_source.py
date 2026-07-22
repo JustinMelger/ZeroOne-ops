@@ -52,6 +52,7 @@ class SarifFindingSource:
             metadata=FindingCollectionMetadata(
                 source_id=_artifact_source_id(artifact_source_ids),
                 artifact_reference=str(artifact_path),
+                managed_source_ids=sorted(artifact_source_ids),
                 warnings=warnings,
                 statistics={
                     "collected": len(findings),

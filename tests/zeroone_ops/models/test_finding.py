@@ -75,6 +75,7 @@ def test_finding_collection_result_keeps_input_collection_provenance() -> None:
         findings=[],
         metadata=FindingCollectionMetadata(
             source_id="dashboard_sync",
+            managed_source_ids=["sonarqube", "ruff-sarif"],
             input_collections=[
                 FindingCollectionMetadata(
                     source_id="sonarqube",
@@ -90,6 +91,7 @@ def test_finding_collection_result_keeps_input_collection_provenance() -> None:
     )
 
     assert len(result.metadata.input_collections) == 2
+    assert result.metadata.managed_source_ids == ["sonarqube", "ruff-sarif"]
     assert result.metadata.input_collections[0].source_id == "sonarqube"
     assert result.metadata.input_collections[0].source_revision == "abc123"
     assert result.metadata.input_collections[1].source_id == "ruff-sarif"

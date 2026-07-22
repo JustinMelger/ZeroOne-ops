@@ -125,15 +125,20 @@ class IssueIntakeService:
         findings: list[NormalizedFinding] = []
         warnings: list[str] = []
         statistics: dict[str, int] = {}
+        managed_source_ids: set[str] = set()
         for collection in source_collections:
             findings.extend(collection.findings)
             warnings.extend(collection.metadata.warnings)
+            managed_source_ids.update(collection.metadata.managed_source_ids)
+            if not collection.metadata.managed_source_ids:
+                managed_source_ids.add(collection.metadata.source_id)
             for key, value in collection.metadata.statistics.items():
                 statistics[key] = statistics.get(key, 0) + value
         return FindingCollectionResult(
             findings=findings,
             metadata=FindingCollectionMetadata(
                 source_id="dashboard_sync",
+                managed_source_ids=sorted(managed_source_ids),
                 input_collections=[collection.metadata for collection in source_collections],
                 warnings=warnings,
                 statistics=statistics,

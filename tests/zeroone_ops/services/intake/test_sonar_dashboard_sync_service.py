@@ -221,6 +221,10 @@ def test_intake_bridge_keeps_input_collection_provenance_for_mixed_sources(
     ).collect_dashboard_sync_issues(dry_run=True, run_id="run-1")
 
     assert len(collection.finding_collection.metadata.input_collections) == 2
+    assert collection.finding_collection.metadata.managed_source_ids == [
+        "ruff-sarif",
+        "sonarqube",
+    ]
     assert collection.finding_collection.metadata.input_collections[0].source_id == "sonarqube"
     assert collection.finding_collection.metadata.input_collections[0].artifact_reference == str(
         fixture

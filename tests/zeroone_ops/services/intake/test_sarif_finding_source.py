@@ -217,6 +217,7 @@ def test_collect_artifact_findings_derives_source_id_from_sarif_tool_name(
     result = SarifFindingSource().collect_artifact_findings(artifact)
 
     assert result.metadata.source_id == "codeql-sarif"
+    assert result.metadata.managed_source_ids == ["codeql-sarif"]
     assert result.findings[0].source_id == "codeql-sarif"
 
 
@@ -364,4 +365,62 @@ def test_collect_artifact_findings_rejects_parent_traversal_paths(tmp_path: Path
     result = SarifFindingSource().collect_artifact_findings(artifact)
 
     assert result.findings == []
+    assert result.metadata.managed_source_ids == ["ruff-sarif"]
     assert result.metadata.statistics == {"collected": 0, "skipped": 1}
+
+
+def test_collect_artifact_findings_keeps_all_run_source_ids_for_mixed_tool_artifact(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "mixed.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff"
+                }
+              },
+              "results": []
+            },
+            {
+              "tool": {
+                "driver": {
+                  "name": "CodeQL",
+                  "rules": [
+                    {
+                      "id": "py/path-injection",
+                      "shortDescription": {"text": "Path injection"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "py/path-injection",
+                  "level": "error",
+                  "message": {"text": "Potential path injection."},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/module.py"},
+                        "region": {"startLine": 8}
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert result.metadata.source_id == "sarif"
+    assert result.metadata.managed_source_ids == ["codeql-sarif", "ruff-sarif"]
