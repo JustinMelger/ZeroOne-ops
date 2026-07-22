@@ -279,7 +279,7 @@ def _string_or_none(value: object) -> str | None:
 
 def _normalize_sarif_level(level: str | None) -> Literal["low", "medium", "high"]:
     """Map SARIF result levels into normalized workflow severities."""
-    normalized = (level or "note").lower()
+    normalized = (level or "warning").lower()
     if normalized == "error":
         return "high"
     if normalized == "warning":

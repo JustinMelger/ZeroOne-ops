@@ -124,6 +124,53 @@ def test_collect_artifact_findings_uses_fallback_identity_without_native_key(
     assert finding.severity == "high"
 
 
+def test_collect_artifact_findings_defaults_missing_level_to_medium(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff",
+                  "rules": [
+                    {
+                      "id": "F401",
+                      "shortDescription": {"text": "Unused import"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "F401",
+                  "message": {"text": "module imported but unused"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/module.py"},
+                        "region": {"startLine": 3}
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert result.findings[0].severity == "medium"
+
+
 def test_collect_artifact_findings_derives_source_id_from_sarif_tool_name(
     tmp_path: Path,
 ) -> None:
