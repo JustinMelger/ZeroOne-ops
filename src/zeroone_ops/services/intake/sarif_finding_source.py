@@ -122,7 +122,8 @@ def _normalize_result(
     summary = _nested_text(result.get("message")) or title
     line_start, line_end = _line_range_from_result(result)
     region_hint = _region_hint(line_start=line_start, line_end=line_end)
-    finding_id = build_fallback_finding_identity(
+    native_id = _native_result_id(result)
+    finding_id = native_id or build_fallback_finding_identity(
         repository_path=repository_path,
         title=title,
         summary=summary,
@@ -130,7 +131,6 @@ def _normalize_result(
         diagnostic_code=rule_id,
         region_hint=region_hint,
     )
-    native_id = _native_result_id(result)
     level = _string_or_none(result.get("level"))
 
     return NormalizedFinding(

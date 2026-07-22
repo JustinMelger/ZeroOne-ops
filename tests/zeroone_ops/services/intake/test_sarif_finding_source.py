@@ -57,6 +57,7 @@ def test_collect_artifact_findings_normalizes_ruff_sarif_results(tmp_path: Path)
     assert result.metadata.artifact_reference == str(artifact)
     assert result.metadata.statistics == {"collected": 1, "skipped": 0}
     finding = result.findings[0]
+    assert finding.finding_id == "line-hash-1"
     assert finding.source_id == "ruff-sarif"
     assert finding.severity == "medium"
     assert finding.title == "Avoid equality comparisons to True"
@@ -170,6 +171,76 @@ def test_collect_artifact_findings_derives_source_id_from_sarif_tool_name(
 
     assert result.metadata.source_id == "codeql-sarif"
     assert result.findings[0].source_id == "codeql-sarif"
+
+
+def test_collect_artifact_findings_uses_fingerprints_to_distinguish_same_location_results(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff",
+                  "rules": [
+                    {
+                      "id": "E712",
+                      "shortDescription": {"text": "Avoid equality comparisons to True"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "First result"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 42}
+                      }
+                    }
+                  ],
+                  "partialFingerprints": {
+                    "primaryLocationLineHash": "fingerprint-1"
+                  }
+                },
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "Second result"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 42}
+                      }
+                    }
+                  ],
+                  "partialFingerprints": {
+                    "primaryLocationLineHash": "fingerprint-2"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert [finding.finding_id for finding in result.findings] == [
+        "fingerprint-1",
+        "fingerprint-2",
+    ]
 
 
 def test_collect_artifact_findings_skips_results_without_repository_path(tmp_path: Path) -> None:

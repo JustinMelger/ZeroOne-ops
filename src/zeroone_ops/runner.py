@@ -247,7 +247,10 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
         dry_run=active_dry_run,
         run_id=run_id,
     )
-    if not collection.finding_collection.findings:
+    managed_source_ids = {
+        metadata.source_id for metadata in collection.finding_collection.metadata.input_collections
+    } or {finding.source_id for finding in collection.finding_collection.findings}
+    if not collection.finding_collection.findings and not managed_source_ids:
         return RunSummary(
             run_id=run_id,
             status=collection_message_status(collection.message),
@@ -278,11 +281,7 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
     ).sync(
         project_id=gitlab_config.project_id,
         findings=collection.finding_collection.findings,
-        managed_source_ids={
-            metadata.source_id
-            for metadata in collection.finding_collection.metadata.input_collections
-        }
-        or {finding.source_id for finding in collection.finding_collection.findings},
+        managed_source_ids=managed_source_ids,
     )
     return RunSummary(
         run_id=run_id,

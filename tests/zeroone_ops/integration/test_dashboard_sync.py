@@ -68,13 +68,14 @@ def _find_no_open_merge_request(
 
 
 def _sync_result(self, project_id: str, findings, managed_source_ids=None):
-    del self, project_id, managed_source_ids
+    del self, project_id
     return type(
         "SyncResult",
         (),
         {
             "synced_count": len(findings),
             "dashboard_issue_url": "https://gitlab.example.com/group/project/-/issues/11",
+            "managed_source_ids": managed_source_ids,
         },
     )()
 
@@ -203,15 +204,36 @@ def test_sync_dashboard_sonar_reports_no_eligible_issues_in_ci_mode(
         encoding="utf-8",
     )
 
+    captured: dict[str, object] = {}
+
+    def _sync_empty(self, project_id: str, findings, managed_source_ids=None):
+        del self, project_id
+        captured["findings"] = findings
+        captured["managed_source_ids"] = managed_source_ids
+        return type(
+            "SyncResult",
+            (),
+            {
+                "synced_count": len(findings),
+                "dashboard_issue_url": "https://gitlab.example.com/group/project/-/issues/11",
+            },
+        )()
+
     monkeypatch.setattr(
         "zeroone_ops.providers.sonar_client.SonarClient.search_open_issues",
         _search_open_issues_none,
     )
+    monkeypatch.setattr(
+        "zeroone_ops.services.intake.finding_dashboard_sync_service.FindingDashboardSyncService.sync",
+        _sync_empty,
+    )
 
     summary = sync_dashboard_sonar(dry_run=False)
 
-    assert summary.status.value == "no_issue"
-    assert "[ci]" in summary.message
+    assert summary.status.value == "synced"
+    assert "Synced 0 findings to the dashboard." in summary.message
+    assert captured["findings"] == []
+    assert captured["managed_source_ids"] == {"sonarqube"}
 
 
 def test_sync_dashboard_sonar_dry_run_reports_sarif_finding_count(
