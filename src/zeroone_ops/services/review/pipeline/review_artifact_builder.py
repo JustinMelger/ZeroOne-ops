@@ -14,6 +14,8 @@ _INTERNAL_PIPELINE_RATIONALE_MARKERS = (
     "candidate stage",
     "grounded candidate set",
     "grounded candidate findings",
+    "candidate set",
+    "candidate findings",
     "precision stage",
     "reconciliation stage",
     "candidate-backed evidence",

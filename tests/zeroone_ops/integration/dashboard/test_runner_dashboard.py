@@ -64,13 +64,14 @@ class _IntegrationPrecisionClient:
         context: ChangeRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
+        candidate_annotations,
         overlap_packet,
         candidate_stage_summary: str,
         candidate_stage_classification: str,
         candidate_stage_rationale: str,
         max_findings: int,
     ) -> PrecisionReviewDecision:
-        del context, overlap_packet, max_findings
+        del context, candidate_annotations, overlap_packet, max_findings
         if candidate_stage_classification == "manual_review_only":
             return PrecisionReviewDecision(
                 review_classification="manual_review_only",

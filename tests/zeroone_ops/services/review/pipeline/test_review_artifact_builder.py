@@ -132,6 +132,22 @@ def test_build_rewrites_internal_follow_up_no_findings_rationale_for_publish() -
     )
 
 
+def test_build_rewrites_new_candidate_set_no_findings_rationale_for_publish() -> None:
+    decision = build_decision("no_findings").model_copy(
+        update={
+            "decision_rationale": (
+                "The candidate set plus visible context are insufficient for a trustworthy "
+                "final decision."
+            )
+        }
+    )
+
+    artifact = ReviewArtifactBuilder().build(reconciled_decision=decision).artifact
+
+    assert artifact.review_confidence_reason is not None
+    assert "candidate set" not in artifact.review_confidence_reason.lower()
+
+
 def test_build_attaches_follow_up_lines_from_overlap_result() -> None:
     artifact = (
         ReviewArtifactBuilder()

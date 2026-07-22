@@ -7,6 +7,7 @@ from zeroone_ops.models.config import (
     ReviewConfig,
 )
 from zeroone_ops.models.review import (
+    CandidateAnnotation,
     ChangeRequestReviewContext,
     ReviewFileContext,
     ReviewFinding,
@@ -99,12 +100,13 @@ def test_analyze_returns_explicit_candidate_stage_result(monkeypatch) -> None:
     assert result.raw_review_result is not None
     assert len(result.candidate_result.findings) == 1
     assert result.candidate_result.findings[0].candidate_id == "candidate-1"
-    assert result.accepted_candidate_ids == ("candidate-1",)
-    assert result.dropped_candidates == ()
+    assert result.forwarded_candidate_ids == ("candidate-1",)
+    assert result.pre_precision_dropped_candidates == ()
+    assert result.candidate_annotations == ()
     assert result.raw_review_result.classification == "findings_present"
 
 
-def test_analyze_tracks_dropped_candidate_metadata(monkeypatch) -> None:
+def test_analyze_tracks_candidate_annotations_without_pre_precision_drop(monkeypatch) -> None:
     service = ReviewCandidateGenerationService(build_config())
     monkeypatch.setattr(
         service,
@@ -134,10 +136,15 @@ def test_analyze_tracks_dropped_candidate_metadata(monkeypatch) -> None:
     assert result.candidate_result is not None
     assert result.raw_review_result is not None
     assert result.raw_review_result.classification == "findings_present"
-    assert result.accepted_candidate_ids == ()
-    assert len(result.dropped_candidates) == 1
-    assert result.dropped_candidates[0].candidate_id == "candidate-1"
-    assert result.dropped_candidates[0].drop_reason == "off_diff"
+    assert result.forwarded_candidate_ids == ("candidate-1",)
+    assert result.pre_precision_dropped_candidates == ()
+    assert result.candidate_annotations == (
+        CandidateAnnotation(
+            candidate_id="candidate-1",
+            flags=["off_diff"],
+            notes=["Candidate references a file outside the reviewed diff."],
+        ),
+    )
 
 
 def test_analyze_reports_structured_review_failure(monkeypatch) -> None:

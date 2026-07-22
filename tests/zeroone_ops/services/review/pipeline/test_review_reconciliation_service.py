@@ -125,9 +125,10 @@ def build_candidate_stage_result() -> ReviewCandidateStageResult:
                 )
             ],
         ),
-        accepted_candidate_ids=("candidate-1", "candidate-2"),
-        dropped_candidates=(),
-        message="Candidate review generated 2 candidates and accepted 2 findings.",
+        forwarded_candidate_ids=("candidate-1", "candidate-2"),
+        pre_precision_dropped_candidates=(),
+        candidate_annotations=(),
+        message="Candidate review generated 2 candidates and forwarded 2 findings to precision.",
     )
 
 
@@ -140,6 +141,7 @@ class FakePrecisionLLMClient:
         context: ChangeRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
+        candidate_annotations,
         overlap_packet,
         candidate_stage_summary: str,
         candidate_stage_classification: str,
@@ -149,6 +151,7 @@ class FakePrecisionLLMClient:
         del (
             context,
             candidates,
+            candidate_annotations,
             overlap_packet,
             candidate_stage_summary,
             candidate_stage_classification,
@@ -164,6 +167,7 @@ class FakePrecisionErrorClient:
         context: ChangeRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
+        candidate_annotations,
         overlap_packet,
         candidate_stage_summary: str,
         candidate_stage_classification: str,
@@ -173,6 +177,7 @@ class FakePrecisionErrorClient:
         del (
             context,
             candidates,
+            candidate_annotations,
             overlap_packet,
             candidate_stage_summary,
             candidate_stage_classification,
@@ -379,8 +384,9 @@ def test_reconcile_returns_candidate_failure_when_no_authoritative_review_exists
         candidate_stage_result=ReviewCandidateStageResult(
             candidate_result=None,
             raw_review_result=None,
-            accepted_candidate_ids=(),
-            dropped_candidates=(),
+            forwarded_candidate_ids=(),
+            pre_precision_dropped_candidates=(),
+            candidate_annotations=(),
             message="LLM backend not configured for change-request review.",
         ),
     )
@@ -492,5 +498,5 @@ def test_reconcile_downgrades_when_precision_reuses_candidate_across_findings() 
     assert result.review_result.classification == "manual_review_only"
     assert result.reconciled_decision is not None
     assert result.reconciled_decision.decision_rationale == (
-        "Precision pass assigned the same grounded candidate to multiple accepted findings."
+        "Precision pass assigned the same candidate to multiple accepted findings."
     )

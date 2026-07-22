@@ -24,6 +24,7 @@ from zeroone_ops.models.analysis import (
 from zeroone_ops.models.config import OpenAIConnectionConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget, remediation_profile_for
 from zeroone_ops.models.review import (
+    CandidateAnnotation,
     CandidateReviewFinding,
     ChangeRequestReviewContext,
     OverlapPacket,
@@ -115,6 +116,7 @@ class LLMClient(ABC):
         context: ChangeRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
+        candidate_annotations: list[CandidateAnnotation],
         overlap_packet: OverlapPacket | None,
         candidate_stage_summary: str,
         candidate_stage_classification: str,
@@ -299,6 +301,7 @@ class OpenAILLMClient(LLMClient):
         context: ChangeRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
+        candidate_annotations: list[CandidateAnnotation],
         overlap_packet: OverlapPacket | None,
         candidate_stage_summary: str,
         candidate_stage_classification: str,
@@ -309,6 +312,7 @@ class OpenAILLMClient(LLMClient):
         input_text = build_review_precision_prompt(
             context,
             candidates=candidates,
+            candidate_annotations=candidate_annotations,
             overlap_packet=overlap_packet,
             candidate_stage_summary=candidate_stage_summary,
             candidate_stage_classification=candidate_stage_classification,
@@ -324,7 +328,9 @@ class OpenAILLMClient(LLMClient):
                         "content": (
                             "You are a careful senior software engineer reviewing a bounded "
                             "set of proposed change-request concerns. Judge only the provided "
-                            "grounded candidate set. Decide which candidates survive, which "
+                            "candidate set. Use any app-provided advisory candidate "
+                            "annotations as bounded machine hints rather than as automatic "
+                            "drop rules. Decide which candidates survive, which "
                             "are dropped, and what the final review classification should be. "
                             "Do not rediscover the change request from scratch, do not invent "
                             "new findings outside the candidate set, and do not act like the "
@@ -475,6 +481,7 @@ class FixtureLLMClient(LLMClient):
         context: ChangeRequestReviewContext,
         *,
         candidates: list[CandidateReviewFinding],
+        candidate_annotations: list[CandidateAnnotation],
         overlap_packet: OverlapPacket | None,
         candidate_stage_summary: str,
         candidate_stage_classification: str,
@@ -485,6 +492,7 @@ class FixtureLLMClient(LLMClient):
         del (
             context,
             candidates,
+            candidate_annotations,
             overlap_packet,
             candidate_stage_summary,
             candidate_stage_classification,

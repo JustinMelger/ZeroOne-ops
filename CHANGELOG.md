@@ -5,6 +5,13 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.48.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.47.0...zeroone-ops-v0.48.0) (2026-07-17)
+
+
+### Features
+
+* **review:** annotate candidate grounding signals ([#256](https://github.com/JustinMelger/ZeroOne-ops/issues/256)) ([006e20d](https://github.com/JustinMelger/ZeroOne-ops/commit/006e20d4c91a5e101a11a6b79dbecf8f44621cc7))
+
 ## [0.47.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.46.1...zeroone-ops-v0.47.0) (2026-07-15)
 
 
