@@ -35,6 +35,7 @@ class SarifFindingSource:
         warnings: list[str] = []
         skipped_count = 0
         artifact_source_ids: set[str] = set()
+        fallback_source_id = _artifact_fallback_source_id(artifact_path)
 
         for run in payload.get("runs", []):
             if not isinstance(run, dict):
@@ -55,9 +56,12 @@ class SarifFindingSource:
         return FindingCollectionResult(
             findings=findings,
             metadata=FindingCollectionMetadata(
-                source_id=_artifact_source_id(artifact_source_ids),
+                source_id=_artifact_source_id(
+                    artifact_source_ids,
+                    fallback_source_id=fallback_source_id,
+                ),
                 artifact_reference=str(artifact_path),
-                managed_source_ids=sorted(artifact_source_ids),
+                managed_source_ids=sorted(artifact_source_ids or {fallback_source_id}),
                 warnings=warnings,
                 statistics={
                     "collected": len(findings),
@@ -188,11 +192,18 @@ def _repository_path_from_result(result: JsonDict) -> str | None:
     return str(path) or None
 
 
-def _artifact_source_id(source_ids: set[str]) -> str:
+def _artifact_source_id(source_ids: set[str], *, fallback_source_id: str) -> str:
     """Return the collection-level source id for one SARIF artifact."""
+    if not source_ids:
+        return fallback_source_id
     if len(source_ids) == 1:
         return next(iter(source_ids))
     return "sarif"
+
+
+def _artifact_fallback_source_id(artifact_path: Path) -> str:
+    """Return a stable artifact-scoped fallback source id for empty SARIF artifacts."""
+    return _sarif_source_id(artifact_path.stem)
 
 
 def _sarif_source_id(tool_name: str | None) -> str:

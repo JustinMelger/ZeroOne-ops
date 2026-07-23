@@ -794,3 +794,24 @@ def test_collect_artifact_findings_keeps_all_run_source_ids_for_mixed_tool_artif
 
     assert result.metadata.source_id == "sarif"
     assert result.metadata.managed_source_ids == ["codeql-sarif", "ruff-sarif"]
+
+
+def test_collect_artifact_findings_keeps_fallback_managed_source_for_empty_artifact(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": []
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert result.findings == []
+    assert result.metadata.source_id == "ruff-sarif"
+    assert result.metadata.managed_source_ids == ["ruff-sarif"]
