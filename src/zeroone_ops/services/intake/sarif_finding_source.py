@@ -333,16 +333,16 @@ def _fingerprint_identity(
     region_hint: str | None,
 ) -> str | None:
     """Return an order-independent stable identity from SARIF fingerprints."""
+    context_pairs = [
+        ("path", repository_path),
+        ("rule", diagnostic_code or ""),
+        ("region", region_hint or ""),
+    ]
     fingerprints = _string_pairs(result.get("fingerprints", {}))
     if fingerprints:
-        return _stable_fingerprint_identity("fingerprints", fingerprints)
+        return _stable_fingerprint_identity("fingerprints", fingerprints + context_pairs)
     partial_fingerprints = _string_pairs(result.get("partialFingerprints", {}))
     if partial_fingerprints:
-        context_pairs = [
-            ("path", repository_path),
-            ("rule", diagnostic_code or ""),
-            ("region", region_hint or ""),
-        ]
         return _stable_fingerprint_identity(
             "partial-fingerprints",
             partial_fingerprints + context_pairs,
