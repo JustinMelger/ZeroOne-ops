@@ -248,14 +248,14 @@ Design reference:
   instead of SonarQube-local models
 - [x] keep one shared default queueing and promotion policy for all normalized
   findings in this phase
-- [ ] defer cross-source dedupe to a later shared reconciliation stage instead
+- [x] defer cross-source dedupe to a later shared reconciliation stage instead
   of implementing it inside source adapters
 
 ##### Phase 6b4: First Dogfooding Source
 
-- [ ] add one bounded dogfooding source that works in this repository without
+- [x] add one bounded dogfooding source that works in this repository without
   SonarQube
-- [ ] implement Ruff via SARIF as the first dogfooding source
+- [x] implement Ruff via SARIF as the first dogfooding source
 
 ##### Phase 6b5: Remediation Normalization
 
