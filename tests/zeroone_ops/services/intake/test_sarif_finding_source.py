@@ -758,7 +758,7 @@ def test_collect_artifact_findings_rejects_parent_traversal_paths(tmp_path: Path
     result = SarifFindingSource().collect_artifact_findings(artifact)
 
     assert result.findings == []
-    assert result.metadata.managed_source_ids == ["ruff-sarif"]
+    assert result.metadata.managed_source_ids == []
     assert result.metadata.statistics == {"collected": 0, "skipped": 1}
 
 

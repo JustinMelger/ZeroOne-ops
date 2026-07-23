@@ -35,6 +35,7 @@ class SarifFindingSource:
         warnings: list[str] = []
         skipped_count = 0
         artifact_source_ids: set[str] = set()
+        authoritative_source_ids: set[str] = set()
         fallback_source_id = _artifact_fallback_source_id(artifact_path)
 
         for run in payload.get("runs", []):
@@ -47,11 +48,14 @@ class SarifFindingSource:
                 warnings_for_run,
                 skipped_for_run,
                 source_id,
+                authoritative,
             ) = _collect_run_findings(run)
             findings.extend(findings_for_run)
             warnings.extend(warnings_for_run)
             skipped_count += skipped_for_run
             artifact_source_ids.add(source_id)
+            if authoritative:
+                authoritative_source_ids.add(source_id)
 
         return FindingCollectionResult(
             findings=findings,
@@ -61,7 +65,10 @@ class SarifFindingSource:
                     fallback_source_id=fallback_source_id,
                 ),
                 artifact_reference=str(artifact_path),
-                managed_source_ids=sorted(artifact_source_ids or {fallback_source_id}),
+                managed_source_ids=sorted(
+                    authoritative_source_ids
+                    or ({fallback_source_id} if not artifact_source_ids else set())
+                ),
                 warnings=warnings,
                 statistics={
                     "collected": len(findings),
@@ -73,7 +80,7 @@ class SarifFindingSource:
 
 def _collect_run_findings(
     run: JsonDict,
-) -> tuple[list[NormalizedFinding], list[str], int, str]:
+) -> tuple[list[NormalizedFinding], list[str], int, str, bool]:
     """Normalize one SARIF run into findings plus bounded warnings."""
     driver = _dict_value(_dict_value(run, "tool"), "driver")
     tool_name = _string_or_none(driver.get("name"))
@@ -106,7 +113,7 @@ def _collect_run_findings(
             )
             continue
         findings.append(finding)
-    return findings, warnings, skipped_count, source_id
+    return findings, warnings, skipped_count, source_id, skipped_count == 0
 
 
 def _normalize_result(
