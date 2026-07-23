@@ -57,7 +57,7 @@ def test_collect_artifact_findings_normalizes_ruff_sarif_results(tmp_path: Path)
     assert result.metadata.artifact_reference == str(artifact)
     assert result.metadata.statistics == {"collected": 1, "skipped": 0}
     finding = result.findings[0]
-    assert finding.finding_id == "line-hash-1"
+    assert finding.finding_id.startswith("partial-fingerprints:")
     assert finding.source_id == "ruff-sarif"
     assert finding.severity == "medium"
     assert finding.title == "Avoid equality comparisons to True"
@@ -118,7 +118,7 @@ def test_collect_artifact_findings_uses_fallback_identity_without_native_key(
     result = SarifFindingSource().collect_artifact_findings(artifact)
 
     finding = result.findings[0]
-    assert finding.finding_id == "src/module.py::lint_fix::f401::line-3"
+    assert finding.finding_id == "src/module.py::lint_fix::f401::line-3::import-module-unus"
     assert finding.source_metadata is not None
     assert finding.source_metadata.native_id is None
     assert finding.severity == "high"
@@ -285,10 +285,261 @@ def test_collect_artifact_findings_uses_fingerprints_to_distinguish_same_locatio
 
     result = SarifFindingSource().collect_artifact_findings(artifact)
 
-    assert [finding.finding_id for finding in result.findings] == [
-        "fingerprint-1",
-        "fingerprint-2",
-    ]
+    assert result.findings[0].finding_id != result.findings[1].finding_id
+    assert result.findings[0].finding_id.startswith("partial-fingerprints:")
+    assert result.findings[1].finding_id.startswith("partial-fingerprints:")
+
+
+def test_collect_artifact_findings_fingerprint_identity_is_order_independent(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff",
+                  "rules": [
+                    {
+                      "id": "E712",
+                      "shortDescription": {"text": "Avoid equality comparisons to True"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "First result"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 42}
+                      }
+                    }
+                  ],
+                  "fingerprints": {
+                    "beta": "value-b",
+                    "alpha": "value-a"
+                  }
+                },
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "First result"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 42}
+                      }
+                    }
+                  ],
+                  "fingerprints": {
+                    "alpha": "value-a",
+                    "beta": "value-b"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert result.findings[0].finding_id == result.findings[1].finding_id
+
+
+def test_collect_artifact_findings_fallback_identity_uses_result_specific_content(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff",
+                  "rules": [
+                    {
+                      "id": "E712",
+                      "shortDescription": {"text": "Avoid equality comparisons to True"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "First result wording"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 42}
+                      }
+                    }
+                  ]
+                },
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "Second result wording"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 42}
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert result.findings[0].finding_id != result.findings[1].finding_id
+
+
+def test_collect_artifact_findings_fallback_identity_uses_region_columns(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff",
+                  "rules": [
+                    {
+                      "id": "E712",
+                      "shortDescription": {"text": "Avoid equality comparisons to True"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "Repeated result wording"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 42, "startColumn": 3}
+                      }
+                    }
+                  ]
+                },
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "Repeated result wording"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 42, "startColumn": 9}
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert result.findings[0].finding_id != result.findings[1].finding_id
+
+
+def test_collect_artifact_findings_fallback_identity_uses_same_line_end_column(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff",
+                  "rules": [
+                    {
+                      "id": "E712",
+                      "shortDescription": {"text": "Avoid equality comparisons to True"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "Repeated result wording"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 42, "startColumn": 3, "endColumn": 8}
+                      }
+                    }
+                  ]
+                },
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "Repeated result wording"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 42, "startColumn": 3, "endColumn": 20}
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert result.findings[0].finding_id != result.findings[1].finding_id
 
 
 def test_collect_artifact_findings_skips_results_without_repository_path(tmp_path: Path) -> None:

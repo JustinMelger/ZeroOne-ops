@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path, PurePosixPath
 from typing import Literal
@@ -14,7 +15,10 @@ from zeroone_ops.models.finding import (
     NormalizedFinding,
     RemediationContext,
 )
-from zeroone_ops.utils.finding_identity import build_fallback_finding_identity
+from zeroone_ops.utils.finding_identity import (
+    build_fallback_finding_identity,
+    normalize_identity_text,
+)
 
 JsonDict = dict[str, object]
 
@@ -123,13 +127,13 @@ def _normalize_result(
     )
     summary = _nested_text(result.get("message")) or title
     line_start, line_end = _line_range_from_result(result)
-    region_hint = _region_hint(line_start=line_start, line_end=line_end)
+    region_hint = _region_hint(result)
     native_id = _native_result_id(result)
-    finding_id = native_id or build_fallback_finding_identity(
+    finding_id = _finding_identity(
+        result=result,
         repository_path=repository_path,
         title=title,
         summary=summary,
-        category="lint_fix",
         diagnostic_code=rule_id,
         region_hint=region_hint,
     )
@@ -202,9 +206,14 @@ def _sarif_source_id(tool_name: str | None) -> str:
     return f"{slug or 'sarif'}-sarif"
 
 
+def _region_from_result(result: JsonDict) -> JsonDict:
+    """Return the first SARIF physical region object when present."""
+    return _dict_value(_dict_value(_first_location(result), "physicalLocation"), "region")
+
+
 def _line_range_from_result(result: JsonDict) -> tuple[int | None, int | None]:
     """Return the optional normalized line range for one SARIF result."""
-    region = _dict_value(_dict_value(_first_location(result), "physicalLocation"), "region")
+    region = _region_from_result(result)
     start_line = region.get("startLine")
     end_line = region.get("endLine")
     return (
@@ -213,8 +222,39 @@ def _line_range_from_result(result: JsonDict) -> tuple[int | None, int | None]:
     )
 
 
-def _region_hint(*, line_start: int | None, line_end: int | None) -> str | None:
+def _region_hint(result: JsonDict) -> str | None:
     """Return a bounded region hint for fallback finding identity."""
+    region = _region_from_result(result)
+    start_line = region.get("startLine")
+    end_line = region.get("endLine")
+    start_column = region.get("startColumn")
+    end_column = region.get("endColumn")
+    normalized_start_line = start_line if isinstance(start_line, int) else None
+    normalized_end_line = end_line if isinstance(end_line, int) else None
+    normalized_start_column = start_column if isinstance(start_column, int) else None
+    normalized_end_column = end_column if isinstance(end_column, int) else None
+
+    if normalized_start_line is None:
+        return None
+    if normalized_start_column is None:
+        return _line_region_hint(
+            line_start=normalized_start_line,
+            line_end=normalized_end_line,
+        )
+    effective_end_line = normalized_end_line or normalized_start_line
+    if effective_end_line == normalized_start_line and (
+        normalized_end_column is None or normalized_end_column == normalized_start_column
+    ):
+        return f"line-{normalized_start_line}-col-{normalized_start_column}"
+    end_column_value = normalized_end_column or normalized_start_column
+    return (
+        f"lines-{normalized_start_line}-{effective_end_line}"
+        f"-cols-{normalized_start_column}-{end_column_value}"
+    )
+
+
+def _line_region_hint(*, line_start: int | None, line_end: int | None) -> str | None:
+    """Return a bounded line-only region hint for fallback finding identity."""
     if line_start is None:
         return None
     if line_end is None or line_end == line_start:
@@ -222,19 +262,81 @@ def _region_hint(*, line_start: int | None, line_end: int | None) -> str | None:
     return f"lines-{line_start}-{line_end}"
 
 
+def _finding_identity(
+    *,
+    result: JsonDict,
+    repository_path: str,
+    title: str,
+    summary: str,
+    diagnostic_code: str | None,
+    region_hint: str | None,
+) -> str:
+    """Return the stable shared identity for one SARIF result."""
+    fingerprint_identity = _fingerprint_identity(result)
+    if fingerprint_identity is not None:
+        return fingerprint_identity
+
+    base_identity = build_fallback_finding_identity(
+        repository_path=repository_path,
+        title=title,
+        summary=summary,
+        category="lint_fix",
+        diagnostic_code=diagnostic_code,
+        region_hint=region_hint,
+    )
+    result_key = normalize_identity_text(summary)
+    if result_key == "unknown":
+        result_key = normalize_identity_text(title)
+    if result_key == "unknown":
+        return base_identity
+    return f"{base_identity}::{result_key}"
+
+
 def _native_result_id(result: JsonDict) -> str | None:
     """Return the best bounded source-local fingerprint when available."""
-    fingerprints = result.get("fingerprints", {})
-    if isinstance(fingerprints, dict):
-        for value in fingerprints.values():
-            if isinstance(value, str) and value:
-                return value
-    partial_fingerprints = result.get("partialFingerprints", {})
-    if isinstance(partial_fingerprints, dict):
-        for value in partial_fingerprints.values():
-            if isinstance(value, str) and value:
-                return value
+    fingerprints = _string_pairs(result.get("fingerprints", {}))
+    if fingerprints:
+        if len(fingerprints) == 1:
+            return fingerprints[0][1]
+        key, value = fingerprints[0]
+        return f"{key}={value}"
+    partial_fingerprints = _string_pairs(result.get("partialFingerprints", {}))
+    if partial_fingerprints:
+        if len(partial_fingerprints) == 1:
+            return partial_fingerprints[0][1]
+        key, value = partial_fingerprints[0]
+        return f"{key}={value}"
     return None
+
+
+def _fingerprint_identity(result: JsonDict) -> str | None:
+    """Return an order-independent stable identity from SARIF fingerprints."""
+    fingerprints = _string_pairs(result.get("fingerprints", {}))
+    if fingerprints:
+        return _stable_fingerprint_identity("fingerprints", fingerprints)
+    partial_fingerprints = _string_pairs(result.get("partialFingerprints", {}))
+    if partial_fingerprints:
+        return _stable_fingerprint_identity("partial-fingerprints", partial_fingerprints)
+    return None
+
+
+def _string_pairs(value: object) -> list[tuple[str, str]]:
+    """Return sorted string key/value pairs from one fingerprint object."""
+    if not isinstance(value, dict):
+        return []
+    pairs = [
+        (key, entry)
+        for key, entry in value.items()
+        if isinstance(key, str) and isinstance(entry, str) and entry
+    ]
+    return sorted(pairs)
+
+
+def _stable_fingerprint_identity(prefix: str, pairs: list[tuple[str, str]]) -> str:
+    """Return a bounded order-independent identity for fingerprint pairs."""
+    payload = "|".join(f"{key}={value}" for key, value in pairs)
+    digest = hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
+    return f"{prefix}:{digest}"
 
 
 def _first_location(result: JsonDict) -> JsonDict:
