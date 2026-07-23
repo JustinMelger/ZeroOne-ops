@@ -335,7 +335,7 @@ def _string_pairs(value: object) -> list[tuple[str, str]]:
 def _stable_fingerprint_identity(prefix: str, pairs: list[tuple[str, str]]) -> str:
     """Return a bounded order-independent identity for fingerprint pairs."""
     payload = "|".join(f"{key}={value}" for key, value in pairs)
-    digest = hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
     return f"{prefix}:{digest}"
 
 
