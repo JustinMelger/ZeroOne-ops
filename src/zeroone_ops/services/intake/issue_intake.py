@@ -158,17 +158,26 @@ class IssueIntakeService:
             Only normalized findings whose repository-relative target files exist locally.
         """
         kept_findings: list[NormalizedFinding] = []
+        locally_excluded_sources: set[str] = set()
         for finding in finding_collection.findings:
             resolved_path = self._resolve_repository_path(finding.repository_path)
             if resolved_path is None or not resolved_path.exists():
+                locally_excluded_sources.add(finding.source_id)
                 continue
             decision = self.workflow_policy_service.decide(finding=finding)
             if decision.disposition != "queue_candidate":
                 continue
             kept_findings.append(finding)
+        managed_source_ids = [
+            source_id
+            for source_id in finding_collection.metadata.managed_source_ids
+            if source_id not in locally_excluded_sources
+        ]
         return FindingCollectionResult(
             findings=kept_findings,
-            metadata=finding_collection.metadata,
+            metadata=finding_collection.metadata.model_copy(
+                update={"managed_source_ids": managed_source_ids}
+            ),
         )
 
     def _resolve_repository_path(self, repository_path: str) -> Path | None:

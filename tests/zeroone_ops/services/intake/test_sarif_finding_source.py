@@ -290,6 +290,77 @@ def test_collect_artifact_findings_uses_fingerprints_to_distinguish_same_locatio
     assert result.findings[1].finding_id.startswith("partial-fingerprints:")
 
 
+def test_collect_artifact_findings_scopes_partial_fingerprints_by_result_context(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff",
+                  "rules": [
+                    {
+                      "id": "E712",
+                      "shortDescription": {"text": "Avoid equality comparisons to True"}
+                    },
+                    {
+                      "id": "F401",
+                      "shortDescription": {"text": "Unused import"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "First result"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 42}
+                      }
+                    }
+                  ],
+                  "partialFingerprints": {
+                    "primaryLocationLineHash": "shared-fingerprint"
+                  }
+                },
+                {
+                  "ruleId": "F401",
+                  "level": "warning",
+                  "message": {"text": "Second result"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/other.py"},
+                        "region": {"startLine": 8}
+                      }
+                    }
+                  ],
+                  "partialFingerprints": {
+                    "primaryLocationLineHash": "shared-fingerprint"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert result.findings[0].finding_id != result.findings[1].finding_id
+
+
 def test_collect_artifact_findings_fingerprint_identity_is_order_independent(
     tmp_path: Path,
 ) -> None:

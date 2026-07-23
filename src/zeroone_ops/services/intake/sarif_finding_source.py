@@ -272,7 +272,12 @@ def _finding_identity(
     region_hint: str | None,
 ) -> str:
     """Return the stable shared identity for one SARIF result."""
-    fingerprint_identity = _fingerprint_identity(result)
+    fingerprint_identity = _fingerprint_identity(
+        result,
+        repository_path=repository_path,
+        diagnostic_code=diagnostic_code,
+        region_hint=region_hint,
+    )
     if fingerprint_identity is not None:
         return fingerprint_identity
 
@@ -309,14 +314,28 @@ def _native_result_id(result: JsonDict) -> str | None:
     return None
 
 
-def _fingerprint_identity(result: JsonDict) -> str | None:
+def _fingerprint_identity(
+    result: JsonDict,
+    *,
+    repository_path: str,
+    diagnostic_code: str | None,
+    region_hint: str | None,
+) -> str | None:
     """Return an order-independent stable identity from SARIF fingerprints."""
     fingerprints = _string_pairs(result.get("fingerprints", {}))
     if fingerprints:
         return _stable_fingerprint_identity("fingerprints", fingerprints)
     partial_fingerprints = _string_pairs(result.get("partialFingerprints", {}))
     if partial_fingerprints:
-        return _stable_fingerprint_identity("partial-fingerprints", partial_fingerprints)
+        context_pairs = [
+            ("path", repository_path),
+            ("rule", diagnostic_code or ""),
+            ("region", region_hint or ""),
+        ]
+        return _stable_fingerprint_identity(
+            "partial-fingerprints",
+            partial_fingerprints + context_pairs,
+        )
     return None
 
 
