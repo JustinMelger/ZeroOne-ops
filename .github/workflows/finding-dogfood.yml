@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      ZEROONE_OPS_CONFIG: .zeroone-ops.json
+      ZEROONE_OPS_CONFIG: .zeroone-ops-finding-dogfood.json
       GITLAB_URL: https://gitlab.example.com
       GITLAB_TOKEN: dry-run-token
       GITLAB_PROJECT_ID: 123
@@ -29,6 +29,29 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync --all-groups
+
+      - name: Write SARIF-only dogfood config
+        run: |
+          cat <<'EOF' > "$ZEROONE_OPS_CONFIG"
+          {
+            "execution_mode": "ci",
+            "platform": "github",
+            "base_branch": "main",
+            "remediation": {
+              "target_branch": "main",
+              "bootstrap_severities": ["LOW"]
+            },
+            "sarif": {
+              "artifact_paths": ["artifacts/ruff.sarif"]
+            },
+            "github": {
+              "labels": ["zeroone-ops", "sonarqube"]
+            },
+            "state": {
+              "path": ".zeroone-ops-state.json"
+            }
+          }
+          EOF
 
       - name: Emit Ruff SARIF artifact
         run: |
