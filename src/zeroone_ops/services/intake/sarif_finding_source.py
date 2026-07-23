@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path, PurePosixPath
 from typing import Literal
+from urllib.parse import unquote
 
 from zeroone_ops.models.finding import (
     FindingCollectionMetadata,
@@ -176,6 +177,7 @@ def _repository_path_from_result(result: JsonDict) -> str | None:
         normalized = normalized[2:]
     if normalized.startswith("/"):
         return None
+    normalized = unquote(normalized)
     path = PurePosixPath(normalized)
     if not normalized or any(part == ".." for part in path.parts):
         return None

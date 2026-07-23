@@ -369,6 +369,54 @@ def test_collect_artifact_findings_rejects_parent_traversal_paths(tmp_path: Path
     assert result.metadata.statistics == {"collected": 0, "skipped": 1}
 
 
+def test_collect_artifact_findings_decodes_percent_encoded_relative_paths(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff",
+                  "rules": [
+                    {
+                      "id": "E712",
+                      "shortDescription": {"text": "Avoid equality comparisons to True"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "Encoded path"},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/my%20file.py"},
+                        "region": {"startLine": 5}
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert result.findings[0].repository_path == "src/my file.py"
+
+
 def test_collect_artifact_findings_keeps_all_run_source_ids_for_mixed_tool_artifact(
     tmp_path: Path,
 ) -> None:
