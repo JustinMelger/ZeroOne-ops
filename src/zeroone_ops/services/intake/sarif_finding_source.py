@@ -26,6 +26,10 @@ JsonDict = dict[str, object]
 class SarifFindingSource:
     """Collect SARIF findings behind the shared ingestion contract."""
 
+    def __init__(self, repo_root: Path | None = None) -> None:
+        """Initialize the SARIF source with the repository root for path normalization."""
+        self.repo_root = (repo_root or Path.cwd()).resolve()
+
     def collect_artifact_findings(self, artifact_path: Path) -> FindingCollectionResult:
         """Collect normalized findings from one SARIF artifact file."""
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
@@ -49,7 +53,7 @@ class SarifFindingSource:
                 skipped_for_run,
                 source_id,
                 authoritative,
-            ) = _collect_run_findings(run)
+            ) = _collect_run_findings(run, repo_root=self.repo_root)
             findings.extend(findings_for_run)
             warnings.extend(warnings_for_run)
             skipped_count += skipped_for_run
@@ -80,6 +84,8 @@ class SarifFindingSource:
 
 def _collect_run_findings(
     run: JsonDict,
+    *,
+    repo_root: Path,
 ) -> tuple[list[NormalizedFinding], list[str], int, str, bool]:
     """Normalize one SARIF run into findings plus bounded warnings."""
     driver = _dict_value(_dict_value(run, "tool"), "driver")
@@ -104,6 +110,7 @@ def _collect_run_findings(
             rule_index=rule_index,
             tool_name=tool_name,
             source_id=source_id,
+            repo_root=repo_root,
         )
         if finding is None:
             skipped_count += 1
@@ -122,9 +129,10 @@ def _normalize_result(
     rule_index: dict[str, JsonDict],
     tool_name: str | None,
     source_id: str,
+    repo_root: Path,
 ) -> NormalizedFinding | None:
     """Normalize one SARIF result into the shared finding contract."""
-    repository_path = _repository_path_from_result(result)
+    repository_path = _repository_path_from_result(result, repo_root=repo_root)
     if repository_path is None:
         return None
 
@@ -179,7 +187,7 @@ def _normalize_result(
     )
 
 
-def _repository_path_from_result(result: JsonDict) -> str | None:
+def _repository_path_from_result(result: JsonDict, *, repo_root: Path) -> str | None:
     """Return the repository-relative SARIF artifact path when available."""
     location = _first_location(result)
     uri = _dict_value(_dict_value(location, "physicalLocation"), "artifactLocation").get("uri")
@@ -187,16 +195,27 @@ def _repository_path_from_result(result: JsonDict) -> str | None:
         return None
     normalized = uri.strip()
     if normalized.startswith("file://"):
-        normalized = normalized[len("file://") :]
+        return _repository_relative_file_uri_path(normalized, repo_root=repo_root)
     if normalized.startswith("./"):
         normalized = normalized[2:]
-    if normalized.startswith("/"):
-        return None
     normalized = unquote(normalized)
     path = PurePosixPath(normalized)
-    if not normalized or any(part == ".." for part in path.parts):
+    if not normalized or normalized.startswith("/") or any(part == ".." for part in path.parts):
         return None
     return str(path) or None
+
+
+def _repository_relative_file_uri_path(uri: str, *, repo_root: Path) -> str | None:
+    """Return one repo-relative path from a file URI when it resolves inside the repo."""
+    normalized = unquote(uri[len("file://") :])
+    candidate = Path(normalized)
+    try:
+        resolved_candidate = candidate.resolve()
+    except OSError:
+        return None
+    if resolved_candidate != repo_root and repo_root not in resolved_candidate.parents:
+        return None
+    return resolved_candidate.relative_to(repo_root).as_posix()
 
 
 def _artifact_source_id(source_ids: set[str], *, fallback_source_id: str) -> str:

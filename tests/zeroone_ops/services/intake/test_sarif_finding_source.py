@@ -810,6 +810,100 @@ def test_collect_artifact_findings_decodes_percent_encoded_relative_paths(
     assert result.findings[0].repository_path == "src/my file.py"
 
 
+def test_collect_artifact_findings_accepts_file_uri_inside_repo_root(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    artifact = repo_root / "ruff.sarif"
+    target = repo_root / "samples" / "ruff_findings" / "boolean_comparison.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("return flag == True\n", encoding="utf-8")
+    artifact.write_text(
+        f"""
+        {{
+          "version": "2.1.0",
+          "runs": [
+            {{
+              "tool": {{
+                "driver": {{
+                  "name": "Ruff",
+                  "rules": [
+                    {{
+                      "id": "E712",
+                      "shortDescription": {{"text": "Avoid equality comparisons to True"}}
+                    }}
+                  ]
+                }}
+              }},
+              "results": [
+                {{
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {{"text": "Boolean equality"}},
+                  "locations": [
+                    {{
+                      "physicalLocation": {{
+                        "artifactLocation": {{"uri": "file://{target.resolve().as_posix()}"}},
+                        "region": {{"startLine": 1}}
+                      }}
+                    }}
+                  ]
+                }}
+              ]
+            }}
+          ]
+        }}
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource(repo_root=repo_root).collect_artifact_findings(artifact)
+
+    assert result.findings[0].repository_path == "samples/ruff_findings/boolean_comparison.py"
+
+
+def test_collect_artifact_findings_rejects_file_uri_outside_repo_root(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir(parents=True, exist_ok=True)
+    artifact = repo_root / "ruff.sarif"
+    outside = tmp_path / "outside.py"
+    outside.write_text("return flag == True\n", encoding="utf-8")
+    artifact.write_text(
+        f"""
+        {{
+          "version": "2.1.0",
+          "runs": [
+            {{
+              "tool": {{
+                "driver": {{
+                  "name": "Ruff"
+                }}
+              }},
+              "results": [
+                {{
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {{"text": "Outside path"}},
+                  "locations": [
+                    {{
+                      "physicalLocation": {{
+                        "artifactLocation": {{"uri": "file://{outside.resolve().as_posix()}"}},
+                        "region": {{"startLine": 1}}
+                      }}
+                    }}
+                  ]
+                }}
+              ]
+            }}
+          ]
+        }}
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource(repo_root=repo_root).collect_artifact_findings(artifact)
+
+    assert result.findings == []
+
+
 def test_collect_artifact_findings_keeps_all_run_source_ids_for_mixed_tool_artifact(
     tmp_path: Path,
 ) -> None:
