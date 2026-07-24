@@ -5,6 +5,19 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.49.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.48.0...zeroone-ops-v0.49.0) (2026-07-24)
+
+
+### Features
+
+* **ingestion:** provider neutral ingestion ([#255](https://github.com/JustinMelger/ZeroOne-ops/issues/255)) ([d2521c0](https://github.com/JustinMelger/ZeroOne-ops/commit/d2521c0cf3928de463792c1d6fbd1afa812ea2d4))
+
+
+### Bug Fixes
+
+* **deps:** update python dependencies ([#259](https://github.com/JustinMelger/ZeroOne-ops/issues/259)) ([424aad4](https://github.com/JustinMelger/ZeroOne-ops/commit/424aad480cad86fc098f459f94067f26c1d8eeb0))
+* **ingestion:** accept in-repo sarif file uris ([#264](https://github.com/JustinMelger/ZeroOne-ops/issues/264)) ([7280668](https://github.com/JustinMelger/ZeroOne-ops/commit/7280668c62299cd5d12d213c105117660e90a955))
+
 ## [0.48.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.47.0...zeroone-ops-v0.48.0) (2026-07-17)
 
 
