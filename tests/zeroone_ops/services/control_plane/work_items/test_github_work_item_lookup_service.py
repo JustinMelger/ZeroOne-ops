@@ -69,3 +69,25 @@ def test_lookup_filters_reuse_scan_to_authoritative_work_item_label() -> None:
 
     assert result is not None
     assert client.list_labels == ["zeroone-work-item"]
+
+
+def test_list_open_work_items_returns_parseable_authoritative_records() -> None:
+    renderer = GitHubWorkItemRenderer()
+    original = build_work_item()
+    client = FakeGitHubWorkItemClient()
+    client.issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(original),
+            body=renderer.render_body(original),
+        )
+    ]
+
+    results = GitHubWorkItemLookupService(client).list_open_work_items(
+        repository_id="octo-org/octo-repo"
+    )
+
+    assert [result.work_item for result in results] == [original]
+    assert client.list_labels == ["zeroone-work-item"]

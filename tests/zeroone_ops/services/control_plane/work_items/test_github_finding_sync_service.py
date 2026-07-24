@@ -68,7 +68,9 @@ class FakeGitHubWorkItemClient:
             title=title,
             body=body,
         )
-        self.issues = [issue]
+        self.issues = [
+            issue if existing.number == issue_number else existing for existing in self.issues
+        ]
         return issue
 
 
@@ -321,3 +323,98 @@ def test_sync_keeps_linked_work_item_when_severity_is_disabled() -> None:
     assert parsed.status == "approved"
     assert parsed.linked_change_request is not None
     assert parsed.linked_change_request.number == 42
+
+
+def test_sync_demotes_stale_work_item_from_complete_managed_source() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    repository_id = "octo-org/octo-repo"
+
+    service.sync(
+        repository_id=repository_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+    result = service.sync(
+        repository_id=repository_id,
+        findings=[],
+        policy_state=_policy_state(medium_enabled=True),
+        managed_source_ids={"ruff"},
+    )
+
+    parsed = GitHubWorkItemParser().parse_work_item_state(client.issues[0].body)
+
+    assert result.stale_demoted_to_candidate_count == 1
+    assert result.stale_retained_protected_count == 0
+    assert result.updated_count == 1
+    assert parsed is not None
+    assert parsed.status == "candidate"
+
+
+def test_sync_does_not_reconcile_stale_items_without_managed_source_ownership() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    repository_id = "octo-org/octo-repo"
+
+    service.sync(
+        repository_id=repository_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+    result = service.sync(
+        repository_id=repository_id,
+        findings=[],
+        policy_state=_policy_state(medium_enabled=True),
+        managed_source_ids=set(),
+    )
+
+    parsed = GitHubWorkItemParser().parse_work_item_state(client.issues[0].body)
+
+    assert result.stale_demoted_to_candidate_count == 0
+    assert result.stale_retained_protected_count == 0
+    assert result.updated_count == 0
+    assert parsed is not None
+    assert parsed.status == "approved"
+
+
+def test_sync_keeps_in_progress_stale_work_item() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    repository_id = "octo-org/octo-repo"
+
+    service.sync(
+        repository_id=repository_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+    parser = GitHubWorkItemParser()
+    rendered = parser.parse_work_item_state(client.issues[0].body)
+    assert rendered is not None
+    client.issues[0] = client.issues[0].model_copy(
+        update={
+            "body": GitHubWorkItemRenderer().render_body(
+                rendered.model_copy(update={"status": "in_progress"})
+            )
+        }
+    )
+
+    result = service.sync(
+        repository_id=repository_id,
+        findings=[],
+        policy_state=_policy_state(medium_enabled=True),
+        managed_source_ids={"ruff"},
+    )
+
+    parsed = parser.parse_work_item_state(client.issues[0].body)
+
+    assert result.stale_demoted_to_candidate_count == 0
+    assert result.stale_retained_protected_count == 1
+    assert result.updated_count == 0
+    assert parsed is not None
+    assert parsed.status == "in_progress"

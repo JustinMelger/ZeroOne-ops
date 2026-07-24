@@ -371,6 +371,7 @@ def sync_findings(*, dry_run: bool = False) -> RunSummary:
         repository_id=github_config.repository,
         findings=collection.finding_collection.findings,
         policy_state=policy_state,
+        managed_source_ids=set(collection.finding_collection.metadata.managed_source_ids),
         persist=not active_dry_run,
     )
     record.status = collection_message_status("synced")
@@ -390,7 +391,7 @@ def sync_findings(*, dry_run: bool = False) -> RunSummary:
             f"enabled={_format_enabled_severities(sync_result.enabled_severities)}; "
             "backlog reasons: "
             f"{_format_count_summary(sync_result.backlog_reason_counts)}."
-            + _format_policy_reconciliation(sync_result)
+            + _format_lifecycle_reconciliation(sync_result)
         ),
     )
 
@@ -407,15 +408,30 @@ def _format_enabled_severities(enabled_severities: tuple[str, ...]) -> str:
     return ", ".join(enabled_severities) or "none"
 
 
-def _format_policy_reconciliation(sync_result: GitHubFindingSyncResult) -> str:
-    """Render non-empty policy lifecycle reconciliation for the CLI summary."""
-    if sync_result.demoted_to_candidate_count == 0 and sync_result.retained_protected_count == 0:
+def _format_lifecycle_reconciliation(sync_result: GitHubFindingSyncResult) -> str:
+    """Render non-empty policy and stale-item lifecycle reconciliation details."""
+    if (
+        sync_result.demoted_to_candidate_count == 0
+        and sync_result.retained_protected_count == 0
+        and sync_result.stale_demoted_to_candidate_count == 0
+        and sync_result.stale_retained_protected_count == 0
+    ):
         return ""
-    return (
-        "\nPolicy reconciliation: "
-        f"demoted to candidate={sync_result.demoted_to_candidate_count}; "
-        f"protected work items retained={sync_result.retained_protected_count}."
-    )
+    lines = []
+    if sync_result.demoted_to_candidate_count or sync_result.retained_protected_count:
+        lines.append(
+            "Policy reconciliation: "
+            f"demoted to candidate={sync_result.demoted_to_candidate_count}; "
+            f"protected work items retained={sync_result.retained_protected_count}."
+        )
+    if sync_result.stale_demoted_to_candidate_count or sync_result.stale_retained_protected_count:
+        lines.append(
+            "Stale finding reconciliation: "
+            f"demoted to candidate={sync_result.stale_demoted_to_candidate_count}; "
+            "protected work items retained="
+            f"{sync_result.stale_retained_protected_count}."
+        )
+    return "\n" + "\n".join(lines)
 
 
 def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:

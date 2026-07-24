@@ -70,3 +70,11 @@ class GitHubWorkItemService:
             kind=kind,
             source=source,
         )
+
+    def list_open_work_items(
+        self,
+        *,
+        repository_id: str,
+    ) -> list[GitHubWorkItemLookupResult]:
+        """Return all parseable open authoritative work items in one repository."""
+        return self.lookup_service.list_open_work_items(repository_id=repository_id)
