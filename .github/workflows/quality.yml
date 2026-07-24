@@ -146,6 +146,14 @@ jobs:
       GITHUB_REPOSITORY: ${{ github.repository }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+      ZEROONE_MLFLOW_ENABLED: "true"
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      MLFLOW_TRACKING_URI: ${{ vars.MLFLOW_TRACKING_URI }}
+      MLFLOW_REGISTRY_URI: ${{ vars.MLFLOW_REGISTRY_URI }}
+      MLFLOW_EXPERIMENT_ID: ${{ vars.MLFLOW_EXPERIMENT_ID }}
+      MLFLOW_HTTP_REQUEST_TIMEOUT: "5"
+      MLFLOW_HTTP_REQUEST_MAX_RETRIES: "1"
 
     steps:
       - name: Check out repository
