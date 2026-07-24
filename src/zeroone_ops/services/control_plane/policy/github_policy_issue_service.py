@@ -123,6 +123,34 @@ class GitHubPolicyIssueService:
             )
         return issue
 
+    def load_policy_state(
+        self,
+        *,
+        repository_id: str,
+        persist: bool,
+    ) -> DashboardPolicyState:
+        """Load the current persisted policy state for another control-plane workflow."""
+        issue = self.issue_store.find_open_issue(repository_id=repository_id)
+        if issue is None:
+            policy_state = self.policy_view_builder.resolve_policy_state(None)
+            if persist:
+                self.issue_store.create_issue(
+                    repository_id=repository_id,
+                    body=self._render_body(policy_state=policy_state),
+                )
+            return policy_state
+        policy_state = self.policy_view_builder.resolve_policy_state(
+            self.parser.parse_policy_state(issue.body)
+        )
+        rendered = self._render_body(policy_state=policy_state)
+        if persist and rendered != issue.body:
+            self.issue_store.update_issue_body(
+                repository_id=repository_id,
+                issue_number=issue.number,
+                body=rendered,
+            )
+        return policy_state
+
     def process_policy(
         self,
         *,

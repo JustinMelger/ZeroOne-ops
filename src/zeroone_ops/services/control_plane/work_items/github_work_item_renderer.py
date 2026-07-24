@@ -27,14 +27,20 @@ class GitHubWorkItemRenderer:
             "## Summary",
             "",
             work_item.summary,
-            "",
-            "## Work Item",
-            "",
-            f"- Kind: `{work_item.kind}`",
-            f"- Status: `{work_item.status}`",
-            f"- Source: `{work_item.source.source}`",
-            f"- Source item key: `{work_item.source.source_item_key}`",
         ]
+        if work_item.detail is not None:
+            lines.extend(["", "## Detail", "", work_item.detail])
+        lines.extend(
+            [
+                "",
+                "## Work Item",
+                "",
+                f"- Kind: `{work_item.kind}`",
+                f"- Status: `{work_item.status}`",
+                f"- Source: `{work_item.source.source}`",
+                f"- Source item key: `{work_item.source.source_item_key}`",
+            ]
+        )
         if work_item.source.repository_scope is not None:
             lines.append(f"- Repository scope: `{work_item.source.repository_scope}`")
         if work_item.severity is not None:

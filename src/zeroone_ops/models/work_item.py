@@ -51,6 +51,7 @@ class WorkItemState(BaseModel):
     status: WorkItemStatus
     source: WorkItemSourceRef
     summary: str
+    detail: str | None = None
     severity: str | None = None
     file_path: str | None = None
     line: int | None = None

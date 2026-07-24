@@ -143,6 +143,14 @@ Reason:
 - it provides a practical way to test generic ingestion plus GitHub
   control-plane/remediation behavior
 
+Status after dogfooding on July 24, 2026:
+
+- Ruff via SARIF now ingests successfully on this repository
+- the first live dogfood pass confirmed two normalized findings from the
+  `samples/ruff_findings` fixture path
+- the next rollout question is no longer whether SARIF can enter the system,
+  but how normalized findings should become visible and actionable on GitHub
+
 ## 6. Product Constraints
 
 - generic finding ingestion should not broaden remediation safety boundaries
@@ -259,6 +267,17 @@ That means:
 - the same lifecycle and control-plane behavior applies after promotion
 - source-specific workflow tuning is a later explicit decision, not the default
 
+That shared workflow rule does not mean every downstream action widens at the
+same time.
+
+For rollout safety:
+
+- normalized findings should first become visible in the shared operator
+  workflow
+- repeated sync and lifecycle reconciliation should then be validated
+- remediation widening should only follow once visibility and lifecycle
+  behavior are trusted
+
 ### 8.9 Locked Decision: SARIF Enters Through Artifact Paths, Not Tool Execution
 
 For the first dogfooding slice, the product should treat SARIF as an artifact
@@ -283,6 +302,30 @@ This keeps the product boundary general enough for:
 This is important for product clarity.
 If findings are normalized but immediately diverge into source-local workflow
 rules, then the operator does not actually get a shared ingestion model.
+
+### 8.10 Locked Decision: GitHub Visibility Precedes Remediation Widening
+
+After the first successful Ruff SARIF dogfood run on Friday, July 24, 2026,
+the next rollout step should be visibility on GitHub before widening
+remediation behavior for non-Sonar sources.
+
+That means:
+
+- normalized findings should first publish into authoritative GitHub work-item
+  issues
+- repeated sync runs should reconcile those work items correctly
+- stale-item behavior should be validated under repeated GitHub sync
+- only after that should non-Sonar findings be allowed to widen the shared
+  remediation boundary
+
+Why:
+
+- operators need to see and trust the normalized finding model before more
+  automation is attached to it
+- GitHub issue visibility gives a safer feedback loop than immediately enabling
+  remediation from a new source
+- it keeps rollout failures in publication and lifecycle projection rather than
+  in code-changing automation
 
 ### 8.7 Locked Decision: One Canonical Work Item Can Preserve Multiple Sources
 
@@ -337,3 +380,9 @@ That keeps the product moving toward:
 - shared workflow behavior,
 - source-agnostic downstream logic,
 - and a clearer platform story beyond a SonarQube-first rollout.
+
+The next rollout sequence should therefore be:
+
+1. publish normalized findings into GitHub work-item issues
+2. validate repeated sync and stale-item lifecycle behavior on GitHub
+3. widen remediation only after the GitHub visibility path is trusted
