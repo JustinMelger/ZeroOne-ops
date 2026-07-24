@@ -24,6 +24,7 @@ from zeroone_ops.services.control_plane.policy.github_policy_processing_runner i
     GitHubPolicyProcessingRunner,
 )
 from zeroone_ops.services.control_plane.work_items.github_finding_sync_service import (
+    GitHubFindingSyncResult,
     GitHubFindingSyncService,
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
@@ -389,6 +390,7 @@ def sync_findings(*, dry_run: bool = False) -> RunSummary:
             f"enabled={_format_enabled_severities(sync_result.enabled_severities)}; "
             "backlog reasons: "
             f"{_format_count_summary(sync_result.backlog_reason_counts)}."
+            + _format_policy_reconciliation(sync_result)
         ),
     )
 
@@ -403,6 +405,17 @@ def _format_count_summary(counts: dict[str, int]) -> str:
 def _format_enabled_severities(enabled_severities: tuple[str, ...]) -> str:
     """Render the resolved policy severities for one CLI-facing sync summary."""
     return ", ".join(enabled_severities) or "none"
+
+
+def _format_policy_reconciliation(sync_result: GitHubFindingSyncResult) -> str:
+    """Render non-empty policy lifecycle reconciliation for the CLI summary."""
+    if sync_result.demoted_to_candidate_count == 0 and sync_result.retained_protected_count == 0:
+        return ""
+    return (
+        "\nPolicy reconciliation: "
+        f"demoted to candidate={sync_result.demoted_to_candidate_count}; "
+        f"protected work items retained={sync_result.retained_protected_count}."
+    )
 
 
 def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:

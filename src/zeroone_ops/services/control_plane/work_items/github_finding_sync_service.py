@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from zeroone_ops.models.finding import NormalizedFinding
 from zeroone_ops.models.policy import PolicyState
-from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
+from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState, WorkItemStatus
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
 )
@@ -26,6 +26,8 @@ class GitHubFindingSyncResult:
     created_count: int
     updated_count: int
     unchanged_count: int
+    demoted_to_candidate_count: int
+    retained_protected_count: int
     normalized_severity_counts: dict[str, int]
     enabled_severities: tuple[str, ...]
     backlog_reason_counts: dict[str, int]
@@ -58,6 +60,8 @@ class GitHubFindingSyncService:
         created_count = 0
         updated_count = 0
         unchanged_count = 0
+        demoted_to_candidate_count = 0
+        retained_protected_count = 0
         normalized_severity_counts: Counter[str] = Counter()
         backlog_reason_counts: Counter[str] = Counter()
         for finding in findings:
@@ -69,6 +73,16 @@ class GitHubFindingSyncService:
             if decision.disposition != "promote":
                 backlog_only_count += 1
                 backlog_reason_counts[decision.reason] += 1
+                if persist:
+                    demotion = self._demote_if_safe(
+                        finding=finding,
+                        repository_id=repository_id,
+                    )
+                    if demotion == "demoted":
+                        demoted_to_candidate_count += 1
+                        updated_count += 1
+                    elif demotion == "retained":
+                        retained_protected_count += 1
                 continue
             promoted_count += 1
             if not persist:
@@ -92,6 +106,8 @@ class GitHubFindingSyncService:
             created_count=created_count,
             updated_count=updated_count,
             unchanged_count=unchanged_count,
+            demoted_to_candidate_count=demoted_to_candidate_count,
+            retained_protected_count=retained_protected_count,
             normalized_severity_counts=dict(sorted(normalized_severity_counts.items())),
             enabled_severities=tuple(
                 sorted(entry.severity for entry in policy_state.severity_policy if entry.enabled)
@@ -104,12 +120,13 @@ class GitHubFindingSyncService:
         *,
         finding: NormalizedFinding,
         repository_id: str,
+        status: WorkItemStatus = "approved",
     ) -> WorkItemState:
         """Map one normalized finding into the existing work-item contract."""
         return WorkItemState(
             work_item_id=f"work-{uuid4().hex}",
             kind="remediation",
-            status="approved",
+            status=status,
             source=WorkItemSourceRef(
                 source=finding.source_id,
                 source_item_key=finding.finding_id,
@@ -121,3 +138,37 @@ class GitHubFindingSyncService:
             file_path=finding.repository_path,
             line=finding.line_start,
         )
+
+    def _demote_if_safe(
+        self,
+        *,
+        finding: NormalizedFinding,
+        repository_id: str,
+    ) -> str | None:
+        """Move an unlinked approved work item back to the candidate queue."""
+        source = WorkItemSourceRef(
+            source=finding.source_id,
+            source_item_key=finding.finding_id,
+            repository_scope=repository_id,
+        )
+        existing = self.work_item_service.find_open_work_item_by_source(
+            repository_id=repository_id,
+            kind="remediation",
+            source=source,
+        )
+        if existing is None:
+            return None
+        if (
+            existing.work_item.status != "approved"
+            or existing.work_item.linked_change_request is not None
+        ):
+            return "retained"
+        self.work_item_service.upsert_work_item(
+            repository_id=repository_id,
+            work_item=self._build_work_item(
+                finding=finding,
+                repository_id=repository_id,
+                status="candidate",
+            ),
+        )
+        return "demoted"

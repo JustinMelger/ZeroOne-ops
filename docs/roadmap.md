@@ -203,6 +203,11 @@ Next feedback-driven refinements:
   - any persistent overview issue remains optional and derived only
   - broader control-plane storage evolution belongs to a later API/database
     backend phase
+  - after the remaining Phase 6 implementation items are complete, review the
+    GitHub work-item lifecycle against the GitLab dashboard-managed runner;
+    decide whether completed or dismissed GitHub work items should also use
+    GitHub's native closed issue state, while keeping the shared work-item
+    lifecycle authoritative
 
 #### Phase 6a: Post-Phase-5 Cleanup
 
