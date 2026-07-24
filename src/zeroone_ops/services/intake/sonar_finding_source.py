@@ -42,6 +42,7 @@ class SonarFindingSource:
                 findings=[sonar_issue_to_normalized_finding(issue) for issue in issues],
                 metadata=FindingCollectionMetadata(
                     source_id="sonarqube",
+                    managed_source_ids=["sonarqube"],
                     statistics={"collected": len(issues)},
                 ),
             ),
@@ -57,6 +58,7 @@ class SonarFindingSource:
                 metadata=FindingCollectionMetadata(
                     source_id="sonarqube",
                     artifact_reference=str(fixture_path),
+                    managed_source_ids=["sonarqube"],
                     statistics={"collected": len(issues)},
                 ),
             ),

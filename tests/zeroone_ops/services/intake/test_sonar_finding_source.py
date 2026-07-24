@@ -58,6 +58,7 @@ def test_collect_open_findings_returns_raw_issues_and_normalized_collection() ->
 
     assert len(result.issues) == 1
     assert result.collection.metadata.source_id == "sonarqube"
+    assert result.collection.metadata.managed_source_ids == ["sonarqube"]
     assert result.collection.metadata.statistics == {"collected": 1}
     assert result.collection.findings[0].finding_id == "AX123"
 
@@ -78,4 +79,5 @@ def test_collect_fixture_findings_sets_artifact_reference(tmp_path: Path) -> Non
     result = SonarFindingSource().collect_fixture_findings(fixture)
 
     assert result.collection.metadata.artifact_reference == str(fixture)
+    assert result.collection.metadata.managed_source_ids == ["sonarqube"]
     assert result.collection.findings[0].finding_id == "AX123"

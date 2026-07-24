@@ -41,25 +41,31 @@ class SarifFindingSource:
         artifact_source_ids: set[str] = set()
         authoritative_source_ids: set[str] = set()
         fallback_source_id = _artifact_fallback_source_id(artifact_path)
+        runs = payload.get("runs", [])
+        empty_runs = isinstance(runs, list) and not runs
 
-        for run in payload.get("runs", []):
-            if not isinstance(run, dict):
-                warnings.append("Skipped SARIF run with unexpected non-object shape.")
-                skipped_count += 1
-                continue
-            (
-                findings_for_run,
-                warnings_for_run,
-                skipped_for_run,
-                source_id,
-                authoritative,
-            ) = _collect_run_findings(run, repo_root=self.repo_root)
-            findings.extend(findings_for_run)
-            warnings.extend(warnings_for_run)
-            skipped_count += skipped_for_run
-            artifact_source_ids.add(source_id)
-            if authoritative:
-                authoritative_source_ids.add(source_id)
+        if not isinstance(runs, list):
+            warnings.append("Skipped SARIF runs with unexpected non-list shape.")
+            skipped_count += 1
+        else:
+            for run in runs:
+                if not isinstance(run, dict):
+                    warnings.append("Skipped SARIF run with unexpected non-object shape.")
+                    skipped_count += 1
+                    continue
+                (
+                    findings_for_run,
+                    warnings_for_run,
+                    skipped_for_run,
+                    source_id,
+                    authoritative,
+                ) = _collect_run_findings(run, repo_root=self.repo_root)
+                findings.extend(findings_for_run)
+                warnings.extend(warnings_for_run)
+                skipped_count += skipped_for_run
+                artifact_source_ids.add(source_id)
+                if authoritative:
+                    authoritative_source_ids.add(source_id)
 
         return FindingCollectionResult(
             findings=findings,
@@ -70,8 +76,7 @@ class SarifFindingSource:
                 ),
                 artifact_reference=str(artifact_path),
                 managed_source_ids=sorted(
-                    authoritative_source_ids
-                    or ({fallback_source_id} if not artifact_source_ids else set())
+                    authoritative_source_ids or ({fallback_source_id} if empty_runs else set())
                 ),
                 warnings=warnings,
                 statistics={

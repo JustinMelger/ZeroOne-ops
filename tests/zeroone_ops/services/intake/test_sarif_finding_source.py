@@ -221,6 +221,23 @@ def test_collect_artifact_findings_derives_source_id_from_sarif_tool_name(
     assert result.findings[0].source_id == "codeql-sarif"
 
 
+def test_collect_artifact_findings_does_not_manage_malformed_empty_runs(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        '{"version": "2.1.0", "runs": ["invalid-run"]}',
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert result.findings == []
+    assert result.metadata.managed_source_ids == []
+    assert result.metadata.statistics == {"collected": 0, "skipped": 1}
+    assert result.metadata.warnings == ["Skipped SARIF run with unexpected non-object shape."]
+
+
 def test_collect_artifact_findings_uses_fingerprints_to_distinguish_same_location_results(
     tmp_path: Path,
 ) -> None:

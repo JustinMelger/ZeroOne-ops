@@ -347,7 +347,10 @@ def sync_findings(*, dry_run: bool = False) -> RunSummary:
         dry_run=active_dry_run,
         run_id=run_id,
     )
-    if not collection.finding_collection.findings:
+    if (
+        not collection.finding_collection.findings
+        and not collection.finding_collection.metadata.managed_source_ids
+    ):
         record.status = collection_message_status(collection.message)
         record.updated_at = utc_now()
         state_store.save(state)

@@ -11,7 +11,11 @@ from zeroone_ops.models.config import (
     StateConfig,
 )
 from zeroone_ops.models.dashboard import DashboardDocument, DashboardItem, DashboardSection
-from zeroone_ops.models.finding import NormalizedFinding
+from zeroone_ops.models.finding import (
+    FindingCollectionMetadata,
+    FindingCollectionResult,
+    NormalizedFinding,
+)
 from zeroone_ops.models.sonar import SonarIssue
 from zeroone_ops.services.intake.finding_dashboard_sync_service import (
     FindingDashboardSyncService,
@@ -107,6 +111,33 @@ def test_intake_bridge_can_expose_normalized_sonar_findings_without_switching_do
 
     assert len(collection.finding_collection.findings) == 1
     assert collection.finding_collection.findings[0].finding_id == "AX123"
+
+
+def test_intake_merge_preserves_unmanaged_source_collection(tmp_path: Path) -> None:
+    config = AppConfig(
+        base_branch="main",
+        validation_commands=[],
+        approval=ApprovalConfig(),
+        remediation=RemediationConfig(bootstrap_severities=["LOW"], analysis=AnalysisConfig()),
+        review=ReviewConfig(),
+        gitlab=GitLabConfig(target_branch="main"),
+        sonarqube=SonarQubeConfig(),
+        state=StateConfig(path=tmp_path / ".zeroone-ops-state.json"),
+    )
+    service = IssueIntakeService(repo_root=tmp_path, config=config)
+
+    merged = service._merge_collections(
+        [
+            FindingCollectionResult(
+                metadata=FindingCollectionMetadata(
+                    source_id="ruff-sarif",
+                    warnings=["SARIF input was partial."],
+                )
+            )
+        ]
+    )
+
+    assert merged.metadata.managed_source_ids == []
 
 
 def test_intake_bridge_rejects_findings_that_escape_repo_root(tmp_path: Path) -> None:

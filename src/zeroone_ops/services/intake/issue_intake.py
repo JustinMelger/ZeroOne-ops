@@ -130,8 +130,6 @@ class IssueIntakeService:
             findings.extend(collection.findings)
             warnings.extend(collection.metadata.warnings)
             managed_source_ids.update(collection.metadata.managed_source_ids)
-            if not collection.metadata.managed_source_ids:
-                managed_source_ids.add(collection.metadata.source_id)
             for key, value in collection.metadata.statistics.items():
                 statistics[key] = statistics.get(key, 0) + value
         return FindingCollectionResult(
