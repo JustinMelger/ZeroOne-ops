@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+type NormalizedSeverity = Literal["low", "medium", "high"]
+
 
 class SonarImpact(BaseModel):
     """Represent a software-quality impact entry from SonarQube.
@@ -55,7 +57,7 @@ class SonarIssue(BaseModel):
     impacts: list[SonarImpact] = Field(default_factory=list)
     creation_date: datetime | None = None
 
-    def automation_severity(self) -> str:
+    def automation_severity(self) -> NormalizedSeverity:
         """Return the normalized automation severity band for the issue."""
         maintainability_severities = {
             impact.severity.upper()
@@ -98,10 +100,14 @@ class SonarIssue(BaseModel):
         return _legacy_to_modern_severity(self.severity) in normalized
 
 
-def _normalize_automation_severity(severity: str) -> str:
+def _normalize_automation_severity(severity: str) -> NormalizedSeverity:
     """Map raw SonarQube severities into automation severity bands."""
     normalized = _legacy_to_modern_severity(severity)
-    return normalized.lower()
+    if normalized == "HIGH":
+        return "high"
+    if normalized == "MEDIUM":
+        return "medium"
+    return "low"
 
 
 def _legacy_to_modern_severity(severity: str) -> str:

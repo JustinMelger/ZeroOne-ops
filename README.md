@@ -73,6 +73,14 @@ uv run pytest
 just architecture
 ```
 
+Optional local pre-commit hook setup for Ruff:
+
+```bash
+uv sync
+uv run pre-commit install
+uv run pre-commit run --all-files
+```
+
 ## Core Workflows
 
 ### Dashboard Remediation

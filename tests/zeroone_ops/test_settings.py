@@ -540,6 +540,38 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
     assert config.sonarqube.mock_issues_path == Path("fixtures/sonar/issues.json")
 
 
+def test_settings_load_sarif_artifact_paths(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
+          "sarif": {
+            "artifact_paths": [
+              "artifacts/ruff.sarif",
+              "artifacts/codeql.sarif"
+            ]
+          },
+          "gitlab": {
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.sarif.artifact_paths == [
+        Path("artifacts/ruff.sarif"),
+        Path("artifacts/codeql.sarif"),
+    ]
+
+
 def test_settings_reject_removed_flat_remediation_and_sonar_keys(
     tmp_path: Path,
     monkeypatch,

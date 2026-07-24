@@ -145,7 +145,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GITHUB_REPOSITORY: ${{ github.repository }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      OPENAI_MODEL: gpt-5.4
+      OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
 
     steps:
       - name: Check out repository

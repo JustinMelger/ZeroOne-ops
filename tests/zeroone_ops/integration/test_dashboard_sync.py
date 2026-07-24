@@ -67,14 +67,15 @@ def _find_no_open_merge_request(
     return None
 
 
-def _sync_result(self, project_id: str, issues: list[SonarIssue]):
+def _sync_result(self, project_id: str, findings, managed_source_ids=None):
     del self, project_id
     return type(
         "SyncResult",
         (),
         {
-            "synced_count": len(issues),
+            "synced_count": len(findings),
             "dashboard_issue_url": "https://gitlab.example.com/group/project/-/issues/11",
+            "managed_source_ids": managed_source_ids,
         },
     )()
 
@@ -118,7 +119,7 @@ def test_sync_dashboard_sonar_dry_run_reports_eligible_issue_count(
     summary = sync_dashboard_sonar(dry_run=True)
 
     assert summary.status.value == "synced"
-    assert "Dry-run found 1 SonarQube issues for dashboard sync." in summary.message
+    assert "Dry-run found 1 findings for dashboard sync." in summary.message
 
 
 def test_sync_dashboard_sonar_ci_mode_publishes_dashboard_summary(
@@ -162,14 +163,14 @@ def test_sync_dashboard_sonar_ci_mode_publishes_dashboard_summary(
         _find_no_open_merge_request,
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.intake.sonar_dashboard_sync_service.SonarDashboardSyncService.sync",
+        "zeroone_ops.services.intake.finding_dashboard_sync_service.FindingDashboardSyncService.sync",
         _sync_result,
     )
 
     summary = sync_dashboard_sonar(dry_run=False)
 
     assert summary.status.value == "synced"
-    assert "Synced 2 SonarQube issues to the dashboard." in summary.message
+    assert "Synced 2 findings to the dashboard." in summary.message
     assert "https://gitlab.example.com/group/project/-/issues/11" in summary.message
 
 
@@ -203,12 +204,191 @@ def test_sync_dashboard_sonar_reports_no_eligible_issues_in_ci_mode(
         encoding="utf-8",
     )
 
+    captured: dict[str, object] = {}
+
+    def _sync_empty(self, project_id: str, findings, managed_source_ids=None):
+        del self, project_id
+        captured["findings"] = findings
+        captured["managed_source_ids"] = managed_source_ids
+        return type(
+            "SyncResult",
+            (),
+            {
+                "synced_count": len(findings),
+                "dashboard_issue_url": "https://gitlab.example.com/group/project/-/issues/11",
+            },
+        )()
+
     monkeypatch.setattr(
         "zeroone_ops.providers.sonar_client.SonarClient.search_open_issues",
         _search_open_issues_none,
     )
+    monkeypatch.setattr(
+        "zeroone_ops.services.intake.finding_dashboard_sync_service.FindingDashboardSyncService.sync",
+        _sync_empty,
+    )
 
     summary = sync_dashboard_sonar(dry_run=False)
 
-    assert summary.status.value == "no_issue"
-    assert "[ci]" in summary.message
+    assert summary.status.value == "synced"
+    assert "Synced 0 findings to the dashboard." in summary.message
+    assert captured["findings"] == []
+    assert captured["managed_source_ids"] == {"sonarqube"}
+
+
+def test_sync_dashboard_sonar_dry_run_reports_sarif_finding_count(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    (tmp_path / "artifacts").mkdir()
+    (tmp_path / "artifacts" / "ruff.sarif").write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff",
+                  "rules": [
+                    {
+                      "id": "E712",
+                      "shortDescription": {"text": "Avoid equality comparisons to True"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "Use direct truthiness instead of == True."},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 1, "endLine": 1}
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "remediation": {
+            "target_branch": "main",
+            "bootstrap_severities": ["LOW"]
+          },
+          "sarif": {
+            "artifact_paths": ["artifacts/ruff.sarif"]
+          },
+          "validation_commands": [],
+          "gitlab": {
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    summary = sync_dashboard_sonar(dry_run=True)
+
+    assert summary.status.value == "synced"
+    assert "Dry-run found 1 findings for dashboard sync." in summary.message
+
+
+def test_sync_dashboard_sonar_ci_mode_publishes_sarif_dashboard_summary(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    (tmp_path / "artifacts").mkdir()
+    (tmp_path / "artifacts" / "ruff.sarif").write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Ruff",
+                  "rules": [
+                    {
+                      "id": "E712",
+                      "shortDescription": {"text": "Avoid equality comparisons to True"}
+                    }
+                  ]
+                }
+              },
+              "results": [
+                {
+                  "ruleId": "E712",
+                  "level": "warning",
+                  "message": {"text": "Use direct truthiness instead of == True."},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/service.py"},
+                        "region": {"startLine": 1, "endLine": 1}
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "remediation": {
+            "target_branch": "main",
+            "bootstrap_severities": ["LOW"]
+          },
+          "sarif": {
+            "artifact_paths": ["artifacts/ruff.sarif"]
+          },
+          "validation_commands": [],
+          "gitlab": {
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.intake.finding_dashboard_sync_service.FindingDashboardSyncService.sync",
+        _sync_result,
+    )
+
+    summary = sync_dashboard_sonar(dry_run=False)
+
+    assert summary.status.value == "synced"
+    assert "Synced 1 findings to the dashboard." in summary.message
+    assert "https://gitlab.example.com/group/project/-/issues/11" in summary.message

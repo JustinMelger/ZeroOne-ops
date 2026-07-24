@@ -35,10 +35,10 @@ from zeroone_ops.services.dashboard.dashboard_remediation_runner import (
     DashboardRemediationRunner,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
-from zeroone_ops.services.intake.issue_intake import IssueIntakeService
-from zeroone_ops.services.intake.sonar_dashboard_sync_service import (
-    SonarDashboardSyncService,
+from zeroone_ops.services.intake.finding_dashboard_sync_service import (
+    FindingDashboardSyncService,
 )
+from zeroone_ops.services.intake.issue_intake import IssueIntakeService
 from zeroone_ops.services.review.pipeline.review_runner import ReviewRunner
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import (
@@ -228,7 +228,7 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
 
 
 def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
-    """Sync eligible SonarQube issues into the dashboard."""
+    """Sync eligible normalized findings into the dashboard."""
     config = load_config()
     gitlab_config = load_gitlab_connection_config()
     state_store = StateStore(
@@ -247,7 +247,10 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
         dry_run=active_dry_run,
         run_id=run_id,
     )
-    if not collection.issues:
+    managed_source_ids = set(collection.finding_collection.metadata.managed_source_ids) or {
+        finding.source_id for finding in collection.finding_collection.findings
+    }
+    if not collection.finding_collection.findings and not managed_source_ids:
         return RunSummary(
             run_id=run_id,
             status=collection_message_status(collection.message),
@@ -259,13 +262,14 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
             run_id=run_id,
             status=collection_message_status("synced"),
             message=(
-                f"[{config.execution_mode}] Dry-run found {len(collection.issues)} "
-                "SonarQube issues for dashboard sync."
+                f"[{config.execution_mode}] Dry-run found "
+                f"{len(collection.finding_collection.findings)} "
+                "findings for dashboard sync."
             ),
             state_path=state_store.path,
         )
 
-    sync_result = SonarDashboardSyncService(
+    sync_result = FindingDashboardSyncService(
         DashboardService(
             GitLabDashboardClient(gitlab_config),
             policy_view_builder=DashboardPolicyViewBuilder(
@@ -276,14 +280,15 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
         )
     ).sync(
         project_id=gitlab_config.project_id,
-        issues=collection.issues,
+        findings=collection.finding_collection.findings,
+        managed_source_ids=managed_source_ids,
     )
     return RunSummary(
         run_id=run_id,
         status=collection_message_status("synced"),
         message=(
             f"[{config.execution_mode}] Synced {sync_result.synced_count} "
-            f"SonarQube issues to the dashboard. Dashboard: {sync_result.dashboard_issue_url}"
+            f"findings to the dashboard. Dashboard: {sync_result.dashboard_issue_url}"
         ),
         state_path=state_store.path,
     )

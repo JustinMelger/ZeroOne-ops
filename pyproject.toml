@@ -52,6 +52,7 @@ exclude-newer = "7 days"
 dev = [
   "bandit>=1.9.4",
   "import-linter>=2.13",
+  "pre-commit>=4.3.0",
   "mypy>=2.3.0",
   "pip-audit>=2.10.1",
   "pytest>=9.1.1",
@@ -80,6 +81,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "samples/**/*.py" = ["E712"]
+"samples/ruff_findings/**/*.py" = ["E712", "F841"]
 "tests/**/*.py" = ["D"]
 
 [tool.ruff.format]

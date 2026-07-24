@@ -39,6 +39,9 @@
   "sonarqube": {
     "mock_issues_path": "fixtures/sonar/issues.json"
   },
+  "sarif": {
+    "artifact_paths": ["artifacts/ruff.sarif"]
+  },
   "github": {
     "labels": ["zeroone-ops", "sonarqube"]
   },

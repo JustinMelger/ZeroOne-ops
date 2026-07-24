@@ -79,14 +79,16 @@ Shipped product state:
 - prefer source/test layout cleanup that mirrors the current control-plane
   domain structure
 
-### 2. New Producer For Dogfooding
+### 2. Generic Finding Ingestion And Dogfooding
 
-- add one additional remediation producer that can run on this repository
+- define a provider-neutral finding ingestion boundary instead of adding
+  another source-specific producer path
+- wrap the current SonarQube intake behind that shared ingestion contract
+- add one additional dogfooding finding source that can run on this repository
   without SonarQube availability
-- use that producer to live-validate the promoted GitHub work-item and review
+- use that source to live-validate the promoted GitHub work-item and review
   projection paths end-to-end
-- keep the producer bounded and provider-neutral at the workflow boundary
-- prefer a producer that gives fast local feedback over a broad discovery
+- prefer a source that gives fast local feedback over a broad discovery
   surface
 
 ### 3. Rollout And Validation
@@ -184,7 +186,7 @@ Next feedback-driven refinements:
 
 - broader review evaluator growth beyond the current rollout-driven hardening
 - richer operator-feedback consumption for repeated reviews
-- additional remediation producers beyond the next dogfooding producer
+- additional finding sources beyond the first post-Sonar dogfooding source
 - broader dashboard readability/history improvements after current rollout
   feedback stabilizes
 - any later move from CLI-backed state to an external API/database control
@@ -196,7 +198,7 @@ Next feedback-driven refinements:
   - GitHub review support, remediation publish, and control-plane Phase 5 are
     implemented
 - focused on now:
-  - Phase 6 cleanup, one new dogfooding producer, and rollout validation
+  - Phase 6 cleanup, generic finding ingestion, and rollout validation
 - parked:
   - any persistent overview issue remains optional and derived only
   - broader control-plane storage evolution belongs to a later API/database
@@ -211,23 +213,103 @@ Next feedback-driven refinements:
 - clean up persistence/state naming and any compatibility leftovers that are
   now clearly debt
 
-#### Phase 6b: New Dogfooding Producer
+#### Phase 6b: Generic Finding Ingestion
 
-- add one bounded remediation producer that works on this repository without
+Design reference:
+
+- [design/functional/functional-design-finding-ingestion.md](design/functional/functional-design-finding-ingestion.md)
+- [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
+
+##### Phase 6b1: Shared Finding Contract
+
+- [x] define the shared normalized finding domain model
+- [x] implement the bounded required finding fields:
+  - `finding_id`
+  - `source_id`
+  - `severity`
+  - `title`
+  - `summary`
+  - `repository_path`
+  - optional location
+  - structured `remediation_context`
+- [x] add optional `source_metadata` behind an explicit boundary
+- [x] define the shared ingestion result/interface
+- [x] include bounded collection metadata for revision, artifact, and
+  diagnostics in the ingestion result
+
+##### Phase 6b2: SonarQube Behind the Shared Contract
+
+- [x] implement shared overlap-style fallback identity for normalized findings
+- [x] wrap the current SonarQube intake behind the shared ingestion contract
+
+##### Phase 6b3: Downstream Normalization
+
+- [x] adapt dashboard-sync downstream flow to consume normalized findings
+  instead of SonarQube-local models
+- [x] keep one shared default queueing and promotion policy for all normalized
+  findings in this phase
+- [x] defer cross-source dedupe to a later shared reconciliation stage instead
+  of implementing it inside source adapters
+
+##### Phase 6b4: First Dogfooding Source
+
+- [x] add one bounded dogfooding source that works in this repository without
   SonarQube
-- normalize it into the existing remediation/control-plane path
-- use it to live-test:
-  - promotion
-  - work-item lifecycle
-  - review projection
-  - same-SHA projection repair
+- [x] implement Ruff via SARIF as the first dogfooding source
+
+##### Phase 6b5: Remediation Normalization
+
+- [ ] close the current phase boundary where non-Sonar normalized findings can
+  sync into the dashboard but still dead-end in Sonar-shaped remediation intake
+- [ ] normalize remediation eligibility around shared finding semantics instead
+  of SonarQube-specific source checks
+- [ ] generalize dashboard-item selection and normalization for supported
+  shared remediation categories
+- [ ] decide the canonical shared remediation category mapping for Ruff/SARIF
+  lint findings versus existing `code_smell_fix` workflow items
+- [ ] keep source-local metadata out of remediation eligibility rules unless a
+  field is promoted into the shared contract
+
+##### Phase 6b6: Rollout Validation
+
+- [ ] live-test normalized ingestion for promotion
+- [ ] live-test normalized ingestion for work-item lifecycle
+- [ ] live-test normalized ingestion for review projection
+- [ ] live-test normalized ingestion for same-SHA projection repair
 
 #### Phase 6c: GitHub Rollout Validation
 
-- validate the new producer plus current GitHub review/remediation behavior in
+- validate the new finding ingestion path plus current GitHub
+  review/remediation behavior in
   live runs
 - collect operator and developer feedback from that usage
 - prefer narrow rollout fixes before broadening the workflow surface again
+
+##### Phase 6c1: GitHub Finding Sync Publication
+
+- [ ] add a real GitHub-side finding sync entrypoint instead of relying on the
+  current GitLab-dashboard-wired dry-run command
+- [ ] publish promoted normalized findings into authoritative GitHub work-item
+  issues from the sync flow
+- [ ] keep the GitHub sync path provider-local at the publication boundary
+  while reusing shared normalized finding intake
+
+##### Phase 6c2: GitHub Finding Lifecycle Projection
+
+- [ ] reconcile repeated finding sync runs against existing GitHub work-item
+  issues instead of only creating fresh projected items
+- [ ] define the stale-item behavior for GitHub finding sync when a previously
+  synced finding no longer appears in the current source run
+- [ ] validate that shared promotion decisions and GitHub work-item state stay
+  aligned across repeated sync runs
+
+##### Phase 6c3: GitHub Operator Validation
+
+- [ ] live-test GitHub finding sync with Ruff SARIF on this repository
+- [ ] verify the operator-facing GitHub work-item rendering is readable and
+  sufficiently traceable for finding-origin diagnostics
+- [ ] collect follow-up decisions on whether GitHub needs a derived summary
+  surface after direct work-item sync is live
 
 ## Reference Docs
 
@@ -236,6 +318,8 @@ Use these docs when deeper detail is needed:
 - [README.md](README.md) for the docs index
 - [runbook.md](runbook.md)
 - [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
+- [design/functional/functional-design-finding-ingestion.md](design/functional/functional-design-finding-ingestion.md)
+- [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
 - [design/technical/technical-design-pr-review.md](design/technical/technical-design-pr-review.md)
 - [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)
 - [design/technical/technical-design-pr-review-staged-pipeline.md](design/technical/technical-design-pr-review-staged-pipeline.md)
