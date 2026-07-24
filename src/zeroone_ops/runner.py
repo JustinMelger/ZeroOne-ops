@@ -353,7 +353,7 @@ def sync_findings(*, dry_run: bool = False) -> RunSummary:
         return run_state_service.build_summary(
             run_id=run_id,
             status=record.status,
-            message=f"[{config.execution_mode}] {collection.message}",
+            message=collection.message,
         )
     github_config = load_github_connection_config()
     policy_state = _build_github_policy_issue_service(
@@ -380,11 +380,29 @@ def sync_findings(*, dry_run: bool = False) -> RunSummary:
         run_id=run_id,
         status=record.status,
         message=(
-            f"[{config.execution_mode}] {prefix} {sync_result.promoted_count} "
+            f"{prefix} {sync_result.promoted_count} "
             "promoted findings as GitHub work items; "
-            f"{sync_result.backlog_only_count} findings remain backlog-only."
+            f"{sync_result.backlog_only_count} findings remain backlog-only.\n"
+            "Normalized severities: "
+            f"{_format_count_summary(sync_result.normalized_severity_counts)}.\n"
+            "Promotion policy: "
+            f"enabled={_format_enabled_severities(sync_result.enabled_severities)}; "
+            "backlog reasons: "
+            f"{_format_count_summary(sync_result.backlog_reason_counts)}."
         ),
     )
+
+
+def _format_count_summary(counts: dict[str, int]) -> str:
+    """Render deterministic aggregate counts for one CLI-facing sync summary."""
+    if not counts:
+        return "none"
+    return ", ".join(f"{key}={value}" for key, value in counts.items())
+
+
+def _format_enabled_severities(enabled_severities: tuple[str, ...]) -> str:
+    """Render the resolved policy severities for one CLI-facing sync summary."""
+    return ", ".join(enabled_severities) or "none"
 
 
 def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:

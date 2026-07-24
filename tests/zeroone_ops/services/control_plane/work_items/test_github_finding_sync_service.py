@@ -102,6 +102,9 @@ def test_sync_creates_work_item_for_policy_promoted_finding() -> None:
     assert result.promoted_count == 1
     assert result.created_count == 1
     assert result.backlog_only_count == 0
+    assert result.normalized_severity_counts == {"medium": 1}
+    assert result.enabled_severities == ("high", "medium")
+    assert result.backlog_reason_counts == {}
     assert len(client.issues) == 1
     assert client.issues[0].title == "ZeroOne Ops: Avoid equality comparisons to True"
     assert "Use direct truthiness instead of == True." in client.issues[0].body
@@ -121,6 +124,9 @@ def test_sync_keeps_disabled_severity_as_backlog_only() -> None:
 
     assert result.promoted_count == 0
     assert result.backlog_only_count == 1
+    assert result.normalized_severity_counts == {"medium": 1}
+    assert result.enabled_severities == ("high",)
+    assert result.backlog_reason_counts == {"severity_disabled": 1}
     assert client.issues == []
 
 

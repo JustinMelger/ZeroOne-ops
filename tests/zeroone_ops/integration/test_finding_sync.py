@@ -69,3 +69,6 @@ def test_sync_findings_dry_run_collects_sarif_without_gitlab_configuration(
     assert summary.status.value == "synced"
     assert "Dry-run would publish 1 promoted findings as GitHub work items" in summary.message
     assert "0 findings remain backlog-only" in summary.message
+    assert "Normalized severities: medium=1." in summary.message
+    assert "Promotion policy: enabled=high, medium; backlog reasons: none." in summary.message
+    assert "[ci] [ci]" not in summary.message

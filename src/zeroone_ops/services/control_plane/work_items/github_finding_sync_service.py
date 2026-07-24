@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from uuid import uuid4
 
@@ -25,6 +26,9 @@ class GitHubFindingSyncResult:
     created_count: int
     updated_count: int
     unchanged_count: int
+    normalized_severity_counts: dict[str, int]
+    enabled_severities: tuple[str, ...]
+    backlog_reason_counts: dict[str, int]
 
 
 class GitHubFindingSyncService:
@@ -54,13 +58,17 @@ class GitHubFindingSyncService:
         created_count = 0
         updated_count = 0
         unchanged_count = 0
+        normalized_severity_counts: Counter[str] = Counter()
+        backlog_reason_counts: Counter[str] = Counter()
         for finding in findings:
+            normalized_severity_counts[finding.severity] += 1
             decision = self.workflow_policy_service.decide_promotion(
                 finding=finding,
                 policy_state=policy_state,
             )
             if decision.disposition != "promote":
                 backlog_only_count += 1
+                backlog_reason_counts[decision.reason] += 1
                 continue
             promoted_count += 1
             if not persist:
@@ -84,6 +92,11 @@ class GitHubFindingSyncService:
             created_count=created_count,
             updated_count=updated_count,
             unchanged_count=unchanged_count,
+            normalized_severity_counts=dict(sorted(normalized_severity_counts.items())),
+            enabled_severities=tuple(
+                sorted(entry.severity for entry in policy_state.severity_policy if entry.enabled)
+            ),
+            backlog_reason_counts=dict(sorted(backlog_reason_counts.items())),
         )
 
     def _build_work_item(
