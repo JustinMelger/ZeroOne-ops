@@ -997,3 +997,52 @@ def test_collect_artifact_findings_keeps_fallback_managed_source_for_empty_artif
     assert result.findings == []
     assert result.metadata.source_id == "ruff-sarif"
     assert result.metadata.managed_source_ids == ["ruff-sarif"]
+
+
+def test_collect_artifact_findings_does_not_manage_partially_collected_tool_source(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {"driver": {"name": "Ruff"}},
+              "results": [
+                {
+                  "ruleId": "E712",
+                  "message": {"text": "Avoid equality comparisons to True."},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/module.py"},
+                        "region": {"startLine": 8}
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tool": {"driver": {"name": "Ruff"}},
+              "results": [
+                {
+                  "ruleId": "F841",
+                  "message": {"text": "Unused variable."},
+                  "locations": []
+                }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(artifact)
+
+    assert len(result.findings) == 1
+    assert result.metadata.managed_source_ids == []
+    assert result.metadata.statistics == {"collected": 1, "skipped": 1}

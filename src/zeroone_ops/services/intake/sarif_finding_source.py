@@ -39,7 +39,7 @@ class SarifFindingSource:
         warnings: list[str] = []
         skipped_count = 0
         artifact_source_ids: set[str] = set()
-        authoritative_source_ids: set[str] = set()
+        source_completeness: dict[str, bool] = {}
         fallback_source_id = _artifact_fallback_source_id(artifact_path)
         runs = payload.get("runs", [])
         empty_runs = isinstance(runs, list) and not runs
@@ -58,14 +58,15 @@ class SarifFindingSource:
                     warnings_for_run,
                     skipped_for_run,
                     source_id,
-                    authoritative,
+                    is_complete,
                 ) = _collect_run_findings(run, repo_root=self.repo_root)
                 findings.extend(findings_for_run)
                 warnings.extend(warnings_for_run)
                 skipped_count += skipped_for_run
                 artifact_source_ids.add(source_id)
-                if authoritative:
-                    authoritative_source_ids.add(source_id)
+                source_completeness[source_id] = (
+                    source_completeness.get(source_id, True) and is_complete
+                )
 
         return FindingCollectionResult(
             findings=findings,
@@ -76,7 +77,12 @@ class SarifFindingSource:
                 ),
                 artifact_reference=str(artifact_path),
                 managed_source_ids=sorted(
-                    authoritative_source_ids or ({fallback_source_id} if empty_runs else set())
+                    [
+                        source_id
+                        for source_id, is_complete in source_completeness.items()
+                        if is_complete
+                    ]
+                    or ({fallback_source_id} if empty_runs else set())
                 ),
                 warnings=warnings,
                 statistics={
