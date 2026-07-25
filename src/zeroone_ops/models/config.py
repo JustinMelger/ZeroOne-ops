@@ -142,6 +142,7 @@ class OpenAIConnectionConfig(BaseModel):
         mlflow_enabled: Whether MLflow OpenAI autologging should be enabled.
         mlflow_tracking_uri: Optional MLflow tracking URI.
         mlflow_experiment_name: Optional MLflow experiment name.
+        mlflow_experiment_id: Optional MLflow experiment ID for trace delivery.
     """
 
     api_key: str
@@ -150,6 +151,7 @@ class OpenAIConnectionConfig(BaseModel):
     mlflow_enabled: bool = False
     mlflow_tracking_uri: str | None = None
     mlflow_experiment_name: str | None = None
+    mlflow_experiment_id: str | None = None
 
 
 class StateConfig(BaseModel):

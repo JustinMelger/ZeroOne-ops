@@ -1168,6 +1168,11 @@ def test_openai_client_enables_optional_mlflow_autologging(monkeypatch, caplog) 
         lambda name: calls.append(("experiment", name)),
     )
     monkeypatch.setattr(
+        llm_client.mlflow_tracing,
+        "set_destination",
+        lambda destination: calls.append(("destination", destination.experiment_id)),
+    )
+    monkeypatch.setattr(
         llm_client.mlflow_openai,
         "autolog",
         lambda **kwargs: calls.append(("autolog", kwargs)),
@@ -1180,6 +1185,7 @@ def test_openai_client_enables_optional_mlflow_autologging(monkeypatch, caplog) 
             mlflow_enabled=True,
             mlflow_tracking_uri="http://localhost:5000",
             mlflow_experiment_name="zeroone-ops-review",
+            mlflow_experiment_id="123",
         ),
         solution_output_path=None,
     )
@@ -1187,6 +1193,7 @@ def test_openai_client_enables_optional_mlflow_autologging(monkeypatch, caplog) 
     assert calls == [
         ("tracking_uri", "http://localhost:5000"),
         ("experiment", "zeroone-ops-review"),
+        ("destination", "123"),
         ("autolog", {"silent": True, "log_traces": True}),
     ]
     assert "MLflow OpenAI autologging enabled" in caplog.text

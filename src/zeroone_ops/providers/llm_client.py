@@ -14,6 +14,8 @@ from typing import cast
 
 import mlflow
 import mlflow.openai as mlflow_openai
+import mlflow.tracing as mlflow_tracing
+from mlflow.entities.trace_location import MlflowExperimentLocation
 from openai import OpenAI
 
 from zeroone_ops.models.analysis import (
@@ -365,6 +367,10 @@ def _configure_mlflow_openai_autologging(config: OpenAIConnectionConfig) -> None
             mlflow.set_tracking_uri(config.mlflow_tracking_uri)
         if config.mlflow_experiment_name:
             mlflow.set_experiment(config.mlflow_experiment_name)
+        if config.mlflow_experiment_id:
+            mlflow_tracing.set_destination(
+                MlflowExperimentLocation(experiment_id=config.mlflow_experiment_id)
+            )
         autolog = cast(Callable[..., None], mlflow_openai.autolog)
         autolog(silent=True, log_traces=True)
     except Exception:
@@ -380,6 +386,7 @@ def _configure_mlflow_openai_autologging(config: OpenAIConnectionConfig) -> None
         extra={
             "mlflow_tracking_uri": config.mlflow_tracking_uri,
             "mlflow_experiment_name": config.mlflow_experiment_name,
+            "mlflow_experiment_id": config.mlflow_experiment_id,
         },
     )
 

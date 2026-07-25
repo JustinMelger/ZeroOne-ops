@@ -186,6 +186,7 @@ def load_openai_connection_config() -> OpenAIConnectionConfig:
         in {"1", "true", "yes", "on"},
         mlflow_tracking_uri=os.environ.get("MLFLOW_TRACKING_URI"),
         mlflow_experiment_name=os.environ.get("MLFLOW_EXPERIMENT_NAME"),
+        mlflow_experiment_id=os.environ.get("MLFLOW_EXPERIMENT_ID"),
     )
 
 

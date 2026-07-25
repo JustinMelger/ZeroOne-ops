@@ -26,6 +26,7 @@ def test_load_openai_connection_config_from_dotenv(tmp_path: Path, monkeypatch) 
     assert config.mlflow_enabled is False
     assert config.mlflow_tracking_uri is None
     assert config.mlflow_experiment_name is None
+    assert config.mlflow_experiment_id is None
 
 
 def test_load_openai_connection_config_with_mlflow_env(tmp_path: Path, monkeypatch) -> None:
@@ -35,9 +36,11 @@ def test_load_openai_connection_config_with_mlflow_env(tmp_path: Path, monkeypat
     monkeypatch.setenv("ZEROONE_MLFLOW_ENABLED", "true")
     monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "zeroone-ops-review")
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "123")
 
     config = load_openai_connection_config()
 
     assert config.mlflow_enabled is True
     assert config.mlflow_tracking_uri == "http://localhost:5000"
     assert config.mlflow_experiment_name == "zeroone-ops-review"
+    assert config.mlflow_experiment_id == "123"
