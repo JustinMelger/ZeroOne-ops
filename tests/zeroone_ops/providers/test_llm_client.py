@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -1151,8 +1152,9 @@ def test_openai_review_precision_reconciliation_uses_high_reasoning() -> None:
     )
 
 
-def test_openai_client_enables_optional_mlflow_autologging(monkeypatch) -> None:
+def test_openai_client_enables_optional_mlflow_autologging(monkeypatch, caplog) -> None:
     calls: list[tuple[str, object]] = []
+    caplog.set_level(logging.INFO)
 
     monkeypatch.setattr(llm_client, "_MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED", False)
     monkeypatch.setattr(
@@ -1187,6 +1189,7 @@ def test_openai_client_enables_optional_mlflow_autologging(monkeypatch) -> None:
         ("experiment", "zeroone-ops-review"),
         ("autolog", {"silent": True, "log_traces": True}),
     ]
+    assert "MLflow OpenAI autologging enabled" in caplog.text
 
 
 def test_openai_client_continues_when_mlflow_setup_fails(monkeypatch, caplog) -> None:

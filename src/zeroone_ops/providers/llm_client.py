@@ -375,6 +375,13 @@ def _configure_mlflow_openai_autologging(config: OpenAIConnectionConfig) -> None
         return
 
     _MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED = True
+    LOGGER.info(
+        "MLflow OpenAI autologging enabled",
+        extra={
+            "mlflow_tracking_uri": config.mlflow_tracking_uri,
+            "mlflow_experiment_name": config.mlflow_experiment_name,
+        },
+    )
 
 
 class FixtureLLMClient(LLMClient):
