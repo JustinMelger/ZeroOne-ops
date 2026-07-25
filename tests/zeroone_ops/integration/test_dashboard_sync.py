@@ -4,6 +4,12 @@ from zeroone_ops.models.sonar import SonarIssue
 from zeroone_ops.runner import sync_dashboard_sonar
 
 
+def _unset_sonarqube_environment(monkeypatch) -> None:
+    """Keep SARIF-only integration tests independent of local credentials."""
+    for name in ("SONARQUBE_URL", "SONARQUBE_TOKEN", "SONARQUBE_PROJECT_KEY"):
+        monkeypatch.delenv(name, raising=False)
+
+
 def _search_open_issues_one(self) -> list[SonarIssue]:
     del self
     return [
@@ -241,6 +247,7 @@ def test_sync_dashboard_sonar_dry_run_reports_sarif_finding_count(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
+    _unset_sonarqube_environment(monkeypatch)
     monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
@@ -295,7 +302,7 @@ def test_sync_dashboard_sonar_dry_run_reports_sarif_finding_count(
             "bootstrap_severities": ["LOW"]
           },
           "sarif": {
-            "artifact_paths": ["artifacts/ruff.sarif"]
+            "artifacts": [{"path": "artifacts/ruff.sarif", "source_id": "ruff-sarif"}]
           },
           "validation_commands": [],
           "gitlab": {
@@ -317,6 +324,7 @@ def test_sync_dashboard_sonar_ci_mode_publishes_sarif_dashboard_summary(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
+    _unset_sonarqube_environment(monkeypatch)
     monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
     monkeypatch.setenv("GITLAB_TOKEN", "token")
@@ -372,7 +380,7 @@ def test_sync_dashboard_sonar_ci_mode_publishes_sarif_dashboard_summary(
             "bootstrap_severities": ["LOW"]
           },
           "sarif": {
-            "artifact_paths": ["artifacts/ruff.sarif"]
+            "artifacts": [{"path": "artifacts/ruff.sarif", "source_id": "ruff-sarif"}]
           },
           "validation_commands": [],
           "gitlab": {

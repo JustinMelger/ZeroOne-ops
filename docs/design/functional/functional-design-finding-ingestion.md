@@ -290,8 +290,14 @@ That means:
 - the shared workflow begins at normalized findings, not at analyzer execution
 
 The operator-facing config should therefore use a source-local `sarif` block
-with `artifact_paths`, rather than attaching the path to review or remediation
-settings.
+with explicit artifact and stable source-identity declarations, rather than
+attaching the path to review or remediation settings.
+
+Each configured artifact represents one logical tool source. Its declared
+identity keeps an empty scan attributable to the same source as earlier
+non-empty scans. If a non-empty artifact identifies a different tool source,
+the collection is treated as non-authoritative and cannot reconcile prior
+findings as stale.
 
 This keeps the product boundary general enough for:
 

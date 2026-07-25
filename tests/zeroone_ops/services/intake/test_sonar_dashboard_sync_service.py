@@ -7,6 +7,7 @@ from zeroone_ops.models.config import (
     GitLabConfig,
     RemediationConfig,
     ReviewConfig,
+    SarifArtifactConfig,
     SonarQubeConfig,
     StateConfig,
 )
@@ -244,7 +245,12 @@ def test_intake_bridge_keeps_input_collection_provenance_for_mixed_sources(
         encoding="utf-8",
     )
     config.sonarqube.mock_issues_path = fixture
-    config.sarif.artifact_paths = [repo_root / "artifacts" / "ruff.sarif"]
+    config.sarif.artifacts = [
+        SarifArtifactConfig(
+            path=repo_root / "artifacts" / "ruff.sarif",
+            source_id="ruff-sarif",
+        )
+    ]
 
     collection = IssueIntakeService(
         repo_root=repo_root,
@@ -334,7 +340,12 @@ def test_intake_bridge_does_not_mark_locally_filtered_sources_as_fully_managed(
         encoding="utf-8",
     )
     config.sonarqube.mock_issues_path = fixture
-    config.sarif.artifact_paths = [repo_root / "artifacts" / "ruff.sarif"]
+    config.sarif.artifacts = [
+        SarifArtifactConfig(
+            path=repo_root / "artifacts" / "ruff.sarif",
+            source_id="ruff-sarif",
+        )
+    ]
 
     collection = IssueIntakeService(
         repo_root=repo_root,

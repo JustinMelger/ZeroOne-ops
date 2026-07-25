@@ -30,7 +30,12 @@ class SarifFindingSource:
         """Initialize the SARIF source with the repository root for path normalization."""
         self.repo_root = (repo_root or Path.cwd()).resolve()
 
-    def collect_artifact_findings(self, artifact_path: Path) -> FindingCollectionResult:
+    def collect_artifact_findings(
+        self,
+        artifact_path: Path,
+        *,
+        declared_source_id: str | None = None,
+    ) -> FindingCollectionResult:
         """Collect normalized findings from one SARIF artifact file."""
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
@@ -40,7 +45,7 @@ class SarifFindingSource:
         skipped_count = 0
         artifact_source_ids: set[str] = set()
         source_completeness: dict[str, bool] = {}
-        fallback_source_id = _artifact_fallback_source_id(artifact_path)
+        fallback_source_id = declared_source_id or _artifact_fallback_source_id(artifact_path)
         runs = payload.get("runs", [])
         empty_runs = isinstance(runs, list) and not runs
 
@@ -60,9 +65,17 @@ class SarifFindingSource:
                     source_id,
                     is_complete,
                 ) = _collect_run_findings(run, repo_root=self.repo_root)
-                findings.extend(findings_for_run)
                 warnings.extend(warnings_for_run)
                 skipped_count += skipped_for_run
+                if declared_source_id is not None and source_id != declared_source_id:
+                    skipped_count += max(1, len(findings_for_run))
+                    warnings.append(
+                        "Skipped SARIF run because its tool source "
+                        f"{source_id!r} does not match declared source "
+                        f"{declared_source_id!r}."
+                    )
+                    continue
+                findings.extend(findings_for_run)
                 artifact_source_ids.add(source_id)
                 source_completeness[source_id] = (
                     source_completeness.get(source_id, True) and is_complete

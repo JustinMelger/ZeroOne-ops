@@ -4,6 +4,12 @@ from zeroone_ops.models.dashboard import DashboardPolicyState, DashboardSeverity
 from zeroone_ops.runner import sync_findings
 
 
+def _unset_sonarqube_environment(monkeypatch) -> None:
+    """Keep SARIF-only integration tests independent of local credentials."""
+    for name in ("SONARQUBE_URL", "SONARQUBE_TOKEN", "SONARQUBE_PROJECT_KEY"):
+        monkeypatch.delenv(name, raising=False)
+
+
 def _policy_state() -> DashboardPolicyState:
     return DashboardPolicyState(
         severity_policy=[
@@ -19,6 +25,7 @@ def test_sync_findings_dry_run_collects_sarif_without_gitlab_configuration(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
+    _unset_sonarqube_environment(monkeypatch)
     monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITHUB_TOKEN", "token")
     monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
@@ -51,7 +58,7 @@ def test_sync_findings_dry_run_collects_sarif_without_gitlab_configuration(
           "platform": "github",
           "base_branch": "main",
           "remediation": {"target_branch": "main"},
-          "sarif": {"artifact_paths": ["artifacts/ruff.sarif"]},
+          "sarif": {"artifacts": [{"path": "artifacts/ruff.sarif", "source_id": "ruff-sarif"}]},
           "validation_commands": [],
           "github": {"labels": []}
         }
@@ -79,6 +86,7 @@ def test_sync_findings_dry_run_reconciles_empty_managed_sarif_source(
     monkeypatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
+    _unset_sonarqube_environment(monkeypatch)
     monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
     monkeypatch.setenv("GITHUB_TOKEN", "token")
     monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
@@ -93,7 +101,7 @@ def test_sync_findings_dry_run_reconciles_empty_managed_sarif_source(
           "platform": "github",
           "base_branch": "main",
           "remediation": {"target_branch": "main"},
-          "sarif": {"artifact_paths": ["artifacts/ruff.sarif"]},
+          "sarif": {"artifacts": [{"path": "artifacts/ruff.sarif", "source_id": "ruff-sarif"}]},
           "validation_commands": [],
           "github": {"labels": []}
         }

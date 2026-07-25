@@ -431,8 +431,11 @@ The config shape should be:
 ```json
 {
   "sarif": {
-    "artifact_paths": [
-      "artifacts/ruff.sarif"
+    "artifacts": [
+      {
+        "path": "artifacts/ruff.sarif",
+        "source_id": "ruff-sarif"
+      }
     ]
   }
 }
@@ -441,9 +444,14 @@ The config shape should be:
 Rules:
 
 - the block should be named `sarif`, not `ruff`
-- the field should be `artifact_paths`, not a single `artifact_path`
+- the field should be `artifacts`, with a path and stable `source_id` per artifact
 - the ingestion source reads existing files from those paths
 - the analyzer pipeline remains responsible for generating the artifacts
+- each configured artifact represents one logical SARIF tool source
+- an empty artifact uses its declared `source_id` for authoritative stale-item
+  reconciliation
+- a non-empty artifact whose derived tool source does not match its declared
+  `source_id` is reported as a warning and remains non-authoritative
 
 Why:
 
