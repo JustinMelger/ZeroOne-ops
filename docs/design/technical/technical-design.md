@@ -218,10 +218,13 @@ Responsibilities:
 
 Suggested commands:
 
-- `zeroone-ops dashboard sonar`
+- `zeroone-ops findings sync`
 - `zeroone-ops dashboard policy`
 - `zeroone-ops dashboard remediate`
 - `zeroone-ops dashboard reconcile`
+
+`zeroone-ops dashboard sonar` remains a compatibility alias for existing GitLab
+pipeline configuration; new pipeline examples should use `zeroone-ops findings sync`.
 - `zeroone-ops review`
 
 For the current CLI, workflow entrypoints live under explicit dashboard and

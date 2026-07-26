@@ -5,11 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from zeroone_ops.models.dashboard import DashboardItem, normalize_dashboard_status
+from zeroone_ops.models.remediation import is_remediation_eligible_category
 from zeroone_ops.models.state import AppState
 
 ACTIVE_DASHBOARD_ITEM_STATUSES = frozenset({"in_progress", "change_request_opened"})
-SUPPORTED_REMEDIATION_ITEM_TYPES = frozenset({"code_smell_fix"})
-SUPPORTED_REMEDIATION_SOURCES = frozenset({"sonarqube"})
 
 
 class DashboardItemSelector:
@@ -30,10 +29,8 @@ class DashboardItemSelector:
         """Return the stable reason one dashboard item should be skipped."""
         if item.status != "open":
             return "unsupported_status"
-        if item.type not in SUPPORTED_REMEDIATION_ITEM_TYPES:
+        if not is_remediation_eligible_category(item.type):
             return "unsupported_type"
-        if item.source not in SUPPORTED_REMEDIATION_SOURCES:
-            return "unsupported_source"
         if item.file is None:
             return "missing_file_path"
         if (

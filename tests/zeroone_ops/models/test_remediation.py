@@ -1,4 +1,19 @@
-from zeroone_ops.models.remediation import RemediationWorkItem
+from zeroone_ops.models.remediation import (
+    STATIC_ANALYSIS_FIX_CATEGORY,
+    RemediationWorkItem,
+    is_remediation_eligible_category,
+    normalize_remediation_category,
+)
+
+
+def test_static_analysis_fix_is_the_shared_eligible_category() -> None:
+    assert is_remediation_eligible_category(STATIC_ANALYSIS_FIX_CATEGORY) is True
+    assert is_remediation_eligible_category("pipeline_fix") is False
+
+
+def test_legacy_static_analysis_categories_normalize_to_static_analysis_fix() -> None:
+    assert normalize_remediation_category("code_smell_fix") == STATIC_ANALYSIS_FIX_CATEGORY
+    assert normalize_remediation_category("lint_fix") == STATIC_ANALYSIS_FIX_CATEGORY
 
 
 def test_remediation_work_item_captures_provider_neutral_fields() -> None:

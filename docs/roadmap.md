@@ -264,15 +264,15 @@ Design reference:
 
 ##### Phase 6b5: Remediation Normalization
 
-- [ ] close the current phase boundary where non-Sonar normalized findings can
+- [x] close the current phase boundary where non-Sonar normalized findings can
   sync into the dashboard but still dead-end in Sonar-shaped remediation intake
-- [ ] normalize remediation eligibility around shared finding semantics instead
+- [x] normalize remediation eligibility around shared finding semantics instead
   of SonarQube-specific source checks
-- [ ] generalize dashboard-item selection and normalization for supported
+- [x] generalize dashboard-item selection and normalization for supported
   shared remediation categories
-- [ ] decide the canonical shared remediation category mapping for Ruff/SARIF
+- [x] decide the canonical shared remediation category mapping for Ruff/SARIF
   lint findings versus existing `code_smell_fix` workflow items
-- [ ] keep source-local metadata out of remediation eligibility rules unless a
+- [x] keep source-local metadata out of remediation eligibility rules unless a
   field is promoted into the shared contract
 
 ##### Phase 6b6: Rollout Validation

@@ -47,6 +47,7 @@ def test_sonar_issue_to_normalized_finding_uses_shared_contract() -> None:
     assert finding.source_id == "sonarqube"
     assert finding.severity == "low"
     assert finding.repository_path == "src/service.py"
+    assert finding.remediation_context.category == "static_analysis_fix"
     assert finding.remediation_context.diagnostic_code == "python:S1125"
     assert finding.source_metadata is not None
     assert finding.source_metadata.native_id == "AX123"

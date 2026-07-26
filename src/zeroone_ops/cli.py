@@ -14,7 +14,6 @@ from zeroone_ops.runner import (
     dashboard_reconcile,
     dashboard_remediate,
     review,
-    sync_dashboard_sonar,
     sync_findings,
 )
 from zeroone_ops.services.shared.run_state_service import RunSummary
@@ -32,12 +31,6 @@ def _echo_review_summary(*, dry_run: bool) -> None:
     """Run the review workflow and print the CLI-facing summary."""
     configure_logging()
     _echo_summary(review(dry_run=dry_run))
-
-
-def _echo_dashboard_summary(*, dry_run: bool) -> None:
-    """Run one dashboard workflow and print the CLI-facing summary."""
-    configure_logging()
-    _echo_summary(sync_dashboard_sonar(dry_run=dry_run))
 
 
 def _echo_summary(summary: RunSummary) -> None:
@@ -85,15 +78,16 @@ def review_command(
 def dashboard_sonar_command(
     dry_run: bool = typer.Option(False, "--dry-run", help="Run without updating the dashboard."),
 ) -> None:
-    """Sync eligible SonarQube issues into the dashboard."""
-    _echo_dashboard_summary(dry_run=dry_run)
+    """Legacy GitLab alias for ``findings sync``."""
+    configure_logging()
+    _echo_summary(sync_findings(dry_run=dry_run))
 
 
 @findings_app.command("sync")
 def findings_sync_command(
-    dry_run: bool = typer.Option(False, "--dry-run", help="Run without publishing work items."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Run without publishing findings."),
 ) -> None:
-    """Publish policy-promoted normalized findings for the active platform."""
+    """Sync normalized findings for the active platform."""
     configure_logging()
     _echo_summary(sync_findings(dry_run=dry_run))
 

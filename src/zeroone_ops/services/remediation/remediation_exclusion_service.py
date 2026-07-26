@@ -138,9 +138,7 @@ class RemediationExclusionService:
 
     def _dashboard_issue_key(self, item: DashboardItem) -> str | None:
         """Return the normalized exclusion key for one dashboard item."""
-        if item.source == "sonarqube":
-            return item.rule
-        return None
+        return item.rule
 
     def _scope_matches(self, exclusion: RemediationExclusionState, item: DashboardItem) -> bool:
         """Return whether one dashboard item satisfies one exclusion scope."""

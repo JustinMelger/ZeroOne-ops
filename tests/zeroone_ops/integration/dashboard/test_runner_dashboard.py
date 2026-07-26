@@ -40,6 +40,14 @@ from zeroone_ops.services.remediation.analysis_service import AnalysisResult
 from zeroone_ops.services.shared.branch_manager import BranchManagerError
 from zeroone_ops.services.shared.state_store import StateStore
 from zeroone_ops.services.shared.workspace_snapshot import WorkspaceSnapshotService
+from zeroone_ops.utils.git import build_remediation_branch_name
+
+_CANONICAL_SONAR_AX123_BRANCH = build_remediation_branch_name(
+    branch_prefix="zeroone-ops",
+    source="sonarqube",
+    source_reference="AX123",
+    file_path="src/service.py",
+)
 
 
 def build_dashboard_document(*, items: list[DashboardItem]) -> DashboardDocument:
@@ -3280,10 +3288,6 @@ def test_dashboard_remediate_ci_manual_analysis_marks_dashboard_rejected(
         lambda self: None,
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.shared.branch_manager.BranchManager.build_branch_name",
-        lambda self, branch_prefix, issue_key, file_path: "zeroone-ops/ax123/service",
-    )
-    monkeypatch.setattr(
         "zeroone_ops.services.shared.branch_manager.BranchManager.create_branch",
         lambda self, branch_name: None,
     )
@@ -3292,7 +3296,7 @@ def test_dashboard_remediate_ci_manual_analysis_marks_dashboard_rejected(
 
     assert summary.status.value == "rejected"
     assert summary.dashboard_item_id == "sonar:AX123"
-    assert summary.branch_name == "zeroone-ops/ax123/service"
+    assert summary.branch_name == _CANONICAL_SONAR_AX123_BRANCH
     assert "manual review is required" in summary.message
     assert recorded_updates == [("in_progress", "sonar:AX123"), ("rejected", "sonar:AX123")]
 
@@ -3463,10 +3467,6 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
         lambda self: None,
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.shared.branch_manager.BranchManager.build_branch_name",
-        lambda self, *, branch_prefix, issue_key, file_path: "zeroone-ops/ax123/service",
-    )
-    monkeypatch.setattr(
         "zeroone_ops.services.shared.branch_manager.BranchManager.create_branch",
         lambda self, branch_name: None,
     )
@@ -3525,7 +3525,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
 
     assert summary.status.value == "failed"
     assert summary.dashboard_item_id == "sonar:AX123"
-    assert summary.branch_name == "zeroone-ops/ax123/service"
+    assert summary.branch_name == _CANONICAL_SONAR_AX123_BRANCH
     assert summary.commit_sha is None
     assert summary.change_request_url is None
     assert "Commit failed: git commit failed" in summary.message
@@ -3536,7 +3536,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
     assert last_run.failure.stage == FailureStage.COMMIT
     assert dashboard_state.status == "failed"
     assert dashboard_state.last_run_id == last_run.run_id
-    assert dashboard_state.branch_name == "zeroone-ops/ax123/service"
+    assert dashboard_state.branch_name == _CANONICAL_SONAR_AX123_BRANCH
     assert dashboard_state.commit_sha is None
     assert dashboard_state.change_request_url is None
     assert dashboard_state.last_error == "Commit failed: git commit failed"

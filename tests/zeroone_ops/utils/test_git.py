@@ -1,0 +1,54 @@
+from zeroone_ops.utils.git import (
+    build_remediation_branch_lookup_names,
+    build_remediation_branch_name,
+)
+
+
+def test_build_remediation_branch_name_uses_canonical_source_and_reference_segments() -> None:
+    assert (
+        build_remediation_branch_name(
+            branch_prefix="zeroone-ops",
+            source="sonarqube",
+            source_reference="AX-123",
+            file_path="src/service.py",
+        )
+        == "zeroone-ops/sonarqube-0f1141ab4d989706/ax-123-0fcad5aa5945363d/service"
+    )
+
+
+def test_build_remediation_branch_name_distinguishes_ambiguous_source_reference_pairs() -> None:
+    first_branch = build_remediation_branch_name(
+        branch_prefix="zeroone-ops",
+        source="tool-a",
+        source_reference="finding",
+        file_path="src/service.py",
+    )
+    second_branch = build_remediation_branch_name(
+        branch_prefix="zeroone-ops",
+        source="tool",
+        source_reference="a-finding",
+        file_path="src/service.py",
+    )
+
+    assert first_branch != second_branch
+
+
+def test_build_remediation_branch_lookup_names_includes_legacy_sonar_branch() -> None:
+    assert build_remediation_branch_lookup_names(
+        branch_prefix="zeroone-ops",
+        source="sonarqube",
+        source_reference="AX-123",
+        file_path="src/service.py",
+    ) == (
+        "zeroone-ops/sonarqube-0f1141ab4d989706/ax-123-0fcad5aa5945363d/service",
+        "zeroone-ops/ax-123/service",
+    )
+
+
+def test_build_remediation_branch_lookup_names_uses_only_canonical_non_sonar_branch() -> None:
+    assert build_remediation_branch_lookup_names(
+        branch_prefix="zeroone-ops",
+        source="ruff-sarif",
+        source_reference="AX-123",
+        file_path="src/service.py",
+    ) == ("zeroone-ops/ruff-sarif-9fb4ba99a4827142/ax-123-0fcad5aa5945363d/service",)

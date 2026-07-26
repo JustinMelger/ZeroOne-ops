@@ -26,7 +26,7 @@ from zeroone_ops.services.shared.change_request_lookup import (
     build_change_request_lookup,
 )
 from zeroone_ops.settings import SettingsError
-from zeroone_ops.utils.git import build_issue_branch_name
+from zeroone_ops.utils.git import build_remediation_branch_lookup_names
 
 LOGGER = logging.getLogger(__name__)
 _STALE_IN_PROGRESS_WINDOW = timedelta(hours=24)
@@ -39,7 +39,6 @@ _SKIP_REASON_MESSAGES = {
     "excluded_by_policy": "explicitly excluded from automation",
     "missing_file_path": "without a target file path",
     "missing_local_file": "without a matching local file",
-    "unsupported_source": "from unsupported sources",
     "unsupported_status": "with unsupported status",
     "unsupported_type": "with unsupported type",
 }
@@ -271,7 +270,7 @@ class DashboardItemIntakeService:
         policy_state: DashboardPolicyState,
     ) -> bool:
         """Return whether one dashboard item matches canonical dashboard exclusion policy."""
-        issue_key = item.rule if item.source == "sonarqube" else None
+        issue_key = item.rule
         if issue_key is None:
             return False
         return any(
@@ -288,28 +287,29 @@ class DashboardItemIntakeService:
         """Return whether one dashboard item is already represented by an open MR."""
         if item.change_request_url:
             return "active_merge_request"
-        if (
-            self.config is None
-            or change_request_lookup is None
-            or item.source != "sonarqube"
-            or item.file is None
-        ):
+        if self.config is None or change_request_lookup is None or item.file is None:
             return None
-        branch_name = item.branch_name or build_issue_branch_name(
-            branch_prefix=self.config.branch_prefix,
-            issue_key=item.source_reference,
-            file_path=item.file,
-        )
         target_branch = self.config.require_remediation_target_branch(
             reason="Dashboard review intake",
         )
-        existing_merge_request = change_request_lookup.find_open_change_request(
-            source_branch=branch_name,
-            target_branch=target_branch,
+        branch_names = (
+            (item.branch_name,)
+            if item.branch_name is not None
+            else build_remediation_branch_lookup_names(
+                branch_prefix=self.config.branch_prefix,
+                source=item.source,
+                source_reference=item.source_reference,
+                file_path=item.file,
+            )
         )
-        if existing_merge_request is None:
-            return None
-        return "active_merge_request"
+        for branch_name in branch_names:
+            existing_merge_request = change_request_lookup.find_open_change_request(
+                source_branch=branch_name,
+                target_branch=target_branch,
+            )
+            if existing_merge_request is not None:
+                return "active_merge_request"
+        return None
 
     def _recover_stale_in_progress_items(
         self,

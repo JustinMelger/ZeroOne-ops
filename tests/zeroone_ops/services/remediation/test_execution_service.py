@@ -18,6 +18,7 @@ from zeroone_ops.services.remediation.execution_service import ExecutionService
 from zeroone_ops.services.remediation.publish_service import PublishResult
 from zeroone_ops.services.shared.branch_manager import BranchManagerError
 from zeroone_ops.services.shared.workspace_snapshot import WorkspaceSnapshotService
+from zeroone_ops.utils.git import build_remediation_branch_name
 
 
 def build_config(*, execution_mode: str = "local") -> AppConfig:
@@ -61,11 +62,6 @@ def build_patch() -> PatchProposal:
         change_request_title="fix: patch service",
         change_request_description="summary",
     )
-
-
-def fake_branch_name(*, branch_prefix: str, issue_key: str, file_path: str) -> str:
-    del branch_prefix, issue_key, file_path
-    return "zeroone-ops/fix"
 
 
 def fake_create_branch(branch_name: str) -> None:
@@ -132,7 +128,6 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
     snapshot = WorkspaceSnapshotService(tmp_path).capture(["src/service.py"])
 
     monkeypatch.setattr(service.branch_manager, "ensure_ready", fake_noop)
-    monkeypatch.setattr(service.branch_manager, "build_branch_name", fake_branch_name)
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
 
     def fake_analyze_issue(
@@ -185,7 +180,12 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
     assert result.failure is not None
     assert result.failure.stage.value == "commit"
     assert result.status_message == "Commit failed: git commit failed"
-    assert result.branch_name == "zeroone-ops/fix"
+    assert result.branch_name == build_remediation_branch_name(
+        branch_prefix="zeroone-ops",
+        source="sonarqube",
+        source_reference="FIXTURE-1",
+        file_path="src/service.py",
+    )
     assert result.commit_sha is None
     assert target_file.read_text(encoding="utf-8") == "value = 1\n"
 
@@ -194,7 +194,6 @@ def test_execute_reuses_existing_merge_request_in_ci_mode(tmp_path: Path, monkey
     service = ExecutionService(tmp_path, build_config(execution_mode="ci"))
 
     monkeypatch.setattr(service.branch_manager, "ensure_ready", fake_noop)
-    monkeypatch.setattr(service.branch_manager, "build_branch_name", fake_branch_name)
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
     monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analysis_result)
 
@@ -212,7 +211,12 @@ def test_execute_reuses_existing_merge_request_in_ci_mode(tmp_path: Path, monkey
     result = service.execute(selected_issue=build_issue(), dry_run=False)
 
     assert result.failure is None
-    assert result.branch_name == "zeroone-ops/fix"
+    assert result.branch_name == build_remediation_branch_name(
+        branch_prefix="zeroone-ops",
+        source="sonarqube",
+        source_reference="FIXTURE-1",
+        file_path="src/service.py",
+    )
     assert result.commit_sha == "abc123"
     assert result.change_request_action == "reused"
     assert (
@@ -228,7 +232,6 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
     service = ExecutionService(tmp_path, build_config(execution_mode="ci"))
 
     monkeypatch.setattr(service.branch_manager, "ensure_ready", fake_noop)
-    monkeypatch.setattr(service.branch_manager, "build_branch_name", fake_branch_name)
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
     monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analysis_result)
 
@@ -299,7 +302,6 @@ def test_execute_returns_rejected_when_local_approval_declines(
     snapshot = WorkspaceSnapshotService(tmp_path).capture(["src/service.py"])
 
     monkeypatch.setattr(service.branch_manager, "ensure_ready", fake_noop)
-    monkeypatch.setattr(service.branch_manager, "build_branch_name", fake_branch_name)
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
 
     def fake_analyze_issue(
@@ -351,7 +353,6 @@ def test_execute_returns_rejected_when_analysis_requires_manual_review(
     service = ExecutionService(tmp_path, build_config(execution_mode="ci"))
 
     monkeypatch.setattr(service.branch_manager, "ensure_ready", fake_noop)
-    monkeypatch.setattr(service.branch_manager, "build_branch_name", fake_branch_name)
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
 
     def fake_analyze_issue(

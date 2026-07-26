@@ -58,11 +58,14 @@ flowchart TD
 
 ```bash
 uv sync
-uv run zeroone-ops dashboard sonar --dry-run
+uv run zeroone-ops findings sync --dry-run
 uv run zeroone-ops dashboard policy --dry-run
 uv run zeroone-ops dashboard remediate --dry-run
 uv run zeroone-ops review --dry-run
 ```
+
+`zeroone-ops dashboard sonar` remains available as a legacy alias for existing
+GitLab pipeline configuration. Prefer `zeroone-ops findings sync` for new setup.
 
 Useful quality commands:
 

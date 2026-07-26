@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from zeroone_ops.models.dashboard import DashboardDocument, DashboardItem
 from zeroone_ops.models.finding import NormalizedFinding
+from zeroone_ops.models.remediation import STATIC_ANALYSIS_FIX_CATEGORY
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 
 _DISCOVERY_OWNED_FINDING_STATUSES = frozenset({"open"})
@@ -96,7 +97,7 @@ class FindingDashboardSyncService:
         item_type = (
             existing.type
             if existing is not None
-            else finding.remediation_context.category or "code_smell_fix"
+            else finding.remediation_context.category or STATIC_ANALYSIS_FIX_CATEGORY
         )
         return DashboardItem(
             id=self._dashboard_item_id(finding),

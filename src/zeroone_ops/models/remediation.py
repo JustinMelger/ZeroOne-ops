@@ -7,6 +7,24 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+STATIC_ANALYSIS_FIX_CATEGORY = "static_analysis_fix"
+_LEGACY_REMEDIATION_CATEGORY_ALIASES = {
+    "code_smell_fix": STATIC_ANALYSIS_FIX_CATEGORY,
+    "lint_fix": STATIC_ANALYSIS_FIX_CATEGORY,
+}
+
+
+def normalize_remediation_category(category: str | None) -> str | None:
+    """Return the canonical shared remediation category for one item."""
+    if category is None:
+        return None
+    return _LEGACY_REMEDIATION_CATEGORY_ALIASES.get(category, category)
+
+
+def is_remediation_eligible_category(category: str | None) -> bool:
+    """Return whether one shared remediation category is currently supported."""
+    return normalize_remediation_category(category) == STATIC_ANALYSIS_FIX_CATEGORY
+
 
 class RemediationWorkItem(BaseModel):
     """Represent one provider-neutral remediation candidate."""

@@ -1,5 +1,6 @@
 """Git-related helpers."""
 
+import hashlib
 from pathlib import PurePosixPath
 
 
@@ -16,12 +17,64 @@ def sanitize_branch_fragment(value: str) -> str:
     return "-".join(part for part in cleaned.split("-") if part)
 
 
+def build_remediation_branch_name(
+    *,
+    branch_prefix: str,
+    source: str,
+    source_reference: str,
+    file_path: str,
+) -> str:
+    """Build an unambiguous branch name for a normalized remediation item."""
+    path_name = PurePosixPath(file_path).stem
+    return "/".join(
+        part
+        for part in [
+            sanitize_branch_fragment(branch_prefix),
+            _branch_identity_fragment(source, fallback="source"),
+            _branch_identity_fragment(source_reference, fallback="finding"),
+            sanitize_branch_fragment(path_name),
+        ]
+        if part
+    )
+
+
+def build_remediation_branch_lookup_names(
+    *,
+    branch_prefix: str,
+    source: str,
+    source_reference: str,
+    file_path: str,
+) -> tuple[str, ...]:
+    """Return canonical and compatible legacy names for open-request lookup."""
+    canonical_name = build_remediation_branch_name(
+        branch_prefix=branch_prefix,
+        source=source,
+        source_reference=source_reference,
+        file_path=file_path,
+    )
+    if source != "sonarqube":
+        return (canonical_name,)
+    legacy_name = build_issue_branch_name(
+        branch_prefix=branch_prefix,
+        issue_key=source_reference,
+        file_path=file_path,
+    )
+    return (canonical_name,) if canonical_name == legacy_name else (canonical_name, legacy_name)
+
+
+def _branch_identity_fragment(value: str, *, fallback: str) -> str:
+    """Return a readable, collision-resistant branch segment for raw identity text."""
+    fragment = sanitize_branch_fragment(value) or fallback
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+    return f"{fragment}-{digest}"
+
+
 def build_issue_branch_name(*, branch_prefix: str, issue_key: str, file_path: str) -> str:
     """Build a predictable branch name for a selected issue.
 
     Args:
         branch_prefix: Configured branch prefix.
-        issue_key: SonarQube issue key.
+        issue_key: Stable finding key from the normalized work item.
         file_path: Repository-relative target file path.
 
     Returns:

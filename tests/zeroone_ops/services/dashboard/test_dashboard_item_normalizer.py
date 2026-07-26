@@ -8,7 +8,7 @@ def build_item(
     *,
     item_id: str = "sonar:1",
     source: str = "sonarqube",
-    item_type: str = "code_smell_fix",
+    item_type: str = "static_analysis_fix",
     status: str = "open",
     file_path: str | None = "src/service.py",
     source_reference: str = "AX123",
@@ -53,6 +53,31 @@ def test_normalize_returns_provider_neutral_work_item_for_supported_dashboard_it
     assert result.work_item.component == "sample-project:src/service.py"
     assert result.work_item.project == "sample-project"
     assert result.message == ""
+
+
+def test_normalize_supports_static_analysis_items_from_any_finding_source() -> None:
+    normalizer = DashboardItemNormalizer()
+
+    result = normalizer.normalize(build_item(item_id="ruff-sarif:1", source="ruff-sarif"))
+
+    assert result.work_item is not None
+    assert result.work_item.source_type == "ruff-sarif"
+
+
+def test_normalize_keeps_legacy_code_smell_items_supported() -> None:
+    normalizer = DashboardItemNormalizer()
+
+    result = normalizer.normalize(build_item(item_type="code_smell_fix"))
+
+    assert result.work_item is not None
+
+
+def test_normalize_keeps_legacy_lint_items_supported() -> None:
+    normalizer = DashboardItemNormalizer()
+
+    result = normalizer.normalize(build_item(source="ruff-sarif", item_type="lint_fix"))
+
+    assert result.work_item is not None
 
 
 def test_normalize_rejects_unsupported_item_type() -> None:

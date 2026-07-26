@@ -101,7 +101,20 @@ Once a finding is ingested, the downstream workflow should feel shared:
 That means the product should avoid source-specific behavior in the main
 operator flow unless it is truly necessary.
 
-### 4.3 Source-Specific Metadata Is Secondary
+### 4.3 Shared Remediation Eligibility
+
+Automation eligibility must be decided from shared normalized finding semantics,
+not the source that reported the finding.
+
+The first supported shared category is `static_analysis_fix`. Both SonarQube
+code-smell findings and SARIF lint findings normalize to that category.
+
+Existing dashboard records using the prior `code_smell_fix` or `lint_fix` names
+remain eligible as compatibility aliases, but new normalized findings must use
+`static_analysis_fix`. Source-local metadata remains available for traceability
+and prompt shaping, not as an eligibility gate.
+
+### 4.4 Source-Specific Metadata Is Secondary
 
 Different finding sources may provide different metadata richness.
 

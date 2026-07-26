@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from zeroone_ops.models.sonar import SonarIssue
-from zeroone_ops.runner import sync_dashboard_sonar
+from zeroone_ops.runner import sync_dashboard_sonar, sync_findings
 
 
 def _unset_sonarqube_environment(monkeypatch) -> None:
@@ -242,7 +242,7 @@ def test_sync_dashboard_sonar_reports_no_eligible_issues_in_ci_mode(
     assert captured["managed_source_ids"] == {"sonarqube"}
 
 
-def test_sync_dashboard_sonar_dry_run_reports_sarif_finding_count(
+def test_sync_findings_dry_run_reports_sarif_finding_count_on_gitlab(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -313,7 +313,7 @@ def test_sync_dashboard_sonar_dry_run_reports_sarif_finding_count(
         encoding="utf-8",
     )
 
-    summary = sync_dashboard_sonar(dry_run=True)
+    summary = sync_findings(dry_run=True)
 
     assert summary.status.value == "synced"
     assert "Dry-run found 1 findings for dashboard sync." in summary.message
