@@ -12,6 +12,7 @@ from pathlib import Path
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RunStatus, utc_now
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
+from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.review.github import GitHubReviewClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
@@ -21,6 +22,13 @@ from zeroone_ops.services.control_plane.policy.github_policy_issue_service impor
 )
 from zeroone_ops.services.control_plane.policy.github_policy_processing_runner import (
     GitHubPolicyProcessingRunner,
+)
+from zeroone_ops.services.control_plane.work_items.github_finding_sync_service import (
+    GitHubFindingSyncResult,
+    GitHubFindingSyncService,
+)
+from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
+    GitHubWorkItemService,
 )
 from zeroone_ops.services.dashboard.dashboard_policy_processing_runner import (
     DashboardPolicyProcessingRunner,
@@ -99,6 +107,23 @@ def _build_github_policy_processing_runner(
             ),
         ),
         run_state_service=run_state_service,
+    )
+
+
+def _build_github_policy_issue_service(
+    *,
+    repo_root: Path,
+    config: AppConfig,
+    state: AppState,
+) -> GitHubPolicyIssueService:
+    """Build provider-local GitHub policy access for another control-plane workflow."""
+    return GitHubPolicyIssueService(
+        GitHubPolicyClient(load_github_connection_config()),
+        policy_view_builder=_build_dashboard_policy_view_builder(
+            repo_root=repo_root,
+            config=config,
+            state=state,
+        ),
     )
 
 
@@ -292,6 +317,124 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
         ),
         state_path=state_store.path,
     )
+
+
+def sync_findings(*, dry_run: bool = False) -> RunSummary:
+    """Collect normalized findings and publish promoted GitHub work items."""
+    config = load_config()
+    state_store = StateStore(
+        config.state.path,
+        base_branch=config.base_branch,
+        gitlab_project_id=load_gitlab_project_id_override(),
+        sonarqube_project_key=load_sonarqube_project_key_override(),
+    )
+    state = state_store.load()
+    run_state_service = RunStateService(config=config, state_store=state_store, state=state)
+    run_id = _build_run_id()
+    record = run_state_service.start_run(run_id)
+    if config.platform != "github":
+        message = "Finding sync publication is only implemented for GitHub in this phase."
+        return run_state_service.fail_run(
+            record=record,
+            error_message=message,
+            failure=FailureDetails(stage=FailureStage.ISSUE_INTAKE, message=message),
+        )
+
+    repo_root = Path.cwd()
+    active_dry_run = dry_run or config.dry_run
+    intake_service = IssueIntakeService(repo_root=repo_root, config=config)
+    collection = intake_service.collect_dashboard_sync_issues(
+        dry_run=active_dry_run,
+        run_id=run_id,
+    )
+    if (
+        not collection.finding_collection.findings
+        and not collection.finding_collection.metadata.managed_source_ids
+    ):
+        record.status = collection_message_status(collection.message)
+        record.updated_at = utc_now()
+        state_store.save(state)
+        return run_state_service.build_summary(
+            run_id=run_id,
+            status=record.status,
+            message=collection.message,
+        )
+    github_config = load_github_connection_config()
+    policy_state = _build_github_policy_issue_service(
+        repo_root=repo_root,
+        config=config,
+        state=state,
+    ).load_policy_state(
+        repository_id=github_config.repository,
+        persist=not active_dry_run,
+    )
+    sync_result = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(GitHubWorkItemClient(github_config))
+    ).sync(
+        repository_id=github_config.repository,
+        findings=collection.finding_collection.findings,
+        policy_state=policy_state,
+        managed_source_ids=set(collection.finding_collection.metadata.managed_source_ids),
+        persist=not active_dry_run,
+    )
+    record.status = collection_message_status("synced")
+    record.updated_at = utc_now()
+    state_store.save(state)
+    prefix = "Dry-run would publish" if active_dry_run else "Published"
+    return run_state_service.build_summary(
+        run_id=run_id,
+        status=record.status,
+        message=(
+            f"{prefix} {sync_result.promoted_count} "
+            "promoted findings as GitHub work items; "
+            f"{sync_result.backlog_only_count} findings remain backlog-only.\n"
+            "Normalized severities: "
+            f"{_format_count_summary(sync_result.normalized_severity_counts)}.\n"
+            "Promotion policy: "
+            f"enabled={_format_enabled_severities(sync_result.enabled_severities)}; "
+            "backlog reasons: "
+            f"{_format_count_summary(sync_result.backlog_reason_counts)}."
+            + _format_lifecycle_reconciliation(sync_result)
+        ),
+    )
+
+
+def _format_count_summary(counts: dict[str, int]) -> str:
+    """Render deterministic aggregate counts for one CLI-facing sync summary."""
+    if not counts:
+        return "none"
+    return ", ".join(f"{key}={value}" for key, value in counts.items())
+
+
+def _format_enabled_severities(enabled_severities: tuple[str, ...]) -> str:
+    """Render the resolved policy severities for one CLI-facing sync summary."""
+    return ", ".join(enabled_severities) or "none"
+
+
+def _format_lifecycle_reconciliation(sync_result: GitHubFindingSyncResult) -> str:
+    """Render non-empty policy and stale-item lifecycle reconciliation details."""
+    if (
+        sync_result.demoted_to_candidate_count == 0
+        and sync_result.retained_protected_count == 0
+        and sync_result.stale_demoted_to_candidate_count == 0
+        and sync_result.stale_retained_protected_count == 0
+    ):
+        return ""
+    lines = []
+    if sync_result.demoted_to_candidate_count or sync_result.retained_protected_count:
+        lines.append(
+            "Policy reconciliation: "
+            f"demoted to candidate={sync_result.demoted_to_candidate_count}; "
+            f"protected work items retained={sync_result.retained_protected_count}."
+        )
+    if sync_result.stale_demoted_to_candidate_count or sync_result.stale_retained_protected_count:
+        lines.append(
+            "Stale finding reconciliation: "
+            f"demoted to candidate={sync_result.stale_demoted_to_candidate_count}; "
+            "protected work items retained="
+            f"{sync_result.stale_retained_protected_count}."
+        )
+    return "\n" + "\n".join(lines)
 
 
 def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:

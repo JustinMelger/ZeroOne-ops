@@ -254,6 +254,23 @@ Implementation boundary for the first slice:
 This keeps tool execution, artifact generation, and finding normalization as
 separate concerns.
 
+Additional lessons locked in after the first live Ruff SARIF dogfood pass on
+Friday, July 24, 2026:
+
+- SARIF `file://` artifact URIs that resolve inside the checked-out repository
+  must be converted back to repository-relative paths instead of being
+  rejected as absolute paths
+- empty SARIF artifacts still need stable managed-source ownership so repeated
+  sync runs can reconcile a previously populated source to zero findings
+- SARIF runs with rejected, malformed, or locally unusable results must not be
+  treated as authoritative for stale reconciliation
+- full and partial SARIF fingerprint identities must be scoped by stable
+  finding context so two distinct results cannot collapse into one dashboard
+  item identity
+
+These are now part of the expected SARIF ingestion boundary rather than follow-
+up refinements.
+
 ## 9. Downstream Integration Rules
 
 The downstream workflow should consume normalized findings only.
@@ -273,6 +290,17 @@ The shared workflow code should not branch on:
 - file artifact vs API transport
 
 except at the ingestion boundary.
+
+For GitHub rollout, one additional boundary is required:
+
+- normalized finding intake stays shared
+- GitHub publication of authoritative work-item issues stays provider-local
+- repeated sync and lifecycle projection on GitHub stay provider-local at the
+  transport and persistence layer while reusing shared normalized finding
+  semantics
+
+This keeps the ingestion seam honest while avoiding a false-neutral GitHub
+issue transport abstraction too early.
 
 ## 10. Stable Identity Guidance
 
@@ -321,8 +349,10 @@ Recommended migration sequence:
 ### Phase 4: Validate source-agnostic downstream flow
 
 - live-test dashboard intake
-- live-test remediation selection
-- live-test GitHub control-plane work-item projection using the new source
+- publish normalized findings into authoritative GitHub work-item issues
+- validate repeated GitHub sync and stale-item reconciliation
+- widen remediation only after GitHub visibility and lifecycle behavior are
+  trusted
 
 ## 12. Open Questions
 
@@ -401,8 +431,11 @@ The config shape should be:
 ```json
 {
   "sarif": {
-    "artifact_paths": [
-      "artifacts/ruff.sarif"
+    "artifacts": [
+      {
+        "path": "artifacts/ruff.sarif",
+        "source_id": "ruff-sarif"
+      }
     ]
   }
 }
@@ -411,9 +444,14 @@ The config shape should be:
 Rules:
 
 - the block should be named `sarif`, not `ruff`
-- the field should be `artifact_paths`, not a single `artifact_path`
+- the field should be `artifacts`, with a path and stable `source_id` per artifact
 - the ingestion source reads existing files from those paths
 - the analyzer pipeline remains responsible for generating the artifacts
+- each configured artifact represents one logical SARIF tool source
+- an empty artifact uses its declared `source_id` for authoritative stale-item
+  reconciliation
+- a non-empty artifact whose derived tool source does not match its declared
+  `source_id` is reported as a warning and remains non-authoritative
 
 Why:
 
@@ -550,6 +588,29 @@ This means:
 This keeps the ingestion seam honest. If normalized findings immediately split
 back into source-local queue rules, then the new shared ingestion contract is
 only cosmetic.
+
+### 12.8 Locked Decision: Visibility Rollout Precedes Remediation Widening
+
+After normalized finding ingestion is live on a new source, the next rollout
+step should be visibility and lifecycle validation before widening remediation.
+
+The concrete order is:
+
+1. collect and normalize findings
+2. publish promoted findings into provider-local operator surfaces
+3. validate repeated sync, stale reconciliation, and operator traceability
+4. only then generalize remediation eligibility for the new source
+
+For the current rollout this means:
+
+- GitHub work-item issue publication is the next boundary after successful Ruff
+  SARIF ingestion
+- the still-open remediation normalization work remains a follow-up phase,
+  not part of the first GitHub visibility slice
+
+This is a rollout rule, not a denial that the downstream workflow is shared.
+The shared workflow boundary remains true; the widening order is simply staged
+for safety and feedback quality.
 
 ### 12.7 Locked Decision: Cross-Source Dedupe Happens After Normalization
 

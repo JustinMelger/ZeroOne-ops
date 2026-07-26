@@ -30,7 +30,12 @@ class SarifFindingSource:
         """Initialize the SARIF source with the repository root for path normalization."""
         self.repo_root = (repo_root or Path.cwd()).resolve()
 
-    def collect_artifact_findings(self, artifact_path: Path) -> FindingCollectionResult:
+    def collect_artifact_findings(
+        self,
+        artifact_path: Path,
+        *,
+        declared_source_id: str | None = None,
+    ) -> FindingCollectionResult:
         """Collect normalized findings from one SARIF artifact file."""
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
@@ -39,27 +44,42 @@ class SarifFindingSource:
         warnings: list[str] = []
         skipped_count = 0
         artifact_source_ids: set[str] = set()
-        authoritative_source_ids: set[str] = set()
-        fallback_source_id = _artifact_fallback_source_id(artifact_path)
+        source_completeness: dict[str, bool] = {}
+        fallback_source_id = declared_source_id or _artifact_fallback_source_id(artifact_path)
+        runs = payload.get("runs", [])
+        empty_runs = isinstance(runs, list) and not runs
 
-        for run in payload.get("runs", []):
-            if not isinstance(run, dict):
-                warnings.append("Skipped SARIF run with unexpected non-object shape.")
-                skipped_count += 1
-                continue
-            (
-                findings_for_run,
-                warnings_for_run,
-                skipped_for_run,
-                source_id,
-                authoritative,
-            ) = _collect_run_findings(run, repo_root=self.repo_root)
-            findings.extend(findings_for_run)
-            warnings.extend(warnings_for_run)
-            skipped_count += skipped_for_run
-            artifact_source_ids.add(source_id)
-            if authoritative:
-                authoritative_source_ids.add(source_id)
+        if not isinstance(runs, list):
+            warnings.append("Skipped SARIF runs with unexpected non-list shape.")
+            skipped_count += 1
+        else:
+            for run in runs:
+                if not isinstance(run, dict):
+                    warnings.append("Skipped SARIF run with unexpected non-object shape.")
+                    skipped_count += 1
+                    continue
+                (
+                    findings_for_run,
+                    warnings_for_run,
+                    skipped_for_run,
+                    source_id,
+                    is_complete,
+                ) = _collect_run_findings(run, repo_root=self.repo_root)
+                warnings.extend(warnings_for_run)
+                skipped_count += skipped_for_run
+                if declared_source_id is not None and source_id != declared_source_id:
+                    skipped_count += max(1, len(findings_for_run))
+                    warnings.append(
+                        "Skipped SARIF run because its tool source "
+                        f"{source_id!r} does not match declared source "
+                        f"{declared_source_id!r}."
+                    )
+                    continue
+                findings.extend(findings_for_run)
+                artifact_source_ids.add(source_id)
+                source_completeness[source_id] = (
+                    source_completeness.get(source_id, True) and is_complete
+                )
 
         return FindingCollectionResult(
             findings=findings,
@@ -70,8 +90,12 @@ class SarifFindingSource:
                 ),
                 artifact_reference=str(artifact_path),
                 managed_source_ids=sorted(
-                    authoritative_source_ids
-                    or ({fallback_source_id} if not artifact_source_ids else set())
+                    [
+                        source_id
+                        for source_id, is_complete in source_completeness.items()
+                        if is_complete
+                    ]
+                    or ({fallback_source_id} if empty_runs else set())
                 ),
                 warnings=warnings,
                 statistics={

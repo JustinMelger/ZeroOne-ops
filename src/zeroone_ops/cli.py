@@ -15,14 +15,17 @@ from zeroone_ops.runner import (
     dashboard_remediate,
     review,
     sync_dashboard_sonar,
+    sync_findings,
 )
 from zeroone_ops.services.shared.run_state_service import RunSummary
 
 app = typer.Typer(add_completion=False, help="ZeroOne Ops CLI.")
 review_app = typer.Typer(add_completion=False, help="Merge request review workflow.")
 dashboard_app = typer.Typer(add_completion=False, help="Dashboard sync workflows.")
+findings_app = typer.Typer(add_completion=False, help="Finding ingestion workflows.")
 app.add_typer(review_app, name="review")
 app.add_typer(dashboard_app, name="dashboard")
+app.add_typer(findings_app, name="findings")
 
 
 def _echo_review_summary(*, dry_run: bool) -> None:
@@ -84,6 +87,15 @@ def dashboard_sonar_command(
 ) -> None:
     """Sync eligible SonarQube issues into the dashboard."""
     _echo_dashboard_summary(dry_run=dry_run)
+
+
+@findings_app.command("sync")
+def findings_sync_command(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Run without publishing work items."),
+) -> None:
+    """Publish policy-promoted normalized findings for the active platform."""
+    configure_logging()
+    _echo_summary(sync_findings(dry_run=dry_run))
 
 
 @dashboard_app.command("remediate")

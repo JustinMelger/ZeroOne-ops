@@ -142,6 +142,7 @@ class OpenAIConnectionConfig(BaseModel):
         mlflow_enabled: Whether MLflow OpenAI autologging should be enabled.
         mlflow_tracking_uri: Optional MLflow tracking URI.
         mlflow_experiment_name: Optional MLflow experiment name.
+        mlflow_experiment_id: Optional MLflow experiment ID for trace delivery.
     """
 
     api_key: str
@@ -150,6 +151,7 @@ class OpenAIConnectionConfig(BaseModel):
     mlflow_enabled: bool = False
     mlflow_tracking_uri: str | None = None
     mlflow_experiment_name: str | None = None
+    mlflow_experiment_id: str | None = None
 
 
 class StateConfig(BaseModel):
@@ -188,7 +190,14 @@ class SonarQubeConfig(BaseModel):
 class SarifConfig(BaseModel):
     """Configure SARIF finding-source behavior."""
 
-    artifact_paths: list[Path] = Field(default_factory=list)
+    artifacts: list[SarifArtifactConfig] = Field(default_factory=list)
+
+
+class SarifArtifactConfig(BaseModel):
+    """Declare one SARIF artifact and its stable finding-source identity."""
+
+    path: Path
+    source_id: str = Field(min_length=1)
 
 
 class AppConfig(BaseModel):

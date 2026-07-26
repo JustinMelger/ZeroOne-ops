@@ -52,7 +52,21 @@ class GitHubWorkItemLookupService:
         source: WorkItemSourceRef,
     ) -> GitHubWorkItemLookupResult | None:
         """Return the matching open authoritative work item when present."""
+        for result in self.list_open_work_items(repository_id=repository_id):
+            if result.work_item.kind != kind:
+                continue
+            if result.work_item.source == source:
+                return result
+        return None
+
+    def list_open_work_items(
+        self,
+        *,
+        repository_id: str,
+    ) -> list[GitHubWorkItemLookupResult]:
+        """Return all parseable open authoritative work items in one repository."""
         authoritative_label = self.renderer.AUTHORITATIVE_WORK_ITEM_LABEL
+        results: list[GitHubWorkItemLookupResult] = []
         for issue in self.client.list_open_issues(
             repository_id=repository_id,
             labels=[authoritative_label],
@@ -71,8 +85,5 @@ class GitHubWorkItemLookupService:
                 continue
             if parsed is None:
                 continue
-            if parsed.kind != kind:
-                continue
-            if parsed.source == source:
-                return GitHubWorkItemLookupResult(issue=issue, work_item=parsed)
-        return None
+            results.append(GitHubWorkItemLookupResult(issue=issue, work_item=parsed))
+        return results

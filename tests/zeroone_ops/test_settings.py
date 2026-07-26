@@ -540,7 +540,7 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
     assert config.sonarqube.mock_issues_path == Path("fixtures/sonar/issues.json")
 
 
-def test_settings_load_sarif_artifact_paths(tmp_path: Path, monkeypatch) -> None:
+def test_settings_load_sarif_artifacts(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
 
     (tmp_path / ".zeroone-ops.json").write_text(
@@ -551,9 +551,9 @@ def test_settings_load_sarif_artifact_paths(tmp_path: Path, monkeypatch) -> None
             "target_branch": "main"
           },
           "sarif": {
-            "artifact_paths": [
-              "artifacts/ruff.sarif",
-              "artifacts/codeql.sarif"
+            "artifacts": [
+              {"path": "artifacts/ruff.sarif", "source_id": "ruff-sarif"},
+              {"path": "artifacts/codeql.sarif", "source_id": "codeql-sarif"}
             ]
           },
           "gitlab": {
@@ -566,9 +566,9 @@ def test_settings_load_sarif_artifact_paths(tmp_path: Path, monkeypatch) -> None
 
     config = load_config()
 
-    assert config.sarif.artifact_paths == [
-        Path("artifacts/ruff.sarif"),
-        Path("artifacts/codeql.sarif"),
+    assert [(artifact.path, artifact.source_id) for artifact in config.sarif.artifacts] == [
+        (Path("artifacts/ruff.sarif"), "ruff-sarif"),
+        (Path("artifacts/codeql.sarif"), "codeql-sarif"),
     ]
 
 

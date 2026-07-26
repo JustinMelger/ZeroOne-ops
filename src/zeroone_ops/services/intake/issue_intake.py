@@ -104,8 +104,13 @@ class IssueIntakeService:
             sonar_collection = self._live_sonarqube_collection(run_id=run_id)
             if sonar_collection is not None:
                 collections.append(sonar_collection)
-        for artifact_path in self.config.sarif.artifact_paths:
-            collections.append(SarifFindingSource().collect_artifact_findings(artifact_path))
+        for artifact in self.config.sarif.artifacts:
+            collections.append(
+                SarifFindingSource().collect_artifact_findings(
+                    artifact.path,
+                    declared_source_id=artifact.source_id,
+                )
+            )
         return collections
 
     def _live_sonarqube_collection(self, *, run_id: str) -> FindingCollectionResult | None:
@@ -130,8 +135,6 @@ class IssueIntakeService:
             findings.extend(collection.findings)
             warnings.extend(collection.metadata.warnings)
             managed_source_ids.update(collection.metadata.managed_source_ids)
-            if not collection.metadata.managed_source_ids:
-                managed_source_ids.add(collection.metadata.source_id)
             for key, value in collection.metadata.statistics.items():
                 statistics[key] = statistics.get(key, 0) + value
         return FindingCollectionResult(

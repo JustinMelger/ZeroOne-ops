@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -1151,8 +1152,9 @@ def test_openai_review_precision_reconciliation_uses_high_reasoning() -> None:
     )
 
 
-def test_openai_client_enables_optional_mlflow_autologging(monkeypatch) -> None:
+def test_openai_client_enables_optional_mlflow_autologging(monkeypatch, caplog) -> None:
     calls: list[tuple[str, object]] = []
+    caplog.set_level(logging.INFO)
 
     monkeypatch.setattr(llm_client, "_MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED", False)
     monkeypatch.setattr(
@@ -1164,6 +1166,11 @@ def test_openai_client_enables_optional_mlflow_autologging(monkeypatch) -> None:
         llm_client.mlflow,
         "set_experiment",
         lambda name: calls.append(("experiment", name)),
+    )
+    monkeypatch.setattr(
+        llm_client.mlflow_tracing,
+        "set_destination",
+        lambda destination: calls.append(("destination", destination.experiment_id)),
     )
     monkeypatch.setattr(
         llm_client.mlflow_openai,
@@ -1178,6 +1185,7 @@ def test_openai_client_enables_optional_mlflow_autologging(monkeypatch) -> None:
             mlflow_enabled=True,
             mlflow_tracking_uri="http://localhost:5000",
             mlflow_experiment_name="zeroone-ops-review",
+            mlflow_experiment_id="123",
         ),
         solution_output_path=None,
     )
@@ -1185,8 +1193,10 @@ def test_openai_client_enables_optional_mlflow_autologging(monkeypatch) -> None:
     assert calls == [
         ("tracking_uri", "http://localhost:5000"),
         ("experiment", "zeroone-ops-review"),
+        ("destination", "123"),
         ("autolog", {"silent": True, "log_traces": True}),
     ]
+    assert "MLflow OpenAI autologging enabled" in caplog.text
 
 
 def test_openai_client_continues_when_mlflow_setup_fails(monkeypatch, caplog) -> None:

@@ -138,6 +138,22 @@ def test_load_or_create_creates_policy_issue_when_missing() -> None:
     assert "zeroone-policy-state" in issue.body
 
 
+def test_load_policy_state_uses_seeded_defaults_without_creating_in_dry_run() -> None:
+    client = FakeGitHubPolicyClient()
+    service = GitHubPolicyIssueService(
+        client,
+        policy_view_builder=FakePolicyViewBuilder(),
+    )
+
+    policy_state = service.load_policy_state(
+        repository_id="octo-org/octo-repo",
+        persist=False,
+    )
+
+    assert [entry.severity for entry in policy_state.severity_policy] == ["low", "medium", "high"]
+    assert client.created_issue is None
+
+
 def test_process_policy_replays_comments_and_reports_counts() -> None:
     existing_issue = GitHubIssueInfo(
         id=10,
