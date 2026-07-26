@@ -77,7 +77,7 @@ def sonar_issue_to_normalized_finding(issue: SonarIssue) -> NormalizedFinding:
         line_start=issue.line,
         line_end=issue.line,
         remediation_context=RemediationContext(
-            category="code_smell_fix",
+            category="static_analysis_fix",
             diagnostic_code=issue.rule,
         ),
         source_metadata=FindingSourceMetadata(

@@ -28,7 +28,6 @@ _SAFETY_SKIP_REASONS = frozenset(
         "missing_file_path",
         "missing_local_file",
         "retry_blocked",
-        "unsupported_source",
         "unsupported_type",
     }
 )

@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from zeroone_ops.models.dashboard import DashboardItem
-from zeroone_ops.models.remediation import RemediationWorkItem
-
-SUPPORTED_REMEDIATION_SOURCE = "sonarqube"
-SUPPORTED_REMEDIATION_TYPE = "code_smell_fix"
+from zeroone_ops.models.remediation import (
+    RemediationWorkItem,
+    is_remediation_eligible_category,
+)
 
 
 @dataclass(frozen=True)
@@ -29,12 +29,7 @@ class DashboardItemNormalizer:
                 work_item=None,
                 message=f"Dashboard item {item.id} is not open.",
             )
-        if item.source != SUPPORTED_REMEDIATION_SOURCE:
-            return DashboardItemNormalizationResult(
-                work_item=None,
-                message=f"Dashboard item {item.id} uses unsupported source {item.source}.",
-            )
-        if item.type != SUPPORTED_REMEDIATION_TYPE:
+        if not is_remediation_eligible_category(item.type):
             return DashboardItemNormalizationResult(
                 work_item=None,
                 message=f"Dashboard item {item.id} uses unsupported type {item.type}.",

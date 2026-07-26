@@ -21,6 +21,7 @@ from zeroone_ops.utils.finding_identity import (
 )
 
 JsonDict = dict[str, object]
+_SARIF_FALLBACK_IDENTITY_CATEGORY = "lint_fix"
 
 
 class SarifFindingSource:
@@ -193,7 +194,7 @@ def _normalize_result(
         line_end=line_end,
         region_hint=region_hint,
         remediation_context=RemediationContext(
-            category="lint_fix",
+            category="static_analysis_fix",
             diagnostic_code=rule_id,
         ),
         source_metadata=FindingSourceMetadata(
@@ -346,7 +347,8 @@ def _finding_identity(
         repository_path=repository_path,
         title=title,
         summary=summary,
-        category="lint_fix",
+        # Keep the established identity component while remediation uses the neutral category.
+        category=_SARIF_FALLBACK_IDENTITY_CATEGORY,
         diagnostic_code=diagnostic_code,
         region_hint=region_hint,
     )

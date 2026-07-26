@@ -65,7 +65,7 @@ def test_collect_artifact_findings_normalizes_ruff_sarif_results(tmp_path: Path)
     assert finding.repository_path == "src/service.py"
     assert finding.line_start == 42
     assert finding.line_end == 42
-    assert finding.remediation_context.category == "lint_fix"
+    assert finding.remediation_context.category == "static_analysis_fix"
     assert finding.remediation_context.diagnostic_code == "E712"
     assert finding.source_metadata is not None
     assert finding.source_metadata.native_id == "line-hash-1"

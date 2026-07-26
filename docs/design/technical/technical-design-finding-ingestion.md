@@ -291,6 +291,23 @@ The shared workflow code should not branch on:
 
 except at the ingestion boundary.
 
+### 9.1 Shared Remediation Eligibility
+
+Remediation selection must use the shared `remediation_context.category` after
+dashboard projection, not `source_id` or source-local metadata.
+
+The initial supported category is `static_analysis_fix`:
+
+- SonarQube code-smell findings normalize to `static_analysis_fix`
+- SARIF lint findings normalize to `static_analysis_fix`
+- persisted dashboard items using `code_smell_fix` are normalized as a legacy
+  compatibility alias at the remediation boundary
+- existing SARIF fallback identities retain their `lint_fix` identity component
+  so the category migration does not duplicate already-synced work items
+
+This preserves existing dashboard work while ensuring all new supported static
+analysis findings use one source-neutral eligibility contract.
+
 For GitHub rollout, one additional boundary is required:
 
 - normalized finding intake stays shared

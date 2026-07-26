@@ -39,7 +39,6 @@ _SKIP_REASON_MESSAGES = {
     "excluded_by_policy": "explicitly excluded from automation",
     "missing_file_path": "without a target file path",
     "missing_local_file": "without a matching local file",
-    "unsupported_source": "from unsupported sources",
     "unsupported_status": "with unsupported status",
     "unsupported_type": "with unsupported type",
 }

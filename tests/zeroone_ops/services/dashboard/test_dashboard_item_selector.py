@@ -12,7 +12,7 @@ def build_item(
     item_id: str,
     status: str = "open",
     source: str = "sonarqube",
-    item_type: str = "code_smell_fix",
+    item_type: str = "static_analysis_fix",
     file_path: str | None = "src/service.py",
 ) -> DashboardItem:
     return DashboardItem(
@@ -41,6 +41,34 @@ def test_select_returns_first_supported_open_item(tmp_path: Path) -> None:
     selector = DashboardItemSelector(repo_root=tmp_path)
 
     selected = selector.select([build_item(item_id="sonar:1")], build_state())
+
+    assert selected is not None
+    assert selected.id == "sonar:1"
+
+
+def test_select_supports_static_analysis_items_from_any_finding_source(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    selector = DashboardItemSelector(repo_root=tmp_path)
+
+    selected = selector.select(
+        [build_item(item_id="ruff-sarif:1", source="ruff-sarif")],
+        build_state(),
+    )
+
+    assert selected is not None
+    assert selected.id == "ruff-sarif:1"
+
+
+def test_select_keeps_legacy_code_smell_items_eligible(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    selector = DashboardItemSelector(repo_root=tmp_path)
+
+    selected = selector.select(
+        [build_item(item_id="sonar:1", item_type="code_smell_fix")],
+        build_state(),
+    )
 
     assert selected is not None
     assert selected.id == "sonar:1"

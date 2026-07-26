@@ -56,7 +56,7 @@ def test_sync_normalizes_non_sonar_findings_into_dashboard_items() -> None:
     assert result.synced_count == 1
     assert dashboard_service.items[0].id == "ruff-sarif:src/service.py::lint_fix::e712::line-42"
     assert dashboard_service.items[0].source == "ruff-sarif"
-    assert dashboard_service.items[0].type == "code_smell_fix"
+    assert dashboard_service.items[0].type == "static_analysis_fix"
     assert dashboard_service.items[0].priority == "medium"
 
 
