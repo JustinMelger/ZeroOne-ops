@@ -30,6 +30,7 @@ from zeroone_ops.runner import (
     dashboard_policy,
     dashboard_reconcile,
     dashboard_remediate,
+    run_remediation,
     sync_dashboard_sonar,
 )
 from zeroone_ops.services.control_plane.policy.github_policy_issue_service import (
@@ -1722,7 +1723,7 @@ def test_dashboard_remediate_live_run_requires_ci_mode(tmp_path: Path, monkeypat
     assert last_run.failure.stage == FailureStage.ISSUE_INTAKE
 
 
-def test_dashboard_remediate_github_fails_with_explicit_phase_boundary(
+def test_run_remediation_github_fails_with_explicit_phase_boundary(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -1756,7 +1757,7 @@ def test_dashboard_remediate_github_fails_with_explicit_phase_boundary(
         unexpected_load_gitlab_connection_config,
     )
 
-    summary = dashboard_remediate(dry_run=False)
+    summary = run_remediation(dry_run=False)
     state = StateStore(
         tmp_path / ".zeroone-ops-state.json",
         base_branch="main",
@@ -1766,7 +1767,7 @@ def test_dashboard_remediate_github_fails_with_explicit_phase_boundary(
     last_run = state.runs[-1]
 
     assert summary.status.value == "failed"
-    assert "GitHub remediation intake is not implemented yet" in summary.message
+    assert "GitHub remediation execution is not implemented yet" in summary.message
     assert last_run.failure is not None
     assert last_run.failure.stage == FailureStage.ISSUE_INTAKE
 
@@ -1951,6 +1952,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_change_request_opened(
     summary = dashboard_remediate(dry_run=False)
 
     assert summary.status.value == "change_request_created"
+    assert summary.work_item_id == "sonar:AX123"
     assert summary.dashboard_item_id == "sonar:AX123"
     assert summary.branch_name == "zeroone-ops/ax123/service"
     assert summary.commit_sha == "abc123"

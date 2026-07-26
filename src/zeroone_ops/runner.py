@@ -201,7 +201,12 @@ def _build_review_platform_runtime(
 
 
 def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
-    """Run dashboard-backed remediation."""
+    """Run the legacy GitLab dashboard remediation command."""
+    return run_remediation(dry_run=dry_run)
+
+
+def run_remediation(*, dry_run: bool = False) -> RunSummary:
+    """Run remediation for the active platform."""
     config = load_config()
     state_store = StateStore(
         config.state.path,
@@ -218,9 +223,9 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
     active_dry_run = dry_run or config.dry_run
     if config.platform == "github":
         message = (
-            "GitHub remediation intake is not implemented yet. "
-            "Phase 5b currently supports GitHub work-item projection only after "
-            "a remediation candidate has already been selected."
+            "GitHub remediation execution is not implemented yet. "
+            "GitHub work items can be projected, but they cannot yet be selected "
+            "and executed by the remediation runner."
         )
         return run_state_service.fail_run(
             record=record,

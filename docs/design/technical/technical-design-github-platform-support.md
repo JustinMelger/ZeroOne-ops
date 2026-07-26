@@ -1203,3 +1203,50 @@ Why:
 - it avoids rebuilding the GitLab dashboard too literally on a weaker surface
 - it keeps automation boundaries clear between durable state and rendered
   visibility
+
+### 16.8 Provider-Neutral Remediation Runner
+
+Primary phase:
+
+- Phase 6c4: Provider-Neutral Remediation Runner
+
+How should GitHub work items enter the existing remediation execution flow
+without extending the GitLab dashboard runner into a false-neutral abstraction?
+
+Locked direction:
+
+- add `zeroone-ops remediation run` as the canonical provider-neutral command
+- retain `zeroone-ops dashboard remediate` as a GitLab compatibility alias
+- keep `DashboardItemIntakeService` and `DashboardRemediationRunner` explicitly
+  GitLab-local
+- add a GitHub-local work-item intake and runner that selects one authoritative
+  GitHub work item and produces the shared `RemediationExecutionTarget`
+- route both provider-local runners through the existing shared
+  `ExecutionService`, branch/PR publication path, and result handling
+- move shared run-summary vocabulary from `dashboard_item_id` toward
+  `work_item_id`; provider-local dashboard or issue references remain separate
+
+Locked operational defaults:
+
+- process at most one eligible `approved` work item per run, ordered by
+  normalized severity (`high`, `medium`, `low`), then GitHub issue creation
+  time, then issue number as a deterministic tie-breaker
+- claim the selected GitHub work item as `in_progress` before execution
+- expose remediation through scheduled and `workflow_dispatch` GitHub Actions
+  entrypoints with repository-wide concurrency
+- do not execute remediation directly from issue comments; comments remain a
+  policy/control interaction surface
+- project execution results back to the authoritative GitHub work-item state;
+  preserve the existing linked pull-request reconciliation rules
+- do not automatically close native GitHub issues in this phase
+- do not automatically retry `blocked` work items; a later explicit operator
+  action may return one to `approved`, while the first runner leaves blocked
+  items untouched
+
+Implementation order:
+
+1. add the neutral command, runner entrypoint, and shared run-summary vocabulary
+2. add GitHub work-item selection, claiming, and normalization
+3. connect shared execution and provider-local GitHub lifecycle projection
+4. add workflow entrypoints and live-test one Ruff-derived work item through
+   pull-request publication and reconciliation

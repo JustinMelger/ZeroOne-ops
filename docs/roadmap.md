@@ -316,6 +316,24 @@ Design reference:
 - [ ] collect follow-up decisions on whether GitHub needs a derived summary
   surface after direct work-item sync is live
 
+##### Phase 6c4: Provider-Neutral Remediation Runner
+
+- [x] add `zeroone-ops remediation run` as the canonical remediation command
+  and retain `dashboard remediate` as a GitLab compatibility alias
+- [x] introduce neutral shared remediation summary vocabulary around
+  `work_item_id`, while keeping GitLab dashboard and GitHub issue references
+  provider-local
+- [ ] add GitHub work-item intake that selects one eligible `approved` item,
+  claims it as `in_progress`, and normalizes it into `RemediationExecutionTarget`;
+  order by severity, creation time, and issue number while leaving `blocked`
+  items untouched
+- [ ] route GitHub-selected work through the existing shared `ExecutionService`
+  and project execution outcomes back to the authoritative GitHub work item
+- [ ] add scheduled and manual GitHub workflow entrypoints with repository-wide
+  concurrency; do not trigger remediation execution directly from issue comments
+- [ ] live-test one Ruff-derived GitHub work item through remediation PR
+  publication and later reconciliation
+
 ## Reference Docs
 
 Use these docs when deeper detail is needed:
@@ -323,6 +341,7 @@ Use these docs when deeper detail is needed:
 - [README.md](README.md) for the docs index
 - [runbook.md](runbook.md)
 - [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
+- [design/technical/technical-design-github-platform-support.md](design/technical/technical-design-github-platform-support.md)
 - [design/functional/functional-design-finding-ingestion.md](design/functional/functional-design-finding-ingestion.md)
 - [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
 - [design/technical/technical-design-pr-review.md](design/technical/technical-design-pr-review.md)
