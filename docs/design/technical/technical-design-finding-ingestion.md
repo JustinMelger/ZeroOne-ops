@@ -313,10 +313,12 @@ boundary: they use the shared dashboard `rule`, `source_reference`, and file
 fields for every eligible source. Source identity remains part of exclusion
 identity and source-local presentation, but does not disable those safeguards.
 
-Generated remediation branches also preserve source identity. Existing SonarQube
-branch names remain unchanged for compatibility; non-Sonar items prefix their
-stable source reference with the normalized source namespace before branch and
-open-change-request lookup.
+Generated remediation branches use a canonical source-aware identity for every
+source: separate source and source-reference segments include readable text and
+a short digest of their raw values. This prevents collisions from punctuation,
+sanitization, or ambiguous concatenation. Existing SonarQube branch names are
+checked only as a lookup fallback, so already-open remediation requests remain
+reusable while all new branches use the canonical form.
 
 For GitHub rollout, one additional boundary is required:
 

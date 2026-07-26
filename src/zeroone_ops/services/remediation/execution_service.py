@@ -26,7 +26,7 @@ from zeroone_ops.services.shared.branch_manager import (
     BranchManagerError,
 )
 from zeroone_ops.services.shared.workspace_snapshot import WorkspaceSnapshotService
-from zeroone_ops.utils.git import build_remediation_branch_key
+from zeroone_ops.utils.git import build_remediation_branch_name
 
 
 @dataclass
@@ -86,12 +86,10 @@ class ExecutionService:
         if not dry_run:
             try:
                 self.branch_manager.ensure_ready()
-                branch_name = self.branch_manager.build_branch_name(
+                branch_name = build_remediation_branch_name(
                     branch_prefix=self.config.branch_prefix,
-                    issue_key=build_remediation_branch_key(
-                        source=selected_issue.source_type,
-                        source_reference=selected_issue.source_ref,
-                    ),
+                    source=selected_issue.source_type,
+                    source_reference=selected_issue.source_ref,
                     file_path=selected_issue.file_path,
                 )
                 self.branch_manager.create_branch(branch_name)
@@ -128,12 +126,10 @@ class ExecutionService:
         if not dry_run:
             try:
                 self.branch_manager.ensure_ready()
-                branch_name = self.branch_manager.build_branch_name(
+                branch_name = build_remediation_branch_name(
                     branch_prefix=self.config.branch_prefix,
-                    issue_key=build_remediation_branch_key(
-                        source=selected_issue.source_type,
-                        source_reference=selected_issue.source_ref,
-                    ),
+                    source=selected_issue.source_type,
+                    source_reference=selected_issue.source_ref,
                     file_path=selected_issue.file_path,
                 )
                 self.branch_manager.create_branch(branch_name)

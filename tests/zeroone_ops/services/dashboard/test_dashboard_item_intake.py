@@ -273,7 +273,9 @@ def test_select_item_skips_non_sonar_item_with_existing_open_change_request(
                 ]
             )
         ),
-        change_request_lookup=FakeChangeRequestLookup({"zeroone-ops/ruff-sarif-issue-1/service"}),
+        change_request_lookup=FakeChangeRequestLookup(
+            {"zeroone-ops/ruff-sarif-9fb4ba99a4827142/issue-1-57fc59f27e8149ce/service"}
+        ),
     )
 
     result = service.select_item(project_id="123", state=build_state())
