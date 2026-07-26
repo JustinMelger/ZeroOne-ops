@@ -109,8 +109,8 @@ not the source that reported the finding.
 The first supported shared category is `static_analysis_fix`. Both SonarQube
 code-smell findings and SARIF lint findings normalize to that category.
 
-Existing dashboard records using the prior `code_smell_fix` name remain
-eligible as a compatibility alias, but new normalized findings must use
+Existing dashboard records using the prior `code_smell_fix` or `lint_fix` names
+remain eligible as compatibility aliases, but new normalized findings must use
 `static_analysis_fix`. Source-local metadata remains available for traceability
 and prompt shaping, not as an eligibility gate.
 

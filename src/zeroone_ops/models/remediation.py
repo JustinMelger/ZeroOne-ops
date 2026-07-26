@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 STATIC_ANALYSIS_FIX_CATEGORY = "static_analysis_fix"
 _LEGACY_REMEDIATION_CATEGORY_ALIASES = {
     "code_smell_fix": STATIC_ANALYSIS_FIX_CATEGORY,
+    "lint_fix": STATIC_ANALYSIS_FIX_CATEGORY,
 }
 
 

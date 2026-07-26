@@ -74,6 +74,20 @@ def test_select_keeps_legacy_code_smell_items_eligible(tmp_path: Path) -> None:
     assert selected.id == "sonar:1"
 
 
+def test_select_keeps_legacy_lint_items_eligible(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    selector = DashboardItemSelector(repo_root=tmp_path)
+
+    selected = selector.select(
+        [build_item(item_id="ruff-sarif:1", source="ruff-sarif", item_type="lint_fix")],
+        build_state(),
+    )
+
+    assert selected is not None
+    assert selected.id == "ruff-sarif:1"
+
+
 def test_select_skips_items_with_active_local_dashboard_state(tmp_path: Path) -> None:
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")

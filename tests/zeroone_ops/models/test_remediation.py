@@ -11,8 +11,9 @@ def test_static_analysis_fix_is_the_shared_eligible_category() -> None:
     assert is_remediation_eligible_category("pipeline_fix") is False
 
 
-def test_legacy_code_smell_category_normalizes_to_static_analysis_fix() -> None:
+def test_legacy_static_analysis_categories_normalize_to_static_analysis_fix() -> None:
     assert normalize_remediation_category("code_smell_fix") == STATIC_ANALYSIS_FIX_CATEGORY
+    assert normalize_remediation_category("lint_fix") == STATIC_ANALYSIS_FIX_CATEGORY
 
 
 def test_remediation_work_item_captures_provider_neutral_fields() -> None:

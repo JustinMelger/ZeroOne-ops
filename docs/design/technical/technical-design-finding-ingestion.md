@@ -300,8 +300,8 @@ The initial supported category is `static_analysis_fix`:
 
 - SonarQube code-smell findings normalize to `static_analysis_fix`
 - SARIF lint findings normalize to `static_analysis_fix`
-- persisted dashboard items using `code_smell_fix` are normalized as a legacy
-  compatibility alias at the remediation boundary
+- persisted dashboard items using `code_smell_fix` or `lint_fix` are normalized
+  as legacy compatibility aliases at the remediation boundary
 - existing SARIF fallback identities retain their `lint_fix` identity component
   so the category migration does not duplicate already-synced work items
 

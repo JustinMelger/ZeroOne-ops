@@ -72,6 +72,14 @@ def test_normalize_keeps_legacy_code_smell_items_supported() -> None:
     assert result.work_item is not None
 
 
+def test_normalize_keeps_legacy_lint_items_supported() -> None:
+    normalizer = DashboardItemNormalizer()
+
+    result = normalizer.normalize(build_item(source="ruff-sarif", item_type="lint_fix"))
+
+    assert result.work_item is not None
+
+
 def test_normalize_rejects_unsupported_item_type() -> None:
     normalizer = DashboardItemNormalizer()
 
