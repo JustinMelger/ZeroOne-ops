@@ -26,7 +26,7 @@ from zeroone_ops.services.shared.change_request_lookup import (
     build_change_request_lookup,
 )
 from zeroone_ops.settings import SettingsError
-from zeroone_ops.utils.git import build_issue_branch_name
+from zeroone_ops.utils.git import build_issue_branch_name, build_remediation_branch_key
 
 LOGGER = logging.getLogger(__name__)
 _STALE_IN_PROGRESS_WINDOW = timedelta(hours=24)
@@ -291,7 +291,10 @@ class DashboardItemIntakeService:
             return None
         branch_name = item.branch_name or build_issue_branch_name(
             branch_prefix=self.config.branch_prefix,
-            issue_key=item.source_reference,
+            issue_key=build_remediation_branch_key(
+                source=item.source,
+                source_reference=item.source_reference,
+            ),
             file_path=item.file,
         )
         target_branch = self.config.require_remediation_target_branch(

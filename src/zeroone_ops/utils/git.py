@@ -16,6 +16,13 @@ def sanitize_branch_fragment(value: str) -> str:
     return "-".join(part for part in cleaned.split("-") if part)
 
 
+def build_remediation_branch_key(*, source: str, source_reference: str) -> str:
+    """Return the stable source-aware key used in remediation branch names."""
+    if source == "sonarqube":
+        return source_reference
+    return f"{source}-{source_reference}"
+
+
 def build_issue_branch_name(*, branch_prefix: str, issue_key: str, file_path: str) -> str:
     """Build a predictable branch name for a selected issue.
 

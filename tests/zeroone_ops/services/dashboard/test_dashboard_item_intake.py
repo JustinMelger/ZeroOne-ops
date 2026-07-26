@@ -273,13 +273,45 @@ def test_select_item_skips_non_sonar_item_with_existing_open_change_request(
                 ]
             )
         ),
-        change_request_lookup=FakeChangeRequestLookup({"zeroone-ops/issue-1/service"}),
+        change_request_lookup=FakeChangeRequestLookup({"zeroone-ops/ruff-sarif-issue-1/service"}),
     )
 
     result = service.select_item(project_id="123", state=build_state())
 
     assert result.selected_item is not None
     assert result.selected_item.id == "ruff-sarif:2"
+
+
+def test_select_item_does_not_cross_source_match_open_change_requests(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    service = DashboardItemIntakeService(
+        repo_root=tmp_path,
+        config=build_config(platform="github"),
+        dashboard_service=FakeDashboardService(
+            build_document(
+                items=[
+                    build_item(item_id="sonar:1"),
+                    build_item(
+                        item_id="ruff-sarif:1",
+                        source="ruff-sarif",
+                        item_type="static_analysis_fix",
+                    ),
+                ]
+            )
+        ),
+        change_request_lookup=FakeChangeRequestLookup({"zeroone-ops/issue-1/service"}),
+    )
+
+    result = service.select_item(project_id="123", state=build_state())
+
+    assert result.selected_item is not None
+    assert result.selected_item.id == "ruff-sarif:1"
 
 
 def test_select_item_recovers_stale_in_progress_item_before_selection(tmp_path: Path) -> None:
