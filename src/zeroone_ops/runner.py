@@ -253,8 +253,20 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
 
 
 def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
-    """Sync eligible normalized findings into the dashboard."""
+    """Run the legacy GitLab findings-sync command."""
+    return sync_findings(dry_run=dry_run)
+
+
+def sync_findings(*, dry_run: bool = False) -> RunSummary:
+    """Collect normalized findings and project them for the active platform."""
     config = load_config()
+    if config.platform == "gitlab":
+        return _sync_gitlab_findings(config=config, dry_run=dry_run)
+    return _sync_github_findings(config=config, dry_run=dry_run)
+
+
+def _sync_gitlab_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
+    """Project normalized findings into the GitLab dashboard."""
     gitlab_config = load_gitlab_connection_config()
     state_store = StateStore(
         config.state.path,
@@ -319,9 +331,8 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
     )
 
 
-def sync_findings(*, dry_run: bool = False) -> RunSummary:
-    """Collect normalized findings and publish promoted GitHub work items."""
-    config = load_config()
+def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
+    """Project policy-promoted normalized findings into GitHub work items."""
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,
@@ -332,14 +343,6 @@ def sync_findings(*, dry_run: bool = False) -> RunSummary:
     run_state_service = RunStateService(config=config, state_store=state_store, state=state)
     run_id = _build_run_id()
     record = run_state_service.start_run(run_id)
-    if config.platform != "github":
-        message = "Finding sync publication is only implemented for GitHub in this phase."
-        return run_state_service.fail_run(
-            record=record,
-            error_message=message,
-            failure=FailureDetails(stage=FailureStage.ISSUE_INTAKE, message=message),
-        )
-
     repo_root = Path.cwd()
     active_dry_run = dry_run or config.dry_run
     intake_service = IssueIntakeService(repo_root=repo_root, config=config)
