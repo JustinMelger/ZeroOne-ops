@@ -270,7 +270,7 @@ class DashboardItemIntakeService:
         policy_state: DashboardPolicyState,
     ) -> bool:
         """Return whether one dashboard item matches canonical dashboard exclusion policy."""
-        issue_key = item.rule if item.source == "sonarqube" else None
+        issue_key = item.rule
         if issue_key is None:
             return False
         return any(
@@ -287,12 +287,7 @@ class DashboardItemIntakeService:
         """Return whether one dashboard item is already represented by an open MR."""
         if item.change_request_url:
             return "active_merge_request"
-        if (
-            self.config is None
-            or change_request_lookup is None
-            or item.source != "sonarqube"
-            or item.file is None
-        ):
+        if self.config is None or change_request_lookup is None or item.file is None:
             return None
         branch_name = item.branch_name or build_issue_branch_name(
             branch_prefix=self.config.branch_prefix,

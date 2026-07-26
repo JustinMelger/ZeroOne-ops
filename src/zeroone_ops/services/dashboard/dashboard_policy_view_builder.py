@@ -303,9 +303,7 @@ class DashboardPolicyViewBuilder:
         return all(severity not in enabled for severity in severities)
 
     def _issue_key_for_item(self, item: DashboardItem) -> str | None:
-        if item.source == "sonarqube":
-            return item.rule
-        return None
+        return item.rule
 
     def _automation_severity_for_item(self, item: DashboardItem) -> str | None:
         if item.automation_severity:

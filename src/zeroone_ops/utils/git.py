@@ -21,7 +21,7 @@ def build_issue_branch_name(*, branch_prefix: str, issue_key: str, file_path: st
 
     Args:
         branch_prefix: Configured branch prefix.
-        issue_key: SonarQube issue key.
+        issue_key: Stable finding key from the normalized work item.
         file_path: Repository-relative target file path.
 
     Returns:

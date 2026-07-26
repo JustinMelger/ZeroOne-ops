@@ -26,11 +26,12 @@ def build_item(
     rule: str,
     severity: str,
     file_path: str,
+    source: str = "sonarqube",
     status: str = "open",
 ) -> DashboardItem:
     return DashboardItem(
         id=item_id,
-        source="sonarqube",
+        source=source,
         type="code_smell_fix",
         status=status,
         title="Title",
@@ -105,6 +106,34 @@ def test_build_returns_read_only_policy_view_with_severity_exclusion_and_invento
     )
     assert inventory_by_key[("sonarqube", "python:S3776")].severities_present == ["high"]
     assert inventory_by_key[("sonarqube", "python:S3776")].source_severities_present == ["HIGH"]
+
+
+def test_build_includes_non_sonar_issue_classes_in_policy_inventory(tmp_path: Path) -> None:
+    source_file = tmp_path / "src" / "service.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("print('ok')\n")
+    builder = DashboardPolicyViewBuilder(
+        repo_root=tmp_path,
+        config=build_config(),
+        state=AppState(repository=RepositoryState(base_branch="main")),
+    )
+
+    policy_view = builder.build(
+        [
+            build_item(
+                item_id="ruff-sarif:e712",
+                source="ruff-sarif",
+                rule="E712",
+                severity="MEDIUM",
+                file_path="src/service.py",
+            )
+        ],
+        policy_state=DashboardPolicyState(),
+    )
+
+    assert [(row.source, row.issue_key) for row in policy_view.issue_class_inventory] == [
+        ("ruff-sarif", "E712")
+    ]
 
 
 def test_resolve_policy_state_seeds_severity_policy_once_from_config(tmp_path: Path) -> None:

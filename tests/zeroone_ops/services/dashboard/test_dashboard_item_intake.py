@@ -244,6 +244,44 @@ def test_select_item_skips_item_with_existing_open_github_pull_request(
     assert result.selected_item.id == "sonar:2"
 
 
+def test_select_item_skips_non_sonar_item_with_existing_open_change_request(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    (tmp_path / "src" / "other.py").write_text("value = False\n", encoding="utf-8")
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    service = DashboardItemIntakeService(
+        repo_root=tmp_path,
+        config=build_config(platform="github"),
+        dashboard_service=FakeDashboardService(
+            build_document(
+                items=[
+                    build_item(
+                        item_id="ruff-sarif:1",
+                        source="ruff-sarif",
+                        item_type="static_analysis_fix",
+                    ),
+                    build_item(
+                        item_id="ruff-sarif:2",
+                        source="ruff-sarif",
+                        item_type="static_analysis_fix",
+                        file_path="src/other.py",
+                    ),
+                ]
+            )
+        ),
+        change_request_lookup=FakeChangeRequestLookup({"zeroone-ops/issue-1/service"}),
+    )
+
+    result = service.select_item(project_id="123", state=build_state())
+
+    assert result.selected_item is not None
+    assert result.selected_item.id == "ruff-sarif:2"
+
+
 def test_select_item_recovers_stale_in_progress_item_before_selection(tmp_path: Path) -> None:
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
@@ -343,6 +381,55 @@ def test_select_item_skips_item_excluded_by_policy_and_moves_to_next(tmp_path: P
 
     assert result.selected_item is not None
     assert result.selected_item.id == "sonar:2"
+
+
+def test_select_item_applies_dashboard_issue_class_exclusions_to_non_sonar_items(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = True\n", encoding="utf-8")
+    (tmp_path / "src" / "other.py").write_text("value = False\n", encoding="utf-8")
+    document = build_document(
+        items=[
+            build_item(
+                item_id="ruff-sarif:1",
+                source="ruff-sarif",
+                item_type="static_analysis_fix",
+            ).model_copy(update={"rule": "E712"}),
+            build_item(
+                item_id="ruff-sarif:2",
+                source="ruff-sarif",
+                item_type="static_analysis_fix",
+                file_path="src/other.py",
+            ),
+        ]
+    ).model_copy(
+        update={
+            "policy_state": DashboardPolicyState(
+                severity_policy=[
+                    DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
+                    DashboardSeverityPolicyStateEntry(severity="medium", enabled=True),
+                    DashboardSeverityPolicyStateEntry(severity="high", enabled=True),
+                ],
+                issue_class_exclusions=[
+                    DashboardIssueClassPolicyStateEntry(
+                        source="ruff-sarif",
+                        issue_key="E712",
+                        reason="Excluded by dashboard policy action.",
+                    )
+                ],
+            )
+        }
+    )
+    service = DashboardItemIntakeService(
+        repo_root=tmp_path,
+        dashboard_service=FakeDashboardService(document),
+    )
+
+    result = service.select_item(project_id="123", state=build_state())
+
+    assert result.selected_item is not None
+    assert result.selected_item.id == "ruff-sarif:2"
 
 
 def test_select_item_skips_item_blocked_by_dashboard_severity_policy(tmp_path: Path) -> None:

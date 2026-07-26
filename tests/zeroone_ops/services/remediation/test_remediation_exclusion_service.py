@@ -148,7 +148,7 @@ def test_matches_dashboard_item_requires_scope_match_when_present(tmp_path: Path
     )
 
 
-def test_matches_dashboard_item_ignores_unsupported_source_mapping(tmp_path: Path) -> None:
+def test_matches_dashboard_item_uses_rule_for_non_sonar_sources(tmp_path: Path) -> None:
     service, _ = build_service(tmp_path)
     service.add_exclusion(
         source="pipeline_failure",
@@ -157,6 +157,8 @@ def test_matches_dashboard_item_ignores_unsupported_source_mapping(tmp_path: Pat
     )
 
     assert (
-        service.matches_dashboard_item(build_dashboard_item(source="pipeline_failure", rule=None))
-        is False
+        service.matches_dashboard_item(
+            build_dashboard_item(source="pipeline_failure", rule="mypy:arg-type")
+        )
+        is True
     )

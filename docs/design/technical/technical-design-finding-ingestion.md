@@ -308,6 +308,11 @@ The initial supported category is `static_analysis_fix`:
 This preserves existing dashboard work while ensuring all new supported static
 analysis findings use one source-neutral eligibility contract.
 
+Issue-class exclusions and active change-request recovery follow the same
+boundary: they use the shared dashboard `rule`, `source_reference`, and file
+fields for every eligible source. Source identity remains part of exclusion
+identity and source-local presentation, but does not disable those safeguards.
+
 For GitHub rollout, one additional boundary is required:
 
 - normalized finding intake stays shared
