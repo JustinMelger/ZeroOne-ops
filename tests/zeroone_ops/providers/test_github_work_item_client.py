@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 
 from zeroone_ops.models.config import GitHubConnectionConfig
+from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 
 
@@ -37,6 +39,7 @@ def test_list_open_issues_ignores_pull_requests_and_normalizes_issues() -> None:
                     "html_url": "https://github/x/11",
                     "title": "ZeroOne Ops: Remediate item",
                     "body": "body",
+                    "created_at": "2026-07-26T09:30:00Z",
                 },
             ],
         )
@@ -56,6 +59,7 @@ def test_list_open_issues_ignores_pull_requests_and_normalizes_issues() -> None:
 
     assert len(issues) == 1
     assert issues[0].number == 11
+    assert issues[0].created_at is not None
 
 
 def test_list_open_issues_paginates_until_exhaustion() -> None:
@@ -113,6 +117,34 @@ def test_list_open_issues_paginates_until_exhaustion() -> None:
 
     assert calls == [1, 2]
     assert [issue.number for issue in issues] == [10, 11]
+
+
+def test_list_open_issues_rejects_timestamp_without_timezone() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 2,
+                    "number": 11,
+                    "html_url": "https://github/x/11",
+                    "title": "ZeroOne Ops: Remediate item",
+                    "body": "body",
+                    "created_at": "2026-07-26T09:30:00",
+                }
+            ],
+        )
+
+    client = GitHubWorkItemClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.github.example.com",
+        ),
+    )
+
+    with pytest.raises(GitHubClientError, match="creation timestamp"):
+        client.list_open_issues(repository_id="octo-org/octo-repo")
 
 
 def test_create_issue_posts_expected_payload() -> None:

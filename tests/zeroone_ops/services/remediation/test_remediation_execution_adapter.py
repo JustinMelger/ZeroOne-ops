@@ -1,5 +1,7 @@
 from zeroone_ops.models.sonar import SonarIssue
+from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
 from zeroone_ops.services.remediation.remediation_execution_adapter import (
+    control_plane_work_item_to_execution_target,
     remediation_work_item_to_execution_target,
     sonar_issue_to_execution_target,
     sonar_issue_to_work_item,
@@ -55,3 +57,25 @@ def test_work_item_target_adapter_preserves_shared_fields() -> None:
     assert target.issue_type == "CODE_SMELL"
     assert target.component == "sample-project:src/service.py"
     assert target.project == "sample-project"
+
+
+def test_control_plane_work_item_adapter_uses_authoritative_identity() -> None:
+    target = control_plane_work_item_to_execution_target(
+        WorkItemState(
+            work_item_id="work-1",
+            kind="remediation",
+            status="in_progress",
+            source=WorkItemSourceRef(source="ruff", source_item_key="ruff:E712:service"),
+            summary="Avoid equality comparisons to True",
+            detail="Use direct truthiness instead of == True.",
+            severity="medium",
+            file_path="src/service.py",
+            line=12,
+        )
+    )
+
+    assert target.item_id == "work-1"
+    assert target.source_type == "ruff"
+    assert target.source_ref == "ruff:E712:service"
+    assert target.status == "in_progress"
+    assert target.message == "Use direct truthiness instead of == True."

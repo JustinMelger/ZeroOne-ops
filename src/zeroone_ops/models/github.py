@@ -1,5 +1,7 @@
 """GitHub provider-local models."""
 
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -11,6 +13,7 @@ class GitHubIssueInfo(BaseModel):
     web_url: str
     title: str
     body: str
+    created_at: datetime | None = None
 
 
 class GitHubIssueComment(BaseModel):

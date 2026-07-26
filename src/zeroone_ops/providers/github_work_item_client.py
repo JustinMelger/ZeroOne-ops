@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -175,4 +176,21 @@ def _normalize_issue_info(payload: dict[str, Any]) -> GitHubIssueInfo:
         web_url=web_url,
         title=title,
         body=body or "",
+        created_at=_optional_created_at(payload),
     )
+
+
+def _optional_created_at(payload: dict[str, Any]) -> datetime | None:
+    """Return the optional GitHub issue creation timestamp."""
+    created_at = payload.get("created_at")
+    if created_at is None:
+        return None
+    if not isinstance(created_at, str):
+        raise GitHubClientError("Unexpected GitHub issue creation timestamp.")
+    try:
+        timestamp = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise GitHubClientError("Unexpected GitHub issue creation timestamp.") from error
+    if timestamp.tzinfo is None:
+        raise GitHubClientError("Unexpected GitHub issue creation timestamp.")
+    return timestamp

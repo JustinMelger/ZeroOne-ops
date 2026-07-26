@@ -323,7 +323,7 @@ Design reference:
 - [x] introduce neutral shared remediation summary vocabulary around
   `work_item_id`, while keeping GitLab dashboard and GitHub issue references
   provider-local
-- [ ] add GitHub work-item intake that selects one eligible `approved` item,
+- [x] add GitHub work-item intake that selects one eligible `approved` item,
   claims it as `in_progress`, and normalizes it into `RemediationExecutionTarget`;
   order by severity, creation time, and issue number while leaving `blocked`
   items untouched
