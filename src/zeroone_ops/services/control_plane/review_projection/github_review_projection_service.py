@@ -82,7 +82,7 @@ def _review_work_item_source(
     remediation_context = context.remediation_context
     if remediation_context is None:
         return None
-    source = _normalize_review_source(remediation_context.source)
+    source = remediation_context.source_id or _normalize_review_source(remediation_context.source)
     if source is None or remediation_context.item_reference is None:
         return None
     return WorkItemSourceRef(

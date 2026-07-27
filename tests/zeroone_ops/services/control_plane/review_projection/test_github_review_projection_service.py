@@ -141,6 +141,45 @@ def test_project_review_noops_without_matching_work_item() -> None:
     assert result.work_item is None
 
 
+def test_project_review_uses_exact_remediation_source_id() -> None:
+    client = FakeGitHubWorkItemClient()
+    work_item_service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+    work_item_service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item().model_copy(
+            update={
+                "source": WorkItemSourceRef(
+                    source="ruff-sarif",
+                    source_item_key="C416:src/service.py:42",
+                    repository_scope="octo-org/octo-repo",
+                )
+            }
+        ),
+    )
+    context = build_context().model_copy(
+        update={
+            "remediation_context": RemediationReviewContext(
+                source="Ruff SARIF",
+                source_id="ruff-sarif",
+                item_reference_label="Item reference",
+                item_reference="C416:src/service.py:42",
+            )
+        }
+    )
+
+    result = GitHubReviewProjectionService(work_item_service).project_review(
+        repository_id="octo-org/octo-repo",
+        context=context,
+        classification="no_findings",
+        reviewed_sha="abc123",
+        review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-1",
+    )
+
+    assert result.action == "updated"
+    assert result.work_item is not None
+    assert result.work_item.projected_review is not None
+
+
 def test_project_review_noops_without_remediation_context() -> None:
     client = FakeGitHubWorkItemClient()
     work_item_service = GitHubWorkItemService(client)  # type: ignore[arg-type]
