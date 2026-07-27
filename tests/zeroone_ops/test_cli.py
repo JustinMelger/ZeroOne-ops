@@ -23,10 +23,8 @@ def test_remediation_run_prints_neutral_work_item_summary(monkeypatch: MonkeyPat
 
     result = _RUNNER.invoke(app, ["remediation", "run", "--dry-run"])
 
-    expected_output = dict(work_item_id="work-item-1")
-
     assert result.exit_code == 0
-    assert f"work_item_id={expected_output['work_item_id']}" in result.output
+    assert "work_item_id=work-item-1" in result.output
 
 
 def test_dashboard_remediate_remains_an_alias_for_neutral_remediation(
