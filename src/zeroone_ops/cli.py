@@ -12,8 +12,8 @@ from zeroone_ops.logging import configure_logging
 from zeroone_ops.runner import (
     dashboard_policy,
     dashboard_reconcile,
-    dashboard_remediate,
     review,
+    run_remediation,
     sync_findings,
 )
 from zeroone_ops.services.shared.run_state_service import RunSummary
@@ -22,9 +22,11 @@ app = typer.Typer(add_completion=False, help="ZeroOne Ops CLI.")
 review_app = typer.Typer(add_completion=False, help="Merge request review workflow.")
 dashboard_app = typer.Typer(add_completion=False, help="Dashboard sync workflows.")
 findings_app = typer.Typer(add_completion=False, help="Finding ingestion workflows.")
+remediation_app = typer.Typer(add_completion=False, help="Remediation workflows.")
 app.add_typer(review_app, name="review")
 app.add_typer(dashboard_app, name="dashboard")
 app.add_typer(findings_app, name="findings")
+app.add_typer(remediation_app, name="remediation")
 
 
 def _echo_review_summary(*, dry_run: bool) -> None:
@@ -39,6 +41,8 @@ def _echo_summary(summary: RunSummary) -> None:
     typer.echo(f"status={summary.status.value}")
     if summary.issue_key is not None:
         typer.echo(f"issue_key={summary.issue_key}")
+    if summary.work_item_id is not None:
+        typer.echo(f"work_item_id={summary.work_item_id}")
     if summary.dashboard_item_id is not None:
         typer.echo(f"dashboard_item_id={summary.dashboard_item_id}")
     if summary.branch_name is not None:
@@ -96,9 +100,18 @@ def findings_sync_command(
 def dashboard_remediate_command(
     dry_run: bool = typer.Option(False, "--dry-run", help="Run without publishing remediation."),
 ) -> None:
-    """Run the dashboard-backed remediation workflow."""
+    """Legacy GitLab alias for ``remediation run``."""
     configure_logging()
-    _echo_summary(dashboard_remediate(dry_run=dry_run))
+    _echo_summary(run_remediation(dry_run=dry_run))
+
+
+@remediation_app.command("run")
+def remediation_run_command(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Run without publishing remediation."),
+) -> None:
+    """Run remediation for the active platform."""
+    configure_logging()
+    _echo_summary(run_remediation(dry_run=dry_run))
 
 
 @dashboard_app.command("reconcile")

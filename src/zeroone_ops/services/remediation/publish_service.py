@@ -162,6 +162,11 @@ class PublishService:
         """Build a deterministic change-request description."""
         profile = remediation_profile_for(selected_issue)
         issue_line = str(selected_issue.line) if selected_issue.line is not None else "n/a"
+        issue_type = (
+            selected_issue.remediation_category
+            or selected_issue.issue_type
+            or selected_issue.source_type
+        )
         return "\n".join(
             [
                 "## Summary",
@@ -172,7 +177,7 @@ class PublishService:
                 f"- {profile.item_reference_label}: `{selected_issue.source_ref}`",
                 f"- Rule: `{selected_issue.rule_id or 'unknown'}`",
                 f"- Severity: `{selected_issue.severity or 'unknown'}`",
-                f"- Type: `{selected_issue.issue_type or selected_issue.source_type}`",
+                f"- Type: `{issue_type}`",
                 f"- File: `{selected_issue.file_path}`",
                 f"- Line: `{issue_line}`",
                 f"- Message: {selected_issue.message}",

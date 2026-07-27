@@ -262,6 +262,40 @@ class RunStateService:
             message=message,
         )
 
+    def finish_work_item(
+        self,
+        *,
+        record: RunRecord,
+        work_item_id: str,
+        status: RunStatus,
+        message: str,
+        branch_name: str | None = None,
+        commit_sha: str | None = None,
+        change_request_url: str | None = None,
+        change_request_action: str | None = None,
+        failure: FailureDetails | None = None,
+    ) -> RunSummary:
+        """Persist one provider-neutral work-item run and return its summary."""
+        record.work_item_id = work_item_id
+        record.status = status
+        record.branch_name = branch_name
+        record.commit_sha = commit_sha
+        record.change_request_url = change_request_url
+        record.failure = failure
+        record.error_message = failure.message if failure is not None else None
+        record.updated_at = utc_now()
+        self.state_store.save(self.state)
+        return self.summary_builder.build(
+            run_id=record.run_id,
+            status=record.status,
+            message=message,
+            work_item_id=work_item_id,
+            branch_name=branch_name,
+            commit_sha=commit_sha,
+            change_request_url=change_request_url,
+            change_request_action=change_request_action,
+        )
+
     def build_summary(
         self,
         *,
@@ -269,6 +303,7 @@ class RunStateService:
         status: RunStatus,
         message: str,
         issue_key: str | None = None,
+        work_item_id: str | None = None,
         dashboard_item_id: str | None = None,
         branch_name: str | None = None,
         commit_sha: str | None = None,
@@ -281,6 +316,7 @@ class RunStateService:
             status=status,
             message=message,
             issue_key=issue_key,
+            work_item_id=work_item_id,
             dashboard_item_id=dashboard_item_id,
             branch_name=branch_name,
             commit_sha=commit_sha,

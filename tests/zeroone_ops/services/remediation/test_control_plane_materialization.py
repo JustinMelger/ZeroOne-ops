@@ -20,6 +20,12 @@ def build_work_item() -> RemediationWorkItem:
         file_path="src/api.py",
         line=42,
         severity="high",
+        rule_id="python:S1125",
+        remediation_category="static_analysis_fix",
+        validation_commands=["uv run ruff check src/api.py"],
+        expected_change="Remove the redundant comparison.",
+        constraints="Keep the change local.",
+        acceptance_criteria=["The selected Ruff rule no longer reports."],
     )
 
 
@@ -105,6 +111,9 @@ def test_materialize_promoted_work_item_creates_approved_github_issue() -> None:
     assert materialized is not None
     assert materialized.status == "approved"
     assert materialized.source.source_item_key == "AX123"
+    assert materialized.remediation_context.category == "static_analysis_fix"
+    assert materialized.remediation_context.diagnostic_code == "python:S1125"
+    assert materialized.remediation_context.validation_commands == ["uv run ruff check src/api.py"]
     assert len(client.issues) == 1
 
 

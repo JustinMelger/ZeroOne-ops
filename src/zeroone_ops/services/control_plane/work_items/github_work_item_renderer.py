@@ -49,6 +49,10 @@ class GitHubWorkItemRenderer:
             lines.append(f"- File: `{work_item.file_path}`")
         if work_item.line is not None:
             lines.append(f"- Line: `{work_item.line}`")
+        if work_item.remediation_context.category is not None:
+            lines.append(f"- Remediation category: `{work_item.remediation_context.category}`")
+        if work_item.remediation_context.diagnostic_code is not None:
+            lines.append(f"- Diagnostic code: `{work_item.remediation_context.diagnostic_code}`")
         lines.extend(["", "## Linked Change Request", ""])
         if work_item.linked_change_request is None:
             lines.append("No linked change request.")

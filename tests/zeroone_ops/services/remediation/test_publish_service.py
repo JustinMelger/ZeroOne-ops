@@ -233,6 +233,19 @@ def test_publish_service_builds_deterministic_description() -> None:
     )
 
 
+def test_publish_service_description_prefers_remediation_category() -> None:
+    service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
+
+    description = service.build_change_request_description(
+        selected_issue=build_issue().model_copy(
+            update={"remediation_category": "static_analysis_fix"}
+        ),
+        change_summary="summary",
+    )
+
+    assert "- Type: `static_analysis_fix`" in description
+
+
 def test_publish_service_uses_generic_profile_for_unknown_source() -> None:
     service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
 

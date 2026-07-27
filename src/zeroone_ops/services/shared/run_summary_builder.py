@@ -17,6 +17,7 @@ class RunSummary:
     message: str
     state_path: Path
     issue_key: str | None = None
+    work_item_id: str | None = None
     dashboard_item_id: str | None = None
     branch_name: str | None = None
     commit_sha: str | None = None
@@ -38,6 +39,7 @@ class RunSummaryBuilder:
         status: RunStatus,
         message: str,
         issue_key: str | None = None,
+        work_item_id: str | None = None,
         dashboard_item_id: str | None = None,
         branch_name: str | None = None,
         commit_sha: str | None = None,
@@ -57,6 +59,7 @@ class RunSummaryBuilder:
             message=summary,
             state_path=self.state_path,
             issue_key=issue_key,
+            work_item_id=(work_item_id if work_item_id is not None else dashboard_item_id),
             dashboard_item_id=dashboard_item_id,
             branch_name=branch_name,
             commit_sha=commit_sha,
