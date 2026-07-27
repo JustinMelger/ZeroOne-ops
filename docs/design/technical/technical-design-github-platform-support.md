@@ -1242,6 +1242,16 @@ Locked operational defaults:
   policy/control interaction surface
 - project execution results back to the authoritative GitHub work-item state;
   preserve the existing linked pull-request reconciliation rules
+
+Claim serialization rule:
+
+- GitHub Issue updates do not provide a compare-and-swap claim primitive for
+  this workflow, so repository-wide GitHub Actions concurrency is the
+  authoritative claim-serialization boundary for live remediation
+- every live GitHub remediation entrypoint must use the same repository-scoped
+  concurrency group with `cancel-in-progress: false`
+- do not enable scheduled or manual live remediation until that workflow-level
+  serialization is in place; local runs remain dry-run only
 - do not automatically close native GitHub issues in this phase
 - do not automatically retry `blocked` work items; a later explicit operator
   action may return one to `approved`, while the first runner leaves blocked
