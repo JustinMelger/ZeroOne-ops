@@ -21,6 +21,10 @@ jobs:
       ZEROONE_OPS_CONFIG: .zeroone-ops.json
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GITHUB_REPOSITORY: ${{ github.repository }}
+      GIT_AUTHOR_NAME: ZeroOne Ops
+      GIT_AUTHOR_EMAIL: zeroone-ops@example.com
+      GIT_COMMITTER_NAME: ZeroOne Ops
+      GIT_COMMITTER_EMAIL: zeroone-ops@example.com
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
       ZEROONE_MLFLOW_ENABLED: "true"
@@ -52,6 +56,11 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync --all-groups
+
+      - name: Configure Git author
+        run: |
+          git config user.name "$GIT_AUTHOR_NAME"
+          git config user.email "$GIT_AUTHOR_EMAIL"
 
       - name: Run one remediation work item
         run: uv run zeroone-ops remediation run
