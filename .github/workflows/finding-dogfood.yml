@@ -55,13 +55,13 @@ jobs:
           }
           EOF
 
-      - name: Emit Ruff SARIF artifact
+      - name: Emit test-suite Ruff SARIF artifact
         run: |
           mkdir -p artifacts
           set +e
-          uv run ruff check samples/ruff_findings \
+          uv run ruff check tests/zeroone_ops/test_cli.py \
             --isolated \
-            --select E712,F841 \
+            --select C408 \
             --output-format sarif \
             --output-file artifacts/ruff.sarif
           status=$?
