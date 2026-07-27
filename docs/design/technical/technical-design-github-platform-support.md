@@ -1236,8 +1236,10 @@ Locked operational defaults:
   normalized severity (`high`, `medium`, `low`), then GitHub issue creation
   time, then issue number as a deterministic tie-breaker
 - claim the selected GitHub work item as `in_progress` before execution
-- expose remediation through scheduled and `workflow_dispatch` GitHub Actions
-  entrypoints with repository-wide concurrency
+- expose remediation first through a `workflow_dispatch` GitHub Actions
+  entrypoint with repository-wide concurrency
+- add a scheduled entrypoint only after one manual live remediation run has
+  completed successfully
 - do not execute remediation directly from issue comments; comments remain a
   policy/control interaction surface
 - project execution results back to the authoritative GitHub work-item state;
