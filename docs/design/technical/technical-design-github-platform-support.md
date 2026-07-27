@@ -697,6 +697,10 @@ Status ownership:
 
 - the canonical source of truth for one GitHub work item must be the
   machine-readable state block in the authoritative work-item issue body
+- that state must retain the bounded provider-neutral `remediation_context`
+  needed by shared execution, including category, diagnostic code, validation
+  commands, and optional fix constraints
+- raw source metadata must remain outside authoritative work-item state
 - GitHub labels must be projections of canonical work-item state and must not
   become the primary source of truth
 - remediation pull-request state is linked execution evidence, not canonical

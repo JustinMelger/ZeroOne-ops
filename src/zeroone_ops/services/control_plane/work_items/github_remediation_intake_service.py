@@ -40,8 +40,13 @@ class GitHubRemediationIntakeService:
         """Initialize the GitHub work-item intake service."""
         self.work_item_service = work_item_service
 
-    def select_and_claim(self, *, repository_id: str) -> GitHubRemediationIntakeResult:
-        """Claim the next eligible approved work item and return its execution target."""
+    def select_and_claim(
+        self,
+        *,
+        repository_id: str,
+        persist: bool = True,
+    ) -> GitHubRemediationIntakeResult:
+        """Select the next eligible item and claim it when persistence is enabled."""
         work_items = self.work_item_service.list_open_work_items(repository_id=repository_id)
         candidates = [
             candidate
@@ -58,6 +63,14 @@ class GitHubRemediationIntakeService:
             )
 
         selected = min(candidates, key=self._selection_key)
+        if not persist:
+            return GitHubRemediationIntakeResult(
+                selected_target=control_plane_work_item_to_execution_target(selected.work_item),
+                claimed_work_item=selected.work_item,
+                issue=selected.issue,
+                item_count=len(work_items),
+                message="",
+            )
         claimed = self.work_item_service.upsert_work_item(
             repository_id=repository_id,
             work_item=selected.work_item.model_copy(update={"status": "in_progress"}),

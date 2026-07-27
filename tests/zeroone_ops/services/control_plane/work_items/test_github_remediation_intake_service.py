@@ -197,3 +197,28 @@ def test_select_and_claim_skips_linked_or_incomplete_work_items() -> None:
     assert result.claimed_work_item is None
     assert result.item_count == 3
     assert result.message == "No eligible approved GitHub remediation work items were found."
+
+
+def test_select_and_claim_dry_run_does_not_claim_the_work_item() -> None:
+    work_item = _with_identity(
+        build_work_item(status="approved"),
+        work_item_id="work-dry-run",
+    )
+    fake_service = FakeGitHubWorkItemService(
+        [
+            _lookup_result(
+                number=11,
+                created_at=datetime(2026, 7, 3, tzinfo=UTC),
+                work_item=work_item,
+            )
+        ]
+    )
+    service = GitHubRemediationIntakeService(
+        work_item_service=fake_service,  # type: ignore[arg-type]
+    )
+
+    result = service.select_and_claim(repository_id="octo-org/octo-repo", persist=False)
+
+    assert result.selected_target is not None
+    assert result.selected_target.status == "approved"
+    assert fake_service.upserted_work_items == []

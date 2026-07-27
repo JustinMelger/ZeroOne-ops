@@ -10,7 +10,7 @@ import secrets
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
-from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RunStatus, utc_now
+from zeroone_ops.models.state import AppState, RunStatus, utc_now
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
@@ -47,6 +47,9 @@ from zeroone_ops.services.intake.finding_dashboard_sync_service import (
     FindingDashboardSyncService,
 )
 from zeroone_ops.services.intake.issue_intake import IssueIntakeService
+from zeroone_ops.services.remediation.github_remediation_runner import (
+    GitHubRemediationRunner,
+)
 from zeroone_ops.services.review.pipeline.review_runner import ReviewRunner
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import (
@@ -222,18 +225,16 @@ def run_remediation(*, dry_run: bool = False) -> RunSummary:
     repo_root = Path.cwd()
     active_dry_run = dry_run or config.dry_run
     if config.platform == "github":
-        message = (
-            "GitHub remediation execution is not implemented yet. "
-            "GitHub work items can be projected, but they cannot yet be selected "
-            "and executed by the remediation runner."
-        )
-        return run_state_service.fail_run(
+        github_config = load_github_connection_config()
+        return GitHubRemediationRunner(
+            repo_root=repo_root,
+            config=config,
+            repository_id=github_config.repository,
+            work_item_service=GitHubWorkItemService(GitHubWorkItemClient(github_config)),
+            run_state_service=run_state_service,
+        ).run(
             record=record,
-            error_message=message,
-            failure=FailureDetails(
-                stage=FailureStage.ISSUE_INTAKE,
-                message=message,
-            ),
+            active_dry_run=active_dry_run,
         )
     gitlab_config = load_gitlab_connection_config()
     return DashboardRemediationRunner(

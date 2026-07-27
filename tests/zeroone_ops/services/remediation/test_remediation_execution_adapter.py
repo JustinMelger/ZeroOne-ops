@@ -1,3 +1,4 @@
+from zeroone_ops.models.finding import RemediationContext
 from zeroone_ops.models.sonar import SonarIssue
 from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
 from zeroone_ops.services.remediation.remediation_execution_adapter import (
@@ -71,6 +72,14 @@ def test_control_plane_work_item_adapter_uses_authoritative_identity() -> None:
             severity="medium",
             file_path="src/service.py",
             line=12,
+            remediation_context=RemediationContext(
+                category="static_analysis_fix",
+                diagnostic_code="E712",
+                validation_commands=["uv run ruff check src/service.py"],
+                expected_change="Use direct truthiness.",
+                constraints="Keep the expression side-effect free.",
+                acceptance_criteria=["The E712 finding is resolved."],
+            ),
         )
     )
 
@@ -79,3 +88,9 @@ def test_control_plane_work_item_adapter_uses_authoritative_identity() -> None:
     assert target.source_ref == "ruff:E712:service"
     assert target.status == "in_progress"
     assert target.message == "Use direct truthiness instead of == True."
+    assert target.remediation_category == "static_analysis_fix"
+    assert target.rule_id == "E712"
+    assert target.validation_commands == ["uv run ruff check src/service.py"]
+    assert target.expected_change == "Use direct truthiness."
+    assert target.constraints == "Keep the expression side-effect free."
+    assert target.acceptance_criteria == ["The E712 finding is resolved."]

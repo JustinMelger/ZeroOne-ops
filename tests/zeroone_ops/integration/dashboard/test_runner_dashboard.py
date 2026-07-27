@@ -24,6 +24,7 @@ from zeroone_ops.models.review import (
 )
 from zeroone_ops.models.state import (
     FailureStage,
+    RunStatus,
 )
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.runner import (
@@ -39,6 +40,7 @@ from zeroone_ops.services.control_plane.policy.github_policy_issue_service impor
 from zeroone_ops.services.dashboard.dashboard_service import DashboardPolicyProcessResult
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
 from zeroone_ops.services.shared.branch_manager import BranchManagerError
+from zeroone_ops.services.shared.run_summary_builder import RunSummary
 from zeroone_ops.services.shared.state_store import StateStore
 from zeroone_ops.services.shared.workspace_snapshot import WorkspaceSnapshotService
 from zeroone_ops.utils.git import build_remediation_branch_name
@@ -1723,7 +1725,7 @@ def test_dashboard_remediate_live_run_requires_ci_mode(tmp_path: Path, monkeypat
     assert last_run.failure.stage == FailureStage.ISSUE_INTAKE
 
 
-def test_run_remediation_github_fails_with_explicit_phase_boundary(
+def test_run_remediation_routes_github_to_provider_local_runner(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -1757,19 +1759,28 @@ def test_run_remediation_github_fails_with_explicit_phase_boundary(
         unexpected_load_gitlab_connection_config,
     )
 
-    summary = run_remediation(dry_run=False)
-    state = StateStore(
-        tmp_path / ".zeroone-ops-state.json",
-        base_branch="main",
-        gitlab_project_id=None,
-        sonarqube_project_key=None,
-    ).load()
-    last_run = state.runs[-1]
+    captured: dict[str, object] = {}
 
-    assert summary.status.value == "failed"
-    assert "GitHub remediation execution is not implemented yet" in summary.message
-    assert last_run.failure is not None
-    assert last_run.failure.stage == FailureStage.ISSUE_INTAKE
+    class StubGitHubRemediationRunner:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        def run(self, **kwargs: object) -> RunSummary:
+            record = kwargs["record"]
+            assert hasattr(record, "run_id")
+            return RunSummary(
+                run_id=record.run_id,
+                status=RunStatus.NO_ISSUE,
+                message="[ci] No eligible GitHub work items.",
+                state_path=tmp_path / ".zeroone-ops-state.json",
+            )
+
+    monkeypatch.setattr("zeroone_ops.runner.GitHubRemediationRunner", StubGitHubRemediationRunner)
+
+    summary = run_remediation(dry_run=False)
+    assert summary.status.value == "no_issue"
+    assert summary.message == "[ci] No eligible GitHub work items."
+    assert captured["repository_id"] == "octo-org/octo-repo"
 
 
 def test_dashboard_remediate_ci_success_marks_dashboard_change_request_opened(

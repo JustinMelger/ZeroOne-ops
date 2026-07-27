@@ -327,8 +327,11 @@ Design reference:
   claims it as `in_progress`, and normalizes it into `RemediationExecutionTarget`;
   order by severity, creation time, and issue number while leaving `blocked`
   items untouched
-- [ ] route GitHub-selected work through the existing shared `ExecutionService`
+- [x] route GitHub-selected work through the existing shared `ExecutionService`
   and project execution outcomes back to the authoritative GitHub work item
+- [ ] add a bounded GitHub work-item stale-claim recovery slice: persist
+  claim metadata, recover only unlinked stale `in_progress` items before
+  intake, and record the recovery for operators
 - [ ] add scheduled and manual GitHub workflow entrypoints with repository-wide
   concurrency; do not trigger remediation execution directly from issue comments
 - [ ] live-test one Ruff-derived GitHub work item through remediation PR

@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
+from zeroone_ops.models.finding import RemediationContext
 from zeroone_ops.models.remediation import RemediationExecutionTarget, RemediationWorkItem
 from zeroone_ops.models.work_item import (
     ChangeRequestRef,
@@ -340,6 +341,14 @@ class GitHubRemediationControlPlane:
             severity=work_item.severity,
             file_path=work_item.file_path,
             line=work_item.line,
+            remediation_context=RemediationContext(
+                category=work_item.remediation_category,
+                diagnostic_code=work_item.rule_id,
+                validation_commands=work_item.validation_commands,
+                expected_change=work_item.expected_change,
+                constraints=work_item.constraints,
+                acceptance_criteria=work_item.acceptance_criteria,
+            ),
         )
 
     def _build_work_item(
@@ -368,6 +377,14 @@ class GitHubRemediationControlPlane:
             severity=selected_issue.severity,
             file_path=selected_issue.file_path,
             line=selected_issue.line,
+            remediation_context=RemediationContext(
+                category=selected_issue.remediation_category,
+                diagnostic_code=selected_issue.rule_id,
+                validation_commands=selected_issue.validation_commands,
+                expected_change=selected_issue.expected_change,
+                constraints=selected_issue.constraints,
+                acceptance_criteria=selected_issue.acceptance_criteria,
+            ),
             linked_change_request=(
                 None
                 if linked_change_request is None

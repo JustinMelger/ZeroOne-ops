@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from zeroone_ops.models.finding import RemediationContext
 from zeroone_ops.models.review import ReviewClassification
 
 WorkItemKind = Literal["remediation"]
@@ -55,6 +56,7 @@ class WorkItemState(BaseModel):
     severity: str | None = None
     file_path: str | None = None
     line: int | None = None
+    remediation_context: RemediationContext = Field(default_factory=RemediationContext)
     linked_change_request: ChangeRequestRef | None = None
     projected_review: ProjectedReviewState | None = None
     created_by_system: Literal["zeroone_ops"] = "zeroone_ops"

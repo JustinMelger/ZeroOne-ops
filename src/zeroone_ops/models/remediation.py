@@ -39,6 +39,7 @@ class RemediationWorkItem(BaseModel):
     line: int | None = None
     rule_id: str | None = None
     severity: str | None = None
+    remediation_category: str | None = None
     issue_type: str | None = None
     component: str | None = None
     project: str | None = None
@@ -62,6 +63,7 @@ class RemediationExecutionTarget(BaseModel):
     line: int | None = None
     rule_id: str | None = None
     severity: str | None = None
+    remediation_category: str | None = None
     issue_type: str | None = None
     component: str | None = None
     project: str | None = None

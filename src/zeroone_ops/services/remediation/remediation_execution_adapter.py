@@ -22,6 +22,7 @@ def remediation_work_item_to_execution_target(
         line=work_item.line,
         rule_id=work_item.rule_id,
         severity=work_item.severity,
+        remediation_category=work_item.remediation_category,
         issue_type=work_item.issue_type,
         component=work_item.component,
         project=work_item.project,
@@ -48,7 +49,13 @@ def control_plane_work_item_to_execution_target(
         message=work_item.detail or work_item.summary,
         file_path=work_item.file_path,
         line=work_item.line,
+        rule_id=work_item.remediation_context.diagnostic_code,
         severity=work_item.severity,
+        remediation_category=work_item.remediation_context.category,
+        validation_commands=work_item.remediation_context.validation_commands,
+        expected_change=work_item.remediation_context.expected_change,
+        constraints=work_item.remediation_context.constraints,
+        acceptance_criteria=work_item.remediation_context.acceptance_criteria,
     )
 
 

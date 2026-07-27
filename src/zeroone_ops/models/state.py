@@ -175,6 +175,7 @@ class RunRecord(BaseModel):
 
     run_id: str
     issue_key: str | None = None
+    work_item_id: str | None = None
     dashboard_item_id: str | None = None
     branch_name: str | None = None
     commit_sha: str | None = None

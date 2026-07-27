@@ -2,7 +2,7 @@ from zeroone_ops.models.dashboard import (
     DashboardPolicyState,
     DashboardSeverityPolicyStateEntry,
 )
-from zeroone_ops.models.finding import NormalizedFinding
+from zeroone_ops.models.finding import NormalizedFinding, RemediationContext
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.work_item import ChangeRequestRef
 from zeroone_ops.services.control_plane.work_items.github_finding_sync_service import (
@@ -83,6 +83,14 @@ def _finding(*, severity: str = "medium") -> NormalizedFinding:
         summary="Use direct truthiness instead of == True.",
         repository_path="src/service.py",
         line_start=12,
+        remediation_context=RemediationContext(
+            category="static_analysis_fix",
+            diagnostic_code="E712",
+            validation_commands=["uv run ruff check src/service.py"],
+            expected_change="Use direct truthiness.",
+            constraints="Keep the expression side-effect free.",
+            acceptance_criteria=["The E712 finding is resolved."],
+        ),
     )
 
 
@@ -117,6 +125,12 @@ def test_sync_creates_work_item_for_policy_promoted_finding() -> None:
     assert len(client.issues) == 1
     assert client.issues[0].title == "ZeroOne Ops: Avoid equality comparisons to True"
     assert "Use direct truthiness instead of == True." in client.issues[0].body
+    assert "- Remediation category: `static_analysis_fix`" in client.issues[0].body
+    assert "- Diagnostic code: `E712`" in client.issues[0].body
+    parsed = GitHubWorkItemParser().parse_work_item_state(client.issues[0].body)
+    assert parsed is not None
+    assert parsed.remediation_context.validation_commands == ["uv run ruff check src/service.py"]
+    assert parsed.remediation_context.expected_change == "Use direct truthiness."
 
 
 def test_sync_keeps_disabled_severity_as_backlog_only() -> None:

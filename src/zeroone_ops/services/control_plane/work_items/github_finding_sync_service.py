@@ -153,6 +153,7 @@ class GitHubFindingSyncService:
             severity=finding.severity,
             file_path=finding.repository_path,
             line=finding.line_start,
+            remediation_context=finding.remediation_context,
         )
 
     def _demote_if_safe(

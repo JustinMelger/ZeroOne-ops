@@ -319,6 +319,37 @@ def test_build_structured_edit_prompt_uses_prompt_template() -> None:
     assert "File path: src/service.py" in prompt
 
 
+def test_build_structured_edit_prompt_prefers_remediation_category() -> None:
+    issue = RemediationExecutionTarget(
+        item_id="AX1",
+        source_type="sonarqube",
+        source_ref="AX1",
+        title="python:S100 in src/service.py",
+        status="OPEN",
+        message="Rename this function.",
+        file_path="src/service.py",
+        issue_type="CODE_SMELL",
+        remediation_category="static_analysis_fix",
+    )
+    context = IssueContext(
+        issue_key="AX1",
+        file_path="src/service.py",
+        line=8,
+        file_size_bytes=128,
+        snippet=CodeContextSnippet(
+            start_line=4,
+            end_line=12,
+            content="def bad_name():\n    return 1\n",
+        ),
+        full_file_included=False,
+        truncated=False,
+    )
+
+    prompt = build_structured_edit_prompt(issue, context)
+
+    assert "Type: static_analysis_fix" in prompt
+
+
 def test_build_structured_edit_prompt_includes_prior_review_feedback_when_present() -> None:
     issue = RemediationExecutionTarget(
         item_id="AX1",
