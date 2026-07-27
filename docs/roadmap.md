@@ -332,8 +332,10 @@ Design reference:
 - [ ] add a bounded GitHub work-item stale-claim recovery slice: persist
   claim metadata, recover only unlinked stale `in_progress` items before
   intake, and record the recovery for operators
-- [ ] add scheduled and manual GitHub workflow entrypoints with repository-wide
-  concurrency; do not trigger remediation execution directly from issue comments
+- [x] add a manual `workflow_dispatch` GitHub remediation workflow with
+  repository-wide concurrency; do not trigger remediation from issue comments
+- [ ] add a scheduled GitHub remediation entrypoint after the manual live
+  remediation validation succeeds
 - [ ] live-test one Ruff-derived GitHub work item through remediation PR
   publication and later reconciliation
 

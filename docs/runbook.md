@@ -794,6 +794,29 @@ Current config note:
 - use the example workflow comments for the smallest valid review-only JSON
   shape
 
+## GitHub Remediation Manual Run
+
+The first GitHub remediation rollout is deliberately manual. Use the
+`GitHub Remediation` workflow from the Actions tab after finding sync has
+created an eligible `approved` work-item issue.
+
+The workflow always checks out the repository default branch and runs:
+
+```bash
+uv run zeroone-ops remediation run
+```
+
+It processes at most one work item. Repository-scoped workflow concurrency
+serializes live claims, so a second manual run waits rather than selecting the
+same item concurrently. Do not add a schedule until one manual run has created
+or reused a remediation pull request and the linked work-item state is correct.
+
+Required workflow permissions:
+
+- `contents: write` to push the remediation branch
+- `issues: write` to claim and project the authoritative work item
+- `pull-requests: write` to create or reuse the remediation pull request
+
 ## Dashboard Discovery Smoke Check
 
 Use this quick check after the remediation workflow is already healthy.

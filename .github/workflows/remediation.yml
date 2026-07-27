@@ -1,0 +1,57 @@
+name: GitHub Remediation
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: zeroone-ops-remediation-${{ github.repository }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    env:
+      ZEROONE_OPS_EXECUTION_MODE: ci
+      ZEROONE_OPS_CONFIG: .zeroone-ops.json
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+      ZEROONE_MLFLOW_ENABLED: "true"
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      MLFLOW_TRACKING_URI: ${{ vars.MLFLOW_TRACKING_URI }}
+      MLFLOW_REGISTRY_URI: ${{ vars.MLFLOW_REGISTRY_URI }}
+      MLFLOW_EXPERIMENT_ID: ${{ vars.MLFLOW_EXPERIMENT_ID }}
+      MLFLOW_ENABLE_ASYNC_TRACE_LOGGING: "false"
+      MLFLOW_HTTP_REQUEST_TIMEOUT: "5"
+      MLFLOW_HTTP_REQUEST_MAX_RETRIES: "1"
+
+    steps:
+      - name: Check out default branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Sync dependencies
+        run: uv sync --all-groups
+
+      - name: Run one remediation work item
+        run: uv run zeroone-ops remediation run
