@@ -44,7 +44,12 @@ jobs:
               "bootstrap_severities": ["medium", "high"]
             },
             "sarif": {
-              "artifact_paths": ["artifacts/ruff.sarif"]
+              "artifacts": [
+                {
+                  "path": "artifacts/ruff.sarif",
+                  "source_id": "ruff-sarif"
+                }
+              ]
             },
             "github": {
               "labels": []
