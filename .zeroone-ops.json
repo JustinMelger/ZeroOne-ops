@@ -48,7 +48,7 @@
     ]
   },
   "github": {
-    "labels": ["zeroone-ops", "sonarqube"]
+    "labels": ["zeroone-ops"]
   },
   "state": {
     "path": ".zeroone-ops-state.json"
