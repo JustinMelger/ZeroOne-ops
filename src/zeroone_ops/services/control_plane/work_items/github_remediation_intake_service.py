@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
 
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.remediation import RemediationExecutionTarget
-from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.models.state import utc_now
+from zeroone_ops.models.work_item import WorkItemClaim, WorkItemState
 from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
     GitHubWorkItemLookupResult,
 )
@@ -36,15 +38,22 @@ class GitHubRemediationIntakeResult:
 class GitHubRemediationIntakeService:
     """Select and claim one authoritative GitHub remediation work item."""
 
-    def __init__(self, *, work_item_service: GitHubWorkItemService) -> None:
+    def __init__(
+        self,
+        *,
+        work_item_service: GitHubWorkItemService,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
         """Initialize the GitHub work-item intake service."""
         self.work_item_service = work_item_service
+        self.clock = clock or utc_now
 
     def select_and_claim(
         self,
         *,
         repository_id: str,
         persist: bool = True,
+        run_id: str | None = None,
     ) -> GitHubRemediationIntakeResult:
         """Select the next eligible item and claim it when persistence is enabled."""
         work_items = self.work_item_service.list_open_work_items(repository_id=repository_id)
@@ -73,7 +82,12 @@ class GitHubRemediationIntakeService:
             )
         claimed = self.work_item_service.upsert_work_item(
             repository_id=repository_id,
-            work_item=selected.work_item.model_copy(update={"status": "in_progress"}),
+            work_item=selected.work_item.model_copy(
+                update={
+                    "status": "in_progress",
+                    "claim": WorkItemClaim(claimed_at=self.clock(), run_id=run_id),
+                }
+            ),
         )
         return GitHubRemediationIntakeResult(
             selected_target=control_plane_work_item_to_execution_target(claimed.work_item),

@@ -8,7 +8,7 @@ from typing import Literal
 from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemState
 
-ClosedUnmergedWorkItemOutcome = Literal["approved", "blocked"]
+ClosedUnmergedWorkItemOutcome = Literal["approved", "blocked", "candidate", "completed"]
 
 
 @dataclass(frozen=True)
@@ -40,6 +40,7 @@ class GitHubWorkItemReconciliationService:
                 update={
                     "status": "in_progress",
                     "linked_change_request": linked_change_request,
+                    "claim": None,
                 }
             )
             action = "unchanged" if reconciled == work_item else "updated"
@@ -53,6 +54,7 @@ class GitHubWorkItemReconciliationService:
                 update={
                     "status": "completed",
                     "linked_change_request": linked_change_request,
+                    "claim": None,
                 }
             )
             return GitHubWorkItemReconciliationResult(
@@ -61,15 +63,29 @@ class GitHubWorkItemReconciliationService:
                 message=f"Pull request {change_request_state.iid} was merged.",
             )
         if change_request_state.state == "closed":
-            if closed_unmerged_outcome not in {"approved", "blocked"}:
-                raise ValueError("closed_unmerged_outcome must be 'approved' or 'blocked'.")
+            if closed_unmerged_outcome not in {
+                "approved",
+                "blocked",
+                "candidate",
+                "completed",
+            }:
+                raise ValueError(
+                    "closed_unmerged_outcome must be 'approved', 'blocked', 'candidate', "
+                    "or 'completed'."
+                )
             reconciled = work_item.model_copy(
                 update={
                     "status": closed_unmerged_outcome,
                     "linked_change_request": None,
+                    "claim": None,
                 }
             )
-            action = "reopened" if closed_unmerged_outcome == "approved" else "blocked"
+            action = {
+                "approved": "reopened",
+                "blocked": "blocked",
+                "candidate": "demoted",
+                "completed": "completed",
+            }[closed_unmerged_outcome]
             return GitHubWorkItemReconciliationResult(
                 action=action,
                 work_item=reconciled,

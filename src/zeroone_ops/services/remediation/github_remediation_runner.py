@@ -79,6 +79,7 @@ class GitHubRemediationRunner:
         ).select_and_claim(
             repository_id=self.repository_id,
             persist=not active_dry_run,
+            run_id=record.run_id,
         )
         selected_target = intake_result.selected_target
         claimed_work_item = intake_result.claimed_work_item

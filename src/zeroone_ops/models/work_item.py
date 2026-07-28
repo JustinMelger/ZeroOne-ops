@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -44,6 +45,13 @@ class ProjectedReviewState(BaseModel):
     follow_up_required: bool
 
 
+class WorkItemClaim(BaseModel):
+    """Represent durable ownership while a remediation work item is executing."""
+
+    claimed_at: datetime
+    run_id: str | None = None
+
+
 class WorkItemState(BaseModel):
     """Represent one canonical provider-neutral work item."""
 
@@ -59,6 +67,7 @@ class WorkItemState(BaseModel):
     remediation_context: RemediationContext = Field(default_factory=RemediationContext)
     linked_change_request: ChangeRequestRef | None = None
     projected_review: ProjectedReviewState | None = None
+    claim: WorkItemClaim | None = None
     created_by_system: Literal["zeroone_ops"] = "zeroone_ops"
 
     @property

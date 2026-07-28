@@ -292,6 +292,78 @@ def test_sync_keeps_in_progress_work_item_when_severity_is_disabled() -> None:
     assert parsed.status == "in_progress"
 
 
+def test_sync_preserves_blocked_work_item_when_active_finding_remains_promoted() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    repository_id = "octo-org/octo-repo"
+
+    service.sync(
+        repository_id=repository_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+    parser = GitHubWorkItemParser()
+    rendered = parser.parse_work_item_state(client.issues[0].body)
+    assert rendered is not None
+    client.issues[0] = client.issues[0].model_copy(
+        update={
+            "body": GitHubWorkItemRenderer().render_body(
+                rendered.model_copy(update={"status": "blocked"})
+            )
+        }
+    )
+
+    result = service.sync(
+        repository_id=repository_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+
+    parsed = parser.parse_work_item_state(client.issues[0].body)
+
+    assert result.promoted_count == 1
+    assert parsed is not None
+    assert parsed.status == "blocked"
+
+
+def test_sync_preserves_dismissed_work_item_when_active_finding_remains_promoted() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    repository_id = "octo-org/octo-repo"
+
+    service.sync(
+        repository_id=repository_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+    parser = GitHubWorkItemParser()
+    rendered = parser.parse_work_item_state(client.issues[0].body)
+    assert rendered is not None
+    client.issues[0] = client.issues[0].model_copy(
+        update={
+            "body": GitHubWorkItemRenderer().render_body(
+                rendered.model_copy(update={"status": "dismissed"})
+            )
+        }
+    )
+
+    result = service.sync(
+        repository_id=repository_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+
+    parsed = parser.parse_work_item_state(client.issues[0].body)
+
+    assert result.promoted_count == 1
+    assert parsed is not None
+    assert parsed.status == "dismissed"
+
+
 def test_sync_keeps_linked_work_item_when_severity_is_disabled() -> None:
     client = FakeGitHubWorkItemClient()
     service = GitHubFindingSyncService(

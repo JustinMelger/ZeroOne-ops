@@ -15,6 +15,7 @@ from zeroone_ops.runner import (
     review,
     run_remediation,
     sync_findings,
+    sync_work_item_status,
 )
 from zeroone_ops.services.shared.run_state_service import RunSummary
 
@@ -23,10 +24,12 @@ review_app = typer.Typer(add_completion=False, help="Merge request review workfl
 dashboard_app = typer.Typer(add_completion=False, help="Dashboard sync workflows.")
 findings_app = typer.Typer(add_completion=False, help="Finding ingestion workflows.")
 remediation_app = typer.Typer(add_completion=False, help="Remediation workflows.")
+work_items_app = typer.Typer(add_completion=False, help="Work-item lifecycle workflows.")
 app.add_typer(review_app, name="review")
 app.add_typer(dashboard_app, name="dashboard")
 app.add_typer(findings_app, name="findings")
 app.add_typer(remediation_app, name="remediation")
+app.add_typer(work_items_app, name="work-items")
 
 
 def _echo_review_summary(*, dry_run: bool) -> None:
@@ -112,6 +115,19 @@ def remediation_run_command(
     """Run remediation for the active platform."""
     configure_logging()
     _echo_summary(run_remediation(dry_run=dry_run))
+
+
+@work_items_app.command("sync-status")
+def work_items_sync_status_command(
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Run without updating work-item lifecycle state.",
+    ),
+) -> None:
+    """Reconcile remediation work-item lifecycle status."""
+    configure_logging()
+    _echo_summary(sync_work_item_status(dry_run=dry_run))
 
 
 @dashboard_app.command("reconcile")
