@@ -311,10 +311,26 @@ Design reference:
 ##### Phase 6c3: GitHub Operator Validation
 
 - [x] live-test GitHub finding sync with Ruff SARIF on this repository
-- [ ] verify the operator-facing GitHub work-item rendering is readable and
-  sufficiently traceable for finding-origin diagnostics
-- [ ] collect follow-up decisions on whether GitHub needs a derived summary
-  surface after direct work-item sync is live
+- [ ] refine and live-validate GitHub work-item rendering so the issue reads as
+  an actionable engineering task rather than a serialized control-plane record:
+  - use a rendered diagnostic title and concise explanation, never unresolved
+    source-message templates
+  - keep status, severity, source, file/line, and diagnostic code scannable
+  - collapse machine-oriented identity, provenance, and machine-state details
+    without changing their authoritative representation
+  - use GitHub-native wording such as `Remediation PR`
+  - render remediation-PR source provenance from the originating finding (for
+    example, `Ruff SARIF`) rather than the generic remediation workflow
+- [ ] add a derived GitHub operational work-summary issue after lifecycle
+  reconciliation is trusted:
+  - render current work-item counts, active remediation PRs, recent outcomes,
+    and backlog aggregates from authoritative work-item state
+  - keep it read-only and non-authoritative; policy commands remain on the
+    dedicated policy issue
+  - cross-link the policy issue and operational summary for discovery
+  - after summary behavior is live-validated, close native GitHub work-item
+    issues in `completed` or `dismissed` state while retaining their
+    authoritative serialized lifecycle record
 
 ##### Phase 6c4: Provider-Neutral Remediation Runner
 
@@ -329,9 +345,27 @@ Design reference:
   items untouched
 - [x] route GitHub-selected work through the existing shared `ExecutionService`
   and project execution outcomes back to the authoritative GitHub work item
-- [ ] add a bounded GitHub work-item stale-claim recovery slice: persist
-  claim metadata, recover only unlinked stale `in_progress` items before
-  intake, and record the recovery for operators
+- [ ] add a bounded GitHub work-item lifecycle manager slice:
+  - expose it through the provider-neutral operator command
+    `zeroone-ops work-items sync-status`
+  - mirror the established GitLab recovery rule: persist claim metadata and
+    recover only unlinked `in_progress` items older than 24 hours to
+    `approved`, recording the recovery for operators
+  - mirror GitLab change-request convergence: keep open PRs `in_progress`;
+    mark merged PRs `completed` while retaining the link; when a PR closes
+    unmerged, clear the link and return the item to `approved` if the finding
+    remains active upstream, mark it `completed` if it no longer does, and
+    mark it `blocked` when metadata is missing, inaccessible, or inconsistent
+  - move re-approval ownership out of finding sync: source sync must preserve
+    remediation-owned `blocked` state, while lifecycle reconciliation (or a
+    future explicit operator action) is the only path back to `approved`
+  - manually live-validate this command before adding its scheduled GitHub
+    workflow
+- [ ] add provider-neutral remediation retry recovery for an existing unlinked
+  branch: resume from the remote remediation branch after a failed change
+  request publish instead of rebuilding from the default branch and failing
+  with a non-fast-forward push; then create or reuse the GitLab MR or GitHub
+  PR from that branch
 - [x] add a manual `workflow_dispatch` GitHub remediation workflow with
   repository-wide concurrency; do not trigger remediation from issue comments
 - [ ] add a scheduled GitHub remediation entrypoint after the manual live
