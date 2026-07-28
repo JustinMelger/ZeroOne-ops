@@ -48,7 +48,8 @@
     ]
   },
   "github": {
-    "labels": ["zeroone-ops", "zeroone-remediation"]
+    "labels": ["zeroone-ops", "zeroone-remediation"],
+    "pull_request_assignee_username": "JustinMelger"
   },
   "state": {
     "path": ".zeroone-ops-state.json"
