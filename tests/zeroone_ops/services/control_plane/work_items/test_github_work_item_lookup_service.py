@@ -94,7 +94,7 @@ def test_list_open_work_items_returns_parseable_authoritative_records() -> None:
     assert client.list_labels == ["zeroone-work-item"]
 
 
-def test_lookup_warns_when_multiple_work_items_link_one_change_request(caplog) -> None:
+def test_lookup_skips_projection_when_multiple_work_items_link_one_change_request(caplog) -> None:
     renderer = GitHubWorkItemRenderer()
     first = build_work_item().model_copy(
         update={
@@ -128,6 +128,8 @@ def test_lookup_warns_when_multiple_work_items_link_one_change_request(caplog) -
         change_request_number=17,
     )
 
-    assert result is not None
-    assert result.issue.number == 11
-    assert "multiple GitHub work items link to one change request" in caplog.messages
+    assert result is None
+    assert (
+        "multiple GitHub remediation work items link to one change request; "
+        "review projection skipped"
+    ) in caplog.messages

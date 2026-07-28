@@ -65,9 +65,11 @@ class GitHubWorkItemLookupService:
         repository_id: str,
         change_request_number: int,
     ) -> GitHubWorkItemLookupResult | None:
-        """Return the work item authoritatively linked to one open change request."""
+        """Return the uniquely linked open remediation work item, when present."""
         matched_result: GitHubWorkItemLookupResult | None = None
         for result in self.list_open_work_items(repository_id=repository_id):
+            if result.work_item.kind != "remediation":
+                continue
             linked_change_request = result.work_item.linked_change_request
             if (
                 linked_change_request is not None
@@ -75,14 +77,15 @@ class GitHubWorkItemLookupService:
             ):
                 if matched_result is not None:
                     LOGGER.warning(
-                        "multiple GitHub work items link to one change request",
+                        "multiple GitHub remediation work items link to one change request; "
+                        "review projection skipped",
                         extra={
                             "change_request_number": change_request_number,
                             "first_issue_number": matched_result.issue.number,
                             "duplicate_issue_number": result.issue.number,
                         },
                     )
-                    continue
+                    return None
                 matched_result = result
         return matched_result
 
