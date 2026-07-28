@@ -135,7 +135,8 @@ class GitHubWorkItemLifecycleService:
     ) -> tuple[WorkItemState, str]:
         """Resolve one linked pull request, preserving links when state is uncertain."""
         linked_change_request = work_item.linked_change_request
-        assert linked_change_request is not None
+        if linked_change_request is None:
+            raise ValueError("Linked work-item reconciliation requires a change request.")
         try:
             change_request_state = self.change_request_client.get_change_request_state(
                 repository_id=repository_id,
