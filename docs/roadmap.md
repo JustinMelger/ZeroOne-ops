@@ -157,6 +157,9 @@ Shipped product state:
     longer needed
   - move remaining GitLab-specific shared services behind clearer provider-local
     boundaries
+  - after Phase 6 rollout validation, reduce `runner.py` composition duplication
+    with a small shared workflow context/factory for config, state, run ID, and
+    dry-run setup; keep platform-specific dependency builders narrow and local
   - keep cleanup tied to clarity or real rollout issues, not speculative
     refactors
 
