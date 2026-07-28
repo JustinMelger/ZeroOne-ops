@@ -739,10 +739,13 @@ Linked pull-request transitions:
 - if a linked remediation pull request merges successfully, the work item moves
   to `completed`
 - if a linked remediation pull request closes unmerged, the work item must move
-  back to `approved` or `blocked` based on failure outcome classification
-- the first implementation slice should keep this failure classification
-  explicit and bounded rather than infer broad semantics from arbitrary pull
-  request closure events
+  to `candidate` with its linked pull-request reference cleared; a later
+  complete finding-sync pass may promote it again only when the finding remains
+  active and policy-eligible
+- lifecycle reconciliation must not run source tools or depend on a previous
+  GitHub Actions artifact: it can always converge open and merged pull requests
+  from the stored link, while finding sync remains authoritative for fresh
+  source inventory and re-promotion
 
 ##### Phase 5b.1 Locked Defaults
 
@@ -755,7 +758,10 @@ Failure classification on unmerged pull-request close:
   remediation handoff, move the work item to `blocked`
 - if a remediation pull request is manually closed by an operator without
   signaling that the work item is permanently dismissed, move the work item
-  back to `approved`
+  to `candidate` and clear its pull-request link
+- the next complete finding-sync pass may promote that `candidate` item to
+  `approved` only when the finding remains active and is currently
+  policy-eligible; it otherwise remains non-executable
 - if a remediation pull request is superseded by a newer remediation pull
   request for the same work item, keep the work item active and linked to the
   newer pull request rather than treating the old close as terminal

@@ -356,16 +356,15 @@ Design reference:
     `approved`, recording the recovery for operators
   - mirror GitLab change-request convergence: keep open PRs `in_progress`;
     mark merged PRs `completed` while retaining the link; when a PR closes
-    unmerged, clear the link and return the item to `approved` if the finding
-    remains active upstream and promotion-eligible, return it to `candidate`
-    when it remains active but policy-ineligible, mark it `completed` if it no
-    longer does, and mark it `blocked` when metadata is missing, inaccessible,
-    or inconsistent
-  - move re-approval ownership out of finding sync: source sync must preserve
-    remediation-owned `blocked` and intentionally terminal `dismissed` state;
-    lifecycle reconciliation can re-open only a confirmed active finding after
-    a closed unmerged PR, while a future explicit operator action is the only
-    path back from `dismissed` to `approved`
+    unmerged, clear the link and return the item to `candidate`; the next
+    complete finding-sync pass alone may promote it again when the finding is
+    active and policy-eligible, while known failures or inaccessible PR metadata
+    remain `blocked`
+  - keep re-promotion ownership with finding sync: source sync must preserve
+    remediation-owned `blocked` and intentionally terminal `dismissed` state,
+    but may promote a lifecycle-returned `candidate` only from fresh complete
+    inventory; a future explicit operator action is the only path back from
+    `dismissed` to `approved`
 - [ ] manually live-validate `work-items sync-status` before adding its
   scheduled GitHub workflow
 - [ ] add provider-neutral remediation retry recovery for an existing unlinked
