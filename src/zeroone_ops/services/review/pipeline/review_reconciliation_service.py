@@ -195,7 +195,7 @@ class ReviewReconciliationService:
         dropped_candidate_id_list = [
             candidate.candidate_id for candidate in precision_decision.dropped_candidates
         ]
-        dropped_candidate_ids = {candidate_id for candidate_id in dropped_candidate_id_list}
+        dropped_candidate_ids = set(dropped_candidate_id_list)
         if not dropped_candidate_ids.issubset(active_candidate_ids):
             return self._invalid_precision_fallback(
                 context=context,
