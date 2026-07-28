@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from types import SimpleNamespace
 
-from zeroone_ops.models.review import ChangeRequestReviewCandidate, ReviewComment
+from zeroone_ops.models.review import (
+    ChangeRequestReviewCandidate,
+    RemediationReviewContext,
+    ReviewComment,
+)
 from zeroone_ops.services.review.publish.review_finalization_service import (
     ReviewFinalizationService,
 )
@@ -97,6 +101,45 @@ def test_finalize_ignores_no_matching_work_item_projection() -> None:
 
     assert result.error_message is None
     assert result.projection_warning is None
+
+
+def test_finalize_retries_missing_work_item_link_for_remediation_review() -> None:
+    context = build_context().model_copy(
+        update={
+            "remediation_context": RemediationReviewContext(
+                source="Ruff SARIF",
+                source_id="ruff-sarif",
+                item_reference="ruff:1",
+            )
+        }
+    )
+    finalization = ReviewFinalizationService(
+        review_publisher=FakeReviewPublisher(
+            ReviewPublishResult(
+                note=ReviewComment(id=42, web_url="https://example.com/note/42"),
+                body="body",
+                artifact=build_artifact(),
+            )
+        ),
+        dashboard_updater=None,
+        review_projection_factory=lambda: FakeReviewProjectionService(action="no_linked_work_item"),
+    )
+
+    result = finalization.finalize(
+        run_id="run-1",
+        repository_id="owner/repo",
+        active_dry_run=False,
+        change_request=_build_change_request_candidate(),
+        context=context,
+        artifact=build_artifact(),
+        inline_comment_decisions=[],
+    )
+
+    assert result.error_message is None
+    assert result.projection_warning == (
+        "Review projection warning: no authoritative work item was linked to this "
+        "remediation change request."
+    )
 
 
 def test_finalize_downgrades_projection_failures_to_warning() -> None:

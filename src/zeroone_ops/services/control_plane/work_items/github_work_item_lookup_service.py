@@ -59,6 +59,33 @@ class GitHubWorkItemLookupService:
                 return result
         return None
 
+    def find_open_work_item_by_change_request(
+        self,
+        *,
+        repository_id: str,
+        change_request_number: int,
+    ) -> GitHubWorkItemLookupResult | None:
+        """Return the work item authoritatively linked to one open change request."""
+        matched_result: GitHubWorkItemLookupResult | None = None
+        for result in self.list_open_work_items(repository_id=repository_id):
+            linked_change_request = result.work_item.linked_change_request
+            if (
+                linked_change_request is not None
+                and linked_change_request.number == change_request_number
+            ):
+                if matched_result is not None:
+                    LOGGER.warning(
+                        "multiple GitHub work items link to one change request",
+                        extra={
+                            "change_request_number": change_request_number,
+                            "first_issue_number": matched_result.issue.number,
+                            "duplicate_issue_number": result.issue.number,
+                        },
+                    )
+                    continue
+                matched_result = result
+        return matched_result
+
     def list_open_work_items(
         self,
         *,
