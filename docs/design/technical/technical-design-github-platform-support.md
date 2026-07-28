@@ -1259,6 +1259,16 @@ Claim serialization rule:
   action may return one to `approved`, while the first runner leaves blocked
   items untouched
 
+Future claim hardening:
+
+- GitHub Actions concurrency is sufficient only while every live remediation
+  run is dispatched through the shared repository-scoped workflow group
+- before supporting external schedulers, local live execution, or multiple
+  independent workers, move work-item claiming to a persistent versioned store
+  or provider boundary with an atomic compare-and-set operation
+- do not treat an additional read-before-write eligibility check as an atomic
+  claim fix; it preserves the same race
+
 Implementation order:
 
 1. add the neutral command, runner entrypoint, and shared run-summary vocabulary
