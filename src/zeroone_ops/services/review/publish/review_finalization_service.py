@@ -208,6 +208,22 @@ class ReviewFinalizationService:
                                 "projection_action": projection_action,
                             },
                         )
+                    elif (
+                        projection_action == "no_linked_work_item"
+                        and context.remediation_context is not None
+                    ):
+                        projection_warning = (
+                            "Review projection warning: no authoritative work item was linked "
+                            "to this remediation change request."
+                        )
+                        LOGGER.warning(
+                            "review projection missing authoritative remediation link",
+                            extra={
+                                "run_id": run_id,
+                                "change_request_number": context.change_request_number,
+                                "head_sha": context.head_sha,
+                            },
+                        )
             except Exception as error:
                 projection_warning = f"Review projection warning: {error}"
                 LOGGER.warning(

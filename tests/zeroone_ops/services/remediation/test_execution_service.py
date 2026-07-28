@@ -277,6 +277,7 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
             "",
             "## Remediation Target",
             "- Source: `SonarQube`",
+            "- Source ID: `sonarqube`",
             "- Issue key: `FIXTURE-1`",
             "- Rule: `python:S2259`",
             "- Severity: `MAJOR`",

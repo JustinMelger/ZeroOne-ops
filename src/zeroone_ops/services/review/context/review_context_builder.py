@@ -245,6 +245,8 @@ def _parse_remediation_context(description: str | None) -> RemediationReviewCont
         value = _strip_markdown_code(match.group("value").strip())
         if label == "Source":
             context.source = value
+        elif label == "Source ID":
+            context.source_id = value
         elif label == "Rule":
             context.rule_id = value
         elif label == "Severity":
@@ -266,6 +268,7 @@ def _parse_remediation_context(description: str | None) -> RemediationReviewCont
         for value in (
             context.summary,
             context.source,
+            context.source_id,
             context.item_reference,
             context.rule_id,
             context.severity,

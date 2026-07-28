@@ -416,7 +416,7 @@ def test_build_analysis_prompt_uses_generic_profile_for_unknown_source() -> None
     prompt = build_analysis_prompt(issue, context)
 
     assert "Analyze the following remediation item" in prompt
-    assert "Source: Remediation" in prompt
+    assert "Source: Pipeline Failure" in prompt
     assert "Item reference: job-1" in prompt
     assert "Constraints: (none)" in prompt
 

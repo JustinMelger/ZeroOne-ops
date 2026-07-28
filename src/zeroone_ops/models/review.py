@@ -110,6 +110,7 @@ class RemediationReviewContext(BaseModel):
 
     summary: str | None = None
     source: str | None = None
+    source_id: str | None = None
     item_reference_label: str | None = None
     item_reference: str | None = None
     rule_id: str | None = None

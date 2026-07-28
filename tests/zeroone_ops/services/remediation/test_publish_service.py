@@ -219,6 +219,7 @@ def test_publish_service_builds_deterministic_description() -> None:
             "",
             "## Remediation Target",
             "- Source: `SonarQube`",
+            "- Source ID: `sonarqube`",
             "- Issue key: `FIXTURE-1`",
             "- Rule: `python:S2259`",
             "- Severity: `MAJOR`",
@@ -263,7 +264,8 @@ def test_publish_service_uses_generic_profile_for_unknown_source() -> None:
     )
 
     assert "## Remediation Target" in description
-    assert "- Source: `Remediation`" in description
+    assert "- Source: `Pipeline Failure`" in description
+    assert "- Source ID: `pipeline_failure`" in description
     assert "- Item reference: `job-1`" in description
 
 

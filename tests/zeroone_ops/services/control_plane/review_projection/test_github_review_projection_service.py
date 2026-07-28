@@ -1,6 +1,7 @@
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.review import ChangeRequestReviewContext, RemediationReviewContext
 from zeroone_ops.models.work_item import (
+    ChangeRequestRef,
     ProjectedReviewState,
     WorkItemSourceRef,
     WorkItemState,
@@ -27,6 +28,10 @@ def build_work_item() -> WorkItemState:
         severity="high",
         file_path="src/api.py",
         line=42,
+        linked_change_request=ChangeRequestRef(
+            number=1,
+            web_url="https://github.example.com/octo-org/octo-repo/pull/1",
+        ),
     )
 
 
@@ -137,8 +142,47 @@ def test_project_review_noops_without_matching_work_item() -> None:
         review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-1",
     )
 
-    assert result.action == "no_matching_work_item"
+    assert result.action == "no_linked_work_item"
     assert result.work_item is None
+
+
+def test_project_review_uses_stored_change_request_link_not_description_source() -> None:
+    client = FakeGitHubWorkItemClient()
+    work_item_service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+    work_item_service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item().model_copy(
+            update={
+                "source": WorkItemSourceRef(
+                    source="ruff-sarif",
+                    source_item_key="C416:src/service.py:42",
+                    repository_scope="octo-org/octo-repo",
+                )
+            }
+        ),
+    )
+    context = build_context().model_copy(
+        update={
+            "remediation_context": RemediationReviewContext(
+                source="Untrusted source",
+                source_id="untrusted-source",
+                item_reference_label="Item reference",
+                item_reference="untrusted-item",
+            )
+        }
+    )
+
+    result = GitHubReviewProjectionService(work_item_service).project_review(
+        repository_id="octo-org/octo-repo",
+        context=context,
+        classification="no_findings",
+        reviewed_sha="abc123",
+        review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-1",
+    )
+
+    assert result.action == "updated"
+    assert result.work_item is not None
+    assert result.work_item.projected_review is not None
 
 
 def test_project_review_noops_without_remediation_context() -> None:
@@ -160,7 +204,7 @@ def test_project_review_noops_without_remediation_context() -> None:
         review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-1",
     )
 
-    assert result.action == "no_remediation_context"
+    assert result.action == "no_linked_work_item"
     assert result.work_item is None
 
 
@@ -187,17 +231,16 @@ def test_project_review_preserves_repo_scoped_identity() -> None:
     assert result.work_item.projected_review.reviewed_sha == "def456"
 
 
-def test_project_review_noops_when_existing_work_item_uses_mismatched_scope() -> None:
+def test_project_review_noops_when_existing_work_item_links_another_change_request() -> None:
     client = FakeGitHubWorkItemClient()
     work_item_service = GitHubWorkItemService(client)  # type: ignore[arg-type]
     work_item_service.upsert_work_item(
         repository_id="octo-org/octo-repo",
         work_item=build_work_item().model_copy(
             update={
-                "source": WorkItemSourceRef(
-                    source="sonarqube",
-                    source_item_key="AX123",
-                    repository_scope=None,
+                "linked_change_request": ChangeRequestRef(
+                    number=2,
+                    web_url="https://github.example.com/octo-org/octo-repo/pull/2",
                 )
             }
         ),
@@ -211,7 +254,7 @@ def test_project_review_noops_when_existing_work_item_uses_mismatched_scope() ->
         review_note_url="https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-2",
     )
 
-    assert result.action == "no_matching_work_item"
+    assert result.action == "no_linked_work_item"
     assert result.work_item is None
 
 

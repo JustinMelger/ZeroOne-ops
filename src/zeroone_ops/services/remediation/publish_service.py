@@ -174,6 +174,7 @@ class PublishService:
                 "",
                 f"## {profile.mr_section_title}",
                 f"- Source: `{profile.source_display_name}`",
+                f"- Source ID: `{selected_issue.source_type}`",
                 f"- {profile.item_reference_label}: `{selected_issue.source_ref}`",
                 f"- Rule: `{selected_issue.rule_id or 'unknown'}`",
                 f"- Severity: `{selected_issue.severity or 'unknown'}`",

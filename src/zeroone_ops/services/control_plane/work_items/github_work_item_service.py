@@ -71,6 +71,18 @@ class GitHubWorkItemService:
             source=source,
         )
 
+    def find_open_work_item_by_change_request(
+        self,
+        *,
+        repository_id: str,
+        change_request_number: int,
+    ) -> GitHubWorkItemLookupResult | None:
+        """Return the work item authoritatively linked to one open change request."""
+        return self.lookup_service.find_open_work_item_by_change_request(
+            repository_id=repository_id,
+            change_request_number=change_request_number,
+        )
+
     def list_open_work_items(
         self,
         *,

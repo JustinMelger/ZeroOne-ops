@@ -295,6 +295,7 @@ def test_build_parses_remediation_authored_merge_request_context(tmp_path: Path)
             "",
             "## Remediation Target",
             "- Source: `SonarQube`",
+            "- Source ID: `sonarqube`",
             "- Issue key: `AX123`",
             "- Rule: `python:S2259`",
             "- Severity: `MAJOR`",
@@ -322,6 +323,7 @@ def test_build_parses_remediation_authored_merge_request_context(tmp_path: Path)
         "Update the service guard to avoid a null dereference."
     )
     assert result.context.remediation_context.source == "SonarQube"
+    assert result.context.remediation_context.source_id == "sonarqube"
     assert result.context.remediation_context.item_reference_label == "Issue key"
     assert result.context.remediation_context.item_reference == "AX123"
     assert result.context.remediation_context.rule_id == "python:S2259"

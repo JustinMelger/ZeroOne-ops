@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -121,4 +121,15 @@ def remediation_profile_for(
     """Return the producer profile for one remediation target."""
     if target.source_type == "sonarqube":
         return _SONARQUBE_PROFILE
-    return _DEFAULT_PROFILE
+    return replace(
+        _DEFAULT_PROFILE,
+        source_type=target.source_type,
+        source_display_name=_source_display_name(target.source_type),
+    )
+
+
+def _source_display_name(source_type: str) -> str:
+    """Return a concise human label for a normalized finding source."""
+    if source_type == "ruff-sarif":
+        return "Ruff SARIF"
+    return source_type.replace("-", " ").replace("_", " ").title()
