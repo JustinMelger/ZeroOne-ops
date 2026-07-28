@@ -8,7 +8,7 @@ from typing import Literal
 from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemState
 
-ClosedUnmergedWorkItemOutcome = Literal["approved", "blocked", "completed"]
+ClosedUnmergedWorkItemOutcome = Literal["approved", "blocked", "candidate", "completed"]
 
 
 @dataclass(frozen=True)
@@ -63,9 +63,15 @@ class GitHubWorkItemReconciliationService:
                 message=f"Pull request {change_request_state.iid} was merged.",
             )
         if change_request_state.state == "closed":
-            if closed_unmerged_outcome not in {"approved", "blocked", "completed"}:
+            if closed_unmerged_outcome not in {
+                "approved",
+                "blocked",
+                "candidate",
+                "completed",
+            }:
                 raise ValueError(
-                    "closed_unmerged_outcome must be 'approved', 'blocked', or 'completed'."
+                    "closed_unmerged_outcome must be 'approved', 'blocked', 'candidate', "
+                    "or 'completed'."
                 )
             reconciled = work_item.model_copy(
                 update={
@@ -77,6 +83,7 @@ class GitHubWorkItemReconciliationService:
             action = {
                 "approved": "reopened",
                 "blocked": "blocked",
+                "candidate": "demoted",
                 "completed": "completed",
             }[closed_unmerged_outcome]
             return GitHubWorkItemReconciliationResult(

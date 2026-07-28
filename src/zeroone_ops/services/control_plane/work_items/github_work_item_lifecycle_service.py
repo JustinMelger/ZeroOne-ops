@@ -40,6 +40,7 @@ class GitHubWorkItemLifecycleResult:
 
     recovered_stale_claim_count: int
     reopened_count: int
+    demoted_to_candidate_count: int
     completed_count: int
     blocked_count: int
     in_progress_count: int
@@ -68,6 +69,7 @@ class GitHubWorkItemLifecycleService:
         *,
         repository_id: str,
         active_source_keys: set[tuple[str, str]],
+        promotable_source_keys: set[tuple[str, str]],
         managed_source_ids: set[str],
         now: datetime,
         persist: bool = True,
@@ -80,6 +82,7 @@ class GitHubWorkItemLifecycleService:
                 repository_id=repository_id,
                 work_item=work_item,
                 active_source_keys=active_source_keys,
+                promotable_source_keys=promotable_source_keys,
                 managed_source_ids=managed_source_ids,
                 now=now,
             )
@@ -99,6 +102,7 @@ class GitHubWorkItemLifecycleService:
         repository_id: str,
         work_item: WorkItemState,
         active_source_keys: set[tuple[str, str]],
+        promotable_source_keys: set[tuple[str, str]],
         managed_source_ids: set[str],
         now: datetime,
     ) -> tuple[WorkItemState | None, str]:
@@ -122,6 +126,7 @@ class GitHubWorkItemLifecycleService:
             repository_id=repository_id,
             work_item=work_item,
             active_source_keys=active_source_keys,
+            promotable_source_keys=promotable_source_keys,
             managed_source_ids=managed_source_ids,
         )
 
@@ -131,6 +136,7 @@ class GitHubWorkItemLifecycleService:
         repository_id: str,
         work_item: WorkItemState,
         active_source_keys: set[tuple[str, str]],
+        promotable_source_keys: set[tuple[str, str]],
         managed_source_ids: set[str],
     ) -> tuple[WorkItemState, str]:
         """Resolve one linked pull request, preserving links when state is uncertain."""
@@ -166,6 +172,7 @@ class GitHubWorkItemLifecycleService:
             closed_unmerged_outcome = self._closed_unmerged_outcome(
                 work_item=work_item,
                 active_source_keys=active_source_keys,
+                promotable_source_keys=promotable_source_keys,
                 managed_source_ids=managed_source_ids,
             )
             if closed_unmerged_outcome is None:
@@ -194,6 +201,7 @@ class GitHubWorkItemLifecycleService:
         *,
         work_item: WorkItemState,
         active_source_keys: set[tuple[str, str]],
+        promotable_source_keys: set[tuple[str, str]],
         managed_source_ids: set[str],
     ) -> ClosedUnmergedWorkItemOutcome | None:
         """Return a safe closed-PR transition from the current source inventory."""
@@ -206,7 +214,11 @@ class GitHubWorkItemLifecycleService:
             )
             return None
         source_key = (source_id, work_item.source.source_item_key)
-        return "approved" if source_key in active_source_keys else "completed"
+        if source_key not in active_source_keys:
+            return "completed"
+        if source_key not in promotable_source_keys:
+            return "candidate"
+        return "approved"
 
     def _is_stale_unlinked_claim(self, *, work_item: WorkItemState, now: datetime) -> bool:
         """Return whether an unlinked in-progress claim has exceeded the recovery window."""
@@ -232,6 +244,7 @@ class _LifecycleCounts:
 
     recovered_stale_claim_count: int = 0
     reopened_count: int = 0
+    demoted_to_candidate_count: int = 0
     completed_count: int = 0
     blocked_count: int = 0
     in_progress_count: int = 0
@@ -243,6 +256,8 @@ class _LifecycleCounts:
             self.recovered_stale_claim_count += 1
         elif action == "reopened":
             self.reopened_count += 1
+        elif action == "demoted":
+            self.demoted_to_candidate_count += 1
         elif action == "completed":
             self.completed_count += 1
         elif action == "blocked":
@@ -257,6 +272,7 @@ class _LifecycleCounts:
         return GitHubWorkItemLifecycleResult(
             recovered_stale_claim_count=self.recovered_stale_claim_count,
             reopened_count=self.reopened_count,
+            demoted_to_candidate_count=self.demoted_to_candidate_count,
             completed_count=self.completed_count,
             blocked_count=self.blocked_count,
             in_progress_count=self.in_progress_count,

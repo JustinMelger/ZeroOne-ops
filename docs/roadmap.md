@@ -354,8 +354,10 @@ Design reference:
   - mirror GitLab change-request convergence: keep open PRs `in_progress`;
     mark merged PRs `completed` while retaining the link; when a PR closes
     unmerged, clear the link and return the item to `approved` if the finding
-    remains active upstream, mark it `completed` if it no longer does, and
-    mark it `blocked` when metadata is missing, inaccessible, or inconsistent
+    remains active upstream and promotion-eligible, return it to `candidate`
+    when it remains active but policy-ineligible, mark it `completed` if it no
+    longer does, and mark it `blocked` when metadata is missing, inaccessible,
+    or inconsistent
   - move re-approval ownership out of finding sync: source sync must preserve
     remediation-owned `blocked` and intentionally terminal `dismissed` state;
     lifecycle reconciliation can re-open only a confirmed active finding after
