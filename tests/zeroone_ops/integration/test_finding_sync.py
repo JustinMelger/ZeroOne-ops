@@ -124,7 +124,7 @@ def test_sync_findings_dry_run_reconciles_empty_managed_sarif_source(
     assert "No dashboard-syncable findings found." not in summary.message
 
 
-def test_work_item_status_dry_run_uses_read_only_finding_inventory(
+def test_work_item_status_dry_run_does_not_load_finding_inventory(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -152,7 +152,6 @@ def test_work_item_status_dry_run_uses_read_only_finding_inventory(
         captured.update(kwargs)
         return GitHubWorkItemLifecycleResult(
             recovered_stale_claim_count=0,
-            reopened_count=0,
             demoted_to_candidate_count=0,
             completed_count=0,
             blocked_count=0,
@@ -164,18 +163,9 @@ def test_work_item_status_dry_run_uses_read_only_finding_inventory(
         "zeroone_ops.runner.GitHubWorkItemLifecycleService.reconcile",
         reconcile,
     )
-    monkeypatch.setattr(
-        "zeroone_ops.services.control_plane.policy.github_policy_issue_service."
-        "GitHubPolicyIssueService.load_policy_state",
-        lambda self, repository_id, persist: _policy_state(),
-    )
-
     summary = sync_work_item_status(dry_run=True)
 
     assert summary.status.value == "reconciled"
     assert "Dry-run would reconcile GitHub remediation work items" in summary.message
     assert captured["repository_id"] == "octo-org/octo-repo"
-    assert captured["active_source_keys"] == set()
-    assert captured["promotable_source_keys"] == set()
-    assert captured["managed_source_ids"] == set()
     assert captured["persist"] is False

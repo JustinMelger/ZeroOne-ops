@@ -76,9 +76,6 @@ def test_reconcile_recovers_stale_unlinked_claim() -> None:
 
     result = service.reconcile(
         repository_id="octo-org/octo-repo",
-        active_source_keys=set(),
-        promotable_source_keys=set(),
-        managed_source_ids=set(),
         now=now,
     )
 
@@ -96,9 +93,6 @@ def test_reconcile_marks_open_pull_request_in_progress_and_clears_claim() -> Non
 
     result = service.reconcile(
         repository_id="octo-org/octo-repo",
-        active_source_keys=set(),
-        promotable_source_keys=set(),
-        managed_source_ids={"sonarqube"},
         now=now,
     )
 
@@ -107,58 +101,48 @@ def test_reconcile_marks_open_pull_request_in_progress_and_clears_claim() -> Non
     assert fake_work_item_service.upserted_work_items[0].claim is None
 
 
-def test_reconcile_reopens_closed_pull_request_when_finding_remains_active() -> None:
+def test_reconcile_demotes_closed_pull_request_to_candidate_for_source_sync() -> None:
     now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
     work_item = _linked_work_item()
     service, fake_work_item_service = _service(work_item, _state(state="closed"))
 
     result = service.reconcile(
         repository_id="octo-org/octo-repo",
-        active_source_keys={("sonarqube", "AX123")},
-        promotable_source_keys={("sonarqube", "AX123")},
-        managed_source_ids={"sonarqube"},
         now=now,
     )
 
-    assert result.reopened_count == 1
-    assert fake_work_item_service.upserted_work_items[0].status == "approved"
+    assert result.demoted_to_candidate_count == 1
+    assert fake_work_item_service.upserted_work_items[0].status == "candidate"
     assert fake_work_item_service.upserted_work_items[0].linked_change_request is None
 
 
-def test_reconcile_completes_closed_pull_request_when_finding_is_inactive() -> None:
+def test_reconcile_demotes_closed_pull_request_without_source_inventory() -> None:
     now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
     work_item = _linked_work_item()
     service, fake_work_item_service = _service(work_item, _state(state="closed"))
 
     result = service.reconcile(
         repository_id="octo-org/octo-repo",
-        active_source_keys=set(),
-        promotable_source_keys=set(),
-        managed_source_ids={"sonarqube"},
         now=now,
     )
 
-    assert result.completed_count == 1
-    assert fake_work_item_service.upserted_work_items[0].status == "completed"
+    assert result.demoted_to_candidate_count == 1
+    assert fake_work_item_service.upserted_work_items[0].status == "candidate"
     assert fake_work_item_service.upserted_work_items[0].linked_change_request is None
 
 
-def test_reconcile_blocks_closed_pull_request_without_complete_source_inventory() -> None:
+def test_reconcile_preserves_blocked_closed_pull_request() -> None:
     now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
-    work_item = _linked_work_item()
+    work_item = _linked_work_item(status="blocked")
     service, fake_work_item_service = _service(work_item, _state(state="closed"))
 
     result = service.reconcile(
         repository_id="octo-org/octo-repo",
-        active_source_keys={("sonarqube", "AX123")},
-        promotable_source_keys={("sonarqube", "AX123")},
-        managed_source_ids=set(),
         now=now,
     )
 
-    assert result.blocked_count == 1
-    assert fake_work_item_service.upserted_work_items[0].status == "blocked"
-    assert fake_work_item_service.upserted_work_items[0].linked_change_request is not None
+    assert result.unchanged_count == 1
+    assert fake_work_item_service.upserted_work_items == []
 
 
 def test_reconcile_blocks_and_retains_link_when_pull_request_metadata_is_inaccessible() -> None:
@@ -168,9 +152,6 @@ def test_reconcile_blocks_and_retains_link_when_pull_request_metadata_is_inacces
 
     result = service.reconcile(
         repository_id="octo-org/octo-repo",
-        active_source_keys=set(),
-        promotable_source_keys=set(),
-        managed_source_ids={"sonarqube"},
         now=now,
     )
 
@@ -186,9 +167,6 @@ def test_reconcile_blocks_and_retains_link_for_unsupported_pull_request_state() 
 
     result = service.reconcile(
         repository_id="octo-org/octo-repo",
-        active_source_keys=set(),
-        promotable_source_keys=set(),
-        managed_source_ids={"sonarqube"},
         now=now,
     )
 
@@ -197,16 +175,13 @@ def test_reconcile_blocks_and_retains_link_for_unsupported_pull_request_state() 
     assert fake_work_item_service.upserted_work_items[0].linked_change_request is not None
 
 
-def test_reconcile_demotes_closed_pull_request_when_active_finding_is_not_promotable() -> None:
+def test_reconcile_demotes_closed_pull_request_regardless_of_future_policy() -> None:
     now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
     work_item = _linked_work_item()
     service, fake_work_item_service = _service(work_item, _state(state="closed"))
 
     result = service.reconcile(
         repository_id="octo-org/octo-repo",
-        active_source_keys={("sonarqube", "AX123")},
-        promotable_source_keys=set(),
-        managed_source_ids={"sonarqube"},
         now=now,
     )
 

@@ -39,7 +39,6 @@ class GitHubWorkItemLifecycleResult:
     """Summarize one bounded GitHub work-item lifecycle pass."""
 
     recovered_stale_claim_count: int
-    reopened_count: int
     demoted_to_candidate_count: int
     completed_count: int
     blocked_count: int
@@ -68,9 +67,6 @@ class GitHubWorkItemLifecycleService:
         self,
         *,
         repository_id: str,
-        active_source_keys: set[tuple[str, str]],
-        promotable_source_keys: set[tuple[str, str]],
-        managed_source_ids: set[str],
         now: datetime,
         persist: bool = True,
     ) -> GitHubWorkItemLifecycleResult:
@@ -81,14 +77,11 @@ class GitHubWorkItemLifecycleService:
             updated, action = self._reconcile_work_item(
                 repository_id=repository_id,
                 work_item=work_item,
-                active_source_keys=active_source_keys,
-                promotable_source_keys=promotable_source_keys,
-                managed_source_ids=managed_source_ids,
                 now=now,
             )
             if updated is None:
                 continue
-            if persist:
+            if persist and action != "unchanged":
                 self.work_item_service.upsert_work_item(
                     repository_id=repository_id,
                     work_item=updated,
@@ -101,9 +94,6 @@ class GitHubWorkItemLifecycleService:
         *,
         repository_id: str,
         work_item: WorkItemState,
-        active_source_keys: set[tuple[str, str]],
-        promotable_source_keys: set[tuple[str, str]],
-        managed_source_ids: set[str],
         now: datetime,
     ) -> tuple[WorkItemState | None, str]:
         """Return one safe lifecycle transition, when the record needs attention."""
@@ -125,9 +115,6 @@ class GitHubWorkItemLifecycleService:
         return self._reconcile_linked_change_request(
             repository_id=repository_id,
             work_item=work_item,
-            active_source_keys=active_source_keys,
-            promotable_source_keys=promotable_source_keys,
-            managed_source_ids=managed_source_ids,
         )
 
     def _reconcile_linked_change_request(
@@ -135,9 +122,6 @@ class GitHubWorkItemLifecycleService:
         *,
         repository_id: str,
         work_item: WorkItemState,
-        active_source_keys: set[tuple[str, str]],
-        promotable_source_keys: set[tuple[str, str]],
-        managed_source_ids: set[str],
     ) -> tuple[WorkItemState, str]:
         """Resolve one linked pull request, preserving links when state is uncertain."""
         linked_change_request = work_item.linked_change_request
@@ -168,15 +152,11 @@ class GitHubWorkItemLifecycleService:
                 },
             )
             return self._blocked_with_link(work_item), "blocked"
+        closed_unmerged_outcome: ClosedUnmergedWorkItemOutcome
         if change_request_state.state == "closed":
-            closed_unmerged_outcome = self._closed_unmerged_outcome(
-                work_item=work_item,
-                active_source_keys=active_source_keys,
-                promotable_source_keys=promotable_source_keys,
-                managed_source_ids=managed_source_ids,
-            )
-            if closed_unmerged_outcome is None:
-                return self._blocked_with_link(work_item), "blocked"
+            if work_item.status == "blocked":
+                return work_item, "unchanged"
+            closed_unmerged_outcome = "candidate"
         elif change_request_state.state not in {"opened", "merged"}:
             LOGGER.warning(
                 "GitHub work-item lifecycle received unsupported pull-request state",
@@ -195,30 +175,6 @@ class GitHubWorkItemLifecycleService:
             closed_unmerged_outcome=closed_unmerged_outcome,
         )
         return reconciliation.work_item, reconciliation.action
-
-    def _closed_unmerged_outcome(
-        self,
-        *,
-        work_item: WorkItemState,
-        active_source_keys: set[tuple[str, str]],
-        promotable_source_keys: set[tuple[str, str]],
-        managed_source_ids: set[str],
-    ) -> ClosedUnmergedWorkItemOutcome | None:
-        """Return a safe closed-PR transition from the current source inventory."""
-        source_id = work_item.source.source
-        if source_id not in managed_source_ids:
-            LOGGER.warning(
-                "GitHub work-item lifecycle cannot reconcile closed pull request from an "
-                "incomplete source inventory",
-                extra={"work_item_id": work_item.work_item_id, "source_id": source_id},
-            )
-            return None
-        source_key = (source_id, work_item.source.source_item_key)
-        if source_key not in active_source_keys:
-            return "completed"
-        if source_key not in promotable_source_keys:
-            return "candidate"
-        return "approved"
 
     def _is_stale_unlinked_claim(self, *, work_item: WorkItemState, now: datetime) -> bool:
         """Return whether an unlinked in-progress claim has exceeded the recovery window."""
@@ -243,7 +199,6 @@ class _LifecycleCounts:
     """Accumulate lifecycle actions without exposing mutable runner state."""
 
     recovered_stale_claim_count: int = 0
-    reopened_count: int = 0
     demoted_to_candidate_count: int = 0
     completed_count: int = 0
     blocked_count: int = 0
@@ -254,8 +209,6 @@ class _LifecycleCounts:
         """Record one provider-local lifecycle action."""
         if action == "recovered_stale_claim":
             self.recovered_stale_claim_count += 1
-        elif action == "reopened":
-            self.reopened_count += 1
         elif action == "demoted":
             self.demoted_to_candidate_count += 1
         elif action == "completed":
@@ -271,7 +224,6 @@ class _LifecycleCounts:
         """Return an immutable lifecycle summary."""
         return GitHubWorkItemLifecycleResult(
             recovered_stale_claim_count=self.recovered_stale_claim_count,
-            reopened_count=self.reopened_count,
             demoted_to_candidate_count=self.demoted_to_candidate_count,
             completed_count=self.completed_count,
             blocked_count=self.blocked_count,

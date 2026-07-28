@@ -50,9 +50,6 @@ from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 from zeroone_ops.services.intake.finding_dashboard_sync_service import (
     FindingDashboardSyncService,
 )
-from zeroone_ops.services.intake.finding_workflow_policy_service import (
-    FindingWorkflowPolicyService,
-)
 from zeroone_ops.services.intake.issue_intake import IssueIntakeService
 from zeroone_ops.services.remediation.github_remediation_runner import (
     GitHubRemediationRunner,
@@ -522,39 +519,12 @@ def _sync_github_work_item_status(*, config: AppConfig, dry_run: bool) -> RunSum
             failure=FailureDetails(stage=FailureStage.RECONCILIATION, message=message),
         )
 
-    intake_service = IssueIntakeService(repo_root=Path.cwd(), config=config)
-    collection = intake_service.collect_dashboard_sync_issues(
-        dry_run=active_dry_run,
-        run_id=run_id,
-    ).finding_collection
     github_config = load_github_connection_config()
-    policy_state = _build_github_policy_issue_service(
-        repo_root=Path.cwd(),
-        config=config,
-        state=state,
-    ).load_policy_state(
-        repository_id=github_config.repository,
-        persist=not active_dry_run,
-    )
-    workflow_policy_service = FindingWorkflowPolicyService()
     lifecycle_result = GitHubWorkItemLifecycleService(
         work_item_service=GitHubWorkItemService(GitHubWorkItemClient(github_config)),
         change_request_client=GitHubClient(github_config),
     ).reconcile(
         repository_id=github_config.repository,
-        active_source_keys={
-            (finding.source_id, finding.finding_id) for finding in collection.findings
-        },
-        promotable_source_keys={
-            (finding.source_id, finding.finding_id)
-            for finding in collection.findings
-            if workflow_policy_service.decide_promotion(
-                finding=finding,
-                policy_state=policy_state,
-            ).disposition
-            == "promote"
-        },
-        managed_source_ids=set(collection.metadata.managed_source_ids),
         now=utc_now(),
         persist=not active_dry_run,
     )
@@ -568,7 +538,6 @@ def _sync_github_work_item_status(*, config: AppConfig, dry_run: bool) -> RunSum
         message=(
             f"{prefix} GitHub remediation work items: "
             f"stale claims recovered={lifecycle_result.recovered_stale_claim_count}; "
-            f"reopened={lifecycle_result.reopened_count}; "
             f"demoted to candidate={lifecycle_result.demoted_to_candidate_count}; "
             f"completed={lifecycle_result.completed_count}; "
             f"blocked={lifecycle_result.blocked_count}; "
