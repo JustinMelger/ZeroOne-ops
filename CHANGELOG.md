@@ -5,6 +5,27 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.50.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.49.0...zeroone-ops-v0.50.0) (2026-07-28)
+
+
+### Features
+
+* **findings:** publish promoted GitHub work items ([#265](https://github.com/JustinMelger/ZeroOne-ops/issues/265)) ([b0b9f2e](https://github.com/JustinMelger/ZeroOne-ops/commit/b0b9f2ef523507530fa4bf5d6ece081cb334e274))
+* **remediation:** add manual GitHub workflow ([#276](https://github.com/JustinMelger/ZeroOne-ops/issues/276)) ([e0d6a8f](https://github.com/JustinMelger/ZeroOne-ops/commit/e0d6a8f0c2d623dd938cb95df3e05ffb265d44d1))
+* **remediation:** add neutral runner entrypoint ([#274](https://github.com/JustinMelger/ZeroOne-ops/issues/274)) ([b9bd703](https://github.com/JustinMelger/ZeroOne-ops/commit/b9bd703b1211217e173ca240d7cd7c490668f8d0))
+* **remediation:** normalize static analysis eligibility ([#269](https://github.com/JustinMelger/ZeroOne-ops/issues/269)) ([b434cfe](https://github.com/JustinMelger/ZeroOne-ops/commit/b434cfefce4c1123bd33ef578ac024a6635d069b))
+* **remedy:** lifecycle manager GitHub ([#281](https://github.com/JustinMelger/ZeroOne-ops/issues/281)) ([43f4293](https://github.com/JustinMelger/ZeroOne-ops/commit/43f4293d659add0a260f4eb0c62047d8e753796e))
+
+
+### Bug Fixes
+
+* **ci:** configure dogfood SARIF artifact ([0eb3350](https://github.com/JustinMelger/ZeroOne-ops/commit/0eb3350ca1e77b12dfb37a59197b48b7936c7a28))
+* **ci:** configure GitHub remediation author ([fddb827](https://github.com/JustinMelger/ZeroOne-ops/commit/fddb827ca9cd63d1f1f8d365bc9b35f44a738ce5))
+* **control-plane:** decouple lifecycle from finding artifacts ([#284](https://github.com/JustinMelger/ZeroOne-ops/issues/284)) ([3e34784](https://github.com/JustinMelger/ZeroOne-ops/commit/3e34784d592595343ff085b4bdf3f7056935f5f6))
+* **deps:** update python dependencies ([#270](https://github.com/JustinMelger/ZeroOne-ops/issues/270)) ([1b90303](https://github.com/JustinMelger/ZeroOne-ops/commit/1b903032d44f17fec65343149ec653be3cf7b641))
+* replace unnecessary set comprehension ([#283](https://github.com/JustinMelger/ZeroOne-ops/issues/283)) ([798daad](https://github.com/JustinMelger/ZeroOne-ops/commit/798daad300f4d577f097daa6f1ab2cafb6f49b0f))
+* **review:** preserve remediation source identity ([#280](https://github.com/JustinMelger/ZeroOne-ops/issues/280)) ([36ca6bb](https://github.com/JustinMelger/ZeroOne-ops/commit/36ca6bb0b6c8d3a8064f289492a97b353970d977))
+
 ## [0.49.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.48.0...zeroone-ops-v0.49.0) (2026-07-24)
 
 
