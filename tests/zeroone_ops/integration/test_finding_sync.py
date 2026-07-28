@@ -1,7 +1,10 @@
 from pathlib import Path
 
 from zeroone_ops.models.dashboard import DashboardPolicyState, DashboardSeverityPolicyStateEntry
-from zeroone_ops.runner import sync_findings
+from zeroone_ops.runner import sync_findings, sync_work_item_status
+from zeroone_ops.services.control_plane.work_items.github_work_item_lifecycle_service import (
+    GitHubWorkItemLifecycleResult,
+)
 
 
 def _unset_sonarqube_environment(monkeypatch) -> None:
@@ -119,3 +122,53 @@ def test_sync_findings_dry_run_reconciles_empty_managed_sarif_source(
     assert summary.status.value == "synced"
     assert "Dry-run would publish 0 promoted findings as GitHub work items" in summary.message
     assert "No dashboard-syncable findings found." not in summary.message
+
+
+def test_work_item_status_dry_run_uses_read_only_finding_inventory(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _unset_sonarqube_environment(monkeypatch)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "platform": "github",
+          "base_branch": "main",
+          "remediation": {"target_branch": "main"},
+          "validation_commands": [],
+          "github": {"labels": []}
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    captured: dict[str, object] = {}
+
+    def reconcile(self, **kwargs) -> GitHubWorkItemLifecycleResult:
+        del self
+        captured.update(kwargs)
+        return GitHubWorkItemLifecycleResult(
+            recovered_stale_claim_count=0,
+            reopened_count=0,
+            completed_count=0,
+            blocked_count=0,
+            in_progress_count=0,
+            unchanged_count=0,
+        )
+
+    monkeypatch.setattr(
+        "zeroone_ops.runner.GitHubWorkItemLifecycleService.reconcile",
+        reconcile,
+    )
+
+    summary = sync_work_item_status(dry_run=True)
+
+    assert summary.status.value == "reconciled"
+    assert "Dry-run would reconcile GitHub remediation work items" in summary.message
+    assert captured["repository_id"] == "octo-org/octo-repo"
+    assert captured["active_source_keys"] == set()
+    assert captured["managed_source_ids"] == set()
+    assert captured["persist"] is False

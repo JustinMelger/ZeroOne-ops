@@ -97,6 +97,7 @@ def test_select_and_claim_prioritizes_severity_then_creation_time() -> None:
         build_work_item(status="approved"),
         work_item_id="work-medium-old",
     ).model_copy(update={"severity": "medium"})
+    claimed_at = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
     service = GitHubRemediationIntakeService(
         work_item_service=FakeGitHubWorkItemService(  # type: ignore[arg-type]
             [
@@ -116,15 +117,22 @@ def test_select_and_claim_prioritizes_severity_then_creation_time() -> None:
                     work_item=older_medium,
                 ),
             ]
-        )
+        ),
+        clock=lambda: claimed_at,
     )
 
-    result = service.select_and_claim(repository_id="octo-org/octo-repo")
+    result = service.select_and_claim(
+        repository_id="octo-org/octo-repo",
+        run_id="run-123",
+    )
 
     assert result.selected_target is not None
     assert result.selected_target.item_id == "work-high"
     assert result.claimed_work_item is not None
     assert result.claimed_work_item.status == "in_progress"
+    assert result.claimed_work_item.claim is not None
+    assert result.claimed_work_item.claim.claimed_at == claimed_at
+    assert result.claimed_work_item.claim.run_id == "run-123"
 
 
 def test_select_and_claim_uses_issue_number_after_equal_creation_times() -> None:

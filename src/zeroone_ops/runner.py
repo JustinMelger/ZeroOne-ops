@@ -10,7 +10,8 @@ import secrets
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
-from zeroone_ops.models.state import AppState, RunStatus, utc_now
+from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RunStatus, utc_now
+from zeroone_ops.providers.github_client import GitHubClient
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
@@ -26,6 +27,9 @@ from zeroone_ops.services.control_plane.policy.github_policy_processing_runner i
 from zeroone_ops.services.control_plane.work_items.github_finding_sync_service import (
     GitHubFindingSyncResult,
     GitHubFindingSyncService,
+)
+from zeroone_ops.services.control_plane.work_items.github_work_item_lifecycle_service import (
+    GitHubWorkItemLifecycleService,
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
@@ -480,6 +484,74 @@ def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:
         run_id=run_id,
         active_dry_run=active_dry_run,
         execution_mode=config.execution_mode,
+    )
+
+
+def sync_work_item_status(*, dry_run: bool = False) -> RunSummary:
+    """Reconcile remediation work-item lifecycle state for the active platform."""
+    config = load_config()
+    if config.platform == "gitlab":
+        return dashboard_reconcile(dry_run=dry_run)
+    return _sync_github_work_item_status(config=config, dry_run=dry_run)
+
+
+def _sync_github_work_item_status(*, config: AppConfig, dry_run: bool) -> RunSummary:
+    """Converge GitHub work-item state from PR state and current finding inventory."""
+    state_store = StateStore(
+        config.state.path,
+        base_branch=config.base_branch,
+        gitlab_project_id=load_gitlab_project_id_override(),
+        sonarqube_project_key=load_sonarqube_project_key_override(),
+    )
+    state = state_store.load()
+    run_state_service = RunStateService(config=config, state_store=state_store, state=state)
+    run_id = _build_run_id()
+    record = run_state_service.start_run(run_id)
+    active_dry_run = dry_run or config.dry_run
+    if not active_dry_run and config.execution_mode != "ci":
+        message = (
+            "GitHub work-item lifecycle execution is only supported in CI mode. "
+            "Use --dry-run locally."
+        )
+        return run_state_service.fail_run(
+            record=record,
+            error_message=message,
+            failure=FailureDetails(stage=FailureStage.RECONCILIATION, message=message),
+        )
+
+    intake_service = IssueIntakeService(repo_root=Path.cwd(), config=config)
+    collection = intake_service.collect_dashboard_sync_issues(
+        dry_run=active_dry_run,
+        run_id=run_id,
+    ).finding_collection
+    github_config = load_github_connection_config()
+    lifecycle_result = GitHubWorkItemLifecycleService(
+        work_item_service=GitHubWorkItemService(GitHubWorkItemClient(github_config)),
+        change_request_client=GitHubClient(github_config),
+    ).reconcile(
+        repository_id=github_config.repository,
+        active_source_keys={
+            (finding.source_id, finding.finding_id) for finding in collection.findings
+        },
+        managed_source_ids=set(collection.metadata.managed_source_ids),
+        now=utc_now(),
+        persist=not active_dry_run,
+    )
+    record.status = RunStatus.RECONCILED
+    record.updated_at = utc_now()
+    state_store.save(state)
+    prefix = "Dry-run would reconcile" if active_dry_run else "Reconciled"
+    return run_state_service.build_summary(
+        run_id=run_id,
+        status=record.status,
+        message=(
+            f"{prefix} GitHub remediation work items: "
+            f"stale claims recovered={lifecycle_result.recovered_stale_claim_count}; "
+            f"reopened={lifecycle_result.reopened_count}; "
+            f"completed={lifecycle_result.completed_count}; "
+            f"blocked={lifecycle_result.blocked_count}; "
+            f"in progress={lifecycle_result.in_progress_count}."
+        ),
     )
 
 

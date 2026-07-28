@@ -95,7 +95,7 @@ class GitHubFindingSyncService:
                 continue
             result = self.work_item_service.upsert_work_item(
                 repository_id=repository_id,
-                work_item=self._build_work_item(
+                work_item=self._build_promoted_work_item(
                     finding=finding,
                     repository_id=repository_id,
                 ),
@@ -154,6 +154,33 @@ class GitHubFindingSyncService:
             file_path=finding.repository_path,
             line=finding.line_start,
             remediation_context=finding.remediation_context,
+        )
+
+    def _build_promoted_work_item(
+        self,
+        *,
+        finding: NormalizedFinding,
+        repository_id: str,
+    ) -> WorkItemState:
+        """Preserve lifecycle-owned execution state while refreshing one active finding."""
+        proposed = self._build_work_item(finding=finding, repository_id=repository_id)
+        existing = self.work_item_service.find_open_work_item_by_source(
+            repository_id=repository_id,
+            kind="remediation",
+            source=proposed.source,
+        )
+        if existing is None or existing.work_item.status not in {
+            "blocked",
+            "dismissed",
+            "in_progress",
+        }:
+            return proposed
+        return proposed.model_copy(
+            update={
+                "status": existing.work_item.status,
+                "linked_change_request": existing.work_item.linked_change_request,
+                "claim": existing.work_item.claim,
+            }
         )
 
     def _demote_if_safe(

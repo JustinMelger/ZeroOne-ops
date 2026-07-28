@@ -345,7 +345,7 @@ Design reference:
   items untouched
 - [x] route GitHub-selected work through the existing shared `ExecutionService`
   and project execution outcomes back to the authoritative GitHub work item
-- [ ] add a bounded GitHub work-item lifecycle manager slice:
+- [x] add the bounded GitHub work-item lifecycle manager implementation:
   - expose it through the provider-neutral operator command
     `zeroone-ops work-items sync-status`
   - mirror the established GitLab recovery rule: persist claim metadata and
@@ -357,10 +357,12 @@ Design reference:
     remains active upstream, mark it `completed` if it no longer does, and
     mark it `blocked` when metadata is missing, inaccessible, or inconsistent
   - move re-approval ownership out of finding sync: source sync must preserve
-    remediation-owned `blocked` state, while lifecycle reconciliation (or a
-    future explicit operator action) is the only path back to `approved`
-  - manually live-validate this command before adding its scheduled GitHub
-    workflow
+    remediation-owned `blocked` and intentionally terminal `dismissed` state;
+    lifecycle reconciliation can re-open only a confirmed active finding after
+    a closed unmerged PR, while a future explicit operator action is the only
+    path back from `dismissed` to `approved`
+- [ ] manually live-validate `work-items sync-status` before adding its
+  scheduled GitHub workflow
 - [ ] add provider-neutral remediation retry recovery for an existing unlinked
   branch: resume from the remote remediation branch after a failed change
   request publish instead of rebuilding from the default branch and failing

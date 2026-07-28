@@ -46,3 +46,20 @@ def test_dashboard_remediate_remains_an_alias_for_neutral_remediation(
     assert result.exit_code == 0
     assert "work_item_id=sonarqube:AX123" in result.output
     assert "dashboard_item_id=sonarqube:AX123" in result.output
+
+
+def test_work_items_sync_status_prints_lifecycle_summary(monkeypatch: MonkeyPatch) -> None:
+    """The provider-neutral lifecycle command uses the shared CLI summary format."""
+    summary = RunSummary(
+        run_id="run-1",
+        status=RunStatus.RECONCILED,
+        message="[ci] Reconciled GitHub remediation work items.",
+        state_path=Path(".zeroone-ops-state.json"),
+    )
+    monkeypatch.setattr("zeroone_ops.cli.sync_work_item_status", lambda *, dry_run: summary)
+
+    result = _RUNNER.invoke(app, ["work-items", "sync-status", "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "status=reconciled" in result.output
+    assert "Reconciled GitHub remediation work items." in result.output

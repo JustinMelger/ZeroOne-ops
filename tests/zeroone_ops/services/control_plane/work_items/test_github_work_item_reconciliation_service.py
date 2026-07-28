@@ -87,8 +87,26 @@ def test_reconcile_returns_blocked_for_closed_unmerged_pull_request() -> None:
     assert "closed without merge" in result.message
 
 
+def test_reconcile_returns_completed_for_inactive_closed_unmerged_pull_request() -> None:
+    result = GitHubWorkItemReconciliationService().reconcile(
+        work_item=build_work_item(),
+        change_request_state=ChangeRequestState(
+            iid=21,
+            web_url="https://github.com/octo-org/octo-repo/pull/21",
+            source_branch="zeroone-ops/fix",
+            head_sha="abc123",
+            state="closed",
+        ),
+        closed_unmerged_outcome="completed",
+    )
+
+    assert result.action == "completed"
+    assert result.work_item.status == "completed"
+    assert result.work_item.linked_change_request is None
+
+
 def test_reconcile_rejects_invalid_closed_unmerged_outcome() -> None:
-    with pytest.raises(ValueError, match="must be 'approved' or 'blocked'"):
+    with pytest.raises(ValueError, match="must be 'approved', 'blocked', or 'completed'"):
         GitHubWorkItemReconciliationService().reconcile(
             work_item=build_work_item(),
             change_request_state=ChangeRequestState(
