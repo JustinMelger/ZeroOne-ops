@@ -52,6 +52,14 @@ class WorkItemClaim(BaseModel):
     run_id: str | None = None
 
 
+class PublicationRetryState(BaseModel):
+    """Record the only remote branch state that may be explicitly retried later."""
+
+    branch_name: str
+    commit_sha: str
+    reason: Literal["change_request_publish_failed"]
+
+
 class WorkItemState(BaseModel):
     """Represent one canonical provider-neutral work item."""
 
@@ -68,6 +76,7 @@ class WorkItemState(BaseModel):
     linked_change_request: ChangeRequestRef | None = None
     projected_review: ProjectedReviewState | None = None
     claim: WorkItemClaim | None = None
+    publication_retry: PublicationRetryState | None = None
     created_by_system: Literal["zeroone_ops"] = "zeroone_ops"
 
     @property

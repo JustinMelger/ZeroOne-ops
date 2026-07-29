@@ -256,6 +256,7 @@ class ExecutionService:
             selected_issue=selected_issue,
             change_request_title=patch.change_request_title,
             change_request_description=patch.change_request_description,
+            commit_sha=commit_sha,
         )
         if publish_result.error_message is not None:
             return ExecutionResult(
@@ -294,12 +295,14 @@ class ExecutionService:
         selected_issue: RemediationExecutionTarget,
         change_request_title: str,
         change_request_description: str,
+        commit_sha: str,
     ) -> PublishResult:
         """Delegate publish behavior to the dedicated publish service."""
         return self.publish_service.publish(
             selected_issue=selected_issue,
             change_request_title=change_request_title,
             change_request_description=change_request_description,
+            commit_sha=commit_sha,
         )
 
     def _rollback_pre_commit(self, analysis_result: AnalysisResult) -> None:

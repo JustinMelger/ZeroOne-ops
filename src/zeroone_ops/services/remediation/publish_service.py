@@ -12,7 +12,7 @@ from zeroone_ops.models.remediation import (
     RemediationExecutionTarget,
     remediation_profile_for,
 )
-from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.models.work_item import PublicationRetryState, WorkItemState
 from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.services.remediation.change_request_publisher import (
@@ -78,6 +78,7 @@ class PublishService:
         selected_issue: RemediationExecutionTarget,
         change_request_title: str | None = None,
         change_request_description: str | None = None,
+        commit_sha: str | None = None,
     ) -> PublishResult:
         """Push the current branch and create or reuse a change request."""
         if change_request_title is None:
@@ -87,6 +88,7 @@ class PublishService:
                 error_message="Publish failed: change request description is required."
             )
         control_plane_work_item = None
+        pushed_branch: str | None = None
         try:
             labels, assignee_username = self._publication_options()
             target_branch = self.config.require_remediation_target_branch(
@@ -125,8 +127,20 @@ class PublishService:
                 selected_issue=selected_issue,
                 existing_work_item=control_plane_work_item,
                 original_error=error,
+                publication_retry=(
+                    PublicationRetryState(
+                        branch_name=pushed_branch,
+                        commit_sha=commit_sha,
+                        reason="change_request_publish_failed",
+                    )
+                    if pushed_branch is not None and commit_sha is not None
+                    else None
+                ),
             )
-            return PublishResult(error_message=f"Publish failed: {error}")
+            return PublishResult(
+                branch_name=pushed_branch,
+                error_message=f"Publish failed: {error}",
+            )
         return PublishResult(
             branch_name=pushed_branch,
             change_request_url=published_change_request.info.web_url,
@@ -260,12 +274,14 @@ class PublishService:
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
         original_error: Exception,
+        publication_retry: PublicationRetryState | None,
     ) -> None:
         """Mark control-plane state as blocked without overwriting the original publish error."""
         try:
-            self._remediation_control_plane_instance().mark_execution_blocked(
+            self._remediation_control_plane_instance().mark_publish_blocked(
                 selected_issue=selected_issue,
                 existing_work_item=existing_work_item,
+                publication_retry=publication_retry,
             )
         except (GitHubClientError, RuntimeError):
             LOGGER.warning(

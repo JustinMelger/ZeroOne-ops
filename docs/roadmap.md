@@ -356,22 +356,20 @@ Design reference:
     `approved`, recording the recovery for operators
   - mirror GitLab change-request convergence: keep open PRs `in_progress`;
     mark merged PRs `completed` while retaining the link; when a PR closes
-    unmerged, clear the link and return the item to `candidate`; the next
-    complete finding-sync pass alone may promote it again when the finding is
-    active and policy-eligible, while known failures or inaccessible PR metadata
-    remain `blocked`
-  - keep re-promotion ownership with finding sync: source sync must preserve
-    remediation-owned `blocked` and intentionally terminal `dismissed` state,
-    but may promote a lifecycle-returned `candidate` only from fresh complete
-    inventory; a future explicit operator action is the only path back from
-    `dismissed` to `approved`
+    unmerged, retain the closed-PR link and move the item to `blocked`; source
+    sync must preserve `blocked` and intentionally terminal `dismissed` state
+  - defer requeueing from a closed PR to a future explicit operator action,
+    because closure may represent disagreement, a stale branch, or another
+    human decision that source inventory cannot safely infer
 - [x] manually live-validate `work-items sync-status` before adding its
   scheduled GitHub workflow
-- [ ] add provider-neutral remediation retry recovery for an existing unlinked
-  branch: resume from the remote remediation branch after a failed change
-  request publish instead of rebuilding from the default branch and failing
-  with a non-fast-forward push; then create or reuse the GitLab MR or GitHub
-  PR from that branch
+- [x] define shared remediation retry provenance and persist it on GitHub work
+  items only after a branch push succeeds but change-request publication fails;
+  never infer retry eligibility from an existing branch or a developer-closed
+  change request
+- [ ] add an explicit operator requeue action that can either dismiss a blocked
+  item, retry its recorded publication branch, or start a fresh attempt; add
+  provider-local GitLab and GitHub branch-resume support behind that action
 - [x] add a manual `workflow_dispatch` GitHub remediation workflow with
   repository-wide concurrency; do not trigger remediation from issue comments
 - [x] add a scheduled GitHub remediation entrypoint after the manual live

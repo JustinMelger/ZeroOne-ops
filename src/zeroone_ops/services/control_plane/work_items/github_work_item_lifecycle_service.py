@@ -11,7 +11,6 @@ from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.services.control_plane.work_items.github_work_item_reconciliation_service import (
-    ClosedUnmergedWorkItemOutcome,
     GitHubWorkItemReconciliationService,
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
@@ -152,11 +151,11 @@ class GitHubWorkItemLifecycleService:
                 },
             )
             return self._blocked_with_link(work_item), "blocked"
-        closed_unmerged_outcome: ClosedUnmergedWorkItemOutcome
         if change_request_state.state == "closed":
+            # A closed PR is an operator-visible decision, not an invitation to retry.
             if work_item.status == "blocked":
                 return work_item, "unchanged"
-            closed_unmerged_outcome = "candidate"
+            return self._blocked_with_link(work_item), "blocked"
         elif change_request_state.state not in {"opened", "merged"}:
             LOGGER.warning(
                 "GitHub work-item lifecycle received unsupported pull-request state",
@@ -167,12 +166,10 @@ class GitHubWorkItemLifecycleService:
                 },
             )
             return self._blocked_with_link(work_item), "blocked"
-        else:
-            closed_unmerged_outcome = "blocked"
         reconciliation = self.reconciliation_service.reconcile(
             work_item=work_item,
             change_request_state=change_request_state,
-            closed_unmerged_outcome=closed_unmerged_outcome,
+            closed_unmerged_outcome="blocked",
         )
         return reconciliation.work_item, reconciliation.action
 

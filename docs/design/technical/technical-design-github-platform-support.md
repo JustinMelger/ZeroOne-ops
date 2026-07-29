@@ -739,13 +739,12 @@ Linked pull-request transitions:
 - if a linked remediation pull request merges successfully, the work item moves
   to `completed`
 - if a linked remediation pull request closes unmerged, the work item must move
-  to `candidate` with its linked pull-request reference cleared; a later
-  complete finding-sync pass may promote it again only when the finding remains
-  active and policy-eligible
+  to `blocked` and retain its linked pull-request reference for operator
+  context; source sync must not re-promote it automatically because the closure
+  may represent developer disagreement or a stale branch
 - lifecycle reconciliation must not run source tools or depend on a previous
-  GitHub Actions artifact: it can always converge open and merged pull requests
-  from the stored link, while finding sync remains authoritative for fresh
-  source inventory and re-promotion
+  GitHub Actions artifact: it can always converge open, merged, and closed pull
+  requests from the stored link
 
 ##### Phase 5b.1 Locked Defaults
 
@@ -758,13 +757,26 @@ Failure classification on unmerged pull-request close:
   remediation handoff, move the work item to `blocked`
 - if a remediation pull request is manually closed by an operator without
   signaling that the work item is permanently dismissed, move the work item
-  to `candidate` and clear its pull-request link
-- the next complete finding-sync pass may promote that `candidate` item to
-  `approved` only when the finding remains active and is currently
-  policy-eligible; it otherwise remains non-executable
+  to `blocked` and retain the closed pull-request link for context
+- do not infer whether an unmerged close represents disagreement, a stale
+  branch, or another operator decision; a later explicit requeue action must
+  choose whether to dismiss, publish an already-pushed branch, or create a
+  fresh attempt from the current target branch
 - if a remediation pull request is superseded by a newer remediation pull
   request for the same work item, keep the work item active and linked to the
   newer pull request rather than treating the old close as terminal
+
+Publication retry provenance:
+
+- persist a bounded retry marker only after branch push succeeds but GitHub PR
+  or GitLab MR publication fails
+- the marker must include the branch name, commit SHA, and a
+  `change_request_publish_failed` reason
+- only this marker authorizes a retry to fetch and reuse an existing remote
+  remediation branch
+- a closed pull request or merge request must never create that marker
+- an explicit later fresh retry must use a new attempt branch from the current
+  target branch rather than silently reusing an old closed branch
 
 Work-item kind set:
 
