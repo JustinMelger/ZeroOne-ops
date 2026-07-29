@@ -231,6 +231,7 @@ class ExecutionService:
             commit_sha = self.branch_manager.commit_and_push(
                 patch.commit_message,
                 push=False,
+                files_to_commit=patch.files_touched,
             )
         except BranchManagerError as error:
             self._rollback_pre_commit(analysis_result)

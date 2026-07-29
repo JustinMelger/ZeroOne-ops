@@ -9,6 +9,8 @@
   "write_solution_artifacts_in_ci": false,
   "mock_llm_analysis_path": "fixtures/llm/analysis.json",
   "mock_llm_edit_path": "fixtures/llm/edit.json",
+  "validation_setup_commands": [
+  ],
   "validation_commands": [
   ],
   "approval": {

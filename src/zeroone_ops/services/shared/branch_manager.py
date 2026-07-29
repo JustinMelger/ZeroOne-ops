@@ -77,6 +77,7 @@ class BranchManager:
         *,
         push: bool = True,
         remote_name: str = "origin",
+        files_to_commit: list[str] | None = None,
     ) -> str:
         """Commit and push the prepared change set.
 
@@ -84,6 +85,7 @@ class BranchManager:
             commit_message: Commit message to use.
             push: Whether to push the commit to a remote.
             remote_name: Remote name to push to.
+            files_to_commit: Optional repository-relative patch paths to stage.
 
         Returns:
             The resulting commit SHA.
@@ -91,7 +93,13 @@ class BranchManager:
         Raises:
             BranchManagerError: If committing or pushing fails.
         """
-        self._run_git_command(["add", "-A"])
+        if files_to_commit is None:
+            self._run_git_command(["add", "-A"])
+        else:
+            # Setup commands must not leak staged side effects into a patch commit.
+            self._run_git_command(["reset"])
+            if files_to_commit:
+                self._run_git_command(["add", "--", *files_to_commit])
         diff = self._run_git_command(["diff", "--cached", "--name-only"])
         if not diff.strip():
             raise BranchManagerError("No staged changes available to commit.")

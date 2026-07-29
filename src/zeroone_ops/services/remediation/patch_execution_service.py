@@ -80,6 +80,17 @@ class PatchExecutionService:
         patch_factory: Callable[..., PatchProposal],
     ) -> PatchExecutionResult:
         """Apply a patch locally and run configured validation commands."""
+        bootstrap_failure = self._bootstrap_validation_environment()
+        if bootstrap_failure is not None:
+            return PatchExecutionResult(
+                summary=f"{summary}. {bootstrap_failure.message}",
+                patch=patch,
+                patch_applied=False,
+                validation_passed=False,
+                validation_result=None,
+                workspace_snapshot=None,
+                failure=bootstrap_failure,
+            )
         for attempt in range(self.config.remediation.max_retry_count + 1):
             snapshot = self.workspace_snapshot_service.capture(patch.files_touched)
             try:
@@ -174,6 +185,35 @@ class PatchExecutionService:
             workspace_snapshot=None,
         )
 
+    def _bootstrap_validation_environment(self) -> FailureDetails | None:
+        """Prepare configured validation tooling once before patch execution."""
+        if not self.config.validation_commands or not self.config.validation_setup_commands:
+            return None
+        setup_result = self.validator.run(self.config.validation_setup_commands)
+        if not setup_result.passed:
+            failed_command = setup_result.results[-1] if setup_result.results else None
+            return _build_validation_bootstrap_failure(
+                validation_summary=setup_result.summary,
+                command_result=failed_command,
+            )
+        repository_status = self.validator.repository_status()
+        if repository_status.exit_code != 0:
+            return _build_validation_bootstrap_failure(
+                validation_summary=(
+                    "Validation environment setup could not verify repository state."
+                ),
+                command_result=repository_status,
+            )
+        if repository_status.stdout.strip():
+            return _build_validation_bootstrap_failure(
+                validation_summary=(
+                    "Validation environment setup changed repository files. Setup commands must "
+                    "leave tracked and non-ignored files untouched."
+                ),
+                command_result=repository_status.model_copy(update={"exit_code": 1}),
+            )
+        return None
+
 
 def _build_validation_failure(
     *,
@@ -200,6 +240,25 @@ def _build_validation_failure(
         exit_code=exit_code,
         stdout_excerpt=stdout_excerpt,
         stderr_excerpt=stderr_excerpt,
+    )
+
+
+def _build_validation_bootstrap_failure(
+    *,
+    validation_summary: str,
+    command_result: ValidationCommandResult | None,
+) -> FailureDetails:
+    """Build structured diagnostics when validation environment setup fails."""
+    failure = _build_validation_failure(
+        validation_summary=validation_summary,
+        retry_count=0,
+        command_result=command_result,
+    )
+    return failure.model_copy(
+        update={
+            "stage": FailureStage.VALIDATION_SETUP,
+            "message": f"Validation environment setup failed: {validation_summary}",
+        }
     )
 
 

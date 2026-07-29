@@ -370,6 +370,12 @@ Design reference:
 - [ ] add an explicit operator requeue action that can either dismiss a blocked
   item, retry its recorded publication branch, or start a fresh attempt; add
   provider-local GitLab and GitHub branch-resume support behind that action
+- [x] add explicit remediation validation-environment bootstrap support:
+  - introduce repository-configured `validation_setup_commands` that run once
+    before validation commands
+  - classify setup failures separately from code-validation failures
+  - keep dependency installation explicit rather than inferring or installing
+    tools automatically
 - [x] add a manual `workflow_dispatch` GitHub remediation workflow with
   repository-wide concurrency; do not trigger remediation from issue comments
 - [x] add a scheduled GitHub remediation entrypoint after the manual live

@@ -49,6 +49,7 @@ class FailureStage(StrEnum):
     DASHBOARD_UPDATE = "dashboard_update"
     ANALYSIS = "analysis"
     PATCH_APPLY = "patch_apply"
+    VALIDATION_SETUP = "validation_setup"
     VALIDATION = "validation"
     APPROVAL = "approval"
     BRANCH_PREPARATION = "branch_preparation"

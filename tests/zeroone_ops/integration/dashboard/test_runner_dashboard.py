@@ -3512,8 +3512,14 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
             workspace_snapshot=snapshot,
         )
 
-    def commit_and_push(self, commit_message: str, *, push: bool = False) -> str:
-        del self, commit_message, push
+    def commit_and_push(
+        self,
+        commit_message: str,
+        *,
+        push: bool = False,
+        files_to_commit: list[str] | None = None,
+    ) -> str:
+        del self, commit_message, push, files_to_commit
         target_file.write_text("value = 2\n", encoding="utf-8")
         raise BranchManagerError("git commit failed")
 

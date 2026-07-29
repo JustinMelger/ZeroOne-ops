@@ -480,6 +480,9 @@ Example `examples/.zeroone-ops.json`:
   "branch_prefix": "zeroone-ops",
   "execution_mode": "ci",
   "dry_run": false,
+  "validation_setup_commands": [
+    "uv sync --group dev --locked"
+  ],
   "validation_commands": [
     "uv run pytest",
     "uv run mypy src",
