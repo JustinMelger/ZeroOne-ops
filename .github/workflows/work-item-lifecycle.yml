@@ -2,6 +2,11 @@ name: GitHub Work-Item Lifecycle
 
 on:
   workflow_dispatch:
+  pull_request_target:
+    types: [closed]
+  schedule:
+    # Recovery for stale claims, manually closed PRs, and missed event runs.
+    - cron: "15 7 * * *"
 
 concurrency:
   # Serialize lifecycle transitions with remediation for one repository.
@@ -11,6 +16,7 @@ concurrency:
 
 jobs:
   sync-status:
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: read
