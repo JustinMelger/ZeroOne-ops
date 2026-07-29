@@ -374,7 +374,7 @@ Design reference:
   PR from that branch
 - [x] add a manual `workflow_dispatch` GitHub remediation workflow with
   repository-wide concurrency; do not trigger remediation from issue comments
-- [ ] add a scheduled GitHub remediation entrypoint after the manual live
+- [x] add a scheduled GitHub remediation entrypoint after the manual live
   remediation validation succeeds
 - [ ] live-test one Ruff-derived GitHub work item through remediation PR
   publication and later reconciliation

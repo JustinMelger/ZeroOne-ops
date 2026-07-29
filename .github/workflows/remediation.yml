@@ -2,6 +2,9 @@ name: GitHub Remediation
 
 on:
   workflow_dispatch:
+  schedule:
+    # Run after lifecycle reconciliation to select one currently eligible item.
+    - cron: "30 7 * * *"
 
 concurrency:
   group: zeroone-ops-remediation-${{ github.repository }}
