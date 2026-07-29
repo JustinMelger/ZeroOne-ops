@@ -365,7 +365,7 @@ Design reference:
     but may promote a lifecycle-returned `candidate` only from fresh complete
     inventory; a future explicit operator action is the only path back from
     `dismissed` to `approved`
-- [ ] manually live-validate `work-items sync-status` before adding its
+- [x] manually live-validate `work-items sync-status` before adding its
   scheduled GitHub workflow
 - [ ] add provider-neutral remediation retry recovery for an existing unlinked
   branch: resume from the remote remediation branch after a failed change
@@ -374,9 +374,9 @@ Design reference:
   PR from that branch
 - [x] add a manual `workflow_dispatch` GitHub remediation workflow with
   repository-wide concurrency; do not trigger remediation from issue comments
-- [ ] add a scheduled GitHub remediation entrypoint after the manual live
+- [x] add a scheduled GitHub remediation entrypoint after the manual live
   remediation validation succeeds
-- [ ] live-test one Ruff-derived GitHub work item through remediation PR
+- [x] live-test one Ruff-derived GitHub work item through remediation PR
   publication and later reconciliation
 
 ## Reference Docs
