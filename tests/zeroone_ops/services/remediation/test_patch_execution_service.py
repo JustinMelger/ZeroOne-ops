@@ -177,6 +177,7 @@ def test_patch_execution_service_stops_before_patch_when_setup_fails(
     assert result.failure is not None
     assert result.failure.stage.value == "validation_setup"
     assert result.failure.failed_command == "uv sync --locked"
+    assert result.failure.message.endswith("Inspect the workspace before retrying.")
 
 
 def test_patch_execution_service_runs_setup_once_before_validation_retries(

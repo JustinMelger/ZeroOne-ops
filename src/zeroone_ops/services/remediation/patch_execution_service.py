@@ -195,6 +195,7 @@ class PatchExecutionService:
             return _build_validation_bootstrap_failure(
                 validation_summary=setup_result.summary,
                 command_result=failed_command,
+                workspace_may_be_dirty=True,
             )
         repository_status = self.validator.repository_status()
         if repository_status.exit_code != 0:
@@ -247,6 +248,7 @@ def _build_validation_bootstrap_failure(
     *,
     validation_summary: str,
     command_result: ValidationCommandResult | None,
+    workspace_may_be_dirty: bool = False,
 ) -> FailureDetails:
     """Build structured diagnostics when validation environment setup fails."""
     failure = _build_validation_failure(
@@ -254,10 +256,13 @@ def _build_validation_bootstrap_failure(
         retry_count=0,
         command_result=command_result,
     )
+    message = f"Validation environment setup failed: {validation_summary}"
+    if workspace_may_be_dirty:
+        message = f"{message} Inspect the workspace before retrying."
     return failure.model_copy(
         update={
             "stage": FailureStage.VALIDATION_SETUP,
-            "message": f"Validation environment setup failed: {validation_summary}",
+            "message": message,
         }
     )
 
