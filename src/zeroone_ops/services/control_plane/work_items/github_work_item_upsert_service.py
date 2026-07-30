@@ -119,4 +119,10 @@ class GitHubWorkItemUpsertService:
             and parsed.projected_review is not None
         ):
             update["projected_review"] = parsed.projected_review
+        if (
+            "publication_retry" not in work_item.model_fields_set
+            and work_item.publication_retry is None
+            and parsed.publication_retry is not None
+        ):
+            update["publication_retry"] = parsed.publication_retry
         return work_item.model_copy(update=update)

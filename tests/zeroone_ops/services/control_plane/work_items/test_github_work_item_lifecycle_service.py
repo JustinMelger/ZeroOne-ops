@@ -101,7 +101,7 @@ def test_reconcile_marks_open_pull_request_in_progress_and_clears_claim() -> Non
     assert fake_work_item_service.upserted_work_items[0].claim is None
 
 
-def test_reconcile_demotes_closed_pull_request_to_candidate_for_source_sync() -> None:
+def test_reconcile_blocks_closed_pull_request_and_retains_link() -> None:
     now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
     work_item = _linked_work_item()
     service, fake_work_item_service = _service(work_item, _state(state="closed"))
@@ -111,24 +111,9 @@ def test_reconcile_demotes_closed_pull_request_to_candidate_for_source_sync() ->
         now=now,
     )
 
-    assert result.demoted_to_candidate_count == 1
-    assert fake_work_item_service.upserted_work_items[0].status == "candidate"
-    assert fake_work_item_service.upserted_work_items[0].linked_change_request is None
-
-
-def test_reconcile_demotes_closed_pull_request_without_source_inventory() -> None:
-    now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
-    work_item = _linked_work_item()
-    service, fake_work_item_service = _service(work_item, _state(state="closed"))
-
-    result = service.reconcile(
-        repository_id="octo-org/octo-repo",
-        now=now,
-    )
-
-    assert result.demoted_to_candidate_count == 1
-    assert fake_work_item_service.upserted_work_items[0].status == "candidate"
-    assert fake_work_item_service.upserted_work_items[0].linked_change_request is None
+    assert result.blocked_count == 1
+    assert fake_work_item_service.upserted_work_items[0].status == "blocked"
+    assert fake_work_item_service.upserted_work_items[0].linked_change_request is not None
 
 
 def test_reconcile_preserves_blocked_closed_pull_request() -> None:
@@ -173,18 +158,3 @@ def test_reconcile_blocks_and_retains_link_for_unsupported_pull_request_state() 
     assert result.blocked_count == 1
     assert fake_work_item_service.upserted_work_items[0].status == "blocked"
     assert fake_work_item_service.upserted_work_items[0].linked_change_request is not None
-
-
-def test_reconcile_demotes_closed_pull_request_regardless_of_future_policy() -> None:
-    now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
-    work_item = _linked_work_item()
-    service, fake_work_item_service = _service(work_item, _state(state="closed"))
-
-    result = service.reconcile(
-        repository_id="octo-org/octo-repo",
-        now=now,
-    )
-
-    assert result.demoted_to_candidate_count == 1
-    assert fake_work_item_service.upserted_work_items[0].status == "candidate"
-    assert fake_work_item_service.upserted_work_items[0].linked_change_request is None

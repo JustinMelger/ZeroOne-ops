@@ -10,7 +10,12 @@ from zeroone_ops.models.config import (
     RemediationConfig,
 )
 from zeroone_ops.models.remediation import RemediationExecutionTarget, RemediationWorkItem
-from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, WorkItemState
+from zeroone_ops.models.work_item import (
+    ChangeRequestRef,
+    PublicationRetryState,
+    WorkItemSourceRef,
+    WorkItemState,
+)
 from zeroone_ops.services.control_plane.work_items.remediation_work_item_promotion_service import (
     RemediationWorkItemPromotionContext,
 )
@@ -141,11 +146,19 @@ class StubRemediationControlPlane(RemediationControlPlane):
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        publication_retry: PublicationRetryState | None = None,
     ) -> None:
         del selected_issue
         if existing_work_item is None:
             return
-        self.calls.append(existing_work_item.model_copy(update={"status": "blocked"}))
+        self.calls.append(
+            existing_work_item.model_copy(
+                update={
+                    "status": "blocked",
+                    "publication_retry": publication_retry,
+                }
+            )
+        )
         if self.blocked_error_message is not None:
             raise RuntimeError(self.blocked_error_message)
         if self.error_on_call == len(self.calls):
@@ -541,6 +554,7 @@ def test_publish_service_marks_github_work_item_blocked_when_publish_fails() -> 
         selected_issue=build_issue(),
         change_request_title="ignored",
         change_request_description="summary",
+        commit_sha="abc123",
     )
 
     assert result.error_message == "Publish failed: pull request create failed"
@@ -548,6 +562,9 @@ def test_publish_service_marks_github_work_item_blocked_when_publish_fails() -> 
     assert work_item_service.calls[0].status == "in_progress"
     assert work_item_service.calls[1].status == "blocked"
     assert work_item_service.calls[1].work_item_id == work_item_service.calls[0].work_item_id
+    assert work_item_service.calls[1].publication_retry is not None
+    assert work_item_service.calls[1].publication_retry.branch_name == "zeroone-ops/fix"
+    assert work_item_service.calls[1].publication_retry.commit_sha == "abc123"
 
 
 def test_publish_service_keeps_success_when_post_publish_work_item_sync_fails() -> None:
