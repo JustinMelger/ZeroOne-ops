@@ -214,6 +214,9 @@ Why:
   "base_branch": "main",
   "branch_prefix": "zeroone-ops",
   "dry_run": false,
+  "validation_setup_commands": [
+    "uv sync --group dev --locked"
+  ],
   "validation_commands": [
     "uv run pytest",
     "uv run mypy src",

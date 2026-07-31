@@ -161,12 +161,23 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
 
     monkeypatch.setattr(service.approval_service, "request", approve_request)
 
-    def fail_commit(commit_message: str, *, push: bool = False) -> str:
-        del commit_message, push
+    def fail_commit(
+        commit_message: str,
+        *,
+        push: bool = False,
+        files_to_commit: list[str] | None = None,
+    ) -> str:
+        del commit_message, push, files_to_commit
         raise RuntimeError("should not be called")
 
-    def commit_error(commit_message: str, *, push: bool = False) -> str:
+    def commit_error(
+        commit_message: str,
+        *,
+        push: bool = False,
+        files_to_commit: list[str] | None = None,
+    ) -> str:
         del commit_message, push
+        assert files_to_commit == ["src/service.py"]
 
         target_file.write_text("value = 2\n", encoding="utf-8")
         raise BranchManagerError("git commit failed")
@@ -197,8 +208,14 @@ def test_execute_reuses_existing_merge_request_in_ci_mode(tmp_path: Path, monkey
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
     monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analysis_result)
 
-    def fake_commit(commit_message: str, *, push: bool = False) -> str:
+    def fake_commit(
+        commit_message: str,
+        *,
+        push: bool = False,
+        files_to_commit: list[str] | None = None,
+    ) -> str:
         del commit_message, push
+        assert files_to_commit == ["src/service.py"]
         return "abc123"
 
     monkeypatch.setattr(service.branch_manager, "commit_and_push", fake_commit)
@@ -235,8 +252,14 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
     monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analysis_result)
 
-    def fake_commit(commit_message: str, *, push: bool = False) -> str:
+    def fake_commit(
+        commit_message: str,
+        *,
+        push: bool = False,
+        files_to_commit: list[str] | None = None,
+    ) -> str:
         del commit_message, push
+        assert files_to_commit == ["src/service.py"]
         return "abc123"
 
     monkeypatch.setattr(service.branch_manager, "commit_and_push", fake_commit)

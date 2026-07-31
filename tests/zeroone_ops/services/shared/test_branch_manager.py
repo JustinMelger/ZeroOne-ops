@@ -81,3 +81,59 @@ def test_create_branch_and_commit_changes(tmp_path: Path) -> None:
     ).stdout.strip()
     assert current_branch == "zeroone-ops/ax-1/sample"
     assert tracked.read_text(encoding="utf-8") == "updated\n"
+
+
+def test_commit_and_push_stages_only_requested_patch_files(tmp_path: Path) -> None:
+    _init_git_repo(tmp_path)
+    tracked = tmp_path / "sample.txt"
+    tracked.write_text("base\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "sample.txt"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "chore: initial"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    tracked.write_text("updated\n", encoding="utf-8")
+    bootstrap_output = tmp_path / "bootstrap-output.txt"
+    bootstrap_output.write_text("generated\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "bootstrap-output.txt"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    BranchManager(tmp_path).commit_and_push(
+        "fix: update sample",
+        push=False,
+        files_to_commit=["sample.txt"],
+    )
+
+    committed_files = subprocess.run(
+        ["git", "show", "--format=", "--name-only", "HEAD"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    assert committed_files == ["sample.txt"]
+    assert bootstrap_output.exists()
+    assert (
+        subprocess.run(
+            ["git", "status", "--short"],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        == "?? bootstrap-output.txt\n"
+    )

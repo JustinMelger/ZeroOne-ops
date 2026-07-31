@@ -64,9 +64,11 @@ jobs:
         run: |
           mkdir -p artifacts
           set +e
-          uv run ruff check src/zeroone_ops/services/review/pipeline/review_reconciliation_service.py \
+          uv run ruff check \
+            src/zeroone_ops/services/review/pipeline/review_candidate_generation_service.py \
+            src/zeroone_ops/services/review/publish/review_publisher.py \
             --isolated \
-            --select C416 \
+            --select SIM103,SIM114 \
             --output-format sarif \
             --output-file artifacts/ruff.sarif
           status=$?

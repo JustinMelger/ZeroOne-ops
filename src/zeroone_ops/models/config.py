@@ -213,6 +213,7 @@ class AppConfig(BaseModel):
         write_solution_artifacts_in_ci: Whether CI mode should write solution artifact files.
         mock_llm_analysis_path: Optional path to a local LLM analysis fixture.
         mock_llm_edit_path: Optional path to a local LLM structured edit fixture.
+        validation_setup_commands: Commands that prepare the validation environment.
         validation_commands: Commands run after a generated patch is applied.
         approval: Approval-related settings.
         review: Review-related settings.
@@ -234,6 +235,7 @@ class AppConfig(BaseModel):
     write_solution_artifacts_in_ci: bool = False
     mock_llm_analysis_path: Path | None = None
     mock_llm_edit_path: Path | None = None
+    validation_setup_commands: list[str] = Field(default_factory=list)
     validation_commands: list[str] = Field(default_factory=list)
     approval: ApprovalConfig = Field(default_factory=ApprovalConfig)
     review: ReviewConfig = Field(default_factory=ReviewConfig)

@@ -62,6 +62,10 @@ class Validator:
             summary="All validation commands passed.",
         )
 
+    def repository_status(self) -> ValidationCommandResult:
+        """Return the current non-ignored repository status for setup safety checks."""
+        return self._run_command("git status --porcelain")
+
     def _run_command(self, command: str) -> ValidationCommandResult:
         """Run a single validation command.
 
