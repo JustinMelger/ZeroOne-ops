@@ -10,8 +10,13 @@
   "mock_llm_analysis_path": "fixtures/llm/analysis.json",
   "mock_llm_edit_path": "fixtures/llm/edit.json",
   "validation_setup_commands": [
+    "uv sync --all-groups --locked"
   ],
   "validation_commands": [
+    "uv run ruff check .",
+    "uv run ruff format --check .",
+    "uv run mypy src",
+    "uv run pytest"
   ],
   "approval": {
     "required": true
