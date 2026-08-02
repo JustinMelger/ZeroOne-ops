@@ -14,48 +14,45 @@ class GitHubWorkItemRenderer:
 
     def render_title(self, work_item: WorkItemState) -> str:
         """Render one compact provider-local work-item title."""
-        return f"ZeroOne Ops: {work_item.summary}"
+        diagnostic_code = work_item.remediation_context.diagnostic_code
+        prefix = f"{diagnostic_code}: " if diagnostic_code is not None else ""
+        return f"ZeroOne Ops: {prefix}{self._finding_description(work_item)}"
 
     def render_body(self, work_item: WorkItemState) -> str:
         """Render one deterministic GitHub work-item issue body."""
+        finding_description = self._finding_description(work_item)
         lines = [
-            "Machine-managed ZeroOne Ops work item.",
+            "This issue tracks one remediation candidate managed by ZeroOne Ops.",
+            "The collapsed machine state is managed by ZeroOne Ops and may be overwritten on sync.",
             "",
-            "This issue is the authoritative GitHub record for one promoted work item.",
-            "Direct edits to the machine state block are not authoritative.",
+            "## Finding",
             "",
-            "## Summary",
-            "",
-            work_item.summary,
+            finding_description,
         ]
-        if work_item.detail is not None:
-            lines.extend(["", "## Detail", "", work_item.detail])
+        if work_item.detail is not None and work_item.detail != finding_description:
+            lines.extend(["", work_item.detail])
         lines.extend(
             [
                 "",
-                "## Work Item",
+                "## Status",
                 "",
-                f"- Kind: `{work_item.kind}`",
                 f"- Status: `{work_item.status}`",
-                f"- Source: `{work_item.source.source}`",
-                f"- Source item key: `{work_item.source.source_item_key}`",
+                f"- Severity: `{work_item.severity or 'unknown'}`",
+                f"- Source: {self._source_label(work_item.source.source)}",
             ]
         )
-        if work_item.source.repository_scope is not None:
-            lines.append(f"- Repository scope: `{work_item.source.repository_scope}`")
-        if work_item.severity is not None:
-            lines.append(f"- Severity: `{work_item.severity}`")
+        lines.extend(["", "## Location", ""])
         if work_item.file_path is not None:
             lines.append(f"- File: `{work_item.file_path}`")
         if work_item.line is not None:
             lines.append(f"- Line: `{work_item.line}`")
-        if work_item.remediation_context.category is not None:
-            lines.append(f"- Remediation category: `{work_item.remediation_context.category}`")
         if work_item.remediation_context.diagnostic_code is not None:
-            lines.append(f"- Diagnostic code: `{work_item.remediation_context.diagnostic_code}`")
-        lines.extend(["", "## Linked Change Request", ""])
+            lines.append(f"- Rule: `{work_item.remediation_context.diagnostic_code}`")
+        if work_item.file_path is None and work_item.line is None:
+            lines.append("No repository location is available.")
+        lines.extend(["", "## Remediation PR", ""])
         if work_item.linked_change_request is None:
-            lines.append("No linked change request.")
+            lines.append("No remediation pull request is linked yet.")
         else:
             lines.extend(
                 [
@@ -65,7 +62,7 @@ class GitHubWorkItemRenderer:
             )
         lines.extend(["", "## Review Projection", ""])
         if work_item.projected_review is None:
-            lines.append("No projected review status.")
+            lines.append("No remediation PR review has been projected yet.")
         else:
             lines.extend(
                 [
@@ -112,6 +109,19 @@ class GitHubWorkItemRenderer:
         ]
         return labels
 
+    def _finding_description(self, work_item: WorkItemState) -> str:
+        """Return the most concrete available operator-facing finding text."""
+        if work_item.detail is not None and _looks_like_template(work_item.summary):
+            return work_item.detail
+        return work_item.summary
+
+    def _source_label(self, source: str) -> str:
+        """Render known finding sources with operator-facing names."""
+        return {
+            "ruff-sarif": "Ruff SARIF",
+            "sonarqube": "SonarQube",
+        }.get(source, source.replace("-", " ").title())
+
     def _render_state_block(self, work_item: WorkItemState) -> list[str]:
         payload = work_item.model_dump(mode="json", exclude_none=True)
         return [
@@ -124,3 +134,8 @@ class GitHubWorkItemRenderer:
             "",
             "</details>",
         ]
+
+
+def _looks_like_template(value: str) -> bool:
+    """Return whether source text still contains an unresolved placeholder."""
+    return "{" in value and "}" in value
