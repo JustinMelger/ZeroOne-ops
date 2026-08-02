@@ -155,6 +155,9 @@ Shipped product state:
 - current cleanup candidates:
   - finish config and state debt removal where migration compatibility is no
     longer needed
+  - move top-level remediation validation setup and check commands into a
+    remediation-owned validation configuration block after live rollout
+    validation confirms the current contract
   - move remaining GitLab-specific shared services behind clearer provider-local
     boundaries
   - after Phase 6 rollout validation, reduce `runner.py` composition duplication
@@ -370,6 +373,14 @@ Design reference:
 - [ ] add an explicit operator requeue action that can either dismiss a blocked
   item, retry its recorded publication branch, or start a fresh attempt; add
   provider-local GitLab and GitHub branch-resume support behind that action
+- [x] persist concise execution-failure context on blocked work items before
+  introducing operator requeueing:
+  - keep neutral structured fields for the failure stage, summary, failed
+    command, exit code, run ID, timestamp, and optional execution URL
+  - render a scannable `Last Execution` section on GitHub work-item issues and
+    link the originating GitHub Actions run when CI context is available
+  - retain raw command output only in CI logs; clear or replace the persisted
+    failure context when an item is requeued or execution succeeds
 - [x] add explicit remediation validation-environment bootstrap support:
   - introduce repository-configured `validation_setup_commands` that run once
     before validation commands

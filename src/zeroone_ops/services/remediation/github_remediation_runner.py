@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
-from zeroone_ops.models.state import FailureDetails, FailureStage, RunRecord, RunStatus
-from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.models.state import FailureDetails, FailureStage, RunRecord, RunStatus, utc_now
+from zeroone_ops.models.work_item import WorkItemExecutionFailure, WorkItemState
 from zeroone_ops.services.control_plane.work_items.github_remediation_intake_service import (
     GitHubRemediationIntakeService,
 )
@@ -26,6 +27,7 @@ from zeroone_ops.services.remediation.remediation_context_builder import (
 from zeroone_ops.services.shared.run_state_service import RunStateService, RunSummary
 
 LOGGER = logging.getLogger(__name__)
+_FAILURE_OUTPUT_LIMIT = 2_000
 
 
 class GitHubRemediationRunner:
@@ -93,17 +95,20 @@ class GitHubRemediationRunner:
         context = RemediationContextBuilder(self.repo_root, self.config).build(selected_target)
         if context is None:
             message = f"Context unavailable for GitHub work item {selected_target.item_id}."
+            failure = FailureDetails(stage=FailureStage.ISSUE_INTAKE, message=message)
             self._mark_blocked_best_effort(
                 selected_target=selected_target,
                 claimed_work_item=claimed_work_item,
                 active_dry_run=active_dry_run,
+                failure=failure,
+                run_id=record.run_id,
             )
             return self.run_state_service.finish_work_item(
                 record=record,
                 work_item_id=selected_target.item_id,
                 status=RunStatus.FAILED,
                 message=message,
-                failure=FailureDetails(stage=FailureStage.ISSUE_INTAKE, message=message),
+                failure=failure,
             )
 
         execution_result = self.execution_service.execute_with_context(
@@ -116,12 +121,14 @@ class GitHubRemediationRunner:
                 selected_target=selected_target,
                 claimed_work_item=claimed_work_item,
                 active_dry_run=active_dry_run,
+                failure=execution_result.failure,
+                run_id=record.run_id,
             )
             return self.run_state_service.finish_work_item(
                 record=record,
                 work_item_id=selected_target.item_id,
                 status=RunStatus.FAILED,
-                message=execution_result.failure.message,
+                message=_failure_summary_message(execution_result.failure),
                 branch_name=execution_result.branch_name,
                 commit_sha=execution_result.commit_sha,
                 failure=execution_result.failure,
@@ -174,6 +181,8 @@ class GitHubRemediationRunner:
         selected_target: RemediationExecutionTarget,
         claimed_work_item: WorkItemState,
         active_dry_run: bool,
+        failure: FailureDetails | None = None,
+        run_id: str | None = None,
     ) -> None:
         """Project an execution failure without replacing the primary outcome."""
         if active_dry_run:
@@ -182,6 +191,11 @@ class GitHubRemediationRunner:
             self.remediation_control_plane.mark_execution_blocked(
                 selected_issue=selected_target,
                 existing_work_item=claimed_work_item,
+                execution_failure=(
+                    None
+                    if failure is None or run_id is None
+                    else _build_execution_failure(failure=failure, run_id=run_id)
+                ),
             )
         except Exception:
             LOGGER.warning("GitHub work-item blocked-state projection failed", exc_info=True)
@@ -221,3 +235,43 @@ class GitHubRemediationRunner:
             )
         except Exception:
             LOGGER.warning("GitHub work-item completed-state projection failed", exc_info=True)
+
+
+def _failure_summary_message(failure: FailureDetails) -> str:
+    """Return a bounded CLI diagnostic without changing persisted failure state."""
+    output = failure.stderr_excerpt or failure.stdout_excerpt
+    if output is None or not output.strip():
+        return failure.message
+
+    excerpt = output.strip()
+    if len(excerpt) > _FAILURE_OUTPUT_LIMIT:
+        excerpt = f"{excerpt[:_FAILURE_OUTPUT_LIMIT]}\n... output truncated"
+    return f"{failure.message}\n\nFailed command output:\n{excerpt}"
+
+
+def _build_execution_failure(
+    *,
+    failure: FailureDetails,
+    run_id: str,
+) -> WorkItemExecutionFailure:
+    """Build durable operator context for a failed GitHub remediation run."""
+    return WorkItemExecutionFailure(
+        stage=failure.stage.value,
+        summary=failure.message,
+        retry_count=failure.retry_count,
+        run_id=run_id,
+        occurred_at=utc_now(),
+        failed_command=failure.failed_command,
+        exit_code=failure.exit_code,
+        execution_url=_github_actions_run_url(),
+    )
+
+
+def _github_actions_run_url() -> str | None:
+    """Return the current GitHub Actions run URL when CI exposes its identity."""
+    server_url = os.environ.get("GITHUB_SERVER_URL")
+    repository = os.environ.get("GITHUB_REPOSITORY")
+    run_id = os.environ.get("GITHUB_RUN_ID")
+    if not server_url or not repository or not run_id:
+        return None
+    return f"{server_url.rstrip('/')}/{repository}/actions/runs/{run_id}"

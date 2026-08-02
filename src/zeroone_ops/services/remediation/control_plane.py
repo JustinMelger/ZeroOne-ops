@@ -13,6 +13,7 @@ from zeroone_ops.models.remediation import RemediationExecutionTarget, Remediati
 from zeroone_ops.models.work_item import (
     ChangeRequestRef,
     PublicationRetryState,
+    WorkItemExecutionFailure,
     WorkItemSourceRef,
     WorkItemState,
     WorkItemStatus,
@@ -54,6 +55,7 @@ class RemediationControlPlane(Protocol):
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        execution_failure: WorkItemExecutionFailure | None = None,
     ) -> None:
         """Best-effort transition after a promoted remediation flow fails early."""
 
@@ -119,9 +121,10 @@ class NoOpRemediationControlPlane:
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        execution_failure: WorkItemExecutionFailure | None = None,
     ) -> None:
         """Ignore blocked-state projection when no control plane is active."""
-        del selected_issue, existing_work_item
+        del selected_issue, existing_work_item, execution_failure
 
     def mark_execution_dismissed(
         self,
@@ -231,6 +234,7 @@ class GitHubRemediationControlPlane:
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
         publication_retry: PublicationRetryState | None = None,
+        execution_failure: WorkItemExecutionFailure | None = None,
     ) -> None:
         """Best-effort transition of GitHub work-item state after a failed execution path."""
         if existing_work_item is None:
@@ -242,6 +246,7 @@ class GitHubRemediationControlPlane:
                 linked_change_request=existing_work_item.linked_change_request,
                 existing_work_item=existing_work_item,
                 publication_retry=publication_retry,
+                execution_failure=execution_failure,
             )
         except (GitHubClientError, RuntimeError):
             return
@@ -316,6 +321,7 @@ class GitHubRemediationControlPlane:
         linked_change_request: ChangeRequestInfo | ChangeRequestRef | None,
         existing_work_item: WorkItemState | None = None,
         publication_retry: PublicationRetryState | None = None,
+        execution_failure: WorkItemExecutionFailure | None = None,
     ) -> WorkItemState:
         """Create or update the authoritative GitHub work-item issue."""
         work_item = self._build_work_item(
@@ -324,6 +330,7 @@ class GitHubRemediationControlPlane:
             linked_change_request=linked_change_request,
             existing_work_item=existing_work_item,
             publication_retry=publication_retry,
+            execution_failure=execution_failure,
         )
         return self.work_item_service.upsert_work_item(
             repository_id=self.repository_id,
@@ -368,6 +375,7 @@ class GitHubRemediationControlPlane:
         linked_change_request: ChangeRequestInfo | ChangeRequestRef | None,
         existing_work_item: WorkItemState | None,
         publication_retry: PublicationRetryState | None = None,
+        execution_failure: WorkItemExecutionFailure | None = None,
     ) -> WorkItemState:
         """Build the canonical GitHub work-item state for remediation publication."""
         return WorkItemState(
@@ -401,6 +409,7 @@ class GitHubRemediationControlPlane:
                 else self._normalize_change_request_ref(linked_change_request)
             ),
             publication_retry=publication_retry,
+            execution_failure=execution_failure,
         )
 
     def _normalize_change_request_ref(

@@ -78,6 +78,27 @@ class GitHubWorkItemRenderer:
                     ),
                 ]
             )
+        if work_item.execution_failure is not None:
+            failure = work_item.execution_failure
+            lines.extend(
+                [
+                    "",
+                    "## Last Execution",
+                    "",
+                    "- Status: `blocked`",
+                    f"- Stage: `{failure.stage}`",
+                    f"- Summary: {failure.summary}",
+                    f"- Retries used: `{failure.retry_count}`",
+                    f"- Run ID: `{failure.run_id}`",
+                    f"- Recorded: `{failure.occurred_at.isoformat()}`",
+                ]
+            )
+            if failure.failed_command is not None:
+                lines.append(f"- Command: `{failure.failed_command}`")
+            if failure.exit_code is not None:
+                lines.append(f"- Exit code: `{failure.exit_code}`")
+            if failure.execution_url is not None:
+                lines.append(f"- Run: [View workflow logs]({failure.execution_url})")
         lines.extend(["", "## Machine State", ""])
         lines.extend(self._render_state_block(work_item))
         return "\n".join(lines).rstrip() + "\n"

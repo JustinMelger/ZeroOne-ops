@@ -60,6 +60,19 @@ class PublicationRetryState(BaseModel):
     reason: Literal["change_request_publish_failed"]
 
 
+class WorkItemExecutionFailure(BaseModel):
+    """Record concise, operator-facing context for a blocked execution."""
+
+    stage: str
+    summary: str
+    retry_count: int
+    run_id: str
+    occurred_at: datetime
+    failed_command: str | None = None
+    exit_code: int | None = None
+    execution_url: str | None = None
+
+
 class WorkItemState(BaseModel):
     """Represent one canonical provider-neutral work item."""
 
@@ -77,6 +90,7 @@ class WorkItemState(BaseModel):
     projected_review: ProjectedReviewState | None = None
     claim: WorkItemClaim | None = None
     publication_retry: PublicationRetryState | None = None
+    execution_failure: WorkItemExecutionFailure | None = None
     created_by_system: Literal["zeroone_ops"] = "zeroone_ops"
 
     @property
