@@ -289,4 +289,4 @@ def test_upsert_persists_explicit_link_clear_from_reconciliation() -> None:
     assert result.action == "updated"
     assert result.work_item.linked_change_request is None
     assert client.updated_issue is not None
-    assert "No linked change request." in client.updated_issue.body
+    assert "No remediation pull request is linked yet." in client.updated_issue.body

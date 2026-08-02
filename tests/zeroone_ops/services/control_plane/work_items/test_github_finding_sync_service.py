@@ -123,10 +123,10 @@ def test_sync_creates_work_item_for_policy_promoted_finding() -> None:
     assert result.enabled_severities == ("high", "medium")
     assert result.backlog_reason_counts == {}
     assert len(client.issues) == 1
-    assert client.issues[0].title == "ZeroOne Ops: Avoid equality comparisons to True"
+    assert client.issues[0].title == "ZeroOne Ops: E712: Avoid equality comparisons to True"
     assert "Use direct truthiness instead of == True." in client.issues[0].body
-    assert "- Remediation category: `static_analysis_fix`" in client.issues[0].body
-    assert "- Diagnostic code: `E712`" in client.issues[0].body
+    assert '"category": "static_analysis_fix"' in client.issues[0].body
+    assert "- Rule: `E712`" in client.issues[0].body
     parsed = GitHubWorkItemParser().parse_work_item_state(client.issues[0].body)
     assert parsed is not None
     assert parsed.remediation_context.validation_commands == ["uv run ruff check src/service.py"]

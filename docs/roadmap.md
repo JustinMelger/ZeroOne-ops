@@ -317,7 +317,7 @@ Design reference:
 ##### Phase 6c3: GitHub Operator Validation
 
 - [x] live-test GitHub finding sync with Ruff SARIF on this repository
-- [ ] refine and live-validate GitHub work-item rendering so the issue reads as
+- [x] refine GitHub work-item rendering so the issue reads as
   an actionable engineering task rather than a serialized control-plane record:
   - use a rendered diagnostic title and concise explanation, never unresolved
     source-message templates
@@ -327,6 +327,8 @@ Design reference:
   - use GitHub-native wording such as `Remediation PR`
   - render remediation-PR source provenance from the originating finding (for
     example, `Ruff SARIF`) rather than the generic remediation workflow
+- [ ] live-validate the refined GitHub work-item rendering on a promoted
+  finding before treating the operator UX slice as complete
 - [ ] add a derived GitHub operational work-summary issue after lifecycle
   reconciliation is trusted:
   - render current work-item counts, active remediation PRs, recent outcomes,

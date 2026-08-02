@@ -29,6 +29,52 @@ def test_render_body_includes_projected_review_section_when_present() -> None:
     assert "- Follow-up required: `yes`" in body
 
 
+def test_rendering_prefers_concrete_detail_for_templated_finding_titles() -> None:
+    renderer = GitHubWorkItemRenderer()
+    work_item = build_work_item().model_copy(
+        update={
+            "summary": "Unnecessary {kind} comprehension",
+            "detail": "Unnecessary set comprehension (rewrite using set())",
+            "source": build_work_item().source.model_copy(update={"source": "ruff-sarif"}),
+            "remediation_context": build_work_item().remediation_context.model_copy(
+                update={"diagnostic_code": "C416"}
+            ),
+        }
+    )
+
+    title = renderer.render_title(work_item)
+    body = renderer.render_body(work_item)
+
+    assert title == "ZeroOne Ops: C416: Unnecessary set comprehension (rewrite using set())"
+    assert "## Finding" in body
+    assert "Unnecessary set comprehension (rewrite using set())" in body
+    assert "- Source: Ruff SARIF" in body
+    assert "Source item key" not in body
+    assert "Repository scope" not in body
+    assert "## Remediation PR" in body
+    assert "No remediation pull request is linked yet." in body
+
+
+def test_rendering_includes_distinct_detail_for_non_templated_findings() -> None:
+    renderer = GitHubWorkItemRenderer()
+    work_item = build_work_item().model_copy(
+        update={
+            "summary": "Avoid equality comparisons to True",
+            "detail": "Use direct truthiness instead of == True.",
+        }
+    )
+
+    body = renderer.render_body(work_item)
+    visible_body = body.split("## Machine State", maxsplit=1)[0]
+
+    assert "Avoid equality comparisons to True" in visible_body
+    assert "Use direct truthiness instead of == True." in visible_body
+    assert (
+        "The collapsed machine state is managed by ZeroOne Ops and may be overwritten on sync."
+        in visible_body
+    )
+
+
 def test_render_body_includes_last_execution_when_blocked() -> None:
     renderer = GitHubWorkItemRenderer()
     work_item = build_work_item().model_copy(
