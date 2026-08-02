@@ -5,6 +5,18 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.51.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.50.0...zeroone-ops-v0.51.0) (2026-07-31)
+
+
+### Features
+
+* **remediation:** bootstrap validation environment ([#287](https://github.com/JustinMelger/ZeroOne-ops/issues/287)) ([7115abd](https://github.com/JustinMelger/ZeroOne-ops/commit/7115abd1498cf3f28bb0e637f7076f06b3a0ca19))
+
+
+### Bug Fixes
+
+* **remediation:** preserve safe publication retry state ([#286](https://github.com/JustinMelger/ZeroOne-ops/issues/286)) ([1861494](https://github.com/JustinMelger/ZeroOne-ops/commit/1861494b44e3caca110d1a6065c8e116b136ab73))
+
 ## [0.50.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.49.0...zeroone-ops-v0.50.0) (2026-07-28)
 
 
