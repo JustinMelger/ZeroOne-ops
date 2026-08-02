@@ -1,5 +1,11 @@
+from datetime import UTC, datetime
+
 from zeroone_ops.models.github import GitHubIssueInfo
-from zeroone_ops.models.work_item import ChangeRequestRef, ProjectedReviewState
+from zeroone_ops.models.work_item import (
+    ChangeRequestRef,
+    ProjectedReviewState,
+    WorkItemExecutionFailure,
+)
 from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
     GitHubWorkItemLookupService,
 )
@@ -161,6 +167,79 @@ def test_upsert_preserves_existing_projected_review_when_status_changes() -> Non
     assert result.work_item.projected_review.classification == "findings_present"
     assert client.updated_issue is not None
     assert "## Review Projection" in client.updated_issue.body
+
+
+def test_upsert_preserves_existing_execution_failure_without_explicit_update() -> None:
+    renderer = GitHubWorkItemRenderer()
+    execution_failure = WorkItemExecutionFailure(
+        stage="validation",
+        summary="Validation failed.",
+        retry_count=1,
+        run_id="run-42",
+        occurred_at=datetime(2026, 7, 31, tzinfo=UTC),
+    )
+    original = build_work_item(status="blocked").model_copy(
+        update={"execution_failure": execution_failure}
+    )
+    client = FakeGitHubWorkItemClient()
+    client.issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(original),
+            body=renderer.render_body(original),
+        )
+    ]
+    service = GitHubWorkItemUpsertService(
+        client,
+        lookup_service=GitHubWorkItemLookupService(client),
+    )
+
+    result = service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item(status="blocked"),
+    )
+
+    assert result.work_item.execution_failure == execution_failure
+
+
+def test_upsert_persists_explicit_execution_failure_clear() -> None:
+    renderer = GitHubWorkItemRenderer()
+    original = build_work_item(status="blocked").model_copy(
+        update={
+            "execution_failure": WorkItemExecutionFailure(
+                stage="validation",
+                summary="Validation failed.",
+                retry_count=1,
+                run_id="run-42",
+                occurred_at=datetime(2026, 7, 31, tzinfo=UTC),
+            )
+        }
+    )
+    client = FakeGitHubWorkItemClient()
+    client.issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(original),
+            body=renderer.render_body(original),
+        )
+    ]
+    service = GitHubWorkItemUpsertService(
+        client,
+        lookup_service=GitHubWorkItemLookupService(client),
+    )
+
+    result = service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item(status="approved").model_copy(update={"execution_failure": None}),
+    )
+
+    assert result.work_item.execution_failure is None
+    assert client.updated_issue is not None
+    assert "## Last Execution" not in client.updated_issue.body
 
 
 def test_upsert_persists_explicit_link_clear_from_reconciliation() -> None:

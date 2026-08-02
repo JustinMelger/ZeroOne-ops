@@ -1,4 +1,6 @@
-from zeroone_ops.models.work_item import ProjectedReviewState
+from datetime import UTC, datetime
+
+from zeroone_ops.models.work_item import ProjectedReviewState, WorkItemExecutionFailure
 from zeroone_ops.services.control_plane.work_items.github_work_item_renderer import (
     GitHubWorkItemRenderer,
 )
@@ -25,3 +27,30 @@ def test_render_body_includes_projected_review_section_when_present() -> None:
     assert "- Classification: `findings_present`" in body
     assert "- Reviewed SHA: `abc123def`" in body
     assert "- Follow-up required: `yes`" in body
+
+
+def test_render_body_includes_last_execution_when_blocked() -> None:
+    renderer = GitHubWorkItemRenderer()
+    work_item = build_work_item().model_copy(
+        update={
+            "status": "blocked",
+            "execution_failure": WorkItemExecutionFailure(
+                stage="validation",
+                summary="Validation failed after retry.",
+                retry_count=1,
+                run_id="run-42",
+                occurred_at=datetime(2026, 7, 31, 8, 30, tzinfo=UTC),
+                failed_command="uv run pytest",
+                exit_code=1,
+                execution_url="https://github.example.com/octo-org/octo-repo/actions/runs/42",
+            ),
+        }
+    )
+
+    body = renderer.render_body(work_item)
+
+    assert "## Last Execution" in body
+    assert "- Command: `uv run pytest`" in body
+    assert "- Exit code: `1`" in body
+    assert "[View workflow logs](" in body
+    assert "https://github.example.com/octo-org/octo-repo/actions/runs/42" in body

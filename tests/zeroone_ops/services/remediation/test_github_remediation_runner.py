@@ -22,7 +22,11 @@ from zeroone_ops.models.state import (
     RepositoryState,
     RunStatus,
 )
-from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
+from zeroone_ops.models.work_item import (
+    WorkItemExecutionFailure,
+    WorkItemSourceRef,
+    WorkItemState,
+)
 from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
     GitHubWorkItemLookupResult,
 )
@@ -109,6 +113,7 @@ class StubControlPlane:
 
     def __init__(self) -> None:
         self.blocked: list[str] = []
+        self.execution_failures: list[WorkItemExecutionFailure | None] = []
         self.dismissed: list[str] = []
         self.completed: list[str] = []
 
@@ -125,9 +130,11 @@ class StubControlPlane:
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        execution_failure: WorkItemExecutionFailure | None = None,
     ) -> None:
         del existing_work_item
         self.blocked.append(selected_issue.item_id)
+        self.execution_failures.append(execution_failure)
 
     def mark_execution_dismissed(
         self,
@@ -270,8 +277,15 @@ def test_runner_completes_unpublished_work_item(
     assert control_plane.completed == ["github-work-1"]
 
 
-def test_runner_blocks_failed_work_item(tmp_path: Path, context: IssueContext) -> None:
+def test_runner_blocks_failed_work_item(
+    tmp_path: Path,
+    context: IssueContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     del context
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.example.com")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo-org/octo-repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "42")
     run_state_service = _run_state_service(tmp_path)
     control_plane = StubControlPlane()
     runner = _runner(
@@ -280,7 +294,13 @@ def test_runner_blocks_failed_work_item(tmp_path: Path, context: IssueContext) -
         work_item_service=FakeGitHubWorkItemService(_work_item()),
         execution_service=StubExecutionService(
             _execution_result(
-                failure=FailureDetails(stage=FailureStage.VALIDATION, message="Checks failed.")
+                failure=FailureDetails(
+                    stage=FailureStage.VALIDATION,
+                    message="Checks failed.",
+                    failed_command="uv run pytest",
+                    exit_code=1,
+                    stderr_excerpt="FAILED tests/example.py::test_example",
+                )
             )
         ),
         control_plane=control_plane,
@@ -289,7 +309,15 @@ def test_runner_blocks_failed_work_item(tmp_path: Path, context: IssueContext) -
     summary = runner.run(record=run_state_service.start_run("run-1"), active_dry_run=False)
 
     assert summary.status == RunStatus.FAILED
+    assert "Failed command output:" in summary.message
+    assert "FAILED tests/example.py::test_example" in summary.message
     assert control_plane.blocked == ["github-work-1"]
+    execution_failure = control_plane.execution_failures[0]
+    assert execution_failure is not None
+    assert execution_failure.run_id == "run-1"
+    assert execution_failure.execution_url == (
+        "https://github.example.com/octo-org/octo-repo/actions/runs/42"
+    )
 
 
 def test_runner_dismisses_rejected_work_item(tmp_path: Path, context: IssueContext) -> None:

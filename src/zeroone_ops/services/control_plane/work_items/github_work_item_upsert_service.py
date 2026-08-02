@@ -125,4 +125,10 @@ class GitHubWorkItemUpsertService:
             and parsed.publication_retry is not None
         ):
             update["publication_retry"] = parsed.publication_retry
+        if (
+            "execution_failure" not in work_item.model_fields_set
+            and work_item.execution_failure is None
+            and parsed.execution_failure is not None
+        ):
+            update["execution_failure"] = parsed.execution_failure
         return work_item.model_copy(update=update)
