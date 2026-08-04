@@ -331,15 +331,15 @@ Design reference:
   finding before treating the operator UX slice as complete
 - [ ] add a derived GitHub operational work-summary issue after lifecycle
   reconciliation is trusted:
-  - [ ] add a read-only summary renderer and issue store, discovered through a
+  - [x] add a read-only summary renderer and issue store, discovered through a
     dedicated `zeroone-summary` label and cross-linked with the policy issue
-  - [ ] project open work-item counts and active remediation PRs without
+  - [x] project open work-item counts and active remediation PRs without
     changing authoritative work-item state
-  - [ ] persist a bounded latest-finding-sync observation for backlog-only
+  - [x] persist a bounded latest-finding-sync observation for backlog-only
     counts, severity counts, and backlog reasons
-  - [ ] add closed work-item reads ordered by GitHub `updated_at` for bounded
+  - [x] add closed work-item reads ordered by GitHub `updated_at` for bounded
     recent-outcome rendering before lifecycle starts closing terminal issues
-  - [ ] refresh the summary after finding sync, remediation completion or
+  - [x] refresh the summary after finding sync, remediation completion or
     failure, and lifecycle reconciliation
   - [ ] live-validate the summary, then close native GitHub work-item issues in
     `completed` or `dismissed` state while retaining their authoritative

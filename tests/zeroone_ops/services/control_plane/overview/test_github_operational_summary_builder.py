@@ -33,6 +33,9 @@ def test_builder_projects_open_state_active_prs_and_bounded_outcomes() -> None:
         "blocked": 1,
     }
     assert [entry.status for entry in view.active_change_requests] == ["in_progress"]
+    assert view.active_change_requests[0].web_url == (
+        "https://github.example.com/octo-org/octo-repo/pull/17"
+    )
     assert [entry.status for entry in view.recent_outcomes] == ["completed", "dismissed"]
 
 

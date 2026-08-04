@@ -1,4 +1,9 @@
+from datetime import UTC, datetime
+
 from zeroone_ops.models.github import GitHubIssueInfo
+from zeroone_ops.services.control_plane.overview.github_operational_summary_renderer import (
+    GitHubFindingSyncObservation,
+)
 from zeroone_ops.services.control_plane.overview.github_operational_summary_service import (
     GitHubOperationalSummaryService,
 )
@@ -76,3 +81,33 @@ def test_summary_service_creates_updates_and_preserves_identical_summary() -> No
     )
 
     assert (created.action, unchanged.action, updated.action) == ("created", "unchanged", "updated")
+
+
+def test_summary_service_preserves_prior_sync_observation_on_later_refresh() -> None:
+    store = FakeStore()
+    service = GitHubOperationalSummaryService(store=store)
+    observation = GitHubFindingSyncObservation(
+        observed_at=datetime(2026, 8, 4, 10, 30, tzinfo=UTC),
+        total_findings=5,
+        promoted_findings=2,
+        backlog_only_findings=3,
+        severity_counts={"high": 2, "medium": 3},
+        backlog_reason_counts={"severity_disabled": 3},
+    )
+
+    service.publish(
+        repository_id="octo-org/octo-repo",
+        work_items=[],
+        policy_issue_url=None,
+        latest_finding_sync=observation,
+    )
+    updated = service.publish(
+        repository_id="octo-org/octo-repo",
+        work_items=[],
+        policy_issue_url=None,
+        latest_finding_sync=None,
+    )
+
+    assert updated.action == "unchanged"
+    assert store.issue is not None
+    assert "- Findings: `5`" in store.issue.body

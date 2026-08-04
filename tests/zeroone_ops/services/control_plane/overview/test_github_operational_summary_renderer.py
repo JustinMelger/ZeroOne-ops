@@ -51,6 +51,7 @@ def test_render_summary_shows_read_only_operational_view() -> None:
     assert "## Recent Outcomes" in body
     assert "[ZeroOne Ops: C416 in helpers.py]" in body
     assert "[Open the ZeroOne Ops policy issue]" in body
+    assert "zeroone-operational-summary-state" in body
 
 
 def test_render_summary_escapes_untrusted_entry_text_and_drops_invalid_links() -> None:

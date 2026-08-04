@@ -7,17 +7,28 @@ from __future__ import annotations
 
 import logging
 import secrets
+from dataclasses import replace
 from pathlib import Path
 
-from zeroone_ops.models.config import AppConfig
+from zeroone_ops.models.config import AppConfig, GitHubConnectionConfig
 from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RunStatus, utc_now
-from zeroone_ops.providers.github_client import GitHubClient
+from zeroone_ops.providers.github_client import GitHubClient, GitHubClientError
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.review.github import GitHubReviewClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
+from zeroone_ops.services.control_plane.overview.github_operational_summary_renderer import (
+    GitHubFindingSyncObservation,
+)
+from zeroone_ops.services.control_plane.overview.github_operational_summary_service import (
+    GitHubOperationalSummaryPublishResult,
+    GitHubOperationalSummaryService,
+)
+from zeroone_ops.services.control_plane.overview.github_operational_summary_store import (
+    GitHubOperationalSummaryStore,
+)
 from zeroone_ops.services.control_plane.policy.github_policy_issue_service import (
     GitHubPolicyIssueService,
 )
@@ -230,15 +241,27 @@ def run_remediation(*, dry_run: bool = False) -> RunSummary:
     active_dry_run = dry_run or config.dry_run
     if config.platform == "github":
         github_config = load_github_connection_config()
-        return GitHubRemediationRunner(
+        work_item_service = GitHubWorkItemService(GitHubWorkItemClient(github_config))
+        summary = GitHubRemediationRunner(
             repo_root=repo_root,
             config=config,
             repository_id=github_config.repository,
-            work_item_service=GitHubWorkItemService(GitHubWorkItemClient(github_config)),
+            work_item_service=work_item_service,
             run_state_service=run_state_service,
         ).run(
             record=record,
             active_dry_run=active_dry_run,
+        )
+        if active_dry_run or summary.status == RunStatus.NO_ISSUE:
+            return summary
+        publication = _publish_github_operational_summary(
+            github_config=github_config,
+            work_item_service=work_item_service,
+            latest_finding_sync=None,
+        )
+        return replace(
+            summary,
+            message=summary.message + _format_operational_summary_publication(publication),
         )
     gitlab_config = load_gitlab_connection_config()
     return DashboardRemediationRunner(
@@ -381,14 +404,22 @@ def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
         repository_id=github_config.repository,
         persist=not active_dry_run,
     )
-    sync_result = GitHubFindingSyncService(
-        work_item_service=GitHubWorkItemService(GitHubWorkItemClient(github_config))
-    ).sync(
+    work_item_service = GitHubWorkItemService(GitHubWorkItemClient(github_config))
+    sync_result = GitHubFindingSyncService(work_item_service=work_item_service).sync(
         repository_id=github_config.repository,
         findings=collection.finding_collection.findings,
         policy_state=policy_state,
         managed_source_ids=set(collection.finding_collection.metadata.managed_source_ids),
         persist=not active_dry_run,
+    )
+    summary_publication = (
+        _publish_github_operational_summary(
+            github_config=github_config,
+            work_item_service=work_item_service,
+            latest_finding_sync=_build_finding_sync_observation(sync_result),
+        )
+        if not active_dry_run
+        else None
     )
     record.status = collection_message_status("synced")
     record.updated_at = utc_now()
@@ -408,8 +439,65 @@ def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
             "backlog reasons: "
             f"{_format_count_summary(sync_result.backlog_reason_counts)}."
             + _format_lifecycle_reconciliation(sync_result)
+            + _format_operational_summary_publication(summary_publication)
         ),
     )
+
+
+def _publish_github_operational_summary(
+    *,
+    github_config: GitHubConnectionConfig,
+    work_item_service: GitHubWorkItemService,
+    latest_finding_sync: GitHubFindingSyncObservation | None,
+) -> GitHubOperationalSummaryPublishResult | None:
+    """Best-effort publish the derived summary after a control-plane transition."""
+    try:
+        issue_client = GitHubPolicyClient(github_config)
+        policy_issue = issue_client.find_open_issue(
+            repository_id=github_config.repository,
+            title="ZeroOne Ops Policy",
+            labels=["zeroone-policy"],
+        )
+        return GitHubOperationalSummaryService(
+            store=GitHubOperationalSummaryStore(issue_client)
+        ).publish(
+            repository_id=github_config.repository,
+            work_items=[
+                *work_item_service.list_open_work_items(repository_id=github_config.repository),
+                *work_item_service.list_closed_work_items(repository_id=github_config.repository),
+            ],
+            policy_issue_url=policy_issue.web_url if policy_issue is not None else None,
+            latest_finding_sync=latest_finding_sync,
+        )
+    except GitHubClientError:
+        LOGGER.warning(
+            "GitHub operational summary publication failed after a control-plane transition",
+            exc_info=True,
+        )
+        return None
+
+
+def _build_finding_sync_observation(
+    sync_result: GitHubFindingSyncResult,
+) -> GitHubFindingSyncObservation:
+    """Build the bounded derived observation from one successful finding-sync result."""
+    return GitHubFindingSyncObservation(
+        observed_at=utc_now(),
+        total_findings=sync_result.promoted_count + sync_result.backlog_only_count,
+        promoted_findings=sync_result.promoted_count,
+        backlog_only_findings=sync_result.backlog_only_count,
+        severity_counts=sync_result.normalized_severity_counts,
+        backlog_reason_counts=sync_result.backlog_reason_counts,
+    )
+
+
+def _format_operational_summary_publication(
+    publication: GitHubOperationalSummaryPublishResult | None,
+) -> str:
+    """Render an optional derived-summary publication detail for CLI output."""
+    if publication is None:
+        return ""
+    return f"\nOperational summary {publication.action}: {publication.issue.web_url}."
 
 
 def _format_count_summary(counts: dict[str, int]) -> str:
@@ -520,13 +608,23 @@ def _sync_github_work_item_status(*, config: AppConfig, dry_run: bool) -> RunSum
         )
 
     github_config = load_github_connection_config()
+    work_item_service = GitHubWorkItemService(GitHubWorkItemClient(github_config))
     lifecycle_result = GitHubWorkItemLifecycleService(
-        work_item_service=GitHubWorkItemService(GitHubWorkItemClient(github_config)),
+        work_item_service=work_item_service,
         change_request_client=GitHubClient(github_config),
     ).reconcile(
         repository_id=github_config.repository,
         now=utc_now(),
         persist=not active_dry_run,
+    )
+    summary_publication = (
+        _publish_github_operational_summary(
+            github_config=github_config,
+            work_item_service=work_item_service,
+            latest_finding_sync=None,
+        )
+        if not active_dry_run
+        else None
     )
     record.status = RunStatus.RECONCILED
     record.updated_at = utc_now()
@@ -541,6 +639,7 @@ def _sync_github_work_item_status(*, config: AppConfig, dry_run: bool) -> RunSum
             f"completed={lifecycle_result.completed_count}; "
             f"blocked={lifecycle_result.blocked_count}; "
             f"in progress={lifecycle_result.in_progress_count}."
+            + _format_operational_summary_publication(summary_publication)
         ),
     )
 

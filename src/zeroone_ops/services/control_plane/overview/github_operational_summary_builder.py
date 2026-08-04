@@ -40,7 +40,14 @@ class GitHubOperationalSummaryBuilder:
                 updated_at=result.issue.updated_at,
             )
             if work_item.status == "in_progress" and work_item.linked_change_request is not None:
-                active_change_requests.append(entry)
+                active_change_requests.append(
+                    GitHubOperationalSummaryEntry(
+                        title=result.issue.title,
+                        web_url=work_item.linked_change_request.web_url,
+                        status=work_item.status,
+                        updated_at=result.issue.updated_at,
+                    )
+                )
             if work_item.status in self._RECENT_OUTCOME_STATUSES:
                 recent_outcomes.append(entry)
         recent_outcomes.sort(key=_outcome_updated_at, reverse=True)

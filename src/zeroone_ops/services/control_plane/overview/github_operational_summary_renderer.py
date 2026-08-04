@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime
 from urllib.parse import urlparse
@@ -75,6 +76,8 @@ class GitHubOperationalSummaryRenderer:
             lines.append("No policy issue link is available yet.")
         else:
             lines.append(f"[Open the ZeroOne Ops policy issue](<{policy_destination}>).")
+        lines.extend([""])
+        lines.extend(self._render_state_block(view.latest_finding_sync))
         return "\n".join(lines).rstrip() + "\n"
 
     def _render_work_item_counts(self, counts: dict[str, int]) -> list[str]:
@@ -122,6 +125,27 @@ class GitHubOperationalSummaryRenderer:
         ]
         return lines
 
+    def _render_state_block(
+        self,
+        observation: GitHubFindingSyncObservation | None,
+    ) -> list[str]:
+        """Render the bounded derived observation needed by later summary refreshes."""
+        payload = (
+            {"latest_finding_sync": _finding_sync_payload(observation)}
+            if observation is not None
+            else {"latest_finding_sync": None}
+        )
+        return [
+            "<details>",
+            "<summary><code>zeroone-operational-summary-state</code> derived state</summary>",
+            "",
+            "```json",
+            json.dumps(payload, indent=2, sort_keys=True),
+            "```",
+            "",
+            "</details>",
+        ]
+
 
 def _render_counts(counts: dict[str, int]) -> str:
     """Render compact deterministic aggregate counts."""
@@ -130,6 +154,18 @@ def _render_counts(counts: dict[str, int]) -> str:
     return ", ".join(
         f"`{_escape_inline_code(key)}`: {value}" for key, value in sorted(counts.items())
     )
+
+
+def _finding_sync_payload(observation: GitHubFindingSyncObservation) -> dict[str, object]:
+    """Serialize the derived observation without changing its visible representation."""
+    return {
+        "observed_at": observation.observed_at.isoformat(),
+        "total_findings": observation.total_findings,
+        "promoted_findings": observation.promoted_findings,
+        "backlog_only_findings": observation.backlog_only_findings,
+        "severity_counts": observation.severity_counts,
+        "backlog_reason_counts": observation.backlog_reason_counts,
+    }
 
 
 def _escape_markdown_text(value: str) -> str:
