@@ -67,3 +67,25 @@ def test_parser_rejects_unbounded_or_negative_aggregate_counts() -> None:
     )
 
     assert GitHubOperationalSummaryParser().parse_latest_finding_sync(body) is None
+
+
+def test_parser_rejects_negative_or_boolean_top_level_counts() -> None:
+    body = (
+        "<details>\n"
+        "<summary><code>zeroone-operational-summary-state</code> derived state</summary>\n\n"
+        "```json\n"
+        "{\n"
+        '  "latest_finding_sync": {\n'
+        '    "observed_at": "2026-08-04T10:30:00+00:00",\n'
+        '    "total_findings": true,\n'
+        '    "promoted_findings": -1,\n'
+        '    "backlog_only_findings": 0,\n'
+        '    "severity_counts": {},\n'
+        '    "backlog_reason_counts": {}\n'
+        "  }\n"
+        "}\n"
+        "```\n\n"
+        "</details>\n"
+    )
+
+    assert GitHubOperationalSummaryParser().parse_latest_finding_sync(body) is None
