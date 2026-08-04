@@ -639,6 +639,7 @@ def _sync_github_work_item_status(*, config: AppConfig, dry_run: bool) -> RunSum
             f"{prefix} GitHub remediation work items: "
             f"stale claims recovered={lifecycle_result.recovered_stale_claim_count}; "
             f"completed={lifecycle_result.completed_count}; "
+            f"closed native issues={lifecycle_result.closed_issue_count}; "
             f"blocked={lifecycle_result.blocked_count}; "
             f"in progress={lifecycle_result.in_progress_count}."
             + _format_operational_summary_publication(summary_publication)

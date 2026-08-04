@@ -138,6 +138,22 @@ class GitHubWorkItemClient:
         )
         return _normalize_issue_info(payload)
 
+    def close_issue(
+        self,
+        *,
+        repository_id: str,
+        issue_number: int,
+    ) -> GitHubIssueInfo:
+        """Close one authoritative GitHub work-item issue."""
+        payload = _parse_dict_response(
+            self._http_client.patch(
+                _repository_path(repository_id, f"issues/{issue_number}"),
+                json={"state": "closed"},
+            ),
+            error_message="Unexpected GitHub work-item issue close payload.",
+        )
+        return _normalize_issue_info(payload)
+
 
 def _repository_path(repository_id: str, suffix: str) -> str:
     """Build one repository-scoped request path without discarding the base URL path."""

@@ -21,6 +21,7 @@ class FakeGitHubWorkItemService:
     def __init__(self, items: list[GitHubWorkItemLookupResult]) -> None:
         self.items = items
         self.upserted_work_items: list[WorkItemState] = []
+        self.closed_issue_numbers: list[int] = []
 
     def list_open_work_items(
         self,
@@ -51,6 +52,15 @@ class FakeGitHubWorkItemService:
             action="updated",
             work_item=work_item,
         )
+
+    def close_work_item_issue(
+        self,
+        *,
+        repository_id: str,
+        issue_number: int,
+    ) -> None:
+        del repository_id
+        self.closed_issue_numbers.append(issue_number)
 
 
 def _lookup_result(

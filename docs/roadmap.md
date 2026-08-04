@@ -341,9 +341,8 @@ Design reference:
     recent-outcome rendering before lifecycle starts closing terminal issues
   - [x] refresh the summary after finding sync, remediation completion or
     failure, and lifecycle reconciliation
-  - [ ] live-validate the summary, then close native GitHub work-item issues in
-    `completed` or `dismissed` state while retaining their authoritative
-    serialized lifecycle record
+  - [x] close native GitHub work-item issues in `completed` or `dismissed`
+    state after persisting their authoritative serialized lifecycle record
 
 ##### Phase 6c4: Provider-Neutral Remediation Runner
 
