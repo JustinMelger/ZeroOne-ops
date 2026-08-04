@@ -92,6 +92,7 @@ def test_list_open_work_items_returns_parseable_authoritative_records() -> None:
 
     assert [result.work_item for result in results] == [original]
     assert client.list_labels == ["zeroone-work-item"]
+    assert all(result.is_open for result in results)
 
 
 def test_list_closed_work_items_returns_parseable_authoritative_records() -> None:
@@ -114,6 +115,7 @@ def test_list_closed_work_items_returns_parseable_authoritative_records() -> Non
 
     assert [result.work_item for result in results] == [original]
     assert client.list_labels == ["zeroone-work-item"]
+    assert not results[0].is_open
 
 
 def test_lookup_skips_projection_when_multiple_work_items_link_one_change_request(caplog) -> None:

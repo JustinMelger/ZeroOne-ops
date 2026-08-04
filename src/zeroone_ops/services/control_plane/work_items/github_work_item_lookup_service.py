@@ -27,6 +27,7 @@ class GitHubWorkItemLookupResult:
 
     issue: GitHubIssueInfo
     work_item: WorkItemState
+    is_open: bool = True
 
 
 class GitHubWorkItemLookupService:
@@ -99,7 +100,8 @@ class GitHubWorkItemLookupService:
             self.client.list_open_issues(
                 repository_id=repository_id,
                 labels=[self.renderer.AUTHORITATIVE_WORK_ITEM_LABEL],
-            )
+            ),
+            is_open=True,
         )
 
     def list_closed_work_items(
@@ -112,12 +114,15 @@ class GitHubWorkItemLookupService:
             self.client.list_closed_issues(
                 repository_id=repository_id,
                 labels=[self.renderer.AUTHORITATIVE_WORK_ITEM_LABEL],
-            )
+            ),
+            is_open=False,
         )
 
     def _parse_work_items(
         self,
         issues: list[GitHubIssueInfo],
+        *,
+        is_open: bool,
     ) -> list[GitHubWorkItemLookupResult]:
         """Parse authoritative work-item machine state from listed issues."""
         results: list[GitHubWorkItemLookupResult] = []
@@ -136,5 +141,11 @@ class GitHubWorkItemLookupService:
                 continue
             if parsed is None:
                 continue
-            results.append(GitHubWorkItemLookupResult(issue=issue, work_item=parsed))
+            results.append(
+                GitHubWorkItemLookupResult(
+                    issue=issue,
+                    work_item=parsed,
+                    is_open=is_open,
+                )
+            )
         return results

@@ -57,6 +57,33 @@ def test_builder_does_not_project_closed_linked_request_as_active() -> None:
     assert [entry.status for entry in view.recent_outcomes] == ["completed"]
 
 
+def test_builder_excludes_closed_issue_with_nonterminal_embedded_state() -> None:
+    result = _lookup_result(
+        status="in_progress",
+        number=1,
+        linked_change_request=True,
+    )
+    closed_result = GitHubWorkItemLookupResult(
+        issue=result.issue,
+        work_item=result.work_item,
+        is_open=False,
+    )
+
+    view = GitHubOperationalSummaryBuilder().build(
+        work_items=[closed_result],
+        policy_issue_url=None,
+        latest_finding_sync=None,
+    )
+
+    assert view.work_item_counts == {
+        "candidate": 0,
+        "approved": 0,
+        "in_progress": 0,
+        "blocked": 0,
+    }
+    assert view.active_change_requests == []
+
+
 def _lookup_result(
     *,
     status: str,

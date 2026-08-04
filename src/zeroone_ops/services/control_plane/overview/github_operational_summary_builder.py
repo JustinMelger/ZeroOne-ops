@@ -31,7 +31,7 @@ class GitHubOperationalSummaryBuilder:
         recent_outcomes: list[GitHubOperationalSummaryEntry] = []
         for result in work_items:
             work_item = result.work_item
-            if work_item.status in counts:
+            if result.is_open and work_item.status in counts:
                 counts[work_item.status] += 1
             entry = GitHubOperationalSummaryEntry(
                 title=result.issue.title,
@@ -39,7 +39,11 @@ class GitHubOperationalSummaryBuilder:
                 status=work_item.status,
                 updated_at=result.issue.updated_at,
             )
-            if work_item.status == "in_progress" and work_item.linked_change_request is not None:
+            if (
+                result.is_open
+                and work_item.status == "in_progress"
+                and work_item.linked_change_request is not None
+            ):
                 active_change_requests.append(
                     GitHubOperationalSummaryEntry(
                         title=result.issue.title,
