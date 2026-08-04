@@ -1,0 +1,51 @@
+"""Build derived GitHub operational summary views from work-item state."""
+
+from __future__ import annotations
+
+from zeroone_ops.services.control_plane.overview.github_operational_summary_renderer import (
+    GitHubFindingSyncObservation,
+    GitHubOperationalSummaryEntry,
+    GitHubOperationalSummaryView,
+)
+from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
+    GitHubWorkItemLookupResult,
+)
+
+
+class GitHubOperationalSummaryBuilder:
+    """Build a read-only summary view from authoritative work-item records."""
+
+    _RECENT_OUTCOME_STATUSES = {"blocked", "completed", "dismissed"}
+
+    def build(
+        self,
+        *,
+        work_items: list[GitHubWorkItemLookupResult],
+        policy_issue_url: str | None,
+        latest_finding_sync: GitHubFindingSyncObservation | None,
+        recent_outcome_limit: int = 5,
+    ) -> GitHubOperationalSummaryView:
+        """Return one derived summary view from caller-ordered work-item records."""
+        counts = {status: 0 for status in ("candidate", "approved", "in_progress", "blocked")}
+        active_change_requests: list[GitHubOperationalSummaryEntry] = []
+        recent_outcomes: list[GitHubOperationalSummaryEntry] = []
+        for result in work_items:
+            work_item = result.work_item
+            if work_item.status in counts:
+                counts[work_item.status] += 1
+            entry = GitHubOperationalSummaryEntry(
+                title=result.issue.title,
+                web_url=result.issue.web_url,
+                status=work_item.status,
+            )
+            if work_item.linked_change_request is not None:
+                active_change_requests.append(entry)
+            if work_item.status in self._RECENT_OUTCOME_STATUSES:
+                recent_outcomes.append(entry)
+        return GitHubOperationalSummaryView(
+            policy_issue_url=policy_issue_url,
+            work_item_counts=counts,
+            active_change_requests=active_change_requests,
+            recent_outcomes=recent_outcomes[:recent_outcome_limit],
+            latest_finding_sync=latest_finding_sync,
+        )

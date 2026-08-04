@@ -65,10 +65,15 @@ class GitHubOperationalSummaryRenderer:
             self._render_entries(view.recent_outcomes, empty="No recent work-item outcomes.")
         )
         lines.extend(["", "## Policy", ""])
-        if view.policy_issue_url is None:
-            lines.append("No policy issue has been created yet.")
+        policy_destination = (
+            _safe_link_destination(view.policy_issue_url)
+            if view.policy_issue_url is not None
+            else None
+        )
+        if policy_destination is None:
+            lines.append("No policy issue link is available yet.")
         else:
-            lines.append(f"[Open the ZeroOne Ops policy issue]({view.policy_issue_url}).")
+            lines.append(f"[Open the ZeroOne Ops policy issue](<{policy_destination}>).")
         return "\n".join(lines).rstrip() + "\n"
 
     def _render_work_item_counts(self, counts: dict[str, int]) -> list[str]:
@@ -132,7 +137,7 @@ def _escape_markdown_text(value: str) -> str:
 
 def _escape_inline_code(value: str) -> str:
     """Return one single-line Markdown inline-code value."""
-    return " ".join(value.splitlines()).replace("\\", "\\\\").replace("`", "\\`")
+    return " ".join(value.splitlines()).replace("`", "'")
 
 
 def _safe_link_destination(value: str) -> str | None:

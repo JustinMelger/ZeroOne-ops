@@ -76,6 +76,21 @@ def test_render_summary_escapes_untrusted_entry_text_and_drops_invalid_links() -
     )
 
     assert "[item\\](https://example.com/injected) next](<https://example.com/valid>)" in body
-    assert "`in_progress\\` extra`" in body
+    assert "`in_progress' extra`" in body
     assert "- unsafe destination - `blocked`" in body
+    assert "javascript:alert" not in body
+
+
+def test_render_summary_drops_invalid_policy_link_destination() -> None:
+    body = GitHubOperationalSummaryRenderer().render(
+        GitHubOperationalSummaryView(
+            policy_issue_url="javascript:alert(1)",
+            work_item_counts={},
+            active_change_requests=[],
+            recent_outcomes=[],
+            latest_finding_sync=None,
+        )
+    )
+
+    assert "No policy issue link is available yet." in body
     assert "javascript:alert" not in body
