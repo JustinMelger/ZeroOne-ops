@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import httpx
+
 from zeroone_ops.models.config import GitHubConnectionConfig
 from zeroone_ops.models.dashboard import DashboardPolicyState, DashboardSeverityPolicyStateEntry
 from zeroone_ops.models.github import GitHubIssueInfo
@@ -129,6 +131,41 @@ def test_publish_github_operational_summary_projects_finding_sync_observation(
     assert "- Findings: `5`" in publication.issue.body
     assert "- Backlog only: `3`" in publication.issue.body
     assert "issues/10" in publication.issue.body
+
+
+def test_publish_github_operational_summary_ignores_transport_failure(monkeypatch) -> None:
+    class FailingIssueClient:
+        def find_open_issue(self, **kwargs: object) -> None:
+            del kwargs
+            request = httpx.Request("GET", "https://api.github.example.com/repos/issues")
+            raise httpx.ConnectError("unavailable", request=request)
+
+    class FakeWorkItemService:
+        def list_open_work_items(self, *, repository_id: str) -> list[object]:
+            del repository_id
+            return []
+
+        def list_closed_work_items(self, *, repository_id: str) -> list[object]:
+            del repository_id
+            return []
+
+    monkeypatch.setattr(
+        "zeroone_ops.runner.GitHubPolicyClient",
+        lambda config: FailingIssueClient(),
+    )
+
+    publication = _publish_github_operational_summary(
+        github_config=GitHubConnectionConfig(
+            api_url="https://api.github.example.com",
+            server_url="https://github.example.com",
+            token="token",
+            repository="octo-org/octo-repo",
+        ),
+        work_item_service=FakeWorkItemService(),  # type: ignore[arg-type]
+        latest_finding_sync=None,
+    )
+
+    assert publication is None
 
 
 def test_sync_findings_dry_run_collects_sarif_without_gitlab_configuration(

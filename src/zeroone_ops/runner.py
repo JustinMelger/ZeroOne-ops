@@ -10,6 +10,8 @@ import secrets
 from dataclasses import replace
 from pathlib import Path
 
+import httpx
+
 from zeroone_ops.models.config import AppConfig, GitHubConnectionConfig
 from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RunStatus, utc_now
 from zeroone_ops.providers.github_client import GitHubClient, GitHubClientError
@@ -469,7 +471,7 @@ def _publish_github_operational_summary(
             policy_issue_url=policy_issue.web_url if policy_issue is not None else None,
             latest_finding_sync=latest_finding_sync,
         )
-    except GitHubClientError:
+    except (GitHubClientError, httpx.HTTPError):
         LOGGER.warning(
             "GitHub operational summary publication failed after a control-plane transition",
             exc_info=True,
