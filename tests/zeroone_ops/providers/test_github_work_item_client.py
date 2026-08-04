@@ -40,6 +40,7 @@ def test_list_open_issues_ignores_pull_requests_and_normalizes_issues() -> None:
                     "title": "ZeroOne Ops: Remediate item",
                     "body": "body",
                     "created_at": "2026-07-26T09:30:00Z",
+                    "updated_at": "2026-07-27T10:30:00Z",
                 },
             ],
         )
@@ -60,6 +61,39 @@ def test_list_open_issues_ignores_pull_requests_and_normalizes_issues() -> None:
     assert len(issues) == 1
     assert issues[0].number == 11
     assert issues[0].created_at is not None
+    assert issues[0].updated_at is not None
+
+
+def test_list_closed_issues_requests_closed_state() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/repos/octo-org/octo-repo/issues"
+        assert request.url.params["state"] == "closed"
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 2,
+                    "number": 11,
+                    "html_url": "https://github/x/11",
+                    "title": "Closed work item",
+                    "body": "body",
+                    "updated_at": "2026-07-27T10:30:00Z",
+                }
+            ],
+        )
+
+    client = GitHubWorkItemClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.github.example.com",
+        ),
+    )
+
+    issues = client.list_closed_issues(repository_id="octo-org/octo-repo")
+
+    assert [issue.number for issue in issues] == [11]
+    assert issues[0].updated_at is not None
 
 
 def test_list_open_issues_paginates_until_exhaustion() -> None:

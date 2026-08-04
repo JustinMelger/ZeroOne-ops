@@ -25,7 +25,7 @@ class GitHubOperationalSummaryBuilder:
         latest_finding_sync: GitHubFindingSyncObservation | None,
         recent_outcome_limit: int = 5,
     ) -> GitHubOperationalSummaryView:
-        """Return one derived summary view from caller-ordered work-item records."""
+        """Return one derived summary view from open and closed work-item records."""
         counts = {status: 0 for status in ("candidate", "approved", "in_progress", "blocked")}
         active_change_requests: list[GitHubOperationalSummaryEntry] = []
         recent_outcomes: list[GitHubOperationalSummaryEntry] = []
@@ -37,11 +37,13 @@ class GitHubOperationalSummaryBuilder:
                 title=result.issue.title,
                 web_url=result.issue.web_url,
                 status=work_item.status,
+                updated_at=result.issue.updated_at,
             )
-            if work_item.linked_change_request is not None:
+            if work_item.status == "in_progress" and work_item.linked_change_request is not None:
                 active_change_requests.append(entry)
             if work_item.status in self._RECENT_OUTCOME_STATUSES:
                 recent_outcomes.append(entry)
+        recent_outcomes.sort(key=_outcome_updated_at, reverse=True)
         return GitHubOperationalSummaryView(
             policy_issue_url=policy_issue_url,
             work_item_counts=counts,
@@ -49,3 +51,10 @@ class GitHubOperationalSummaryBuilder:
             recent_outcomes=recent_outcomes[:recent_outcome_limit],
             latest_finding_sync=latest_finding_sync,
         )
+
+
+def _outcome_updated_at(entry: GitHubOperationalSummaryEntry) -> float:
+    """Return a stable outcome sort key, with unknown timestamps ordered last."""
+    if entry.updated_at is None or entry.updated_at.tzinfo is None:
+        return float("-inf")
+    return entry.updated_at.timestamp()

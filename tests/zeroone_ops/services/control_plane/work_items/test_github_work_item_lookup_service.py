@@ -94,6 +94,28 @@ def test_list_open_work_items_returns_parseable_authoritative_records() -> None:
     assert client.list_labels == ["zeroone-work-item"]
 
 
+def test_list_closed_work_items_returns_parseable_authoritative_records() -> None:
+    renderer = GitHubWorkItemRenderer()
+    original = build_work_item(status="completed")
+    client = FakeGitHubWorkItemClient()
+    client.closed_issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(original),
+            body=renderer.render_body(original),
+        )
+    ]
+
+    results = GitHubWorkItemLookupService(client).list_closed_work_items(
+        repository_id="octo-org/octo-repo"
+    )
+
+    assert [result.work_item for result in results] == [original]
+    assert client.list_labels == ["zeroone-work-item"]
+
+
 def test_lookup_skips_projection_when_multiple_work_items_link_one_change_request(caplog) -> None:
     renderer = GitHubWorkItemRenderer()
     first = build_work_item().model_copy(

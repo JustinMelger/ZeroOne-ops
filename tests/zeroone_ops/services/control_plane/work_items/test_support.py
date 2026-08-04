@@ -22,6 +22,7 @@ def build_work_item(*, status: str = "approved") -> WorkItemState:
 class FakeGitHubWorkItemClient:
     def __init__(self) -> None:
         self.issues: list[GitHubIssueInfo] = []
+        self.closed_issues: list[GitHubIssueInfo] = []
         self.created_issue: GitHubIssueInfo | None = None
         self.updated_issue: GitHubIssueInfo | None = None
         self.list_labels: list[str] | None = None
@@ -35,6 +36,16 @@ class FakeGitHubWorkItemClient:
         del repository_id
         self.list_labels = labels
         return list(self.issues)
+
+    def list_closed_issues(
+        self,
+        *,
+        repository_id: str,
+        labels: list[str] | None = None,
+    ) -> list[GitHubIssueInfo]:
+        del repository_id
+        self.list_labels = labels
+        return list(self.closed_issues)
 
     def create_issue(
         self,

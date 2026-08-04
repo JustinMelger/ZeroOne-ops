@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, WorkItemState
 from zeroone_ops.services.control_plane.overview.github_operational_summary_builder import (
@@ -12,9 +14,9 @@ def test_builder_projects_open_state_active_prs_and_bounded_outcomes() -> None:
     work_items = [
         _lookup_result(status="approved", number=1),
         _lookup_result(status="in_progress", number=2, linked_change_request=True),
-        _lookup_result(status="blocked", number=3),
-        _lookup_result(status="completed", number=4),
-        _lookup_result(status="dismissed", number=5),
+        _lookup_result(status="blocked", number=3, updated_at="2026-08-01T10:00:00+00:00"),
+        _lookup_result(status="completed", number=4, updated_at="2026-08-03T10:00:00+00:00"),
+        _lookup_result(status="dismissed", number=5, updated_at="2026-08-02T10:00:00+00:00"),
     ]
 
     view = GitHubOperationalSummaryBuilder().build(
@@ -31,7 +33,25 @@ def test_builder_projects_open_state_active_prs_and_bounded_outcomes() -> None:
         "blocked": 1,
     }
     assert [entry.status for entry in view.active_change_requests] == ["in_progress"]
-    assert [entry.status for entry in view.recent_outcomes] == ["blocked", "completed"]
+    assert [entry.status for entry in view.recent_outcomes] == ["completed", "dismissed"]
+
+
+def test_builder_does_not_project_closed_linked_request_as_active() -> None:
+    view = GitHubOperationalSummaryBuilder().build(
+        work_items=[
+            _lookup_result(
+                status="completed",
+                number=1,
+                linked_change_request=True,
+                updated_at="2026-08-03T10:00:00+00:00",
+            )
+        ],
+        policy_issue_url=None,
+        latest_finding_sync=None,
+    )
+
+    assert view.active_change_requests == []
+    assert [entry.status for entry in view.recent_outcomes] == ["completed"]
 
 
 def _lookup_result(
@@ -39,6 +59,7 @@ def _lookup_result(
     status: str,
     number: int,
     linked_change_request: bool = False,
+    updated_at: str | None = None,
 ) -> GitHubWorkItemLookupResult:
     work_item = WorkItemState(
         work_item_id=f"work-{number}",
@@ -62,6 +83,7 @@ def _lookup_result(
             web_url=f"https://github.example.com/octo-org/octo-repo/issues/{number}",
             title=f"ZeroOne Ops: item {number}",
             body="",
+            updated_at=(datetime.fromisoformat(updated_at) if updated_at is not None else None),
         ),
         work_item=work_item,
     )

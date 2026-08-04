@@ -14,6 +14,7 @@ class GitHubIssueInfo(BaseModel):
     title: str
     body: str
     created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class GitHubIssueComment(BaseModel):

@@ -14,6 +14,7 @@ class GitHubOperationalSummaryEntry:
     title: str
     web_url: str
     status: str
+    updated_at: datetime | None = None
 
 
 @dataclass(frozen=True)

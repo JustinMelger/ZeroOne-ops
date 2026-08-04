@@ -95,12 +95,33 @@ class GitHubWorkItemLookupService:
         repository_id: str,
     ) -> list[GitHubWorkItemLookupResult]:
         """Return all parseable open authoritative work items in one repository."""
-        authoritative_label = self.renderer.AUTHORITATIVE_WORK_ITEM_LABEL
+        return self._parse_work_items(
+            self.client.list_open_issues(
+                repository_id=repository_id,
+                labels=[self.renderer.AUTHORITATIVE_WORK_ITEM_LABEL],
+            )
+        )
+
+    def list_closed_work_items(
+        self,
+        *,
+        repository_id: str,
+    ) -> list[GitHubWorkItemLookupResult]:
+        """Return all parseable closed authoritative work items in one repository."""
+        return self._parse_work_items(
+            self.client.list_closed_issues(
+                repository_id=repository_id,
+                labels=[self.renderer.AUTHORITATIVE_WORK_ITEM_LABEL],
+            )
+        )
+
+    def _parse_work_items(
+        self,
+        issues: list[GitHubIssueInfo],
+    ) -> list[GitHubWorkItemLookupResult]:
+        """Parse authoritative work-item machine state from listed issues."""
         results: list[GitHubWorkItemLookupResult] = []
-        for issue in self.client.list_open_issues(
-            repository_id=repository_id,
-            labels=[authoritative_label],
-        ):
+        for issue in issues:
             try:
                 parsed = self.parser.parse_work_item_state(issue.body)
             except (GitHubClientError, ValidationError):
