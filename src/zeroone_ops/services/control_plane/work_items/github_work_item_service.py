@@ -71,6 +71,18 @@ class GitHubWorkItemService:
             source=source,
         )
 
+    def close_work_item_issue(
+        self,
+        *,
+        repository_id: str,
+        issue_number: int,
+    ) -> None:
+        """Close one terminal authoritative work-item issue."""
+        self.upsert_service.close_work_item_issue(
+            repository_id=repository_id,
+            issue_number=issue_number,
+        )
+
     def find_open_work_item_by_change_request(
         self,
         *,

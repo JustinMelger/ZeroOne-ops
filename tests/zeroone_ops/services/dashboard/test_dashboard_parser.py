@@ -1609,6 +1609,7 @@ def test_rendered_dashboard_body_includes_schema_marker_and_policy_sections() ->
     assert "## Issue Class Inventory" in body
     assert "## Operator Policy Actions" in body
     assert "/zeroone policy severity enable high" in body
+    assert "/zeroone policy issue-class exclude ruff-sarif / C416" in body
     assert "zeroone-policy-state" in body
 
 

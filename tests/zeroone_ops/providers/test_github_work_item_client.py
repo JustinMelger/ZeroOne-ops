@@ -253,3 +253,32 @@ def test_update_issue_patches_expected_payload() -> None:
     )
 
     assert issue.body == "updated"
+
+
+def test_close_issue_patches_closed_state() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/repos/octo-org/octo-repo/issues/11"
+        assert request.method == "PATCH"
+        assert request.content.decode("utf-8") == '{"state":"closed"}'
+        return httpx.Response(
+            200,
+            json={
+                "id": 2,
+                "number": 11,
+                "html_url": "https://github/x/11",
+                "title": "ZeroOne Ops: Remediate item",
+                "body": "body",
+            },
+        )
+
+    client = GitHubWorkItemClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.github.example.com",
+        ),
+    )
+
+    issue = client.close_issue(repository_id="octo-org/octo-repo", issue_number=11)
+
+    assert issue.number == 11

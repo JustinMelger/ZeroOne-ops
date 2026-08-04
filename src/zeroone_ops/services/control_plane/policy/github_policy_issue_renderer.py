@@ -98,6 +98,11 @@ class GitHubPolicyIssueRenderer:
                 "| Remove an issue-class exclusion | "
                 "`/zeroone policy issue-class include sonarqube / python:S3776` |"
             ),
+            ("| Exclude a Ruff rule | `/zeroone policy issue-class exclude ruff-sarif / C416` |"),
+            (
+                "| Remove a Ruff-rule exclusion | "
+                "`/zeroone policy issue-class include ruff-sarif / C416` |"
+            ),
         ]
 
     def _render_notes(self) -> list[str]:

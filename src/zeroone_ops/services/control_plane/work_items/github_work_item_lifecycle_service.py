@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
+import httpx
+
 from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.providers.github_client import GitHubClientError
@@ -19,6 +21,7 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_service impo
 
 LOGGER = logging.getLogger(__name__)
 _STALE_CLAIM_AGE = timedelta(hours=24)
+_NATIVE_ISSUE_TERMINAL_STATUSES = {"completed", "dismissed"}
 
 
 class GitHubChangeRequestStateClient(Protocol):
@@ -40,6 +43,7 @@ class GitHubWorkItemLifecycleResult:
     recovered_stale_claim_count: int
     demoted_to_candidate_count: int
     completed_count: int
+    closed_issue_count: int
     blocked_count: int
     in_progress_count: int
     unchanged_count: int
@@ -79,14 +83,62 @@ class GitHubWorkItemLifecycleService:
                 now=now,
             )
             if updated is None:
+                if persist:
+                    self._close_terminal_issue(
+                        repository_id=repository_id,
+                        issue_number=result.issue.number,
+                        work_item=work_item,
+                        counts=counts,
+                    )
                 continue
+            issue_number = result.issue.number
             if persist and action != "unchanged":
-                self.work_item_service.upsert_work_item(
+                upsert_result = self.work_item_service.upsert_work_item(
                     repository_id=repository_id,
                     work_item=updated,
                 )
+                issue_number = upsert_result.issue.number
             counts.record(action)
+            if persist:
+                self._close_terminal_issue(
+                    repository_id=repository_id,
+                    issue_number=issue_number,
+                    work_item=updated,
+                    counts=counts,
+                )
         return counts.build()
+
+    def _close_terminal_issue(
+        self,
+        *,
+        repository_id: str,
+        issue_number: int,
+        work_item: WorkItemState,
+        counts: _LifecycleCounts,
+    ) -> None:
+        """Close a terminal native issue after its machine state has been persisted."""
+        if (
+            work_item.kind != "remediation"
+            or work_item.status not in _NATIVE_ISSUE_TERMINAL_STATUSES
+        ):
+            return
+        try:
+            self.work_item_service.close_work_item_issue(
+                repository_id=repository_id,
+                issue_number=issue_number,
+            )
+        except (GitHubClientError, httpx.HTTPError):
+            LOGGER.warning(
+                "GitHub work-item lifecycle could not close terminal native issue",
+                extra={
+                    "work_item_id": work_item.work_item_id,
+                    "issue_number": issue_number,
+                    "status": work_item.status,
+                },
+                exc_info=True,
+            )
+            return
+        counts.record_closed_issue()
 
     def _reconcile_work_item(
         self,
@@ -198,6 +250,7 @@ class _LifecycleCounts:
     recovered_stale_claim_count: int = 0
     demoted_to_candidate_count: int = 0
     completed_count: int = 0
+    closed_issue_count: int = 0
     blocked_count: int = 0
     in_progress_count: int = 0
     unchanged_count: int = 0
@@ -217,12 +270,17 @@ class _LifecycleCounts:
         else:
             self.unchanged_count += 1
 
+    def record_closed_issue(self) -> None:
+        """Record a terminal native GitHub issue closure."""
+        self.closed_issue_count += 1
+
     def build(self) -> GitHubWorkItemLifecycleResult:
         """Return an immutable lifecycle summary."""
         return GitHubWorkItemLifecycleResult(
             recovered_stale_claim_count=self.recovered_stale_claim_count,
             demoted_to_candidate_count=self.demoted_to_candidate_count,
             completed_count=self.completed_count,
+            closed_issue_count=self.closed_issue_count,
             blocked_count=self.blocked_count,
             in_progress_count=self.in_progress_count,
             unchanged_count=self.unchanged_count,

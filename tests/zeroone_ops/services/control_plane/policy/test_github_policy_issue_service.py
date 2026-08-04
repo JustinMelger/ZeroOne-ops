@@ -135,6 +135,7 @@ def test_load_or_create_creates_policy_issue_when_missing() -> None:
 
     assert issue.title == "ZeroOne Ops Policy"
     assert "Machine-managed repository policy for ZeroOne Ops." in issue.body
+    assert "/zeroone policy issue-class exclude ruff-sarif / C416" in issue.body
     assert "zeroone-policy-state" in issue.body
 
 

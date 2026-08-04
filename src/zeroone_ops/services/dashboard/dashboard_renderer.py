@@ -150,6 +150,11 @@ class DashboardRenderer:
                 "| Remove an issue-class exclusion | "
                 "`/zeroone policy issue-class include sonarqube / python:S3776` |"
             ),
+            ("| Exclude a Ruff rule | `/zeroone policy issue-class exclude ruff-sarif / C416` |"),
+            (
+                "| Remove a Ruff-rule exclusion | "
+                "`/zeroone policy issue-class include ruff-sarif / C416` |"
+            ),
             "",
             (
                 "Direct markdown edits and raw checkbox changes in this dashboard are "

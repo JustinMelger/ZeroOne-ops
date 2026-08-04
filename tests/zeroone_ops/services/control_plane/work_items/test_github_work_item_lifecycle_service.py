@@ -1,7 +1,15 @@
 from datetime import UTC, datetime, timedelta
+from typing import cast
+
+import httpx
 
 from zeroone_ops.models.change_request import ChangeRequestState
-from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemClaim, WorkItemState
+from zeroone_ops.models.work_item import (
+    ChangeRequestRef,
+    WorkItemClaim,
+    WorkItemKind,
+    WorkItemState,
+)
 from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.services.control_plane.work_items.github_work_item_lifecycle_service import (
     GitHubWorkItemLifecycleService,
@@ -158,3 +166,74 @@ def test_reconcile_blocks_and_retains_link_for_unsupported_pull_request_state() 
     assert result.blocked_count == 1
     assert fake_work_item_service.upserted_work_items[0].status == "blocked"
     assert fake_work_item_service.upserted_work_items[0].linked_change_request is not None
+
+
+def test_reconcile_closes_native_issue_after_persisting_completed_work_item() -> None:
+    now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
+    service, fake_work_item_service = _service(_linked_work_item(), _state(state="merged"))
+
+    result = service.reconcile(
+        repository_id="octo-org/octo-repo",
+        now=now,
+    )
+
+    assert result.completed_count == 1
+    assert result.closed_issue_count == 1
+    assert fake_work_item_service.upserted_work_items[0].status == "completed"
+    assert fake_work_item_service.closed_issue_numbers == [11]
+
+
+def test_reconcile_closes_existing_terminal_native_issue() -> None:
+    now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
+    service, fake_work_item_service = _service(
+        build_work_item(status="dismissed"),
+        _state(state="opened"),
+    )
+
+    result = service.reconcile(
+        repository_id="octo-org/octo-repo",
+        now=now,
+    )
+
+    assert result.closed_issue_count == 1
+    assert fake_work_item_service.upserted_work_items == []
+    assert fake_work_item_service.closed_issue_numbers == [11]
+
+
+def test_reconcile_does_not_close_terminal_non_remediation_work_item() -> None:
+    now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
+    non_remediation = build_work_item(status="completed").model_copy(
+        update={"kind": cast(WorkItemKind, "review")}
+    )
+    service, fake_work_item_service = _service(non_remediation, _state(state="opened"))
+
+    result = service.reconcile(
+        repository_id="octo-org/octo-repo",
+        now=now,
+    )
+
+    assert result.closed_issue_count == 0
+    assert fake_work_item_service.closed_issue_numbers == []
+
+
+def test_reconcile_logs_and_retries_terminal_issue_closure_on_transport_failure(
+    monkeypatch,
+) -> None:
+    now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
+    service, fake_work_item_service = _service(
+        build_work_item(status="dismissed"),
+        _state(state="opened"),
+    )
+
+    def fail_close(*, repository_id: str, issue_number: int) -> None:
+        del repository_id, issue_number
+        raise httpx.ConnectError("connection failed")
+
+    monkeypatch.setattr(fake_work_item_service, "close_work_item_issue", fail_close)
+
+    result = service.reconcile(
+        repository_id="octo-org/octo-repo",
+        now=now,
+    )
+
+    assert result.closed_issue_count == 0
