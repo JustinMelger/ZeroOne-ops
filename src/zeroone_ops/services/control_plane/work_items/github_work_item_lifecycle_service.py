@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
+import httpx
+
 from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.providers.github_client import GitHubClientError
@@ -115,14 +117,17 @@ class GitHubWorkItemLifecycleService:
         counts: _LifecycleCounts,
     ) -> None:
         """Close a terminal native issue after its machine state has been persisted."""
-        if work_item.status not in _NATIVE_ISSUE_TERMINAL_STATUSES:
+        if (
+            work_item.kind != "remediation"
+            or work_item.status not in _NATIVE_ISSUE_TERMINAL_STATUSES
+        ):
             return
         try:
             self.work_item_service.close_work_item_issue(
                 repository_id=repository_id,
                 issue_number=issue_number,
             )
-        except GitHubClientError:
+        except (GitHubClientError, httpx.HTTPError):
             LOGGER.warning(
                 "GitHub work-item lifecycle could not close terminal native issue",
                 extra={
