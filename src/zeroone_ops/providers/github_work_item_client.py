@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -39,13 +39,40 @@ class GitHubWorkItemClient:
         labels: list[str] | None = None,
     ) -> list[GitHubIssueInfo]:
         """List open GitHub issues for one repository and label set."""
+        return self.list_issues(
+            repository_id=repository_id,
+            state="open",
+            labels=labels,
+        )
+
+    def list_closed_issues(
+        self,
+        *,
+        repository_id: str,
+        labels: list[str] | None = None,
+    ) -> list[GitHubIssueInfo]:
+        """List closed GitHub issues for one repository and label set."""
+        return self.list_issues(
+            repository_id=repository_id,
+            state="closed",
+            labels=labels,
+        )
+
+    def list_issues(
+        self,
+        *,
+        repository_id: str,
+        state: Literal["open", "closed"],
+        labels: list[str] | None = None,
+    ) -> list[GitHubIssueInfo]:
+        """List GitHub issues in one supported state for a repository and label set."""
         page = 1
         issues: list[GitHubIssueInfo] = []
         while True:
             response = self._http_client.get(
                 _repository_path(repository_id, "issues"),
                 params={
-                    "state": "open",
+                    "state": state,
                     "labels": ",".join(labels or []),
                     "page": page,
                     "per_page": 100,
@@ -176,21 +203,23 @@ def _normalize_issue_info(payload: dict[str, Any]) -> GitHubIssueInfo:
         web_url=web_url,
         title=title,
         body=body or "",
-        created_at=_optional_created_at(payload),
+        created_at=_optional_timestamp(payload, key="created_at"),
+        updated_at=_optional_timestamp(payload, key="updated_at"),
     )
 
 
-def _optional_created_at(payload: dict[str, Any]) -> datetime | None:
-    """Return the optional GitHub issue creation timestamp."""
-    created_at = payload.get("created_at")
-    if created_at is None:
+def _optional_timestamp(payload: dict[str, Any], *, key: str) -> datetime | None:
+    """Return one optional timezone-aware GitHub issue timestamp."""
+    field_name = "creation" if key == "created_at" else key
+    value = payload.get(key)
+    if value is None:
         return None
-    if not isinstance(created_at, str):
-        raise GitHubClientError("Unexpected GitHub issue creation timestamp.")
+    if not isinstance(value, str):
+        raise GitHubClientError(f"Unexpected GitHub issue {field_name} timestamp.")
     try:
-        timestamp = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as error:
-        raise GitHubClientError("Unexpected GitHub issue creation timestamp.") from error
+        raise GitHubClientError(f"Unexpected GitHub issue {field_name} timestamp.") from error
     if timestamp.tzinfo is None:
-        raise GitHubClientError("Unexpected GitHub issue creation timestamp.")
+        raise GitHubClientError(f"Unexpected GitHub issue {field_name} timestamp.")
     return timestamp
