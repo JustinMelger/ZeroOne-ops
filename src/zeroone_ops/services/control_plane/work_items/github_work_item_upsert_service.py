@@ -96,6 +96,18 @@ class GitHubWorkItemUpsertService:
             work_item=rendered_work_item,
         )
 
+    def close_work_item_issue(
+        self,
+        *,
+        repository_id: str,
+        issue_number: int,
+    ) -> None:
+        """Close one terminal authoritative work-item issue."""
+        self.client.close_issue(
+            repository_id=repository_id,
+            issue_number=issue_number,
+        )
+
     def _merge_existing_authoritative_state(
         self,
         *,

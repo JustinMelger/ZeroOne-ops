@@ -158,3 +158,35 @@ def test_reconcile_blocks_and_retains_link_for_unsupported_pull_request_state() 
     assert result.blocked_count == 1
     assert fake_work_item_service.upserted_work_items[0].status == "blocked"
     assert fake_work_item_service.upserted_work_items[0].linked_change_request is not None
+
+
+def test_reconcile_closes_native_issue_after_persisting_completed_work_item() -> None:
+    now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
+    service, fake_work_item_service = _service(_linked_work_item(), _state(state="merged"))
+
+    result = service.reconcile(
+        repository_id="octo-org/octo-repo",
+        now=now,
+    )
+
+    assert result.completed_count == 1
+    assert result.closed_issue_count == 1
+    assert fake_work_item_service.upserted_work_items[0].status == "completed"
+    assert fake_work_item_service.closed_issue_numbers == [11]
+
+
+def test_reconcile_closes_existing_terminal_native_issue() -> None:
+    now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
+    service, fake_work_item_service = _service(
+        build_work_item(status="dismissed"),
+        _state(state="opened"),
+    )
+
+    result = service.reconcile(
+        repository_id="octo-org/octo-repo",
+        now=now,
+    )
+
+    assert result.closed_issue_count == 1
+    assert fake_work_item_service.upserted_work_items == []
+    assert fake_work_item_service.closed_issue_numbers == [11]
