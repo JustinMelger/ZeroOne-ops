@@ -327,9 +327,7 @@ def _should_include_consequence_sentence(finding: PublishableReviewFinding) -> b
     """Decide whether a second short consequence sentence materially helps clarity."""
     title = finding.title.lower()
     explanation = finding.explanation.lower()
-    if explanation.startswith(title):
-        return False
-    return True
+    return not explanation.startswith(title)
 
 
 def _render_suggested_fix_line(finding: PublishableReviewFinding) -> str | None:
