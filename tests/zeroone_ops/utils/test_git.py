@@ -33,6 +33,34 @@ def test_build_remediation_branch_name_distinguishes_ambiguous_source_reference_
     assert first_branch != second_branch
 
 
+def test_build_remediation_branch_name_bounds_long_finding_references() -> None:
+    branch_name = build_remediation_branch_name(
+        branch_prefix="zeroone-ops",
+        source="ruff-sarif",
+        source_reference=(
+            "src/zeroone_ops/services/review/pipeline/"
+            "review_candidate_generation_service.py::lint_fix::sim114::"
+            "lines-330-336-cols-5-48::branches-combine-logical-operator-using"
+        ),
+        file_path="src/zeroone_ops/services/review/pipeline/review_candidate_generation_service.py",
+    )
+
+    # GitHub accepts refs/heads/<branch> only when the complete ref is at most 255 bytes.
+    assert len(f"refs/heads/{branch_name}") <= 255
+    assert branch_name.endswith("/review-candidate-generation-serv")
+
+
+def test_build_remediation_branch_name_uses_ascii_for_non_ascii_identifiers() -> None:
+    branch_name = build_remediation_branch_name(
+        branch_prefix="zeroone-ops",
+        source="ruff-sarif",
+        source_reference="finding-€",
+        file_path="src/caf\u00e9.py",
+    )
+
+    assert branch_name.isascii()
+
+
 def test_build_remediation_branch_lookup_names_includes_legacy_sonar_branch() -> None:
     assert build_remediation_branch_lookup_names(
         branch_prefix="zeroone-ops",
