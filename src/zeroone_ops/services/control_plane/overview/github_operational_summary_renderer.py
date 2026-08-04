@@ -126,7 +126,9 @@ def _render_counts(counts: dict[str, int]) -> str:
     """Render compact deterministic aggregate counts."""
     if not counts:
         return "none"
-    return ", ".join(f"`{key}`: {value}" for key, value in sorted(counts.items()))
+    return ", ".join(
+        f"`{_escape_inline_code(key)}`: {value}" for key, value in sorted(counts.items())
+    )
 
 
 def _escape_markdown_text(value: str) -> str:

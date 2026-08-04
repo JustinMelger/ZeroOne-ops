@@ -94,3 +94,24 @@ def test_render_summary_drops_invalid_policy_link_destination() -> None:
 
     assert "No policy issue link is available yet." in body
     assert "javascript:alert" not in body
+
+
+def test_render_summary_escapes_aggregate_count_keys() -> None:
+    body = GitHubOperationalSummaryRenderer().render(
+        GitHubOperationalSummaryView(
+            policy_issue_url=None,
+            work_item_counts={},
+            active_change_requests=[],
+            recent_outcomes=[],
+            latest_finding_sync=GitHubFindingSyncObservation(
+                observed_at=datetime(2026, 8, 4, 10, 30, tzinfo=UTC),
+                total_findings=1,
+                promoted_findings=0,
+                backlog_only_findings=1,
+                severity_counts={"high`\nextra": 1},
+                backlog_reason_counts={},
+            ),
+        )
+    )
+
+    assert "`high' extra`: 1" in body
