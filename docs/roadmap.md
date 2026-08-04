@@ -211,9 +211,8 @@ Next feedback-driven refinements:
     backend phase
   - after the remaining Phase 6 implementation items are complete, review the
     GitHub work-item lifecycle against the GitLab dashboard-managed runner;
-    decide whether completed or dismissed GitHub work items should also use
-    GitHub's native closed issue state, while keeping the shared work-item
-    lifecycle authoritative
+    keep the shared work-item lifecycle authoritative while GitHub mirrors
+    `completed` and `dismissed` items to its native closed issue state
 
 #### Phase 6a: Post-Phase-5 Cleanup
 
@@ -284,8 +283,8 @@ Design reference:
 ##### Phase 6b6: Rollout Validation
 
 - [x] live-test normalized ingestion for promotion
-- [ ] live-test normalized ingestion for work-item lifecycle
-- [ ] live-test normalized ingestion for review projection
+- [x] live-test normalized ingestion for work-item lifecycle
+- [x] live-test normalized ingestion for review projection
 - [ ] live-test normalized ingestion for same-SHA projection repair
 
 #### Phase 6c: GitHub Rollout Validation
@@ -327,9 +326,9 @@ Design reference:
   - use GitHub-native wording such as `Remediation PR`
   - render remediation-PR source provenance from the originating finding (for
     example, `Ruff SARIF`) rather than the generic remediation workflow
-- [ ] live-validate the refined GitHub work-item rendering on a promoted
+- [x] live-validate the refined GitHub work-item rendering on a promoted
   finding before treating the operator UX slice as complete
-- [ ] add a derived GitHub operational work-summary issue after lifecycle
+- [x] add a derived GitHub operational work-summary issue after lifecycle
   reconciliation is trusted:
   - [x] add a read-only summary renderer and issue store, discovered through a
     dedicated `zeroone-summary` label and cross-linked with the policy issue
