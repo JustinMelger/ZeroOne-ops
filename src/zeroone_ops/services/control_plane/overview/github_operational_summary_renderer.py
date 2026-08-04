@@ -1,0 +1,116 @@
+"""Render the derived GitHub operational summary."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+
+
+@dataclass(frozen=True)
+class GitHubOperationalSummaryEntry:
+    """Represent one linked work item in the derived summary."""
+
+    title: str
+    web_url: str
+    status: str
+
+
+@dataclass(frozen=True)
+class GitHubFindingSyncObservation:
+    """Represent the bounded latest-finding-sync observation for the summary."""
+
+    observed_at: datetime
+    total_findings: int
+    promoted_findings: int
+    backlog_only_findings: int
+    severity_counts: dict[str, int]
+    backlog_reason_counts: dict[str, int]
+
+
+@dataclass(frozen=True)
+class GitHubOperationalSummaryView:
+    """Represent the complete read-only GitHub operational summary view."""
+
+    policy_issue_url: str | None
+    work_item_counts: dict[str, int]
+    active_change_requests: list[GitHubOperationalSummaryEntry]
+    recent_outcomes: list[GitHubOperationalSummaryEntry]
+    latest_finding_sync: GitHubFindingSyncObservation | None
+
+
+class GitHubOperationalSummaryRenderer:
+    """Render a compact, non-authoritative GitHub operational summary."""
+
+    def render(self, view: GitHubOperationalSummaryView) -> str:
+        """Render one derived GitHub operational summary issue body."""
+        lines = [
+            "Read-only operational overview for ZeroOne Ops.",
+            "Work-item issues and the policy issue remain authoritative.",
+            "",
+            "## Overview",
+            "",
+        ]
+        lines.extend(self._render_work_item_counts(view.work_item_counts))
+        lines.extend(["", "## Active Remediation PRs", ""])
+        lines.extend(
+            self._render_entries(
+                view.active_change_requests, empty="No active remediation pull requests."
+            )
+        )
+        lines.extend(["", "## Latest Finding Sync", ""])
+        lines.extend(self._render_finding_sync(view.latest_finding_sync))
+        lines.extend(["", "## Recent Outcomes", ""])
+        lines.extend(
+            self._render_entries(view.recent_outcomes, empty="No recent work-item outcomes.")
+        )
+        lines.extend(["", "## Policy", ""])
+        if view.policy_issue_url is None:
+            lines.append("No policy issue has been created yet.")
+        else:
+            lines.append(f"[Open the ZeroOne Ops policy issue]({view.policy_issue_url}).")
+        return "\n".join(lines).rstrip() + "\n"
+
+    def _render_work_item_counts(self, counts: dict[str, int]) -> list[str]:
+        """Render the current authoritative open work-item counts."""
+        labels = {
+            "candidate": "Candidate",
+            "approved": "Ready",
+            "in_progress": "In progress",
+            "blocked": "Blocked",
+        }
+        return [f"- {label}: `{counts.get(status, 0)}`" for status, label in labels.items()]
+
+    def _render_entries(
+        self,
+        entries: list[GitHubOperationalSummaryEntry],
+        *,
+        empty: str,
+    ) -> list[str]:
+        """Render a bounded list of linked derived entries."""
+        if not entries:
+            return [empty]
+        return [f"- [{entry.title}]({entry.web_url}) - `{entry.status}`" for entry in entries]
+
+    def _render_finding_sync(
+        self,
+        observation: GitHubFindingSyncObservation | None,
+    ) -> list[str]:
+        """Render the latest persisted finding-sync observation when available."""
+        if observation is None:
+            return ["No finding sync has been observed yet."]
+        lines = [
+            f"- Observed: `{observation.observed_at.isoformat()}`",
+            f"- Findings: `{observation.total_findings}`",
+            f"- Promoted: `{observation.promoted_findings}`",
+            f"- Backlog only: `{observation.backlog_only_findings}`",
+            f"- Severities: {_render_counts(observation.severity_counts)}",
+            f"- Backlog reasons: {_render_counts(observation.backlog_reason_counts)}",
+        ]
+        return lines
+
+
+def _render_counts(counts: dict[str, int]) -> str:
+    """Render compact deterministic aggregate counts."""
+    if not counts:
+        return "none"
+    return ", ".join(f"`{key}`: {value}" for key, value in sorted(counts.items()))

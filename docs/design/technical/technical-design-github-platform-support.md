@@ -914,6 +914,28 @@ Out of scope for `5c`:
 - add a summary surface only if operator usage proves native GitHub views are
   insufficient
 
+Derived GitHub operational summary, when introduced:
+
+- must remain read-only and non-authoritative; it must not mutate work-item or
+  policy state
+- is discovered through the fixed `ZeroOne Ops Summary` title and a dedicated
+  `zeroone-summary` label
+- cross-links the dedicated `ZeroOne Ops Policy` issue; policy commands remain
+  on that issue only
+- renders authoritative open work-item counts for `candidate`, `approved`,
+  `in_progress`, and `blocked` states, plus active remediation pull requests
+- stores a bounded, timestamped observation of the latest successful finding
+  sync for total findings, promoted findings, backlog-only findings, severity
+  counts, and backlog reasons; this observation is visibility data, not a
+  second work queue
+- renders a bounded recent-outcomes list from authoritative completed,
+  dismissed, and blocked work items, including closed work-item issues after
+  lifecycle closure begins
+- refreshes after finding sync, remediation completion or failure, and
+  lifecycle reconciliation; a periodic refresh may follow later
+- uses GitHub issue `updated_at` data to order recent outcomes rather than
+  creation time
+
 ### Phase 6: Full GitHub Dogfooding
 
 - use ZeroOne Ops on this repository through GitHub-native review first
