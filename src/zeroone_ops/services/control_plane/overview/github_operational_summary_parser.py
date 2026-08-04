@@ -59,6 +59,8 @@ def _parse_observation(value: object) -> GitHubFindingSyncObservation | None:
         return None
     if severity_counts is None or backlog_reason_counts is None:
         return None
+    if total_findings != promoted_findings + backlog_only_findings:
+        return None
     return GitHubFindingSyncObservation(
         observed_at=observed_at,
         total_findings=total_findings,

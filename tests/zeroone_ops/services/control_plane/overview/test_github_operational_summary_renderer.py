@@ -116,3 +116,17 @@ def test_render_summary_escapes_aggregate_count_keys() -> None:
     )
 
     assert "`high' extra`: 1" in body
+
+
+def test_render_summary_explains_unavailable_finding_sync_details() -> None:
+    body = GitHubOperationalSummaryRenderer().render(
+        GitHubOperationalSummaryView(
+            policy_issue_url=None,
+            work_item_counts={},
+            active_change_requests=[],
+            recent_outcomes=[],
+            latest_finding_sync=None,
+        )
+    )
+
+    assert "Finding-sync details are unavailable until the next successful sync." in body

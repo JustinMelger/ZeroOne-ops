@@ -114,7 +114,7 @@ class GitHubOperationalSummaryRenderer:
     ) -> list[str]:
         """Render the latest persisted finding-sync observation when available."""
         if observation is None:
-            return ["No finding sync has been observed yet."]
+            return ["Finding-sync details are unavailable until the next successful sync."]
         lines = [
             f"- Observed: `{observation.observed_at.isoformat()}`",
             f"- Findings: `{observation.total_findings}`",
