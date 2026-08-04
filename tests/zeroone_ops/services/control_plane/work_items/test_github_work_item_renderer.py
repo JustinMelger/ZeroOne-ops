@@ -45,7 +45,7 @@ def test_rendering_prefers_concrete_detail_for_templated_finding_titles() -> Non
     title = renderer.render_title(work_item)
     body = renderer.render_body(work_item)
 
-    assert title == "ZeroOne Ops: C416: Unnecessary set comprehension (rewrite using set())"
+    assert title == "ZeroOne Ops: C416 in api.py"
     assert "## Finding" in body
     assert "Unnecessary set comprehension (rewrite using set())" in body
     assert "- Source: Ruff SARIF" in body
@@ -73,6 +73,21 @@ def test_rendering_includes_distinct_detail_for_non_templated_findings() -> None
         "The collapsed machine state is managed by ZeroOne Ops and may be overwritten on sync."
         in visible_body
     )
+
+
+def test_render_title_bounds_non_diagnostic_finding_text() -> None:
+    renderer = GitHubWorkItemRenderer()
+    work_item = build_work_item().model_copy(
+        update={
+            "summary": "A very long finding title " * 10,
+            "file_path": None,
+        }
+    )
+
+    title = renderer.render_title(work_item)
+
+    assert len(title) <= 120
+    assert title.endswith("...")
 
 
 def test_render_body_includes_last_execution_when_blocked() -> None:

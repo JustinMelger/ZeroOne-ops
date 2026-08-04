@@ -123,7 +123,7 @@ def test_sync_creates_work_item_for_policy_promoted_finding() -> None:
     assert result.enabled_severities == ("high", "medium")
     assert result.backlog_reason_counts == {}
     assert len(client.issues) == 1
-    assert client.issues[0].title == "ZeroOne Ops: E712: Avoid equality comparisons to True"
+    assert client.issues[0].title == "ZeroOne Ops: E712 in service.py"
     assert "Use direct truthiness instead of == True." in client.issues[0].body
     assert '"category": "static_analysis_fix"' in client.issues[0].body
     assert "- Rule: `E712`" in client.issues[0].body
