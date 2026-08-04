@@ -314,9 +314,7 @@ def _is_speculative_or_low_signal(candidate: CandidateReviewFinding) -> bool:
         return True
     if len(explanation_tokens) < 6:
         return True
-    if not any(marker in follow_up for marker in _ACTIONABLE_FOLLOW_UP_MARKERS):
-        return True
-    return False
+    return not any(marker in follow_up for marker in _ACTIONABLE_FOLLOW_UP_MARKERS)
 
 
 def _speculative_or_low_signal_flags(
