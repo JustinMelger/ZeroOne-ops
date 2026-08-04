@@ -57,6 +57,27 @@ def test_builder_does_not_project_closed_linked_request_as_active() -> None:
     assert [entry.status for entry in view.recent_outcomes] == ["completed"]
 
 
+def test_builder_bounds_active_change_requests_and_reports_omitted_count() -> None:
+    view = GitHubOperationalSummaryBuilder().build(
+        work_items=[
+            _lookup_result(
+                status="in_progress",
+                number=number,
+                linked_change_request=True,
+                updated_at=f"2026-08-{number:02d}T10:00:00+00:00",
+            )
+            for number in range(1, 12)
+        ],
+        policy_issue_url=None,
+        latest_finding_sync=None,
+    )
+
+    assert len(view.active_change_requests) == 10
+    assert view.active_change_requests_omitted_count == 1
+    assert view.active_change_requests[0].title == "ZeroOne Ops: item 11"
+    assert view.active_change_requests[-1].title == "ZeroOne Ops: item 2"
+
+
 def test_builder_excludes_closed_issue_with_nonterminal_embedded_state() -> None:
     result = _lookup_result(
         status="in_progress",

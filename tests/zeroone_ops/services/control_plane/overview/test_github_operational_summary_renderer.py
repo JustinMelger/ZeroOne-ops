@@ -35,6 +35,7 @@ def test_render_summary_shows_read_only_operational_view() -> None:
                 severity_counts={"high": 2, "medium": 3},
                 backlog_reason_counts={"severity_disabled": 3},
             ),
+            active_change_requests_omitted_count=2,
         )
     )
 
@@ -45,6 +46,7 @@ def test_render_summary_shows_read_only_operational_view() -> None:
     assert "- Blocked: `1`" in body
     assert "## Active Remediation PRs" in body
     assert "[ZeroOne Ops: E712 in service.py]" in body
+    assert "2 additional active remediation pull requests are omitted." in body
     assert "- Findings: `5`" in body
     assert "- Backlog only: `3`" in body
     assert "`high`: 2, `medium`: 3" in body

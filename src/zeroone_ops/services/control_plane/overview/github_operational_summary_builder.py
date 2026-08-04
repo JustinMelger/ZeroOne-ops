@@ -15,6 +15,7 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_servi
 class GitHubOperationalSummaryBuilder:
     """Build a read-only summary view from authoritative work-item records."""
 
+    _ACTIVE_CHANGE_REQUEST_LIMIT = 10
     _RECENT_OUTCOME_STATUSES = {"blocked", "completed", "dismissed"}
 
     def build(
@@ -55,10 +56,15 @@ class GitHubOperationalSummaryBuilder:
             if work_item.status in self._RECENT_OUTCOME_STATUSES:
                 recent_outcomes.append(entry)
         recent_outcomes.sort(key=_outcome_updated_at, reverse=True)
+        active_change_requests.sort(key=_outcome_updated_at, reverse=True)
         return GitHubOperationalSummaryView(
             policy_issue_url=policy_issue_url,
             work_item_counts=counts,
-            active_change_requests=active_change_requests,
+            active_change_requests=active_change_requests[: self._ACTIVE_CHANGE_REQUEST_LIMIT],
+            active_change_requests_omitted_count=max(
+                len(active_change_requests) - self._ACTIVE_CHANGE_REQUEST_LIMIT,
+                0,
+            ),
             recent_outcomes=recent_outcomes[:recent_outcome_limit],
             latest_finding_sync=latest_finding_sync,
         )
