@@ -39,6 +39,7 @@ class GitHubOperationalSummaryView:
     active_change_requests: list[GitHubOperationalSummaryEntry]
     recent_outcomes: list[GitHubOperationalSummaryEntry]
     latest_finding_sync: GitHubFindingSyncObservation | None
+    active_change_requests_omitted_count: int = 0
 
 
 class GitHubOperationalSummaryRenderer:
@@ -60,6 +61,12 @@ class GitHubOperationalSummaryRenderer:
                 view.active_change_requests, empty="No active remediation pull requests."
             )
         )
+        if view.active_change_requests_omitted_count:
+            lines.append(
+                "- "
+                f"{view.active_change_requests_omitted_count} additional active remediation "
+                "pull requests are omitted."
+            )
         lines.extend(["", "## Latest Finding Sync", ""])
         lines.extend(self._render_finding_sync(view.latest_finding_sync))
         lines.extend(["", "## Recent Outcomes", ""])
