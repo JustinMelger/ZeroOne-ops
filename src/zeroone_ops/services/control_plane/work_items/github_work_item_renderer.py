@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from zeroone_ops.models.work_item import WorkItemState
 
@@ -11,12 +12,16 @@ class GitHubWorkItemRenderer:
     """Render authoritative GitHub work-item issues."""
 
     AUTHORITATIVE_WORK_ITEM_LABEL = "zeroone-work-item"
+    _MAX_TITLE_LENGTH = 120
 
     def render_title(self, work_item: WorkItemState) -> str:
         """Render one compact provider-local work-item title."""
         diagnostic_code = work_item.remediation_context.diagnostic_code
-        prefix = f"{diagnostic_code}: " if diagnostic_code is not None else ""
-        return f"ZeroOne Ops: {prefix}{self._finding_description(work_item)}"
+        if diagnostic_code is not None and work_item.file_path is not None:
+            title = f"ZeroOne Ops: {diagnostic_code} in {Path(work_item.file_path).name}"
+        else:
+            title = f"ZeroOne Ops: {self._finding_description(work_item)}"
+        return _truncate_title(title, maximum_length=self._MAX_TITLE_LENGTH)
 
     def render_body(self, work_item: WorkItemState) -> str:
         """Render one deterministic GitHub work-item issue body."""
@@ -139,3 +144,10 @@ class GitHubWorkItemRenderer:
 def _looks_like_template(value: str) -> bool:
     """Return whether source text still contains an unresolved placeholder."""
     return "{" in value and "}" in value
+
+
+def _truncate_title(value: str, *, maximum_length: int) -> str:
+    """Return a bounded GitHub issue title without splitting a trailing space."""
+    if len(value) <= maximum_length:
+        return value
+    return f"{value[: maximum_length - 3].rstrip()}..."
