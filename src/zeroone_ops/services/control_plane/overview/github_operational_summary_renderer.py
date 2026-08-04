@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from urllib.parse import urlparse
 
 
 @dataclass(frozen=True)
@@ -89,7 +90,14 @@ class GitHubOperationalSummaryRenderer:
         """Render a bounded list of linked derived entries."""
         if not entries:
             return [empty]
-        return [f"- [{entry.title}]({entry.web_url}) - `{entry.status}`" for entry in entries]
+        return [self._render_entry(entry) for entry in entries]
+
+    def _render_entry(self, entry: GitHubOperationalSummaryEntry) -> str:
+        """Render one entry without allowing provider text to change Markdown structure."""
+        title = _escape_markdown_text(entry.title)
+        destination = _safe_link_destination(entry.web_url)
+        rendered_title = f"[{title}](<{destination}>)" if destination is not None else title
+        return f"- {rendered_title} - `{_escape_inline_code(entry.status)}`"
 
     def _render_finding_sync(
         self,
@@ -114,3 +122,28 @@ def _render_counts(counts: dict[str, int]) -> str:
     if not counts:
         return "none"
     return ", ".join(f"`{key}`: {value}" for key, value in sorted(counts.items()))
+
+
+def _escape_markdown_text(value: str) -> str:
+    """Return one single-line Markdown text value with link delimiters escaped."""
+    collapsed = " ".join(value.splitlines())
+    return collapsed.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
+
+
+def _escape_inline_code(value: str) -> str:
+    """Return one single-line Markdown inline-code value."""
+    return " ".join(value.splitlines()).replace("\\", "\\\\").replace("`", "\\`")
+
+
+def _safe_link_destination(value: str) -> str | None:
+    """Return an absolute HTTP(S) URL that is safe inside a Markdown destination."""
+    parsed = urlparse(value)
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.netloc
+        or any(character.isspace() for character in value)
+        or "<" in value
+        or ">" in value
+    ):
+        return None
+    return value

@@ -51,3 +51,31 @@ def test_render_summary_shows_read_only_operational_view() -> None:
     assert "## Recent Outcomes" in body
     assert "[ZeroOne Ops: C416 in helpers.py]" in body
     assert "[Open the ZeroOne Ops policy issue]" in body
+
+
+def test_render_summary_escapes_untrusted_entry_text_and_drops_invalid_links() -> None:
+    body = GitHubOperationalSummaryRenderer().render(
+        GitHubOperationalSummaryView(
+            policy_issue_url=None,
+            work_item_counts={},
+            active_change_requests=[
+                GitHubOperationalSummaryEntry(
+                    title="item](https://example.com/injected)\nnext",
+                    web_url="https://example.com/valid",
+                    status="in_progress`\nextra",
+                ),
+                GitHubOperationalSummaryEntry(
+                    title="unsafe destination",
+                    web_url="javascript:alert(1)",
+                    status="blocked",
+                ),
+            ],
+            recent_outcomes=[],
+            latest_finding_sync=None,
+        )
+    )
+
+    assert "[item\\](https://example.com/injected) next](<https://example.com/valid>)" in body
+    assert "`in_progress\\` extra`" in body
+    assert "- unsafe destination - `blocked`" in body
+    assert "javascript:alert" not in body
