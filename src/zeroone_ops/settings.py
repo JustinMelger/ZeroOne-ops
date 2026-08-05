@@ -7,6 +7,7 @@ overrides for runtime execution.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,9 @@ from zeroone_ops.models.config import (
 
 class SettingsError(RuntimeError):
     """Raised when configuration cannot be loaded."""
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _load_environment_file() -> None:
@@ -73,6 +77,25 @@ def _load_json_file(path: Path) -> dict[str, Any]:
         raise SettingsError(f"Config file not found: {path}")
     with path.open("r", encoding="utf-8") as handle:
         return dict(json.load(handle))
+
+
+def _warn_deprecated_config_fields(data: dict[str, Any]) -> None:
+    """Log migration guidance for still-supported compatibility fields."""
+    deprecated_fields = (
+        ("review", "platform", "platform"),
+        ("gitlab", "target_branch", "remediation.target_branch"),
+        ("remediation", "supported_severities", "remediation.bootstrap_severities"),
+    )
+    for section, field, replacement in deprecated_fields:
+        section_data = data.get(section)
+        if isinstance(section_data, dict) and field in section_data:
+            LOGGER.warning(
+                "Deprecated config field `%s.%s` is a compatibility alias. "
+                "Use `%s` for new configuration; it will be removed in a future major release.",
+                section,
+                field,
+                replacement,
+            )
 
 
 def load_config() -> AppConfig:
@@ -125,6 +148,8 @@ def load_config() -> AppConfig:
         state = dict(data.get("state", {}))
         state["path"] = env_state_path
         data["state"] = state
+
+    _warn_deprecated_config_fields(data)
 
     try:
         return AppConfig.model_validate(data)

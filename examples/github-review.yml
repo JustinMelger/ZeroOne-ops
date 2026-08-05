@@ -11,7 +11,7 @@ on:
 permissions:
   contents: read
   issues: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   zeroone-ops-review:
@@ -48,11 +48,15 @@ jobs:
       - name: Run review
         run: zeroone-ops review
 
-# The smallest review-only config shape is:
+# The smallest GitHub review config shape is:
 #
 # {
+#   "platform": "github",
 #   "base_branch": "main",
 #   "review": {
-#     "platform": "github"
+#     "inline_comments_enabled": false
+#   },
+#   "github": {
+#     "labels": []
 #   }
 # }

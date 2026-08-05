@@ -1,0 +1,42 @@
+{
+  "execution_mode": "ci",
+  "platform": "github",
+  "base_branch": "main",
+  "branch_prefix": "zeroone-ops",
+  "validation_setup_commands": [
+    "uv sync --all-groups --locked"
+  ],
+  "validation_commands": [
+    "uv run ruff check .",
+    "uv run ruff format --check .",
+    "uv run mypy src"
+  ],
+  "review": {
+    "max_changed_files": 10,
+    "max_findings_per_review": 3,
+    "max_prior_review_passes": 2,
+    "inline_comments_enabled": false,
+    "supported_paths": ["src/", "app/"],
+    "ignored_paths": ["src/generated/"],
+    "skip_draft_merge_requests": true
+  },
+  "remediation": {
+    "target_branch": "main",
+    "bootstrap_severities": ["medium", "high"]
+  },
+  "sarif": {
+    "artifacts": [
+      {
+        "path": "artifacts/ruff.sarif",
+        "source_id": "ruff-sarif"
+      }
+    ]
+  },
+  "github": {
+    "labels": ["zeroone-ops", "zeroone-remediation"],
+    "_comment_pull_request_assignee_username": "Optional: add your GitHub username here to assign remediation pull requests."
+  },
+  "state": {
+    "path": ".zeroone-ops-state.json"
+  }
+}

@@ -2,419 +2,81 @@
 
 ## Purpose
 
-This roadmap is the short execution view for ZeroOne Ops.
+This roadmap is the short execution view for ZeroOne Ops. It answers three
+questions:
 
-It should answer three questions quickly:
 - what is already shipped
 - what the team is focused on now
 - what is intentionally parked for later
 
-Working rule:
-
-- prefer validation, cleanup, and sharp follow-up fixes over broad new workflow
-  expansion until the live rollout feedback is well understood
+Detailed implementation history belongs in the design documents and Git
+history, not here.
 
 ## Implemented
 
-Shipped product state:
+- GitLab and GitHub staged change-request review with continuity, concise
+  developer-facing notes, and bounded inline comments
+- provider-neutral normalized finding ingestion with SonarQube and SARIF/Ruff
+  adapters
+- GitLab dashboard control plane with Maintainer/Owner-authorized policy
+  commands, remediation, review projection, and lifecycle reconciliation
+- GitHub hybrid control plane: policy issue, authoritative work-item issues,
+  lifecycle reconciliation, and a derived operational summary
+- shared remediation execution, validation setup/check commands, provider-local
+  change-request publishing, and bounded branch naming
+- GitHub live validation from Ruff finding to remediation pull request, review
+  projection, merge, and terminal work-item closure
+- GitLab/GitHub closed-unmerged convergence: preserve traceability, block
+  automatic retries, and require a later explicit operator recovery action
+- MLflow tracing support, Ruff pre-commit checks, and current CI workflows
 
-- dashboard-backed remediation with bounded structured-edit execution
-- remediation reconciliation for `mr_opened` items
-- dashboard workflow board with renderer-derived buckets for:
-  - `Queue Auto-fix`
-  - `Needs Review`
-  - `In Flight`
-  - `Completed`
-  - `Dismissed`
-- recovery-oriented dashboard wording for failed and blocked items
-- per-bucket display limits with explicit overflow summaries
-- deterministic file/path-oriented workflow ordering for large repositories
-- MR-scoped grouped review history with latest-pass projection
-- dashboard-first operator policy with canonical severity and issue-class
-  control in the dashboard
-- dedicated `dashboard policy` workflow with bounded `/zeroone policy ...`
-  command processing and idempotent acknowledgement notes
-- optional MLflow OpenAI autologging for LLM tracing, enabled through
-  environment configuration
-- merge request review with deterministic note publishing
-- staged review pipeline with candidate generation, precision judgment,
-  continuity handling, artifact building, validator gating, same-SHA reuse,
-  and review observability
-- delivered review hardening slices for:
-  - stable finding identity
-  - published output hygiene
-  - persisted review location and inline-comment metadata
-  - identity-first duplicate-comment checks
-  - trusted inline location validation
-  - feature-flagged inline-comment rollout wiring
-- GitLab-backed prior-review continuity for follow-up review notes
-- operator-managed remediation exclusions
-- finalized rollout-facing config structure with `review`, `remediation`, and
-  `sonarqube` sections
-- operator-facing rebrand to `ZeroOne Ops`
-- internal package rename to `zeroone_ops`
-- service and service-test domain cleanup aligned to the product structure
-- review prompt cleanup and better reasoning defaults
-- bounded overlap/reconciliation flow for repeated MR reviews
-- same-file multi-edit remediation support for tightly coupled low-risk fixes
-- rollout-facing config restructure
-- dashboard schema hardening:
-  - structured-block recovery truth
-  - summary parsing reduction
-  - projection-only renderer contract
-  - historical dashboard fixtures
-  - machine manifest integrity contract
+## Current Focus
 
-## Immediate Focus
+### Phase 7: Remediation Recovery Design
 
-### 1. Post-Phase-5 Cleanup
+- define one provider-neutral recovery model for blocked remediation work
+- support explicit operator choices: dismiss, retry a recorded publication
+  branch when safe, or start a fresh attempt
+- keep closed change requests non-retryable until an operator makes that choice
+- implement GitLab and GitHub recovery adapters only after the shared contract
+  and operator UX are locked
 
-- treat the GitHub control-plane architecture as implemented and ready for
-  cleanup hardening rather than another broad feature branch
-- tighten package boundaries around `control_plane`, provider-local GitHub
-  transport, and shared orchestration seams
-- remove or rename remaining false-neutral wrappers where provider-local
-  behavior is still hidden behind shared names
-- keep cleanup slices behavior-neutral unless they fix a real rollout issue
-- prefer source/test layout cleanup that mirrors the current control-plane
-  domain structure
+### Rollout And Feedback
 
-### 2. Generic Finding Ingestion And Dogfooding
+- continue live validation of review quality, remediation outcomes, and policy
+  ergonomics on both providers
+- complete live validation of same-SHA review-projection repair
+- prefer narrow fixes driven by observed runs over broad workflow expansion
 
-- define a provider-neutral finding ingestion boundary instead of adding
-  another source-specific producer path
-- wrap the current SonarQube intake behind that shared ingestion contract
-- add one additional dogfooding finding source that can run on this repository
-  without SonarQube availability
-- use that source to live-validate the promoted GitHub work-item and review
-  projection paths end-to-end
-- prefer a source that gives fast local feedback over a broad discovery
-  surface
+### Maintainer Cleanup
 
-### 3. Rollout And Validation
-
-- validate the current review and remediation flows in live repositories
-- treat dashboard operator policy as a testing and hardening track rather than
-  a still-open implementation track
-- keep collecting real review examples, remediation outcomes, and operator
-  friction points
-- prefer small bounded fixes over another architecture round while rollout
-  signal is still forming
-
-### 4. Results Collection
-
-- keep extending the live feedback logs with concrete examples
-- track recurring review-artifact contradictions and suppression cases
-- track exclusion usage and repeated remediation skip patterns
-- treat these as the evidence base for later architecture work
-
-### 5. Review Active Testing And Hardening
-
-- treat the staged review architecture as delivered and now in active testing
-- use live review examples to drive hardening, not another architecture split
-- prefer evaluator growth, observability, wording cleanup, and continuity
-  stability over new review-surface expansion
-- keep growing evaluator coverage and contradiction-focused review examples
-- harden developer-facing wording and continuity quality from live examples
-- finish rollout validation for inline comments and same-SHA reuse behavior
-
-#### Open Review Feedback Slices
-
-- [ ] Phase 1: Developer-Friendly Summary Note
-
-- make the authoritative review note read like concise developer feedback
-- keep the top verdict block compact and easy to scan
-- keep finding explanations short, concrete, and actionable
-- keep detailed wording rules in the review design docs rather than the roadmap
-
-#### Active GitHub Review Rollout
-
-- live-validate the GitHub summary-review path with the neutralized config
-  surface
-- keep dogfooding the GitHub inline-comment path for continuity and transport
-  edge cases
-- split GitHub review helper growth only where it improves transport,
-  normalization, or thread-boundary clarity
-
-#### Parked Operator-Feedback Research
-
-- explicit reply invitation in the summary note stays parked until replies are
-  actually consumed by the product
-- bounded numbered reply intake is parked pending clearer v1 boundaries and
-  authoritative-surface decisions
-- continuity consumption of operator feedback is parked pending a smaller,
-  safer first implementation plan
-- keep the existing feedback-state and continuity research as design input, not
-  as the active implementation slice
-
-### 6. General Cleanup
-
-- continue small codebase and docs cleanup where it improves operator or
-  maintainer clarity
-- keep these slices behavior-neutral unless a real rollout issue is being fixed
-- current cleanup candidates:
-  - finish config and state debt removal where migration compatibility is no
-    longer needed
-  - move top-level remediation validation setup and check commands into a
-    remediation-owned validation configuration block after live rollout
-    validation confirms the current contract
-  - move remaining GitLab-specific shared services behind clearer provider-local
-    boundaries
-  - after Phase 6 rollout validation, reduce `runner.py` composition duplication
-    with a small shared workflow context/factory for config, state, run ID, and
-    dry-run setup; keep platform-specific dependency builders narrow and local
-  - keep cleanup tied to clarity or real rollout issues, not speculative
-    refactors
-
-### 7. Remediation Guidance Validation
-
-- observe whether repository guidance improves remediation quality without
-  broadening selected issue scope
-- verify guidance remains fix-shaping only and does not leak into review-style
-  judgments
-- tune prompt strength only from real remediation feedback, not speculative
-  pre-adjustments
-
-### 8. Dashboard Workflow Refinement
-
-Next feedback-driven refinements:
-
-- decide whether a later `Blocked` bucket earns its own place from real
-  operator usage instead of adding empty buckets preemptively
-- improve grouped review-history continuity summaries once unresolved/new/no
-  longer present projection is trustworthy enough to surface
-- consider later configurable bucket limits if operators need tuning beyond the
-  current renderer-owned defaults
-- continue preferring explanation and scanability improvements before adding
-  mutable retry or reset commands
+- keep the public README and GitHub/GitLab examples aligned with the shipped
+  neutral commands and provider-specific control planes
+- reduce remaining runner composition duplication through a small workflow
+  context/factory only when it improves clarity without changing behavior
+- move remediation validation setup/check commands into a remediation-owned
+  configuration block after sufficient rollout feedback confirms the current
+  contract
 
 ## Parked For Later
 
-- broader review evaluator growth beyond the current rollout-driven hardening
-- richer operator-feedback consumption for repeated reviews
-- additional finding sources beyond the first post-Sonar dogfooding source
-- broader dashboard readability/history improvements after current rollout
-  feedback stabilizes
-- any later move from CLI-backed state to an external API/database control
-  plane
-
-### GitHub Platform Status
-
-- shipped:
-  - GitHub review support, remediation publish, and control-plane Phase 5 are
-    implemented
-- focused on now:
-  - Phase 6 cleanup, generic finding ingestion, and rollout validation
-- parked:
-  - any persistent overview issue remains optional and derived only
-  - broader control-plane storage evolution belongs to a later API/database
-    backend phase
-  - after the remaining Phase 6 implementation items are complete, review the
-    GitHub work-item lifecycle against the GitLab dashboard-managed runner;
-    keep the shared work-item lifecycle authoritative while GitHub mirrors
-    `completed` and `dismissed` items to its native closed issue state
-
-#### Phase 6a: Post-Phase-5 Cleanup
-
-- post-Phase-5 cleanup of control-plane seams and package boundaries
-- split oversized control-plane modules by concern where boundaries are now too
-  broad
-- align source and test layout more closely to the control-plane domain map
-- clean up persistence/state naming and any compatibility leftovers that are
-  now clearly debt
-
-#### Phase 6b: Generic Finding Ingestion
-
-Design reference:
-
-- [design/functional/functional-design-finding-ingestion.md](design/functional/functional-design-finding-ingestion.md)
-- [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
-
-##### Phase 6b1: Shared Finding Contract
-
-- [x] define the shared normalized finding domain model
-- [x] implement the bounded required finding fields:
-  - `finding_id`
-  - `source_id`
-  - `severity`
-  - `title`
-  - `summary`
-  - `repository_path`
-  - optional location
-  - structured `remediation_context`
-- [x] add optional `source_metadata` behind an explicit boundary
-- [x] define the shared ingestion result/interface
-- [x] include bounded collection metadata for revision, artifact, and
-  diagnostics in the ingestion result
-
-##### Phase 6b2: SonarQube Behind the Shared Contract
-
-- [x] implement shared overlap-style fallback identity for normalized findings
-- [x] wrap the current SonarQube intake behind the shared ingestion contract
-
-##### Phase 6b3: Downstream Normalization
-
-- [x] adapt dashboard-sync downstream flow to consume normalized findings
-  instead of SonarQube-local models
-- [x] keep one shared default queueing and promotion policy for all normalized
-  findings in this phase
-- [x] defer cross-source dedupe to a later shared reconciliation stage instead
-  of implementing it inside source adapters
-
-##### Phase 6b4: First Dogfooding Source
-
-- [x] add one bounded dogfooding source that works in this repository without
-  SonarQube
-- [x] implement Ruff via SARIF as the first dogfooding source
-
-##### Phase 6b5: Remediation Normalization
-
-- [x] close the current phase boundary where non-Sonar normalized findings can
-  sync into the dashboard but still dead-end in Sonar-shaped remediation intake
-- [x] normalize remediation eligibility around shared finding semantics instead
-  of SonarQube-specific source checks
-- [x] generalize dashboard-item selection and normalization for supported
-  shared remediation categories
-- [x] decide the canonical shared remediation category mapping for Ruff/SARIF
-  lint findings versus existing `code_smell_fix` workflow items
-- [x] keep source-local metadata out of remediation eligibility rules unless a
-  field is promoted into the shared contract
-
-##### Phase 6b6: Rollout Validation
-
-- [x] live-test normalized ingestion for promotion
-- [x] live-test normalized ingestion for work-item lifecycle
-- [x] live-test normalized ingestion for review projection
-- [ ] live-test normalized ingestion for same-SHA projection repair
-
-#### Phase 6c: GitHub Rollout Validation
-
-- validate the new finding ingestion path plus current GitHub
-  review/remediation behavior in
-  live runs
-- collect operator and developer feedback from that usage
-- prefer narrow rollout fixes before broadening the workflow surface again
-
-##### Phase 6c1: GitHub Finding Sync Publication
-
-- [x] add a real GitHub-side finding sync entrypoint instead of relying on the
-  current GitLab-dashboard-wired dry-run command
-- [x] publish promoted normalized findings into authoritative GitHub work-item
-  issues from the sync flow
-- [x] keep the GitHub sync path provider-local at the publication boundary
-  while reusing shared normalized finding intake
-
-##### Phase 6c2: GitHub Finding Lifecycle Projection
-
-- [x] reconcile repeated finding sync runs against existing GitHub work-item
-  issues instead of only creating fresh projected items
-- [x] define the stale-item behavior for GitHub finding sync when a previously
-  synced finding no longer appears in the current source run
-- [x] validate that shared promotion decisions and GitHub work-item state stay
-  aligned across repeated sync runs
-
-##### Phase 6c3: GitHub Operator Validation
-
-- [x] live-test GitHub finding sync with Ruff SARIF on this repository
-- [x] refine GitHub work-item rendering so the issue reads as
-  an actionable engineering task rather than a serialized control-plane record:
-  - use a rendered diagnostic title and concise explanation, never unresolved
-    source-message templates
-  - keep status, severity, source, file/line, and diagnostic code scannable
-  - collapse machine-oriented identity, provenance, and machine-state details
-    without changing their authoritative representation
-  - use GitHub-native wording such as `Remediation PR`
-  - render remediation-PR source provenance from the originating finding (for
-    example, `Ruff SARIF`) rather than the generic remediation workflow
-- [x] live-validate the refined GitHub work-item rendering on a promoted
-  finding before treating the operator UX slice as complete
-- [x] add a derived GitHub operational work-summary issue after lifecycle
-  reconciliation is trusted:
-  - [x] add a read-only summary renderer and issue store, discovered through a
-    dedicated `zeroone-summary` label and cross-linked with the policy issue
-  - [x] project open work-item counts and active remediation PRs without
-    changing authoritative work-item state
-  - [x] persist a bounded latest-finding-sync observation for backlog-only
-    counts, severity counts, and backlog reasons
-  - [x] add closed work-item reads ordered by GitHub `updated_at` for bounded
-    recent-outcome rendering before lifecycle starts closing terminal issues
-  - [x] refresh the summary after finding sync, remediation completion or
-    failure, and lifecycle reconciliation
-  - [x] close native GitHub work-item issues in `completed` or `dismissed`
-    state after persisting their authoritative serialized lifecycle record
-
-##### Phase 6c4: Provider-Neutral Remediation Runner
-
-- [x] add `zeroone-ops remediation run` as the canonical remediation command
-  and retain `dashboard remediate` as a GitLab compatibility alias
-- [x] introduce neutral shared remediation summary vocabulary around
-  `work_item_id`, while keeping GitLab dashboard and GitHub issue references
-  provider-local
-- [x] add GitHub work-item intake that selects one eligible `approved` item,
-  claims it as `in_progress`, and normalizes it into `RemediationExecutionTarget`;
-  order by severity, creation time, and issue number while leaving `blocked`
-  items untouched
-- [x] route GitHub-selected work through the existing shared `ExecutionService`
-  and project execution outcomes back to the authoritative GitHub work item
-- [x] add the bounded GitHub work-item lifecycle manager implementation:
-  - expose it through the provider-neutral operator command
-    `zeroone-ops work-items sync-status`
-  - mirror the established GitLab recovery rule: persist claim metadata and
-    recover only unlinked `in_progress` items older than 24 hours to
-    `approved`, recording the recovery for operators
-  - mirror GitLab change-request convergence: keep open PRs `in_progress`;
-    mark merged PRs `completed` while retaining the link; when a PR closes
-    unmerged, retain the closed-PR link and move the item to `blocked`; source
-    sync must preserve `blocked` and intentionally terminal `dismissed` state
-  - defer requeueing from a closed PR to a future explicit operator action,
-    because closure may represent disagreement, a stale branch, or another
-    human decision that source inventory cannot safely infer
-- [x] manually live-validate `work-items sync-status` before adding its
-  scheduled GitHub workflow
-- [x] define shared remediation retry provenance and persist it on GitHub work
-  items only after a branch push succeeds but change-request publication fails;
-  never infer retry eligibility from an existing branch or a developer-closed
-  change request
-- [ ] add an explicit operator requeue action that can either dismiss a blocked
-  item, retry its recorded publication branch, or start a fresh attempt; add
-  provider-local GitLab and GitHub branch-resume support behind that action
-- [x] persist concise execution-failure context on blocked work items before
-  introducing operator requeueing:
-  - keep neutral structured fields for the failure stage, summary, failed
-    command, exit code, run ID, timestamp, and optional execution URL
-  - render a scannable `Last Execution` section on GitHub work-item issues and
-    link the originating GitHub Actions run when CI context is available
-  - retain raw command output only in CI logs; clear or replace the persisted
-    failure context when an item is requeued or execution succeeds
-- [x] add explicit remediation validation-environment bootstrap support:
-  - introduce repository-configured `validation_setup_commands` that run once
-    before validation commands
-  - classify setup failures separately from code-validation failures
-  - keep dependency installation explicit rather than inferring or installing
-    tools automatically
-- [x] add a manual `workflow_dispatch` GitHub remediation workflow with
-  repository-wide concurrency; do not trigger remediation from issue comments
-- [x] add a scheduled GitHub remediation entrypoint after the manual live
-  remediation validation succeeds
-- [x] live-test one Ruff-derived GitHub work item through remediation PR
-  publication and later reconciliation
+- evolve GitLab from its all-in-one dashboard issue toward the GitHub-style
+  hybrid model: authoritative work items, separate policy, and optional derived
+  overview
+- external API/database-backed control plane
+- additional structured finding adapters and a later shared cross-source
+  reconciliation/deduplication stage
+- richer developer feedback consumption for review notes and broader review
+  evaluator growth
+- broader dashboard/history presentation improvements after operator usage
+  establishes the need
 
 ## Reference Docs
 
-Use these docs when deeper detail is needed:
-
-- [README.md](README.md) for the docs index
+- [README.md](README.md)
 - [runbook.md](runbook.md)
-- [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
-- [design/technical/technical-design-github-platform-support.md](design/technical/technical-design-github-platform-support.md)
 - [design/functional/functional-design-finding-ingestion.md](design/functional/functional-design-finding-ingestion.md)
 - [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
-- [design/technical/technical-design-pr-review.md](design/technical/technical-design-pr-review.md)
+- [design/technical/technical-design-github-platform-support.md](design/technical/technical-design-github-platform-support.md)
+- [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
 - [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)
-- [design/technical/technical-design-pr-review-staged-pipeline.md](design/technical/technical-design-pr-review-staged-pipeline.md)
-- [design/technical/technical-design-pr-review-overlap-reconciliation.md](design/technical/technical-design-pr-review-overlap-reconciliation.md)
-- [design/technical/technical-design-pr-review-gitlab-prior-context.md](design/technical/technical-design-pr-review-gitlab-prior-context.md)
-- [design/functional/functional-design-dashboard-operator-policy.md](design/functional/functional-design-dashboard-operator-policy.md)
-- [design/technical/technical-design-remediation-exclusions.md](design/technical/technical-design-remediation-exclusions.md)
-- [design/technical/technical-design-dashboard-operator-policy.md](design/technical/technical-design-dashboard-operator-policy.md)
-- [design/technical/technical-design-config-structure.md](design/technical/technical-design-config-structure.md)

@@ -4,8 +4,6 @@
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 
-Structured AI workflows for software maintenance.
-
 Structured AI workflows for code review, remediation, and operator-controlled
 automation.
 
@@ -27,45 +25,52 @@ their own engineering workflow.
 
 Today the project includes:
 
-- SonarQube issue intake and selection
-- dashboard-backed remediation and reconciliation workflows
-- GitLab and GitHub change-request review with staged candidate, precision,
+- staged GitLab and GitHub change-request review with candidate, precision,
   continuity, and bounded inline-comment support
-- focused code-context gathering and LLM-backed analysis
-- patch generation, bounded execution, and MR creation in CI mode
-- operator-controlled policy handling through strict dashboard commands
-- bounded local state and machine-safe review-note persistence for continuity
-- a conservative single-file remediation boundary for safety
+- normalized finding intake from SonarQube and SARIF artifacts, including Ruff
+- GitLab dashboard-backed policy, remediation, and lifecycle workflows
+- GitHub policy, authoritative work-item issues, lifecycle reconciliation, and
+  a read-only operational summary
+- bounded remediation execution, validation, and provider-local merge-request
+  or pull-request publication
+- inspectable local state and machine-readable provider records for continuity
 
-The project is now in iterative hardening and refinement, with a focus on
-operator workflows, review quality, and clear automation boundaries.
+The current focus is rollout hardening and an explicit, provider-neutral design
+for recovering blocked remediation work. See the [roadmap](docs/roadmap.md).
 
 ## System Flow
 
 ```mermaid
 flowchart TD
-    A[SonarQube / Producers] --> B[GitLab Dashboard]
-    B --> C[Dashboard Remediation]
-    C --> D[GitLab Merge Request]
-    D <--> E[Staged MR Review]
-    B --> F[Dashboard Reconciliation]
-    D --> F[Dashboard Reconciliation]
-    F --> B
-    B <--> G[Dashboard Policy Processing]
+    A[Finding producers\nSonarQube / SARIF] --> B[Normalized finding intake]
+    B --> C{Platform control plane}
+    C --> D[GitLab dashboard]
+    C --> E[GitHub policy and work items]
+    D --> F[Shared remediation]
+    E --> F
+    F --> G[GitLab MR / GitHub PR]
+    G <--> H[Staged change-request review]
+    G --> I[Lifecycle reconciliation]
+    I --> D
+    I --> E
+    E --> J[Derived GitHub operational summary]
 ```
 
 ## Quick Start
 
 ```bash
-uv sync
+uv sync --all-groups
 uv run zeroone-ops findings sync --dry-run
 uv run zeroone-ops dashboard policy --dry-run
 uv run zeroone-ops remediation run --dry-run
+uv run zeroone-ops work-items sync-status --dry-run
 uv run zeroone-ops review --dry-run
 ```
 
-`zeroone-ops dashboard sonar` remains available as a legacy alias for existing
-GitLab pipeline configuration. Prefer `zeroone-ops findings sync` for new setup.
+`dashboard sonar`, `dashboard remediate`, and `dashboard reconcile` remain
+available as legacy GitLab aliases. Prefer `findings sync`, `remediation run`,
+and `work-items sync-status` for new automation. Each legacy alias emits a
+non-blocking CI warning with its replacement and no fixed removal version.
 
 Useful quality commands:
 
@@ -86,49 +91,50 @@ uv run pre-commit run --all-files
 
 ## Core Workflows
 
-### Dashboard Remediation
+### Finding Sync
 
-- sync SonarQube findings into the dashboard
-- select one supported item per run
-- generate a bounded fix
-- create or reuse a GitLab merge request in CI mode
-- expose read-only operator policy state in the dashboard with strict
-  `/zeroone policy ...` comment commands for policy actions
+- normalize SonarQube and configured SARIF findings into the shared finding
+  contract
+- project findings into the GitLab dashboard or GitHub work-item issues
+- keep backlog-only findings visible in the GitHub operational summary without
+  turning every finding into an issue
 
 Severity control note:
 
-- `remediation.bootstrap_severities` is the bootstrap seed for a new dashboard
-  policy, not the day-to-day operator control surface after the dashboard
-  policy exists
-- once the dashboard has canonical policy state, remediation pickup follows the
-  dashboard policy and operators should change severity policy through
-  `/zeroone policy ...` comments
-- if neither dashboard policy nor config severity is present, the bootstrap
-  default is `low` and `medium` enabled with `high` disabled
-- when an older dashboard body is recognized, ZeroOne Ops rewrites it into the
-  current schema on read before continuing normal dashboard-backed workflows
+- `remediation.bootstrap_severities` seeds a repository's initial policy; it is
+  not the ongoing operator control surface
+- policy decisions determine which normalized findings are promoted into
+  durable remediation work
+- if no policy or bootstrap severity is configured, the initial baseline is
+  `low` and `medium` enabled with `high` disabled
 
-### Dashboard Reconciliation
+### Control Plane And Policy
 
-- inspect `mr_opened` dashboard items
-- update lifecycle state after merge request outcomes change
-- keep reconciliation separate from active remediation
+- GitLab stores policy and workflow state in its dashboard issue; only
+  Maintainers and Owners can issue policy commands
+- GitHub stores policy in a dedicated policy issue; only repository admins can
+  issue policy commands
+- GitHub work-item issues remain authoritative, while the operational summary
+  is a read-only derived overview
+- use `zeroone-ops dashboard policy` to process policy commands
 
-### Dashboard Policy Processing
+### Remediation And Lifecycle
 
-- inspect dashboard issue notes for strict `/zeroone policy ...` commands
-- replay valid policy actions into canonical dashboard policy state
-- publish bounded acknowledgement notes for accepted and rejected strict
-  policy-command attempts
-- keep policy processing separate from remediation pickup and lifecycle
-  reconciliation
-- use `zeroone-ops dashboard policy` as the explicit workflow entrypoint
+- select one eligible remediation item per run and produce a bounded patch
+- run explicitly configured environment setup and validation commands before
+  publication
+- create or reuse a GitLab merge request or GitHub pull request in CI mode
+- use `zeroone-ops work-items sync-status` to converge merged and closed
+  change-request state
+- preserve closed-unmerged change requests as blocked records; a future
+  explicit recovery action will decide whether to dismiss, retry, or start
+  fresh
 
-### Merge Request Review
+### Change-Request Review
 
-- review one merge request per run
+- review one merge request or pull request per run
 - publish one deterministic summary note per reviewed revision
-- deduplicate by merge request IID and head SHA
+- deduplicate by change-request identity and head SHA
 - keep the summary note authoritative even when bounded inline comments are enabled
 
 ## Dry-Run And Fixtures
@@ -147,10 +153,15 @@ The repository's current default config file is
 [.zeroone-ops.json](.zeroone-ops.json).
 Copyable operator examples now live in [examples/](examples/), including:
 
-- [examples/.zeroone-ops.json](examples/.zeroone-ops.json)
+- [examples/.zeroone-ops.json](examples/.zeroone-ops.json) for GitLab
+- [examples/.zeroone-ops.github.json](examples/.zeroone-ops.github.json) for GitHub
+- [examples/.zeroone-ops.minimal.json](examples/.zeroone-ops.minimal.json) for
+  a minimal GitLab setup
 - [examples/.env.example](examples/.env.example)
 - [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml)
 - [examples/github-review.yml](examples/github-review.yml)
+- [examples/github-operations.yml](examples/github-operations.yml) for GitHub
+  finding sync, remediation, lifecycle, and policy processing
 
 Use the root [.zeroone-ops.json](.zeroone-ops.json) as the repository's live
 runtime config, and use the files in [examples/](examples/) as copyable
@@ -161,26 +172,29 @@ Config structure direction:
 - top-level shared runtime settings stay at the root
 - platform selection stays at the root
 - review-specific behavior lives under `review`
-- remediation-specific rollout policy now lives under `remediation`
-- Sonar-specific local fixture behavior now lives under `sonarqube`
+- remediation target, promotion seed, and analysis behavior live under
+  `remediation`
+- source-specific ingestion lives under `sonarqube` or `sarif`
+- the active provider uses exactly one provider block: `gitlab` or `github`
 
 For example:
 
 - `platform`
 - `review.inline_comments_enabled`
 - `remediation.bootstrap_severities`
-- `remediation.max_retry_count`
+- `remediation.target_branch`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
+- `sarif.artifacts`
 
-`remediation.bootstrap_severities` is best treated as the initial rollout
-baseline for seeding dashboard severity policy in a repository, not as the
-primary steady-state operator control once dashboard policy exists.
-When config leaves severity empty and no dashboard policy exists yet, the
-default bootstrap baseline is `low` and `medium` enabled with `high` disabled.
-Only the remaining nested migration aliases still load during migration. The
-old flat top-level config keys no longer load, and new configs should use
-`remediation.bootstrap_severities` and the nested structure.
+New configuration should use these nested blocks. GitLab examples can combine
+SonarQube and SARIF intake; GitHub examples show SARIF/Ruff as a lightweight
+starting point.
+
+The supported compatibility fields `review.platform`, `gitlab.target_branch`,
+and `remediation.supported_severities` emit non-blocking CI warnings with their
+replacement fields. They have no fixed removal version and should not be used
+in new configuration.
 
 To test the real OpenAI path instead of local fixtures:
 
@@ -224,8 +238,14 @@ For local testing, the most common environment variables are:
 - `SONARQUBE_PROJECT_KEY`
 
 Store CI secrets as masked and protected variables, and avoid shell tracing
-around authenticated git remote rewrites. Use the runbook for workflow-by-
-workflow token requirements and permission guidance.
+around authenticated git remote rewrites. GitHub remediation jobs need
+`contents: write`, `issues: write`, and `pull-requests: write`; review jobs
+need `issues: write` and `pull-requests: write`. Use the runbook for
+workflow-by-workflow token requirements and permission guidance.
+
+The GitHub operations example reads `OPENAI_API_KEY` from repository secrets
+and uses the `OPENAI_MODEL` repository variable when present; otherwise it
+uses its documented default model.
 
 ## Container And Releases
 
@@ -263,10 +283,11 @@ docker pull ghcr.io/<owner>/zeroone-ops:0.2.0
 
 A GitLab CI example is provided in
 [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml). It uses the
-published `zeroone-ops` image while keeping the current runtime command names.
-For GitHub review smoke tests, use
-[examples/github-review.yml](examples/github-review.yml) as the starting
-workflow file.
+published `zeroone-ops` image and the canonical neutral commands. For GitHub
+review smoke tests, use [examples/github-review.yml](examples/github-review.yml)
+as the starting workflow file. For the GitHub control plane, copy
+[examples/github-operations.yml](examples/github-operations.yml) and the
+GitHub JSON config template together.
 
 ## Execution Modes
 
@@ -282,7 +303,7 @@ CI mode:
 - creates a branch
 - applies the patch
 - pushes the branch
-- creates or reuses a GitLab merge request
+- creates or reuses a provider-specific merge request or pull request
 - never blocks for terminal approval
 
 ## Docs
@@ -292,8 +313,7 @@ Use these docs for the deeper operational details:
 - [docs/README.md](docs/README.md) for the documentation map
 - [docs/runbook.md](docs/runbook.md) for CI setup, credentials, rollout order,
   and smoke-test recipes
-- [docs/roadmap.md](docs/roadmap.md) for current build, hardening, and rebrand
-  sequencing
+- [docs/roadmap.md](docs/roadmap.md) for what is shipped, current, and parked
 - [docs/design/functional/functional-design.md](docs/design/functional/functional-design.md)
   and [docs/design/technical/technical-design.md](docs/design/technical/technical-design.md)
   for the broader functional and technical design surfaces across review,

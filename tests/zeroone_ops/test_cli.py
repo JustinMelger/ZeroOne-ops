@@ -44,6 +44,8 @@ def test_dashboard_remediate_remains_an_alias_for_neutral_remediation(
     result = _RUNNER.invoke(app, ["dashboard", "remediate", "--dry-run"])
 
     assert result.exit_code == 0
+    assert "Deprecated command `zeroone-ops dashboard remediate`" in result.output
+    assert "Use `zeroone-ops remediation run`" in result.output
     assert "work_item_id=sonarqube:AX123" in result.output
     assert "dashboard_item_id=sonarqube:AX123" in result.output
 
@@ -61,5 +63,44 @@ def test_work_items_sync_status_prints_lifecycle_summary(monkeypatch: MonkeyPatc
     result = _RUNNER.invoke(app, ["work-items", "sync-status", "--dry-run"])
 
     assert result.exit_code == 0
+    assert "Deprecated command" not in result.output
     assert "status=reconciled" in result.output
     assert "Reconciled GitHub remediation work items." in result.output
+
+
+def test_dashboard_sonar_warns_about_the_canonical_findings_command(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """The legacy findings command gives operators a direct migration path."""
+    summary = RunSummary(
+        run_id="run-1",
+        status=RunStatus.SYNCED,
+        message="[ci] Synced findings.",
+        state_path=Path(".zeroone-ops-state.json"),
+    )
+    monkeypatch.setattr("zeroone_ops.cli.sync_findings", lambda *, dry_run: summary)
+
+    result = _RUNNER.invoke(app, ["dashboard", "sonar", "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "Deprecated command `zeroone-ops dashboard sonar`" in result.output
+    assert "Use `zeroone-ops findings sync`" in result.output
+
+
+def test_dashboard_reconcile_warns_about_the_canonical_lifecycle_command(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """The legacy lifecycle command gives operators a direct migration path."""
+    summary = RunSummary(
+        run_id="run-1",
+        status=RunStatus.RECONCILED,
+        message="[ci] Reconciled GitLab remediation work items.",
+        state_path=Path(".zeroone-ops-state.json"),
+    )
+    monkeypatch.setattr("zeroone_ops.cli.dashboard_reconcile", lambda *, dry_run: summary)
+
+    result = _RUNNER.invoke(app, ["dashboard", "reconcile", "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "Deprecated command `zeroone-ops dashboard reconcile`" in result.output
+    assert "Use `zeroone-ops work-items sync-status`" in result.output

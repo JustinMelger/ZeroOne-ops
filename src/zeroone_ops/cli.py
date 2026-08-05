@@ -58,6 +58,16 @@ def _echo_summary(summary: RunSummary) -> None:
     typer.echo(f"state_path={summary.state_path}")
 
 
+def _warn_deprecated_command(*, command: str, replacement: str) -> None:
+    """Print one actionable warning for a legacy command alias."""
+    typer.echo(
+        "[warning] Deprecated command "
+        f"`{command}` is a compatibility alias. Use `{replacement}` for new "
+        "automation; it will be removed in a future major release.",
+        err=True,
+    )
+
+
 @app.callback(invoke_without_command=True)
 def root_command(
     ctx: Context,
@@ -87,6 +97,10 @@ def dashboard_sonar_command(
 ) -> None:
     """Legacy GitLab alias for ``findings sync``."""
     configure_logging()
+    _warn_deprecated_command(
+        command="zeroone-ops dashboard sonar",
+        replacement="zeroone-ops findings sync",
+    )
     _echo_summary(sync_findings(dry_run=dry_run))
 
 
@@ -105,6 +119,10 @@ def dashboard_remediate_command(
 ) -> None:
     """Legacy GitLab alias for ``remediation run``."""
     configure_logging()
+    _warn_deprecated_command(
+        command="zeroone-ops dashboard remediate",
+        replacement="zeroone-ops remediation run",
+    )
     _echo_summary(run_remediation(dry_run=dry_run))
 
 
@@ -138,8 +156,12 @@ def dashboard_reconcile_command(
         help="Run without updating dashboard lifecycle.",
     ),
 ) -> None:
-    """Run the dashboard reconciliation workflow."""
+    """Legacy GitLab alias for ``work-items sync-status``."""
     configure_logging()
+    _warn_deprecated_command(
+        command="zeroone-ops dashboard reconcile",
+        replacement="zeroone-ops work-items sync-status",
+    )
     _echo_summary(dashboard_reconcile(dry_run=dry_run))
 
 
