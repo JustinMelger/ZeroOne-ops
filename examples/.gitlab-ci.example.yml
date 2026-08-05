@@ -27,16 +27,17 @@ stages:
     # GITLAB_TOKEN
     # OPENAI_API_KEY
 
-# Discovery-only dashboard sync.
+# Finding sync.
 # Keep this separate from remediation so operators can validate dashboard state
-# without also mutating the repository.
-zeroone_ops_dashboard:
+# without also mutating the repository. This collects SonarQube findings and
+# any configured SARIF artifacts.
+zeroone_ops_findings_sync:
   extends: .zeroone_ops_base
   stage: zeroone-ops-fix
-  resource_group: zeroone-ops-dashboard
+  resource_group: zeroone-ops-findings-sync
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_DASHBOARD == "true"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_FINDINGS_SYNC == "true"'
       when: manual
     - when: never
   variables:
@@ -46,7 +47,7 @@ zeroone_ops_dashboard:
     # SONARQUBE_PROJECT_KEY
     # GITLAB_TOKEN
   script:
-    - zeroone-ops dashboard sonar
+    - zeroone-ops findings sync
 
 # Dedicated dashboard policy processing.
 # Keep this separate so operator-issued policy commands do not depend on
@@ -66,20 +67,20 @@ zeroone_ops_dashboard_policy:
   script:
     - zeroone-ops dashboard policy
 
-# Dashboard-backed remediation workflow.
-# Keep this separate from discovery, but run it after dashboard sync in the
+# Remediation workflow.
+# Keep this separate from finding sync, but run it after finding sync in the
 # same pipeline when both jobs are enabled so remediation acts on freshly
 # refreshed dashboard state.
-zeroone_ops_dashboard_remediate:
+zeroone_ops_remediation:
   extends: .zeroone_ops_base
   stage: zeroone-ops-fix
-  resource_group: zeroone-ops-dashboard-remediate
+  resource_group: zeroone-ops-remediation
   needs:
-    - job: zeroone_ops_dashboard
+    - job: zeroone_ops_findings_sync
       optional: true
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_DASHBOARD_REMEDIATE == "true"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_REMEDIATION == "true"'
       when: manual
     - when: never
   variables:
@@ -100,27 +101,27 @@ zeroone_ops_dashboard_remediate:
       git remote set-url origin
       "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
   script:
-    - zeroone-ops dashboard remediate
+    - zeroone-ops remediation run
   after_script:
     - rm -f "$GIT_CONFIG_GLOBAL"
 
-# Dashboard reconciliation workflow.
+# Work-item lifecycle workflow.
 # Keep this as a separate later lifecycle job rather than chaining it directly
 # after remediation in the same pipeline.
-zeroone_ops_dashboard_reconcile:
+zeroone_ops_work_items_sync_status:
   extends: .zeroone_ops_base
   stage: zeroone-ops-fix
-  resource_group: zeroone-ops-dashboard-reconcile
+  resource_group: zeroone-ops-work-items-sync-status
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_DASHBOARD_RECONCILE == "true"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_WORK_ITEMS_SYNC_STATUS == "true"'
       when: manual
     - when: never
   variables:
     # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
   script:
-    - zeroone-ops dashboard reconcile
+    - zeroone-ops work-items sync-status
 
 # Merge request review workflow.
 # Prefer the merge_request_event manual trigger for the first smoke test so the
