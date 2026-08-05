@@ -169,8 +169,8 @@ reconciliation:
 - source-specific intake writes normalized items into the dashboard
 - remediation selects one eligible item and attempts execution
 - review later evaluates the resulting merge request independently
-- dashboard reconciliation observes merge-request and review outcomes and may
-  reopen retry-eligible work
+- dashboard reconciliation observes merge-request and review outcomes, then
+  preserves closed-unmerged work for explicit operator recovery
 
 ## 6. Python Module Responsibilities
 
@@ -529,7 +529,8 @@ Recommended transition rules:
 - merge request merged:
   move `mr_opened -> done`
 - merge request closed without merge and remediation is still required:
-  move `mr_opened -> open`
+  move `mr_opened -> failed` and preserve the branch and merge-request link for
+  explicit operator requeue
 - merge request closed without merge and remediation is no longer required:
   move `mr_opened -> done`
 - merge request metadata missing, inaccessible, or inconsistent with stored
@@ -540,7 +541,7 @@ For the first version, “still required” should be evaluated conservatively u
 current dashboard state and stored traceability:
 
 - if the dashboard item still exists and still represents the same remediation
-  candidate, reopen it
+  candidate, mark it failed until an operator explicitly requeues it
 - if upstream discovery or dashboard state already indicates the issue no longer
   requires remediation, mark it done
 - if the workflow cannot determine ownership safely, mark it failed with an
@@ -602,8 +603,8 @@ The first implementation should keep transition ownership conservative:
   - may move `in_progress -> rejected`
   - may attach failure details, retry eligibility, and retry block reason
 - dashboard reconciliation:
-  - may later reopen or keep blocked items only when an explicit recovery rule
-    applies
+  - may converge change-request state and record recovery context
+  - must not reopen a closed-unmerged remediation automatically
 - operator-facing rendering:
   - must not invent new machine states
   - may present clearer next-step labels derived from the stored fields

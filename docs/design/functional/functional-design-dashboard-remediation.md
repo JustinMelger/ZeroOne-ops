@@ -279,7 +279,8 @@ Recommended reconciliation behavior:
 
 - when the linked merge request is merged, move `mr_opened -> done`
 - when the linked merge request is closed without merge and the item still
-  represents valid open work, move `mr_opened -> open`
+  represents valid open work, move `mr_opened -> failed` and preserve its
+  traceability for an explicit operator requeue action
 - when the linked merge request is closed without merge and the remediation is
   no longer needed, move `mr_opened -> done`
 - when merge-request metadata is missing, inaccessible, or no longer matches
@@ -287,7 +288,7 @@ Recommended reconciliation behavior:
   move `mr_opened -> failed` with an explicit operator-facing reason
 
 The reconciliation workflow should be conservative. It should prefer explicit
-failure or reopen behavior over silently dropping item history.
+failure over automatic reopening or silently dropping item history.
 
 The first version should operate on:
 
@@ -444,10 +445,8 @@ The first board redesign should also preserve visible transition intent:
   - it moves from `Queue Auto-fix` to `In Flight`
 - when remediation opens a merge request:
   - it remains in `In Flight`
-- when reconciliation decides work should retry later:
-  - it moves back to `Queue Auto-fix`
 - when a later operator action explicitly requeues a reviewed item:
-  - it may also move back to `Queue Auto-fix`
+  - it moves back to `Queue Auto-fix`
 - when remediation or reconciliation produces a failure that still needs human
   interpretation:
   - it moves to `Needs Review`

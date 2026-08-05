@@ -5,6 +5,30 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.52.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.51.0...zeroone-ops-v0.52.0) (2026-08-05)
+
+
+### Features
+
+* **github:** add operational summary renderer ([#305](https://github.com/JustinMelger/ZeroOne-ops/issues/305)) ([6f929f7](https://github.com/JustinMelger/ZeroOne-ops/commit/6f929f79a2eb18c6ae3d1b9cfefc4bc46a7bed04))
+* **github:** close terminal remediation work items ([#309](https://github.com/JustinMelger/ZeroOne-ops/issues/309)) ([5310b4b](https://github.com/JustinMelger/ZeroOne-ops/commit/5310b4b63250a2d580e9c278066be152ebe0af30))
+* **github:** refine work-item issue rendering ([#294](https://github.com/JustinMelger/ZeroOne-ops/issues/294)) ([55e2509](https://github.com/JustinMelger/ZeroOne-ops/commit/55e2509cc5127c1e31609c1867e73b65bb25cb66))
+* **github:** show work-item execution failures ([#292](https://github.com/JustinMelger/ZeroOne-ops/issues/292)) ([16b1181](https://github.com/JustinMelger/ZeroOne-ops/commit/16b11815443c870cc64644bb2bcec61001d09e82))
+* **GitHub:** ux work item ([#300](https://github.com/JustinMelger/ZeroOne-ops/issues/300)) ([f636d08](https://github.com/JustinMelger/ZeroOne-ops/commit/f636d0889626feead2bb4f43c912c883d10628d9))
+
+
+### Bug Fixes
+
+* **gitlab:** authorize dashboard policy notes ([#311](https://github.com/JustinMelger/ZeroOne-ops/issues/311)) ([c9014f0](https://github.com/JustinMelger/ZeroOne-ops/commit/c9014f072999e4d66fc6c510248710f19a918c16))
+* **gitlab:** require explicit closed-mr recovery ([#312](https://github.com/JustinMelger/ZeroOne-ops/issues/312)) ([442dbfb](https://github.com/JustinMelger/ZeroOne-ops/commit/442dbfb826df5ade7f53e98bddc0b0f3334f6e49))
+* **remediation:** bound generated branch names ([#308](https://github.com/JustinMelger/ZeroOne-ops/issues/308)) ([adc68e4](https://github.com/JustinMelger/ZeroOne-ops/commit/adc68e4fb89d58d4168a056e546a18ae6c526026))
+* return follow-up condition directly ([#304](https://github.com/JustinMelger/ZeroOne-ops/issues/304)) ([18afb7a](https://github.com/JustinMelger/ZeroOne-ops/commit/18afb7a246afd86f2235044e0fe6fffcabb89a40))
+
+
+### Documentation
+
+* refresh provider workflow examples ([#313](https://github.com/JustinMelger/ZeroOne-ops/issues/313)) ([9556cb9](https://github.com/JustinMelger/ZeroOne-ops/commit/9556cb9740f9ccc1ad809be9c86b5e6f54af25bf))
+
 ## [0.51.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.50.0...zeroone-ops-v0.51.0) (2026-07-31)
 
 
