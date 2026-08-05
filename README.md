@@ -4,36 +4,23 @@
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 
-Structured AI workflows for code review, remediation, and operator-controlled
-automation.
+**The home for software agents that run in your pipeline.**
 
-ZeroOne Ops coordinates bounded review and remediation workflows instead of
-relying on one opaque agent. It helps teams review change requests, follow up
-on static-analysis findings, and keep automation visible through explicit
-workflow state, operator policy, and inspectable outputs.
+ZeroOne Ops provides governed OpenAI-assisted review and remediation for
+GitLab and GitHub, with explicit policy, lifecycle state, and provider-native
+change requests.
 
-## Why This Exists
+## What It Does
 
-ZeroOne Ops exists to explore how AI can assist developers in their existing
-workflow by reducing review overhead and automating follow-up on
-static-analysis findings. It also aims to provide a more inspectable and
-operator-controlled alternative to fragmented SaaS coding assistants, so teams
-can keep automation boundaries, governance, and model usage explicit inside
-their own engineering workflow.
+ZeroOne Ops helps teams:
 
-## Current Scope
-
-Today the project includes:
-
-- staged GitLab and GitHub change-request review with candidate, precision,
-  continuity, and bounded inline-comment support
-- normalized finding intake from SonarQube and SARIF artifacts, including Ruff
-- GitLab dashboard-backed policy, remediation, and lifecycle workflows
-- GitHub policy, authoritative work-item issues, lifecycle reconciliation, and
-  a read-only operational summary
-- bounded remediation execution, validation, and provider-local merge-request
-  or pull-request publication
-- inspectable local state and machine-readable provider records for continuity
+- review GitLab merge requests and GitHub pull requests with staged,
+  continuity-aware analysis
+- normalize SonarQube and SARIF/Ruff findings into governed remediation work
+- generate bounded fixes, validate them, and publish provider-native change
+  requests
+- control policy, inspect automation state, and reconcile completed or blocked
+  remediation work
 
 The current focus is rollout hardening and an explicit, provider-neutral design
 for recovering blocked remediation work. See the [roadmap](docs/roadmap.md).
@@ -58,8 +45,31 @@ flowchart TD
 
 ## Quick Start
 
+Then choose one provider setup:
+
+- **GitLab:** copy [examples/.zeroone-ops.json](examples/.zeroone-ops.json)
+  to `.zeroone-ops.json` and add
+  [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml) to the
+  project pipeline.
+- **GitHub:** copy
+  [examples/.zeroone-ops.github.json](examples/.zeroone-ops.github.json) to
+  `.zeroone-ops.json`, then add
+  [examples/github-review.yml](examples/github-review.yml) and
+  [examples/github-operations.yml](examples/github-operations.yml) under
+  `.github/workflows/`.
+
+Both CI examples use the published ZeroOne Ops container, so the target
+repository does not need to install the `zeroone-ops` CLI. The GitHub
+operations template uses Ruff as an example SARIF producer and installs `uv`
+for that example's validation setup. Replace the SARIF generation and
+toolchain-specific steps with the tools used by your repository.
+
+Configure the matching provider credentials and `OPENAI_API_KEY` as described
+in the [runbook](docs/runbook.md), then run the relevant workflow manually for
+the first smoke test. From a ZeroOne Ops development checkout, the core
+commands are:
+
 ```bash
-uv sync --all-groups
 uv run zeroone-ops findings sync --dry-run
 uv run zeroone-ops dashboard policy --dry-run
 uv run zeroone-ops remediation run --dry-run
@@ -98,6 +108,28 @@ uv run pre-commit run --all-files
 - project findings into the GitLab dashboard or GitHub work-item issues
 - keep backlog-only findings visible in the GitHub operational summary without
   turning every finding into an issue
+
+### Mypy JSON To SARIF
+
+ZeroOne Ops consumes SARIF rather than requiring a Mypy-specific integration.
+The [Mypy-to-SARIF example converter](examples/mypy_to_sarif.py) turns Mypy's
+JSON output into a configured SARIF artifact:
+
+```bash
+mkdir -p artifacts
+set +e
+uv run mypy --output json src > artifacts/mypy.json
+mypy_status=$?
+set -e
+
+python examples/mypy_to_sarif.py artifacts/mypy.json artifacts/mypy.sarif
+test "$mypy_status" -le 1
+```
+
+Configure `artifacts/mypy.sarif` with a stable source ID such as `mypy`. Exit
+code `1` means Mypy found type errors and still produces an authoritative
+artifact; an exit code above `1` means the analysis did not complete and should
+fail the pipeline.
 
 Severity control note:
 
@@ -188,8 +220,8 @@ For example:
 - `sarif.artifacts`
 
 New configuration should use these nested blocks. GitLab examples can combine
-SonarQube and SARIF intake; GitHub examples show SARIF/Ruff as a lightweight
-starting point.
+SonarQube and SARIF intake; GitHub examples use Ruff as one lightweight SARIF
+producer example.
 
 The supported compatibility fields `review.platform`, `gitlab.target_branch`,
 and `remediation.supported_severities` emit non-blocking CI warnings with their
