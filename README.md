@@ -69,7 +69,8 @@ uv run zeroone-ops review --dry-run
 
 `dashboard sonar`, `dashboard remediate`, and `dashboard reconcile` remain
 available as legacy GitLab aliases. Prefer `findings sync`, `remediation run`,
-and `work-items sync-status` for new automation.
+and `work-items sync-status` for new automation. Each legacy alias emits a
+non-blocking CI warning with its replacement and no fixed removal version.
 
 Useful quality commands:
 
@@ -189,6 +190,11 @@ For example:
 New configuration should use these nested blocks. GitLab examples can combine
 SonarQube and SARIF intake; GitHub examples show SARIF/Ruff as a lightweight
 starting point.
+
+The supported compatibility fields `review.platform`, `gitlab.target_branch`,
+and `remediation.supported_severities` emit non-blocking CI warnings with their
+replacement fields. They have no fixed removal version and should not be used
+in new configuration.
 
 To test the real OpenAI path instead of local fixtures:
 

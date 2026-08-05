@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from pytest import LogCaptureFixture
+
 from zeroone_ops.settings import (
     SettingsError,
     load_config,
@@ -262,6 +264,7 @@ def test_settings_require_gitlab_block_for_gitlab_platform(
 def test_settings_migrate_legacy_review_platform_to_top_level_platform(
     tmp_path: Path,
     monkeypatch,
+    caplog: LogCaptureFixture,
 ) -> None:
     monkeypatch.chdir(tmp_path)
 
@@ -281,11 +284,14 @@ def test_settings_migrate_legacy_review_platform_to_top_level_platform(
 
     assert config.platform == "github"
     assert config.gitlab is None
+    assert "Deprecated config field `review.platform`" in caplog.text
+    assert "Use `platform`" in caplog.text
 
 
 def test_settings_migrate_legacy_gitlab_target_branch_to_remediation_target_branch(
     tmp_path: Path,
     monkeypatch,
+    caplog: LogCaptureFixture,
 ) -> None:
     monkeypatch.chdir(tmp_path)
 
@@ -305,6 +311,8 @@ def test_settings_migrate_legacy_gitlab_target_branch_to_remediation_target_bran
     config = load_config()
 
     assert config.remediation.target_branch == "main"
+    assert "Deprecated config field `gitlab.target_branch`" in caplog.text
+    assert "Use `remediation.target_branch`" in caplog.text
 
 
 def test_settings_allow_null_gitlab_block_for_github_platform(
@@ -614,6 +622,7 @@ def test_settings_reject_removed_flat_remediation_and_sonar_keys(
 def test_settings_keep_legacy_nested_supported_severities_compatible(
     tmp_path: Path,
     monkeypatch,
+    caplog: LogCaptureFixture,
 ) -> None:
     monkeypatch.chdir(tmp_path)
 
@@ -636,6 +645,8 @@ def test_settings_keep_legacy_nested_supported_severities_compatible(
     config = load_config()
 
     assert config.remediation.bootstrap_severities == ["LOW"]
+    assert "Deprecated config field `remediation.supported_severities`" in caplog.text
+    assert "Use `remediation.bootstrap_severities`" in caplog.text
 
 
 def test_settings_load_runner_state_metadata_overrides(tmp_path: Path, monkeypatch) -> None:
