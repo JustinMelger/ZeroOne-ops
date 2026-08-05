@@ -41,6 +41,17 @@ history, not here.
 - implement GitLab and GitHub recovery adapters only after the shared contract
   and operator UX are locked
 
+### Phase 8: Validation Feedback Loop
+
+- capture a baseline for configured validation commands before applying a
+  remediation patch
+- compare post-edit validation against that baseline so unrelated existing
+  failures are not attributed to the patch
+- feed bounded, edited-file-relevant validation diagnostics into one retry
+  generation pass
+- keep the retry boundary to the original remediation target and one file;
+  block with actionable diagnostics when broader repair is required
+
 ### Rollout And Feedback
 
 - continue live validation of review quality, remediation outcomes, and policy
@@ -68,6 +79,7 @@ history, not here.
   reconciliation/deduplication stage
 - richer developer feedback consumption for review notes and broader review
   evaluator growth
+- multi-file remediation and automated test-repair workflows
 - broader dashboard/history presentation improvements after operator usage
   establishes the need
 
