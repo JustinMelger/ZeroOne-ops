@@ -31,6 +31,9 @@ from zeroone_ops.services.dashboard.dashboard_policy_service import (
     DashboardPolicyViewBuilderProtocol,
 )
 from zeroone_ops.services.dashboard.dashboard_renderer import DashboardRenderer
+from zeroone_ops.services.dashboard.gitlab_policy_note_authorization_service import (
+    GitLabPolicyNoteAuthorizationService,
+)
 
 DEFAULT_SECTION_ITEM_LIMITS: dict[DashboardSectionKey, int] = {
     "open_candidates": 50,
@@ -75,6 +78,7 @@ class DashboardService:
         policy_view_builder: DashboardPolicyViewBuilderProtocol | None = None,
         policy_action_service: DashboardPolicyActionService | None = None,
         policy_processing_service: PolicyProcessingService | None = None,
+        policy_note_authorization_service: GitLabPolicyNoteAuthorizationService | None = None,
     ) -> None:
         """Initialize the dashboard service."""
         self.client = client
@@ -90,6 +94,9 @@ class DashboardService:
         )
         self.policy_processing_service = policy_processing_service or PolicyProcessingService(
             dashboard_policy_action_service.shared_service
+        )
+        self.policy_note_authorization_service = (
+            policy_note_authorization_service or GitLabPolicyNoteAuthorizationService(client)
         )
 
     def load_or_create(self, *, project_id: str) -> DashboardDocument:
@@ -216,9 +223,13 @@ class DashboardService:
             project_id=project_id,
             issue_iid=document.issue_iid,
         )
+        authorized_notes = self.policy_note_authorization_service.authorized_notes(
+            project_id=project_id,
+            notes=notes,
+        )
         processing_result = self._process_policy_notes(
             document=document,
-            notes=notes,
+            notes=authorized_notes,
         )
         parsed_results = processing_result.parsed_results
         initial_policy_state = processing_result.initial_policy_state

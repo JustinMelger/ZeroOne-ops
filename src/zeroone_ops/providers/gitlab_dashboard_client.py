@@ -136,6 +136,25 @@ class GitLabDashboardClient:
                 raise GitLabClientError("Unexpected GitLab issue note pagination.") from exc
         return notes
 
+    def get_project_member_access_level(
+        self,
+        *,
+        project_id: str,
+        user_id: int,
+    ) -> int:
+        """Return one user's effective project access level."""
+        encoded_project_id = quote_plus(project_id)
+        response = self._http_client.get(
+            f"/api/v4/projects/{encoded_project_id}/members/all/{user_id}"
+        )
+        payload = _parse_json_response(response)
+        if not isinstance(payload, dict):
+            raise GitLabClientError("Unexpected GitLab project member payload.")
+        access_level = payload.get("access_level")
+        if isinstance(access_level, bool) or not isinstance(access_level, int):
+            raise GitLabClientError("Unexpected GitLab project member access level.")
+        return access_level
+
     def create_issue_note(
         self,
         *,
@@ -185,6 +204,7 @@ def _normalize_issue_note(payload: dict[str, Any]) -> GitLabIssueNote:
     body = payload.get("body")
     created_at = payload.get("created_at")
     author = payload.get("author")
+    author_id: int | None = None
     author_username: str | None = None
     if not isinstance(note_id, int):
         raise GitLabClientError("Unexpected GitLab issue note structure.")
@@ -195,13 +215,20 @@ def _normalize_issue_note(payload: dict[str, Any]) -> GitLabIssueNote:
     if author is not None:
         if not isinstance(author, dict):
             raise GitLabClientError("Unexpected GitLab issue note author structure.")
+        raw_author_id = author.get("id")
         raw_username = author.get("username")
+        if raw_author_id is not None and (
+            isinstance(raw_author_id, bool) or not isinstance(raw_author_id, int)
+        ):
+            raise GitLabClientError("Unexpected GitLab issue note author ID.")
         if raw_username is not None and not isinstance(raw_username, str):
             raise GitLabClientError("Unexpected GitLab issue note author username.")
+        author_id = raw_author_id
         author_username = raw_username
     return GitLabIssueNote(
         id=note_id,
         body=body,
+        author_id=author_id,
         author_username=author_username,
         created_at=created_at,
     )

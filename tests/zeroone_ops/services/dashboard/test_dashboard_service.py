@@ -41,6 +41,7 @@ class FakeDashboardClient:
         self.created_issue: GitLabIssueInfo | None = None
         self.updated_issue: GitLabIssueInfo | None = None
         self.notes: list[GitLabIssueNote] = []
+        self.access_levels: dict[int, int] = {}
 
     def find_open_issue(
         self,
@@ -87,6 +88,10 @@ class FakeDashboardClient:
     def list_issue_notes(self, *, project_id: str, issue_iid: int) -> list[GitLabIssueNote]:
         del project_id, issue_iid
         return list(self.notes)
+
+    def get_project_member_access_level(self, *, project_id: str, user_id: int) -> int:
+        del project_id
+        return self.access_levels.get(user_id, 40)
 
 
 def test_load_or_create_creates_dashboard_when_missing() -> None:
@@ -278,6 +283,7 @@ def test_load_or_create_does_not_replay_severity_policy_actions_from_issue_notes
         GitLabIssueNote(
             id=12,
             body="/zeroone policy severity disable high",
+            author_id=1,
             author_username="operator",
             created_at="2026-04-28T10:00:00.000Z",
         )
@@ -307,6 +313,7 @@ def test_process_policy_replays_severity_policy_actions_from_issue_notes() -> No
         GitLabIssueNote(
             id=12,
             body="/zeroone policy severity disable high",
+            author_id=1,
             author_username="operator",
             created_at="2026-04-28T10:00:00.000Z",
         )
@@ -325,6 +332,38 @@ def test_process_policy_replays_severity_policy_actions_from_issue_notes() -> No
     assert severity_by_name["high"].updated_by == "operator"
 
 
+def test_process_policy_ignores_developer_notes() -> None:
+    existing_issue = GitLabIssueInfo(
+        id=10,
+        iid=11,
+        web_url="https://gitlab.example.com/group/project/-/issues/11",
+        title="AI Code Ops Work Queue",
+        description="",
+    )
+    client = FakeDashboardClient(existing_issue=existing_issue)
+    client.access_levels[1] = 30
+    client.notes = [
+        GitLabIssueNote(
+            id=12,
+            body="/zeroone policy severity disable high",
+            author_id=1,
+            author_username="developer",
+            created_at="2026-04-28T10:00:00.000Z",
+        )
+    ]
+    service = DashboardService(
+        client,
+        policy_view_builder=FakePolicyViewBuilder(),
+    )
+
+    result = service.process_policy(project_id="123", persist=False)
+
+    assert result.note_count == 1
+    assert result.matched_prefix_count == 0
+    assert result.accepted_action_count == 0
+    assert all(entry.severity != "high" for entry in result.document.policy_state.severity_policy)
+
+
 def test_process_policy_dry_run_reports_counts_without_updating_issue() -> None:
     existing_issue = GitLabIssueInfo(
         id=10,
@@ -338,18 +377,21 @@ def test_process_policy_dry_run_reports_counts_without_updating_issue() -> None:
         GitLabIssueNote(
             id=12,
             body="/zeroone policy severity disable high",
+            author_id=1,
             author_username="operator",
             created_at="2026-04-29T10:00:00.000Z",
         ),
         GitLabIssueNote(
             id=13,
             body="/zeroone policy severity maybe high",
+            author_id=1,
             author_username="operator",
             created_at="2026-04-29T10:01:00.000Z",
         ),
         GitLabIssueNote(
             id=14,
             body="ordinary comment",
+            author_id=1,
             author_username="operator",
             created_at="2026-04-29T10:02:00.000Z",
         ),
@@ -388,6 +430,7 @@ def test_process_policy_preserves_legacy_note_id_serialization_in_dashboard_body
         GitLabIssueNote(
             id=12,
             body="/zeroone policy severity disable high",
+            author_id=1,
             author_username="operator",
             created_at="2026-04-29T10:00:00.000Z",
         )
