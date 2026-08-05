@@ -34,12 +34,16 @@ history, not here.
 
 ### Phase 7: Remediation Recovery Design
 
-- define one provider-neutral recovery model for blocked remediation work
-- support explicit operator choices: dismiss, retry a recorded publication
-  branch when safe, or start a fresh attempt
-- keep closed change requests non-retryable until an operator makes that choice
-- implement GitLab and GitHub recovery adapters only after the shared contract
-  and operator UX are locked
+- [x] lock the shared recovery contract: operator `retry` or `dismiss`, with
+  backend-selected publication retry or fresh attempt
+- [x] lock terminal behavior: closed change requests stay blocked; dismissed
+  findings remain suppressed; no-change local analysis completes the item
+- [ ] 7a: add shared recovery models, decisions, state migration, and tests
+- [ ] 7b: add verified publication-retry planning and provider adapters
+- [ ] 7c: add authorized GitLab dashboard-note and GitHub work-item commands
+- [ ] 7d: add fresh-attempt branch identity and live validation on both providers
+- design: [functional recovery contract](design/functional/functional-design-remediation-recovery.md)
+  and [technical implementation plan](design/technical/technical-design-remediation-recovery.md)
 
 ### Phase 8: Validation Feedback Loop
 
@@ -91,4 +95,6 @@ history, not here.
 - [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
 - [design/technical/technical-design-github-platform-support.md](design/technical/technical-design-github-platform-support.md)
 - [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
+- [design/functional/functional-design-remediation-recovery.md](design/functional/functional-design-remediation-recovery.md)
+- [design/technical/technical-design-remediation-recovery.md](design/technical/technical-design-remediation-recovery.md)
 - [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)
