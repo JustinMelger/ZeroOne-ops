@@ -147,10 +147,7 @@ class DashboardReconciliationRunner:
         selected_items: list[DashboardItem],
     ) -> RunSummary:
         """Run reconciliation for the selected dashboard items."""
-        decision_service = DashboardReconciliationService(
-            self.review_client,
-            max_review_feedback_retries=self.config.review.max_review_feedback_retries,
-        )
+        decision_service = DashboardReconciliationService(self.review_client)
         updater = DashboardRemediationUpdater(self.dashboard_service)
         noop_count = 0
         reconciled_count = 0

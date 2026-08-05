@@ -83,7 +83,7 @@ def test_decide_returns_done_for_merged_merge_request() -> None:
     assert "was merged" in decision.message
 
 
-def test_decide_returns_open_for_closed_merge_request_with_matching_traceability() -> None:
+def test_decide_returns_failed_for_closed_merge_request_with_matching_traceability() -> None:
     decision = DashboardReconciliationService(
         FakeReviewClient(
             ChangeRequestState(
@@ -96,10 +96,10 @@ def test_decide_returns_open_for_closed_merge_request_with_matching_traceability
         )
     ).decide(project_id="123", item=build_item())
 
-    assert decision.action == "open"
+    assert decision.action == "failed"
     assert "closed without merge" in decision.message
     assert decision.retry_eligible is False
-    assert decision.retry_block_reason == "No linked review outcome available."
+    assert decision.retry_block_reason == "Change request was closed without merge."
 
 
 def test_decide_returns_done_for_closed_merge_request_when_dashboard_marks_item_inactive() -> None:
@@ -153,7 +153,7 @@ def test_decide_returns_failed_when_merge_request_metadata_is_inaccessible() -> 
     assert decision.retry_block_reason == "Change request metadata is inaccessible."
 
 
-def test_decide_returns_retry_eligible_open_for_closed_merge_request_with_findings() -> None:
+def test_decide_returns_failed_for_closed_merge_request_with_findings() -> None:
     decision = DashboardReconciliationService(
         FakeReviewClient(
             ChangeRequestState(
@@ -175,41 +175,13 @@ def test_decide_returns_retry_eligible_open_for_closed_merge_request_with_findin
         ),
     )
 
-    assert decision.action == "open"
-    assert "review-guided retry eligibility" in decision.message
-    assert decision.retry_eligible is True
-    assert decision.retry_block_reason is None
-
-
-def test_decide_returns_failed_when_review_feedback_retry_limit_is_reached() -> None:
-    decision = DashboardReconciliationService(
-        FakeReviewClient(
-            ChangeRequestState(
-                iid=7,
-                web_url="https://gitlab.example.com/group/project/-/merge_requests/7",
-                source_branch="zeroone-ops/issue-1/service",
-                head_sha="abc123",
-                state="closed",
-            )
-        ),
-        max_review_feedback_retries=1,
-    ).decide(
-        project_id="123",
-        item=build_item().model_copy(
-            update={
-                "review_status": "findings_present",
-                "retry_count": 1,
-            }
-        ),
-    )
-
     assert decision.action == "failed"
-    assert "retry is blocked" in decision.message
+    assert "explicitly requeue" in decision.message
     assert decision.retry_eligible is False
-    assert decision.retry_block_reason == "Retry limit reached (1/1)."
+    assert decision.retry_block_reason == "Change request was closed without merge."
 
 
-def test_decide_returns_failed_for_manual_review_only_outcome() -> None:
+def test_decide_returns_failed_for_closed_merge_request_with_manual_review_outcome() -> None:
     decision = DashboardReconciliationService(
         FakeReviewClient(
             ChangeRequestState(
@@ -232,4 +204,4 @@ def test_decide_returns_failed_for_manual_review_only_outcome() -> None:
 
     assert decision.action == "failed"
     assert decision.retry_eligible is False
-    assert decision.retry_block_reason == "Latest review outcome requires manual review."
+    assert decision.retry_block_reason == "Change request was closed without merge."

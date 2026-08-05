@@ -789,7 +789,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
     assert state.dashboard_items["sonar:MERGED"].status == "done"
 
 
-def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
+def test_dashboard_reconcile_ci_blocks_item_when_merge_request_was_closed(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -863,13 +863,13 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
             },
         )()
 
-    def fake_mark_open(
+    def fake_mark_failed(
         self,
         *,
         project_id: str,
         dashboard_item_id: str,
         run_id: str,
-        summary: str | None = None,
+        error_message: str,
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
@@ -879,7 +879,7 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
             project_id,
             dashboard_item_id,
             run_id,
-            summary,
+            error_message,
             retry_count,
             retry_eligible,
             retry_block_reason,
@@ -895,8 +895,8 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
         lambda self, **kwargs: fake_get_change_request_state(**kwargs),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_open",
-        fake_mark_open,
+        "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
+        fake_mark_failed,
     )
 
     summary = dashboard_reconcile(dry_run=False)
@@ -909,10 +909,10 @@ def test_dashboard_reconcile_ci_reopens_item_when_merge_request_was_closed(
 
     assert summary.status.value == "reconciled"
     assert "closed without merge" in summary.message
-    assert state.dashboard_items["sonar:AX123"].status == "open"
+    assert state.dashboard_items["sonar:AX123"].status == "failed"
 
 
-def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
+def test_dashboard_reconcile_ci_blocks_closed_reviewed_item(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -996,22 +996,22 @@ def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
     )
     recorded_updates: list[tuple[int | None, bool | None, str | None]] = []
 
-    def fake_mark_open(
+    def fake_mark_failed(
         self,
         *,
         project_id: str,
         dashboard_item_id: str,
         run_id: str,
-        summary: str | None = None,
+        error_message: str,
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
     ):  # noqa: ANN202
-        del self, project_id, dashboard_item_id, run_id, summary
+        del self, project_id, dashboard_item_id, run_id, error_message
         recorded_updates.append((retry_count, retry_eligible, retry_block_reason))
         updated_item = selected_item.model_copy(
             update={
-                "status": "open",
+                "status": "failed",
                 "retry_count": retry_count,
                 "retry_eligible": retry_eligible,
                 "retry_block_reason": retry_block_reason,
@@ -1024,8 +1024,8 @@ def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
         )()
 
     monkeypatch.setattr(
-        "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_open",
-        fake_mark_open,
+        "zeroone_ops.services.dashboard.dashboard_remediation_updater.DashboardRemediationUpdater.mark_failed",
+        fake_mark_failed,
     )
 
     summary = dashboard_reconcile(dry_run=False)
@@ -1037,9 +1037,9 @@ def test_dashboard_reconcile_ci_marks_closed_reviewed_item_retry_eligible(
     ).load()
 
     assert summary.status.value == "reconciled"
-    assert "review-guided retry eligibility" in summary.message
-    assert state.dashboard_items["sonar:AX123"].status == "open"
-    assert recorded_updates == [(0, True, None)]
+    assert "explicitly requeue" in summary.message
+    assert state.dashboard_items["sonar:AX123"].status == "failed"
+    assert recorded_updates == [(0, False, "Change request was closed without merge.")]
 
 
 def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
@@ -1166,9 +1166,9 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
     ).load()
 
     assert summary.status.value == "reconciled"
-    assert "retry is blocked" in summary.message
+    assert "explicitly requeue" in summary.message
     assert state.dashboard_items["sonar:AX123"].status == "failed"
-    assert recorded_updates == [(0, False, "Latest review outcome requires manual review.")]
+    assert recorded_updates == [(0, False, "Change request was closed without merge.")]
 
 
 def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
