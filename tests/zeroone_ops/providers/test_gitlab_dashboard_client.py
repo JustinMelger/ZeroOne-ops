@@ -133,7 +133,7 @@ def test_list_issue_notes_normalizes_response() -> None:
                     "id": 77,
                     "body": "/zeroone policy show",
                     "created_at": "2026-04-28T09:00:00.000Z",
-                    "author": {"username": "operator"},
+                    "author": {"id": 42, "username": "operator"},
                 }
             ],
         )
@@ -151,7 +151,27 @@ def test_list_issue_notes_normalizes_response() -> None:
     assert len(notes) == 1
     assert notes[0].id == 77
     assert notes[0].body == "/zeroone policy show"
+    assert notes[0].author_id == 42
     assert notes[0].author_username == "operator"
+
+
+def test_get_project_member_access_level_returns_effective_inherited_access() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v4/projects/123/members/all/42"
+        assert request.method == "GET"
+        return httpx.Response(200, json={"id": 42, "access_level": 40})
+
+    client = GitLabDashboardClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    access_level = client.get_project_member_access_level(project_id="123", user_id=42)
+
+    assert access_level == 40
 
 
 def test_create_issue_note_normalizes_response() -> None:

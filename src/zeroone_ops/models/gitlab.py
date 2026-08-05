@@ -33,5 +33,6 @@ class GitLabIssueNote(BaseModel):
 
     id: int
     body: str | None = None
+    author_id: int | None = None
     author_username: str | None = None
     created_at: str | None = None
