@@ -160,6 +160,25 @@ def test_recovery_rejects_invalid_kind_stale_or_non_blocked_work_items() -> None
     assert "blocked" in non_blocked.message
 
 
+def test_recovery_rejects_unsupported_action_before_selecting_a_plan() -> None:
+    service = RecoveryDecisionService()
+    work_item = build_work_item(status="blocked")
+    request = RecoveryRequest(
+        action="reopen",  # type: ignore[arg-type]
+        actor="operator",
+        request_reference="comment-42",
+        expected_state_fingerprint=service.state_fingerprint(work_item),
+        occurred_at=datetime(2026, 8, 7, 9, 0, tzinfo=UTC),
+    )
+
+    decision = service.decide(work_item=work_item, request=request, policy_eligible=True)
+
+    assert decision.accepted is False
+    assert decision.work_item is work_item
+    assert decision.plan is None
+    assert decision.message == "Unsupported remediation recovery action."
+
+
 def test_recovery_history_retains_the_latest_ten_events() -> None:
     service = RecoveryDecisionService()
     work_item = build_work_item(status="blocked")

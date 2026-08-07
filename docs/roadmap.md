@@ -39,7 +39,7 @@ history, not here.
 - [x] lock terminal behavior: closed change requests stay blocked; dismissed
   findings remain suppressed; no-change local analysis completes the item
 - [x] 7a: add shared recovery models, decisions, state migration, and tests
-- [ ] 7b: add verified publication-retry planning and provider adapters
+- [x] 7b: add verified publication-retry planning and provider adapters
 - [ ] 7c: add authorized GitLab dashboard-note and GitHub work-item commands
 - [ ] 7d: add fresh-attempt branch identity and live validation on both providers
 - design: [functional recovery contract](design/functional/functional-design-remediation-recovery.md)
