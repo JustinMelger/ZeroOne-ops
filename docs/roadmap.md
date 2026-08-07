@@ -47,9 +47,10 @@ history, not here.
 
 ### Phase 8: GitLab Issue Control Plane
 
-- [ ] 8a: extract neutral linked-change-request reconciliation and add GitLab
-  issue-mode transport, parsing, rendering, and malformed-record handling
-  without changing dashboard behavior
+- [x] 8a.1: extract neutral linked-change-request reconciliation and add
+  dedicated GitLab issue-mode transport without changing dashboard behavior
+- [ ] 8a.2: add GitLab work-item parsing, rendering, lookup, upsert, and
+  malformed-record handling
 - [ ] 8b: implement one GitLab policy issue with Maintainer/Owner-authorized
   note replay and shared policy loading
 - [ ] 8c: publish policy-promoted findings as authoritative GitLab work-item
