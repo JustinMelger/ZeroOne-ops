@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 from urllib.parse import quote_plus
 
 import httpx
@@ -10,6 +9,7 @@ import httpx
 from zeroone_ops.models.config import GitLabConnectionConfig
 from zeroone_ops.models.gitlab import GitLabIssueInfo, GitLabIssueNote
 from zeroone_ops.providers.gitlab_client import GitLabClientError, _parse_json_response
+from zeroone_ops.providers.gitlab_issue_payload import normalize_issue, normalize_issue_note
 
 
 class GitLabDashboardClient:
@@ -51,7 +51,7 @@ class GitLabDashboardClient:
         for item in payload:
             if not isinstance(item, dict):
                 continue
-            candidate = _normalize_issue(item)
+            candidate = normalize_issue(item)
             if candidate.title == title:
                 return candidate
         return None
@@ -77,7 +77,7 @@ class GitLabDashboardClient:
         payload = _parse_json_response(response)
         if not isinstance(payload, dict):
             raise GitLabClientError("Unexpected GitLab issue payload.")
-        return _normalize_issue(payload)
+        return normalize_issue(payload)
 
     def get_issue(self, *, project_id: str, issue_iid: int) -> GitLabIssueInfo:
         """Fetch one GitLab issue."""
@@ -88,7 +88,7 @@ class GitLabDashboardClient:
         payload = _parse_json_response(response)
         if not isinstance(payload, dict):
             raise GitLabClientError("Unexpected GitLab issue payload.")
-        return _normalize_issue(payload)
+        return normalize_issue(payload)
 
     def update_issue(
         self,
@@ -106,7 +106,7 @@ class GitLabDashboardClient:
         payload = _parse_json_response(response)
         if not isinstance(payload, dict):
             raise GitLabClientError("Unexpected GitLab issue payload.")
-        return _normalize_issue(payload)
+        return normalize_issue(payload)
 
     def list_issue_notes(
         self,
@@ -126,7 +126,7 @@ class GitLabDashboardClient:
             payload = _parse_json_response(response)
             if not isinstance(payload, list):
                 raise GitLabClientError("Unexpected GitLab issue notes payload.")
-            notes.extend(_normalize_issue_note(item) for item in payload if isinstance(item, dict))
+            notes.extend(normalize_issue_note(item) for item in payload if isinstance(item, dict))
             next_page = response.headers.get("X-Next-Page")
             if not next_page:
                 break
@@ -171,64 +171,4 @@ class GitLabDashboardClient:
         payload = _parse_json_response(response)
         if not isinstance(payload, dict):
             raise GitLabClientError("Unexpected GitLab issue note payload.")
-        return _normalize_issue_note(payload)
-
-
-def _normalize_issue(payload: dict[str, Any]) -> GitLabIssueInfo:
-    """Normalize one GitLab issue payload."""
-    issue_id = payload.get("id")
-    iid = payload.get("iid")
-    web_url = payload.get("web_url")
-    title = payload.get("title")
-    description = payload.get("description")
-    if not isinstance(issue_id, int) or not isinstance(iid, int):
-        raise GitLabClientError("Unexpected GitLab issue structure.")
-    if (
-        not isinstance(web_url, str)
-        or not isinstance(title, str)
-        or not isinstance(description, str)
-    ):
-        raise GitLabClientError("Unexpected GitLab issue payload fields.")
-    return GitLabIssueInfo(
-        id=issue_id,
-        iid=iid,
-        web_url=web_url,
-        title=title,
-        description=description,
-    )
-
-
-def _normalize_issue_note(payload: dict[str, Any]) -> GitLabIssueNote:
-    """Normalize one GitLab issue note payload."""
-    note_id = payload.get("id")
-    body = payload.get("body")
-    created_at = payload.get("created_at")
-    author = payload.get("author")
-    author_id: int | None = None
-    author_username: str | None = None
-    if not isinstance(note_id, int):
-        raise GitLabClientError("Unexpected GitLab issue note structure.")
-    if body is not None and not isinstance(body, str):
-        raise GitLabClientError("Unexpected GitLab issue note body.")
-    if created_at is not None and not isinstance(created_at, str):
-        raise GitLabClientError("Unexpected GitLab issue note timestamp.")
-    if author is not None:
-        if not isinstance(author, dict):
-            raise GitLabClientError("Unexpected GitLab issue note author structure.")
-        raw_author_id = author.get("id")
-        raw_username = author.get("username")
-        if raw_author_id is not None and (
-            isinstance(raw_author_id, bool) or not isinstance(raw_author_id, int)
-        ):
-            raise GitLabClientError("Unexpected GitLab issue note author ID.")
-        if raw_username is not None and not isinstance(raw_username, str):
-            raise GitLabClientError("Unexpected GitLab issue note author username.")
-        author_id = raw_author_id
-        author_username = raw_username
-    return GitLabIssueNote(
-        id=note_id,
-        body=body,
-        author_id=author_id,
-        author_username=author_username,
-        created_at=created_at,
-    )
+        return normalize_issue_note(payload)

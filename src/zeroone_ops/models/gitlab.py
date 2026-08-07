@@ -1,5 +1,8 @@
 """GitLab models."""
 
+from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel
 
 from zeroone_ops.models.change_request import ChangeRequestInfo, ChangeRequestState
@@ -19,13 +22,17 @@ class MergeRequestNote(BaseModel):
 
 
 class GitLabIssueInfo(BaseModel):
-    """Represent a GitLab issue used by the dashboard."""
+    """Represent a GitLab issue used by a provider-local control-plane surface."""
 
     id: int
     iid: int
     web_url: str
     title: str
     description: str
+    labels: list[str] = []
+    state: Literal["opened", "closed"] = "opened"
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class GitLabIssueNote(BaseModel):

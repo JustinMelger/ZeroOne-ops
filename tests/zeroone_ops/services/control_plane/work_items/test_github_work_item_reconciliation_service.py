@@ -4,9 +4,16 @@ import pytest
 
 from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, WorkItemState
+from zeroone_ops.services.control_plane.work_items import (
+    work_item_change_request_reconciliation_service as reconciliation,
+)
 from zeroone_ops.services.control_plane.work_items.github_work_item_reconciliation_service import (
-    ClosedUnmergedWorkItemOutcome,
     GitHubWorkItemReconciliationService,
+)
+
+ClosedUnmergedWorkItemOutcome = reconciliation.ClosedUnmergedWorkItemOutcome
+WorkItemChangeRequestReconciliationService = (
+    reconciliation.WorkItemChangeRequestReconciliationService
 )
 
 
@@ -31,8 +38,15 @@ def build_work_item() -> WorkItemState:
     )
 
 
+def test_github_adapter_retains_the_shared_reconciliation_contract() -> None:
+    assert issubclass(
+        GitHubWorkItemReconciliationService,
+        WorkItemChangeRequestReconciliationService,
+    )
+
+
 def test_reconcile_returns_completed_for_merged_pull_request() -> None:
-    result = GitHubWorkItemReconciliationService().reconcile(
+    result = WorkItemChangeRequestReconciliationService().reconcile(
         work_item=build_work_item(),
         change_request_state=ChangeRequestState(
             iid=21,
@@ -50,7 +64,7 @@ def test_reconcile_returns_completed_for_merged_pull_request() -> None:
 
 
 def test_reconcile_returns_approved_for_closed_unmerged_pull_request() -> None:
-    result = GitHubWorkItemReconciliationService().reconcile(
+    result = WorkItemChangeRequestReconciliationService().reconcile(
         work_item=build_work_item(),
         change_request_state=ChangeRequestState(
             iid=21,
@@ -69,7 +83,7 @@ def test_reconcile_returns_approved_for_closed_unmerged_pull_request() -> None:
 
 
 def test_reconcile_returns_blocked_for_closed_unmerged_pull_request() -> None:
-    result = GitHubWorkItemReconciliationService().reconcile(
+    result = WorkItemChangeRequestReconciliationService().reconcile(
         work_item=build_work_item(),
         change_request_state=ChangeRequestState(
             iid=21,
@@ -88,7 +102,7 @@ def test_reconcile_returns_blocked_for_closed_unmerged_pull_request() -> None:
 
 
 def test_reconcile_returns_completed_for_inactive_closed_unmerged_pull_request() -> None:
-    result = GitHubWorkItemReconciliationService().reconcile(
+    result = WorkItemChangeRequestReconciliationService().reconcile(
         work_item=build_work_item(),
         change_request_state=ChangeRequestState(
             iid=21,
@@ -106,7 +120,7 @@ def test_reconcile_returns_completed_for_inactive_closed_unmerged_pull_request()
 
 
 def test_reconcile_returns_candidate_for_active_but_ineligible_closed_pull_request() -> None:
-    result = GitHubWorkItemReconciliationService().reconcile(
+    result = WorkItemChangeRequestReconciliationService().reconcile(
         work_item=build_work_item(),
         change_request_state=ChangeRequestState(
             iid=21,
@@ -128,7 +142,7 @@ def test_reconcile_rejects_invalid_closed_unmerged_outcome() -> None:
         ValueError,
         match="must be 'approved', 'blocked', 'candidate', or 'completed'",
     ):
-        GitHubWorkItemReconciliationService().reconcile(
+        WorkItemChangeRequestReconciliationService().reconcile(
             work_item=build_work_item(),
             change_request_state=ChangeRequestState(
                 iid=21,
@@ -142,7 +156,7 @@ def test_reconcile_rejects_invalid_closed_unmerged_outcome() -> None:
 
 
 def test_reconcile_keeps_in_progress_for_open_pull_request() -> None:
-    result = GitHubWorkItemReconciliationService().reconcile(
+    result = WorkItemChangeRequestReconciliationService().reconcile(
         work_item=build_work_item(),
         change_request_state=ChangeRequestState(
             iid=21,
@@ -160,7 +174,7 @@ def test_reconcile_keeps_in_progress_for_open_pull_request() -> None:
 
 
 def test_reconcile_returns_updated_when_open_pull_request_changes_work_item_state() -> None:
-    result = GitHubWorkItemReconciliationService().reconcile(
+    result = WorkItemChangeRequestReconciliationService().reconcile(
         work_item=build_work_item().model_copy(
             update={
                 "status": "approved",
