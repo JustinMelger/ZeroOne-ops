@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from zeroone_ops.models.config import GitLabConnectionConfig
 from zeroone_ops.models.gitlab import GitLabIssueInfo, GitLabIssueNote
-from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 
 
@@ -20,28 +19,14 @@ class GitLabPolicyClient:
         """Initialize the policy transport from GitLab connection settings."""
         self._issue_client = issue_client or GitLabWorkItemClient(config)
 
-    def find_open_issue(
+    def list_open_issues(
         self,
         *,
         project_id: str,
-        title: str,
         labels: list[str],
-    ) -> GitLabIssueInfo | None:
-        """Return the uniquely matching open policy issue, when present."""
-        matches = [
-            issue
-            for issue in self._issue_client.list_open_issues(
-                project_id=project_id,
-                labels=labels,
-            )
-            if issue.title == title
-        ]
-        if len(matches) > 1:
-            raise GitLabClientError(
-                "Ambiguous GitLab policy issue match for title "
-                f"{title!r}: {len(matches)} issues found."
-            )
-        return matches[0] if matches else None
+    ) -> list[GitLabIssueInfo]:
+        """List labelled open issues for policy-layer selection."""
+        return self._issue_client.list_open_issues(project_id=project_id, labels=labels)
 
     def create_issue(
         self,

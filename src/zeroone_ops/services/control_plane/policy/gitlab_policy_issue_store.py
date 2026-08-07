@@ -1,6 +1,7 @@
 """Provider-local storage for the GitLab policy issue."""
 
 from zeroone_ops.models.gitlab import GitLabIssueInfo
+from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_policy_client import GitLabPolicyClient
 
 
@@ -15,11 +16,20 @@ class GitLabPolicyIssueStore:
 
     def find_open_issue(self, *, project_id: str) -> GitLabIssueInfo | None:
         """Return the open authoritative policy issue, when present."""
-        return self.client.find_open_issue(
-            project_id=project_id,
-            title=self.title,
-            labels=self.labels,
-        )
+        matches = [
+            issue
+            for issue in self.client.list_open_issues(
+                project_id=project_id,
+                labels=self.labels,
+            )
+            if issue.title == self.title
+        ]
+        if len(matches) > 1:
+            raise GitLabClientError(
+                "Ambiguous GitLab policy issue match for title "
+                f"{self.title!r}: {len(matches)} issues found."
+            )
+        return matches[0] if matches else None
 
     def create_issue(self, *, project_id: str, body: str) -> GitLabIssueInfo:
         """Create the authoritative policy issue."""

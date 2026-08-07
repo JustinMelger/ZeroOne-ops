@@ -3,14 +3,21 @@
 from __future__ import annotations
 
 import logging
+from typing import Protocol
 
 from zeroone_ops.models.gitlab import GitLabIssueNote
 from zeroone_ops.providers.gitlab_client import GitLabClientError
-from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 
 LOGGER = logging.getLogger(__name__)
 
 _MAINTAINER_ACCESS_LEVEL = 40
+
+
+class GitLabPolicyNotePermissionLookup(Protocol):
+    """Load effective GitLab project access for one note author."""
+
+    def get_project_member_access_level(self, *, project_id: str, user_id: int) -> int:
+        """Return the effective project access level for one user."""
 
 
 class GitLabPolicyNoteAuthorizationService:
@@ -18,7 +25,7 @@ class GitLabPolicyNoteAuthorizationService:
 
     def __init__(
         self,
-        client: GitLabDashboardClient,
+        client: GitLabPolicyNotePermissionLookup,
         *,
         minimum_access_level: int = _MAINTAINER_ACCESS_LEVEL,
     ) -> None:
