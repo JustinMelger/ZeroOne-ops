@@ -9,6 +9,7 @@ from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
+    GitHubWorkItemLookupResult,
     GitHubWorkItemLookupService,
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_parser import (
@@ -108,6 +109,37 @@ class GitHubWorkItemUpsertService:
             issue_number=issue_number,
         )
 
+    def update_existing_work_item(
+        self,
+        *,
+        repository_id: str,
+        existing: GitHubWorkItemLookupResult,
+        work_item: WorkItemState,
+    ) -> GitHubWorkItemUpsertResult:
+        """Update one already-identified authoritative work-item issue directly."""
+        if existing.work_item.identity_key != work_item.identity_key:
+            raise ValueError("Recovery update must preserve authoritative work-item identity.")
+        title = self.renderer.render_title(work_item)
+        body = self.renderer.render_body(work_item)
+        labels = self.renderer.render_labels(work_item)
+        if existing.issue.title == title and existing.issue.body == body:
+            return GitHubWorkItemUpsertResult(
+                issue=existing.issue,
+                action="unchanged",
+                work_item=work_item,
+            )
+        return GitHubWorkItemUpsertResult(
+            issue=self.client.update_issue(
+                repository_id=repository_id,
+                issue_number=existing.issue.number,
+                title=title,
+                body=body,
+                labels=labels,
+            ),
+            action="updated",
+            work_item=work_item,
+        )
+
     def _merge_existing_authoritative_state(
         self,
         *,
@@ -143,4 +175,14 @@ class GitHubWorkItemUpsertService:
             and parsed.execution_failure is not None
         ):
             update["execution_failure"] = parsed.execution_failure
+        if "attempt_number" not in work_item.model_fields_set:
+            update["attempt_number"] = parsed.attempt_number
+        if "recovery_events" not in work_item.model_fields_set:
+            update["recovery_events"] = parsed.recovery_events
+        if (
+            "resolution" not in work_item.model_fields_set
+            and work_item.resolution is None
+            and parsed.resolution is not None
+        ):
+            update["resolution"] = parsed.resolution
         return work_item.model_copy(update=update)

@@ -111,9 +111,13 @@ class BranchManager:
 
     def push_current_branch(self, *, remote_name: str = "origin") -> str:
         """Push the current branch to the configured remote."""
-        current_branch = self._run_git_command(["branch", "--show-current"]).strip()
+        current_branch = self.current_branch()
         self._run_git_command(["push", "-u", remote_name, current_branch])
         return current_branch
+
+    def current_branch(self) -> str:
+        """Return the checked-out branch name before a remote side effect."""
+        return self._run_git_command(["branch", "--show-current"]).strip()
 
     def reset_index(self) -> None:
         """Reset the git index to the current HEAD state.

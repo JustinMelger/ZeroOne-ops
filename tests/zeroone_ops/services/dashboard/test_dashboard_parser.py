@@ -7,6 +7,7 @@ from zeroone_ops.models.dashboard import (
     DashboardSection,
     DashboardSeverityPolicyStateEntry,
 )
+from zeroone_ops.models.work_item import RecoveryEvent
 from zeroone_ops.services.dashboard.dashboard_parser import (
     DashboardParseError,
     DashboardParser,
@@ -102,6 +103,21 @@ def test_parse_round_trips_dashboard_item_datetime_metadata() -> None:
                         update={
                             "last_run_id": "run-1",
                             "status_updated_at": datetime(2026, 4, 7, 12, 0, tzinfo=UTC),
+                            "attempt_number": 2,
+                            "recovery_events": [
+                                RecoveryEvent(
+                                    action="retry",
+                                    actor="operator",
+                                    request_reference="note-42",
+                                    occurred_at=datetime(2026, 4, 7, 11, 0, tzinfo=UTC),
+                                    previous_status="failed",
+                                    resulting_status="open",
+                                    previous_attempt_number=1,
+                                    resulting_attempt_number=2,
+                                    plan="start_fresh",
+                                )
+                            ],
+                            "resolution": "no_change_required",
                         }
                     )
                 ],
@@ -130,6 +146,9 @@ def test_parse_round_trips_dashboard_item_datetime_metadata() -> None:
     item = document.items_by_id()["sonar:1"]
     assert item.last_run_id == "run-1"
     assert item.status_updated_at == datetime(2026, 4, 7, 12, 0, tzinfo=UTC)
+    assert item.attempt_number == 2
+    assert item.recovery_events[0].previous_status == "failed"
+    assert item.resolution == "no_change_required"
 
 
 def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None:
@@ -501,7 +520,8 @@ def test_rendered_dashboard_body_surfaces_failure_note_in_summary_table() -> Non
     )
 
     assert "| Item | Area | File | Priority | Next Step | Summary |" in body
-    assert "Investigate Failure" in body
+    assert "Retry: `/zeroone remediation sonar:failed retry`" in body
+    assert "Dismiss: `/zeroone remediation sonar:failed dismiss`" in body
     assert "Investigate environment or tooling failure before rerun." in body
     assert "Merge request metadata is inaccessible from GitLab." in body
 
@@ -535,7 +555,8 @@ def test_rendered_dashboard_body_surfaces_retry_eligible_failure_guidance() -> N
         ],
     )
 
-    assert "Retry Auto-fix" in body
+    assert "Retry: `/zeroone remediation sonar:failed retry`" in body
+    assert "Dismiss: `/zeroone remediation sonar:failed dismiss`" in body
     assert "Retry ready after fixing the blocker." in body
     assert "GitLab token was expired during publish." in body
 
@@ -570,7 +591,8 @@ def test_rendered_dashboard_body_surfaces_retry_blocked_failure_guidance() -> No
         ],
     )
 
-    assert "Review Retry Blocker" in body
+    assert "Retry: `/zeroone remediation sonar:failed retry`" in body
+    assert "Dismiss: `/zeroone remediation sonar:failed dismiss`" in body
     assert (
         "Blocked until review or policy changes: "
         "Latest review outcome requires manual review." in body

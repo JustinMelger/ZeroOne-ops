@@ -68,6 +68,24 @@ def test_work_items_sync_status_prints_lifecycle_summary(monkeypatch: MonkeyPatc
     assert "Reconciled GitHub remediation work items." in result.output
 
 
+def test_work_items_recover_prints_recovery_summary(monkeypatch: MonkeyPatch) -> None:
+    """The recovery command keeps the shared CLI summary contract."""
+    summary = RunSummary(
+        run_id="run-1",
+        status=RunStatus.SYNCED,
+        message="[ci] Processed 1 GitHub work-item comments.",
+        state_path=Path(".zeroone-ops-state.json"),
+        work_item_id="work-item-1",
+    )
+    monkeypatch.setattr("zeroone_ops.cli.recover_work_item", lambda *, dry_run: summary)
+
+    result = _RUNNER.invoke(app, ["work-items", "recover", "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "status=synced" in result.output
+    assert "work_item_id=work-item-1" in result.output
+
+
 def test_dashboard_sonar_warns_about_the_canonical_findings_command(
     monkeypatch: MonkeyPatch,
 ) -> None:

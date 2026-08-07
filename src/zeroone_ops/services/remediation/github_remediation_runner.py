@@ -9,22 +9,37 @@ from pathlib import Path
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.state import FailureDetails, FailureStage, RunRecord, RunStatus, utc_now
-from zeroone_ops.models.work_item import WorkItemExecutionFailure, WorkItemState
+from zeroone_ops.models.work_item import (
+    PublicationRetryState,
+    WorkItemExecutionFailure,
+    WorkItemState,
+)
 from zeroone_ops.services.control_plane.work_items.github_remediation_intake_service import (
     GitHubRemediationIntakeService,
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
 )
+from zeroone_ops.services.remediation.change_request_publisher import (
+    build_remediation_change_request_publisher,
+)
 from zeroone_ops.services.remediation.control_plane import (
     RemediationControlPlane,
     build_remediation_control_plane,
 )
 from zeroone_ops.services.remediation.execution_service import ExecutionService
+from zeroone_ops.services.remediation.publication_request_builder import (
+    RemediationPublicationRequestBuilder,
+)
+from zeroone_ops.services.remediation.recovery.publication_retry_service import (
+    PublicationRetryService,
+)
 from zeroone_ops.services.remediation.remediation_context_builder import (
     RemediationContextBuilder,
 )
+from zeroone_ops.services.shared.branch_revision_lookup import build_branch_revision_lookup
 from zeroone_ops.services.shared.run_state_service import RunStateService, RunSummary
+from zeroone_ops.utils.git import build_remediation_branch_name
 
 LOGGER = logging.getLogger(__name__)
 _FAILURE_OUTPUT_LIMIT = 2_000
@@ -43,6 +58,7 @@ class GitHubRemediationRunner:
         run_state_service: RunStateService,
         execution_service: ExecutionService | None = None,
         remediation_control_plane: RemediationControlPlane | None = None,
+        publication_retry_service: PublicationRetryService | None = None,
     ) -> None:
         """Initialize the GitHub-local remediation runner."""
         self.repo_root = repo_root
@@ -62,6 +78,7 @@ class GitHubRemediationRunner:
                 github_repository_id=repository_id,
             )
         )
+        self.publication_retry_service = publication_retry_service
 
     def run(self, *, record: RunRecord, active_dry_run: bool) -> RunSummary:
         """Select, execute, and project one GitHub remediation work item."""
@@ -92,6 +109,14 @@ class GitHubRemediationRunner:
                 issue_count=intake_result.item_count,
             )
 
+        if claimed_work_item.publication_retry is not None:
+            return self._retry_recorded_publication(
+                selected_target=selected_target,
+                claimed_work_item=claimed_work_item,
+                record=record,
+                active_dry_run=active_dry_run,
+            )
+
         context = RemediationContextBuilder(self.repo_root, self.config).build(selected_target)
         if context is None:
             message = f"Context unavailable for GitHub work item {selected_target.item_id}."
@@ -115,6 +140,13 @@ class GitHubRemediationRunner:
             selected_issue=selected_target,
             context=context,
             dry_run=active_dry_run,
+            branch_name=build_remediation_branch_name(
+                branch_prefix=self.config.branch_prefix,
+                source=selected_target.source_type,
+                source_reference=selected_target.source_ref,
+                file_path=selected_target.file_path,
+                attempt_number=claimed_work_item.attempt_number,
+            ),
         )
         if execution_result.failure is not None:
             self._mark_blocked_best_effort(
@@ -199,6 +231,89 @@ class GitHubRemediationRunner:
             )
         except Exception:
             LOGGER.warning("GitHub work-item blocked-state projection failed", exc_info=True)
+
+    def _retry_recorded_publication(
+        self,
+        *,
+        selected_target: RemediationExecutionTarget,
+        claimed_work_item: WorkItemState,
+        record: RunRecord,
+        active_dry_run: bool,
+    ) -> RunSummary:
+        """Retry only a recorded branch publication through the normal remediation runner."""
+        publication_retry = claimed_work_item.publication_retry
+        if publication_retry is None:  # pragma: no cover - guarded by caller
+            raise ValueError("Publication retry requires recorded retry state.")
+        if active_dry_run:
+            return self.run_state_service.finish_work_item(
+                record=record,
+                work_item_id=selected_target.item_id,
+                status=RunStatus.SELECTED,
+                message="Dry-run would verify and retry recorded branch publication.",
+                branch_name=publication_retry.branch_name,
+                commit_sha=publication_retry.commit_sha,
+            )
+        retry_service = self.publication_retry_service or PublicationRetryService(
+            branch_revision_lookup=build_branch_revision_lookup(self.config),
+            change_request_publisher=build_remediation_change_request_publisher(self.config),
+        )
+        result = retry_service.retry(
+            publication_retry=publication_retry,
+            request=RemediationPublicationRequestBuilder(self.config).build(
+                selected_issue=selected_target,
+                source_branch=publication_retry.branch_name,
+                change_summary="Retrying publication for the existing remediation branch.",
+            ),
+        )
+        if not result.succeeded or result.change_request is None:
+            message = result.error_message or "Recorded branch publication retry failed."
+            failure = FailureDetails(stage=FailureStage.PUBLISH, message=message)
+            self._mark_publish_retry_blocked_best_effort(
+                selected_target=selected_target,
+                claimed_work_item=claimed_work_item,
+                publication_retry=publication_retry,
+            )
+            return self.run_state_service.finish_work_item(
+                record=record,
+                work_item_id=selected_target.item_id,
+                status=RunStatus.FAILED,
+                message=message,
+                branch_name=publication_retry.branch_name,
+                commit_sha=publication_retry.commit_sha,
+                failure=failure,
+            )
+        self.remediation_control_plane.sync_change_request_link(
+            selected_issue=selected_target,
+            published_change_request=result.change_request,
+            existing_work_item=claimed_work_item,
+        )
+        return self.run_state_service.finish_work_item(
+            record=record,
+            work_item_id=selected_target.item_id,
+            status=RunStatus.CHANGE_REQUEST_CREATED,
+            message="Recorded branch publication retry completed.",
+            branch_name=publication_retry.branch_name,
+            commit_sha=publication_retry.commit_sha,
+            change_request_url=result.change_request.web_url,
+            change_request_action=result.action,
+        )
+
+    def _mark_publish_retry_blocked_best_effort(
+        self,
+        *,
+        selected_target: RemediationExecutionTarget,
+        claimed_work_item: WorkItemState,
+        publication_retry: PublicationRetryState,
+    ) -> None:
+        """Preserve retry state when a repeated publication attempt fails."""
+        try:
+            self.remediation_control_plane.mark_publish_blocked(
+                selected_issue=selected_target,
+                existing_work_item=claimed_work_item,
+                publication_retry=publication_retry,
+            )
+        except Exception:
+            LOGGER.warning("GitHub work-item publication retry projection failed", exc_info=True)
 
     def _mark_dismissed_best_effort(
         self,

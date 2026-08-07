@@ -112,6 +112,68 @@ def test_create_pull_request_normalizes_response() -> None:
     assert pull_request.web_url == "https://github.com/octo-org/octo-repo/pull/21"
 
 
+def test_get_branch_head_sha_reads_remote_reference() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/repos/octo-org/octo-repo/git/ref/heads/zeroone-ops/fix"
+        assert request.method == "GET"
+        return httpx.Response(200, json={"object": {"sha": "abc123"}})
+
+    client = GitHubClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.github.example.com",
+        ),
+    )
+
+    sha = client.get_branch_head_sha(
+        repository_id="octo-org/octo-repo",
+        branch_name="zeroone-ops/fix",
+    )
+
+    assert sha == "abc123"
+
+
+def test_get_branch_head_sha_encodes_unsafe_branch_reference_characters() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.raw_path == (
+            b"/repos/octo-org/octo-repo/git/ref/heads/zeroone-ops/fix%23retry"
+        )
+        return httpx.Response(200, json={"object": {"sha": "abc123"}})
+
+    client = GitHubClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.github.example.com",
+        ),
+    )
+
+    sha = client.get_branch_head_sha(
+        repository_id="octo-org/octo-repo",
+        branch_name="zeroone-ops/fix#retry",
+    )
+
+    assert sha == "abc123"
+
+
+def test_get_branch_head_sha_returns_none_when_remote_branch_is_missing() -> None:
+    client = GitHubClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(lambda _: httpx.Response(404, json={})),
+            base_url="https://api.github.example.com",
+        ),
+    )
+
+    sha = client.get_branch_head_sha(
+        repository_id="octo-org/octo-repo",
+        branch_name="zeroone-ops/missing",
+    )
+
+    assert sha is None
+
+
 def test_add_issue_labels_posts_expected_payload() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/repos/octo-org/octo-repo/issues/21/labels"

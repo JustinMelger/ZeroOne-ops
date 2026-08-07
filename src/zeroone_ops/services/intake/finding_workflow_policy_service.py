@@ -7,6 +7,7 @@ from typing import Literal
 
 from zeroone_ops.models.finding import NormalizedFinding
 from zeroone_ops.models.policy import PolicyState
+from zeroone_ops.models.work_item import WorkItemState
 
 FindingWorkflowDisposition = Literal["queue_candidate"]
 FindingWorkflowReason = Literal["default_queue_candidate"]
@@ -72,4 +73,22 @@ class FindingWorkflowPolicyService:
         return FindingPromotionDecision(
             disposition="promote",
             reason="severity_enabled",
+        )
+
+    def is_work_item_eligible(
+        self,
+        *,
+        work_item: WorkItemState,
+        policy_state: PolicyState,
+    ) -> bool:
+        """Return whether the current policy permits a fresh remediation attempt."""
+        enabled_severities = {
+            entry.severity for entry in policy_state.severity_policy if entry.enabled
+        }
+        if work_item.severity not in enabled_severities:
+            return False
+        diagnostic_code = work_item.remediation_context.diagnostic_code
+        return diagnostic_code is None or not any(
+            exclusion.source == work_item.source.source and exclusion.issue_key == diagnostic_code
+            for exclusion in policy_state.issue_class_exclusions
         )

@@ -4,6 +4,7 @@ from zeroone_ops.models.policy import (
     PolicySeverityStateEntry,
     PolicyState,
 )
+from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
 from zeroone_ops.services.intake.finding_workflow_policy_service import (
     FindingWorkflowPolicyService,
 )
@@ -60,3 +61,46 @@ def test_decide_promotion_keeps_excluded_issue_class_backlog_only() -> None:
 
     assert decision.disposition == "backlog_only"
     assert decision.reason == "issue_class_excluded"
+
+
+def test_is_work_item_eligible_applies_severity_and_issue_class_policy() -> None:
+    """Recovery uses the same promotion policy as finding synchronization."""
+    work_item = WorkItemState(
+        work_item_id="work-1",
+        kind="remediation",
+        status="blocked",
+        source=WorkItemSourceRef(
+            source="ruff-sarif",
+            source_item_key="src/service.py::lint_fix::E712",
+            repository_scope="octo-org/octo-repo",
+        ),
+        summary="Prefer direct truthiness.",
+        severity="medium",
+        remediation_context=RemediationContext(diagnostic_code="E712"),
+    )
+    policy_state = PolicyState(
+        severity_policy=[PolicySeverityStateEntry(severity="medium", enabled=True)],
+        issue_class_exclusions=[],
+    )
+
+    assert FindingWorkflowPolicyService().is_work_item_eligible(
+        work_item=work_item,
+        policy_state=policy_state,
+    )
+
+    excluded_policy = policy_state.model_copy(
+        update={
+            "issue_class_exclusions": [
+                PolicyIssueClassStateEntry(
+                    source="ruff-sarif",
+                    issue_key="E712",
+                    reason="Excluded by operator.",
+                )
+            ]
+        }
+    )
+
+    assert not FindingWorkflowPolicyService().is_work_item_eligible(
+        work_item=work_item,
+        policy_state=excluded_policy,
+    )

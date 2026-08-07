@@ -179,8 +179,9 @@ def test_runner_materializes_promoted_work_item_for_live_execution(
     run_state_service, state = build_run_state_service(tmp_path)
     record = run_state_service.start_run("run-1")
     control_plane = StubRemediationControlPlane()
-    selected_item = build_selected_item()
+    selected_item = build_selected_item().model_copy(update={"attempt_number": 2})
     work_item = build_work_item()
+    branch_names: list[str] = []
 
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_item_intake.DashboardItemIntakeService.select_item",
@@ -229,19 +230,22 @@ def test_runner_materializes_promoted_work_item_for_live_execution(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.remediation.execution_service.ExecutionService.execute_with_context",
-        lambda self, selected_issue, context, dry_run: type(
-            "ExecutionResult",
-            (),
-            {
-                "failure": None,
-                "final_status": None,
-                "status_message": "Remediation completed.",
-                "branch_name": "zeroone-ops/ax123/service",
-                "commit_sha": "abc123",
-                "change_request_url": None,
-                "change_request_action": None,
-            },
-        )(),
+        lambda self, selected_issue, context, dry_run, branch_name: (
+            branch_names.append(branch_name),
+            type(
+                "ExecutionResult",
+                (),
+                {
+                    "failure": None,
+                    "final_status": None,
+                    "status_message": "Remediation completed.",
+                    "branch_name": branch_name,
+                    "commit_sha": "abc123",
+                    "change_request_url": None,
+                    "change_request_action": None,
+                },
+            )(),
+        )[1],
     )
 
     summary = DashboardRemediationRunner(
@@ -270,6 +274,7 @@ def test_runner_materializes_promoted_work_item_for_live_execution(
     assert completed_issue.source_ref == "AX123"
     assert completed_work_item is not None
     assert completed_work_item.work_item_id == "work-1"
+    assert branch_names[0].endswith("/attempt-2")
 
 
 def test_runner_materializes_before_context_failure_on_live_execution(
@@ -401,7 +406,7 @@ def test_runner_ignores_promotion_materialization_failure(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.remediation.execution_service.ExecutionService.execute_with_context",
-        lambda self, selected_issue, context, dry_run: type(
+        lambda self, selected_issue, context, dry_run, branch_name: type(
             "ExecutionResult",
             (),
             {
@@ -584,7 +589,7 @@ def test_runner_dismisses_promoted_work_item_when_execution_is_rejected(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.remediation.execution_service.ExecutionService.execute_with_context",
-        lambda self, selected_issue, context, dry_run: type(
+        lambda self, selected_issue, context, dry_run, branch_name: type(
             "ExecutionResult",
             (),
             {

@@ -1910,6 +1910,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_change_request_opened(
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
+        clear_publication_retry: bool = False,
     ):
         del (
             project_id,
@@ -1921,6 +1922,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_change_request_opened(
             retry_count,
             retry_eligible,
             retry_block_reason,
+            clear_publication_retry,
         )
         recorded_updates.append(("change_request_opened", dashboard_item_id))
         return type(
@@ -1943,7 +1945,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_change_request_opened(
     )
     monkeypatch.setattr(
         "zeroone_ops.services.remediation.execution_service.ExecutionService.execute_with_context",
-        lambda self, selected_issue, context, dry_run: type(
+        lambda self, selected_issue, context, dry_run, branch_name: type(
             "ExecutionResult",
             (),
             {
@@ -2095,6 +2097,7 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
+        clear_publication_retry: bool = False,
     ):
         del (
             self,
@@ -2105,6 +2108,7 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
             change_request_url,
             commit_sha,
             change_request_number,
+            clear_publication_retry,
         )
         recorded_updates.append(
             ("change_request_opened", retry_count, retry_eligible, retry_block_reason)
@@ -2128,8 +2132,8 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
         mark_change_request_opened,
     )
 
-    def execute_with_context(self, selected_issue, context, dry_run):  # noqa: ANN001
-        del self, selected_issue, dry_run
+    def execute_with_context(self, selected_issue, context, dry_run, branch_name):  # noqa: ANN001
+        del self, selected_issue, dry_run, branch_name
         assert context.prior_review_feedback is not None
         assert context.prior_review_feedback.review_status == "findings_present"
         assert context.prior_review_feedback.review_feedback_summary == (
@@ -2274,7 +2278,7 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
     )
     monkeypatch.setattr(
         "zeroone_ops.services.remediation.execution_service.ExecutionService.execute_with_context",
-        lambda self, selected_issue, context, dry_run: type(
+        lambda self, selected_issue, context, dry_run, branch_name: type(
             "ExecutionResult",
             (),
             {
@@ -2448,6 +2452,7 @@ def test_dashboard_remediate_fails_when_change_request_opened_update_cannot_pers
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
+        clear_publication_retry: bool = False,
     ):
         del (
             self,
@@ -2461,6 +2466,7 @@ def test_dashboard_remediate_fails_when_change_request_opened_update_cannot_pers
             retry_count,
             retry_eligible,
             retry_block_reason,
+            clear_publication_retry,
         )
         return type(
             "UpdateResult",
@@ -2472,8 +2478,8 @@ def test_dashboard_remediate_fails_when_change_request_opened_update_cannot_pers
             },
         )()
 
-    def execute_with_context(self, selected_issue, context, dry_run):  # noqa: ANN001
-        del self, selected_issue, context, dry_run
+    def execute_with_context(self, selected_issue, context, dry_run, branch_name):  # noqa: ANN001
+        del self, selected_issue, context, dry_run, branch_name
         return type(
             "ExecutionResult",
             (),
@@ -2663,6 +2669,7 @@ def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
+        publication_retry: object | None = None,
     ):
         del (
             self,
@@ -2673,6 +2680,7 @@ def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
             retry_count,
             retry_eligible,
             retry_block_reason,
+            publication_retry,
         )
         return type(
             "UpdateResult",
@@ -2684,8 +2692,8 @@ def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
             },
         )()
 
-    def execute_with_context(self, selected_issue, context, dry_run):  # noqa: ANN001
-        del self, selected_issue, context, dry_run
+    def execute_with_context(self, selected_issue, context, dry_run, branch_name):  # noqa: ANN001
+        del self, selected_issue, context, dry_run, branch_name
         return type(
             "ExecutionResult",
             (),
@@ -2872,8 +2880,18 @@ def test_dashboard_remediate_ci_failure_marks_dashboard_failed(
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
+        publication_retry: object | None = None,
     ):
-        del self, project_id, run_id, error_message, retry_count, retry_eligible, retry_block_reason
+        del (
+            self,
+            project_id,
+            run_id,
+            error_message,
+            retry_count,
+            retry_eligible,
+            retry_block_reason,
+            publication_retry,
+        )
         recorded_updates.append(("failed", dashboard_item_id))
         return type(
             "UpdateResult",
@@ -2885,8 +2903,8 @@ def test_dashboard_remediate_ci_failure_marks_dashboard_failed(
             },
         )()
 
-    def execute_with_context(self, selected_issue, context, dry_run):  # noqa: ANN001
-        del self, selected_issue, context, dry_run
+    def execute_with_context(self, selected_issue, context, dry_run, branch_name):  # noqa: ANN001
+        del self, selected_issue, context, dry_run, branch_name
         return type(
             "ExecutionResult",
             (),
@@ -3076,8 +3094,8 @@ def test_dashboard_remediate_ci_rejection_marks_dashboard_rejected(
             },
         )()
 
-    def execute_with_context(self, selected_issue, context, dry_run):  # noqa: ANN001
-        del self, selected_issue, context, dry_run
+    def execute_with_context(self, selected_issue, context, dry_run, branch_name):  # noqa: ANN001
+        del self, selected_issue, context, dry_run, branch_name
         return type(
             "ExecutionResult",
             (),
@@ -3442,8 +3460,18 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
+        publication_retry: object | None = None,
     ):
-        del self, project_id, run_id, error_message, retry_count, retry_eligible, retry_block_reason
+        del (
+            self,
+            project_id,
+            run_id,
+            error_message,
+            retry_count,
+            retry_eligible,
+            retry_block_reason,
+            publication_retry,
+        )
         recorded_updates.append(("failed", dashboard_item_id))
         return type(
             "UpdateResult",

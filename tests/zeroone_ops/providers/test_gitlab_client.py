@@ -109,6 +109,39 @@ def test_find_open_merge_request_normalizes_existing_merge_request() -> None:
     assert mr.web_url == "https://gitlab.example.com/group/project/-/merge_requests/9"
 
 
+def test_get_branch_head_sha_reads_remote_branch() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.raw_path == b"/api/v4/projects/123/repository/branches/zeroone-ops%2Ffix"
+        assert request.method == "GET"
+        return httpx.Response(200, json={"commit": {"id": "abc123"}})
+
+    client = GitLabClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    sha = client.get_branch_head_sha(project_id="123", branch_name="zeroone-ops/fix")
+
+    assert sha == "abc123"
+
+
+def test_get_branch_head_sha_returns_none_when_remote_branch_is_missing() -> None:
+    client = GitLabClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(lambda _: httpx.Response(404, json={})),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    sha = client.get_branch_head_sha(project_id="123", branch_name="zeroone-ops/missing")
+
+    assert sha is None
+
+
 def test_find_user_id_by_username_normalizes_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/api/v4/users"

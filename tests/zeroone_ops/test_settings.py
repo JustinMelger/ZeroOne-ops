@@ -5,6 +5,8 @@ from pytest import LogCaptureFixture
 from zeroone_ops.settings import (
     SettingsError,
     load_config,
+    load_current_github_issue_comment_id,
+    load_current_github_issue_number,
     load_current_github_pull_request_head_sha,
     load_current_github_pull_request_number,
     load_github_connection_config,
@@ -120,6 +122,33 @@ def test_github_settings_load_pull_request_number_from_event_payload(
     monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
 
     assert load_current_github_pull_request_number() == 42
+
+
+def test_github_settings_load_issue_number_from_event_payload(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    event_path = tmp_path / "github-event.json"
+    event_path.write_text('{"issue": {"number": 42}}', encoding="utf-8")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+
+    assert load_current_github_issue_number() == 42
+
+
+def test_github_settings_load_issue_comment_id_from_event_payload(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    event_path = tmp_path / "github-event.json"
+    event_path.write_text(
+        '{"issue": {"number": 42}, "comment": {"id": 84}}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+
+    assert load_current_github_issue_comment_id() == 84
 
 
 def test_github_settings_reject_non_integer_pull_request_number(

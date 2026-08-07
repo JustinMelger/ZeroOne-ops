@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from zeroone_ops.models.dashboard import DashboardDocument, DashboardItem
+from zeroone_ops.models.work_item import PublicationRetryState
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 
 
@@ -59,6 +60,7 @@ class DashboardRemediationUpdater:
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
+        clear_publication_retry: bool = False,
     ) -> DashboardRemediationUpdateResult:
         """Mark one dashboard item as having an open change request."""
         if change_request_url is None:
@@ -79,6 +81,7 @@ class DashboardRemediationUpdater:
             retry_count=retry_count,
             retry_eligible=retry_eligible,
             retry_block_reason=retry_block_reason,
+            clear_publication_retry=clear_publication_retry,
         )
 
     def mark_failed(
@@ -91,6 +94,7 @@ class DashboardRemediationUpdater:
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
+        publication_retry: PublicationRetryState | None = None,
     ) -> DashboardRemediationUpdateResult:
         """Mark one dashboard item as failed."""
         return self._update_item(
@@ -102,6 +106,7 @@ class DashboardRemediationUpdater:
             retry_count=retry_count,
             retry_eligible=retry_eligible,
             retry_block_reason=retry_block_reason,
+            publication_retry=publication_retry,
         )
 
     def mark_rejected(
@@ -184,6 +189,8 @@ class DashboardRemediationUpdater:
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
+        publication_retry: PublicationRetryState | None = None,
+        clear_publication_retry: bool = False,
     ) -> DashboardRemediationUpdateResult:
         """Load, update, and persist one dashboard item."""
         last_error: Exception | None = None
@@ -204,6 +211,8 @@ class DashboardRemediationUpdater:
                     retry_count=retry_count,
                     retry_eligible=retry_eligible,
                     retry_block_reason=retry_block_reason,
+                    publication_retry=publication_retry,
+                    clear_publication_retry=clear_publication_retry,
                 ):
                     return DashboardRemediationUpdateResult(
                         dashboard_issue_url=document.issue_url,
@@ -222,6 +231,8 @@ class DashboardRemediationUpdater:
                     retry_count=retry_count,
                     retry_eligible=retry_eligible,
                     retry_block_reason=retry_block_reason,
+                    publication_retry=publication_retry,
+                    clear_publication_retry=clear_publication_retry,
                 )
                 updated_document = self.dashboard_service.upsert_items(
                     project_id=project_id,
@@ -254,6 +265,8 @@ class DashboardRemediationUpdater:
         retry_count: int | None,
         retry_eligible: bool | None,
         retry_block_reason: str | None,
+        publication_retry: PublicationRetryState | None,
+        clear_publication_retry: bool,
     ) -> DashboardItem:
         """Return one lifecycle-updated dashboard item."""
         return current_item.model_copy(
@@ -295,6 +308,15 @@ class DashboardRemediationUpdater:
                         else current_item.retry_block_reason
                     )
                 ),
+                "publication_retry": (
+                    None
+                    if clear_publication_retry
+                    else (
+                        publication_retry
+                        if publication_retry is not None
+                        else current_item.publication_retry
+                    )
+                ),
             }
         )
 
@@ -313,6 +335,8 @@ class DashboardRemediationUpdater:
         retry_count: int | None,
         retry_eligible: bool | None,
         retry_block_reason: str | None,
+        publication_retry: PublicationRetryState | None,
+        clear_publication_retry: bool,
     ) -> bool:
         """Return whether one lifecycle update would be a no-op replay."""
         return (
@@ -346,6 +370,8 @@ class DashboardRemediationUpdater:
                     and current_item.change_request_number is None
                 )
             )
+            and (not clear_publication_retry or current_item.publication_retry is None)
+            and (publication_retry is None or current_item.publication_retry == publication_retry)
         )
 
     def _require_item(self, document: DashboardDocument, dashboard_item_id: str) -> DashboardItem:

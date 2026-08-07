@@ -268,6 +268,10 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
     def fake_push_current_branch() -> str:
         return "zeroone-ops/fix"
 
+    def fake_current_branch() -> str:
+        return "zeroone-ops/fix"
+
+    monkeypatch.setattr(service.branch_manager, "current_branch", fake_current_branch)
     monkeypatch.setattr(service.branch_manager, "push_current_branch", fake_push_current_branch)
 
     class StubPublisher:

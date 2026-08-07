@@ -67,6 +67,24 @@ zeroone_ops_dashboard_policy:
   script:
     - zeroone-ops dashboard policy
 
+# Dashboard remediation recovery commands.
+# GitLab dashboard notes do not emit a native pipeline event, so process these
+# on a schedule or through an explicit default-branch manual pipeline.
+zeroone_ops_work_items_recover:
+  extends: .zeroone_ops_base
+  stage: zeroone-ops-fix
+  resource_group: zeroone-ops-remediation
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_WORK_ITEMS_RECOVER == "true"'
+      when: manual
+    - when: never
+  variables:
+    # Define this as a masked and protected CI/CD variable:
+    # GITLAB_TOKEN
+  script:
+    - zeroone-ops work-items recover
+
 # Remediation workflow.
 # Keep this separate from finding sync, but run it after finding sync in the
 # same pipeline when both jobs are enabled so remediation acts on freshly

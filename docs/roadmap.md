@@ -34,12 +34,27 @@ history, not here.
 
 ### Phase 7: Remediation Recovery Design
 
-- define one provider-neutral recovery model for blocked remediation work
-- support explicit operator choices: dismiss, retry a recorded publication
-  branch when safe, or start a fresh attempt
-- keep closed change requests non-retryable until an operator makes that choice
-- implement GitLab and GitHub recovery adapters only after the shared contract
-  and operator UX are locked
+- [x] lock the shared recovery contract: operator `retry` or `dismiss`, with
+  backend-selected publication retry or fresh attempt
+- [x] lock terminal behavior: closed change requests stay blocked; dismissed
+  findings remain suppressed; no-change local analysis completes the item
+- [x] 7a: add shared recovery models, decisions, state migration, and tests
+- [x] 7b: add verified publication-retry planning and provider adapters
+- [x] 7c: add authorized GitLab dashboard-note and GitHub work-item commands
+- [ ] 7d: add fresh-attempt branch identity and live validation on both providers
+- design: [functional recovery contract](design/functional/functional-design-remediation-recovery.md)
+  and [technical implementation plan](design/technical/technical-design-remediation-recovery.md)
+
+### Control-Plane Installation UX
+
+- [ ] design one operator-facing control-plane installation per provider so
+  GitHub Actions and GitLab CI present the same conceptual jobs: finding sync,
+  remediation, lifecycle reconciliation, and optional recovery-command handling
+- [ ] ship one copyable GitHub workflow template and one GitLab CI template
+  with the correct triggers, schedules, concurrency, permissions, variables,
+  and required versus optional jobs already composed
+- [ ] update the README and runbook to describe this as one ZeroOne Ops
+  control-plane installation, not a collection of independently wired commands
 
 ### Phase 8: Validation Feedback Loop
 
@@ -91,4 +106,6 @@ history, not here.
 - [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
 - [design/technical/technical-design-github-platform-support.md](design/technical/technical-design-github-platform-support.md)
 - [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
+- [design/functional/functional-design-remediation-recovery.md](design/functional/functional-design-remediation-recovery.md)
+- [design/technical/technical-design-remediation-recovery.md](design/technical/technical-design-remediation-recovery.md)
 - [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)

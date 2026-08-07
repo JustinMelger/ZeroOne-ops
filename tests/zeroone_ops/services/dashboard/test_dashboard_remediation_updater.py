@@ -4,6 +4,7 @@ from zeroone_ops.models.dashboard import (
     DashboardSection,
     empty_sections,
 )
+from zeroone_ops.models.work_item import PublicationRetryState
 from zeroone_ops.services.dashboard.dashboard_remediation_updater import (
     DashboardRemediationUpdater,
 )
@@ -195,6 +196,42 @@ def test_mark_change_request_opened_writes_traceability_fields() -> None:
     assert result.updated_item.merge_request_url is not None
     assert result.updated_item.merge_request_iid == 1
     assert result.updated_item.commit_sha == "abc123"
+
+
+def test_mark_change_request_opened_clears_recorded_publication_retry() -> None:
+    """A linked merge request consumes the marker that permits publication-only retry."""
+    dashboard_service = FakeDashboardService(
+        build_document(
+            items=[
+                build_item(status="failed").model_copy(
+                    update={
+                        "branch_name": "zeroone-ops/ax123/service",
+                        "commit_sha": "abc123",
+                        "publication_retry": PublicationRetryState(
+                            branch_name="zeroone-ops/ax123/service",
+                            commit_sha="abc123",
+                            reason="change_request_publish_failed",
+                        ),
+                    }
+                )
+            ]
+        )
+    )
+    updater = DashboardRemediationUpdater(dashboard_service)
+
+    result = updater.mark_change_request_opened(
+        project_id="123",
+        dashboard_item_id="sonar:1",
+        run_id="run-2",
+        branch_name="zeroone-ops/ax123/service",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/1",
+        change_request_number=1,
+        commit_sha="abc123",
+        clear_publication_retry=True,
+    )
+
+    assert result.updated_item is not None
+    assert result.updated_item.publication_retry is None
 
 
 def test_mark_failed_preserves_existing_metadata_and_records_error_context() -> None:

@@ -4,25 +4,23 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
-from zeroone_ops.models.remediation import (
-    RemediationExecutionTarget,
-    remediation_profile_for,
-)
+from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.work_item import PublicationRetryState, WorkItemState
 from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.services.remediation.change_request_publisher import (
-    ChangeRequestPublishRequest,
     RemediationChangeRequestPublisher,
     build_remediation_change_request_publisher,
 )
 from zeroone_ops.services.remediation.control_plane import (
     RemediationControlPlane,
     build_remediation_control_plane,
+)
+from zeroone_ops.services.remediation.publication_request_builder import (
+    RemediationPublicationRequestBuilder,
 )
 from zeroone_ops.services.shared.branch_manager import (
     BranchManager,
@@ -57,6 +55,7 @@ class PublishService:
         branch_manager: BranchManager,
         change_request_publisher: RemediationChangeRequestPublisher | None = None,
         remediation_control_plane: RemediationControlPlane | None = None,
+        publication_request_builder: RemediationPublicationRequestBuilder | None = None,
     ) -> None:
         """Initialize the publish service.
 
@@ -65,12 +64,16 @@ class PublishService:
             branch_manager: Branch manager implementation.
             change_request_publisher: Optional provider-local publisher override.
             remediation_control_plane: Optional provider-local control-plane override.
+            publication_request_builder: Optional deterministic publish-request builder override.
         """
         self.config = config
         self.branch_manager = branch_manager
         self.change_request_publisher = change_request_publisher
         self._remediation_control_plane_override = remediation_control_plane
         self._remediation_control_plane: RemediationControlPlane | None = None
+        self.publication_request_builder = publication_request_builder or (
+            RemediationPublicationRequestBuilder(config)
+        )
 
     def publish(
         self,
@@ -90,33 +93,19 @@ class PublishService:
         control_plane_work_item = None
         pushed_branch: str | None = None
         try:
-            labels, assignee_username = self._publication_options()
-            target_branch = self.config.require_remediation_target_branch(
-                reason="Remediation publish",
-            )
             publisher = self.change_request_publisher or build_remediation_change_request_publisher(
                 self.config
+            )
+            publication_request = self.publication_request_builder.build(
+                source_branch=self.branch_manager.current_branch(),
+                selected_issue=selected_issue,
+                change_summary=change_request_description,
             )
             control_plane_work_item = self._mark_control_plane_publish_started_best_effort(
                 selected_issue=selected_issue,
             )
             pushed_branch = self.branch_manager.push_current_branch()
-            published_change_request = publisher.publish(
-                ChangeRequestPublishRequest(
-                    source_branch=pushed_branch,
-                    target_branch=target_branch,
-                    title=self.build_change_request_title(
-                        selected_issue=selected_issue,
-                        proposed_title=change_request_title,
-                    ),
-                    description=self.build_change_request_description(
-                        selected_issue=selected_issue,
-                        change_summary=change_request_description,
-                    ),
-                    labels=labels,
-                    assignee_username=assignee_username,
-                )
-            )
+            published_change_request = publisher.publish(publication_request)
             self._sync_control_plane_change_request_link_best_effort(
                 selected_issue=selected_issue,
                 published_change_request=published_change_request.info,
@@ -163,9 +152,7 @@ class PublishService:
             A deterministic conventional-commit-style title.
         """
         del proposed_title
-        issue_summary = selected_issue.rule_id or selected_issue.source_ref
-        file_name = Path(selected_issue.file_path).name
-        return f"fix: remediate {issue_summary} in {file_name}"
+        return self.publication_request_builder.build_title(selected_issue=selected_issue)
 
     def build_change_request_description(
         self,
@@ -174,53 +161,10 @@ class PublishService:
         change_summary: str,
     ) -> str:
         """Build a deterministic change-request description."""
-        profile = remediation_profile_for(selected_issue)
-        issue_line = str(selected_issue.line) if selected_issue.line is not None else "n/a"
-        issue_type = (
-            selected_issue.remediation_category
-            or selected_issue.issue_type
-            or selected_issue.source_type
+        return self.publication_request_builder.build_description(
+            selected_issue=selected_issue,
+            change_summary=change_summary,
         )
-        return "\n".join(
-            [
-                "## Summary",
-                change_summary,
-                "",
-                f"## {profile.mr_section_title}",
-                f"- Source: `{profile.source_display_name}`",
-                f"- Source ID: `{selected_issue.source_type}`",
-                f"- {profile.item_reference_label}: `{selected_issue.source_ref}`",
-                f"- Rule: `{selected_issue.rule_id or 'unknown'}`",
-                f"- Severity: `{selected_issue.severity or 'unknown'}`",
-                f"- Type: `{issue_type}`",
-                f"- File: `{selected_issue.file_path}`",
-                f"- Line: `{issue_line}`",
-                f"- Message: {selected_issue.message}",
-                "",
-                "## Notes",
-                profile.diff_note,
-            ]
-        )
-
-    def _publication_options(self) -> tuple[list[str], str | None]:
-        """Return provider-local publish options for the current repository config."""
-        if self.config.platform == "gitlab":
-            workflow_gitlab_config = self.config.require_gitlab_config(
-                reason="Remediation publish",
-            )
-            return (
-                workflow_gitlab_config.labels,
-                workflow_gitlab_config.merge_request_assignee_username,
-            )
-        if self.config.platform == "github":
-            workflow_github_config = self.config.github
-            if workflow_github_config is None:
-                return ([], None)
-            return (
-                workflow_github_config.labels,
-                workflow_github_config.pull_request_assignee_username,
-            )
-        return ([], None)
 
     def _remediation_control_plane_instance(self) -> RemediationControlPlane:
         """Return the provider-local remediation control plane, building defaults lazily."""

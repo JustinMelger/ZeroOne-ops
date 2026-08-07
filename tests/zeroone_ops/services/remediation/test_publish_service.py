@@ -63,11 +63,16 @@ def build_issue() -> RemediationExecutionTarget:
 class StubBranchManager:
     def __init__(self, *, push_error: str | None = None) -> None:
         self.push_error = push_error
+        self.push_count = 0
 
     def push_current_branch(self, *, remote_name: str = "origin") -> str:
         del remote_name
+        self.push_count += 1
         if self.push_error is not None:
             raise RuntimeError(self.push_error)
+        return "zeroone-ops/fix"
+
+    def current_branch(self) -> str:
         return "zeroone-ops/fix"
 
 
@@ -93,6 +98,14 @@ class StubChangeRequestPublisher:
             raise RuntimeError(self.error_message)
         self.request = request
         return self.result
+
+
+class FailingPublicationRequestBuilder:
+    """Raise a deterministic pre-push request validation failure."""
+
+    def build(self, **kwargs: object) -> ChangeRequestPublishRequest:
+        del kwargs
+        raise RuntimeError("target branch is unavailable")
 
 
 class StubRemediationControlPlane(RemediationControlPlane):
@@ -310,6 +323,25 @@ def test_publish_service_uses_pushed_branch_consistently() -> None:
     assert publisher.request is not None
     assert publisher.request.source_branch == "zeroone-ops/fix"
     assert result.branch_name == "zeroone-ops/fix"
+
+
+def test_publish_service_validates_request_before_pushing() -> None:
+    branch_manager = StubBranchManager()
+    service = PublishService(
+        config=build_config(),
+        branch_manager=branch_manager,  # type: ignore[arg-type]
+        change_request_publisher=StubChangeRequestPublisher(),
+        publication_request_builder=FailingPublicationRequestBuilder(),  # type: ignore[arg-type]
+    )
+
+    result = service.publish(
+        selected_issue=build_issue(),
+        change_request_title="ignored",
+        change_request_description="summary",
+    )
+
+    assert result.error_message == "Publish failed: target branch is unavailable"
+    assert branch_manager.push_count == 0
 
 
 def test_publish_service_assigns_created_merge_request_by_configured_username() -> None:

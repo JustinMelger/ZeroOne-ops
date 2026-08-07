@@ -5,6 +5,7 @@ from typing import cast
 import pytest
 
 from zeroone_ops.models.analysis import CodeContextSnippet, IssueContext
+from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
@@ -23,6 +24,7 @@ from zeroone_ops.models.state import (
     RunStatus,
 )
 from zeroone_ops.models.work_item import (
+    PublicationRetryState,
     WorkItemExecutionFailure,
     WorkItemSourceRef,
     WorkItemState,
@@ -40,6 +42,10 @@ from zeroone_ops.services.remediation.analysis_service import AnalysisResult
 from zeroone_ops.services.remediation.control_plane import RemediationControlPlane
 from zeroone_ops.services.remediation.execution_service import ExecutionResult, ExecutionService
 from zeroone_ops.services.remediation.github_remediation_runner import GitHubRemediationRunner
+from zeroone_ops.services.remediation.recovery.publication_retry_service import (
+    PublicationRetryResult,
+    PublicationRetryService,
+)
 from zeroone_ops.services.shared.run_state_service import RunStateService
 from zeroone_ops.services.shared.state_store import StateStore
 
@@ -94,7 +100,7 @@ class StubExecutionService:
 
     def __init__(self, result: ExecutionResult) -> None:
         self.result = result
-        self.calls: list[tuple[RemediationExecutionTarget, bool]] = []
+        self.calls: list[tuple[RemediationExecutionTarget, bool, str | None]] = []
 
     def execute_with_context(
         self,
@@ -102,9 +108,28 @@ class StubExecutionService:
         selected_issue: RemediationExecutionTarget,
         context: IssueContext,
         dry_run: bool,
+        branch_name: str | None = None,
     ) -> ExecutionResult:
         del context
-        self.calls.append((selected_issue, dry_run))
+        self.calls.append((selected_issue, dry_run, branch_name))
+        return self.result
+
+
+class StubPublicationRetryService:
+    """Return one bounded publication retry result without provider transport."""
+
+    def __init__(self, result: PublicationRetryResult) -> None:
+        self.result = result
+        self.calls: list[PublicationRetryState] = []
+
+    def retry(
+        self,
+        *,
+        publication_retry: PublicationRetryState,
+        request: object,
+    ) -> PublicationRetryResult:
+        del request
+        self.calls.append(publication_retry)
         return self.result
 
 
@@ -116,6 +141,8 @@ class StubControlPlane:
         self.execution_failures: list[WorkItemExecutionFailure | None] = []
         self.dismissed: list[str] = []
         self.completed: list[str] = []
+        self.publish_blocked: list[str] = []
+        self.linked_change_requests: list[str] = []
 
     def materialize_promoted_work_item(self, **kwargs: object) -> WorkItemState | None:
         del kwargs
@@ -155,10 +182,14 @@ class StubControlPlane:
         self.completed.append(selected_issue.item_id)
 
     def mark_publish_blocked(self, **kwargs: object) -> None:
-        del kwargs
+        selected_issue = kwargs["selected_issue"]
+        assert isinstance(selected_issue, RemediationExecutionTarget)
+        self.publish_blocked.append(selected_issue.item_id)
 
     def sync_change_request_link(self, **kwargs: object) -> None:
-        del kwargs
+        selected_issue = kwargs["selected_issue"]
+        assert isinstance(selected_issue, RemediationExecutionTarget)
+        self.linked_change_requests.append(selected_issue.item_id)
 
 
 def _config(state_path: Path) -> AppConfig:
@@ -222,6 +253,7 @@ def _runner(
     work_item_service: FakeGitHubWorkItemService,
     execution_service: StubExecutionService,
     control_plane: StubControlPlane,
+    publication_retry_service: StubPublicationRetryService | None = None,
 ) -> GitHubRemediationRunner:
     return GitHubRemediationRunner(
         repo_root=tmp_path,
@@ -231,6 +263,7 @@ def _runner(
         run_state_service=run_state_service,
         execution_service=cast(ExecutionService, execution_service),
         remediation_control_plane=cast(RemediationControlPlane, control_plane),
+        publication_retry_service=cast(PublicationRetryService | None, publication_retry_service),
     )
 
 
@@ -366,6 +399,87 @@ def test_runner_leaves_change_request_projection_to_publish_service(
     assert control_plane.completed == []
     assert control_plane.blocked == []
     assert control_plane.dismissed == []
+
+
+def test_runner_retries_recorded_publication_without_rerunning_execution(
+    tmp_path: Path,
+    context: IssueContext,
+) -> None:
+    del context
+    run_state_service = _run_state_service(tmp_path)
+    work_item = _work_item().model_copy(
+        update={
+            "publication_retry": PublicationRetryState(
+                branch_name="zeroone-ops/ruff-sarif/fix",
+                commit_sha="abc123",
+                reason="change_request_publish_failed",
+            )
+        }
+    )
+    execution_service = StubExecutionService(_execution_result())
+    control_plane = StubControlPlane()
+    retry_service = StubPublicationRetryService(
+        PublicationRetryResult(
+            change_request=ChangeRequestInfo(
+                iid=9,
+                web_url="https://github.example.com/octo-org/octo-repo/pull/9",
+                title="fix: remediation",
+            ),
+            action="created",
+        )
+    )
+    runner = _runner(
+        tmp_path=tmp_path,
+        run_state_service=run_state_service,
+        work_item_service=FakeGitHubWorkItemService(work_item),
+        execution_service=execution_service,
+        control_plane=control_plane,
+        publication_retry_service=retry_service,
+    )
+
+    summary = runner.run(record=run_state_service.start_run("run-1"), active_dry_run=False)
+
+    assert summary.status == RunStatus.CHANGE_REQUEST_CREATED
+    assert summary.change_request_url == "https://github.example.com/octo-org/octo-repo/pull/9"
+    assert execution_service.calls == []
+    assert retry_service.calls == [work_item.publication_retry]
+    assert control_plane.linked_change_requests == ["github-work-1"]
+
+
+def test_runner_keeps_failed_publication_retry_blocked(
+    tmp_path: Path,
+    context: IssueContext,
+) -> None:
+    del context
+    run_state_service = _run_state_service(tmp_path)
+    work_item = _work_item().model_copy(
+        update={
+            "publication_retry": PublicationRetryState(
+                branch_name="zeroone-ops/ruff-sarif/fix",
+                commit_sha="abc123",
+                reason="change_request_publish_failed",
+            )
+        }
+    )
+    control_plane = StubControlPlane()
+    runner = _runner(
+        tmp_path=tmp_path,
+        run_state_service=run_state_service,
+        work_item_service=FakeGitHubWorkItemService(work_item),
+        execution_service=StubExecutionService(_execution_result()),
+        control_plane=control_plane,
+        publication_retry_service=StubPublicationRetryService(
+            PublicationRetryResult(
+                error_message="Recorded remediation branch no longer exists remotely."
+            )
+        ),
+    )
+
+    summary = runner.run(record=run_state_service.start_run("run-1"), active_dry_run=False)
+
+    assert summary.status == RunStatus.FAILED
+    assert "Recorded remediation branch no longer exists remotely." in summary.message
+    assert control_plane.publish_blocked == ["github-work-1"]
 
 
 def test_runner_dry_run_does_not_claim_or_project_work_item(

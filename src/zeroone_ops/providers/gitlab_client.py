@@ -93,6 +93,31 @@ class GitLabClient:
             raise GitLabClientError("Unexpected GitLab response payload.")
         return _normalize_merge_request(response_payload)
 
+    def get_branch_head_sha(
+        self,
+        *,
+        project_id: str,
+        branch_name: str,
+    ) -> str | None:
+        """Return the remote branch head SHA, or ``None`` when the branch is absent."""
+        encoded_project_id = quote_plus(project_id)
+        encoded_branch_name = quote_plus(branch_name, safe="")
+        response = self._http_client.get(
+            f"/api/v4/projects/{encoded_project_id}/repository/branches/{encoded_branch_name}"
+        )
+        if response.status_code == 404:
+            return None
+        payload = _parse_json_response(response)
+        if not isinstance(payload, dict):
+            raise GitLabClientError("Unexpected GitLab branch response payload.")
+        commit = payload.get("commit")
+        if not isinstance(commit, dict):
+            raise GitLabClientError("Unexpected GitLab branch commit payload.")
+        sha = commit.get("id")
+        if not isinstance(sha, str):
+            raise GitLabClientError("Unexpected GitLab branch commit SHA.")
+        return sha
+
     def update_merge_request_assignee(
         self,
         *,

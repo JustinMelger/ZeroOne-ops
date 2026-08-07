@@ -282,3 +282,41 @@ def test_close_issue_patches_closed_state() -> None:
     issue = client.close_issue(repository_id="octo-org/octo-repo", issue_number=11)
 
     assert issue.number == 11
+
+
+def test_list_issue_comments_and_repository_permission_use_work_item_transport() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/comments"):
+            assert request.url.params["page"] == "1"
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "id": 21,
+                        "html_url": "https://github/x/issues/11#issuecomment-21",
+                        "body": "/zeroone remediation retry",
+                        "created_at": "2026-08-07T09:00:00Z",
+                        "user": {"login": "operator"},
+                    }
+                ],
+            )
+        assert request.url.path == "/repos/octo-org/octo-repo/collaborators/operator/permission"
+        return httpx.Response(200, json={"role_name": "admin"})
+
+    client = GitHubWorkItemClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.github.example.com",
+        ),
+    )
+
+    comments = client.list_issue_comments(repository_id="octo-org/octo-repo", issue_number=11)
+    permission = client.get_repository_permission(
+        repository_id="octo-org/octo-repo",
+        username="operator",
+    )
+
+    assert comments[0].id == 21
+    assert comments[0].author_username == "operator"
+    assert permission == "admin"
