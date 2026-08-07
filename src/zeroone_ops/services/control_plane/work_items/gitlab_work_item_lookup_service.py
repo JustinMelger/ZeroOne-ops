@@ -53,11 +53,11 @@ class GitLabWorkItemLookupService:
         source: WorkItemSourceRef,
     ) -> GitLabWorkItemLookupResult | None:
         """Return the uniquely matching open authoritative work item, if any."""
-        matches = [
-            result
-            for result in self.list_open_work_items(project_id=project_id)
-            if result.work_item.kind == kind and result.work_item.source == source
-        ]
+        matches = self.list_open_work_items_by_source(
+            project_id=project_id,
+            kind=kind,
+            source=source,
+        )
         if len(matches) <= 1:
             return matches[0] if matches else None
         LOGGER.warning(
@@ -70,6 +70,38 @@ class GitLabWorkItemLookupService:
             },
         )
         return None
+
+    def list_open_work_items_by_source(
+        self,
+        *,
+        project_id: str,
+        kind: WorkItemKind,
+        source: WorkItemSourceRef,
+    ) -> list[GitLabWorkItemLookupResult]:
+        """Return all open authoritative items matching one stable identity."""
+        return [
+            result
+            for result in self.list_open_work_items(project_id=project_id)
+            if result.work_item.kind == kind and result.work_item.source == source
+        ]
+
+    def list_closed_dismissed_work_items_by_source(
+        self,
+        *,
+        project_id: str,
+        kind: WorkItemKind,
+        source: WorkItemSourceRef,
+    ) -> list[GitLabWorkItemLookupResult]:
+        """Return closed dismissed tombstones matching one stable identity."""
+        return [
+            result
+            for result in self.list_closed_work_items(project_id=project_id)
+            if (
+                result.work_item.kind == kind
+                and result.work_item.source == source
+                and result.work_item.status == "dismissed"
+            )
+        ]
 
     def list_open_work_items(self, *, project_id: str) -> list[GitLabWorkItemLookupResult]:
         """Return all parseable open authoritative work items in one project."""
