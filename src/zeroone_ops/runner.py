@@ -18,6 +18,7 @@ from zeroone_ops.providers.github_client import GitHubClient, GitHubClientError
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
+from zeroone_ops.providers.gitlab_policy_client import GitLabPolicyClient
 from zeroone_ops.providers.review.github import GitHubReviewClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
@@ -39,6 +40,12 @@ from zeroone_ops.services.control_plane.policy.github_policy_issue_service impor
 )
 from zeroone_ops.services.control_plane.policy.github_policy_processing_runner import (
     GitHubPolicyProcessingRunner,
+)
+from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_service import (
+    GitLabPolicyIssueService,
+)
+from zeroone_ops.services.control_plane.policy.gitlab_policy_processing_runner import (
+    GitLabPolicyProcessingRunner,
 )
 from zeroone_ops.services.control_plane.work_items.github_finding_sync_service import (
     GitHubFindingSyncResult,
@@ -165,6 +172,27 @@ def _build_github_policy_issue_service(
     )
 
 
+def _build_gitlab_policy_processing_runner(
+    *,
+    repo_root: Path,
+    config: AppConfig,
+    state: AppState,
+    run_state_service: RunStateService,
+) -> GitLabPolicyProcessingRunner:
+    """Build GitLab issue-mode policy processing with provider-local transport."""
+    return GitLabPolicyProcessingRunner(
+        policy_issue_service=GitLabPolicyIssueService(
+            GitLabPolicyClient(load_gitlab_connection_config()),
+            policy_view_builder=_build_dashboard_policy_view_builder(
+                repo_root=repo_root,
+                config=config,
+                state=state,
+            ),
+        ),
+        run_state_service=run_state_service,
+    )
+
+
 def _build_github_work_item_recovery_runner(
     *,
     config: AppConfig,
@@ -269,6 +297,8 @@ def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
 def run_remediation(*, dry_run: bool = False) -> RunSummary:
     """Run remediation for the active platform."""
     config = load_config()
+    if _gitlab_issue_mode_is_active(config):
+        return _issue_mode_workflow_unavailable_summary(config=config, workflow="remediation")
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,
@@ -336,6 +366,8 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
 def sync_findings(*, dry_run: bool = False) -> RunSummary:
     """Collect normalized findings and project them for the active platform."""
     config = load_config()
+    if _gitlab_issue_mode_is_active(config):
+        return _issue_mode_workflow_unavailable_summary(config=config, workflow="findings sync")
     if config.platform == "gitlab":
         return _sync_gitlab_findings(config=config, dry_run=dry_run)
     return _sync_github_findings(config=config, dry_run=dry_run)
@@ -621,6 +653,8 @@ def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:
 def sync_work_item_status(*, dry_run: bool = False) -> RunSummary:
     """Reconcile remediation work-item lifecycle state for the active platform."""
     config = load_config()
+    if _gitlab_issue_mode_is_active(config):
+        return _issue_mode_workflow_unavailable_summary(config=config, workflow="lifecycle sync")
     if config.platform == "gitlab":
         return dashboard_reconcile(dry_run=dry_run)
     return _sync_github_work_item_status(config=config, dry_run=dry_run)
@@ -629,6 +663,8 @@ def sync_work_item_status(*, dry_run: bool = False) -> RunSummary:
 def recover_work_item(*, dry_run: bool = False) -> RunSummary:
     """Process provider-local remediation recovery commands."""
     config = load_config()
+    if _gitlab_issue_mode_is_active(config):
+        return _issue_mode_workflow_unavailable_summary(config=config, workflow="recovery")
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,
@@ -814,6 +850,19 @@ def dashboard_policy(*, dry_run: bool = False) -> RunSummary:
         )
 
     gitlab_config = load_gitlab_connection_config()
+    gitlab_settings = config.require_gitlab_config(reason="GitLab policy processing")
+    if gitlab_settings.control_plane_mode == "issues":
+        return _build_gitlab_policy_processing_runner(
+            repo_root=repo_root,
+            config=config,
+            state=state,
+            run_state_service=run_state_service,
+        ).run(
+            project_id=gitlab_config.project_id,
+            record=record,
+            active_dry_run=active_dry_run,
+            execution_mode=config.execution_mode,
+        )
     return DashboardPolicyProcessingRunner(
         dashboard_service=DashboardService(
             GitLabDashboardClient(gitlab_config),
@@ -835,3 +884,26 @@ def dashboard_policy(*, dry_run: bool = False) -> RunSummary:
 def collection_message_status(message: str) -> RunStatus:
     """Map dashboard-sync outcomes to run statuses."""
     return RunStatus.NO_ISSUE if message != "synced" else RunStatus.SYNCED
+
+
+def _gitlab_issue_mode_is_active(config: AppConfig) -> bool:
+    """Return whether GitLab issue mode owns the configured control plane."""
+    return (
+        config.platform == "gitlab"
+        and config.require_gitlab_config(reason="GitLab issue control plane").control_plane_mode
+        == "issues"
+    )
+
+
+def _issue_mode_workflow_unavailable_summary(*, config: AppConfig, workflow: str) -> RunSummary:
+    """Fail closed until the requested GitLab issue-mode workflow is implemented."""
+    return RunSummary(
+        run_id=_build_run_id(),
+        status=RunStatus.FAILED,
+        message=(
+            f"GitLab issue control-plane {workflow} is not available yet. "
+            "Policy processing is the only supported issue-mode workflow in Phase 8b; "
+            "keep gitlab.control_plane_mode=dashboard for other workflows."
+        ),
+        state_path=config.state.path,
+    )

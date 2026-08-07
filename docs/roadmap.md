@@ -49,7 +49,7 @@ history, not here.
 
 - [x] 8a.1: extract neutral linked-change-request reconciliation and add
   dedicated GitLab issue-mode transport without changing dashboard behavior
-- [ ] 8a.2: add GitLab work-item parsing, rendering, lookup, upsert, and
+- [x] 8a.2: add GitLab work-item parsing, rendering, lookup, upsert, and
   malformed-record handling
 - [ ] 8b: implement one GitLab policy issue with Maintainer/Owner-authorized
   note replay and shared policy loading

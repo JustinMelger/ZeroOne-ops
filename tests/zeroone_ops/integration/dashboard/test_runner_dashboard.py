@@ -15,6 +15,7 @@ from zeroone_ops.models.dashboard import (
     empty_sections,
 )
 from zeroone_ops.models.github import GitHubIssueInfo
+from zeroone_ops.models.gitlab import GitLabIssueInfo
 from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.models.review import (
     CandidateReviewFinding,
@@ -36,6 +37,9 @@ from zeroone_ops.runner import (
 )
 from zeroone_ops.services.control_plane.policy.github_policy_issue_service import (
     GitHubPolicyIssueProcessResult,
+)
+from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_service import (
+    GitLabPolicyIssueProcessResult,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardPolicyProcessResult
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
@@ -390,6 +394,82 @@ def test_dashboard_policy_dry_run_returns_github_policy_processing_summary(
     assert summary.status.value == "synced"
     assert "Dry-run would process 3 GitHub policy comments" in summary.message
     assert "2 authorized, 2 prefixed, 1 accepted, 1 rejected" in summary.message
+
+
+def test_dashboard_policy_dry_run_uses_gitlab_issue_mode_when_configured(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "validation_commands": [],
+          "gitlab": {
+            "control_plane_mode": "issues",
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.control_plane.policy.gitlab_policy_issue_service."
+        "GitLabPolicyIssueService.process_policy",
+        lambda self, project_id, persist=True: GitLabPolicyIssueProcessResult(
+            issue=GitLabIssueInfo(
+                id=10,
+                iid=11,
+                web_url="https://gitlab.example.com/group/project/-/issues/11",
+                title="ZeroOne Ops Policy",
+                description="",
+            ),
+            note_count=3,
+            authorized_note_count=2,
+            matched_prefix_count=2,
+            accepted_action_count=1,
+            rejected_prefix_count=1,
+            issue_changed=True,
+        ),
+    )
+
+    summary = dashboard_policy(dry_run=True)
+
+    assert summary.status.value == "synced"
+    assert "Dry-run would process 3 GitLab policy notes" in summary.message
+    assert "2 authorized, 2 prefixed, 1 accepted, 1 rejected" in summary.message
+
+
+def test_sync_dashboard_sonar_rejects_gitlab_issue_mode_until_finding_sync_exists(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "gitlab": {
+            "control_plane_mode": "issues",
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    summary = sync_dashboard_sonar(dry_run=True)
+
+    assert summary.status.value == "failed"
+    assert "findings sync is not available yet" in summary.message
 
 
 def test_dashboard_reconcile_dry_run_selects_change_request_opened_item(
