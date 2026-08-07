@@ -294,7 +294,7 @@ def test_list_issue_comments_and_repository_permission_use_work_item_transport()
                     {
                         "id": 21,
                         "html_url": "https://github/x/issues/11#issuecomment-21",
-                        "body": "/zeroone remediation retry",
+                        "body": "/zeroone remediation requeue",
                         "created_at": "2026-08-07T09:00:00Z",
                         "user": {"login": "operator"},
                     }

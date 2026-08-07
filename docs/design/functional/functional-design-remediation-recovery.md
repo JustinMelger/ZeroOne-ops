@@ -33,9 +33,9 @@ operator chooses exactly one action:
 | Action | Meaning | Result |
 |---|---|---|
 | `dismiss` | Do not automate this item further. | The item becomes `dismissed`; history remains visible. |
-| `retry` | Ask ZeroOne Ops to recover the item through the safest available path. | The backend either retries a verified publication or starts a new attempt. |
+| `requeue` | Return the item to the eligible remediation queue through the safest available path. | The backend either retries a verified publication or starts a new attempt. |
 
-For `retry`, the backend chooses one of two internal recovery plans:
+For `requeue`, the backend chooses one of two internal recovery plans:
 
 - `retry-publication`: reuse a verified branch and commit after only a
   change-request publication failure;
@@ -89,11 +89,11 @@ Recommended v1 commands:
 ```text
 # GitLab dashboard issue
 /zeroone remediation <item-id> dismiss
-/zeroone remediation <item-id> retry
+/zeroone remediation <item-id> requeue
 
 # GitHub work-item issue
 /zeroone remediation dismiss
-/zeroone remediation retry
+/zeroone remediation requeue
 ```
 
 The command processor records the requested authoritative state transition and
@@ -108,14 +108,14 @@ When an item is blocked, its rendered view must include:
 
 - the concise failure or reconciliation reason;
 - the latest execution or publication link when available;
-- the provider-appropriate `retry` command;
+- the provider-appropriate `requeue` command;
 - the provider-appropriate `dismiss` command.
 
 For example, a GitHub work-item issue can show:
 
 ```text
 Recovery: This remediation is blocked because validation failed.
-Retry safely: /zeroone remediation retry
+Requeue for remediation: /zeroone remediation requeue
 Stop automation: /zeroone remediation dismiss
 ```
 

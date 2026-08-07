@@ -34,7 +34,7 @@ def build_work_item(*, status: str = "approved") -> WorkItemState:
 def build_request(
     *,
     work_item_status: str = "blocked",
-    action: RecoveryAction = "retry",
+    action: RecoveryAction = "requeue",
     reason: str | None = None,
 ) -> tuple[RecoveryDecisionService, RecoveryRequest]:
     service = RecoveryDecisionService()
@@ -63,7 +63,7 @@ def test_dismiss_records_durable_recovery_history() -> None:
     assert decision.work_item.recovery_events[0].previous_status == "blocked"
 
 
-def test_retry_selects_publication_only_path_when_recorded_branch_is_available() -> None:
+def test_requeue_selects_publication_only_path_when_recorded_branch_is_available() -> None:
     service = RecoveryDecisionService()
     work_item = build_work_item(status="blocked").model_copy(
         update={
@@ -75,7 +75,7 @@ def test_retry_selects_publication_only_path_when_recorded_branch_is_available()
         }
     )
     request = RecoveryRequest(
-        action="retry",
+        action="requeue",
         actor="operator",
         request_reference="comment-42",
         expected_state_fingerprint=service.state_fingerprint(work_item),
@@ -91,7 +91,7 @@ def test_retry_selects_publication_only_path_when_recorded_branch_is_available()
     assert decision.work_item.publication_retry == work_item.publication_retry
 
 
-def test_retry_queues_fresh_attempt_and_clears_current_execution_state() -> None:
+def test_requeue_queues_fresh_attempt_and_clears_current_execution_state() -> None:
     service = RecoveryDecisionService()
     work_item = build_work_item(status="blocked").model_copy(
         update={
@@ -105,7 +105,7 @@ def test_retry_queues_fresh_attempt_and_clears_current_execution_state() -> None
         }
     )
     request = RecoveryRequest(
-        action="retry",
+        action="requeue",
         actor="operator",
         request_reference="comment-42",
         expected_state_fingerprint=service.state_fingerprint(work_item),
@@ -122,7 +122,7 @@ def test_retry_queues_fresh_attempt_and_clears_current_execution_state() -> None
     assert decision.work_item.recovery_events[0].prior_execution_failure is not None
 
 
-def test_retry_rejects_when_current_policy_does_not_allow_fresh_attempt() -> None:
+def test_requeue_rejects_when_current_policy_does_not_allow_fresh_attempt() -> None:
     service, request = build_request()
     work_item = build_work_item(status="blocked")
 

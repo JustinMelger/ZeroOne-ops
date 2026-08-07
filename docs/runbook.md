@@ -1,7 +1,8 @@
 ## ZeroOne Ops Operator Runbook
 
 This runbook describes how to operate the current ZeroOne Ops workflows in
-GitLab CI.
+GitLab CI and GitHub Actions. Provider-specific setup details call out the
+relevant platform where their control planes differ.
 
 Naming note:
 
@@ -21,25 +22,47 @@ Use this document when you need to:
 - know which credentials and permissions are required
 - run the merge request review workflow and validate its output
 
+## Operating The Control Plane
+
+The installed CI workflow owns ZeroOne Ops CLI commands. Operators normally
+work through provider-native records:
+
+| Operator need | GitLab | GitHub |
+|---|---|---|
+| Change automation policy | Comment on the dashboard issue | Comment on the policy issue |
+| Recover a blocked item | Comment on the dashboard issue, then run recovery | Comment on the work-item issue; the recovery workflow runs on that comment |
+| Inspect an active remediation | Dashboard workflow row and merge request link | Work-item issue and operational-summary link |
+
+Both provider templates compose the same jobs: finding sync, remediation,
+lifecycle reconciliation, policy processing, and recovery processing. Normal
+operation is scheduled; manual runs are for rollout and operator follow-up.
+
 ## Supported V1 Scope
 
 The current v1 automation scope is intentionally narrow:
 
-- one SonarQube issue per run
-- low-severity maintainability issues only
+- staged review for one GitLab merge request or GitHub pull request per run
+- normalized SonarQube and configured SARIF findings
+- one eligible remediation work item per run
 - low-risk single-file fixes only
 - structured-edit generation with bot-rendered diffs
 - structured edits must touch exactly one file
-- GitLab merge request creation in `ci` mode
-- severity-based intake control seeded from `bootstrap_severities`, with
-  built-in safety guards for issue classes the bot should not automate
+- provider-native GitLab merge request or GitHub pull request creation in
+  `ci` mode
+- policy-controlled promotion, lifecycle reconciliation, and explicit operator
+  recovery for blocked remediation
+- bounded GitHub review inline comments when enabled in the repository config
+
+V1 does not include multi-file remediation, autonomous test repair, automatic
+recovery of blocked work, or a database-backed control plane.
 
 Current config shape for rollout:
 
 - shared runtime settings remain top-level
 - review behavior lives under `review`
 - remediation policy lives under `remediation`
-- Sonar-specific local fixture behavior lives under `sonarqube`
+- provider-specific metadata lives under `gitlab` or `github`
+- finding sources live under `sonarqube` and `sarif` when configured
 
 In practice, the main remediation rollout keys now are:
 
@@ -47,18 +70,18 @@ In practice, the main remediation rollout keys now are:
 - `remediation.max_retry_count`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
+- `sarif.artifacts`
 
 Authority note:
 
 - `remediation.bootstrap_severities` is the bootstrap/default seed for a new
-  dashboard severity policy
-- once the dashboard has canonical policy state, remediation pickup follows
-  the dashboard policy instead of treating config severity as the active
-  operator control plane
-- if neither config severity nor dashboard severity policy exists yet, the
+  control-plane severity policy
+- once canonical policy state exists, remediation pickup follows that policy
+  instead of treating config severity as the active operator control plane
+- if neither config severity nor control-plane severity policy exists yet, the
   bootstrap default is `low` and `medium` enabled with `high` disabled
-- operators should change ongoing severity policy through strict
-  `/zeroone policy ...` dashboard comments
+- GitLab operators change ongoing policy through strict `/zeroone policy ...`
+  dashboard comments; GitHub repository admins use the dedicated policy issue
 
 Only the remaining nested migration aliases still work during migration. The
 old flat top-level config keys no longer load, and new repository rollouts
@@ -70,49 +93,45 @@ symbol-reference safety checks that are not part of v1 yet.
 If the LLM proposes a structured edit that touches more than one file, the run
 fails at analysis instead of trying to widen scope automatically.
 
-The repository also contains a GitLab-first pull request review v1 workflow:
+The review workflow is provider-native:
 
-- one merge request per run
+- one merge request or pull request per run
 - one deterministic summary note per reviewed revision
-- dedup by merge request IID and head SHA
-- no inline comments in v1
+- dedup by change-request identity and head SHA
+- bounded GitHub inline comments when enabled in `review.inline_comments_enabled`
 - no code modification in the review workflow
-- draft merge requests skipped by default
+- draft change requests skipped by default
 
-The dashboard workflow also includes scheduled reconciliation:
+The control plane includes scheduled lifecycle reconciliation:
 
-- one `mr_opened` dashboard item per run
-- GitLab merge request state lookup using stored MR traceability
-- deterministic transitions to `done`, `open`, or `failed`
+- GitLab dashboard items and GitHub work-item issues retain change-request
+  traceability
+- deterministic transitions for merged, closed-unmerged, stale, and blocked
+  remediation work
 - CI-only live execution, with local inspection limited to `--dry-run`
 
-The dashboard policy workflow is also separate:
+Policy processing is separate from finding sync and remediation:
 
-- one dedicated policy-processing run replays dashboard note commands into
-  canonical policy state
-- accepted commands and malformed prefixed commands receive bounded
-  acknowledgement notes on the dashboard issue
-- strict `/zeroone policy ...` comments are the only operator mutation path
+- GitLab replays dashboard-note commands into canonical policy state
+- GitHub replays comments from the dedicated policy issue
+- malformed or unauthorized commands are visible in logs and do not mutate
+  authoritative state
 
-Dashboard remediation recovery is separate as well. A Maintainer or Owner can
-comment on the GitLab dashboard issue with either
-`/zeroone remediation <item-id> retry` or
-`/zeroone remediation <item-id> dismiss`; then run
-`zeroone-ops work-items recover` from CI. The command queues state only. The
-normal remediation job remains the sole owner of patch generation, validation,
-branch creation, and change-request publication.
-- CI-only live execution, with local inspection limited to `--dry-run`
+Blocked remediation recovery is separate as well. A GitLab Maintainer or Owner
+comments on the dashboard issue with `/zeroone remediation <item-id> requeue` or
+`/zeroone remediation <item-id> dismiss`; a GitHub repository admin comments
+`/zeroone remediation requeue` or `/zeroone remediation dismiss` on the affected
+work-item issue. Recovery only queues state. The normal remediation job remains
+the sole owner of patch generation, validation, branch creation, and
+change-request publication.
 
-The dashboard also renders an operator policy surface:
+The provider-native control plane renders an operator policy surface:
 
-- current severity policy is shown as read-only descriptive state
-- excluded issue classes and grouped issue inventory are shown for visibility
-- policy actions should be issued as strict dashboard issue comments beginning
-  with `/zeroone policy`
-- direct dashboard markdown edits and raw checkbox toggles are display-only and
-  are not the authoritative mutation path
-- when an older recognized dashboard body is loaded, ZeroOne Ops rewrites it
-  into the current schema before continuing normal dashboard-backed workflows
+- current severity policy and excluded issue classes are shown for visibility
+- GitLab dashboard markdown and GitHub operational summaries are derived views,
+  not authoritative mutation surfaces
+- GitLab rewrites recognized legacy dashboard bodies into the current schema
+  before normal dashboard-backed workflows continue
 
 ## Required CI Variables
 
@@ -283,13 +302,15 @@ Use the example pipeline from
 
 Current job roles:
 
-- `zeroone_ops_dashboard`
-  - discovery-only dashboard sync for eligible Sonar findings
+- `zeroone_ops_findings_sync`
+  - finding sync for SonarQube and configured SARIF sources
 - `zeroone_ops_dashboard_policy`
   - dashboard policy processing for strict `/zeroone policy ...` note commands
-- `zeroone_ops_dashboard_remediate`
+- `zeroone_ops_work_items_recover`
+  - dashboard recovery processing for strict `/zeroone remediation ...` note commands
+- `zeroone_ops_remediation`
   - dashboard-backed remediation
-- `zeroone_ops_dashboard_reconcile`
+- `zeroone_ops_work_items_sync_status`
   - scheduled dashboard reconciliation for `mr_opened` items after merge
     request state changes
 - `zeroone_ops_review`
@@ -806,22 +827,16 @@ Current config note:
 - use the example workflow comments for the smallest valid review-only JSON
   shape
 
-## GitHub Remediation Manual Run
+## GitHub Control-Plane Setup
 
-The first GitHub remediation rollout is deliberately manual. Use the
-`GitHub Remediation` workflow from the Actions tab after finding sync has
-created an eligible `approved` work-item issue.
+Use [examples/github-operations.yml](../examples/github-operations.yml) as
+one installed control-plane workflow. It schedules finding sync, remediation,
+and lifecycle convergence; processes policy comments only on the policy issue;
+and processes recovery comments only on work-item issues.
 
-The workflow always checks out the repository default branch and runs:
-
-```bash
-uv run zeroone-ops remediation run
-```
-
-It processes at most one work item. Repository-scoped workflow concurrency
-serializes live claims, so a second manual run waits rather than selecting the
-same item concurrently. Do not add a schedule until one manual run has created
-or reused a remediation pull request and the linked work-item state is correct.
+Remediation processes at most one approved work item per run. Repository-scoped
+workflow concurrency serializes live claims, so concurrent runs do not select
+the same item.
 
 Required workflow permissions:
 

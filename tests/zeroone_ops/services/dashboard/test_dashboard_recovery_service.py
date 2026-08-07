@@ -130,11 +130,11 @@ def build_service(
     )
 
 
-def test_process_queues_an_authorized_fresh_retry() -> None:
+def test_process_requeues_an_authorized_fresh_attempt() -> None:
     item = build_item()
     service, dashboard_service = build_service(
         document=build_document(item),
-        notes=[build_note(body="/zeroone remediation sonar:AX-123 retry")],
+        notes=[build_note(body="/zeroone remediation sonar:AX-123 requeue")],
     )
 
     result = service.process(project_id="123", run_id="run-1", persist=True)
@@ -182,7 +182,7 @@ def test_process_rejects_a_command_that_predates_the_current_blocked_state() -> 
 def test_process_rejects_unknown_item_without_updating_the_dashboard() -> None:
     service, dashboard_service = build_service(
         document=build_document(build_item()),
-        notes=[build_note(body="/zeroone remediation unknown retry")],
+        notes=[build_note(body="/zeroone remediation unknown requeue")],
     )
 
     result = service.process(project_id="123", run_id="run-1", persist=True)

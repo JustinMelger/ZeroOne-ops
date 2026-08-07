@@ -165,7 +165,7 @@ def test_process_queues_fresh_retry_without_running_publication() -> None:
     )
     service, _ = build_service(
         existing=existing,
-        comments=[build_comment(body="/zeroone remediation retry")],
+        comments=[build_comment(body="/zeroone remediation requeue")],
     )
 
     result = service.process(
@@ -199,7 +199,7 @@ def test_process_queues_verified_publication_retry_for_the_remediation_runner() 
     )
     service, work_item_service = build_service(
         existing=existing,
-        comments=[build_comment(body="/zeroone remediation retry")],
+        comments=[build_comment(body="/zeroone remediation requeue")],
     )
 
     result = service.process(

@@ -147,7 +147,10 @@ jobs:
         run: zeroone-ops work-items sync-status
 
   policy:
-    if: github.event_name == 'issue_comment' && github.event.issue.pull_request == null
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request == null &&
+      contains(github.event.issue.labels.*.name, 'zeroone-policy')
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/<owner>/zeroone-ops:latest
@@ -177,8 +180,46 @@ jobs:
       - name: Process policy commands
         run: zeroone-ops dashboard policy
 
+  recovery:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request == null &&
+      contains(github.event.issue.labels.*.name, 'zeroone-work-item')
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/<owner>/zeroone-ops:latest
+    concurrency:
+      group: zeroone-ops-remediation-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+    env:
+      ZEROONE_OPS_EXECUTION_MODE: ci
+      ZEROONE_OPS_CONFIG: .zeroone-ops.json
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+
+    steps:
+      - name: Check out default branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Install uv for the target repository
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --all-groups --locked
+
+      - name: Process recovery command
+        run: zeroone-ops work-items recover
+
 # Copy examples/.zeroone-ops.github.json to .zeroone-ops.json before enabling
 # this workflow. The configuration declares artifacts/ruff.sarif as an example
 # SARIF source and controls remediation promotion through bootstrap policy
-# settings. Replace the Ruff generation, artifact path, and toolchain setup
-# with any SARIF producer used by your repository.
+# settings. The workflow owns finding sync, remediation, lifecycle convergence,
+# policy commands, and recovery commands. Replace the Ruff generation, artifact
+# path, and toolchain setup with any SARIF producer used by your repository.

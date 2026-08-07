@@ -920,7 +920,7 @@ class DashboardRenderer:
     def _render_recovery_commands(self, item: DashboardItem) -> str:
         """Render explicit recovery commands for one failed dashboard item."""
         prefix = f"/zeroone remediation {item.id}"
-        return f"Retry: `{prefix} retry`<br>Dismiss: `{prefix} dismiss`"
+        return f"Requeue: `{prefix} requeue`<br>Dismiss: `{prefix} dismiss`"
 
     def _needs_attention(self, item: DashboardItem) -> bool:
         """Return whether one review item should appear in the attention queue."""

@@ -34,7 +34,7 @@ history, not here.
 
 ### Phase 7: Remediation Recovery Design
 
-- [x] lock the shared recovery contract: operator `retry` or `dismiss`, with
+- [x] lock the shared recovery contract: operator `requeue` or `dismiss`, with
   backend-selected publication retry or fresh attempt
 - [x] lock terminal behavior: closed change requests stay blocked; dismissed
   findings remain suppressed; no-change local analysis completes the item
@@ -47,13 +47,13 @@ history, not here.
 
 ### Control-Plane Installation UX
 
-- [ ] design one operator-facing control-plane installation per provider so
+- [x] design one operator-facing control-plane installation per provider so
   GitHub Actions and GitLab CI present the same conceptual jobs: finding sync,
   remediation, lifecycle reconciliation, and optional recovery-command handling
-- [ ] ship one copyable GitHub workflow template and one GitLab CI template
+- [x] ship one copyable GitHub workflow template and one GitLab CI template
   with the correct triggers, schedules, concurrency, permissions, variables,
   and required versus optional jobs already composed
-- [ ] update the README and runbook to describe this as one ZeroOne Ops
+- [x] update the README and runbook to describe this as one ZeroOne Ops
   control-plane installation, not a collection of independently wired commands
 
 ### Phase 8: Validation Feedback Loop
