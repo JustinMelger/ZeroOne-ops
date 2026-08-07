@@ -19,6 +19,9 @@ WorkItemStatus = Literal[
     "completed",
     "dismissed",
 ]
+RecoveryAction = Literal["dismiss", "retry"]
+RecoveryPlan = Literal["retry_publication", "start_fresh"]
+WorkItemResolution = Literal["merged", "no_change_required"]
 
 
 class ChangeRequestRef(BaseModel):
@@ -73,6 +76,24 @@ class WorkItemExecutionFailure(BaseModel):
     execution_url: str | None = None
 
 
+class RecoveryEvent(BaseModel):
+    """Record one accepted operator recovery decision for a work item."""
+
+    action: RecoveryAction
+    actor: str
+    request_reference: str
+    occurred_at: datetime
+    previous_status: str
+    resulting_status: str
+    previous_attempt_number: int = Field(ge=1)
+    resulting_attempt_number: int = Field(ge=1)
+    plan: RecoveryPlan | None = None
+    reason: str | None = None
+    prior_change_request: ChangeRequestRef | None = None
+    prior_publication_retry: PublicationRetryState | None = None
+    prior_execution_failure: WorkItemExecutionFailure | None = None
+
+
 class WorkItemState(BaseModel):
     """Represent one canonical provider-neutral work item."""
 
@@ -91,6 +112,9 @@ class WorkItemState(BaseModel):
     claim: WorkItemClaim | None = None
     publication_retry: PublicationRetryState | None = None
     execution_failure: WorkItemExecutionFailure | None = None
+    attempt_number: int = Field(default=1, ge=1)
+    recovery_events: list[RecoveryEvent] = Field(default_factory=list)
+    resolution: WorkItemResolution | None = None
     created_by_system: Literal["zeroone_ops"] = "zeroone_ops"
 
     @property

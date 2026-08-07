@@ -143,4 +143,14 @@ class GitHubWorkItemUpsertService:
             and parsed.execution_failure is not None
         ):
             update["execution_failure"] = parsed.execution_failure
+        if "attempt_number" not in work_item.model_fields_set:
+            update["attempt_number"] = parsed.attempt_number
+        if "recovery_events" not in work_item.model_fields_set:
+            update["recovery_events"] = parsed.recovery_events
+        if (
+            "resolution" not in work_item.model_fields_set
+            and work_item.resolution is None
+            and parsed.resolution is not None
+        ):
+            update["resolution"] = parsed.resolution
         return work_item.model_copy(update=update)

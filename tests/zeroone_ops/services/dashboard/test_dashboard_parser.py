@@ -7,6 +7,7 @@ from zeroone_ops.models.dashboard import (
     DashboardSection,
     DashboardSeverityPolicyStateEntry,
 )
+from zeroone_ops.models.work_item import RecoveryEvent
 from zeroone_ops.services.dashboard.dashboard_parser import (
     DashboardParseError,
     DashboardParser,
@@ -102,6 +103,21 @@ def test_parse_round_trips_dashboard_item_datetime_metadata() -> None:
                         update={
                             "last_run_id": "run-1",
                             "status_updated_at": datetime(2026, 4, 7, 12, 0, tzinfo=UTC),
+                            "attempt_number": 2,
+                            "recovery_events": [
+                                RecoveryEvent(
+                                    action="retry",
+                                    actor="operator",
+                                    request_reference="note-42",
+                                    occurred_at=datetime(2026, 4, 7, 11, 0, tzinfo=UTC),
+                                    previous_status="failed",
+                                    resulting_status="open",
+                                    previous_attempt_number=1,
+                                    resulting_attempt_number=2,
+                                    plan="start_fresh",
+                                )
+                            ],
+                            "resolution": "no_change_required",
                         }
                     )
                 ],
@@ -130,6 +146,9 @@ def test_parse_round_trips_dashboard_item_datetime_metadata() -> None:
     item = document.items_by_id()["sonar:1"]
     assert item.last_run_id == "run-1"
     assert item.status_updated_at == datetime(2026, 4, 7, 12, 0, tzinfo=UTC)
+    assert item.attempt_number == 2
+    assert item.recovery_events[0].previous_status == "failed"
+    assert item.resolution == "no_change_required"
 
 
 def test_rendered_dashboard_body_includes_human_readable_summary_table() -> None:

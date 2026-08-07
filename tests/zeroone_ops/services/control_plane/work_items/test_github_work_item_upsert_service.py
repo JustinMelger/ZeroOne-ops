@@ -4,6 +4,7 @@ from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.work_item import (
     ChangeRequestRef,
     ProjectedReviewState,
+    RecoveryEvent,
     WorkItemExecutionFailure,
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
@@ -202,6 +203,50 @@ def test_upsert_preserves_existing_execution_failure_without_explicit_update() -
     )
 
     assert result.work_item.execution_failure == execution_failure
+
+
+def test_upsert_preserves_existing_recovery_state_without_explicit_update() -> None:
+    renderer = GitHubWorkItemRenderer()
+    recovery_event = RecoveryEvent(
+        action="dismiss",
+        actor="operator",
+        request_reference="comment-42",
+        occurred_at=datetime(2026, 8, 7, tzinfo=UTC),
+        previous_status="blocked",
+        resulting_status="dismissed",
+        previous_attempt_number=1,
+        resulting_attempt_number=1,
+    )
+    original = build_work_item(status="dismissed").model_copy(
+        update={
+            "attempt_number": 2,
+            "recovery_events": [recovery_event],
+            "resolution": "no_change_required",
+        }
+    )
+    client = FakeGitHubWorkItemClient()
+    client.issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(original),
+            body=renderer.render_body(original),
+        )
+    ]
+    service = GitHubWorkItemUpsertService(
+        client,
+        lookup_service=GitHubWorkItemLookupService(client),
+    )
+
+    result = service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item(status="dismissed"),
+    )
+
+    assert result.work_item.attempt_number == 2
+    assert result.work_item.recovery_events == [recovery_event]
+    assert result.work_item.resolution == "no_change_required"
 
 
 def test_upsert_persists_explicit_execution_failure_clear() -> None:

@@ -19,3 +19,5 @@ def test_parse_work_item_state_round_trips_rendered_body() -> None:
     assert parsed.work_item_id == "work-1"
     assert parsed.identity_key == build_work_item().identity_key
     assert parsed.projected_review is None
+    assert parsed.attempt_number == 1
+    assert parsed.recovery_events == []
