@@ -45,6 +45,33 @@ history, not here.
 - design: [functional recovery contract](design/functional/functional-design-remediation-recovery.md)
   and [technical implementation plan](design/technical/technical-design-remediation-recovery.md)
 
+### Phase 8: GitLab Issue Control Plane
+
+- [ ] 8a: extract neutral linked-change-request reconciliation and add GitLab
+  issue-mode transport, parsing, rendering, and malformed-record handling
+  without changing dashboard behavior
+- [ ] 8b: implement one GitLab policy issue with Maintainer/Owner-authorized
+  note replay and shared policy loading
+- [ ] 8c: publish policy-promoted findings as authoritative GitLab work-item
+  issues with identity lookup, claiming, merge-request links, and review
+  projection
+- [ ] 8d: add GitLab issue-mode lifecycle and event-scoped recovery, plus a
+  read-only switch-and-sync cutover preflight with no dual writes
+- [ ] 8d: add the scheduled/manual issue-mode control-plane job: policy,
+  paginated labelled work-item recovery notes, then remediation; start at a
+  30-minute schedule
+- [ ] 8d: label and close the legacy dashboard after cutover, preserving it as
+  readable history without competing authority
+- [ ] 8e: live-validate policy, remediation, recovery, merge-request
+  lifecycle, dismissal suppression, blocked items, and stale claims in two
+  GitLab repositories
+- [ ] 8e: after successful rollout, make dashboard mode maintenance-only for
+  two minor releases, then remove it in a planned breaking release
+- [ ] 8e: decide whether evidence supports adding an optional compact derived
+  GitLab operational summary
+- design: [functional control-plane design](design/functional/functional-design-gitlab-issue-control-plane.md)
+  and [technical implementation plan](design/technical/technical-design-gitlab-issue-control-plane.md)
+
 ### Control-Plane Installation UX
 
 - [x] design one operator-facing control-plane installation per provider so
@@ -56,7 +83,7 @@ history, not here.
 - [x] update the README and runbook to describe this as one ZeroOne Ops
   control-plane installation, not a collection of independently wired commands
 
-### Phase 8: Validation Feedback Loop
+### Phase 9: Validation Feedback Loop
 
 - capture a baseline for configured validation commands before applying a
   remediation patch
@@ -86,9 +113,6 @@ history, not here.
 
 ## Parked For Later
 
-- evolve GitLab from its all-in-one dashboard issue toward the GitHub-style
-  hybrid model: authoritative work items, separate policy, and optional derived
-  overview
 - external API/database-backed control plane
 - additional structured finding adapters and a later shared cross-source
   reconciliation/deduplication stage
