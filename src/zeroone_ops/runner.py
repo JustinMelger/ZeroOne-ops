@@ -9,6 +9,7 @@ import logging
 import secrets
 from dataclasses import replace
 from pathlib import Path
+from typing import Protocol
 
 import httpx
 
@@ -19,6 +20,7 @@ from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_policy_client import GitLabPolicyClient
+from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 from zeroone_ops.providers.review.github import GitHubReviewClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
@@ -62,6 +64,12 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_recovery_ser
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
+)
+from zeroone_ops.services.control_plane.work_items.gitlab_finding_sync_service import (
+    GitLabFindingSyncService,
+)
+from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
+    GitLabWorkItemService,
 )
 from zeroone_ops.services.dashboard.dashboard_policy_processing_runner import (
     DashboardPolicyProcessingRunner,
@@ -181,15 +189,29 @@ def _build_gitlab_policy_processing_runner(
 ) -> GitLabPolicyProcessingRunner:
     """Build GitLab issue-mode policy processing with provider-local transport."""
     return GitLabPolicyProcessingRunner(
-        policy_issue_service=GitLabPolicyIssueService(
-            GitLabPolicyClient(load_gitlab_connection_config()),
-            policy_view_builder=_build_dashboard_policy_view_builder(
-                repo_root=repo_root,
-                config=config,
-                state=state,
-            ),
+        policy_issue_service=_build_gitlab_policy_issue_service(
+            repo_root=repo_root,
+            config=config,
+            state=state,
         ),
         run_state_service=run_state_service,
+    )
+
+
+def _build_gitlab_policy_issue_service(
+    *,
+    repo_root: Path,
+    config: AppConfig,
+    state: AppState,
+) -> GitLabPolicyIssueService:
+    """Build provider-local GitLab policy access for issue-mode workflows."""
+    return GitLabPolicyIssueService(
+        GitLabPolicyClient(load_gitlab_connection_config()),
+        policy_view_builder=_build_dashboard_policy_view_builder(
+            repo_root=repo_root,
+            config=config,
+            state=state,
+        ),
     )
 
 
@@ -366,9 +388,9 @@ def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
 def sync_findings(*, dry_run: bool = False) -> RunSummary:
     """Collect normalized findings and project them for the active platform."""
     config = load_config()
-    if _gitlab_issue_mode_is_active(config):
-        return _issue_mode_workflow_unavailable_summary(config=config, workflow="findings sync")
     if config.platform == "gitlab":
+        if _gitlab_issue_mode_is_active(config):
+            return _sync_gitlab_issue_findings(config=config, dry_run=dry_run)
         return _sync_gitlab_findings(config=config, dry_run=dry_run)
     return _sync_github_findings(config=config, dry_run=dry_run)
 
@@ -513,9 +535,72 @@ def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
             f"enabled={_format_enabled_severities(sync_result.enabled_severities)}; "
             "backlog reasons: "
             f"{_format_count_summary(sync_result.backlog_reason_counts)}."
-            + _format_lifecycle_reconciliation(sync_result)
+            + _format_finding_sync_reconciliation(sync_result)
             + _format_operational_summary_publication(summary_publication)
         ),
+    )
+
+
+def _sync_gitlab_issue_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
+    """Project policy-promoted normalized findings into GitLab work-item issues."""
+    gitlab_config = load_gitlab_connection_config()
+    state_store = StateStore(
+        config.state.path,
+        base_branch=config.base_branch,
+        gitlab_project_id=load_gitlab_project_id_override(),
+        sonarqube_project_key=load_sonarqube_project_key_override(),
+    )
+    state = state_store.load()
+    run_id = _build_run_id()
+    repo_root = Path.cwd()
+    active_dry_run = dry_run or config.dry_run
+    intake_service = IssueIntakeService(repo_root=repo_root, config=config)
+    collection = intake_service.collect_dashboard_sync_issues(
+        dry_run=active_dry_run,
+        run_id=run_id,
+    )
+    metadata = collection.finding_collection.metadata
+    if not collection.finding_collection.findings and not metadata.managed_source_ids:
+        return RunSummary(
+            run_id=run_id,
+            status=collection_message_status(collection.message),
+            message=f"[{config.execution_mode}] {collection.message}",
+            state_path=state_store.path,
+        )
+    policy_state = _build_gitlab_policy_issue_service(
+        repo_root=repo_root,
+        config=config,
+        state=state,
+    ).load_policy_state(
+        project_id=gitlab_config.project_id,
+        persist=not active_dry_run,
+    )
+    sync_result = GitLabFindingSyncService(
+        work_item_service=GitLabWorkItemService(GitLabWorkItemClient(gitlab_config))
+    ).sync(
+        project_id=gitlab_config.project_id,
+        findings=collection.finding_collection.findings,
+        policy_state=policy_state,
+        managed_source_ids=set(metadata.managed_source_ids),
+        persist=not active_dry_run,
+    )
+    prefix = "Dry-run would publish" if active_dry_run else "Published"
+    return RunSummary(
+        run_id=run_id,
+        status=RunStatus.SYNCED,
+        message=(
+            f"[{config.execution_mode}] {prefix} {sync_result.promoted_count} "
+            "promoted findings as GitLab work items; "
+            f"{sync_result.backlog_only_count} findings remain backlog-only.\n"
+            "Normalized severities: "
+            f"{_format_count_summary(sync_result.normalized_severity_counts)}.\n"
+            "Promotion policy: "
+            f"enabled={_format_enabled_severities(sync_result.enabled_severities)}; "
+            "backlog reasons: "
+            f"{_format_count_summary(sync_result.backlog_reason_counts)}."
+            + _format_finding_sync_reconciliation(sync_result)
+        ),
+        state_path=state_store.path,
     )
 
 
@@ -587,7 +672,27 @@ def _format_enabled_severities(enabled_severities: tuple[str, ...]) -> str:
     return ", ".join(enabled_severities) or "none"
 
 
-def _format_lifecycle_reconciliation(sync_result: GitHubFindingSyncResult) -> str:
+class _FindingSyncReconciliationResult(Protocol):
+    """Expose finding-sync reconciliation counts for CLI rendering."""
+
+    @property
+    def demoted_to_candidate_count(self) -> int:
+        """Return the number of policy-demoted work items."""
+
+    @property
+    def retained_protected_count(self) -> int:
+        """Return the number of protected policy-reconciled work items."""
+
+    @property
+    def stale_demoted_to_candidate_count(self) -> int:
+        """Return the number of stale work items demoted to candidates."""
+
+    @property
+    def stale_retained_protected_count(self) -> int:
+        """Return the number of protected stale work items retained."""
+
+
+def _format_finding_sync_reconciliation(sync_result: _FindingSyncReconciliationResult) -> str:
     """Render non-empty policy and stale-item lifecycle reconciliation details."""
     if (
         sync_result.demoted_to_candidate_count == 0
@@ -614,8 +719,13 @@ def _format_lifecycle_reconciliation(sync_result: GitHubFindingSyncResult) -> st
 
 
 def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:
-    """Run dashboard reconciliation."""
+    """Run the legacy GitLab dashboard reconciliation command."""
     config = load_config()
+    if _gitlab_issue_mode_is_active(config):
+        return _issue_mode_workflow_unavailable_summary(
+            config=config,
+            workflow="dashboard reconciliation",
+        )
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,

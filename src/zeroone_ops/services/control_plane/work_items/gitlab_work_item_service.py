@@ -52,3 +52,7 @@ class GitLabWorkItemService:
             kind=kind,
             source=source,
         )
+
+    def list_open_work_items(self, *, project_id: str) -> list[GitLabWorkItemLookupResult]:
+        """Return every parseable open authoritative GitLab work item."""
+        return self.lookup_service.list_open_work_items(project_id=project_id)

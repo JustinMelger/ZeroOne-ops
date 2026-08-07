@@ -51,10 +51,11 @@ history, not here.
   dedicated GitLab issue-mode transport without changing dashboard behavior
 - [x] 8a.2: add GitLab work-item parsing, rendering, lookup, upsert, and
   malformed-record handling
-- [ ] 8b: implement one GitLab policy issue with Maintainer/Owner-authorized
+- [x] 8b: implement one GitLab policy issue with Maintainer/Owner-authorized
   note replay and shared policy loading
-- [ ] 8c: publish policy-promoted findings as authoritative GitLab work-item
-  issues with identity lookup, claiming, merge-request links, and review
+- [x] 8c.1: publish policy-promoted findings as authoritative GitLab work-item
+  issues with stable identity lookup and stale-inventory reconciliation
+- [ ] 8c.2: add GitLab work-item claiming, merge-request links, and review
   projection
 - [ ] 8d: add GitLab issue-mode lifecycle and event-scoped recovery, plus a
   read-only switch-and-sync cutover preflight with no dual writes

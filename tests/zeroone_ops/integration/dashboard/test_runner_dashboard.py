@@ -14,6 +14,11 @@ from zeroone_ops.models.dashboard import (
     DashboardSection,
     empty_sections,
 )
+from zeroone_ops.models.finding import (
+    FindingCollectionMetadata,
+    FindingCollectionResult,
+    NormalizedFinding,
+)
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.gitlab import GitLabIssueInfo
 from zeroone_ops.models.remediation import RemediationWorkItem
@@ -41,7 +46,11 @@ from zeroone_ops.services.control_plane.policy.github_policy_issue_service impor
 from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_service import (
     GitLabPolicyIssueProcessResult,
 )
+from zeroone_ops.services.control_plane.work_items.gitlab_finding_sync_service import (
+    GitLabFindingSyncResult,
+)
 from zeroone_ops.services.dashboard.dashboard_service import DashboardPolicyProcessResult
+from zeroone_ops.services.intake.issue_intake import SyncIssueCollectionResult
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
 from zeroone_ops.services.shared.branch_manager import BranchManagerError
 from zeroone_ops.services.shared.run_summary_builder import RunSummary
@@ -446,7 +455,120 @@ def test_dashboard_policy_dry_run_uses_gitlab_issue_mode_when_configured(
     assert "2 authorized, 2 prefixed, 1 accepted, 1 rejected" in summary.message
 
 
-def test_sync_dashboard_sonar_rejects_gitlab_issue_mode_until_finding_sync_exists(
+def test_sync_dashboard_sonar_supports_gitlab_issue_mode_with_empty_inventory(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "gitlab": {
+            "control_plane_mode": "issues",
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    summary = sync_dashboard_sonar(dry_run=True)
+
+    assert summary.status.value == "no_issue"
+    assert "No configured finding sources" in summary.message
+
+
+def test_sync_dashboard_sonar_uses_gitlab_work_items_in_issue_mode(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "gitlab": {
+            "control_plane_mode": "issues",
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    collection = FindingCollectionResult(
+        findings=[
+            NormalizedFinding(
+                finding_id="ruff:C416:src/service.py:1",
+                source_id="ruff-sarif",
+                severity="high",
+                title="Unnecessary comprehension",
+                summary="Use set() directly.",
+                repository_path="src/service.py",
+                line_start=1,
+            )
+        ],
+        metadata=FindingCollectionMetadata(
+            source_id="dashboard_sync",
+            managed_source_ids=["ruff-sarif"],
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.intake.issue_intake.IssueIntakeService.collect_dashboard_sync_issues",
+        lambda self, dry_run, run_id: SyncIssueCollectionResult(
+            finding_collection=collection,
+            issue_count=1,
+            message="",
+        ),
+    )
+    policy_calls: list[tuple[str, bool]] = []
+    monkeypatch.setattr(
+        "zeroone_ops.services.control_plane.policy.gitlab_policy_issue_service."
+        "GitLabPolicyIssueService.load_policy_state",
+        lambda self, project_id, persist: policy_calls.append((project_id, persist)),
+    )
+    sync_calls: list[tuple[str, int, bool]] = []
+    monkeypatch.setattr(
+        "zeroone_ops.services.control_plane.work_items.gitlab_finding_sync_service."
+        "GitLabFindingSyncService.sync",
+        lambda self, project_id, findings, policy_state, managed_source_ids, persist: (
+            sync_calls.append((project_id, len(findings), persist))
+            or GitLabFindingSyncResult(
+                promoted_count=1,
+                backlog_only_count=0,
+                created_count=0,
+                updated_count=0,
+                unchanged_count=0,
+                demoted_to_candidate_count=0,
+                retained_protected_count=0,
+                stale_demoted_to_candidate_count=0,
+                stale_retained_protected_count=0,
+                normalized_severity_counts={"high": 1},
+                enabled_severities=("high",),
+                backlog_reason_counts={},
+            )
+        ),
+    )
+
+    summary = sync_dashboard_sonar(dry_run=True)
+
+    assert summary.status.value == "synced"
+    assert "Dry-run would publish 1 promoted findings as GitLab work items" in summary.message
+    assert policy_calls == [("123", False)]
+    assert sync_calls == [("123", 1, False)]
+
+
+def test_dashboard_reconcile_rejects_gitlab_issue_mode(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -466,10 +588,10 @@ def test_sync_dashboard_sonar_rejects_gitlab_issue_mode_until_finding_sync_exist
         encoding="utf-8",
     )
 
-    summary = sync_dashboard_sonar(dry_run=True)
+    summary = dashboard_reconcile(dry_run=True)
 
     assert summary.status.value == "failed"
-    assert "findings sync is not available yet" in summary.message
+    assert "dashboard reconciliation is not available yet" in summary.message
 
 
 def test_dashboard_reconcile_dry_run_selects_change_request_opened_item(
