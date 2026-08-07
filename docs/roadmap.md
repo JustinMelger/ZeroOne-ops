@@ -40,7 +40,7 @@ history, not here.
   findings remain suppressed; no-change local analysis completes the item
 - [x] 7a: add shared recovery models, decisions, state migration, and tests
 - [x] 7b: add verified publication-retry planning and provider adapters
-- [ ] 7c: add authorized GitLab dashboard-note and GitHub work-item commands
+- [x] 7c: add authorized GitLab dashboard-note and GitHub work-item commands
 - [ ] 7d: add fresh-attempt branch identity and live validation on both providers
 - design: [functional recovery contract](design/functional/functional-design-remediation-recovery.md)
   and [technical implementation plan](design/technical/technical-design-remediation-recovery.md)
