@@ -58,7 +58,7 @@ class RecoveryDecisionService:
                 work_item,
                 "Recovery request is stale because the authoritative work item changed.",
             )
-        if request.action not in {"dismiss", "retry"}:
+        if request.action not in {"dismiss", "requeue"}:
             return self._reject(work_item, "Unsupported remediation recovery action.")
         if request.action == "dismiss":
             return self._accept(

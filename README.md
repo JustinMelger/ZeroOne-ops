@@ -22,8 +22,8 @@ ZeroOne Ops helps teams:
 - control policy, inspect automation state, and reconcile completed or blocked
   remediation work
 
-The current focus is rollout hardening and an explicit, provider-neutral design
-for recovering blocked remediation work. See the [roadmap](docs/roadmap.md).
+The current focus is cross-provider rollout hardening and a simpler
+control-plane installation experience. See the [roadmap](docs/roadmap.md).
 
 ## System Flow
 
@@ -77,6 +77,23 @@ uv run zeroone-ops work-items sync-status --dry-run
 uv run zeroone-ops work-items recover --dry-run
 uv run zeroone-ops review --dry-run
 ```
+
+## Operating The Control Plane
+
+CI owns the ZeroOne Ops commands. Operators use provider-native records and
+the installed workflows or pipelines rather than running the CLI directly.
+
+| Operator need | GitLab | GitHub |
+|---|---|---|
+| Change automation policy | Comment on the dashboard issue | Comment on the policy issue |
+| Inspect a remediation item | Dashboard workflow row | Authoritative work-item issue |
+| Recover a blocked item | Comment on the dashboard issue, then run recovery | Comment on the work-item issue; the workflow runs on that comment |
+| Inspect an active change request | Follow the dashboard link | Follow the work-item or operational-summary link |
+
+Each provider installation has the same conceptual jobs: finding sync,
+remediation, lifecycle reconciliation, policy processing, and recovery
+processing. Schedules own normal operation; manual runs are for rollout and
+operator follow-up.
 
 `dashboard sonar`, `dashboard remediate`, and `dashboard reconcile` remain
 available as legacy GitLab aliases. Prefer `findings sync`, `remediation run`,
@@ -159,9 +176,8 @@ Severity control note:
 - create or reuse a GitLab merge request or GitHub pull request in CI mode
 - use `zeroone-ops work-items sync-status` to converge merged and closed
   change-request state
-- preserve closed-unmerged change requests as blocked records; a future
-  explicit recovery action will decide whether to dismiss, retry, or start
-  fresh
+- preserve closed-unmerged change requests as blocked records until an
+  authorized operator explicitly dismisses or retries them
 
 ### Change-Request Review
 
@@ -194,7 +210,7 @@ Copyable operator examples now live in [examples/](examples/), including:
 - [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml)
 - [examples/github-review.yml](examples/github-review.yml)
 - [examples/github-operations.yml](examples/github-operations.yml) for GitHub
-  finding sync, remediation, lifecycle, and policy processing
+  finding sync, remediation, lifecycle, policy, and recovery processing
 
 Use the root [.zeroone-ops.json](.zeroone-ops.json) as the repository's live
 runtime config, and use the files in [examples/](examples/) as copyable

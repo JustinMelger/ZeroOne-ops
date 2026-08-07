@@ -1,7 +1,7 @@
 [project]
 name = "zeroone-ops"
 version = "0.52.0"
-description = "Governed OpenAI-assisted review and remediation for GitLab and GitHub."
+description = "Governed OpenAI-assisted pipeline agents for GitLab and GitHub."
 readme = "README.md"
 requires-python = "==3.13.*"
 dependencies = [

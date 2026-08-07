@@ -21,7 +21,7 @@ services/remediation/recovery/
 
 Suggested models:
 
-- `RecoveryAction`: `dismiss`, `retry`
+- `RecoveryAction`: `dismiss`, `requeue`
 - `RecoveryRequest`: action, actor, request reference, reason, expected state
   fingerprint
 - `RecoveryDecision`: accepted/rejected, resulting state, message, and an
@@ -62,7 +62,7 @@ identical source identity must not create a new remediation item.
 2. Verify the request fingerprint against the authoritative item snapshot.
 3. Apply authorization before invoking shared decisions.
 4. For `dismiss`, allow a blocked remediation item and return `dismissed`.
-5. For `retry`, select publication retry only when `publication_retry`, no
+5. For `requeue`, select publication retry only when `publication_retry`, no
    active linked change request, and a recorded branch/commit pair are present.
 6. Otherwise, select a fresh attempt when policy eligibility permits it.
 7. Append a recovery event to every accepted state transition.
@@ -157,7 +157,7 @@ summary in the human-facing view:
 - link/reference to the previous change request when applicable.
 
 Blocked remediation items additionally render a compact recovery instruction
-block containing the current blocker plus provider-local `retry` and `dismiss`
+block containing the current blocker plus provider-local `requeue` and `dismiss`
 commands. The renderer owns this text; command processing must not depend on
 human-facing Markdown. Non-blocked items do not render recovery instructions.
 

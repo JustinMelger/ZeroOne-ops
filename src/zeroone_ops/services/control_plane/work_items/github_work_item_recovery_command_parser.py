@@ -9,7 +9,7 @@ from zeroone_ops.models.work_item import RecoveryAction
 
 _RECOVERY_PREFIX = re.compile(r"^\s*/zeroone\s+remediation\b", re.IGNORECASE)
 _RECOVERY_COMMAND = re.compile(
-    r"^\s*/zeroone\s+remediation\s+(dismiss|retry)\s*$",
+    r"^\s*/zeroone\s+remediation\s+(dismiss|requeue)\s*$",
     re.IGNORECASE,
 )
 

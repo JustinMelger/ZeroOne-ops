@@ -144,7 +144,7 @@ class GitHubWorkItemRenderer:
             "",
             blocker,
             "",
-            "Retry safely: `/zeroone remediation retry`",
+            "Requeue for remediation: `/zeroone remediation requeue`",
             "Stop automation: `/zeroone remediation dismiss`",
         ]
 

@@ -9,7 +9,7 @@ from typing import cast
 from zeroone_ops.models.work_item import RecoveryAction
 
 _RECOVERY_COMMAND_PATTERN = re.compile(
-    r"^\s*/zeroone\s+remediation\s+(?P<item_id>\S+)\s+(?P<action>dismiss|retry)\s*$",
+    r"^\s*/zeroone\s+remediation\s+(?P<item_id>\S+)\s+(?P<action>dismiss|requeue)\s*$",
     re.IGNORECASE,
 )
 

@@ -96,6 +96,8 @@ zeroone_ops_remediation:
   needs:
     - job: zeroone_ops_findings_sync
       optional: true
+    - job: zeroone_ops_work_items_recover
+      optional: true
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_REMEDIATION == "true"'

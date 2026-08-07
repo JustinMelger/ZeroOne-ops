@@ -19,7 +19,7 @@ WorkItemStatus = Literal[
     "completed",
     "dismissed",
 ]
-RecoveryAction = Literal["dismiss", "retry"]
+RecoveryAction = Literal["dismiss", "requeue"]
 RecoveryPlan = Literal["retry_publication", "start_fresh"]
 WorkItemResolution = Literal["merged", "no_change_required"]
 
