@@ -72,9 +72,9 @@ class RecoveryDecisionService:
             return self._accept(
                 work_item=work_item,
                 request=request,
-                status="in_progress",
+                status="approved",
                 plan="retry_publication",
-                message="Recorded branch publication will be retried after verification.",
+                message="Recorded branch publication was queued for verification.",
             )
         if not policy_eligible:
             return self._reject(
@@ -101,7 +101,7 @@ class RecoveryDecisionService:
         *,
         work_item: WorkItemState,
         request: RecoveryRequest,
-        status: Literal["approved", "dismissed", "in_progress"],
+        status: Literal["approved", "dismissed"],
         plan: RecoveryPlan | None,
         message: str,
     ) -> RecoveryDecision:

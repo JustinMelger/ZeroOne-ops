@@ -120,18 +120,19 @@ class ExecutionService:
         selected_issue: RemediationExecutionTarget,
         context: IssueContext,
         dry_run: bool,
+        branch_name: str | None = None,
     ) -> ExecutionResult:
         """Run the execution flow for one execution target with prebuilt context."""
-        branch_name: str | None = None
         if not dry_run:
             try:
                 self.branch_manager.ensure_ready()
-                branch_name = build_remediation_branch_name(
-                    branch_prefix=self.config.branch_prefix,
-                    source=selected_issue.source_type,
-                    source_reference=selected_issue.source_ref,
-                    file_path=selected_issue.file_path,
-                )
+                if branch_name is None:
+                    branch_name = build_remediation_branch_name(
+                        branch_prefix=self.config.branch_prefix,
+                        source=selected_issue.source_type,
+                        source_reference=selected_issue.source_ref,
+                        file_path=selected_issue.file_path,
+                    )
                 self.branch_manager.create_branch(branch_name)
             except BranchManagerError as error:
                 return ExecutionResult(

@@ -299,6 +299,20 @@ def load_current_github_pull_request_number() -> int | None:
     return number
 
 
+def load_current_github_issue_number() -> int | None:
+    """Load the current GitHub issue number from workflow context when present."""
+    payload = _load_github_event_payload()
+    if payload is None:
+        return None
+    issue = payload.get("issue")
+    if not isinstance(issue, dict):
+        return None
+    number = issue.get("number")
+    if not isinstance(number, int):
+        raise SettingsError("GitHub issue.number must be an integer when set.")
+    return number
+
+
 def load_current_github_pull_request_head_sha() -> str | None:
     """Load the triggering GitHub pull-request head SHA from workflow context when present."""
     payload = _load_github_event_payload()

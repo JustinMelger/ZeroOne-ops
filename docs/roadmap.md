@@ -45,6 +45,17 @@ history, not here.
 - design: [functional recovery contract](design/functional/functional-design-remediation-recovery.md)
   and [technical implementation plan](design/technical/technical-design-remediation-recovery.md)
 
+### Control-Plane Installation UX
+
+- [ ] design one operator-facing control-plane installation per provider so
+  GitHub Actions and GitLab CI present the same conceptual jobs: finding sync,
+  remediation, lifecycle reconciliation, and optional recovery-command handling
+- [ ] ship one copyable GitHub workflow template and one GitLab CI template
+  with the correct triggers, schedules, concurrency, permissions, variables,
+  and required versus optional jobs already composed
+- [ ] update the README and runbook to describe this as one ZeroOne Ops
+  control-plane installation, not a collection of independently wired commands
+
 ### Phase 8: Validation Feedback Loop
 
 - capture a baseline for configured validation commands before applying a

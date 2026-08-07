@@ -12,6 +12,7 @@ from zeroone_ops.logging import configure_logging
 from zeroone_ops.runner import (
     dashboard_policy,
     dashboard_reconcile,
+    recover_work_item,
     review,
     run_remediation,
     sync_findings,
@@ -146,6 +147,19 @@ def work_items_sync_status_command(
     """Reconcile remediation work-item lifecycle status."""
     configure_logging()
     _echo_summary(sync_work_item_status(dry_run=dry_run))
+
+
+@work_items_app.command("recover")
+def work_items_recover_command(
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Process recovery commands without updating work-item state.",
+    ),
+) -> None:
+    """Process one recovery command from the current GitHub issue comment."""
+    configure_logging()
+    _echo_summary(recover_work_item(dry_run=dry_run))
 
 
 @dashboard_app.command("reconcile")

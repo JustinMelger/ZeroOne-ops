@@ -96,8 +96,12 @@ Recommended v1 commands:
 /zeroone remediation retry
 ```
 
-The command processor updates the authoritative state and records the outcome
-there. The initial version does not need conversational acknowledgement replies;
+The command processor records the requested authoritative state transition and
+returns the item to `approved`. The normal remediation runner is the only
+execution owner: it claims the item, performs the selected retry or fresh
+attempt, and records the resulting lifecycle state. Command processing must not
+generate a patch, validate code, push a branch, or publish a change request.
+The initial version does not need conversational acknowledgement replies;
 operators can inspect the rendered item and workflow run.
 
 When an item is blocked, its rendered view must include:
@@ -156,11 +160,12 @@ not a policy or recovery command surface.
   proves that the current workspace no longer needs a change for the selected
   target. The item is not dismissed and is not awaiting operator action.
 - `retry`: choose `retry-publication` only when the branch and commit still
-  match. That plan returns the item to `in_progress` only for publication, then
-  links a newly created or reused open change request. Otherwise choose
-  `start-fresh`: retain prior traceability, clear active execution-only state,
-  increment the attempt number, and return to `approved` when eligible. The
-  regular remediation runner then claims it normally.
+  match. The command queues the item as `approved`; the regular remediation
+  runner claims it, verifies the branch, and then links a newly created or
+  reused open change request. Otherwise choose `start-fresh`: retain prior
+  traceability, clear active execution-only state, increment the attempt
+  number, and return to `approved` when eligible. The regular remediation
+  runner then claims it normally.
 - A fresh retry returns the item to the normal remediation runner without
   invoking source sync. If that runner proves from the current workspace that
   no change is required, it transitions the item to `completed` with resolution

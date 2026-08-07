@@ -86,7 +86,7 @@ def test_retry_selects_publication_only_path_when_recorded_branch_is_available()
 
     assert decision.accepted is True
     assert decision.plan == "retry_publication"
-    assert decision.work_item.status == "in_progress"
+    assert decision.work_item.status == "approved"
     assert decision.work_item.attempt_number == 1
     assert decision.work_item.publication_retry == work_item.publication_retry
 

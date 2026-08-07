@@ -73,16 +73,24 @@ when its bounded current-workspace analysis proves no patch is needed. It must
 otherwise return the existing manual or blocked outcome rather than infer that
 the source finding disappeared.
 
+The recovery command adapter owns only authorization, command parsing, and the
+authoritative transition back to `approved`. It must not compose execution or
+publication dependencies. The normal remediation runner is the single owner of
+claiming approved work, selecting the recorded publication-retry path or fresh
+execution path, and projecting the final outcome.
+
 ## 5. Publication Retry
 
-Publication retry uses a dedicated path, not `ExecutionService`:
+Publication retry is first queued as `approved` by recovery command handling.
+The normal remediation runner claims it, then bypasses `ExecutionService` after
+intake:
 
 1. Verify the recorded branch exists remotely at the recorded commit.
 2. Search for an open change request for that branch and target branch.
 3. Reuse it when present; otherwise create one.
 4. Persist the link and clear `publication_retry` only after success.
-5. On failure, retain the recorded retry state, return the item to `blocked`,
-   and append a failure event.
+5. On failure, retain the recorded retry state and return the item to
+   `blocked`.
 
 No patch generation, validation command, commit, or branch push occurs in this
 path. This is the only safe branch-reuse behavior in v1.

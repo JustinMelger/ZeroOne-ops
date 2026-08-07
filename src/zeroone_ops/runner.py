@@ -21,6 +21,9 @@ from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.review.github import GitHubReviewClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
+from zeroone_ops.services.control_plane.github_comment_authorization_service import (
+    GitHubCommentAuthorizationService,
+)
 from zeroone_ops.services.control_plane.overview.github_operational_summary_renderer import (
     GitHubFindingSyncObservation,
 )
@@ -44,6 +47,12 @@ from zeroone_ops.services.control_plane.work_items.github_finding_sync_service i
 from zeroone_ops.services.control_plane.work_items.github_work_item_lifecycle_service import (
     GitHubWorkItemLifecycleService,
 )
+from zeroone_ops.services.control_plane.work_items.github_work_item_recovery_runner import (
+    GitHubWorkItemRecoveryRunner,
+)
+from zeroone_ops.services.control_plane.work_items.github_work_item_recovery_service import (
+    GitHubWorkItemRecoveryService,
+)
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
 )
@@ -63,6 +72,9 @@ from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 from zeroone_ops.services.intake.finding_dashboard_sync_service import (
     FindingDashboardSyncService,
 )
+from zeroone_ops.services.intake.finding_workflow_policy_service import (
+    FindingWorkflowPolicyService,
+)
 from zeroone_ops.services.intake.issue_intake import IssueIntakeService
 from zeroone_ops.services.remediation.github_remediation_runner import (
     GitHubRemediationRunner,
@@ -77,6 +89,7 @@ from zeroone_ops.services.shared.state_store import StateStore
 from zeroone_ops.settings import (
     load_config,
     load_current_change_request_number,
+    load_current_github_issue_number,
     load_current_github_pull_request_head_sha,
     load_current_github_pull_request_number,
     load_github_connection_config,
@@ -144,6 +157,29 @@ def _build_github_policy_issue_service(
             config=config,
             state=state,
         ),
+    )
+
+
+def _build_github_work_item_recovery_runner(
+    *,
+    config: AppConfig,
+    run_state_service: RunStateService,
+) -> tuple[GitHubWorkItemRecoveryRunner, GitHubWorkItemService]:
+    """Build GitHub recovery processing with provider-local issue transport."""
+    github_config = load_github_connection_config()
+    work_item_client = GitHubWorkItemClient(github_config)
+    work_item_service = GitHubWorkItemService(work_item_client)
+    recovery_service = GitHubWorkItemRecoveryService(
+        comment_client=work_item_client,
+        comment_authorization_service=GitHubCommentAuthorizationService(work_item_client),
+        work_item_service=work_item_service,
+    )
+    return (
+        GitHubWorkItemRecoveryRunner(
+            recovery_service=recovery_service,
+            run_state_service=run_state_service,
+        ),
+        work_item_service,
     )
 
 
@@ -583,6 +619,85 @@ def sync_work_item_status(*, dry_run: bool = False) -> RunSummary:
     if config.platform == "gitlab":
         return dashboard_reconcile(dry_run=dry_run)
     return _sync_github_work_item_status(config=config, dry_run=dry_run)
+
+
+def recover_work_item(*, dry_run: bool = False) -> RunSummary:
+    """Process one GitHub work-item recovery command from issue-comment context."""
+    config = load_config()
+    state_store = StateStore(
+        config.state.path,
+        base_branch=config.base_branch,
+        gitlab_project_id=load_gitlab_project_id_override(),
+        sonarqube_project_key=load_sonarqube_project_key_override(),
+    )
+    state = state_store.load()
+    run_state_service = RunStateService(config=config, state_store=state_store, state=state)
+    run_id = _build_run_id()
+    record = run_state_service.start_run(run_id)
+    active_dry_run = dry_run or config.dry_run
+    if config.platform != "github":
+        message = "Work-item recovery command processing is not implemented for GitLab yet."
+        return run_state_service.fail_run(
+            record=record,
+            error_message=message,
+            failure=FailureDetails(stage=FailureStage.DASHBOARD_UPDATE, message=message),
+        )
+    issue_number = load_current_github_issue_number()
+    if issue_number is None:
+        message = "GitHub recovery requires an issue_comment workflow event."
+        return run_state_service.fail_run(
+            record=record,
+            error_message=message,
+            failure=FailureDetails(stage=FailureStage.DASHBOARD_UPDATE, message=message),
+        )
+    github_config = load_github_connection_config()
+    recovery_runner, work_item_service = _build_github_work_item_recovery_runner(
+        config=config,
+        run_state_service=run_state_service,
+    )
+    existing = next(
+        (
+            item
+            for item in work_item_service.list_open_work_items(
+                repository_id=github_config.repository
+            )
+            if item.issue.number == issue_number
+        ),
+        None,
+    )
+    policy_eligible = False
+    if existing is not None:
+        policy_state = _build_github_policy_issue_service(
+            repo_root=Path.cwd(),
+            config=config,
+            state=state,
+        ).load_policy_state(
+            repository_id=github_config.repository,
+            persist=not active_dry_run,
+        )
+        policy_eligible = FindingWorkflowPolicyService().is_work_item_eligible(
+            work_item=existing.work_item,
+            policy_state=policy_state,
+        )
+    summary = recovery_runner.run(
+        repository_id=github_config.repository,
+        issue_number=issue_number,
+        policy_eligible=policy_eligible,
+        record=record,
+        active_dry_run=active_dry_run,
+        execution_mode=config.execution_mode,
+    )
+    if active_dry_run or summary.status != RunStatus.SYNCED:
+        return summary
+    publication = _publish_github_operational_summary(
+        github_config=github_config,
+        work_item_service=work_item_service,
+        latest_finding_sync=None,
+    )
+    return replace(
+        summary,
+        message=summary.message + _format_operational_summary_publication(publication),
+    )
 
 
 def _sync_github_work_item_status(*, config: AppConfig, dry_run: bool) -> RunSummary:

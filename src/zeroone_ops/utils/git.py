@@ -27,8 +27,11 @@ def build_remediation_branch_name(
     source: str,
     source_reference: str,
     file_path: str,
+    attempt_number: int = 1,
 ) -> str:
-    """Build an unambiguous branch name for a normalized remediation item."""
+    """Build an unambiguous branch name for a normalized remediation attempt."""
+    if attempt_number < 1:
+        raise ValueError("Remediation attempt number must be at least one.")
     path_name = PurePosixPath(file_path).stem
     return "/".join(
         part
@@ -43,6 +46,7 @@ def build_remediation_branch_name(
                 sanitize_branch_fragment(path_name),
                 maximum_length=_MAX_BRANCH_PATH_FRAGMENT_LENGTH,
             ),
+            f"attempt-{attempt_number}" if attempt_number > 1 else "",
         ]
         if part
     )
