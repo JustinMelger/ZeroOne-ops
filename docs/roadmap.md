@@ -55,8 +55,10 @@ history, not here.
   note replay and shared policy loading
 - [x] 8c.1: publish policy-promoted findings as authoritative GitLab work-item
   issues with stable identity lookup and stale-inventory reconciliation
-- [ ] 8c.2: add GitLab work-item claiming, merge-request links, and review
-  projection
+- [x] 8c.2a: select and claim one eligible GitLab work-item issue using the
+  shared execution-target contract
+- [ ] 8c.2b: execute claimed GitLab work items and project merge-request links
+- [ ] 8c.2c: project review outcomes onto the uniquely linked GitLab work item
 - [ ] 8d: add GitLab issue-mode lifecycle and event-scoped recovery, plus a
   read-only switch-and-sync cutover preflight with no dual writes
 - [ ] 8d: add the scheduled/manual issue-mode control-plane job: policy,
