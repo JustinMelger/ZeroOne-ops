@@ -8,7 +8,7 @@ from typing import Any, Literal
 import httpx
 
 from zeroone_ops.models.config import GitHubConnectionConfig
-from zeroone_ops.models.github import GitHubIssueInfo
+from zeroone_ops.models.github import GitHubIssueComment, GitHubIssueInfo
 from zeroone_ops.providers.github_client import GitHubClientError
 
 
@@ -154,6 +154,53 @@ class GitHubWorkItemClient:
         )
         return _normalize_issue_info(payload)
 
+    def list_issue_comments(
+        self,
+        *,
+        repository_id: str,
+        issue_number: int,
+    ) -> list[GitHubIssueComment]:
+        """List every comment for one authoritative work-item issue."""
+        page = 1
+        comments: list[GitHubIssueComment] = []
+        while True:
+            response = self._http_client.get(
+                _repository_path(repository_id, f"issues/{issue_number}/comments"),
+                params={"page": page, "per_page": 100},
+            )
+            payload = _parse_list_response(
+                response,
+                error_message="Unexpected GitHub work-item comments payload.",
+            )
+            comments.extend(
+                _normalize_issue_comment(item) for item in payload if isinstance(item, dict)
+            )
+            if not response.links.get("next"):
+                break
+            page += 1
+        return comments
+
+    def get_repository_permission(
+        self,
+        *,
+        repository_id: str,
+        username: str,
+    ) -> str:
+        """Return the GitHub repository permission for one username."""
+        payload = _parse_dict_response(
+            self._http_client.get(
+                _repository_path(repository_id, f"collaborators/{username}/permission")
+            ),
+            error_message="Unexpected GitHub collaborator permission payload.",
+        )
+        permission = payload.get("permission")
+        role_name = payload.get("role_name")
+        if isinstance(role_name, str) and role_name:
+            return role_name
+        if isinstance(permission, str) and permission:
+            return permission
+        raise GitHubClientError("Unexpected GitHub collaborator permission payload.")
+
 
 def _repository_path(repository_id: str, suffix: str) -> str:
     """Build one repository-scoped request path without discarding the base URL path."""
@@ -221,6 +268,36 @@ def _normalize_issue_info(payload: dict[str, Any]) -> GitHubIssueInfo:
         body=body or "",
         created_at=_optional_timestamp(payload, key="created_at"),
         updated_at=_optional_timestamp(payload, key="updated_at"),
+    )
+
+
+def _normalize_issue_comment(payload: dict[str, Any]) -> GitHubIssueComment:
+    """Normalize one GitHub issue comment payload."""
+    comment_id = payload.get("id")
+    html_url = payload.get("html_url")
+    body = payload.get("body")
+    created_at = payload.get("created_at")
+    user = payload.get("user")
+    if not isinstance(comment_id, int):
+        raise GitHubClientError("Unexpected GitHub issue comment identifier.")
+    if html_url is not None and not isinstance(html_url, str):
+        raise GitHubClientError("Unexpected GitHub issue comment URL.")
+    if body is not None and not isinstance(body, str):
+        raise GitHubClientError("Unexpected GitHub issue comment body.")
+    if created_at is not None and not isinstance(created_at, str):
+        raise GitHubClientError("Unexpected GitHub issue comment timestamp.")
+    author_username = None
+    if isinstance(user, dict):
+        login = user.get("login")
+        if login is not None and not isinstance(login, str):
+            raise GitHubClientError("Unexpected GitHub issue comment author.")
+        author_username = login
+    return GitHubIssueComment(
+        id=comment_id,
+        web_url=html_url,
+        body=body,
+        author_username=author_username,
+        created_at=created_at,
     )
 
 

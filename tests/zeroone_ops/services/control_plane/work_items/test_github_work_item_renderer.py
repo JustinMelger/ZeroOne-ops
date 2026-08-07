@@ -1,6 +1,10 @@
 from datetime import UTC, datetime
 
-from zeroone_ops.models.work_item import ProjectedReviewState, WorkItemExecutionFailure
+from zeroone_ops.models.work_item import (
+    ProjectedReviewState,
+    PublicationRetryState,
+    WorkItemExecutionFailure,
+)
 from zeroone_ops.services.control_plane.work_items.github_work_item_renderer import (
     GitHubWorkItemRenderer,
 )
@@ -115,3 +119,28 @@ def test_render_body_includes_last_execution_when_blocked() -> None:
     assert "- Exit code: `1`" in body
     assert "[View workflow logs](" in body
     assert "https://github.example.com/octo-org/octo-repo/actions/runs/42" in body
+    assert "## Recovery" in body
+    assert "This remediation is blocked because Validation failed after retry." in body
+    assert "Retry safely: `/zeroone remediation retry`" in body
+    assert "Stop automation: `/zeroone remediation dismiss`" in body
+
+
+def test_render_body_shows_publication_recovery_instructions_only_when_blocked() -> None:
+    renderer = GitHubWorkItemRenderer()
+    work_item = build_work_item().model_copy(
+        update={
+            "status": "blocked",
+            "publication_retry": PublicationRetryState(
+                branch_name="zeroone-ops/fix",
+                commit_sha="abc123",
+                reason="change_request_publish_failed",
+            ),
+        }
+    )
+
+    blocked_body = renderer.render_body(work_item)
+    approved_body = renderer.render_body(work_item.model_copy(update={"status": "approved"}))
+
+    assert "This remediation is blocked because change-request publication failed." in blocked_body
+    assert "Retry safely: `/zeroone remediation retry`" in blocked_body
+    assert "## Recovery" not in approved_body

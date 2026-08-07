@@ -83,6 +83,20 @@ class GitHubWorkItemService:
             issue_number=issue_number,
         )
 
+    def update_existing_work_item(
+        self,
+        *,
+        repository_id: str,
+        existing: GitHubWorkItemLookupResult,
+        work_item: WorkItemState,
+    ) -> GitHubWorkItemUpsertResult:
+        """Update one already-identified authoritative work-item issue directly."""
+        return self.upsert_service.update_existing_work_item(
+            repository_id=repository_id,
+            existing=existing,
+            work_item=work_item,
+        )
+
     def find_open_work_item_by_change_request(
         self,
         *,

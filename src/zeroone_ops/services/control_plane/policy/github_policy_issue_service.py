@@ -9,8 +9,8 @@ from zeroone_ops.models.dashboard import DashboardItem, DashboardPolicyState, Da
 from zeroone_ops.models.github import GitHubIssueComment, GitHubIssueInfo
 from zeroone_ops.models.policy import PolicyActionParseResult, PolicyCommentSource
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
-from zeroone_ops.services.control_plane.policy.github_policy_comment_authorization_service import (
-    GitHubPolicyCommentAuthorizationService,
+from zeroone_ops.services.control_plane.github_comment_authorization_service import (
+    GitHubCommentAuthorizationService,
 )
 from zeroone_ops.services.control_plane.policy.github_policy_issue_parser import (
     GitHubPolicyIssueParser,
@@ -98,7 +98,7 @@ class GitHubPolicyIssueService:
         self.policy_processing_service = policy_processing_service or PolicyProcessingService(
             self.policy_action_service
         )
-        self.comment_authorization_service = GitHubPolicyCommentAuthorizationService(
+        self.comment_authorization_service = GitHubCommentAuthorizationService(
             client,
             required_repository_permission=required_repository_permission,
         )

@@ -134,6 +134,29 @@ def test_get_branch_head_sha_reads_remote_reference() -> None:
     assert sha == "abc123"
 
 
+def test_get_branch_head_sha_encodes_unsafe_branch_reference_characters() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.raw_path == (
+            b"/repos/octo-org/octo-repo/git/ref/heads/zeroone-ops/fix%23retry"
+        )
+        return httpx.Response(200, json={"object": {"sha": "abc123"}})
+
+    client = GitHubClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.github.example.com",
+        ),
+    )
+
+    sha = client.get_branch_head_sha(
+        repository_id="octo-org/octo-repo",
+        branch_name="zeroone-ops/fix#retry",
+    )
+
+    assert sha == "abc123"
+
+
 def test_get_branch_head_sha_returns_none_when_remote_branch_is_missing() -> None:
     client = GitHubClient(
         build_config(),

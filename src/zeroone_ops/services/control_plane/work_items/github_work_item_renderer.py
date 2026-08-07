@@ -101,6 +101,8 @@ class GitHubWorkItemRenderer:
                 lines.append(f"- Exit code: `{failure.exit_code}`")
             if failure.execution_url is not None:
                 lines.append(f"- Run: [View workflow logs]({failure.execution_url})")
+        if work_item.status == "blocked":
+            lines.extend(self._render_recovery_instructions(work_item))
         lines.extend(["", "## Machine State", ""])
         lines.extend(self._render_state_block(work_item))
         return "\n".join(lines).rstrip() + "\n"
@@ -126,6 +128,25 @@ class GitHubWorkItemRenderer:
             "ruff-sarif": "Ruff SARIF",
             "sonarqube": "SonarQube",
         }.get(source, source.replace("-", " ").title())
+
+    @staticmethod
+    def _render_recovery_instructions(work_item: WorkItemState) -> list[str]:
+        """Render compact operator instructions for one blocked remediation item."""
+        if work_item.execution_failure is not None:
+            blocker = f"This remediation is blocked because {work_item.execution_failure.summary}"
+        elif work_item.publication_retry is not None:
+            blocker = "This remediation is blocked because change-request publication failed."
+        else:
+            blocker = "This remediation is blocked and needs an operator decision."
+        return [
+            "",
+            "## Recovery",
+            "",
+            blocker,
+            "",
+            "Retry safely: `/zeroone remediation retry`",
+            "Stop automation: `/zeroone remediation dismiss`",
+        ]
 
     def _render_state_block(self, work_item: WorkItemState) -> list[str]:
         payload = work_item.model_dump(mode="json", exclude_none=True)

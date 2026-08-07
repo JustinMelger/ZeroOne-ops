@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -95,7 +96,10 @@ class GitHubClient:
     ) -> str | None:
         """Return the remote branch head SHA, or ``None`` when the branch is absent."""
         response = self._http_client.get(
-            _repository_path(repository_id, f"git/ref/heads/{branch_name}")
+            _repository_path(
+                repository_id,
+                f"git/ref/heads/{_encode_branch_reference(branch_name)}",
+            )
         )
         if response.status_code == 404:
             return None
@@ -173,6 +177,11 @@ class GitHubClient:
 def _repository_path(repository_id: str, suffix: str) -> str:
     """Build one repository-scoped request path without discarding the base URL path."""
     return f"repos/{repository_id}/{suffix}"
+
+
+def _encode_branch_reference(branch_name: str) -> str:
+    """Encode one branch reference while preserving slash-separated branch names."""
+    return quote(branch_name, safe="/")
 
 
 def _split_repository_id(repository_id: str) -> tuple[str, str]:
