@@ -21,7 +21,7 @@
     "required": true
   },
   "review": {
-    "max_changed_files": 50,
+    "max_changed_files": 70,
     "max_findings_per_review": 5,
     "max_prior_review_passes": 5,
     "max_context_lines_before": 400,
