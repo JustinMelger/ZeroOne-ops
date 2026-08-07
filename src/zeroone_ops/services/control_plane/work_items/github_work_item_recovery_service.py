@@ -75,6 +75,7 @@ class GitHubWorkItemRecoveryService:
         *,
         repository_id: str,
         issue_number: int,
+        comment_id: int,
         policy_eligible: bool,
         persist: bool,
     ) -> GitHubWorkItemRecoveryProcessResult:
@@ -96,7 +97,7 @@ class GitHubWorkItemRecoveryService:
         )
         authorized_comments = self.comment_authorization_service.authorized_comments(
             repository_id=repository_id,
-            comments=comments,
+            comments=[comment for comment in comments if comment.id == comment_id],
         )
         return self._process_authorized_comments(
             repository_id=repository_id,

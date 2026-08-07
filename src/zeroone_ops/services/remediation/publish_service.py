@@ -96,17 +96,16 @@ class PublishService:
             publisher = self.change_request_publisher or build_remediation_change_request_publisher(
                 self.config
             )
+            publication_request = self.publication_request_builder.build(
+                source_branch=self.branch_manager.current_branch(),
+                selected_issue=selected_issue,
+                change_summary=change_request_description,
+            )
             control_plane_work_item = self._mark_control_plane_publish_started_best_effort(
                 selected_issue=selected_issue,
             )
             pushed_branch = self.branch_manager.push_current_branch()
-            published_change_request = publisher.publish(
-                self.publication_request_builder.build(
-                    source_branch=pushed_branch,
-                    selected_issue=selected_issue,
-                    change_summary=change_request_description,
-                )
-            )
+            published_change_request = publisher.publish(publication_request)
             self._sync_control_plane_change_request_link_best_effort(
                 selected_issue=selected_issue,
                 published_change_request=published_change_request.info,

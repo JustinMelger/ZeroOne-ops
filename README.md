@@ -74,6 +74,7 @@ uv run zeroone-ops findings sync --dry-run
 uv run zeroone-ops dashboard policy --dry-run
 uv run zeroone-ops remediation run --dry-run
 uv run zeroone-ops work-items sync-status --dry-run
+uv run zeroone-ops work-items recover --dry-run
 uv run zeroone-ops review --dry-run
 ```
 

@@ -313,6 +313,20 @@ def load_current_github_issue_number() -> int | None:
     return number
 
 
+def load_current_github_issue_comment_id() -> int | None:
+    """Load the triggering GitHub issue-comment ID from workflow context."""
+    payload = _load_github_event_payload()
+    if payload is None:
+        return None
+    comment = payload.get("comment")
+    if not isinstance(comment, dict):
+        return None
+    comment_id = comment.get("id")
+    if not isinstance(comment_id, int):
+        raise SettingsError("GitHub comment.id must be an integer when set.")
+    return comment_id
+
+
 def load_current_github_pull_request_head_sha() -> str | None:
     """Load the triggering GitHub pull-request head SHA from workflow context when present."""
     payload = _load_github_event_payload()

@@ -30,10 +30,11 @@ class FakeRecoveryService:
         *,
         repository_id: str,
         issue_number: int,
+        comment_id: int,
         policy_eligible: bool,
         persist: bool,
     ) -> GitHubWorkItemRecoveryProcessResult:
-        del repository_id, issue_number, policy_eligible
+        del repository_id, issue_number, comment_id, policy_eligible
         self.persist_values.append(persist)
         return self.result
 
@@ -101,6 +102,7 @@ def test_runner_persists_accepted_ci_command(tmp_path: Path) -> None:
     summary = runner.run(
         repository_id="octo-org/octo-repo",
         issue_number=2,
+        comment_id=21,
         policy_eligible=True,
         record=record,
         active_dry_run=False,
@@ -125,6 +127,7 @@ def test_runner_rejects_live_local_execution(tmp_path: Path) -> None:
     summary = runner.run(
         repository_id="octo-org/octo-repo",
         issue_number=2,
+        comment_id=21,
         policy_eligible=True,
         record=record,
         active_dry_run=False,

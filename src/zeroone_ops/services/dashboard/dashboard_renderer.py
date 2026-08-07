@@ -906,20 +906,21 @@ class DashboardRenderer:
 
         For the current dashboard-backed Sonar remediation flow, open items on the
         board are already considered queueable auto-fix candidates. Failed items
-        are the exception and need operator investigation.
+        are the exception and expose their provider-native recovery commands.
         """
         if item.status == "failed":
-            if item.retry_eligible is True:
-                return "Retry Auto-fix"
-            if item.retry_block_reason:
-                return "Review Retry Blocker"
-            return "Investigate Failure"
+            return self._render_recovery_commands(item)
         if item.status == "rejected":
             lower_note = (item.log_excerpt or item.summary).lower()
             if "manual review" in lower_note:
                 return "Review Manually"
             return "Review Rejection"
         return "Queue Auto-fix"
+
+    def _render_recovery_commands(self, item: DashboardItem) -> str:
+        """Render explicit recovery commands for one failed dashboard item."""
+        prefix = f"/zeroone remediation {item.id}"
+        return f"Retry: `{prefix} retry`<br>Dismiss: `{prefix} dismiss`"
 
     def _needs_attention(self, item: DashboardItem) -> bool:
         """Return whether one review item should appear in the attention queue."""

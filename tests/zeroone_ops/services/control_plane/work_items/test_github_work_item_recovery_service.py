@@ -116,6 +116,7 @@ def test_process_ignores_unauthorized_and_non_work_item_comments() -> None:
     result = service.process(
         repository_id="octo-org/octo-repo",
         issue_number=11,
+        comment_id=21,
         policy_eligible=True,
         persist=True,
     )
@@ -134,6 +135,7 @@ def test_process_dismisses_a_blocked_work_item_once() -> None:
     result = service.process(
         repository_id="octo-org/octo-repo",
         issue_number=11,
+        comment_id=21,
         policy_eligible=False,
         persist=True,
     )
@@ -169,6 +171,7 @@ def test_process_queues_fresh_retry_without_running_publication() -> None:
     result = service.process(
         repository_id="octo-org/octo-repo",
         issue_number=11,
+        comment_id=21,
         policy_eligible=True,
         persist=True,
     )
@@ -202,6 +205,7 @@ def test_process_queues_verified_publication_retry_for_the_remediation_runner() 
     result = service.process(
         repository_id="octo-org/octo-repo",
         issue_number=11,
+        comment_id=21,
         policy_eligible=False,
         persist=True,
     )
@@ -239,10 +243,35 @@ def test_process_rejects_replayed_commands() -> None:
     result = service.process(
         repository_id="octo-org/octo-repo",
         issue_number=11,
+        comment_id=21,
         policy_eligible=True,
         persist=True,
     )
 
     assert result.accepted_command_count == 0
     assert result.rejected_command_count == 0
+    assert work_item_service.updated == []
+
+
+def test_process_ignores_historical_command_when_a_new_comment_triggers_the_run() -> None:
+    service, work_item_service = build_service(
+        existing=build_existing(),
+        comments=[
+            build_comment(body="/zeroone remediation dismiss", comment_id=21),
+            build_comment(body="Thanks, investigating this now.", comment_id=22),
+        ],
+    )
+
+    result = service.process(
+        repository_id="octo-org/octo-repo",
+        issue_number=11,
+        comment_id=22,
+        policy_eligible=True,
+        persist=True,
+    )
+
+    assert result.comment_count == 2
+    assert result.authorized_comment_count == 1
+    assert result.matched_command_count == 0
+    assert result.accepted_command_count == 0
     assert work_item_service.updated == []

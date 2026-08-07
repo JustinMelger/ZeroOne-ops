@@ -12,7 +12,12 @@ from zeroone_ops.models.policy import (
     PolicySeverityStateEntry,
     PolicyState,
 )
-from zeroone_ops.models.work_item import RecoveryEvent, WorkItemResolution
+from zeroone_ops.models.work_item import (
+    PublicationRetryState,
+    RecoveryEvent,
+    WorkItemExecutionFailure,
+    WorkItemResolution,
+)
 
 CURRENT_DASHBOARD_SCHEMA_VERSION = 2
 DASHBOARD_SCHEMA_MARKER = (
@@ -197,6 +202,8 @@ class DashboardItem(BaseModel):
     retry_block_reason: str | None = None
     log_excerpt: str | None = None
     attempt_number: int = Field(default=1, ge=1)
+    publication_retry: PublicationRetryState | None = None
+    execution_failure: WorkItemExecutionFailure | None = None
     recovery_events: list[RecoveryEvent] = Field(default_factory=list)
     resolution: WorkItemResolution | None = None
 

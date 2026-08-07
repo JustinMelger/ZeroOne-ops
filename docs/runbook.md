@@ -93,6 +93,14 @@ The dashboard policy workflow is also separate:
 - accepted commands and malformed prefixed commands receive bounded
   acknowledgement notes on the dashboard issue
 - strict `/zeroone policy ...` comments are the only operator mutation path
+
+Dashboard remediation recovery is separate as well. A Maintainer or Owner can
+comment on the GitLab dashboard issue with either
+`/zeroone remediation <item-id> retry` or
+`/zeroone remediation <item-id> dismiss`; then run
+`zeroone-ops work-items recover` from CI. The command queues state only. The
+normal remediation job remains the sole owner of patch generation, validation,
+branch creation, and change-request publication.
 - CI-only live execution, with local inspection limited to `--dry-run`
 
 The dashboard also renders an operator policy surface:
@@ -552,6 +560,10 @@ When a run fails:
 1. identify the failure stage from the run summary or logs
 2. correct the root cause
 3. rerun the pipeline manually or wait for the next scheduled run
+
+For a blocked GitLab dashboard item, post its displayed recovery command after
+the current failure was recorded. Older dashboard notes are ignored so a prior
+operator decision cannot affect a later failure.
 
 When an issue already has an open merge request:
 

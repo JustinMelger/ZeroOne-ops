@@ -28,6 +28,7 @@ class GitHubWorkItemRecoveryRunner:
         *,
         repository_id: str,
         issue_number: int,
+        comment_id: int,
         policy_eligible: bool,
         record: RunRecord,
         active_dry_run: bool,
@@ -46,6 +47,7 @@ class GitHubWorkItemRecoveryRunner:
         result = self.recovery_service.process(
             repository_id=repository_id,
             issue_number=issue_number,
+            comment_id=comment_id,
             policy_eligible=policy_eligible,
             persist=not active_dry_run,
         )

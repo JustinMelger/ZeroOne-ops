@@ -65,6 +65,10 @@ from zeroone_ops.services.dashboard.dashboard_policy_view_builder import (
 from zeroone_ops.services.dashboard.dashboard_reconciliation_runner import (
     DashboardReconciliationRunner,
 )
+from zeroone_ops.services.dashboard.dashboard_recovery_runner import (
+    DashboardRecoveryRunner,
+)
+from zeroone_ops.services.dashboard.dashboard_recovery_service import DashboardRecoveryService
 from zeroone_ops.services.dashboard.dashboard_remediation_runner import (
     DashboardRemediationRunner,
 )
@@ -89,6 +93,7 @@ from zeroone_ops.services.shared.state_store import StateStore
 from zeroone_ops.settings import (
     load_config,
     load_current_change_request_number,
+    load_current_github_issue_comment_id,
     load_current_github_issue_number,
     load_current_github_pull_request_head_sha,
     load_current_github_pull_request_number,
@@ -622,7 +627,7 @@ def sync_work_item_status(*, dry_run: bool = False) -> RunSummary:
 
 
 def recover_work_item(*, dry_run: bool = False) -> RunSummary:
-    """Process one GitHub work-item recovery command from issue-comment context."""
+    """Process provider-local remediation recovery commands."""
     config = load_config()
     state_store = StateStore(
         config.state.path,
@@ -635,15 +640,29 @@ def recover_work_item(*, dry_run: bool = False) -> RunSummary:
     run_id = _build_run_id()
     record = run_state_service.start_run(run_id)
     active_dry_run = dry_run or config.dry_run
-    if config.platform != "github":
-        message = "Work-item recovery command processing is not implemented for GitLab yet."
-        return run_state_service.fail_run(
+    if config.platform == "gitlab":
+        gitlab_config = load_gitlab_connection_config()
+        return DashboardRecoveryRunner(
+            recovery_service=DashboardRecoveryService(
+                dashboard_service=DashboardService(
+                    GitLabDashboardClient(gitlab_config),
+                    policy_view_builder=DashboardPolicyViewBuilder(
+                        repo_root=Path.cwd(),
+                        config=config,
+                        state=state,
+                    ),
+                )
+            ),
+            run_state_service=run_state_service,
+        ).run(
+            project_id=gitlab_config.project_id,
             record=record,
-            error_message=message,
-            failure=FailureDetails(stage=FailureStage.DASHBOARD_UPDATE, message=message),
+            active_dry_run=active_dry_run,
+            execution_mode=config.execution_mode,
         )
     issue_number = load_current_github_issue_number()
-    if issue_number is None:
+    comment_id = load_current_github_issue_comment_id()
+    if issue_number is None or comment_id is None:
         message = "GitHub recovery requires an issue_comment workflow event."
         return run_state_service.fail_run(
             record=record,
@@ -682,6 +701,7 @@ def recover_work_item(*, dry_run: bool = False) -> RunSummary:
     summary = recovery_runner.run(
         repository_id=github_config.repository,
         issue_number=issue_number,
+        comment_id=comment_id,
         policy_eligible=policy_eligible,
         record=record,
         active_dry_run=active_dry_run,

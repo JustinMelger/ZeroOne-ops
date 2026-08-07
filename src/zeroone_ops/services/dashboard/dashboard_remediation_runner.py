@@ -8,7 +8,7 @@ from pathlib import Path
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RunRecord
-from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.models.work_item import PublicationRetryState, WorkItemState
 from zeroone_ops.services.control_plane.work_items.remediation_work_item_promotion_service import (
     RemediationWorkItemPromotionContext,
 )
@@ -22,21 +22,29 @@ from zeroone_ops.services.dashboard.dashboard_remediation_updater import (
     DashboardRemediationUpdater,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
+from zeroone_ops.services.remediation.change_request_publisher import (
+    build_remediation_change_request_publisher,
+)
 from zeroone_ops.services.remediation.control_plane import (
     RemediationControlPlane,
     build_remediation_control_plane,
 )
 from zeroone_ops.services.remediation.execution_service import ExecutionService
+from zeroone_ops.services.remediation.publication_request_builder import (
+    RemediationPublicationRequestBuilder,
+)
+from zeroone_ops.services.remediation.recovery.publication_retry_service import (
+    PublicationRetryService,
+)
 from zeroone_ops.services.remediation.remediation_context_builder import (
     RemediationContextBuilder,
 )
 from zeroone_ops.services.remediation.remediation_execution_adapter import (
     remediation_work_item_to_execution_target,
 )
-from zeroone_ops.services.shared.run_state_service import (
-    RunStateService,
-    RunSummary,
-)
+from zeroone_ops.services.shared.branch_revision_lookup import build_branch_revision_lookup
+from zeroone_ops.services.shared.run_state_service import RunStateService, RunSummary
+from zeroone_ops.utils.git import build_remediation_branch_name
 
 LOGGER = logging.getLogger(__name__)
 
@@ -52,6 +60,7 @@ class DashboardRemediationRunner:
         dashboard_service: DashboardService,
         run_state_service: RunStateService,
         remediation_control_plane: RemediationControlPlane | None = None,
+        publication_retry_service: PublicationRetryService | None = None,
     ) -> None:
         """Initialize the remediation workflow runner."""
         self.repo_root = repo_root
@@ -60,6 +69,7 @@ class DashboardRemediationRunner:
         self.run_state_service = run_state_service
         self._remediation_control_plane_override = remediation_control_plane
         self._remediation_control_plane: RemediationControlPlane | None = None
+        self.publication_retry_service = publication_retry_service
 
     def run(
         self,
@@ -129,6 +139,14 @@ class DashboardRemediationRunner:
             )
 
         work_item = normalization_result.work_item
+        if intake_result.selected_item.publication_retry is not None:
+            return self._retry_recorded_publication(
+                project_id=project_id,
+                work_item=work_item,
+                record=record,
+                active_dry_run=active_dry_run,
+                recovered_stale_item_ids=recovered_stale_item_ids,
+            )
         live_dashboard_updates = not active_dry_run and self.config.execution_mode == "ci"
         promoted_work_item = None
         if live_dashboard_updates:
@@ -200,6 +218,13 @@ class DashboardRemediationRunner:
             selected_issue=remediation_work_item_to_execution_target(work_item),
             context=context,
             dry_run=active_dry_run,
+            branch_name=build_remediation_branch_name(
+                branch_prefix=self.config.branch_prefix,
+                source=work_item.source_type,
+                source_reference=work_item.source_ref,
+                file_path=work_item.file_path,
+                attempt_number=intake_result.selected_item.attempt_number,
+            ),
         )
         change_request_url = execution_result.change_request_url
         change_request_action = execution_result.change_request_action
@@ -218,6 +243,7 @@ class DashboardRemediationRunner:
                     run_id=run_id,
                     error_message=execution_result.failure.message,
                     retry_count=retry_count,
+                    publication_retry=_publication_retry_from_execution(execution_result),
                 )
                 if failed_update.error_message is not None:
                     return self._fail_dashboard_update(
@@ -335,6 +361,112 @@ class DashboardRemediationRunner:
             commit_sha=record.commit_sha,
             change_request_url=change_request_url,
             change_request_action=change_request_action,
+        )
+
+    def _retry_recorded_publication(
+        self,
+        *,
+        project_id: str,
+        work_item: RemediationWorkItem,
+        record: RunRecord,
+        active_dry_run: bool,
+        recovered_stale_item_ids: tuple[str, ...],
+    ) -> RunSummary:
+        """Retry verified publication without rerunning analysis or patch generation."""
+        document = self.dashboard_service.load_or_create(project_id=project_id)
+        dashboard_item = document.items_by_id().get(work_item.dashboard_item_id)
+        if dashboard_item is None or dashboard_item.publication_retry is None:
+            message = (
+                "Recorded publication retry state is unavailable for "
+                f"{work_item.dashboard_item_id}."
+            )
+            return self.run_state_service.dashboard.fail_item(
+                record=record,
+                dashboard_item_id=work_item.dashboard_item_id,
+                error_message=message,
+                failure=FailureDetails(stage=FailureStage.PUBLISH, message=message),
+            )
+        publication_retry = dashboard_item.publication_retry
+        if active_dry_run:
+            return self.run_state_service.build_summary(
+                run_id=record.run_id,
+                status=record.status,
+                message=_with_dashboard_recovery_note(
+                    "Dry-run would verify and retry recorded branch publication.",
+                    recovered_stale_item_ids=recovered_stale_item_ids,
+                ),
+                dashboard_item_id=work_item.dashboard_item_id,
+                branch_name=publication_retry.branch_name,
+                commit_sha=publication_retry.commit_sha,
+            )
+        retry_service = self.publication_retry_service or PublicationRetryService(
+            branch_revision_lookup=build_branch_revision_lookup(self.config),
+            change_request_publisher=build_remediation_change_request_publisher(self.config),
+        )
+        result = retry_service.retry(
+            publication_retry=publication_retry,
+            request=RemediationPublicationRequestBuilder(self.config).build(
+                selected_issue=remediation_work_item_to_execution_target(work_item),
+                source_branch=publication_retry.branch_name,
+                change_summary="Retrying publication for the existing remediation branch.",
+            ),
+        )
+        if not result.succeeded or result.change_request is None:
+            message = result.error_message or "Recorded branch publication retry failed."
+            record.branch_name = publication_retry.branch_name
+            record.commit_sha = publication_retry.commit_sha
+            DashboardRemediationUpdater(self.dashboard_service).mark_failed(
+                project_id=project_id,
+                dashboard_item_id=work_item.dashboard_item_id,
+                run_id=record.run_id,
+                error_message=message,
+                publication_retry=publication_retry,
+            )
+            return self.run_state_service.dashboard.fail_item(
+                record=record,
+                dashboard_item_id=work_item.dashboard_item_id,
+                error_message=_with_dashboard_recovery_note(
+                    message,
+                    recovered_stale_item_ids=recovered_stale_item_ids,
+                ),
+                failure=FailureDetails(stage=FailureStage.PUBLISH, message=message),
+            )
+        update = DashboardRemediationUpdater(self.dashboard_service).mark_change_request_opened(
+            project_id=project_id,
+            dashboard_item_id=work_item.dashboard_item_id,
+            run_id=record.run_id,
+            branch_name=publication_retry.branch_name,
+            change_request_url=result.change_request.web_url,
+            change_request_number=result.change_request.iid,
+            commit_sha=publication_retry.commit_sha,
+            clear_publication_retry=True,
+        )
+        if update.error_message is not None:
+            return self._fail_dashboard_update(
+                record=record,
+                dashboard_item_id=work_item.dashboard_item_id,
+                workflow_message="Recorded branch publication retry succeeded.",
+                dashboard_error_message=update.error_message,
+            )
+        self.run_state_service.dashboard.mark_change_request_created(
+            record=record,
+            dashboard_item_id=work_item.dashboard_item_id,
+            branch_name=publication_retry.branch_name,
+            change_request_url=result.change_request.web_url,
+        )
+        self.run_state_service.dashboard.finish_success()
+        return self.run_state_service.build_summary(
+            run_id=record.run_id,
+            status=record.status,
+            message=_with_dashboard_recovery_note(
+                "Recorded branch publication retry completed.",
+                recovered_stale_item_ids=recovered_stale_item_ids,
+            ),
+            dashboard_item_id=work_item.dashboard_item_id,
+            branch_name=publication_retry.branch_name,
+            commit_sha=publication_retry.commit_sha,
+            change_request_url=result.change_request.web_url,
+            change_request_action=result.action,
         )
 
     def _fail_dashboard_update(
@@ -462,3 +594,24 @@ def _with_dashboard_recovery_note(
             f"{', '.join(recovered_stale_item_ids)}."
         )
     return f"{message} {recovery_note}"
+
+
+def _publication_retry_from_execution(
+    execution_result: object,
+) -> PublicationRetryState | None:
+    """Retain only a verified branch that failed while opening a change request."""
+    failure = getattr(execution_result, "failure", None)
+    branch_name = getattr(execution_result, "branch_name", None)
+    commit_sha = getattr(execution_result, "commit_sha", None)
+    if (
+        failure is None
+        or failure.stage != FailureStage.PUBLISH
+        or not isinstance(branch_name, str)
+        or not isinstance(commit_sha, str)
+    ):
+        return None
+    return PublicationRetryState(
+        branch_name=branch_name,
+        commit_sha=commit_sha,
+        reason="change_request_publish_failed",
+    )
