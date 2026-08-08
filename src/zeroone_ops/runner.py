@@ -98,6 +98,9 @@ from zeroone_ops.services.intake.issue_intake import IssueIntakeService
 from zeroone_ops.services.remediation.github_remediation_runner import (
     GitHubRemediationRunner,
 )
+from zeroone_ops.services.remediation.gitlab_remediation_runner import (
+    GitLabRemediationRunner,
+)
 from zeroone_ops.services.review.pipeline.review_runner import ReviewRunner
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import (
@@ -320,7 +323,7 @@ def run_remediation(*, dry_run: bool = False) -> RunSummary:
     """Run remediation for the active platform."""
     config = load_config()
     if _gitlab_issue_mode_is_active(config):
-        return _issue_mode_workflow_unavailable_summary(config=config, workflow="remediation")
+        return _run_gitlab_issue_remediation(config=config, dry_run=dry_run)
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,
@@ -377,6 +380,30 @@ def run_remediation(*, dry_run: bool = False) -> RunSummary:
         record=record,
         run_id=run_id,
         active_dry_run=active_dry_run,
+    )
+
+
+def _run_gitlab_issue_remediation(*, config: AppConfig, dry_run: bool) -> RunSummary:
+    """Run one GitLab issue-mode remediation through the shared execution lifecycle."""
+    state_store = StateStore(
+        config.state.path,
+        base_branch=config.base_branch,
+        gitlab_project_id=load_gitlab_project_id_override(),
+        sonarqube_project_key=load_sonarqube_project_key_override(),
+    )
+    state = state_store.load()
+    run_state_service = RunStateService(config=config, state_store=state_store, state=state)
+    record = run_state_service.start_run(_build_run_id())
+    gitlab_config = load_gitlab_connection_config()
+    return GitLabRemediationRunner(
+        repo_root=Path.cwd(),
+        config=config,
+        project_id=gitlab_config.project_id,
+        work_item_service=GitLabWorkItemService(GitLabWorkItemClient(gitlab_config)),
+        run_state_service=run_state_service,
+    ).run(
+        record=record,
+        active_dry_run=dry_run or config.dry_run,
     )
 
 

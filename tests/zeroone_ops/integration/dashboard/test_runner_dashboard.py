@@ -1985,6 +1985,58 @@ def test_run_remediation_routes_github_to_provider_local_runner(
     assert captured["repository_id"] == "octo-org/octo-repo"
 
 
+def test_run_remediation_routes_gitlab_issue_mode_to_provider_local_runner(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "group/project")
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "execution_mode": "ci",
+          "validation_commands": [],
+          "remediation": {
+            "target_branch": "main"
+          },
+          "gitlab": {
+            "control_plane_mode": "issues",
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    captured: dict[str, object] = {}
+
+    class StubGitLabRemediationRunner:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        def run(self, **kwargs: object) -> RunSummary:
+            record = kwargs["record"]
+            assert hasattr(record, "run_id")
+            return RunSummary(
+                run_id=record.run_id,
+                status=RunStatus.NO_ISSUE,
+                message="[ci] No eligible GitLab work items.",
+                state_path=tmp_path / ".zeroone-ops-state.json",
+            )
+
+    monkeypatch.setattr("zeroone_ops.runner.GitLabRemediationRunner", StubGitLabRemediationRunner)
+
+    summary = run_remediation(dry_run=False)
+
+    assert summary.status.value == "no_issue"
+    assert summary.message == "[ci] No eligible GitLab work items."
+    assert captured["project_id"] == "group/project"
+
+
 def test_dashboard_remediate_ci_success_marks_dashboard_change_request_opened(
     tmp_path: Path,
     monkeypatch,

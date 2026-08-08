@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
@@ -15,6 +17,7 @@ from zeroone_ops.models.work_item import (
     WorkItemState,
 )
 from zeroone_ops.services.control_plane.work_items.github_remediation_intake_service import (
+    GitHubRemediationIntakeResult,
     GitHubRemediationIntakeService,
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
@@ -45,46 +48,59 @@ LOGGER = logging.getLogger(__name__)
 _FAILURE_OUTPUT_LIMIT = 2_000
 
 
-class GitHubRemediationRunner:
-    """Execute one selected GitHub work item through the shared remediation core."""
+class _WorkItemIntakeResult(Protocol):
+    """Expose one provider-local claimed work item to shared execution."""
+
+    @property
+    def selected_target(self) -> RemediationExecutionTarget | None:
+        """Return the execution target selected from authoritative state."""
+
+    @property
+    def claimed_work_item(self) -> WorkItemState | None:
+        """Return the selected work item after an optional persistent claim."""
+
+    @property
+    def item_count(self) -> int:
+        """Return the number of authoritative work items considered."""
+
+    @property
+    def message(self) -> str:
+        """Return the provider-local no-selection diagnostic."""
+
+
+class WorkItemRemediationRunner:
+    """Execute one claimed provider work item through the shared remediation core."""
 
     def __init__(
         self,
         *,
         repo_root: Path,
         config: AppConfig,
-        repository_id: str,
-        work_item_service: GitHubWorkItemService,
         run_state_service: RunStateService,
         execution_service: ExecutionService | None = None,
         remediation_control_plane: RemediationControlPlane | None = None,
         publication_retry_service: PublicationRetryService | None = None,
+        execution_url_builder: Callable[[], str | None] | None = None,
     ) -> None:
-        """Initialize the GitHub-local remediation runner."""
+        """Initialize shared remediation execution over one work-item control plane."""
         self.repo_root = repo_root
         self.config = config
-        self.repository_id = repository_id
-        self.work_item_service = work_item_service
         self.run_state_service = run_state_service
         self.execution_service = execution_service or ExecutionService(
             repo_root=repo_root,
             config=config,
         )
         self.remediation_control_plane = (
-            remediation_control_plane
-            or build_remediation_control_plane(
-                config,
-                github_work_item_service=work_item_service,
-                github_repository_id=repository_id,
-            )
+            remediation_control_plane or build_remediation_control_plane(config)
         )
         self.publication_retry_service = publication_retry_service
+        self.execution_url_builder = execution_url_builder or (lambda: None)
 
     def run(self, *, record: RunRecord, active_dry_run: bool) -> RunSummary:
-        """Select, execute, and project one GitHub remediation work item."""
+        """Select, execute, and project one provider work item."""
         if not active_dry_run and self.config.execution_mode != "ci":
             message = (
-                "GitHub remediation live execution is only supported in CI mode. "
+                "Work-item remediation live execution is only supported in CI mode. "
                 "Use --dry-run locally."
             )
             return self.run_state_service.fail_run(
@@ -93,10 +109,7 @@ class GitHubRemediationRunner:
                 failure=FailureDetails(stage=FailureStage.ISSUE_INTAKE, message=message),
             )
 
-        intake_result = GitHubRemediationIntakeService(
-            work_item_service=self.work_item_service
-        ).select_and_claim(
-            repository_id=self.repository_id,
+        intake_result = self._select_and_claim(
             persist=not active_dry_run,
             run_id=record.run_id,
         )
@@ -226,11 +239,11 @@ class GitHubRemediationRunner:
                 execution_failure=(
                     None
                     if failure is None or run_id is None
-                    else _build_execution_failure(failure=failure, run_id=run_id)
+                    else self._build_execution_failure(failure=failure, run_id=run_id)
                 ),
             )
         except Exception:
-            LOGGER.warning("GitHub work-item blocked-state projection failed", exc_info=True)
+            LOGGER.warning("work-item blocked-state projection failed", exc_info=True)
 
     def _retry_recorded_publication(
         self,
@@ -313,7 +326,7 @@ class GitHubRemediationRunner:
                 publication_retry=publication_retry,
             )
         except Exception:
-            LOGGER.warning("GitHub work-item publication retry projection failed", exc_info=True)
+            LOGGER.warning("work-item publication retry projection failed", exc_info=True)
 
     def _mark_dismissed_best_effort(
         self,
@@ -331,7 +344,7 @@ class GitHubRemediationRunner:
                 existing_work_item=claimed_work_item,
             )
         except Exception:
-            LOGGER.warning("GitHub work-item dismissed-state projection failed", exc_info=True)
+            LOGGER.warning("work-item dismissed-state projection failed", exc_info=True)
 
     def _mark_completed_best_effort(
         self,
@@ -349,7 +362,85 @@ class GitHubRemediationRunner:
                 existing_work_item=claimed_work_item,
             )
         except Exception:
-            LOGGER.warning("GitHub work-item completed-state projection failed", exc_info=True)
+            LOGGER.warning("work-item completed-state projection failed", exc_info=True)
+
+    def _select_and_claim(
+        self,
+        *,
+        persist: bool,
+        run_id: str,
+    ) -> _WorkItemIntakeResult:
+        """Return one provider-local work-item selection and claim."""
+        raise NotImplementedError
+
+    def _build_execution_failure(
+        self,
+        *,
+        failure: FailureDetails,
+        run_id: str,
+    ) -> WorkItemExecutionFailure:
+        """Build durable operator context for one failed remediation run."""
+        return WorkItemExecutionFailure(
+            stage=failure.stage.value,
+            summary=failure.message,
+            retry_count=failure.retry_count,
+            run_id=run_id,
+            occurred_at=utc_now(),
+            failed_command=failure.failed_command,
+            exit_code=failure.exit_code,
+            execution_url=self.execution_url_builder(),
+        )
+
+
+class GitHubRemediationRunner(WorkItemRemediationRunner):
+    """Compose shared work-item remediation with GitHub intake and CI traceability."""
+
+    def __init__(
+        self,
+        *,
+        repo_root: Path,
+        config: AppConfig,
+        repository_id: str,
+        work_item_service: GitHubWorkItemService,
+        run_state_service: RunStateService,
+        execution_service: ExecutionService | None = None,
+        remediation_control_plane: RemediationControlPlane | None = None,
+        publication_retry_service: PublicationRetryService | None = None,
+    ) -> None:
+        """Initialize GitHub-specific work-item remediation composition."""
+        self.repository_id = repository_id
+        self.work_item_service = work_item_service
+        super().__init__(
+            repo_root=repo_root,
+            config=config,
+            run_state_service=run_state_service,
+            execution_service=execution_service,
+            remediation_control_plane=(
+                remediation_control_plane
+                or build_remediation_control_plane(
+                    config,
+                    github_work_item_service=work_item_service,
+                    github_repository_id=repository_id,
+                )
+            ),
+            publication_retry_service=publication_retry_service,
+            execution_url_builder=_github_actions_run_url,
+        )
+
+    def _select_and_claim(
+        self,
+        *,
+        persist: bool,
+        run_id: str,
+    ) -> GitHubRemediationIntakeResult:
+        """Select and claim one eligible GitHub work item."""
+        return GitHubRemediationIntakeService(
+            work_item_service=self.work_item_service
+        ).select_and_claim(
+            repository_id=self.repository_id,
+            persist=persist,
+            run_id=run_id,
+        )
 
 
 def _failure_summary_message(failure: FailureDetails) -> str:
@@ -362,24 +453,6 @@ def _failure_summary_message(failure: FailureDetails) -> str:
     if len(excerpt) > _FAILURE_OUTPUT_LIMIT:
         excerpt = f"{excerpt[:_FAILURE_OUTPUT_LIMIT]}\n... output truncated"
     return f"{failure.message}\n\nFailed command output:\n{excerpt}"
-
-
-def _build_execution_failure(
-    *,
-    failure: FailureDetails,
-    run_id: str,
-) -> WorkItemExecutionFailure:
-    """Build durable operator context for a failed GitHub remediation run."""
-    return WorkItemExecutionFailure(
-        stage=failure.stage.value,
-        summary=failure.message,
-        retry_count=failure.retry_count,
-        run_id=run_id,
-        occurred_at=utc_now(),
-        failed_command=failure.failed_command,
-        exit_code=failure.exit_code,
-        execution_url=_github_actions_run_url(),
-    )
 
 
 def _github_actions_run_url() -> str | None:

@@ -71,6 +71,36 @@ class GitLabWorkItemLookupService:
         )
         return None
 
+    def find_open_work_item_by_change_request(
+        self,
+        *,
+        project_id: str,
+        change_request_number: int,
+    ) -> GitLabWorkItemLookupResult | None:
+        """Return the uniquely linked open remediation work item, when present."""
+        matched_result: GitLabWorkItemLookupResult | None = None
+        for result in self.list_open_work_items(project_id=project_id):
+            if result.work_item.kind != "remediation":
+                continue
+            linked_change_request = result.work_item.linked_change_request
+            if (
+                linked_change_request is not None
+                and linked_change_request.number == change_request_number
+            ):
+                if matched_result is not None:
+                    LOGGER.warning(
+                        "multiple GitLab remediation work items link to one change request; "
+                        "review projection skipped",
+                        extra={
+                            "change_request_number": change_request_number,
+                            "first_issue_iid": matched_result.issue.iid,
+                            "duplicate_issue_iid": result.issue.iid,
+                        },
+                    )
+                    return None
+                matched_result = result
+        return matched_result
+
     def list_open_work_items_by_source(
         self,
         *,

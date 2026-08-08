@@ -1,4 +1,5 @@
 from zeroone_ops.models.gitlab import GitLabIssueInfo
+from zeroone_ops.models.work_item import ChangeRequestRef
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_lookup_service import (
     GitLabWorkItemLookupService,
 )
@@ -111,3 +112,57 @@ def test_list_closed_work_items_marks_results_as_closed() -> None:
     assert len(results) == 1
     assert results[0].is_open is False
     assert results[0].work_item.status == "dismissed"
+
+
+def test_lookup_returns_work_item_linked_to_change_request() -> None:
+    work_item = build_work_item().model_copy(
+        update={
+            "linked_change_request": ChangeRequestRef(
+                number=17,
+                web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+            )
+        }
+    )
+    client = FakeGitLabWorkItemClient()
+    client.open_issues = [issue(iid=1, description=GitLabWorkItemRenderer().render_body(work_item))]
+
+    result = GitLabWorkItemLookupService(client).find_open_work_item_by_change_request(  # type: ignore[arg-type]
+        project_id="group/project",
+        change_request_number=17,
+    )
+
+    assert result is not None
+    assert result.work_item.work_item_id == work_item.work_item_id
+
+
+def test_lookup_rejects_duplicate_change_request_links(caplog) -> None:
+    work_item = build_work_item().model_copy(
+        update={
+            "linked_change_request": ChangeRequestRef(
+                number=17,
+                web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+            )
+        }
+    )
+    duplicate = work_item.model_copy(
+        update={
+            "work_item_id": "work-duplicate",
+            "source": work_item.source.model_copy(update={"source_item_key": "AX124"}),
+        }
+    )
+    client = FakeGitLabWorkItemClient()
+    client.open_issues = [
+        issue(iid=1, description=GitLabWorkItemRenderer().render_body(work_item)),
+        issue(iid=2, description=GitLabWorkItemRenderer().render_body(duplicate)),
+    ]
+
+    result = GitLabWorkItemLookupService(client).find_open_work_item_by_change_request(  # type: ignore[arg-type]
+        project_id="group/project",
+        change_request_number=17,
+    )
+
+    assert result is None
+    assert any(
+        "multiple GitLab remediation work items link to one change request" in message
+        for message in caplog.messages
+    )

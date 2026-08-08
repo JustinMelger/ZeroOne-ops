@@ -16,6 +16,7 @@ from zeroone_ops.services.remediation.analysis_service import (
     AnalysisResult,
     AnalysisService,
 )
+from zeroone_ops.services.remediation.control_plane import RemediationControlPlane
 from zeroone_ops.services.remediation.publish_service import (
     PublishResult,
     PublishService,
@@ -52,12 +53,19 @@ class ExecutionService:
         config: Loaded application configuration.
     """
 
-    def __init__(self, repo_root: Path, config: AppConfig) -> None:
+    def __init__(
+        self,
+        repo_root: Path,
+        config: AppConfig,
+        *,
+        remediation_control_plane: RemediationControlPlane | None = None,
+    ) -> None:
         """Initialize the execution service.
 
         Args:
             repo_root: Repository root path.
             config: Loaded application configuration.
+            remediation_control_plane: Optional provider-local lifecycle projection.
         """
         self.repo_root = repo_root
         self.config = config
@@ -65,7 +73,11 @@ class ExecutionService:
         self.approval_service = ApprovalService()
         self.branch_manager = BranchManager(repo_root)
         self.workspace_snapshot_service = WorkspaceSnapshotService(repo_root)
-        self.publish_service = PublishService(config=config, branch_manager=self.branch_manager)
+        self.publish_service = PublishService(
+            config=config,
+            branch_manager=self.branch_manager,
+            remediation_control_plane=remediation_control_plane,
+        )
 
     def execute(
         self,

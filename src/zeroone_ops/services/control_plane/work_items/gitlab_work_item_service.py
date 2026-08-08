@@ -53,6 +53,18 @@ class GitLabWorkItemService:
             source=source,
         )
 
+    def find_open_work_item_by_change_request(
+        self,
+        *,
+        project_id: str,
+        change_request_number: int,
+    ) -> GitLabWorkItemLookupResult | None:
+        """Return the uniquely linked open remediation work item, when present."""
+        return self.lookup_service.find_open_work_item_by_change_request(
+            project_id=project_id,
+            change_request_number=change_request_number,
+        )
+
     def list_open_work_items(self, *, project_id: str) -> list[GitLabWorkItemLookupResult]:
         """Return every parseable open authoritative GitLab work item."""
         return self.lookup_service.list_open_work_items(project_id=project_id)
