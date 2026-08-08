@@ -5,6 +5,25 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.53.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.52.0...zeroone-ops-v0.53.0) (2026-08-08)
+
+
+### Features
+
+* **control-plane:** gitlab-issue-control-plane ([#318](https://github.com/JustinMelger/ZeroOne-ops/issues/318)) ([de34e31](https://github.com/JustinMelger/ZeroOne-ops/commit/de34e31b9bd513e7f7bd46b48d6649201aa3ed01))
+* **remediation:** add remediation recovery state ([#316](https://github.com/JustinMelger/ZeroOne-ops/issues/316)) ([1a6a232](https://github.com/JustinMelger/ZeroOne-ops/commit/1a6a232fb9a057e90f2f15fc25f5d5c57809b410))
+
+
+### Bug Fixes
+
+* **deps:** update python dependencies ([#298](https://github.com/JustinMelger/ZeroOne-ops/issues/298)) ([827f232](https://github.com/JustinMelger/ZeroOne-ops/commit/827f2323d597bdde431837b83a7b4a6aeeb51634))
+* return consequence condition directly ([#307](https://github.com/JustinMelger/ZeroOne-ops/issues/307)) ([b7d1d4c](https://github.com/JustinMelger/ZeroOne-ops/commit/b7d1d4c053c365c29d9beae8be8b762297824585))
+
+
+### Documentation
+
+* refresh onboarding examples ([#314](https://github.com/JustinMelger/ZeroOne-ops/issues/314)) ([db0e9f8](https://github.com/JustinMelger/ZeroOne-ops/commit/db0e9f87e60f05a7b44b3e083b46662dfc5f2a7e))
+
 ## [0.52.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.51.0...zeroone-ops-v0.52.0) (2026-08-05)
 
 
