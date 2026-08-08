@@ -11,14 +11,14 @@ from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.services.control_plane.policy.gitlab_policy_note_authorization_service import (
     GitLabPolicyNoteAuthorizationService,
 )
-from zeroone_ops.services.control_plane.work_items.github_work_item_recovery_command_parser import (
-    GitHubWorkItemRecoveryCommandParser,
-)
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_lookup_service import (
     GitLabWorkItemLookupResult,
 )
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
+)
+from zeroone_ops.services.control_plane.work_items.work_item_recovery_command_parser import (
+    WorkItemRecoveryCommandParser,
 )
 from zeroone_ops.services.remediation.recovery.recovery_decision_service import (
     RecoveryDecisionService,
@@ -67,7 +67,7 @@ class GitLabWorkItemRecoveryService:
         self.note_authorization_service = note_authorization_service
         self.work_item_service = work_item_service
         self.decision_service = decision_service or RecoveryDecisionService()
-        self.command_parser = GitHubWorkItemRecoveryCommandParser()
+        self.command_parser = WorkItemRecoveryCommandParser()
 
     def process(
         self,

@@ -117,13 +117,14 @@ Policy processing is separate from finding sync and remediation:
 - malformed or unauthorized commands are visible in logs and do not mutate
   authoritative state
 
-Blocked remediation recovery is separate as well. A GitLab Maintainer or Owner
-comments on the dashboard issue with `/zeroone remediation <item-id> requeue` or
-`/zeroone remediation <item-id> dismiss`; a GitHub repository admin comments
-`/zeroone remediation requeue` or `/zeroone remediation dismiss` on the affected
-work-item issue. Recovery only queues state. The normal remediation job remains
-the sole owner of patch generation, validation, branch creation, and
-change-request publication.
+Blocked remediation recovery is separate as well. In GitLab dashboard mode, a
+Maintainer or Owner comments on the dashboard issue with
+`/zeroone remediation <item-id> requeue` or
+`/zeroone remediation <item-id> dismiss`. In GitLab issue mode and on GitHub, an
+authorized operator comments `/zeroone remediation requeue` or
+`/zeroone remediation dismiss` on the affected work-item issue. Recovery only
+queues state. The normal remediation job remains the sole owner of patch
+generation, validation, branch creation, and change-request publication.
 
 The provider-native control plane renders an operator policy surface:
 
@@ -579,9 +580,11 @@ When a run fails:
 2. correct the root cause
 3. rerun the pipeline manually or wait for the next scheduled run
 
-For a blocked GitLab dashboard item, post its displayed recovery command after
-the current failure was recorded. Older dashboard notes are ignored so a prior
-operator decision cannot affect a later failure.
+For a blocked work item, post its displayed recovery command after the current
+failure was recorded. In GitLab dashboard mode, use the dashboard command form
+that includes the item ID; in GitLab issue mode and on GitHub, comment directly
+on the affected work-item issue. Older commands are ignored so a prior operator
+decision cannot affect a later failure.
 
 When an issue already has an open merge request:
 
