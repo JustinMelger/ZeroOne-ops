@@ -50,6 +50,7 @@
     }
   },
   "gitlab": {
+    "control_plane_mode": "issues",
     "labels": ["zeroone-ops", "sonarqube"],
     "_comment_merge_request_assignee_username": "Optional: add your GitLab username here to assign remediation merge requests."
   },
