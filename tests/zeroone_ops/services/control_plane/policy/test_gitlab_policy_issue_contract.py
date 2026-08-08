@@ -5,14 +5,14 @@ from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_parser import (
     GitLabPolicyIssueParser,
 )
-from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_renderer import (
-    GitLabPolicyIssueRenderer,
+from zeroone_ops.services.control_plane.policy.policy_issue_renderer import (
+    PolicyIssueRenderer,
 )
 
 
 def test_policy_state_round_trips_the_gitlab_policy_issue_body() -> None:
     state = DashboardPolicyState()
-    body = GitLabPolicyIssueRenderer().render(
+    body = PolicyIssueRenderer().render(
         policy_state=state,
         policy_view=DashboardPolicyView(),
     )
@@ -47,7 +47,7 @@ def test_parser_rejects_invalid_machine_policy_state() -> None:
     ],
 )
 def test_parser_rejects_nonfinal_or_duplicate_machine_policy_state(suffix: str) -> None:
-    body = GitLabPolicyIssueRenderer().render(
+    body = PolicyIssueRenderer().render(
         policy_state=DashboardPolicyState(),
         policy_view=DashboardPolicyView(),
     )

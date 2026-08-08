@@ -12,9 +12,6 @@ from zeroone_ops.providers.gitlab_policy_client import GitLabPolicyClient
 from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_parser import (
     GitLabPolicyIssueParser,
 )
-from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_renderer import (
-    GitLabPolicyIssueRenderer,
-)
 from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_store import (
     GitLabPolicyIssueStore,
 )
@@ -22,6 +19,9 @@ from zeroone_ops.services.control_plane.policy.gitlab_policy_note_authorization_
     GitLabPolicyNoteAuthorizationService,
 )
 from zeroone_ops.services.control_plane.policy.policy_action_service import PolicyActionService
+from zeroone_ops.services.control_plane.policy.policy_issue_renderer import (
+    PolicyIssueRenderer,
+)
 from zeroone_ops.services.control_plane.policy.policy_processing_service import (
     PolicyProcessingResult,
     PolicyProcessingService,
@@ -73,7 +73,7 @@ class GitLabPolicyIssueService:
         *,
         policy_view_builder: GitLabPolicyViewBuilderProtocol,
         parser: GitLabPolicyIssueParser | None = None,
-        renderer: GitLabPolicyIssueRenderer | None = None,
+        renderer: PolicyIssueRenderer | None = None,
         title: str = "ZeroOne Ops Policy",
         labels: list[str] | None = None,
         policy_action_service: PolicyActionService | None = None,
@@ -82,7 +82,7 @@ class GitLabPolicyIssueService:
     ) -> None:
         """Initialize the GitLab policy issue service."""
         self.parser = parser or GitLabPolicyIssueParser()
-        self.renderer = renderer or GitLabPolicyIssueRenderer()
+        self.renderer = renderer or PolicyIssueRenderer()
         self.policy_view_builder = policy_view_builder
         self.issue_store = GitLabPolicyIssueStore(
             client,

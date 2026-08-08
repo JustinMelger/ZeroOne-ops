@@ -17,11 +17,11 @@ from zeroone_ops.services.remediation.control_plane import (
     build_remediation_control_plane,
 )
 from zeroone_ops.services.remediation.execution_service import ExecutionService
-from zeroone_ops.services.remediation.github_remediation_runner import (
-    WorkItemRemediationRunner,
-)
 from zeroone_ops.services.remediation.recovery.publication_retry_service import (
     PublicationRetryService,
+)
+from zeroone_ops.services.remediation.work_item_remediation_runner import (
+    WorkItemRemediationRunner,
 )
 from zeroone_ops.services.shared.run_state_service import RunStateService
 

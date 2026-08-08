@@ -39,7 +39,7 @@ providers/
 services/control_plane/
   policy/
     gitlab_policy_issue_parser.py
-    gitlab_policy_issue_renderer.py
+    policy_issue_renderer.py
     gitlab_policy_issue_store.py
     gitlab_policy_issue_service.py
     gitlab_policy_processing_runner.py

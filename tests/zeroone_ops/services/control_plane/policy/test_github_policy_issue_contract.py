@@ -5,8 +5,8 @@ from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.services.control_plane.policy.github_policy_issue_parser import (
     GitHubPolicyIssueParser,
 )
-from zeroone_ops.services.control_plane.policy.github_policy_issue_renderer import (
-    GitHubPolicyIssueRenderer,
+from zeroone_ops.services.control_plane.policy.policy_issue_renderer import (
+    PolicyIssueRenderer,
 )
 
 
@@ -19,7 +19,7 @@ from zeroone_ops.services.control_plane.policy.github_policy_issue_renderer impo
     ],
 )
 def test_parser_rejects_nonfinal_or_duplicate_machine_policy_state(suffix: str) -> None:
-    body = GitHubPolicyIssueRenderer().render(
+    body = PolicyIssueRenderer().render(
         policy_state=DashboardPolicyState(),
         policy_view=DashboardPolicyView(),
     )
