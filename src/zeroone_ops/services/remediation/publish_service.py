@@ -37,6 +37,7 @@ class PublishResult:
     branch_name: str | None = None
     change_request_url: str | None = None
     change_request_action: str | None = None
+    published_change_request: ChangeRequestInfo | None = None
     error_message: str | None = None
 
 
@@ -134,6 +135,7 @@ class PublishService:
             branch_name=pushed_branch,
             change_request_url=published_change_request.info.web_url,
             change_request_action=published_change_request.action,
+            published_change_request=published_change_request.info,
         )
 
     def build_change_request_title(
@@ -184,7 +186,7 @@ class PublishService:
             return self._remediation_control_plane_instance().mark_publish_started(
                 selected_issue=selected_issue,
             )
-        except (GitHubClientError, RuntimeError):
+        except (GitHubClientError, GitLabClientError, RuntimeError):
             LOGGER.warning(
                 "Remediation control-plane publish-start sync failed before publish",
                 exc_info=True,
@@ -205,7 +207,7 @@ class PublishService:
                 published_change_request=published_change_request,
                 existing_work_item=existing_work_item,
             )
-        except (GitHubClientError, RuntimeError):
+        except (GitHubClientError, GitLabClientError, RuntimeError):
             LOGGER.warning(
                 "Remediation control-plane change-request sync failed after publish",
                 extra={"change_request_url": published_change_request.web_url},
@@ -227,7 +229,7 @@ class PublishService:
                 existing_work_item=existing_work_item,
                 publication_retry=publication_retry,
             )
-        except (GitHubClientError, RuntimeError):
+        except (GitHubClientError, GitLabClientError, RuntimeError):
             LOGGER.warning(
                 "Remediation control-plane blocked-state cleanup failed after publish failure",
                 extra={"original_error": str(original_error)},

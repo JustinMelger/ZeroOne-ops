@@ -17,6 +17,7 @@ _WORK_ITEM_STATE_BLOCK_PATTERN = re.compile(
     ),
     re.DOTALL,
 )
+_MACHINE_STATE_SECTION = "## Machine State\n\n"
 
 
 class GitHubWorkItemParser:
@@ -24,9 +25,18 @@ class GitHubWorkItemParser:
 
     def parse_work_item_state(self, body: str) -> WorkItemState | None:
         """Return the canonical work-item state when present."""
-        match = _WORK_ITEM_STATE_BLOCK_PATTERN.search(body)
-        if match is None:
+        matches = list(_WORK_ITEM_STATE_BLOCK_PATTERN.finditer(body))
+        if not matches:
             return None
+        match = matches[0]
+        if (
+            len(matches) != 1
+            or not body[: match.start()].endswith(_MACHINE_STATE_SECTION)
+            or body[match.end() :].strip()
+        ):
+            raise GitHubClientError(
+                "GitHub work-item state block was not the final renderer-owned block."
+            )
         try:
             payload = json.loads(match.group("payload"))
         except json.JSONDecodeError as error:

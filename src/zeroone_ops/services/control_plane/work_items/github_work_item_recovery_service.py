@@ -14,11 +14,11 @@ from zeroone_ops.services.control_plane.github_comment_authorization_service imp
 from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
     GitHubWorkItemLookupResult,
 )
-from zeroone_ops.services.control_plane.work_items.github_work_item_recovery_command_parser import (
-    GitHubWorkItemRecoveryCommandParser,
-)
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
+)
+from zeroone_ops.services.control_plane.work_items.work_item_recovery_command_parser import (
+    WorkItemRecoveryCommandParser,
 )
 from zeroone_ops.services.remediation.recovery.recovery_decision_service import (
     RecoveryDecisionService,
@@ -61,14 +61,14 @@ class GitHubWorkItemRecoveryService:
         comment_authorization_service: GitHubCommentAuthorizationService,
         work_item_service: GitHubWorkItemService,
         decision_service: RecoveryDecisionService | None = None,
-        command_parser: GitHubWorkItemRecoveryCommandParser | None = None,
+        command_parser: WorkItemRecoveryCommandParser | None = None,
     ) -> None:
         """Initialize provider-local comment processing dependencies."""
         self.comment_client = comment_client
         self.comment_authorization_service = comment_authorization_service
         self.work_item_service = work_item_service
         self.decision_service = decision_service or RecoveryDecisionService()
-        self.command_parser = command_parser or GitHubWorkItemRecoveryCommandParser()
+        self.command_parser = command_parser or WorkItemRecoveryCommandParser()
 
     def process(
         self,

@@ -15,13 +15,13 @@ from zeroone_ops.services.control_plane.github_comment_authorization_service imp
 from zeroone_ops.services.control_plane.policy.github_policy_issue_parser import (
     GitHubPolicyIssueParser,
 )
-from zeroone_ops.services.control_plane.policy.github_policy_issue_renderer import (
-    GitHubPolicyIssueRenderer,
-)
 from zeroone_ops.services.control_plane.policy.github_policy_issue_store import (
     GitHubPolicyIssueStore,
 )
 from zeroone_ops.services.control_plane.policy.policy_action_service import PolicyActionService
+from zeroone_ops.services.control_plane.policy.policy_issue_renderer import (
+    PolicyIssueRenderer,
+)
 from zeroone_ops.services.control_plane.policy.policy_processing_service import (
     PolicyProcessingResult,
     PolicyProcessingService,
@@ -74,7 +74,7 @@ class GitHubPolicyIssueService:
         client: GitHubPolicyClient,
         *,
         parser: GitHubPolicyIssueParser | None = None,
-        renderer: GitHubPolicyIssueRenderer | None = None,
+        renderer: PolicyIssueRenderer | None = None,
         title: str = "ZeroOne Ops Policy",
         labels: list[str] | None = None,
         policy_view_builder: GitHubPolicyViewBuilderProtocol,
@@ -85,7 +85,7 @@ class GitHubPolicyIssueService:
         """Initialize the GitHub policy issue service."""
         self.client = client
         self.parser = parser or GitHubPolicyIssueParser()
-        self.renderer = renderer or GitHubPolicyIssueRenderer()
+        self.renderer = renderer or PolicyIssueRenderer()
         self.title = title
         self.labels = labels or ["zeroone-policy"]
         self.policy_view_builder = policy_view_builder

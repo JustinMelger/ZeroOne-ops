@@ -97,6 +97,11 @@ def fake_publish_reused(**kwargs) -> PublishResult:
         branch_name="zeroone-ops/fix",
         change_request_url="https://gitlab.example.com/group/project/-/merge_requests/9",
         change_request_action="reused",
+        published_change_request=ChangeRequestInfo(
+            iid=9,
+            web_url="https://gitlab.example.com/group/project/-/merge_requests/9",
+            title="fix: remediation",
+        ),
     )
 
 

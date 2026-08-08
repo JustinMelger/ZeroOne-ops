@@ -63,12 +63,14 @@ class GitLabConfig(BaseModel):
     """Configure GitLab merge request behavior.
 
     Attributes:
+        control_plane_mode: Authoritative GitLab workflow-state storage.
         labels: Labels to attach to created merge requests.
         merge_request_assignee_username: Optional GitLab username to assign
             created remediation merge requests to.
     """
 
     target_branch: str | None = None
+    control_plane_mode: Literal["dashboard", "issues"] = "dashboard"
     labels: list[str] = Field(default_factory=list)
     merge_request_assignee_username: str | None = None
 

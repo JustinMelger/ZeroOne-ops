@@ -85,6 +85,54 @@ def test_settings_allow_execution_mode_override(tmp_path: Path, monkeypatch) -> 
     assert config.requires_local_approval() is True
 
 
+def test_settings_default_gitlab_control_plane_mode_is_dashboard(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
+          "gitlab": {
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.require_gitlab_config(reason="test").control_plane_mode == "dashboard"
+
+
+def test_settings_accept_gitlab_issue_control_plane_mode(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
+          "gitlab": {
+            "control_plane_mode": "issues",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.require_gitlab_config(reason="test").control_plane_mode == "issues"
+
+
 def test_gitlab_settings_fall_back_to_ci_project_id(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("GITLAB_PROJECT_ID", raising=False)

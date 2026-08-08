@@ -30,6 +30,7 @@ from zeroone_ops.models.state import (
 )
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
+from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPlatformProtocol,
     ReviewPlatformClientError,
@@ -37,8 +38,14 @@ from zeroone_ops.providers.review.platform import (
 from zeroone_ops.services.control_plane.review_projection.github_review_projection_service import (
     GitHubReviewProjectionService,
 )
+from zeroone_ops.services.control_plane.review_projection.gitlab_review_projection_service import (
+    GitLabReviewProjectionService,
+)
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
+)
+from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
+    GitLabWorkItemService,
 )
 from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
@@ -79,7 +86,10 @@ from zeroone_ops.services.review.publish.review_finalization_service import (
 from zeroone_ops.services.review.publish.review_publisher import ReviewPublisher
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
-from zeroone_ops.settings import load_github_connection_config
+from zeroone_ops.settings import (
+    load_github_connection_config,
+    load_gitlab_connection_config,
+)
 
 LOGGER = logging.getLogger(__name__)
 _UNRESOLVED_BOT_AUTHOR_USERNAME = object()
@@ -401,21 +411,9 @@ class ReviewRunner:
                 ),
             )
 
-        dashboard_updater = None
-        if self.dashboard_client is not None:
-            dashboard_updater = ReviewDashboardUpdater(
-                DashboardService(
-                    self.dashboard_client,
-                    policy_view_builder=DashboardPolicyViewBuilder(
-                        repo_root=self.repo_root,
-                        config=self.config,
-                        state=self.review_state_service.state,
-                    ),
-                )
-            )
         finalization_result = ReviewFinalizationService(
             review_publisher=ReviewPublisher(self.review_client),
-            dashboard_updater=dashboard_updater,
+            dashboard_updater=self._build_dashboard_updater(),
             review_projection_factory=self._build_review_projection_service,
         ).finalize(
             run_id=run_id,
@@ -496,14 +494,36 @@ class ReviewRunner:
             state_path=summary.state_path,
         )
 
-    def _build_review_projection_service(self) -> GitHubReviewProjectionService | None:
-        """Build provider-local review projection support when the platform supports it."""
-        if self.config.platform != "github":
+    def _build_dashboard_updater(self) -> ReviewDashboardUpdater | None:
+        """Return the legacy dashboard mirror only while dashboard mode owns state."""
+        if self.dashboard_client is None or self._gitlab_issue_mode_is_active():
             return None
-        github_config = load_github_connection_config()
-        return GitHubReviewProjectionService(
-            GitHubWorkItemService(GitHubWorkItemClient(github_config))
+        return ReviewDashboardUpdater(
+            DashboardService(
+                self.dashboard_client,
+                policy_view_builder=DashboardPolicyViewBuilder(
+                    repo_root=self.repo_root,
+                    config=self.config,
+                    state=self.review_state_service.state,
+                ),
+            )
         )
+
+    def _build_review_projection_service(
+        self,
+    ) -> GitHubReviewProjectionService | GitLabReviewProjectionService | None:
+        """Build provider-local review projection support when the platform supports it."""
+        if self.config.platform == "github":
+            github_config = load_github_connection_config()
+            return GitHubReviewProjectionService(
+                GitHubWorkItemService(GitHubWorkItemClient(github_config))
+            )
+        if self._gitlab_issue_mode_is_active():
+            gitlab_config = load_gitlab_connection_config()
+            return GitLabReviewProjectionService(
+                GitLabWorkItemService(GitLabWorkItemClient(gitlab_config))
+            )
+        return None
 
     def _retry_same_sha_projection_if_needed(
         self,
@@ -515,12 +535,7 @@ class ReviewRunner:
         active_dry_run: bool,
     ) -> str | None:
         """Retry one pending projection side effect without re-entering review analysis."""
-        if (
-            active_dry_run
-            or self.config.platform != "github"
-            or review_state is None
-            or not review_state.projection_retry_pending
-        ):
+        if active_dry_run or review_state is None or not review_state.projection_retry_pending:
             return None
         warning_message = self._repair_same_sha_projection(
             run_id=run_id,
@@ -594,6 +609,16 @@ class ReviewRunner:
             },
         )
         return None
+
+    def _gitlab_issue_mode_is_active(self) -> bool:
+        """Return whether GitLab issue mode owns review projection state."""
+        return (
+            self.config.platform == "gitlab"
+            and self.config.require_gitlab_config(
+                reason="GitLab review projection"
+            ).control_plane_mode
+            == "issues"
+        )
 
     def _resolve_prior_comment_author_username(
         self,

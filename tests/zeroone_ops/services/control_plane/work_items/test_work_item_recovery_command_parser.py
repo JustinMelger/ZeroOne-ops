@@ -1,10 +1,10 @@
-from zeroone_ops.services.control_plane.work_items.github_work_item_recovery_command_parser import (
-    GitHubWorkItemRecoveryCommandParser,
+from zeroone_ops.services.control_plane.work_items.work_item_recovery_command_parser import (
+    WorkItemRecoveryCommandParser,
 )
 
 
 def test_parser_accepts_standalone_recovery_commands() -> None:
-    parser = GitHubWorkItemRecoveryCommandParser()
+    parser = WorkItemRecoveryCommandParser()
 
     requeue = parser.parse("/zeroone remediation requeue")
     dismiss = parser.parse("  /ZeroOne remediation dismiss  ")
@@ -16,7 +16,7 @@ def test_parser_accepts_standalone_recovery_commands() -> None:
 
 
 def test_parser_marks_invalid_prefixed_commands_without_accepting_them() -> None:
-    parser = GitHubWorkItemRecoveryCommandParser()
+    parser = WorkItemRecoveryCommandParser()
 
     invalid = parser.parse("/zeroone remediation reopen")
     legacy = parser.parse("/zeroone remediation retry")

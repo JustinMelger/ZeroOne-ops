@@ -1,4 +1,4 @@
-"""Parse GitHub work-item recovery commands without interpreting issue state."""
+"""Parse provider-neutral work-item recovery commands without interpreting state."""
 
 from __future__ import annotations
 
@@ -15,24 +15,24 @@ _RECOVERY_COMMAND = re.compile(
 
 
 @dataclass(frozen=True)
-class GitHubWorkItemRecoveryCommand:
+class WorkItemRecoveryCommand:
     """Describe whether one comment contains a supported recovery command."""
 
     matched_prefix: bool
     action: RecoveryAction | None = None
 
 
-class GitHubWorkItemRecoveryCommandParser:
-    """Parse only standalone GitHub work-item recovery commands."""
+class WorkItemRecoveryCommandParser:
+    """Parse only standalone work-item recovery commands."""
 
-    def parse(self, body: str | None) -> GitHubWorkItemRecoveryCommand:
+    def parse(self, body: str | None) -> WorkItemRecoveryCommand:
         """Return one parsed command or a prefix-only invalid command result."""
         if body is None or not _RECOVERY_PREFIX.match(body):
-            return GitHubWorkItemRecoveryCommand(matched_prefix=False)
+            return WorkItemRecoveryCommand(matched_prefix=False)
         match = _RECOVERY_COMMAND.match(body)
         if match is None:
-            return GitHubWorkItemRecoveryCommand(matched_prefix=True)
-        return GitHubWorkItemRecoveryCommand(
+            return WorkItemRecoveryCommand(matched_prefix=True)
+        return WorkItemRecoveryCommand(
             matched_prefix=True,
             action=match.group(1).lower(),  # type: ignore[arg-type]
         )

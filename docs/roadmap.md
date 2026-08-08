@@ -42,8 +42,48 @@ history, not here.
 - [x] 7b: add verified publication-retry planning and provider adapters
 - [x] 7c: add authorized GitLab dashboard-note and GitHub work-item commands
 - [ ] 7d: add fresh-attempt branch identity and live validation on both providers
-- design: [functional recovery contract](design/functional/functional-design-remediation-recovery.md)
-  and [technical implementation plan](design/technical/technical-design-remediation-recovery.md)
+- design: [functional recovery contract](docs/design/functional/functional-design-remediation-recovery.md)
+  and [technical implementation plan](docs/design/technical/technical-design-remediation-recovery.md)
+
+### Phase 8: GitLab Issue Control Plane
+
+- [x] 8a.1: extract neutral linked-change-request reconciliation and add
+  dedicated GitLab issue-mode transport without changing dashboard behavior
+- [x] 8a.2: add GitLab work-item parsing, rendering, lookup, upsert, and
+  malformed-record handling
+- [x] 8b: implement one GitLab policy issue with Maintainer/Owner-authorized
+  note replay and shared policy loading
+- [x] 8c.1: publish policy-promoted findings as authoritative GitLab work-item
+  issues with stable identity lookup and stale-inventory reconciliation
+- [x] 8c.2a: select and claim one eligible GitLab work-item issue using the
+  shared execution-target contract
+- [x] 8c.2b: execute claimed GitLab work items and project merge-request links
+- [x] 8c.2c: project review outcomes onto the uniquely linked GitLab work item
+- [x] 8d.1: add GitLab issue-mode lifecycle with stale-claim recovery,
+  merge-request reconciliation, and terminal issue closure
+- [x] 8d.2: add event-scoped GitLab work-item recovery
+- [x] 8d.3: add the scheduled/manual issue-mode control-plane job: policy,
+  paginated labelled work-item recovery notes, then remediation; start at a
+  30-minute schedule
+- [ ] 8d.4: label and close the legacy dashboard after cutover, preserving it as
+  readable history without competing authority
+- [ ] 8e.1: extract provider-neutral operational-summary view, builder,
+  renderer, parser, and persisted latest-finding-sync observation from the
+  GitHub implementation without changing GitHub behavior
+- [ ] 8e.2: add GitLab operational-summary issue transport and derived-summary
+  service with bounded rendering, stable lookup, and parser/renderer/store
+  coverage
+- [ ] 8e.3: publish the GitLab derived summary best-effort after finding sync,
+  control-plane transitions, and lifecycle reconciliation
+- [ ] 8e.4: update GitLab installation guidance and live-validate the summary
+  alongside issue-mode policy, remediation, recovery, and lifecycle behavior
+- [ ] 8e.5: live-validate policy, remediation, recovery, merge-request
+  lifecycle, dismissal suppression, blocked items, and stale claims in two
+  GitLab repositories
+- [ ] 8f: after successful rollout, make dashboard mode maintenance-only for
+  two minor releases, then remove it in a planned breaking release
+- design: [functional control-plane design](docs/design/functional/functional-design-gitlab-issue-control-plane.md)
+  and [technical implementation plan](docs/design/technical/technical-design-gitlab-issue-control-plane.md)
 
 ### Control-Plane Installation UX
 
@@ -56,7 +96,7 @@ history, not here.
 - [x] update the README and runbook to describe this as one ZeroOne Ops
   control-plane installation, not a collection of independently wired commands
 
-### Phase 8: Validation Feedback Loop
+### Phase 9: Validation Feedback Loop
 
 - capture a baseline for configured validation commands before applying a
   remediation patch
@@ -86,9 +126,6 @@ history, not here.
 
 ## Parked For Later
 
-- evolve GitLab from its all-in-one dashboard issue toward the GitHub-style
-  hybrid model: authoritative work items, separate policy, and optional derived
-  overview
 - external API/database-backed control plane
 - additional structured finding adapters and a later shared cross-source
   reconciliation/deduplication stage

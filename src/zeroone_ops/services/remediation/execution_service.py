@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from zeroone_ops.models.analysis import IssueContext
+from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.state import FailureDetails, FailureStage, RunStatus
@@ -16,6 +17,7 @@ from zeroone_ops.services.remediation.analysis_service import (
     AnalysisResult,
     AnalysisService,
 )
+from zeroone_ops.services.remediation.control_plane import RemediationControlPlane
 from zeroone_ops.services.remediation.publish_service import (
     PublishResult,
     PublishService,
@@ -40,6 +42,7 @@ class ExecutionResult:
     commit_sha: str | None = None
     change_request_url: str | None = None
     change_request_action: str | None = None
+    published_change_request: ChangeRequestInfo | None = None
     publish_attempted: bool = False
     final_status: RunStatus | None = None
 
@@ -52,12 +55,19 @@ class ExecutionService:
         config: Loaded application configuration.
     """
 
-    def __init__(self, repo_root: Path, config: AppConfig) -> None:
+    def __init__(
+        self,
+        repo_root: Path,
+        config: AppConfig,
+        *,
+        remediation_control_plane: RemediationControlPlane | None = None,
+    ) -> None:
         """Initialize the execution service.
 
         Args:
             repo_root: Repository root path.
             config: Loaded application configuration.
+            remediation_control_plane: Optional provider-local lifecycle projection.
         """
         self.repo_root = repo_root
         self.config = config
@@ -65,7 +75,11 @@ class ExecutionService:
         self.approval_service = ApprovalService()
         self.branch_manager = BranchManager(repo_root)
         self.workspace_snapshot_service = WorkspaceSnapshotService(repo_root)
-        self.publish_service = PublishService(config=config, branch_manager=self.branch_manager)
+        self.publish_service = PublishService(
+            config=config,
+            branch_manager=self.branch_manager,
+            remediation_control_plane=remediation_control_plane,
+        )
 
     def execute(
         self,
@@ -280,6 +294,7 @@ class ExecutionService:
             commit_sha=commit_sha,
             change_request_url=publish_result.change_request_url,
             change_request_action=publish_result.change_request_action,
+            published_change_request=publish_result.published_change_request,
             publish_attempted=True,
         )
 

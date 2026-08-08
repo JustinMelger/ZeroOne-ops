@@ -1,4 +1,4 @@
-"""Render the GitHub policy issue body."""
+"""Render provider-neutral policy issue bodies."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from zeroone_ops.models.dashboard import (
 )
 
 
-class GitHubPolicyIssueRenderer:
-    """Render the compact machine-owned GitHub policy issue body."""
+class PolicyIssueRenderer:
+    """Render the compact machine-owned policy issue body."""
 
     def render(
         self,
@@ -21,7 +21,7 @@ class GitHubPolicyIssueRenderer:
         policy_state: DashboardPolicyState,
         policy_view: DashboardPolicyView,
     ) -> str:
-        """Render one GitHub policy issue body."""
+        """Render one provider-neutral policy issue body."""
         lines = [
             "Machine-managed repository policy for ZeroOne Ops.",
             "",

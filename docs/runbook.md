@@ -29,9 +29,9 @@ work through provider-native records:
 
 | Operator need | GitLab | GitHub |
 |---|---|---|
-| Change automation policy | Comment on the dashboard issue | Comment on the policy issue |
-| Recover a blocked item | Comment on the dashboard issue, then run recovery | Comment on the work-item issue; the recovery workflow runs on that comment |
-| Inspect an active remediation | Dashboard workflow row and merge request link | Work-item issue and operational-summary link |
+| Change automation policy | Comment on the policy issue in issue mode; dashboard issue in legacy mode | Comment on the policy issue |
+| Recover a blocked item | Comment on the work-item issue in issue mode, then run the control-plane job; dashboard issue in legacy mode | Comment on the work-item issue; the recovery workflow runs on that comment |
+| Inspect an active remediation | Work-item issue and merge-request link in issue mode; dashboard workflow row in legacy mode | Work-item issue and operational-summary link |
 
 Both provider templates compose the same jobs: finding sync, remediation,
 lifecycle reconciliation, policy processing, and recovery processing. Normal
@@ -112,18 +112,20 @@ The control plane includes scheduled lifecycle reconciliation:
 
 Policy processing is separate from finding sync and remediation:
 
-- GitLab replays dashboard-note commands into canonical policy state
+- GitLab dashboard mode replays dashboard-note commands, while issue mode
+  replays comments from the dedicated policy issue, into canonical policy state
 - GitHub replays comments from the dedicated policy issue
 - malformed or unauthorized commands are visible in logs and do not mutate
   authoritative state
 
-Blocked remediation recovery is separate as well. A GitLab Maintainer or Owner
-comments on the dashboard issue with `/zeroone remediation <item-id> requeue` or
-`/zeroone remediation <item-id> dismiss`; a GitHub repository admin comments
-`/zeroone remediation requeue` or `/zeroone remediation dismiss` on the affected
-work-item issue. Recovery only queues state. The normal remediation job remains
-the sole owner of patch generation, validation, branch creation, and
-change-request publication.
+Blocked remediation recovery is separate as well. In GitLab dashboard mode, a
+Maintainer or Owner comments on the dashboard issue with
+`/zeroone remediation <item-id> requeue` or
+`/zeroone remediation <item-id> dismiss`. In GitLab issue mode and on GitHub, an
+authorized operator comments `/zeroone remediation requeue` or
+`/zeroone remediation dismiss` on the affected work-item issue. Recovery only
+queues state. The normal remediation job remains the sole owner of patch
+generation, validation, branch creation, and change-request publication.
 
 The provider-native control plane renders an operator policy surface:
 
@@ -304,15 +306,12 @@ Current job roles:
 
 - `zeroone_ops_findings_sync`
   - finding sync for SonarQube and configured SARIF sources
-- `zeroone_ops_dashboard_policy`
-  - dashboard policy processing for strict `/zeroone policy ...` note commands
-- `zeroone_ops_work_items_recover`
-  - dashboard recovery processing for strict `/zeroone remediation ...` note commands
-- `zeroone_ops_remediation`
-  - dashboard-backed remediation
+- `zeroone_ops_control_plane`
+  - GitLab issue-mode policy processing, work-item recovery, and one
+    remediation attempt, in that order
 - `zeroone_ops_work_items_sync_status`
-  - scheduled dashboard reconciliation for `mr_opened` items after merge
-    request state changes
+  - scheduled work-item lifecycle reconciliation after merge request state
+    changes
 - `zeroone_ops_review`
   - merge request review note publication with no code changes
 
@@ -320,13 +319,13 @@ Recommended settings:
 
 - run only on the default branch
 - trigger from a schedule or explicit manual run
-- keep dashboard sync as a separate job from active remediation
-- keep dashboard policy processing as a separate job from sync, remediation,
-  and reconciliation so policy mutations do not depend on other workflows
-- keep dashboard-backed remediation as a separate job from dashboard sync, but
-  run it after dashboard sync in the same pipeline with `needs:` or explicit
-  stage ordering
-- keep dashboard reconciliation as a separate job from active remediation so it
+- keep finding sync as a separate job from active remediation
+- for GitLab issue mode, use one `zeroone_ops_control_plane` job after finding
+  sync; configure its 30-minute GitLab schedule with
+  `RUN_ZEROONE_OPS_CONTROL_PLANE=true`
+- use the same variable on a default-branch pipeline for manual control-plane
+  follow-up
+- keep lifecycle reconciliation as a separate job from active remediation so it
   only owns post-merge-request lifecycle convergence
 - use `resource_group` per workflow so overlapping runs of the same workflow do
   not collide
@@ -582,9 +581,11 @@ When a run fails:
 2. correct the root cause
 3. rerun the pipeline manually or wait for the next scheduled run
 
-For a blocked GitLab dashboard item, post its displayed recovery command after
-the current failure was recorded. Older dashboard notes are ignored so a prior
-operator decision cannot affect a later failure.
+For a blocked work item, post its displayed recovery command after the current
+failure was recorded. In GitLab dashboard mode, use the dashboard command form
+that includes the item ID; in GitLab issue mode and on GitHub, comment directly
+on the affected work-item issue. Older commands are ignored so a prior operator
+decision cannot affect a later failure.
 
 When an issue already has an open merge request:
 
