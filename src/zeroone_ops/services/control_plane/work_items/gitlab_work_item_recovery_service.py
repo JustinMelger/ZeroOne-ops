@@ -98,14 +98,15 @@ class GitLabWorkItemRecoveryService:
             matched += 1
             reference = f"gitlab-note-{note.id}"
             occurred_at = _parse_note_timestamp(note.created_at)
+            if command.action is None or reference in processed_references:
+                rejected += command.action is None
+                continue
             if (
-                command.action is None
-                or reference in processed_references
-                or occurred_at is None
+                occurred_at is None
                 or _is_older_than_latest_event(current.work_item, occurred_at)
                 or note.author_username is None
             ):
-                rejected += command.action is not None and reference not in processed_references
+                rejected += 1
                 continue
             decision = self.decision_service.decide(
                 work_item=current.work_item,

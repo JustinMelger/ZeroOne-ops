@@ -94,6 +94,24 @@ def test_process_requeues_only_authorized_notes() -> None:
     assert work_item_service.upserted_work_items == []
 
 
+def test_process_counts_invalid_authorized_recovery_command_as_rejected() -> None:
+    service, existing, work_item_service = _service(
+        notes=[_note(body="/zeroone remediation retry")]
+    )
+
+    result = service.process(
+        project_id="group/project",
+        existing=existing,
+        policy_eligible=True,
+        persist=True,
+    )
+
+    assert result.matched_command_count == 1
+    assert result.accepted_command_count == 0
+    assert result.rejected_command_count == 1
+    assert work_item_service.upserted_work_items == []
+
+
 def test_process_skips_recorded_note_id() -> None:
     service, existing, work_item_service = _service(
         notes=[_note(body="/zeroone remediation dismiss")]
