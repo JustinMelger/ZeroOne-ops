@@ -85,10 +85,10 @@ the installed workflows or pipelines rather than running the CLI directly.
 
 | Operator need | GitLab | GitHub |
 |---|---|---|
-| Change automation policy | Comment on the dashboard issue | Comment on the policy issue |
-| Inspect a remediation item | Dashboard workflow row | Authoritative work-item issue |
-| Recover a blocked item | Comment on the dashboard issue, then run recovery | Comment on the work-item issue; the workflow runs on that comment |
-| Inspect an active change request | Follow the dashboard link | Follow the work-item or operational-summary link |
+| Change automation policy | Comment on the policy issue in issue mode; dashboard issue in legacy mode | Comment on the policy issue |
+| Inspect a remediation item | Authoritative work-item issue in issue mode; dashboard workflow row in legacy mode | Authoritative work-item issue |
+| Recover a blocked item | Comment on the work-item issue in issue mode, then run the control-plane job; dashboard issue in legacy mode | Comment on the work-item issue; the workflow runs on that comment |
+| Inspect an active change request | Follow the work-item issue in issue mode; dashboard link in legacy mode | Follow the work-item or operational-summary link |
 
 Each provider installation has the same conceptual jobs: finding sync,
 remediation, lifecycle reconciliation, policy processing, and recovery
@@ -160,8 +160,9 @@ Severity control note:
 
 ### Control Plane And Policy
 
-- GitLab stores policy and workflow state in its dashboard issue; only
-  Maintainers and Owners can issue policy commands
+- GitLab issue mode stores policy in a dedicated policy issue and workflow
+  state in authoritative work-item issues; only Maintainers and Owners can
+  issue policy or recovery commands
 - GitHub stores policy in a dedicated policy issue; only repository admins can
   issue policy commands
 - GitHub work-item issues remain authoritative, while the operational summary

@@ -49,58 +49,21 @@ zeroone_ops_findings_sync:
   script:
     - zeroone-ops findings sync
 
-# Dedicated dashboard policy processing.
-# Keep this separate so operator-issued policy commands do not depend on
-# remediation or reconciliation runs.
-zeroone_ops_dashboard_policy:
-  extends: .zeroone_ops_base
-  stage: zeroone-ops-fix
-  resource_group: zeroone-ops-dashboard-policy
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_DASHBOARD_POLICY == "true"'
-      when: manual
-    - when: never
-  variables:
-    # Define these as masked and protected CI/CD variables:
-    # GITLAB_TOKEN
-  script:
-    - zeroone-ops dashboard policy
-
-# Dashboard remediation recovery commands.
-# GitLab dashboard notes do not emit a native pipeline event, so process these
-# on a schedule or through an explicit default-branch manual pipeline.
-zeroone_ops_work_items_recover:
-  extends: .zeroone_ops_base
-  stage: zeroone-ops-fix
-  resource_group: zeroone-ops-remediation
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_WORK_ITEMS_RECOVER == "true"'
-      when: manual
-    - when: never
-  variables:
-    # Define this as a masked and protected CI/CD variable:
-    # GITLAB_TOKEN
-  script:
-    - zeroone-ops work-items recover
-
-# Remediation workflow.
-# Keep this separate from finding sync, but run it after finding sync in the
-# same pipeline when both jobs are enabled so remediation acts on freshly
-# refreshed dashboard state.
-zeroone_ops_remediation:
+# GitLab issue-mode control plane.
+# Run policy commands, recovery commands, and one remediation attempt in this
+# order. Create a GitLab schedule with RUN_ZEROONE_OPS_CONTROL_PLANE=true to
+# run it every 30 minutes. The same variable exposes a manual default-branch
+# job for operator follow-up.
+zeroone_ops_control_plane:
   extends: .zeroone_ops_base
   stage: zeroone-ops-fix
   resource_group: zeroone-ops-remediation
   needs:
     - job: zeroone_ops_findings_sync
       optional: true
-    - job: zeroone_ops_work_items_recover
-      optional: true
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_REMEDIATION == "true"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule" && $RUN_ZEROONE_OPS_CONTROL_PLANE == "true"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_CONTROL_PLANE == "true"'
       when: manual
     - when: never
   variables:
@@ -121,6 +84,8 @@ zeroone_ops_remediation:
       git remote set-url origin
       "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
   script:
+    - zeroone-ops dashboard policy
+    - zeroone-ops work-items recover
     - zeroone-ops remediation run
   after_script:
     - rm -f "$GIT_CONFIG_GLOBAL"

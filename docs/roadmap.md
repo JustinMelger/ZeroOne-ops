@@ -62,7 +62,7 @@ history, not here.
 - [x] 8d.1: add GitLab issue-mode lifecycle with stale-claim recovery,
   merge-request reconciliation, and terminal issue closure
 - [x] 8d.2: add event-scoped GitLab work-item recovery
-- [ ] 8d.3: add the scheduled/manual issue-mode control-plane job: policy,
+- [x] 8d.3: add the scheduled/manual issue-mode control-plane job: policy,
   paginated labelled work-item recovery notes, then remediation; start at a
   30-minute schedule
 - [ ] 8d.4: label and close the legacy dashboard after cutover, preserving it as

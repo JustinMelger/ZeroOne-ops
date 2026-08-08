@@ -304,15 +304,12 @@ Current job roles:
 
 - `zeroone_ops_findings_sync`
   - finding sync for SonarQube and configured SARIF sources
-- `zeroone_ops_dashboard_policy`
-  - dashboard policy processing for strict `/zeroone policy ...` note commands
-- `zeroone_ops_work_items_recover`
-  - dashboard recovery processing for strict `/zeroone remediation ...` note commands
-- `zeroone_ops_remediation`
-  - dashboard-backed remediation
+- `zeroone_ops_control_plane`
+  - GitLab issue-mode policy processing, work-item recovery, and one
+    remediation attempt, in that order
 - `zeroone_ops_work_items_sync_status`
-  - scheduled dashboard reconciliation for `mr_opened` items after merge
-    request state changes
+  - scheduled work-item lifecycle reconciliation after merge request state
+    changes
 - `zeroone_ops_review`
   - merge request review note publication with no code changes
 
@@ -320,13 +317,13 @@ Recommended settings:
 
 - run only on the default branch
 - trigger from a schedule or explicit manual run
-- keep dashboard sync as a separate job from active remediation
-- keep dashboard policy processing as a separate job from sync, remediation,
-  and reconciliation so policy mutations do not depend on other workflows
-- keep dashboard-backed remediation as a separate job from dashboard sync, but
-  run it after dashboard sync in the same pipeline with `needs:` or explicit
-  stage ordering
-- keep dashboard reconciliation as a separate job from active remediation so it
+- keep finding sync as a separate job from active remediation
+- for GitLab issue mode, use one `zeroone_ops_control_plane` job after finding
+  sync; configure its 30-minute GitLab schedule with
+  `RUN_ZEROONE_OPS_CONTROL_PLANE=true`
+- use the same variable on a default-branch pipeline for manual control-plane
+  follow-up
+- keep lifecycle reconciliation as a separate job from active remediation so it
   only owns post-merge-request lifecycle convergence
 - use `resource_group` per workflow so overlapping runs of the same workflow do
   not collide
