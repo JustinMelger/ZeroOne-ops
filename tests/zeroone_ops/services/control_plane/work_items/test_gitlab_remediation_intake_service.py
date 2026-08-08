@@ -21,6 +21,7 @@ class FakeGitLabWorkItemService:
     def __init__(self, items: list[GitLabWorkItemLookupResult]) -> None:
         self.items = items
         self.upserted_work_items: list[WorkItemState] = []
+        self.closed_issue_iids: list[int] = []
 
     def list_open_work_items(self, *, project_id: str) -> list[GitLabWorkItemLookupResult]:
         del project_id
@@ -47,6 +48,10 @@ class FakeGitLabWorkItemService:
             action="updated",
             work_item=work_item,
         )
+
+    def close_work_item_issue(self, *, project_id: str, issue_iid: int) -> None:
+        del project_id
+        self.closed_issue_iids.append(issue_iid)
 
 
 def _lookup_result(

@@ -42,8 +42,8 @@ history, not here.
 - [x] 7b: add verified publication-retry planning and provider adapters
 - [x] 7c: add authorized GitLab dashboard-note and GitHub work-item commands
 - [ ] 7d: add fresh-attempt branch identity and live validation on both providers
-- design: [functional recovery contract](design/functional/functional-design-remediation-recovery.md)
-  and [technical implementation plan](design/technical/technical-design-remediation-recovery.md)
+- design: [functional recovery contract](docs/design/functional/functional-design-remediation-recovery.md)
+  and [technical implementation plan](docs/design/technical/technical-design-remediation-recovery.md)
 
 ### Phase 8: GitLab Issue Control Plane
 
@@ -59,12 +59,14 @@ history, not here.
   shared execution-target contract
 - [x] 8c.2b: execute claimed GitLab work items and project merge-request links
 - [x] 8c.2c: project review outcomes onto the uniquely linked GitLab work item
-- [ ] 8d: add GitLab issue-mode lifecycle and event-scoped recovery, plus a
-  read-only switch-and-sync cutover preflight with no dual writes
-- [ ] 8d: add the scheduled/manual issue-mode control-plane job: policy,
+- [x] 8d.1: add GitLab issue-mode lifecycle with stale-claim recovery,
+  merge-request reconciliation, and terminal issue closure
+- [ ] 8d.2: add event-scoped GitLab work-item recovery and a read-only
+  switch-and-sync cutover preflight with no dual writes
+- [ ] 8d.3: add the scheduled/manual issue-mode control-plane job: policy,
   paginated labelled work-item recovery notes, then remediation; start at a
   30-minute schedule
-- [ ] 8d: label and close the legacy dashboard after cutover, preserving it as
+- [ ] 8d.4: label and close the legacy dashboard after cutover, preserving it as
   readable history without competing authority
 - [ ] 8e: live-validate policy, remediation, recovery, merge-request
   lifecycle, dismissal suppression, blocked items, and stale claims in two
@@ -73,8 +75,8 @@ history, not here.
   two minor releases, then remove it in a planned breaking release
 - [ ] 8e: decide whether evidence supports adding an optional compact derived
   GitLab operational summary
-- design: [functional control-plane design](design/functional/functional-design-gitlab-issue-control-plane.md)
-  and [technical implementation plan](design/technical/technical-design-gitlab-issue-control-plane.md)
+- design: [functional control-plane design](docs/design/functional/functional-design-gitlab-issue-control-plane.md)
+  and [technical implementation plan](docs/design/technical/technical-design-gitlab-issue-control-plane.md)
 
 ### Control-Plane Installation UX
 

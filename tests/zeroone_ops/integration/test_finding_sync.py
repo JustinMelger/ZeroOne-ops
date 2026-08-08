@@ -22,6 +22,9 @@ from zeroone_ops.services.control_plane.work_items.github_finding_sync_service i
 from zeroone_ops.services.control_plane.work_items.github_work_item_lifecycle_service import (
     GitHubWorkItemLifecycleResult,
 )
+from zeroone_ops.services.control_plane.work_items.gitlab_work_item_lifecycle_service import (
+    GitLabWorkItemLifecycleResult,
+)
 from zeroone_ops.services.shared.run_summary_builder import RunSummary
 
 
@@ -373,6 +376,59 @@ def test_work_item_status_dry_run_does_not_load_finding_inventory(
     assert summary.status.value == "reconciled"
     assert "Dry-run would reconcile GitHub remediation work items" in summary.message
     assert captured["repository_id"] == "octo-org/octo-repo"
+    assert captured["persist"] is False
+
+
+def test_work_item_status_routes_gitlab_issue_mode_to_lifecycle_service(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "group/project")
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "execution_mode": "ci",
+          "base_branch": "main",
+          "remediation": {"target_branch": "main"},
+          "validation_commands": [],
+          "gitlab": {
+            "control_plane_mode": "issues",
+            "target_branch": "main",
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    captured: dict[str, object] = {}
+
+    def reconcile(self, **kwargs) -> GitLabWorkItemLifecycleResult:
+        del self
+        captured.update(kwargs)
+        return GitLabWorkItemLifecycleResult(
+            recovered_stale_claim_count=0,
+            demoted_to_candidate_count=0,
+            completed_count=0,
+            closed_issue_count=0,
+            blocked_count=0,
+            in_progress_count=0,
+            unchanged_count=0,
+        )
+
+    monkeypatch.setattr(
+        "zeroone_ops.runner.GitLabWorkItemLifecycleService.reconcile",
+        reconcile,
+    )
+
+    summary = sync_work_item_status(dry_run=True)
+
+    assert summary.status.value == "reconciled"
+    assert "Dry-run would reconcile GitLab remediation work items" in summary.message
+    assert captured["project_id"] == "group/project"
     assert captured["persist"] is False
 
 

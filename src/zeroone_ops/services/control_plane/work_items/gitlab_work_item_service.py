@@ -53,6 +53,13 @@ class GitLabWorkItemService:
             source=source,
         )
 
+    def close_work_item_issue(self, *, project_id: str, issue_iid: int) -> None:
+        """Close one terminal authoritative GitLab work-item issue."""
+        self.upsert_service.close_work_item_issue(
+            project_id=project_id,
+            issue_iid=issue_iid,
+        )
+
     def find_open_work_item_by_change_request(
         self,
         *,

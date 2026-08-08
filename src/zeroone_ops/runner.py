@@ -68,6 +68,9 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_service impo
 from zeroone_ops.services.control_plane.work_items.gitlab_finding_sync_service import (
     GitLabFindingSyncService,
 )
+from zeroone_ops.services.control_plane.work_items.gitlab_work_item_lifecycle_service import (
+    GitLabWorkItemLifecycleService,
+)
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
 )
@@ -791,7 +794,7 @@ def sync_work_item_status(*, dry_run: bool = False) -> RunSummary:
     """Reconcile remediation work-item lifecycle state for the active platform."""
     config = load_config()
     if _gitlab_issue_mode_is_active(config):
-        return _issue_mode_workflow_unavailable_summary(config=config, workflow="lifecycle sync")
+        return _sync_gitlab_work_item_status(config=config, dry_run=dry_run)
     if config.platform == "gitlab":
         return dashboard_reconcile(dry_run=dry_run)
     return _sync_github_work_item_status(config=config, dry_run=dry_run)
@@ -951,6 +954,56 @@ def _sync_github_work_item_status(*, config: AppConfig, dry_run: bool) -> RunSum
             f"blocked={lifecycle_result.blocked_count}; "
             f"in progress={lifecycle_result.in_progress_count}."
             + _format_operational_summary_publication(summary_publication)
+        ),
+    )
+
+
+def _sync_gitlab_work_item_status(*, config: AppConfig, dry_run: bool) -> RunSummary:
+    """Converge GitLab issue-mode work-item state from linked merge-request state."""
+    state_store = StateStore(
+        config.state.path,
+        base_branch=config.base_branch,
+        gitlab_project_id=load_gitlab_project_id_override(),
+        sonarqube_project_key=load_sonarqube_project_key_override(),
+    )
+    state = state_store.load()
+    run_state_service = RunStateService(config=config, state_store=state_store, state=state)
+    run_id = _build_run_id()
+    record = run_state_service.start_run(run_id)
+    active_dry_run = dry_run or config.dry_run
+    if not active_dry_run and config.execution_mode != "ci":
+        message = (
+            "GitLab work-item lifecycle execution is only supported in CI mode. "
+            "Use --dry-run locally."
+        )
+        return run_state_service.fail_run(
+            record=record,
+            error_message=message,
+            failure=FailureDetails(stage=FailureStage.RECONCILIATION, message=message),
+        )
+    gitlab_config = load_gitlab_connection_config()
+    lifecycle_result = GitLabWorkItemLifecycleService(
+        work_item_service=GitLabWorkItemService(GitLabWorkItemClient(gitlab_config)),
+        change_request_client=GitLabReviewClient(gitlab_config),
+    ).reconcile(
+        project_id=gitlab_config.project_id,
+        now=utc_now(),
+        persist=not active_dry_run,
+    )
+    record.status = RunStatus.RECONCILED
+    record.updated_at = utc_now()
+    state_store.save(state)
+    prefix = "Dry-run would reconcile" if active_dry_run else "Reconciled"
+    return run_state_service.build_summary(
+        run_id=run_id,
+        status=record.status,
+        message=(
+            f"{prefix} GitLab remediation work items: "
+            f"stale claims recovered={lifecycle_result.recovered_stale_claim_count}; "
+            f"completed={lifecycle_result.completed_count}; "
+            f"closed native issues={lifecycle_result.closed_issue_count}; "
+            f"blocked={lifecycle_result.blocked_count}; "
+            f"in progress={lifecycle_result.in_progress_count}."
         ),
     )
 

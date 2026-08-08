@@ -17,7 +17,7 @@ def test_render_body_uses_gitlab_merge_request_wording() -> None:
     assert "zeroone-work-item-state" in body
 
 
-def test_render_body_includes_recovery_commands_for_blocked_work_items() -> None:
+def test_render_body_does_not_advertise_unavailable_recovery_commands() -> None:
     work_item = build_work_item().model_copy(
         update={
             "status": "blocked",
@@ -34,9 +34,9 @@ def test_render_body_includes_recovery_commands_for_blocked_work_items() -> None
     body = GitLabWorkItemRenderer().render_body(work_item)
 
     assert "## Last Execution" in body
-    assert "## Recovery" in body
-    assert "Requeue for remediation: `/zeroone remediation requeue`" in body
-    assert "Stop automation: `/zeroone remediation dismiss`" in body
+    assert "## Recovery" not in body
+    assert "/zeroone remediation requeue" not in body
+    assert "/zeroone remediation dismiss" not in body
 
 
 def test_render_title_and_labels_are_bounded_and_provider_indexed() -> None:
