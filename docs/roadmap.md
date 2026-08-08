@@ -67,13 +67,21 @@ history, not here.
   30-minute schedule
 - [ ] 8d.4: label and close the legacy dashboard after cutover, preserving it as
   readable history without competing authority
-- [ ] 8e: live-validate policy, remediation, recovery, merge-request
+- [ ] 8e.1: extract provider-neutral operational-summary view, builder,
+  renderer, parser, and persisted latest-finding-sync observation from the
+  GitHub implementation without changing GitHub behavior
+- [ ] 8e.2: add GitLab operational-summary issue transport and derived-summary
+  service with bounded rendering, stable lookup, and parser/renderer/store
+  coverage
+- [ ] 8e.3: publish the GitLab derived summary best-effort after finding sync,
+  control-plane transitions, and lifecycle reconciliation
+- [ ] 8e.4: update GitLab installation guidance and live-validate the summary
+  alongside issue-mode policy, remediation, recovery, and lifecycle behavior
+- [ ] 8e.5: live-validate policy, remediation, recovery, merge-request
   lifecycle, dismissal suppression, blocked items, and stale claims in two
   GitLab repositories
-- [ ] 8e: after successful rollout, make dashboard mode maintenance-only for
+- [ ] 8f: after successful rollout, make dashboard mode maintenance-only for
   two minor releases, then remove it in a planned breaking release
-- [ ] 8e: decide whether evidence supports adding an optional compact derived
-  GitLab operational summary
 - design: [functional control-plane design](docs/design/functional/functional-design-gitlab-issue-control-plane.md)
   and [technical implementation plan](docs/design/technical/technical-design-gitlab-issue-control-plane.md)
 

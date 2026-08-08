@@ -201,5 +201,4 @@ Provider differences remain intentional:
 - a blocked item is requeued or dismissed from its own issue;
 - updating one work item does not rewrite unrelated work-item state;
 - GitLab lifecycle and recovery outcomes match GitHub for equivalent inputs;
-- the dashboard no longer grows as the active authoritative inventory; and
-- cutover can be validated safely with a read-only preflight before switching.
+- the dashboard no longer grows as the active authoritative inventory.
