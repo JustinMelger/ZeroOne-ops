@@ -66,8 +66,7 @@ def _enclosing_python_function_bounds(
     lines: list[str],
     changed_start: int,
     changed_end: int,
-) -> tuple[int, int] | None:
-    ...
+) -> tuple[int, int] | None: ...
 ```
 
 Responsibilities:

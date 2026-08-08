@@ -246,8 +246,7 @@ class OverlapReconciliationService:
         self,
         *,
         packet: OverlapPacket,
-    ) -> OverlapReconciliationResult:
-        ...
+    ) -> OverlapReconciliationResult: ...
 ```
 
 This service can be implemented with a second LLM step, but the packet and

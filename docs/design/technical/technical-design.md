@@ -587,6 +587,7 @@ class TextEdit(BaseModel):
     replace_text: str
     line_hint: int | None = None
 
+
 class StructuredEditProposal(BaseModel):
     issue_key: str
     edits: list[TextEdit]
@@ -625,6 +626,7 @@ class ValidationCommandResult(BaseModel):
     stderr: str
     duration_ms: int
 
+
 class ValidationResult(BaseModel):
     passed: bool
     results: list[ValidationCommandResult]
@@ -646,6 +648,7 @@ class RunStatus(str, Enum):
     MR_CREATED = "mr_created"
     MANUAL = "manual"
     FAILED = "failed"
+
 
 class RunRecord(BaseModel):
     run_id: str
