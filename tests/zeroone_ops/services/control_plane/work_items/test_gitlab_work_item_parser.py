@@ -21,7 +21,9 @@ def test_parse_work_item_state_round_trips_rendered_body() -> None:
 
 
 def test_parse_work_item_state_rejects_invalid_machine_payload() -> None:
-    body = """<details>
+    body = """## Machine State
+
+<details>
 <summary><code>zeroone-work-item-state</code> machine state</summary>
 
 ```json
@@ -32,4 +34,20 @@ def test_parse_work_item_state_rejects_invalid_machine_payload() -> None:
 """
 
     with pytest.raises(GitLabClientError, match="state block was invalid"):
+        GitLabWorkItemParser().parse_work_item_state(body)
+
+
+def test_parse_work_item_state_rejects_embedded_state_block() -> None:
+    body = GitLabWorkItemRenderer().render_body(build_work_item())
+    state_block = body.split("## Machine State\n\n", maxsplit=1)[1]
+    body = body.replace("## Status", f"{state_block}\n## Status", 1)
+
+    with pytest.raises(GitLabClientError, match="final renderer-owned block"):
+        GitLabWorkItemParser().parse_work_item_state(body)
+
+
+def test_parse_work_item_state_rejects_content_after_machine_state() -> None:
+    body = GitLabWorkItemRenderer().render_body(build_work_item()) + "\nOperator note\n"
+
+    with pytest.raises(GitLabClientError, match="final renderer-owned block"):
         GitLabWorkItemParser().parse_work_item_state(body)
