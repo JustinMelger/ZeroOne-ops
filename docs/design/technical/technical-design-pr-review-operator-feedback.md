@@ -543,8 +543,7 @@ class ReviewFeedbackIntakeService:
         *,
         repository_id: str,
         change_request_number: int,
-    ) -> list[ReviewFeedbackSignalState]:
-        ...
+    ) -> list[ReviewFeedbackSignalState]: ...
 ```
 
 This service should stay deterministic and small.
