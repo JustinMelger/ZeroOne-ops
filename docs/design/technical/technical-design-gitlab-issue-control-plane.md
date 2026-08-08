@@ -52,7 +52,7 @@ services/control_plane/
     gitlab_finding_sync_service.py
     gitlab_remediation_intake_service.py
     gitlab_work_item_lifecycle_service.py
-    gitlab_work_item_recovery_command_parser.py
+    work_item_recovery_command_parser.py
     gitlab_work_item_recovery_service.py
     gitlab_work_item_recovery_runner.py
   overview/

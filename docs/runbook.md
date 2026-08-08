@@ -112,7 +112,8 @@ The control plane includes scheduled lifecycle reconciliation:
 
 Policy processing is separate from finding sync and remediation:
 
-- GitLab replays dashboard-note commands into canonical policy state
+- GitLab dashboard mode replays dashboard-note commands, while issue mode
+  replays comments from the dedicated policy issue, into canonical policy state
 - GitHub replays comments from the dedicated policy issue
 - malformed or unauthorized commands are visible in logs and do not mutate
   authoritative state

@@ -19,6 +19,7 @@ _POLICY_STATE_BLOCK_PATTERN = re.compile(
     ),
     re.DOTALL,
 )
+_MACHINE_STATE_SECTION = "## Machine State\n\n"
 
 
 class GitLabPolicyIssueParser:
@@ -26,9 +27,18 @@ class GitLabPolicyIssueParser:
 
     def parse_policy_state(self, body: str) -> DashboardPolicyState:
         """Return canonical policy state, or an empty state when absent."""
-        match = _POLICY_STATE_BLOCK_PATTERN.search(body)
-        if match is None:
+        matches = list(_POLICY_STATE_BLOCK_PATTERN.finditer(body))
+        if not matches:
             return DashboardPolicyState()
+        match = matches[0]
+        if (
+            len(matches) != 1
+            or not body[: match.start()].endswith(_MACHINE_STATE_SECTION)
+            or body[match.end() :].strip()
+        ):
+            raise GitLabClientError(
+                "GitLab policy state block was not the final renderer-owned block."
+            )
         try:
             payload = json.loads(match.group("payload"))
         except json.JSONDecodeError as error:
