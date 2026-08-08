@@ -149,8 +149,19 @@ dashboard item ID in the command.
 
 ## Command Polling
 
-Add one GitLab scheduled/manual control-plane runner. It performs policy
-processing, recovery processing, and remediation intake in that order.
+Add one GitLab scheduled/manual CI job, `zeroone_ops_control_plane`. It runs
+the existing commands in this order:
+
+```text
+zeroone-ops dashboard policy
+zeroone-ops work-items recover
+zeroone-ops remediation run
+```
+
+It uses the remediation resource group, Git author configuration, and
+authenticated remote. It optionally needs finding sync so remediation acts on
+fresh inventory when that job is present. Keep lifecycle reconciliation as a
+separate job.
 
 Recovery processing lists only paginated open issues carrying the
 `zeroone-work-item` label. It loads notes for each candidate issue and skips a
@@ -158,8 +169,11 @@ note whose ID is already present in the bounded `WorkItemState.recovery_events`
 history. It must not inspect unrelated project issues or replay commands from
 closed work-item issues.
 
-The initial CI-template schedule runs every 30 minutes. Manual execution uses
-the same runner and ordering.
+GitLab schedules are configured outside YAML. The initial schedule runs every
+30 minutes with `RUN_ZEROONE_OPS_CONTROL_PLANE=true`; the same variable exposes
+a manual default-branch job for operator follow-up. The CI job itself does not
+interpret `gitlab.control_plane_mode`: each invoked command selects exactly one
+authority from that configuration, preventing dual writes.
 
 ## Cutover Implementation
 
@@ -168,29 +182,20 @@ Introduce `gitlab.control_plane_mode` with explicit values `dashboard` and
 cutover window. New examples may use `issues` once the first live rollout is
 validated.
 
-Add a read-only cutover preflight, not an implicit upgrade inside finding sync:
-
-```text
-zeroone-ops control-plane check-gitlab-cutover
-```
-
-The preflight reads dashboard state and reports state that switch-and-sync
-cannot preserve: active claims, linked merge requests, blocked or dismissed
-work, recovery history, and other state normal finding sync cannot recreate.
-It never writes issues or enables issue mode. During bounded live testing, the
-operator's explicit config switch accepts this state reset; rollout
-communication must make that consequence clear.
-
-For a passing preflight, cutover is operator-controlled:
+Cutover is operator-controlled:
 
 1. set the desired `remediation.bootstrap_severities` in configuration;
 2. set `gitlab.control_plane_mode` to `issues`; and
 3. run normal finding sync, which creates the policy issue from bootstrap
    configuration and materializes current promoted findings.
 
-No dashboard work-item records are copied during the default cutover. A later
-active-state transfer is a separate, explicit design if broader rollout
-experience shows it is necessary.
+No dashboard work-item records are copied during the default cutover. During
+bounded live testing, the operator's explicit config switch accepts that active
+claims, linked merge requests, blocked or dismissed work, recovery history, and
+other dashboard lifecycle state are reset rather than transferred. Rollout
+communication must make that consequence clear. A later active-state transfer
+is a separate, explicit design if broader rollout experience shows it is
+necessary.
 
 After the switch, label the dashboard issue `zeroone-legacy-dashboard` and
 close it. Closing is a provider-local presentation action only: the issue stays
@@ -226,11 +231,10 @@ authority based on `gitlab.control_plane_mode`.
 - add safe identity lookup, claim, merge-request link, and review projection;
 - add GitLab CI finding sync and remediation jobs for issue mode.
 
-### Phase 8d: Lifecycle, Recovery, And Cutover
+### Phase 8d: Lifecycle And Recovery
 
 - reconcile GitLab merge requests and close terminal work-item issues;
 - add event-scoped work-item recovery commands;
-- add read-only dashboard cutover preflight; and
 - live-test merge, closed-unmerged, blocked, dismissed, and stale-claim paths.
 
 ### Phase 8e: Optional Summary And Dashboard Retirement
@@ -250,7 +254,6 @@ authority based on `gitlab.control_plane_mode`.
   state preservation, lifecycle transitions, and recovery authorization;
 - integration-test finding sync, remediation, review projection, and lifecycle
   with GitLab issue transport fakes;
-- run cutover preflight against legacy dashboard fixtures and assert no writes;
 - live-test one promoted finding through merge-request creation, review,
   merge, and terminal issue closure; and
 - confirm policy and recovery commands are usable without navigating an

@@ -96,6 +96,12 @@ Recovery discovery scans only labelled open work-item issues, paginates the
 issue list, and reads their notes. Accepted recovery events retain the note ID,
 so later polling runs do not replay a command. The initial schedule cadence is
 every 30 minutes; manual execution remains available for operator follow-up.
+The installed GitLab CI template exposes this as one
+`zeroone_ops_control_plane` job. It runs policy processing, recovery
+processing, and remediation sequentially after finding sync, when that job is
+enabled. A GitLab schedule enables it with
+`RUN_ZEROONE_OPS_CONTROL_PLANE=true`; the same variable exposes a manual
+default-branch job for operator follow-up.
 
 ### Operational Summary
 
@@ -126,26 +132,24 @@ Introduce an explicit GitLab control-plane mode:
 New issue-mode rollouts begin with empty GitLab issue control-plane records.
 Existing dashboard repositories use switch-and-sync by default:
 
-1. Run a read-only cutover preflight against the current dashboard.
-2. Confirm `remediation.bootstrap_severities` expresses the desired initial
+1. Confirm `remediation.bootstrap_severities` expresses the desired initial
    issue-mode policy.
-3. Change `gitlab.control_plane_mode` to `issues`.
-4. Run normal finding sync. Issue mode creates its policy issue from bootstrap
+2. Change `gitlab.control_plane_mode` to `issues`.
+3. Run normal finding sync. Issue mode creates its policy issue from bootstrap
    configuration, and current upstream findings are materialized through their
    normal stable identity and promotion rules.
-5. Freeze the old dashboard as a legacy read-only record. It is not rewritten,
+4. Freeze the old dashboard as a legacy read-only record. It is not rewritten,
    reconciled, or used for commands after the switch.
 
 After cutover, apply the `zeroone-legacy-dashboard` label and close the legacy
 dashboard issue. It remains readable historical context without competing with
 the policy issue or active work-item issues.
 
-The preflight reports dashboard state that cannot be rebuilt by a normal
-finding sync. This includes active claims, linked merge requests, blocked or
-dismissed work, recovery history, and other protected lifecycle state. It does
-not block cutover during the bounded live-testing rollout: changing
-`gitlab.control_plane_mode` to `issues` explicitly accepts that this state is
-not transferred. Participating repositories must receive that rollout notice.
+During the bounded live-testing rollout, changing `gitlab.control_plane_mode`
+to `issues` explicitly accepts that active claims, linked merge requests,
+blocked or dismissed work, recovery history, and other dashboard lifecycle
+state are not transferred. Participating repositories must receive that
+rollout notice.
 
 Dashboard policy commands and exclusions are not transferred. Operators use the
 new policy issue to apply any desired overrides after cutover. This keeps the

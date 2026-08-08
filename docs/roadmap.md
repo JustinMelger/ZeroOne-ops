@@ -61,8 +61,7 @@ history, not here.
 - [x] 8c.2c: project review outcomes onto the uniquely linked GitLab work item
 - [x] 8d.1: add GitLab issue-mode lifecycle with stale-claim recovery,
   merge-request reconciliation, and terminal issue closure
-- [ ] 8d.2: add event-scoped GitLab work-item recovery and a read-only
-  switch-and-sync cutover preflight with no dual writes
+- [x] 8d.2: add event-scoped GitLab work-item recovery
 - [ ] 8d.3: add the scheduled/manual issue-mode control-plane job: policy,
   paginated labelled work-item recovery notes, then remediation; start at a
   30-minute schedule
