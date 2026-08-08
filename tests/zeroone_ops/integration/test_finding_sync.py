@@ -9,6 +9,7 @@ from zeroone_ops.models.state import RunStatus
 from zeroone_ops.runner import (
     _build_finding_sync_observation,
     _publish_github_operational_summary,
+    recover_work_item,
     run_remediation,
     sync_findings,
     sync_work_item_status,
@@ -430,6 +431,56 @@ def test_work_item_status_routes_gitlab_issue_mode_to_lifecycle_service(
     assert "Dry-run would reconcile GitLab remediation work items" in summary.message
     assert captured["project_id"] == "group/project"
     assert captured["persist"] is False
+
+
+def test_recover_work_item_routes_gitlab_issue_mode_to_polling_runner(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
+    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
+    monkeypatch.setenv("GITLAB_TOKEN", "token")
+    monkeypatch.setenv("GITLAB_PROJECT_ID", "group/project")
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "execution_mode": "ci",
+          "base_branch": "main",
+          "remediation": {"target_branch": "main"},
+          "validation_commands": [],
+          "gitlab": {"control_plane_mode": "issues", "target_branch": "main", "labels": []}
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    captured: dict[str, object] = {}
+
+    def run(self, **kwargs) -> RunSummary:
+        del self
+        captured.update(kwargs)
+        return RunSummary(
+            run_id=kwargs["record"].run_id,
+            status=RunStatus.NO_ISSUE,
+            message="No recovery commands found.",
+            state_path=tmp_path / ".zeroone-ops-state.json",
+        )
+
+    monkeypatch.setattr("zeroone_ops.runner.GitLabWorkItemRecoveryRunner.run", run)
+    monkeypatch.setattr(
+        "zeroone_ops.runner._build_gitlab_policy_issue_service",
+        lambda **kwargs: type(
+            "PolicyService",
+            (),
+            {"load_policy_state": lambda self, **kwargs: _policy_state()},
+        )(),
+    )
+
+    summary = recover_work_item(dry_run=True)
+
+    assert summary.status is RunStatus.NO_ISSUE
+    assert captured["project_id"] == "group/project"
+    assert captured["active_dry_run"] is True
 
 
 def test_work_item_status_refreshes_operational_summary_after_live_reconciliation(

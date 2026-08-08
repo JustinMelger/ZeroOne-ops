@@ -46,6 +46,9 @@ from zeroone_ops.services.control_plane.policy.github_policy_processing_runner i
 from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_service import (
     GitLabPolicyIssueService,
 )
+from zeroone_ops.services.control_plane.policy.gitlab_policy_note_authorization_service import (
+    GitLabPolicyNoteAuthorizationService,
+)
 from zeroone_ops.services.control_plane.policy.gitlab_policy_processing_runner import (
     GitLabPolicyProcessingRunner,
 )
@@ -70,6 +73,12 @@ from zeroone_ops.services.control_plane.work_items.gitlab_finding_sync_service i
 )
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_lifecycle_service import (
     GitLabWorkItemLifecycleService,
+)
+from zeroone_ops.services.control_plane.work_items.gitlab_work_item_recovery_runner import (
+    GitLabWorkItemRecoveryRunner,
+)
+from zeroone_ops.services.control_plane.work_items.gitlab_work_item_recovery_service import (
+    GitLabWorkItemRecoveryService,
 )
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
@@ -804,7 +813,7 @@ def recover_work_item(*, dry_run: bool = False) -> RunSummary:
     """Process provider-local remediation recovery commands."""
     config = load_config()
     if _gitlab_issue_mode_is_active(config):
-        return _issue_mode_workflow_unavailable_summary(config=config, workflow="recovery")
+        return _recover_gitlab_issue_work_items(config=config, dry_run=dry_run)
     state_store = StateStore(
         config.state.path,
         base_branch=config.base_branch,
@@ -893,6 +902,47 @@ def recover_work_item(*, dry_run: bool = False) -> RunSummary:
     return replace(
         summary,
         message=summary.message + _format_operational_summary_publication(publication),
+    )
+
+
+def _recover_gitlab_issue_work_items(*, config: AppConfig, dry_run: bool) -> RunSummary:
+    """Poll open GitLab work-item issues for authorized recovery notes."""
+    state_store = StateStore(
+        config.state.path,
+        base_branch=config.base_branch,
+        gitlab_project_id=load_gitlab_project_id_override(),
+        sonarqube_project_key=load_sonarqube_project_key_override(),
+    )
+    state = state_store.load()
+    run_state_service = RunStateService(config=config, state_store=state_store, state=state)
+    record = run_state_service.start_run(_build_run_id())
+    active_dry_run = dry_run or config.dry_run
+    gitlab_config = load_gitlab_connection_config()
+    work_item_client = GitLabWorkItemClient(gitlab_config)
+    work_item_service = GitLabWorkItemService(work_item_client)
+    policy_state = _build_gitlab_policy_issue_service(
+        repo_root=Path.cwd(),
+        config=config,
+        state=state,
+    ).load_policy_state(
+        project_id=gitlab_config.project_id,
+        persist=not active_dry_run,
+    )
+    return GitLabWorkItemRecoveryRunner(
+        recovery_service=GitLabWorkItemRecoveryService(
+            note_client=work_item_client,
+            note_authorization_service=GitLabPolicyNoteAuthorizationService(work_item_client),
+            work_item_service=work_item_service,
+        ),
+        work_item_service=work_item_service,
+        policy_service=FindingWorkflowPolicyService(),
+        run_state_service=run_state_service,
+    ).run(
+        project_id=gitlab_config.project_id,
+        policy_state=policy_state,
+        record=record,
+        active_dry_run=active_dry_run,
+        execution_mode=config.execution_mode,
     )
 
 

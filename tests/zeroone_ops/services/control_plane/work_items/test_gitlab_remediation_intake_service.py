@@ -53,6 +53,21 @@ class FakeGitLabWorkItemService:
         del project_id
         self.closed_issue_iids.append(issue_iid)
 
+    def update_existing_work_item(
+        self,
+        *,
+        project_id: str,
+        existing: GitLabWorkItemLookupResult,
+        work_item: WorkItemState,
+    ) -> GitLabWorkItemUpsertResult:
+        del project_id, existing
+        self.upserted_work_items.append(work_item)
+        return GitLabWorkItemUpsertResult(
+            issue=self.items[0].issue,
+            action="updated",
+            work_item=work_item,
+        )
+
 
 def _lookup_result(
     *,
