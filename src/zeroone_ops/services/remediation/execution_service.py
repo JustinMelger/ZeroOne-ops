@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from zeroone_ops.models.analysis import IssueContext
+from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.state import FailureDetails, FailureStage, RunStatus
@@ -41,6 +42,7 @@ class ExecutionResult:
     commit_sha: str | None = None
     change_request_url: str | None = None
     change_request_action: str | None = None
+    published_change_request: ChangeRequestInfo | None = None
     publish_attempted: bool = False
     final_status: RunStatus | None = None
 
@@ -292,6 +294,7 @@ class ExecutionService:
             commit_sha=commit_sha,
             change_request_url=publish_result.change_request_url,
             change_request_action=publish_result.change_request_action,
+            published_change_request=publish_result.published_change_request,
             publish_attempted=True,
         )
 

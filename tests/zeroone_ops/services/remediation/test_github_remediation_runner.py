@@ -373,7 +373,41 @@ def test_runner_dismisses_rejected_work_item(tmp_path: Path, context: IssueConte
     assert control_plane.dismissed == ["github-work-1"]
 
 
-def test_runner_leaves_change_request_projection_to_publish_service(
+def test_runner_projects_change_request_link_after_injected_execution(
+    tmp_path: Path,
+    context: IssueContext,
+) -> None:
+    del context
+    run_state_service = _run_state_service(tmp_path)
+    control_plane = StubControlPlane()
+    runner = _runner(
+        tmp_path=tmp_path,
+        run_state_service=run_state_service,
+        work_item_service=FakeGitHubWorkItemService(_work_item()),
+        execution_service=StubExecutionService(
+            _execution_result(
+                change_request_url="https://github.example.com/octo-org/octo-repo/pull/9",
+                change_request_action="created",
+                published_change_request=ChangeRequestInfo(
+                    iid=9,
+                    web_url="https://github.example.com/octo-org/octo-repo/pull/9",
+                    title="fix: remediation",
+                ),
+            )
+        ),
+        control_plane=control_plane,
+    )
+
+    summary = runner.run(record=run_state_service.start_run("run-1"), active_dry_run=False)
+
+    assert summary.status == RunStatus.CHANGE_REQUEST_CREATED
+    assert control_plane.completed == []
+    assert control_plane.blocked == []
+    assert control_plane.dismissed == []
+    assert control_plane.linked_change_requests == ["github-work-1"]
+
+
+def test_runner_blocks_published_change_request_without_provider_identity(
     tmp_path: Path,
     context: IssueContext,
 ) -> None:
@@ -395,10 +429,10 @@ def test_runner_leaves_change_request_projection_to_publish_service(
 
     summary = runner.run(record=run_state_service.start_run("run-1"), active_dry_run=False)
 
-    assert summary.status == RunStatus.CHANGE_REQUEST_CREATED
-    assert control_plane.completed == []
-    assert control_plane.blocked == []
-    assert control_plane.dismissed == []
+    assert summary.status == RunStatus.FAILED
+    assert "missing identity" in summary.message
+    assert control_plane.blocked == ["github-work-1"]
+    assert control_plane.linked_change_requests == []
 
 
 def test_runner_retries_recorded_publication_without_rerunning_execution(

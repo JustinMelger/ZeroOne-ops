@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
+from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.state import FailureDetails, FailureStage, RunRecord, RunStatus, utc_now
@@ -187,6 +188,34 @@ class WorkItemRemediationRunner:
             )
 
         if execution_result.change_request_url is not None:
+            published_change_request = execution_result.published_change_request
+            if published_change_request is None:
+                message = (
+                    "Published change request is missing identity required for work-item linkage."
+                )
+                failure = FailureDetails(stage=FailureStage.PUBLISH, message=message)
+                self._mark_blocked_best_effort(
+                    selected_target=selected_target,
+                    claimed_work_item=claimed_work_item,
+                    active_dry_run=active_dry_run,
+                    failure=failure,
+                    run_id=record.run_id,
+                )
+                return self.run_state_service.finish_work_item(
+                    record=record,
+                    work_item_id=selected_target.item_id,
+                    status=RunStatus.FAILED,
+                    message=message,
+                    branch_name=execution_result.branch_name,
+                    commit_sha=execution_result.commit_sha,
+                    failure=failure,
+                )
+            self._sync_change_request_link_best_effort(
+                selected_target=selected_target,
+                claimed_work_item=claimed_work_item,
+                published_change_request=published_change_request,
+                active_dry_run=active_dry_run,
+            )
             return self.run_state_service.finish_work_item(
                 record=record,
                 work_item_id=selected_target.item_id,
@@ -236,6 +265,26 @@ class WorkItemRemediationRunner:
             )
         except Exception:
             LOGGER.warning("work-item blocked-state projection failed", exc_info=True)
+
+    def _sync_change_request_link_best_effort(
+        self,
+        *,
+        selected_target: RemediationExecutionTarget,
+        claimed_work_item: WorkItemState,
+        published_change_request: ChangeRequestInfo,
+        active_dry_run: bool,
+    ) -> None:
+        """Link a published change request through the runner-owned control plane."""
+        if active_dry_run:
+            return
+        try:
+            self.remediation_control_plane.sync_change_request_link(
+                selected_issue=selected_target,
+                published_change_request=published_change_request,
+                existing_work_item=claimed_work_item,
+            )
+        except Exception:
+            LOGGER.warning("work-item change-request link projection failed", exc_info=True)
 
     def _retry_recorded_publication(
         self,

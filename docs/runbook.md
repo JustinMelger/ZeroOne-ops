@@ -29,9 +29,9 @@ work through provider-native records:
 
 | Operator need | GitLab | GitHub |
 |---|---|---|
-| Change automation policy | Comment on the dashboard issue | Comment on the policy issue |
-| Recover a blocked item | Comment on the dashboard issue, then run recovery | Comment on the work-item issue; the recovery workflow runs on that comment |
-| Inspect an active remediation | Dashboard workflow row and merge request link | Work-item issue and operational-summary link |
+| Change automation policy | Comment on the policy issue in issue mode; dashboard issue in legacy mode | Comment on the policy issue |
+| Recover a blocked item | Comment on the work-item issue in issue mode, then run the control-plane job; dashboard issue in legacy mode | Comment on the work-item issue; the recovery workflow runs on that comment |
+| Inspect an active remediation | Work-item issue and merge-request link in issue mode; dashboard workflow row in legacy mode | Work-item issue and operational-summary link |
 
 Both provider templates compose the same jobs: finding sync, remediation,
 lifecycle reconciliation, policy processing, and recovery processing. Normal

@@ -37,6 +37,7 @@ class PublishResult:
     branch_name: str | None = None
     change_request_url: str | None = None
     change_request_action: str | None = None
+    published_change_request: ChangeRequestInfo | None = None
     error_message: str | None = None
 
 
@@ -134,6 +135,7 @@ class PublishService:
             branch_name=pushed_branch,
             change_request_url=published_change_request.info.web_url,
             change_request_action=published_change_request.action,
+            published_change_request=published_change_request.info,
         )
 
     def build_change_request_title(
