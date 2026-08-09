@@ -239,4 +239,8 @@ def test_select_and_claim_dry_run_does_not_claim_the_work_item() -> None:
 
     assert result.selected_target is not None
     assert result.selected_target.status == "approved"
+    assert (
+        result.selected_target.work_item_url
+        == "https://github.example.com/octo-org/octo-repo/issues/11"
+    )
     assert fake_service.upserted_work_items == []

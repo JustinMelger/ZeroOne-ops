@@ -74,7 +74,10 @@ class GitLabRemediationIntakeService:
         selected = min(candidates, key=self._selection_key)
         if not persist:
             return GitLabRemediationIntakeResult(
-                selected_target=control_plane_work_item_to_execution_target(selected.work_item),
+                selected_target=control_plane_work_item_to_execution_target(
+                    selected.work_item,
+                    work_item_url=selected.issue.web_url,
+                ),
                 claimed_work_item=selected.work_item,
                 issue=selected.issue,
                 item_count=len(work_items),
@@ -90,7 +93,10 @@ class GitLabRemediationIntakeService:
             ),
         )
         return GitLabRemediationIntakeResult(
-            selected_target=control_plane_work_item_to_execution_target(claimed.work_item),
+            selected_target=control_plane_work_item_to_execution_target(
+                claimed.work_item,
+                work_item_url=claimed.issue.web_url,
+            ),
             claimed_work_item=claimed.work_item,
             issue=claimed.issue,
             item_count=len(work_items),
