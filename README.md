@@ -144,10 +144,10 @@ python examples/mypy_to_sarif.py artifacts/mypy.json artifacts/mypy.sarif
 test "$mypy_status" -le 1
 ```
 
-Configure `artifacts/mypy.sarif` with a stable source ID such as `mypy`. Exit
-code `1` means Mypy found type errors and still produces an authoritative
-artifact; an exit code above `1` means the analysis did not complete and should
-fail the pipeline.
+Configure `artifacts/mypy.sarif` with a stable source ID such as
+`mypy-sarif`. Exit code `1` means Mypy found type errors and still produces an
+authoritative artifact; an exit code above `1` means the analysis did not
+complete and should fail the pipeline.
 
 Severity control note:
 

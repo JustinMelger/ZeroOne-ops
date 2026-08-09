@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  mypy-sarif:
+  finding-sarif:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -48,7 +48,11 @@ jobs:
               "artifacts": [
                 {
                   "path": "artifacts/mypy.sarif",
-                  "source_id": "mypy"
+                  "source_id": "mypy-sarif"
+                },
+                {
+                  "path": "artifacts/ruff.sarif",
+                  "source_id": "ruff-sarif"
                 }
               ]
             },
@@ -72,15 +76,31 @@ jobs:
           exit 0
         id: emit_mypy_sarif
 
-      - name: Upload MyPy SARIF artifact
+      - name: Emit focused Ruff SARIF artifact
+        run: |
+          set +e
+          uv run ruff check \
+            src/zeroone_ops/services/review/pipeline/review_candidate_generation_service.py \
+            src/zeroone_ops/services/review/publish/review_publisher.py \
+            --isolated \
+            --select SIM103,SIM114 \
+            --output-format sarif \
+            --output-file artifacts/ruff.sarif
+          result=$?
+          echo "ruff_exit_code=$result" >> "$GITHUB_OUTPUT"
+          exit 0
+        id: emit_ruff_sarif
+
+      - name: Upload finding SARIF artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: mypy-sarif
-          path: artifacts/mypy.sarif
+          name: finding-sarif
+          path: artifacts/*.sarif
 
       - name: Publish promoted GitHub findings
         run: uv run zeroone-ops findings sync
 
-      - name: Report MyPy finding count signal
+      - name: Report finding source signals
         run: |
           echo "MyPy JSON generation completed with exit code ${{ steps.emit_mypy_sarif.outputs.mypy_exit_code }}."
+          echo "Ruff SARIF generation completed with exit code ${{ steps.emit_ruff_sarif.outputs.ruff_exit_code }}."
