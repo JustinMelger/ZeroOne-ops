@@ -44,7 +44,7 @@ class ProjectedReviewState(BaseModel):
 
     classification: ReviewClassification
     reviewed_sha: str
-    review_note_url: str
+    review_note_url: str | None = None
     follow_up_required: bool
 
 

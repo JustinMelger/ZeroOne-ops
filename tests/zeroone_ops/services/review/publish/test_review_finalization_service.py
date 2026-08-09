@@ -70,8 +70,40 @@ def test_finalize_projects_review_after_successful_publish() -> None:
         "context": context,
         "classification": "findings_present",
         "reviewed_sha": "abc123",
+        "review_note_id": 42,
         "review_note_url": "https://example.com/note/42",
     }
+
+
+def test_finalize_projects_review_when_published_note_has_no_web_url() -> None:
+    """Projection uses a published note ID when a provider omits its URL."""
+    context = build_context()
+    projection_service = FakeReviewProjectionService(action="updated")
+    finalization = ReviewFinalizationService(
+        review_publisher=FakeReviewPublisher(
+            ReviewPublishResult(
+                note=ReviewComment(id=42, web_url=None),
+                body="body",
+                artifact=build_artifact(),
+            )
+        ),
+        dashboard_updater=None,
+        review_projection_factory=lambda: projection_service,
+    )
+
+    result = finalization.finalize(
+        run_id="run-1",
+        repository_id="group/project",
+        active_dry_run=False,
+        change_request=_build_change_request_candidate(),
+        context=context,
+        artifact=build_artifact(),
+        inline_comment_decisions=[],
+    )
+
+    assert result.projection_warning is None
+    assert projection_service.calls[0]["review_note_id"] == 42
+    assert projection_service.calls[0]["review_note_url"] is None
 
 
 def test_finalize_ignores_no_matching_work_item_projection() -> None:

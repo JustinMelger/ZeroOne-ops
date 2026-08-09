@@ -33,7 +33,8 @@ class ReviewProjectionService(Protocol):
         context: ChangeRequestReviewContext,
         classification: ReviewClassification,
         reviewed_sha: str,
-        review_note_url: str | None,
+        review_note_id: int | None = None,
+        review_note_url: str | None = None,
     ) -> object:
         """Project one finalized review result."""
 
@@ -195,6 +196,7 @@ class ReviewFinalizationService:
                         context=context,
                         classification=finalized_review_result.classification,
                         reviewed_sha=context.head_sha,
+                        review_note_id=note_id,
                         review_note_url=note_url,
                     )
                     projection_action = getattr(projection_result, "action", None)
