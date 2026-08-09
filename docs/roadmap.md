@@ -113,11 +113,17 @@ history, not here.
 
 ### Promotion Capacity
 
-- [ ] design and add one shared promotion budget for GitLab and GitHub: retain
-  full finding inventory sync and stale reconciliation, rank eligible findings
-  deterministically, cap active promoted work items through a remediation
-  configuration value, and retain deferred findings as backlog-only with a
-  visible `promotion_budget_exhausted` reason
+- [x] lock the shared v1 promotion-capacity design for GitLab and GitHub:
+  `remediation.max_active_work_items` defaults to `10`; open `approved` and
+  `in_progress` work items consume capacity, while blocked, dismissed, and
+  terminal items remain visible without consuming a slot; eligible findings
+  are ordered by severity with stable identity tie-breaking;
+  deferred findings remain backlog-only with a visible
+  `promotion_capacity_exhausted` reason
+- [ ] implement the shared promotion budget while retaining full finding
+  inventory sync and stale reconciliation for every normalized source
+- [ ] surface promoted, deferred, and capacity-deferred counts in provider
+  operator views
 
 ### Rollout And Feedback
 
