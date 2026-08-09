@@ -135,3 +135,22 @@ def test_project_review_noops_without_linked_gitlab_work_item() -> None:
 
     assert result.action == "no_linked_work_item"
     assert result.work_item is None
+
+
+def test_project_review_accepts_published_gitlab_note_without_web_url() -> None:
+    """GitLab note publication remains projectable when the API omits ``web_url``."""
+    work_item_service = FakeGitLabWorkItemService(_work_item())
+
+    result = GitLabReviewProjectionService(work_item_service).project_review(  # type: ignore[arg-type]
+        repository_id="group/project",
+        context=_context(),
+        classification="no_findings",
+        reviewed_sha="abc123",
+        review_note_id=56,
+        review_note_url=None,
+    )
+
+    assert result.action == "updated"
+    assert result.work_item is not None
+    assert result.work_item.projected_review is not None
+    assert result.work_item.projected_review.review_note_url is None

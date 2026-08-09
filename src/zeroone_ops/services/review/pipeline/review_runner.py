@@ -542,6 +542,7 @@ class ReviewRunner:
             repository_id=repository_id,
             change_request=change_request,
             classification=review_state.status,
+            note_id=review_state.note_id,
             note_url=review_state.note_url,
         )
         self.review_state_service.update_projection_retry_state(
@@ -562,6 +563,7 @@ class ReviewRunner:
         repository_id: str,
         change_request: ChangeRequestReviewCandidate,
         classification: str | None,
+        note_id: int | None,
         note_url: str | None,
     ) -> str | None:
         """Retry projection only for one previously published same-SHA review."""
@@ -569,8 +571,8 @@ class ReviewRunner:
             return (
                 "Review projection warning: authoritative same-SHA classification was unavailable."
             )
-        if note_url is None:
-            return "Review projection warning: persisted review note URL was unavailable."
+        if note_id is None:
+            return "Review projection warning: persisted review note ID was unavailable."
         context_result = ReviewContextBuilder(
             repo_root=self.repo_root,
             config=self.config,
@@ -587,6 +589,7 @@ class ReviewRunner:
                 context=context,
                 classification=cast(ReviewClassification, classification),
                 reviewed_sha=context.head_sha,
+                review_note_id=note_id,
                 review_note_url=note_url,
             )
         except Exception as error:

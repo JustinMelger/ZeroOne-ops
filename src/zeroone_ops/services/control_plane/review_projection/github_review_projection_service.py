@@ -33,10 +33,11 @@ class GitHubReviewProjectionService:
         context: ChangeRequestReviewContext,
         classification: ReviewClassification,
         reviewed_sha: str,
-        review_note_url: str | None,
+        review_note_id: int | None = None,
+        review_note_url: str | None = None,
     ) -> GitHubReviewProjectionResult:
         """Project one published review onto an existing promoted remediation work item."""
-        if review_note_url is None:
+        if review_note_id is None and review_note_url is None:
             return GitHubReviewProjectionResult(action="no_review_note")
 
         existing = self.work_item_service.find_open_work_item_by_change_request(

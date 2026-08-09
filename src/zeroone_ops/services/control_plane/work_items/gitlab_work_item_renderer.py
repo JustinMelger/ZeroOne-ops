@@ -73,7 +73,11 @@ class GitLabWorkItemRenderer:
                 [
                     f"- Classification: `{work_item.projected_review.classification}`",
                     f"- Reviewed SHA: `{work_item.projected_review.reviewed_sha}`",
-                    f"- Review note URL: {work_item.projected_review.review_note_url}",
+                    (
+                        f"- Review note URL: {work_item.projected_review.review_note_url}"
+                        if work_item.projected_review.review_note_url is not None
+                        else "- Review note URL: unavailable"
+                    ),
                     (
                         "- Follow-up required: "
                         f"`{'yes' if work_item.projected_review.follow_up_required else 'no'}`"
