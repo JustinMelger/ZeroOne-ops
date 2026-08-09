@@ -644,7 +644,7 @@ def test_dashboard_reconcile_dry_run_selects_change_request_opened_item(
         severity="LOW",
         branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
@@ -772,7 +772,7 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
         severity="LOW",
         branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
@@ -895,7 +895,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
         severity="LOW",
         branch_name="zeroone-ops/AX124/open",
         commit_sha="open123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/8",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/8",
     )
     merged_item = DashboardItem(
         id="sonar:MERGED",
@@ -912,7 +912,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
         severity="LOW",
         branch_name="zeroone-ops/AX125/merged",
         commit_sha="merged123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/9",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/9",
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
@@ -1041,7 +1041,7 @@ def test_dashboard_reconcile_ci_blocks_item_when_merge_request_was_closed(
         severity="LOW",
         branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
@@ -1164,7 +1164,7 @@ def test_dashboard_reconcile_ci_blocks_closed_reviewed_item(
         severity="LOW",
         branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
         review_status="findings_present",
         review_findings_count=1,
         review_feedback_summary="Ordering changed in a shared path.",
@@ -1294,7 +1294,7 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
         severity="LOW",
         branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
         review_status="manual_review_only",
         review_feedback_summary="The change needs broader human context.",
         retry_count=0,
@@ -1423,7 +1423,7 @@ def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
         severity="LOW",
         branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
@@ -1515,7 +1515,7 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
         severity="LOW",
         branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
         upstream_active=False,
     )
     monkeypatch.setattr(
@@ -1639,7 +1639,7 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
         severity="LOW",
         branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
@@ -1754,7 +1754,7 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         severity="LOW",
         branch_name="zeroone-ops/BROKEN/service",
         commit_sha="broken123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
     merged_item = DashboardItem(
         id="sonar:MERGED",
@@ -1771,7 +1771,7 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
         severity="LOW",
         branch_name="zeroone-ops/MERGED/service",
         commit_sha="merged123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/8",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/8",
         upstream_active=False,
     )
     monkeypatch.setattr(
