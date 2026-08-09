@@ -232,6 +232,7 @@ For example:
 - `platform`
 - `review.inline_comments_enabled`
 - `remediation.bootstrap_severities`
+- `remediation.max_active_work_items`
 - `remediation.target_branch`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
@@ -240,6 +241,11 @@ For example:
 New configuration should use these nested blocks. GitLab examples can combine
 SonarQube and SARIF intake; GitHub examples use Ruff as one lightweight SARIF
 producer example.
+
+`remediation.max_active_work_items` bounds active remediation work across the
+repository when using GitHub or GitLab issue control planes. It defaults to
+`10`; only open approved and in-progress remediation work items consume the
+limit. Deferred findings remain visible through aggregate backlog counts.
 
 The supported compatibility fields `review.platform`, `gitlab.target_branch`,
 and `remediation.supported_severities` emit non-blocking CI warnings with their

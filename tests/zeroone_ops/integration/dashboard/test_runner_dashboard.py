@@ -537,27 +537,38 @@ def test_sync_dashboard_sonar_uses_gitlab_work_items_in_issue_mode(
         "GitLabPolicyIssueService.load_policy_state",
         lambda self, project_id, persist: policy_calls.append((project_id, persist)),
     )
-    sync_calls: list[tuple[str, int, bool]] = []
+    sync_calls: list[tuple[str, int, int, bool]] = []
+
+    def sync_work_items(
+        self,
+        project_id,
+        findings,
+        policy_state,
+        managed_source_ids,
+        max_active_work_items,
+        persist,
+    ):
+        del self, policy_state, managed_source_ids
+        sync_calls.append((project_id, len(findings), max_active_work_items, persist))
+        return GitLabFindingSyncResult(
+            promoted_count=1,
+            backlog_only_count=0,
+            created_count=0,
+            updated_count=0,
+            unchanged_count=0,
+            demoted_to_candidate_count=0,
+            retained_protected_count=0,
+            stale_demoted_to_candidate_count=0,
+            stale_retained_protected_count=0,
+            normalized_severity_counts={"high": 1},
+            enabled_severities=("high",),
+            backlog_reason_counts={},
+        )
+
     monkeypatch.setattr(
         "zeroone_ops.services.control_plane.work_items.gitlab_finding_sync_service."
         "GitLabFindingSyncService.sync",
-        lambda self, project_id, findings, policy_state, managed_source_ids, persist: (
-            sync_calls.append((project_id, len(findings), persist))
-            or GitLabFindingSyncResult(
-                promoted_count=1,
-                backlog_only_count=0,
-                created_count=0,
-                updated_count=0,
-                unchanged_count=0,
-                demoted_to_candidate_count=0,
-                retained_protected_count=0,
-                stale_demoted_to_candidate_count=0,
-                stale_retained_protected_count=0,
-                normalized_severity_counts={"high": 1},
-                enabled_severities=("high",),
-                backlog_reason_counts={},
-            )
-        ),
+        sync_work_items,
     )
 
     summary = sync_dashboard_sonar(dry_run=True)
@@ -565,7 +576,7 @@ def test_sync_dashboard_sonar_uses_gitlab_work_items_in_issue_mode(
     assert summary.status.value == "synced"
     assert "Dry-run would publish 1 promoted findings as GitLab work items" in summary.message
     assert policy_calls == [("123", False)]
-    assert sync_calls == [("123", 1, False)]
+    assert sync_calls == [("123", 1, 10, False)]
 
 
 def test_dashboard_reconcile_rejects_gitlab_issue_mode(

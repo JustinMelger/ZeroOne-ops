@@ -589,6 +589,7 @@ def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
         findings=collection.finding_collection.findings,
         policy_state=policy_state,
         managed_source_ids=set(collection.finding_collection.metadata.managed_source_ids),
+        max_active_work_items=config.remediation.max_active_work_items,
         persist=not active_dry_run,
     )
     summary_publication = (
@@ -663,6 +664,7 @@ def _sync_gitlab_issue_findings(*, config: AppConfig, dry_run: bool) -> RunSumma
         findings=collection.finding_collection.findings,
         policy_state=policy_state,
         managed_source_ids=set(metadata.managed_source_ids),
+        max_active_work_items=config.remediation.max_active_work_items,
         persist=not active_dry_run,
     )
     summary_publication = (

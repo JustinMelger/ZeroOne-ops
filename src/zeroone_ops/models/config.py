@@ -175,6 +175,7 @@ class RemediationConfig(BaseModel):
         validation_alias=AliasChoices("bootstrap_severities", "supported_severities"),
     )
     max_retry_count: int = 1
+    max_active_work_items: int = Field(default=10, ge=1)
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
 
     @property

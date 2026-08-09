@@ -22,6 +22,7 @@
   },
   "remediation": {
     "target_branch": "main",
+    "max_active_work_items": 10,
     "bootstrap_severities": ["medium", "high"]
   },
   "sarif": {

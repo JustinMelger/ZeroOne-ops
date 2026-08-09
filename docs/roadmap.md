@@ -120,10 +120,13 @@ history, not here.
   are ordered by severity with stable identity tie-breaking;
   deferred findings remain backlog-only with a visible
   `promotion_capacity_exhausted` reason
-- [ ] implement the shared promotion budget while retaining full finding
+- [x] implement the shared promotion budget while retaining full finding
   inventory sync and stale reconciliation for every normalized source
-- [ ] surface promoted, deferred, and capacity-deferred counts in provider
+- [x] surface promoted, deferred, and capacity-deferred counts in provider
   operator views
+- [ ] live-validate a small capacity in one GitHub and one GitLab issue-mode
+  repository: confirm the queue stays bounded, a completed item frees a slot,
+  and capacity deferrals appear only as aggregate backlog counts
 
 ### Rollout And Feedback
 

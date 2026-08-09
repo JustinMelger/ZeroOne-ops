@@ -19,6 +19,8 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_upsert_servi
 class FakeGitLabWorkItemService:
     def __init__(self) -> None:
         self.work_items: dict[tuple[str, str, str | None, str], WorkItemState] = {}
+        self.listed_work_items: list[GitLabWorkItemLookupResult] | None = None
+        self.update_existing_calls = 0
 
     def upsert_work_item(
         self,
@@ -65,7 +67,31 @@ class FakeGitLabWorkItemService:
         work_item = self.work_items.get(identity_key)
         return _lookup(work_item) if work_item is not None else None
 
+    def update_existing_work_item(
+        self,
+        *,
+        project_id: str,
+        existing: GitLabWorkItemLookupResult,
+        work_item: WorkItemState,
+    ) -> GitLabWorkItemUpsertResult:
+        del project_id
+        self.update_existing_calls += 1
+        if existing.work_item == work_item:
+            return GitLabWorkItemUpsertResult(
+                issue=existing.issue,
+                action="unchanged",
+                work_item=work_item,
+            )
+        self.work_items[work_item.identity_key] = work_item
+        return GitLabWorkItemUpsertResult(
+            issue=_issue(work_item),
+            action="updated",
+            work_item=work_item,
+        )
+
     def list_open_work_items(self, *, project_id: str) -> list[GitLabWorkItemLookupResult]:
+        if self.listed_work_items is not None:
+            return self.listed_work_items
         return [
             _lookup(work_item)
             for work_item in self.work_items.values()
@@ -155,6 +181,66 @@ def test_sync_keeps_disabled_severity_backlog_only_without_creating_work_item() 
     assert result.backlog_only_count == 1
     assert result.backlog_reason_counts == {"severity_disabled": 1}
     assert work_item_service.work_items == {}
+
+
+def test_sync_defers_eligible_findings_when_active_capacity_is_full() -> None:
+    work_item_service = FakeGitLabWorkItemService()
+    service = GitLabFindingSyncService(
+        work_item_service=work_item_service,  # type: ignore[arg-type]
+    )
+    project_id = "group/project"
+    policy_state = _policy_state(medium_enabled=True)
+
+    service.sync(
+        project_id=project_id,
+        findings=[_finding(finding_id="existing", severity="high")],
+        policy_state=policy_state,
+        max_active_work_items=1,
+    )
+    result = service.sync(
+        project_id=project_id,
+        findings=[
+            _finding(finding_id="existing", severity="high"),
+            _finding(finding_id="deferred", severity="high"),
+        ],
+        policy_state=policy_state,
+        max_active_work_items=1,
+    )
+
+    assert result.promoted_count == 1
+    assert result.backlog_only_count == 1
+    assert result.backlog_reason_counts == {"promotion_capacity_exhausted": 1}
+    assert len(work_item_service.work_items) == 1
+
+
+def test_sync_uses_provider_upsert_for_duplicate_authoritative_identities() -> None:
+    work_item_service = FakeGitLabWorkItemService()
+    service = GitLabFindingSyncService(
+        work_item_service=work_item_service,  # type: ignore[arg-type]
+    )
+    project_id = "group/project"
+    policy_state = _policy_state(medium_enabled=True)
+    finding = _finding(finding_id="duplicate", severity="high")
+    service.sync(
+        project_id=project_id,
+        findings=[finding],
+        policy_state=policy_state,
+    )
+    original = next(iter(work_item_service.work_items.values()))
+    work_item_service.listed_work_items = [
+        _lookup(original),
+        _lookup(original.model_copy(update={"work_item_id": "work-duplicate-copy"})),
+    ]
+    work_item_service.update_existing_calls = 0
+
+    result = service.sync(
+        project_id=project_id,
+        findings=[finding],
+        policy_state=policy_state,
+    )
+
+    assert result.promoted_count == 1
+    assert work_item_service.update_existing_calls == 0
 
 
 def test_sync_demotes_stale_unlinked_approved_work_item_from_managed_source() -> None:

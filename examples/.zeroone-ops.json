@@ -41,6 +41,7 @@
   },
   "remediation": {
     "target_branch": "main",
+    "max_active_work_items": 10,
     "bootstrap_severities": ["LOW"],
     "max_retry_count": 1,
     "analysis": {

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from pytest import LogCaptureFixture
 
 from zeroone_ops.settings import (
@@ -598,6 +599,7 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
             "target_branch": "main",
             "bootstrap_severities": ["LOW", "MEDIUM"],
             "max_retry_count": 2,
+            "max_active_work_items": 4,
             "analysis": {
               "context_lines_before": 12,
               "context_lines_after": 18,
@@ -619,10 +621,68 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
 
     assert config.remediation.bootstrap_severities == ["LOW", "MEDIUM"]
     assert config.remediation.max_retry_count == 2
+    assert config.remediation.max_active_work_items == 4
     assert config.remediation.analysis.context_lines_before == 12
     assert config.remediation.analysis.context_lines_after == 18
     assert config.remediation.analysis.max_file_bytes == 1234
     assert config.sonarqube.mock_issues_path == Path("fixtures/sonar/issues.json")
+
+
+def test_settings_default_remediation_active_work_item_capacity_is_ten(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "remediation": {
+            "target_branch": "main"
+          },
+          "gitlab": {
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.remediation.max_active_work_items == 10
+
+
+@pytest.mark.parametrize("capacity", [0, -1])
+def test_settings_reject_non_positive_remediation_active_work_item_capacity(
+    tmp_path: Path,
+    monkeypatch,
+    capacity: int,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "remediation": {
+            "target_branch": "main",
+            "max_active_work_items": CAPACITY
+          },
+          "gitlab": {
+            "labels": []
+          }
+        }
+        """.replace("CAPACITY", str(capacity)).strip(),
+        encoding="utf-8",
+    )
+
+    try:
+        load_config()
+    except SettingsError as error:
+        assert "max_active_work_items" in str(error)
+        assert "greater than or equal to 1" in str(error)
+    else:  # pragma: no cover - defensive guard
+        raise AssertionError("Expected SettingsError for non-positive active work item capacity")
 
 
 def test_settings_load_sarif_artifacts(tmp_path: Path, monkeypatch) -> None:
