@@ -571,8 +571,8 @@ class ReviewRunner:
             return (
                 "Review projection warning: authoritative same-SHA classification was unavailable."
             )
-        if note_id is None:
-            return "Review projection warning: persisted review note ID was unavailable."
+        if note_id is None and note_url is None:
+            return "Review projection warning: persisted review note reference was unavailable."
         context_result = ReviewContextBuilder(
             repo_root=self.repo_root,
             config=self.config,

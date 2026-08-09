@@ -1971,7 +1971,7 @@ def test_review_github_reuses_same_sha_note_when_username_lookup_is_unresolved(
     assert "Earlier classification: findings_present." in summary.message
 
 
-def test_review_same_sha_live_run_repairs_pending_projection_without_reanalysis(
+def test_review_same_sha_live_run_repairs_pending_projection_with_url_only_reference(
     tmp_path: Path, monkeypatch
 ) -> None:
     class FakeProjectionService:
@@ -2020,7 +2020,7 @@ def test_review_same_sha_live_run_repairs_pending_projection_without_reanalysis(
         last_run_id="prior-run",
         findings_count=1,
         summary="One finding.",
-        note_id=1,
+        note_id=None,
         note_url="https://github.com/octo-org/octo-repo/pull/23#issuecomment-1",
         projection_retry_pending=True,
         projection_retry_warning="Review projection warning: transient failure",
@@ -2076,6 +2076,11 @@ def test_review_same_sha_live_run_repairs_pending_projection_without_reanalysis(
     assert "No new changes after the last review." in summary.message
     assert "Repaired pending review projection." in summary.message
     assert len(projection_service.calls) == 1
+    assert projection_service.calls[0]["review_note_id"] is None
+    assert (
+        projection_service.calls[0]["review_note_url"]
+        == "https://github.com/octo-org/octo-repo/pull/23#issuecomment-1"
+    )
     loaded = state_store.load().reviews["23:abc123"]
     assert loaded.projection_retry_pending is False
     assert loaded.projection_retry_warning is None
