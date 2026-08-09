@@ -94,3 +94,21 @@ def test_control_plane_work_item_adapter_uses_authoritative_identity() -> None:
     assert target.expected_change == "Use direct truthiness."
     assert target.constraints == "Keep the expression side-effect free."
     assert target.acceptance_criteria == ["The E712 finding is resolved."]
+
+
+def test_control_plane_work_item_adapter_keeps_the_authoritative_issue_url() -> None:
+    target = control_plane_work_item_to_execution_target(
+        WorkItemState(
+            work_item_id="work-1",
+            kind="remediation",
+            status="approved",
+            source=WorkItemSourceRef(source="ruff", source_item_key="ruff:E712:service"),
+            summary="Avoid equality comparisons to True",
+            detail=None,
+            severity="medium",
+            file_path="src/service.py",
+        ),
+        work_item_url="https://github.example.com/octo-org/octo-repo/issues/11",
+    )
+
+    assert target.work_item_url == "https://github.example.com/octo-org/octo-repo/issues/11"

@@ -60,6 +60,7 @@ class RemediationExecutionTarget(BaseModel):
     status: str
     message: str
     file_path: str
+    work_item_url: str | None = None
     line: int | None = None
     rule_id: str | None = None
     severity: str | None = None
