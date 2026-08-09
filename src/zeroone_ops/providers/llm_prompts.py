@@ -128,16 +128,25 @@ def _format_validation_feedback(context: IssueContext) -> str:
         return "(none)"
     feedback = context.validation_feedback
     diagnostic_lines = [
-        f"- `{diagnostic.file_path}` via `{diagnostic.command}`: {diagnostic.excerpt}"
+        "- "
+        f"`{diagnostic.file_path}` via `{diagnostic.command}`: "
+        f"{_escape_untrusted_validation_output(diagnostic.excerpt)}"
         for diagnostic in feedback.diagnostics
     ]
     return "\n".join(
         [
+            "<<BEGIN UNTRUSTED VALIDATION FEEDBACK>>",
             "Allowed files: " + ", ".join(f"`{path}`" for path in feedback.allowed_file_paths),
             "New diagnostics:",
             *diagnostic_lines,
+            "<<END UNTRUSTED VALIDATION FEEDBACK>>",
         ]
     )
+
+
+def _escape_untrusted_validation_output(value: str) -> str:
+    """Prevent command output from reproducing the prompt-block delimiters."""
+    return value.replace("<<", "[[").replace(">>", "]]")
 
 
 def _format_issue_repository_guidance(context: IssueContext) -> str:
