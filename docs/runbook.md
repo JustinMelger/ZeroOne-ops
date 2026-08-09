@@ -308,7 +308,7 @@ Current job roles:
   - finding sync for SonarQube and configured SARIF sources
 - `zeroone_ops_control_plane`
   - GitLab issue-mode policy processing, work-item recovery, and one
-    remediation attempt, in that order
+    remediation attempt, followed by one derived-summary refresh
 - `zeroone_ops_work_items_sync_status`
   - scheduled work-item lifecycle reconciliation after merge request state
     changes

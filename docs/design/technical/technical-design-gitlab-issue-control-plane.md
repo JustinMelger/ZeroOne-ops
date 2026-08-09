@@ -150,12 +150,11 @@ dashboard item ID in the command.
 ## Command Polling
 
 Add one GitLab scheduled/manual CI job, `zeroone_ops_control_plane`. It runs
-the existing commands in this order:
+the combined command, which processes policy, recovery, and remediation in this
+order and refreshes the derived operational summary once afterward:
 
 ```text
-zeroone-ops dashboard policy
-zeroone-ops work-items recover
-zeroone-ops remediation run
+zeroone-ops control-plane run
 ```
 
 It uses the remediation resource group, Git author configuration, and
@@ -247,6 +246,58 @@ authority based on `gitlab.control_plane_mode`.
 - retain dashboard compatibility for two minor releases; and
 - retire dashboard-only runners and compatibility parsing in the next planned
   breaking release after that window.
+
+### Phase 8e: Operational Summary Implementation Plan
+
+The GitLab summary is a derived, read-only operator view. It must never become
+a policy command surface, lifecycle authority, or a second work-item store.
+Work-item issues, the policy issue, and the latest successful finding sync
+remain authoritative.
+
+1. Extract the shared summary core from the GitHub implementation.
+   - Move the view models, bounded entry and count rules, latest-finding-sync
+     observation, Markdown safety rules, renderer, parser, and view builder to
+     provider-neutral modules under `services/control_plane/overview/`.
+   - Define a narrow normalized input for an issue-backed work item so the
+     builder does not import GitHub or GitLab lookup result types.
+   - Keep bounded lists: at most ten active change requests and five recent
+     terminal outcomes. Show an omitted-entry count rather than growing the
+     summary issue without bound.
+
+2. Preserve provider-native presentation through a small vocabulary contract.
+   - The shared renderer accepts provider-local terms for active change
+     requests and their empty state.
+   - GitHub retains its existing `pull request` wording and rendered shape.
+   - GitLab renders `merge request` wording without duplicating summary logic.
+
+3. Keep issue transport provider-local.
+   - Adapt the existing GitHub store and service to the shared core without
+     changing GitHub title, label, lookup, or best-effort semantics.
+   - Add `GitLabOperationalSummaryStore` and service using the dedicated GitLab
+     issue-control-plane client, with exact open title-and-label lookup,
+     create, and full body update.
+   - Use the same stable title and `zeroone-summary` label on both providers;
+     label and title are discovery indexes, not authoritative state.
+
+4. Publish only after successful authoritative operations.
+   - A successful finding sync supplies a new latest-finding-sync observation.
+   - Policy, remediation, recovery, and lifecycle paths refresh the summary
+     while preserving its previously parsed observation when they have no new
+     finding-sync result.
+   - Summary publication is best effort: transport, parsing, or rendering
+     failure is logged and does not replace the primary workflow outcome.
+   - GitLab publication runs only when `gitlab.control_plane_mode` is `issues`;
+     legacy dashboard mode receives no summary writes.
+
+5. Verify in layers.
+   - Unit-test shared builder, renderer, and parser equivalently for GitHub and
+     GitLab vocabulary.
+   - Unit-test GitLab store exact lookup, create/update/unchanged behavior, and
+     malformed persisted observation handling.
+   - Add runner integration coverage for finding sync, remediation transition,
+     and lifecycle refresh with summary failure remaining non-fatal.
+   - Live-test one GitLab issue-mode project before making the summary part of
+     the standard GitLab installation template.
 
 ## Verification
 

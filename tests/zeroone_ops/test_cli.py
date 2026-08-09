@@ -27,6 +27,26 @@ def test_remediation_run_prints_neutral_work_item_summary(monkeypatch: MonkeyPat
     assert "work_item_id=work-item-1" in result.output
 
 
+def test_control_plane_run_prints_combined_workflow_summary(monkeypatch: MonkeyPatch) -> None:
+    """The combined control-plane command uses the shared CLI summary contract."""
+    summary = RunSummary(
+        run_id="run-1",
+        status=RunStatus.NO_ISSUE,
+        message="[ci] No remediation work item is eligible.",
+        state_path=Path(".zeroone-ops-state.json"),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.cli.run_gitlab_issue_control_plane",
+        lambda *, dry_run: summary,
+    )
+
+    result = _RUNNER.invoke(app, ["control-plane", "run", "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "status=no_issue" in result.output
+    assert "No remediation work item is eligible." in result.output
+
+
 def test_dashboard_remediate_remains_an_alias_for_neutral_remediation(
     monkeypatch: MonkeyPatch,
 ) -> None:

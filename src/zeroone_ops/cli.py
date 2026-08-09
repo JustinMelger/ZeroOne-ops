@@ -14,6 +14,7 @@ from zeroone_ops.runner import (
     dashboard_reconcile,
     recover_work_item,
     review,
+    run_gitlab_issue_control_plane,
     run_remediation,
     sync_findings,
     sync_work_item_status,
@@ -26,11 +27,13 @@ dashboard_app = typer.Typer(add_completion=False, help="Dashboard sync workflows
 findings_app = typer.Typer(add_completion=False, help="Finding ingestion workflows.")
 remediation_app = typer.Typer(add_completion=False, help="Remediation workflows.")
 work_items_app = typer.Typer(add_completion=False, help="Work-item lifecycle workflows.")
+control_plane_app = typer.Typer(add_completion=False, help="Provider control-plane workflows.")
 app.add_typer(review_app, name="review")
 app.add_typer(dashboard_app, name="dashboard")
 app.add_typer(findings_app, name="findings")
 app.add_typer(remediation_app, name="remediation")
 app.add_typer(work_items_app, name="work-items")
+app.add_typer(control_plane_app, name="control-plane")
 
 
 def _echo_review_summary(*, dry_run: bool) -> None:
@@ -134,6 +137,19 @@ def remediation_run_command(
     """Run remediation for the active platform."""
     configure_logging()
     _echo_summary(run_remediation(dry_run=dry_run))
+
+
+@control_plane_app.command("run")
+def control_plane_run_command(
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Run without changing control-plane state.",
+    ),
+) -> None:
+    """Run the combined GitLab issue-mode control plane."""
+    configure_logging()
+    _echo_summary(run_gitlab_issue_control_plane(dry_run=dry_run))
 
 
 @work_items_app.command("sync-status")
