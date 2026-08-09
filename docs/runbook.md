@@ -650,6 +650,10 @@ In GitHub and GitLab issue control-plane modes,
 and in-progress remediation work items across all finding sources. Findings
 that exceed the limit remain backlog-only until a later sync finds capacity.
 
+Finding-sync dry runs evaluate local findings and policy without loading open
+work items. Their output does not preview active-capacity decisions or
+stale-item reconciliation.
+
 This means:
 
 - use the minimal example when you only need a working starting point

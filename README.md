@@ -192,6 +192,10 @@ Severity control note:
 Dry-run can use local fixtures before a repository is connected to real
 services.
 
+For issue control planes, finding-sync dry runs evaluate local findings and
+policy only. They do not load existing open work items, so active capacity and
+stale-item reconciliation are not included in the preview.
+
 Included fixtures:
 
 - [fixtures/sonar/issues.json](fixtures/sonar/issues.json)

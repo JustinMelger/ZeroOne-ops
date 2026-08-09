@@ -574,7 +574,8 @@ def test_sync_dashboard_sonar_uses_gitlab_work_items_in_issue_mode(
     summary = sync_dashboard_sonar(dry_run=True)
 
     assert summary.status.value == "synced"
-    assert "Dry-run would publish 1 promoted findings as GitLab work items" in summary.message
+    assert "Dry-run identified 1 findings eligible under the configured policy" in summary.message
+    assert "active capacity and stale-item reconciliation are not included" in summary.message
     assert policy_calls == [("123", False)]
     assert sync_calls == [("123", 1, 10, False)]
 
