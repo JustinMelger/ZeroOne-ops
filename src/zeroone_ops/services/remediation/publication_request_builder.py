@@ -64,6 +64,11 @@ class RemediationPublicationRequestBuilder:
             or selected_issue.issue_type
             or selected_issue.source_type
         )
+        item_reference = (
+            f"- Tracking work item: {selected_issue.work_item_url}"
+            if selected_issue.work_item_url is not None
+            else f"- {profile.item_reference_label}: `{selected_issue.source_ref}`"
+        )
         lines = [
             "## Summary",
             change_summary,
@@ -71,7 +76,7 @@ class RemediationPublicationRequestBuilder:
             f"## {profile.mr_section_title}",
             f"- Source: `{profile.source_display_name}`",
             f"- Source ID: `{selected_issue.source_type}`",
-            f"- {profile.item_reference_label}: `{selected_issue.source_ref}`",
+            item_reference,
             f"- Rule: `{selected_issue.rule_id or 'unknown'}`",
             f"- Severity: `{selected_issue.severity or 'unknown'}`",
             f"- Type: `{issue_type}`",

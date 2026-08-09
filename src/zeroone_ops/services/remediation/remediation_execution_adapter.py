@@ -36,6 +36,8 @@ def remediation_work_item_to_execution_target(
 
 def control_plane_work_item_to_execution_target(
     work_item: WorkItemState,
+    *,
+    work_item_url: str | None = None,
 ) -> RemediationExecutionTarget:
     """Adapt one authoritative work item into the shared execution target shape."""
     if work_item.file_path is None:
@@ -44,6 +46,7 @@ def control_plane_work_item_to_execution_target(
         item_id=work_item.work_item_id,
         source_type=work_item.source.source,
         source_ref=work_item.source.source_item_key,
+        work_item_url=work_item_url,
         title=work_item.summary,
         status=work_item.status,
         message=work_item.detail or work_item.summary,

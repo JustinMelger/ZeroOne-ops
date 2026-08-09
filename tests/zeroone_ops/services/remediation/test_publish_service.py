@@ -315,6 +315,30 @@ def test_publish_service_uses_generic_profile_for_unknown_source() -> None:
     assert "- Item reference: `job-1`" in description
 
 
+def test_publish_service_links_issue_mode_work_item_in_description() -> None:
+    service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
+
+    description = service.build_change_request_description(
+        selected_issue=RemediationExecutionTarget(
+            item_id="work-1",
+            source_type="ruff-sarif",
+            source_ref="src/service.py::lint_fix::SIM103",
+            title="Return the condition directly",
+            status="in_progress",
+            message="Return the condition directly.",
+            file_path="src/service.py",
+            work_item_url="https://github.example.com/octo-org/octo-repo/issues/11",
+        ),
+        change_summary="summary",
+    )
+
+    assert (
+        "- Tracking work item: https://github.example.com/octo-org/octo-repo/issues/11"
+        in description
+    )
+    assert "- Item reference: `src/service.py::lint_fix::SIM103`" not in description
+
+
 def test_publish_service_builds_conventional_commit_change_request_title() -> None:
     service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
 
