@@ -61,12 +61,17 @@ history, not here.
 
 ### Phase 9: Validation Feedback Loop
 
-- [ ] capture a baseline for configured validation commands before applying a
-  remediation patch
-- [ ] compare post-edit validation with the baseline so unrelated existing
-  failures are not attributed to the patch
-- [ ] feed bounded, edited-file-relevant diagnostics into one retry generation
-  pass while keeping the repair boundary to the original target and one file
+- [ ] add opt-in baseline capture for configured validation commands while
+  preserving the current flow when disabled
+- [ ] classify post-edit validation as clean, baseline-preserved,
+  edited-file regression, or unscoped regression
+- [ ] feed bounded, edited-file-relevant diagnostics into one corrected-patch
+  generation pass while keeping the repair boundary to the original target and
+  one file
+- [ ] persist concise validation outcome evidence on GitHub and GitLab work
+  items and live-validate the four outcomes
+- design: [functional validation feedback contract](docs/design/functional/functional-design-remediation-validation-feedback.md)
+  and [technical implementation plan](docs/design/technical/technical-design-remediation-validation-feedback.md)
 
 ### Review Rollout
 
