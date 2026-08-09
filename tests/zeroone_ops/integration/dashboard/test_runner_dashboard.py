@@ -1041,7 +1041,7 @@ def test_dashboard_reconcile_ci_blocks_item_when_merge_request_was_closed(
         severity="LOW",
         branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
     )
     monkeypatch.setattr(
         "zeroone_ops.services.dashboard.dashboard_reconciliation_intake.DashboardReconciliationIntakeService.select_item",
