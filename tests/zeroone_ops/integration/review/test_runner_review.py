@@ -2020,6 +2020,7 @@ def test_review_same_sha_live_run_repairs_pending_projection_without_reanalysis(
         last_run_id="prior-run",
         findings_count=1,
         summary="One finding.",
+        note_id=1,
         note_url="https://github.com/octo-org/octo-repo/pull/23#issuecomment-1",
         projection_retry_pending=True,
         projection_retry_warning="Review projection warning: transient failure",
