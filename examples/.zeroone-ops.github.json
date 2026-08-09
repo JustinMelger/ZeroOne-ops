@@ -23,6 +23,7 @@
   "remediation": {
     "target_branch": "main",
     "max_active_work_items": 10,
+    "validation_feedback_enabled": false,
     "bootstrap_severities": ["medium", "high"]
   },
   "sarif": {

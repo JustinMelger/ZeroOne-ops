@@ -29,6 +29,13 @@ def test_run_stops_after_first_failed_command(tmp_path: Path) -> None:
     assert "exit code" in result.summary
 
 
+def test_run_all_retains_results_after_a_failed_command(tmp_path: Path) -> None:
+    result = Validator(tmp_path).run_all(["false", "printf 'still ran'"])
+
+    assert result.passed is False
+    assert [command.exit_code for command in result.results] == [1, 0]
+
+
 def test_run_surfaces_clear_message_for_command_not_found(tmp_path: Path) -> None:
     result = Validator(tmp_path).run(["missing-validation-tool --version"])
 

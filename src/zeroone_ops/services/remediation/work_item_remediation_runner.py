@@ -430,6 +430,7 @@ class WorkItemRemediationRunner:
             failed_command=failure.failed_command,
             exit_code=failure.exit_code,
             execution_url=self.execution_url_builder(),
+            validation_outcome=failure.validation_outcome,
         )
 
 

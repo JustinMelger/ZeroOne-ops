@@ -62,6 +62,31 @@ class Validator:
             summary="All validation commands passed.",
         )
 
+    def run_all(self, commands: list[str]) -> ValidationResult:
+        """Run every validation command, retaining ordered evidence on failure."""
+        if not commands:
+            return ValidationResult(
+                passed=True,
+                results=[],
+                summary="No validation commands configured.",
+            )
+        results = [self._run_command(command) for command in commands]
+        failed_result = next((result for result in results if result.exit_code != 0), None)
+        if failed_result is not None:
+            return ValidationResult(
+                passed=False,
+                results=results,
+                summary=_build_failure_summary(
+                    command=failed_result.command,
+                    result=failed_result,
+                ),
+            )
+        return ValidationResult(
+            passed=True,
+            results=results,
+            summary="All validation commands passed.",
+        )
+
     def repository_status(self) -> ValidationCommandResult:
         """Return the current non-ignored repository status for setup safety checks."""
         return self._run_command("git status --porcelain")

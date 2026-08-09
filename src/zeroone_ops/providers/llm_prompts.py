@@ -88,6 +88,7 @@ def build_structured_edit_prompt(
         snippet_end_line=context.snippet.end_line,
         repository_guidance=_format_issue_repository_guidance(context),
         prior_review_feedback=_format_prior_review_feedback(context),
+        validation_feedback=_format_validation_feedback(context),
         code_snippet=context.snippet.content,
     )
 
@@ -117,6 +118,24 @@ def _format_prior_review_feedback(context: IssueContext) -> str:
                 else "(none)"
             ),
             f"Review confidence reason: {feedback.review_confidence_reason or '(none)'}",
+        ]
+    )
+
+
+def _format_validation_feedback(context: IssueContext) -> str:
+    """Render bounded validator feedback for the single correction attempt."""
+    if context.validation_feedback is None:
+        return "(none)"
+    feedback = context.validation_feedback
+    diagnostic_lines = [
+        f"- `{diagnostic.file_path}` via `{diagnostic.command}`: {diagnostic.excerpt}"
+        for diagnostic in feedback.diagnostics
+    ]
+    return "\n".join(
+        [
+            "Allowed files: " + ", ".join(f"`{path}`" for path in feedback.allowed_file_paths),
+            "New diagnostics:",
+            *diagnostic_lines,
         ]
     )
 

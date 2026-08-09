@@ -12,6 +12,8 @@ from typing import Literal
 
 from pydantic import AliasChoices, BaseModel, Field
 
+from zeroone_ops.models.analysis import ValidationOutcome
+
 
 def utc_now() -> datetime:
     """Return the current UTC time.
@@ -80,6 +82,7 @@ class FailureDetails(BaseModel):
     message: str
     retry_count: int = 0
     validation_summary: str | None = None
+    validation_outcome: ValidationOutcome | None = None
     failed_command: str | None = None
     exit_code: int | None = None
     stdout_excerpt: str | None = None

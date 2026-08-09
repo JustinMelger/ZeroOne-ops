@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from zeroone_ops.models.analysis import ValidationComparison
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget, remediation_profile_for
 from zeroone_ops.services.remediation.change_request_publisher import ChangeRequestPublishRequest
@@ -22,6 +23,7 @@ class RemediationPublicationRequestBuilder:
         selected_issue: RemediationExecutionTarget,
         source_branch: str,
         change_summary: str,
+        validation_comparison: ValidationComparison | None = None,
     ) -> ChangeRequestPublishRequest:
         """Build the complete provider-neutral request for one source branch."""
         labels, assignee_username = self._publication_options()
@@ -34,6 +36,7 @@ class RemediationPublicationRequestBuilder:
             description=self.build_description(
                 selected_issue=selected_issue,
                 change_summary=change_summary,
+                validation_comparison=validation_comparison,
             ),
             labels=labels,
             assignee_username=assignee_username,
@@ -51,6 +54,7 @@ class RemediationPublicationRequestBuilder:
         *,
         selected_issue: RemediationExecutionTarget,
         change_summary: str,
+        validation_comparison: ValidationComparison | None = None,
     ) -> str:
         """Build a deterministic change-request description."""
         profile = remediation_profile_for(selected_issue)
@@ -60,26 +64,40 @@ class RemediationPublicationRequestBuilder:
             or selected_issue.issue_type
             or selected_issue.source_type
         )
-        return "\n".join(
-            [
-                "## Summary",
-                change_summary,
-                "",
-                f"## {profile.mr_section_title}",
-                f"- Source: `{profile.source_display_name}`",
-                f"- Source ID: `{selected_issue.source_type}`",
-                f"- {profile.item_reference_label}: `{selected_issue.source_ref}`",
-                f"- Rule: `{selected_issue.rule_id or 'unknown'}`",
-                f"- Severity: `{selected_issue.severity or 'unknown'}`",
-                f"- Type: `{issue_type}`",
-                f"- File: `{selected_issue.file_path}`",
-                f"- Line: `{issue_line}`",
-                f"- Message: {selected_issue.message}",
-                "",
-                "## Notes",
-                profile.diff_note,
-            ]
-        )
+        lines = [
+            "## Summary",
+            change_summary,
+            "",
+            f"## {profile.mr_section_title}",
+            f"- Source: `{profile.source_display_name}`",
+            f"- Source ID: `{selected_issue.source_type}`",
+            f"- {profile.item_reference_label}: `{selected_issue.source_ref}`",
+            f"- Rule: `{selected_issue.rule_id or 'unknown'}`",
+            f"- Severity: `{selected_issue.severity or 'unknown'}`",
+            f"- Type: `{issue_type}`",
+            f"- File: `{selected_issue.file_path}`",
+            f"- Line: `{issue_line}`",
+            f"- Message: {selected_issue.message}",
+            "",
+            "## Notes",
+            profile.diff_note,
+        ]
+        if validation_comparison is not None:
+            commands = [result.command for result in validation_comparison.post_edit.results]
+            status = (
+                "Validation passed"
+                if validation_comparison.outcome == "passed"
+                else "Validation baseline preserved"
+            )
+            lines.extend(
+                [
+                    "",
+                    "## Validation",
+                    f"- Status: {status}",
+                    "- Commands: " + ", ".join(f"`{command}`" for command in commands),
+                ]
+            )
+        return "\n".join(lines)
 
     def _publication_options(self) -> tuple[list[str], str | None]:
         """Return provider-local publish options for the configured repository."""

@@ -237,6 +237,7 @@ For example:
 - `review.inline_comments_enabled`
 - `remediation.bootstrap_severities`
 - `remediation.max_active_work_items`
+- `remediation.validation_feedback_enabled`
 - `remediation.target_branch`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
@@ -282,6 +283,11 @@ export MLFLOW_HTTP_REQUEST_MAX_RETRIES=1
 
 For v1 safety, remediation only accepts structured edits that touch exactly one
 file.
+
+`remediation.validation_feedback_enabled` is opt-in. It compares configured
+validation commands before and after a remediation patch, preserving known
+baseline failures and allowing one correction attempt only for a new diagnostic
+in the same editable file.
 
 ## Credentials And Secrets
 

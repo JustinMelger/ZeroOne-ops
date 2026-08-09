@@ -107,6 +107,7 @@ def test_render_body_includes_last_execution_when_blocked() -> None:
                 occurred_at=datetime(2026, 7, 31, 8, 30, tzinfo=UTC),
                 failed_command="uv run pytest",
                 exit_code=1,
+                validation_outcome="unscoped_regression",
                 execution_url="https://github.example.com/octo-org/octo-repo/actions/runs/42",
             ),
         }
@@ -117,6 +118,7 @@ def test_render_body_includes_last_execution_when_blocked() -> None:
     assert "## Last Execution" in body
     assert "- Command: `uv run pytest`" in body
     assert "- Exit code: `1`" in body
+    assert "- Validation outcome: `unscoped_regression`" in body
     assert "[View workflow logs](" in body
     assert "https://github.example.com/octo-org/octo-repo/actions/runs/42" in body
     assert "## Recovery" in body

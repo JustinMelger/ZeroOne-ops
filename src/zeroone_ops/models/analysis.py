@@ -7,8 +7,16 @@ and validation phases.
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import AliasChoices, BaseModel, Field
+
+type ValidationOutcome = Literal[
+    "passed",
+    "baseline_preserved",
+    "actionable_regression",
+    "unscoped_regression",
+]
 
 
 class AnalysisClassification(StrEnum):
@@ -72,6 +80,42 @@ class RepositoryGuidanceContext(BaseModel):
     summary: str
 
 
+class ValidationDiagnostic(BaseModel):
+    """Represent one bounded validation diagnostic relevant to a patch."""
+
+    command: str
+    file_path: str
+    excerpt: str
+
+
+class ValidationBaseline(BaseModel):
+    """Represent validation evidence captured before applying a patch."""
+
+    result: ValidationResult
+
+
+class ValidationComparison(BaseModel):
+    """Compare baseline and post-edit validation evidence."""
+
+    outcome: ValidationOutcome
+    baseline: ValidationResult
+    post_edit: ValidationResult
+    new_relevant_diagnostics: list[ValidationDiagnostic] = Field(default_factory=list)
+    baseline_failure_count: int = Field(ge=0)
+
+    @property
+    def allows_publication(self) -> bool:
+        """Return whether the comparison permits bounded publication."""
+        return self.outcome in {"passed", "baseline_preserved"}
+
+
+class ValidationFeedback(BaseModel):
+    """Represent the bounded validator evidence supplied to one retry."""
+
+    allowed_file_paths: list[str] = Field(default_factory=list)
+    diagnostics: list[ValidationDiagnostic] = Field(default_factory=list)
+
+
 class IssueContext(BaseModel):
     """Represent structured source context for a selected issue.
 
@@ -94,6 +138,7 @@ class IssueContext(BaseModel):
     truncated: bool
     repository_guidance: list[RepositoryGuidanceContext] = Field(default_factory=list)
     prior_review_feedback: PriorReviewFeedback | None = None
+    validation_feedback: ValidationFeedback | None = None
 
 
 class PatchProposal(BaseModel):

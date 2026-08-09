@@ -3,7 +3,8 @@
   "base_branch": "main",
   "review": {},
   "remediation": {
-    "target_branch": "main"
+    "target_branch": "main",
+    "validation_feedback_enabled": false
   },
   "gitlab": {
     "labels": []

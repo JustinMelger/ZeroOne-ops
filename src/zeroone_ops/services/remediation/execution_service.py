@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from zeroone_ops.models.analysis import IssueContext
+from zeroone_ops.models.analysis import IssueContext, ValidationComparison
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
@@ -272,6 +272,7 @@ class ExecutionService:
             selected_issue=selected_issue,
             change_request_title=patch.change_request_title,
             change_request_description=patch.change_request_description,
+            validation_comparison=analysis_result.validation_comparison,
             commit_sha=commit_sha,
         )
         if publish_result.error_message is not None:
@@ -303,7 +304,13 @@ class ExecutionService:
         return (
             analysis_result.patch is not None
             and analysis_result.patch_applied
-            and analysis_result.validation_passed is True
+            and (
+                analysis_result.validation_passed is True
+                or (
+                    analysis_result.validation_comparison is not None
+                    and analysis_result.validation_comparison.allows_publication
+                )
+            )
         )
 
     def _publish_branch_and_create_change_request(
@@ -312,6 +319,7 @@ class ExecutionService:
         selected_issue: RemediationExecutionTarget,
         change_request_title: str,
         change_request_description: str,
+        validation_comparison: ValidationComparison | None,
         commit_sha: str,
     ) -> PublishResult:
         """Delegate publish behavior to the dedicated publish service."""
@@ -319,6 +327,7 @@ class ExecutionService:
             selected_issue=selected_issue,
             change_request_title=change_request_title,
             change_request_description=change_request_description,
+            validation_comparison=validation_comparison,
             commit_sha=commit_sha,
         )
 
