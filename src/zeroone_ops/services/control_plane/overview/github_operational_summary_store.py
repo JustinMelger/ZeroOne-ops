@@ -52,16 +52,29 @@ class GitHubOperationalSummaryStore:
         """Initialize the provider-local summary issue store."""
         self.client = client
 
-    def find_open_issue(self, *, repository_id: str) -> GitHubIssueInfo | None:
+    def find_open_issue(
+        self,
+        *,
+        repository_id: str | None = None,
+        scope_id: str | None = None,
+    ) -> GitHubIssueInfo | None:
         """Return the open derived summary issue when present."""
+        repository_id = _resolve_scope_id(repository_id=repository_id, scope_id=scope_id)
         return self.client.find_open_issue(
             repository_id=repository_id,
             title=self.TITLE,
             labels=self.LABELS,
         )
 
-    def create_issue(self, *, repository_id: str, body: str) -> GitHubIssueInfo:
+    def create_issue(
+        self,
+        *,
+        repository_id: str | None = None,
+        scope_id: str | None = None,
+        body: str,
+    ) -> GitHubIssueInfo:
         """Create the derived summary issue."""
+        repository_id = _resolve_scope_id(repository_id=repository_id, scope_id=scope_id)
         return self.client.create_issue(
             repository_id=repository_id,
             title=self.TITLE,
@@ -72,13 +85,34 @@ class GitHubOperationalSummaryStore:
     def update_issue_body(
         self,
         *,
-        repository_id: str,
-        issue_number: int,
+        repository_id: str | None = None,
+        scope_id: str | None = None,
+        issue_number: int | None = None,
+        issue: GitHubIssueInfo | None = None,
         body: str,
     ) -> GitHubIssueInfo:
         """Persist one derived summary-body update."""
+        repository_id = _resolve_scope_id(repository_id=repository_id, scope_id=scope_id)
+        if issue_number is None:
+            if issue is None:
+                raise ValueError("GitHub summary update requires an issue.")
+            issue_number = issue.number
         return self.client.update_issue(
             repository_id=repository_id,
             issue_number=issue_number,
             body=body,
         )
+
+    def issue_body(self, issue: GitHubIssueInfo) -> str:
+        """Return the provider-specific issue body for shared publication."""
+        return issue.body
+
+
+def _resolve_scope_id(*, repository_id: str | None, scope_id: str | None) -> str:
+    """Accept the existing GitHub name while supporting the shared store contract."""
+    if repository_id is not None and scope_id is not None and repository_id != scope_id:
+        raise ValueError("GitHub summary scope identifiers disagree.")
+    resolved = repository_id or scope_id
+    if resolved is None:
+        raise ValueError("GitHub summary storage requires a repository identifier.")
+    return resolved

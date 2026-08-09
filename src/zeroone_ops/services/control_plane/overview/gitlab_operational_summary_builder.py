@@ -1,36 +1,34 @@
-"""Build GitHub operational summary views through the shared overview contract."""
+"""Build GitLab operational summary views through the shared overview contract."""
 
-from zeroone_ops.services.control_plane.overview.github_operational_summary_renderer import (
-    GitHubFindingSyncObservation,
-    GitHubOperationalSummaryView,
-)
 from zeroone_ops.services.control_plane.overview.operational_summary_builder import (
     OperationalSummaryBuilder,
 )
 from zeroone_ops.services.control_plane.overview.operational_summary_models import (
+    FindingSyncObservation,
+    OperationalSummaryView,
     OperationalSummaryWorkItem,
 )
-from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
-    GitHubWorkItemLookupResult,
+from zeroone_ops.services.control_plane.work_items.gitlab_work_item_lookup_service import (
+    GitLabWorkItemLookupResult,
 )
 
 
-class GitHubOperationalSummaryBuilder:
-    """Adapt GitHub work-item lookup results to the shared summary builder."""
+class GitLabOperationalSummaryBuilder:
+    """Adapt GitLab work-item lookup results to the shared summary builder."""
 
     def __init__(self, builder: OperationalSummaryBuilder | None = None) -> None:
-        """Initialize the GitHub work-item normalization adapter."""
+        """Initialize the GitLab work-item normalization adapter."""
         self.builder = builder or OperationalSummaryBuilder()
 
     def build(
         self,
         *,
-        work_items: list[GitHubWorkItemLookupResult],
+        work_items: list[GitLabWorkItemLookupResult],
         policy_issue_url: str | None,
-        latest_finding_sync: GitHubFindingSyncObservation | None,
+        latest_finding_sync: FindingSyncObservation | None,
         recent_outcome_limit: int = 5,
-    ) -> GitHubOperationalSummaryView:
-        """Build the unchanged GitHub summary view from normalized work items."""
+    ) -> OperationalSummaryView:
+        """Build a GitLab summary view from normalized work items."""
         return self.builder.build(
             work_items=[_normalize_work_item(result) for result in work_items],
             policy_issue_url=policy_issue_url,
@@ -39,8 +37,8 @@ class GitHubOperationalSummaryBuilder:
         )
 
 
-def _normalize_work_item(result: GitHubWorkItemLookupResult) -> OperationalSummaryWorkItem:
-    """Normalize one GitHub lookup result without leaking it into the shared core."""
+def _normalize_work_item(result: GitLabWorkItemLookupResult) -> OperationalSummaryWorkItem:
+    """Normalize one GitLab lookup result without leaking it into the shared core."""
     work_item = result.work_item
     return OperationalSummaryWorkItem(
         title=result.issue.title,

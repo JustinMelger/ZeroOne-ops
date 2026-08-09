@@ -2,13 +2,15 @@ from pathlib import Path
 
 import httpx
 
-from zeroone_ops.models.config import GitHubConnectionConfig
+from zeroone_ops.models.config import GitHubConnectionConfig, GitLabConnectionConfig
 from zeroone_ops.models.dashboard import DashboardPolicyState, DashboardSeverityPolicyStateEntry
 from zeroone_ops.models.github import GitHubIssueInfo
+from zeroone_ops.models.gitlab import GitLabIssueInfo
 from zeroone_ops.models.state import RunStatus
 from zeroone_ops.runner import (
     _build_finding_sync_observation,
     _publish_github_operational_summary,
+    _publish_gitlab_operational_summary,
     recover_work_item,
     run_remediation,
     sync_findings,
@@ -22,6 +24,9 @@ from zeroone_ops.services.control_plane.work_items.github_finding_sync_service i
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_lifecycle_service import (
     GitHubWorkItemLifecycleResult,
+)
+from zeroone_ops.services.control_plane.work_items.gitlab_finding_sync_service import (
+    GitLabFindingSyncResult,
 )
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_lifecycle_service import (
     GitLabWorkItemLifecycleResult,
@@ -170,6 +175,122 @@ def test_publish_github_operational_summary_ignores_transport_failure(monkeypatc
     )
 
     assert publication is None
+
+
+def test_publish_gitlab_operational_summary_projects_observation_and_is_best_effort(
+    monkeypatch,
+) -> None:
+    class FakeIssueClient:
+        def __init__(self) -> None:
+            self.summary_issue: GitLabIssueInfo | None = None
+
+        def list_open_issues(
+            self,
+            *,
+            project_id: str,
+            labels: list[str] | None = None,
+        ) -> list[GitLabIssueInfo]:
+            assert project_id == "123"
+            if labels == ["zeroone-policy"]:
+                return [
+                    GitLabIssueInfo(
+                        id=1,
+                        iid=10,
+                        web_url="https://gitlab.example.com/group/project/-/issues/10",
+                        title="ZeroOne Ops Policy",
+                        description="",
+                    )
+                ]
+            return [self.summary_issue] if self.summary_issue is not None else []
+
+        def list_closed_issues(self, **kwargs: object) -> list[GitLabIssueInfo]:
+            del kwargs
+            return []
+
+        def create_issue(
+            self,
+            *,
+            project_id: str,
+            title: str,
+            description: str,
+            labels: list[str],
+        ) -> GitLabIssueInfo:
+            assert project_id == "123"
+            assert labels == ["zeroone-summary"]
+            self.summary_issue = GitLabIssueInfo(
+                id=2,
+                iid=11,
+                web_url="https://gitlab.example.com/group/project/-/issues/11",
+                title=title,
+                description=description,
+            )
+            return self.summary_issue
+
+        def update_issue(self, **kwargs: object) -> GitLabIssueInfo:
+            del kwargs
+            raise AssertionError("The first summary publication should create the issue.")
+
+    class FakeWorkItemService:
+        def list_open_work_items(self, *, project_id: str) -> list[object]:
+            assert project_id == "123"
+            return []
+
+        def list_closed_work_items(self, *, project_id: str) -> list[object]:
+            assert project_id == "123"
+            return []
+
+    issue_client = FakeIssueClient()
+    monkeypatch.setattr("zeroone_ops.runner.GitLabWorkItemClient", lambda config: issue_client)
+    config = GitLabConnectionConfig(
+        url="https://gitlab.example.com",
+        token="token",
+        project_id="123",
+    )
+    publication = _publish_gitlab_operational_summary(
+        gitlab_config=config,
+        work_item_service=FakeWorkItemService(),  # type: ignore[arg-type]
+        latest_finding_sync=_build_finding_sync_observation(
+            GitLabFindingSyncResult(
+                promoted_count=2,
+                backlog_only_count=1,
+                created_count=2,
+                updated_count=0,
+                unchanged_count=0,
+                demoted_to_candidate_count=0,
+                retained_protected_count=0,
+                stale_demoted_to_candidate_count=0,
+                stale_retained_protected_count=0,
+                normalized_severity_counts={"high": 2, "medium": 1},
+                enabled_severities=("high", "medium"),
+                backlog_reason_counts={"severity_disabled": 1},
+            )
+        ),
+    )
+
+    assert publication is not None
+    assert publication.action == "created"
+    assert "## Active Remediation MRs" in publication.issue.description
+    assert "- Findings: `3`" in publication.issue.description
+
+    monkeypatch.setattr(
+        "zeroone_ops.runner.GitLabWorkItemClient",
+        lambda config: _FailingGitLabIssueClient(),
+    )
+    assert (
+        _publish_gitlab_operational_summary(
+            gitlab_config=config,
+            work_item_service=FakeWorkItemService(),  # type: ignore[arg-type]
+            latest_finding_sync=None,
+        )
+        is None
+    )
+
+
+class _FailingGitLabIssueClient:
+    def list_open_issues(self, **kwargs: object) -> list[object]:
+        del kwargs
+        request = httpx.Request("GET", "https://gitlab.example.com/api/v4/projects/123/issues")
+        raise httpx.ConnectError("unavailable", request=request)
 
 
 def test_sync_findings_dry_run_collects_sarif_without_gitlab_configuration(

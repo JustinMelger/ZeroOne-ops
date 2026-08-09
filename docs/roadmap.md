@@ -67,23 +67,27 @@ history, not here.
   30-minute schedule
 - [ ] 8d.4: label and close the legacy dashboard after cutover, preserving it as
   readable history without competing authority
-- [ ] 8e.1: extract provider-neutral operational-summary view, builder,
-  renderer, parser, and persisted latest-finding-sync observation from the
-  GitHub implementation without changing GitHub behavior
-- [ ] 8e.2: add GitLab operational-summary issue transport and derived-summary
-  service with bounded rendering, stable lookup, and parser/renderer/store
-  coverage
-- [ ] 8e.3: publish the GitLab derived summary best-effort after finding sync,
-  control-plane transitions, and lifecycle reconciliation
-- [ ] 8e.4: update GitLab installation guidance and live-validate the summary
+- [x] 8e.1: extract the provider-neutral operational-summary view, bounded
+  builder, renderer, parser, and persisted latest-finding-sync observation from
+  the GitHub implementation; retain provider-local terminology so GitHub
+  output does not change
+- [x] 8e.2: adapt the existing GitHub summary to the shared core without
+  changing its title, lookup, rendering, or best-effort publication behavior
+- [x] 8e.3: add GitLab summary issue transport and a derived-summary service
+  with stable title-and-label lookup, bounded rendering, and parser/renderer/
+  store coverage
+- [x] 8e.4: publish the GitLab derived summary best-effort after successful
+  finding sync, control-plane transitions, and lifecycle reconciliation in
+  `gitlab.control_plane_mode=issues` only
+- [ ] 8e.5: update GitLab installation guidance and live-validate the summary
   alongside issue-mode policy, remediation, recovery, and lifecycle behavior
-- [ ] 8e.5: live-validate policy, remediation, recovery, merge-request
+- [ ] 8e.6: live-validate policy, remediation, recovery, merge-request
   lifecycle, dismissal suppression, blocked items, and stale claims in two
   GitLab repositories
 - [ ] 8f: after successful rollout, make dashboard mode maintenance-only for
   two minor releases, then remove it in a planned breaking release
 - design: [functional control-plane design](docs/design/functional/functional-design-gitlab-issue-control-plane.md)
-  and [technical implementation plan](docs/design/technical/technical-design-gitlab-issue-control-plane.md)
+  and [technical implementation plan](docs/design/technical/technical-design-gitlab-issue-control-plane.md#phase-8e-operational-summary-implementation-plan)
 
 ### Control-Plane Installation UX
 
@@ -106,6 +110,14 @@ history, not here.
   generation pass
 - keep the retry boundary to the original remediation target and one file;
   block with actionable diagnostics when broader repair is required
+
+### Promotion Capacity
+
+- [ ] design and add one shared promotion budget for GitLab and GitHub: retain
+  full finding inventory sync and stale reconciliation, rank eligible findings
+  deterministically, cap active promoted work items through a remediation
+  configuration value, and retain deferred findings as backlog-only with a
+  visible `promotion_budget_exhausted` reason
 
 ### Rollout And Feedback
 

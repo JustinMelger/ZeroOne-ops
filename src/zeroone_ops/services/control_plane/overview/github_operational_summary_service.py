@@ -19,6 +19,9 @@ from zeroone_ops.services.control_plane.overview.github_operational_summary_rend
 from zeroone_ops.services.control_plane.overview.github_operational_summary_store import (
     GitHubOperationalSummaryStore,
 )
+from zeroone_ops.services.control_plane.overview.operational_summary_service import (
+    OperationalSummaryService,
+)
 from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
     GitHubWorkItemLookupResult,
 )
@@ -48,6 +51,12 @@ class GitHubOperationalSummaryService:
         self.builder = builder or GitHubOperationalSummaryBuilder()
         self.renderer = renderer or GitHubOperationalSummaryRenderer()
         self.parser = parser or GitHubOperationalSummaryParser()
+        self.service = OperationalSummaryService(
+            store=_GitHubOperationalSummaryStoreAdapter(self.store),
+            builder=self.builder,
+            renderer=self.renderer,
+            parser=self.parser,
+        )
 
     def publish(
         self,
@@ -58,31 +67,44 @@ class GitHubOperationalSummaryService:
         latest_finding_sync: GitHubFindingSyncObservation | None,
     ) -> GitHubOperationalSummaryPublishResult:
         """Create, update, or preserve the derived summary issue."""
-        existing = self.store.find_open_issue(repository_id=repository_id)
-        persisted_finding_sync = (
-            self.parser.parse_latest_finding_sync(existing.body)
-            if existing is not None and latest_finding_sync is None
-            else latest_finding_sync
+        result = self.service.publish(
+            scope_id=repository_id,
+            work_items=work_items,
+            policy_issue_url=policy_issue_url,
+            latest_finding_sync=latest_finding_sync,
         )
-        body = self.renderer.render(
-            self.builder.build(
-                work_items=work_items,
-                policy_issue_url=policy_issue_url,
-                latest_finding_sync=persisted_finding_sync,
-            )
+        return GitHubOperationalSummaryPublishResult(issue=result.issue, action=result.action)
+
+
+class _GitHubOperationalSummaryStoreAdapter:
+    """Adapt the established GitHub store signature to shared summary storage."""
+
+    def __init__(self, store: GitHubOperationalSummaryStore) -> None:
+        """Initialize one provider-contract adapter."""
+        self.store = store
+
+    def find_open_issue(self, *, scope_id: str) -> GitHubIssueInfo | None:
+        """Find the GitHub summary using its repository identifier."""
+        return self.store.find_open_issue(repository_id=scope_id)
+
+    def create_issue(self, *, scope_id: str, body: str) -> GitHubIssueInfo:
+        """Create the GitHub summary using its repository identifier."""
+        return self.store.create_issue(repository_id=scope_id, body=body)
+
+    def update_issue_body(
+        self,
+        *,
+        scope_id: str,
+        issue: GitHubIssueInfo,
+        body: str,
+    ) -> GitHubIssueInfo:
+        """Update the GitHub summary body through its existing store contract."""
+        return self.store.update_issue_body(
+            repository_id=scope_id,
+            issue_number=issue.number,
+            body=body,
         )
-        if existing is None:
-            return GitHubOperationalSummaryPublishResult(
-                issue=self.store.create_issue(repository_id=repository_id, body=body),
-                action="created",
-            )
-        if existing.body == body:
-            return GitHubOperationalSummaryPublishResult(issue=existing, action="unchanged")
-        return GitHubOperationalSummaryPublishResult(
-            issue=self.store.update_issue_body(
-                repository_id=repository_id,
-                issue_number=existing.number,
-                body=body,
-            ),
-            action="updated",
-        )
+
+    def issue_body(self, issue: GitHubIssueInfo) -> str:
+        """Return the GitHub summary body for persisted-observation parsing."""
+        return issue.body

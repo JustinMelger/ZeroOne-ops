@@ -105,7 +105,8 @@ default-branch job for operator follow-up.
 
 ### Operational Summary
 
-The optional `zeroone-operational-summary` issue is a derived, read-only view.
+In issue mode, the `ZeroOne Ops Summary` issue, indexed with the
+`zeroone-summary` label, is a derived, read-only view.
 It contains counts, active merge requests, recent outcomes, and a link to the
 policy issue. It is never a command surface or source of lifecycle state.
 

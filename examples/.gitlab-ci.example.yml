@@ -84,9 +84,7 @@ zeroone_ops_control_plane:
       git remote set-url origin
       "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
   script:
-    - zeroone-ops dashboard policy
-    - zeroone-ops work-items recover
-    - zeroone-ops remediation run
+    - zeroone-ops control-plane run
   after_script:
     - rm -f "$GIT_CONFIG_GLOBAL"
 
