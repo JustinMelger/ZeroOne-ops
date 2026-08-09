@@ -1164,7 +1164,7 @@ def test_dashboard_reconcile_ci_blocks_closed_reviewed_item(
         severity="LOW",
         branch_name="zeroone-ops/AX123/service",
         commit_sha="abc123",
-        merge_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
+        change_request_url="https://gitlab.example.com/group/project/-/merge_requests/7",
         review_status="findings_present",
         review_findings_count=1,
         review_feedback_summary="Ordering changed in a shared path.",
