@@ -618,6 +618,50 @@ This keeps the ingestion seam honest. If normalized findings immediately split
 back into source-local queue rules, then the new shared ingestion contract is
 only cosmetic.
 
+### 12.7 Locked Decision: Shared Promotion Capacity
+
+Promotion capacity is a shared workflow concern, not an ingestion-adapter or
+provider concern. The first version applies
+`remediation.max_active_work_items` to the open remediation queue on both
+GitLab and GitHub. Its default is `10`; configured values must be positive
+integers.
+
+The rule is:
+
+- collect and reconcile the full normalized finding inventory before deciding
+  what to promote
+- count open `approved` and `in_progress` remediation work items against the
+  configured capacity
+- exclude blocked, dismissed, and terminal work items from capacity while
+  retaining them as visible operator records
+- consider only findings already eligible under the shared workflow policy
+- order eligible findings by severity, then stable finding identity
+- promote only enough eligible findings to fill available capacity
+- retain the remaining eligible findings as backlog-only with
+  `promotion_capacity_exhausted` as their visible backlog reason
+
+The capacity limits the durable active remediation queue rather than merely
+limiting the number of new issues created by one sync. It does not change source
+ownership, stale reconciliation, or lifecycle behavior for work items that
+already exist. Source-specific budgets and fairness policies are deferred until
+rollout data shows they are needed.
+
+Additional v1 rules:
+
+- lowering the configured capacity never demotes existing work; it only blocks
+  new promotion until active usage falls below the limit
+- an existing candidate that becomes eligible again competes for the next open
+  slot using the same ordering as a newly observed finding
+- stale `in_progress` work continues to consume capacity until the existing
+  lifecycle or recovery flow resolves it
+- capacity is repository-wide across all normalized sources
+- each sync recomputes the eligible ordering, allowing newly observed
+  higher-severity findings to take the next available slot
+
+More refined sorting, source balancing, age-based fairness, and operator-set
+priority are intentionally deferred until live backlog data shows they are
+needed.
+
 ### 12.8 Locked Decision: Visibility Rollout Precedes Remediation Widening
 
 After normalized finding ingestion is live on a new source, the next rollout

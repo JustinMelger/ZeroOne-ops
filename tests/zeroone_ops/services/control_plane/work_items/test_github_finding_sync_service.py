@@ -74,9 +74,13 @@ class FakeGitHubWorkItemClient:
         return issue
 
 
-def _finding(*, severity: str = "medium") -> NormalizedFinding:
+def _finding(
+    *,
+    finding_id: str = "ruff:E712:service",
+    severity: str = "medium",
+) -> NormalizedFinding:
     return NormalizedFinding(
-        finding_id="ruff:E712:service",
+        finding_id=finding_id,
         source_id="ruff",
         severity=severity,  # type: ignore[arg-type]
         title="Avoid equality comparisons to True",
@@ -169,6 +173,94 @@ def test_sync_dry_run_counts_promoted_findings_without_creating_issues() -> None
     assert result.promoted_count == 1
     assert result.created_count == 0
     assert client.issues == []
+
+
+def test_sync_defers_eligible_findings_when_active_capacity_is_full() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    repository_id = "octo-org/octo-repo"
+    policy_state = _policy_state(medium_enabled=True)
+
+    service.sync(
+        repository_id=repository_id,
+        findings=[_finding(finding_id="existing", severity="high")],
+        policy_state=policy_state,
+        max_active_work_items=1,
+    )
+    result = service.sync(
+        repository_id=repository_id,
+        findings=[
+            _finding(finding_id="existing", severity="high"),
+            _finding(finding_id="deferred", severity="high"),
+        ],
+        policy_state=policy_state,
+        max_active_work_items=1,
+    )
+
+    assert result.promoted_count == 1
+    assert result.backlog_only_count == 1
+    assert result.backlog_reason_counts == {"promotion_capacity_exhausted": 1}
+    assert len(client.issues) == 1
+
+
+def test_sync_dry_run_does_not_load_or_write_work_items() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    repository_id = "octo-org/octo-repo"
+    policy_state = _policy_state(medium_enabled=True)
+    result = service.sync(
+        repository_id=repository_id,
+        findings=[_finding(finding_id="candidate", severity="high")],
+        policy_state=policy_state,
+        max_active_work_items=1,
+        persist=False,
+    )
+
+    assert result.promoted_count == 1
+    assert client.issues == []
+
+
+def test_sync_uses_provider_upsert_for_duplicate_authoritative_identities(monkeypatch) -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    repository_id = "octo-org/octo-repo"
+    policy_state = _policy_state(medium_enabled=True)
+    finding = _finding(finding_id="duplicate", severity="high")
+    service.sync(
+        repository_id=repository_id,
+        findings=[finding],
+        policy_state=policy_state,
+    )
+    original = client.issues[0]
+    client.issues.append(
+        original.model_copy(
+            update={
+                "id": 2,
+                "number": 2,
+                "web_url": "https://github.example.com/octo-org/octo-repo/issues/2",
+            }
+        )
+    )
+
+    def fail_direct_update(**kwargs):
+        del kwargs
+        raise AssertionError("Duplicate identities must use provider upsert handling.")
+
+    monkeypatch.setattr(service.work_item_service, "update_existing_work_item", fail_direct_update)
+
+    result = service.sync(
+        repository_id=repository_id,
+        findings=[finding],
+        policy_state=policy_state,
+    )
+
+    assert result.unchanged_count == 1
 
 
 def test_sync_reuses_existing_authoritative_work_item() -> None:

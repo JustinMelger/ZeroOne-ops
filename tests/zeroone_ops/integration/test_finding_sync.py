@@ -347,8 +347,9 @@ def test_sync_findings_dry_run_collects_sarif_without_gitlab_configuration(
     summary = sync_findings(dry_run=True)
 
     assert summary.status.value == "synced"
-    assert "Dry-run would publish 1 promoted findings as GitHub work items" in summary.message
-    assert "0 findings remain backlog-only" in summary.message
+    assert "Dry-run identified 1 findings eligible under the configured policy" in summary.message
+    assert "0 findings are policy-backlog-only" in summary.message
+    assert "active capacity and stale-item reconciliation are not included" in summary.message
     assert "Normalized severities: medium=1." in summary.message
     assert "Promotion policy: enabled=high, medium; backlog reasons: none." in summary.message
     assert "[ci] [ci]" not in summary.message
@@ -449,7 +450,7 @@ def test_sync_findings_dry_run_reconciles_empty_managed_sarif_source(
     summary = sync_findings(dry_run=True)
 
     assert summary.status.value == "synced"
-    assert "Dry-run would publish 0 promoted findings as GitHub work items" in summary.message
+    assert "Dry-run identified 0 findings eligible under the configured policy" in summary.message
     assert "No dashboard-syncable findings found." not in summary.message
 
 

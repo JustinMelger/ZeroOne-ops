@@ -589,6 +589,7 @@ def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
         findings=collection.finding_collection.findings,
         policy_state=policy_state,
         managed_source_ids=set(collection.finding_collection.metadata.managed_source_ids),
+        max_active_work_items=config.remediation.max_active_work_items,
         persist=not active_dry_run,
     )
     summary_publication = (
@@ -603,14 +604,25 @@ def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
     record.status = collection_message_status("synced")
     record.updated_at = utc_now()
     state_store.save(state)
-    prefix = "Dry-run would publish" if active_dry_run else "Published"
+    publication_message = (
+        (
+            f"Dry-run identified {sync_result.promoted_count} findings eligible under "
+            "the configured policy; "
+            f"{sync_result.backlog_only_count} findings are policy-backlog-only.\n"
+            "Dry-run does not load existing open work items, so active capacity and "
+            "stale-item reconciliation are not included."
+        )
+        if active_dry_run
+        else (
+            f"Published {sync_result.promoted_count} promoted findings as GitHub work items; "
+            f"{sync_result.backlog_only_count} findings remain backlog-only."
+        )
+    )
     return run_state_service.build_summary(
         run_id=run_id,
         status=record.status,
         message=(
-            f"{prefix} {sync_result.promoted_count} "
-            "promoted findings as GitHub work items; "
-            f"{sync_result.backlog_only_count} findings remain backlog-only.\n"
+            publication_message + "\n"
             "Normalized severities: "
             f"{_format_count_summary(sync_result.normalized_severity_counts)}.\n"
             "Promotion policy: "
@@ -663,6 +675,7 @@ def _sync_gitlab_issue_findings(*, config: AppConfig, dry_run: bool) -> RunSumma
         findings=collection.finding_collection.findings,
         policy_state=policy_state,
         managed_source_ids=set(metadata.managed_source_ids),
+        max_active_work_items=config.remediation.max_active_work_items,
         persist=not active_dry_run,
     )
     summary_publication = (
@@ -674,14 +687,25 @@ def _sync_gitlab_issue_findings(*, config: AppConfig, dry_run: bool) -> RunSumma
         if not active_dry_run
         else None
     )
-    prefix = "Dry-run would publish" if active_dry_run else "Published"
+    publication_message = (
+        (
+            f"Dry-run identified {sync_result.promoted_count} findings eligible under "
+            "the configured policy; "
+            f"{sync_result.backlog_only_count} findings are policy-backlog-only.\n"
+            "Dry-run does not load existing open work items, so active capacity and "
+            "stale-item reconciliation are not included."
+        )
+        if active_dry_run
+        else (
+            f"Published {sync_result.promoted_count} promoted findings as GitLab work items; "
+            f"{sync_result.backlog_only_count} findings remain backlog-only."
+        )
+    )
     return RunSummary(
         run_id=run_id,
         status=RunStatus.SYNCED,
         message=(
-            f"[{config.execution_mode}] {prefix} {sync_result.promoted_count} "
-            "promoted findings as GitLab work items; "
-            f"{sync_result.backlog_only_count} findings remain backlog-only.\n"
+            f"[{config.execution_mode}] {publication_message}\n"
             "Normalized severities: "
             f"{_format_count_summary(sync_result.normalized_severity_counts)}.\n"
             "Promotion policy: "

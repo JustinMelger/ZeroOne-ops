@@ -68,6 +68,7 @@ In practice, the main remediation rollout keys now are:
 
 - `remediation.bootstrap_severities`
 - `remediation.max_retry_count`
+- `remediation.max_active_work_items`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
 - `sarif.artifacts`
@@ -643,6 +644,15 @@ Required JSON fields:
 
 Everything else in the JSON config is optional and falls back to application
 defaults unless your repository needs custom behavior.
+
+In GitHub and GitLab issue control-plane modes,
+`remediation.max_active_work_items` defaults to `10` and bounds open approved
+and in-progress remediation work items across all finding sources. Findings
+that exceed the limit remain backlog-only until a later sync finds capacity.
+
+Finding-sync dry runs evaluate local findings and policy without loading open
+work items. Their output does not preview active-capacity decisions or
+stale-item reconciliation.
 
 This means:
 

@@ -33,7 +33,10 @@ def test_render_summary_shows_read_only_operational_view() -> None:
                 promoted_findings=2,
                 backlog_only_findings=3,
                 severity_counts={"high": 2, "medium": 3},
-                backlog_reason_counts={"severity_disabled": 3},
+                backlog_reason_counts={
+                    "promotion_capacity_exhausted": 2,
+                    "severity_disabled": 1,
+                },
             ),
             active_change_requests_omitted_count=2,
         )
@@ -50,6 +53,7 @@ def test_render_summary_shows_read_only_operational_view() -> None:
     assert "- Findings: `5`" in body
     assert "- Backlog only: `3`" in body
     assert "`high`: 2, `medium`: 3" in body
+    assert "`promotion_capacity_exhausted`: 2, `severity_disabled`: 1" in body
     assert "## Recent Outcomes" in body
     assert "[ZeroOne Ops: C416 in helpers.py]" in body
     assert "[Open the ZeroOne Ops policy issue]" in body

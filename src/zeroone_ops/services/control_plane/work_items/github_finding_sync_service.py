@@ -9,9 +9,15 @@ from uuid import uuid4
 
 from zeroone_ops.models.finding import NormalizedFinding
 from zeroone_ops.models.policy import PolicyState
-from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
+from zeroone_ops.models.work_item import WorkItemKind, WorkItemSourceRef, WorkItemState
+from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
+    GitHubWorkItemLookupResult,
+)
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
+)
+from zeroone_ops.services.intake.finding_promotion_capacity_service import (
+    FindingPromotionCapacityService,
 )
 from zeroone_ops.services.intake.finding_workflow_policy_service import (
     FindingWorkflowPolicyService,
@@ -44,10 +50,15 @@ class GitHubFindingSyncService:
         *,
         work_item_service: GitHubWorkItemService,
         workflow_policy_service: FindingWorkflowPolicyService | None = None,
+        promotion_capacity_service: FindingPromotionCapacityService | None = None,
     ) -> None:
         """Initialize provider-local publication over shared finding policy."""
         self.work_item_service = work_item_service
         self.workflow_policy_service = workflow_policy_service or FindingWorkflowPolicyService()
+        self.promotion_capacity_service = (
+            promotion_capacity_service
+            or FindingPromotionCapacityService(self.workflow_policy_service)
+        )
 
     def sync(
         self,
@@ -56,6 +67,7 @@ class GitHubFindingSyncService:
         findings: list[NormalizedFinding],
         policy_state: PolicyState,
         managed_source_ids: set[str] | None = None,
+        max_active_work_items: int = 10,
         persist: bool = True,
     ) -> GitHubFindingSyncResult:
         """Upsert only findings promoted by the shared workflow policy."""
@@ -70,12 +82,46 @@ class GitHubFindingSyncService:
         stale_retained_protected_count = 0
         normalized_severity_counts: Counter[str] = Counter()
         backlog_reason_counts: Counter[str] = Counter()
+        open_work_items = (
+            self.work_item_service.list_open_work_items(repository_id=repository_id)
+            if persist
+            else []
+        )
+        existing_by_identity: dict[
+            tuple[str, str, str | None, WorkItemKind], GitHubWorkItemLookupResult
+        ] = {}
+        duplicate_identities: set[tuple[str, str, str | None, WorkItemKind]] = set()
+        for lookup_result in open_work_items:
+            identity_key = lookup_result.work_item.identity_key
+            if identity_key in existing_by_identity:
+                duplicate_identities.add(identity_key)
+            else:
+                existing_by_identity[identity_key] = lookup_result
+        for identity_key in duplicate_identities:
+            del existing_by_identity[identity_key]
+        capacity_plan = self.promotion_capacity_service.plan(
+            findings=findings,
+            policy_state=policy_state,
+            open_work_items=self._capacity_work_items(
+                findings=findings,
+                policy_state=policy_state,
+                open_work_items=[result.work_item for result in open_work_items],
+                managed_source_ids=managed_source_ids,
+                repository_id=repository_id,
+            ),
+            repository_scope=repository_id,
+            max_active_work_items=max_active_work_items,
+        )
         for finding in findings:
             normalized_severity_counts[finding.severity] += 1
-            decision = self.workflow_policy_service.decide_promotion(
-                finding=finding,
-                policy_state=policy_state,
+            decision = capacity_plan.decision_for(finding)
+            existing_identity: tuple[str, str, str | None, WorkItemKind] = (
+                finding.source_id,
+                finding.finding_id,
+                repository_id,
+                "remediation",
             )
+            existing = existing_by_identity.get(existing_identity)
             if decision.disposition != "promote":
                 backlog_only_count += 1
                 backlog_reason_counts[decision.reason] += 1
@@ -83,6 +129,7 @@ class GitHubFindingSyncService:
                     demotion = self._demote_if_safe(
                         finding=finding,
                         repository_id=repository_id,
+                        existing=existing,
                     )
                     if demotion == "demoted":
                         demoted_to_candidate_count += 1
@@ -93,12 +140,22 @@ class GitHubFindingSyncService:
             promoted_count += 1
             if not persist:
                 continue
-            result = self.work_item_service.upsert_work_item(
+            work_item = self._build_promoted_work_item(
+                finding=finding,
                 repository_id=repository_id,
-                work_item=self._build_promoted_work_item(
-                    finding=finding,
+                existing_work_item=existing.work_item if existing is not None else None,
+            )
+            result = (
+                self.work_item_service.update_existing_work_item(
                     repository_id=repository_id,
-                ),
+                    existing=existing,
+                    work_item=work_item,
+                )
+                if existing is not None
+                else self.work_item_service.upsert_work_item(
+                    repository_id=repository_id,
+                    work_item=work_item,
+                )
             )
             if result.action == "created":
                 created_count += 1
@@ -111,6 +168,7 @@ class GitHubFindingSyncService:
                 repository_id=repository_id,
                 current_findings=findings,
                 managed_source_ids=managed_source_ids,
+                open_work_items=open_work_items,
             )
             stale_demoted_to_candidate_count = stale_result.demoted_count
             stale_retained_protected_count = stale_result.retained_count
@@ -131,6 +189,61 @@ class GitHubFindingSyncService:
             ),
             backlog_reason_counts=dict(sorted(backlog_reason_counts.items())),
         )
+
+    def _capacity_work_items(
+        self,
+        *,
+        findings: list[NormalizedFinding],
+        policy_state: PolicyState,
+        open_work_items: list[WorkItemState],
+        managed_source_ids: set[str] | None,
+        repository_id: str,
+    ) -> list[WorkItemState]:
+        """Return the projected post-reconciliation state used for capacity planning."""
+        current_findings = {
+            (finding.source_id, finding.finding_id): finding for finding in findings
+        }
+        projected: list[WorkItemState] = []
+        for work_item in open_work_items:
+            if (
+                work_item.status == "approved"
+                and work_item.linked_change_request is None
+                and self._is_safely_demotable_for_capacity(
+                    work_item=work_item,
+                    current_findings=current_findings,
+                    policy_state=policy_state,
+                    managed_source_ids=managed_source_ids,
+                    repository_id=repository_id,
+                )
+            ):
+                projected.append(work_item.model_copy(update={"status": "candidate"}))
+            else:
+                projected.append(work_item)
+        return projected
+
+    def _is_safely_demotable_for_capacity(
+        self,
+        *,
+        work_item: WorkItemState,
+        current_findings: dict[tuple[str, str], NormalizedFinding],
+        policy_state: PolicyState,
+        managed_source_ids: set[str] | None,
+        repository_id: str,
+    ) -> bool:
+        """Return whether normal sync reconciliation will safely demote one item."""
+        if work_item.kind != "remediation" or work_item.source.repository_scope != repository_id:
+            return False
+        key = (work_item.source.source, work_item.source.source_item_key)
+        finding = current_findings.get(key)
+        if finding is not None:
+            return (
+                self.workflow_policy_service.decide_promotion(
+                    finding=finding,
+                    policy_state=policy_state,
+                ).disposition
+                == "backlog_only"
+            )
+        return managed_source_ids is not None and work_item.source.source in managed_source_ids
 
     def _build_work_item(
         self,
@@ -161,25 +274,26 @@ class GitHubFindingSyncService:
         *,
         finding: NormalizedFinding,
         repository_id: str,
+        existing_work_item: WorkItemState | None,
     ) -> WorkItemState:
         """Preserve lifecycle-owned execution state while refreshing one active finding."""
         proposed = self._build_work_item(finding=finding, repository_id=repository_id)
-        existing = self.work_item_service.find_open_work_item_by_source(
-            repository_id=repository_id,
-            kind="remediation",
-            source=proposed.source,
-        )
-        if existing is None or existing.work_item.status not in {
-            "blocked",
-            "dismissed",
-            "in_progress",
-        }:
+        if existing_work_item is None:
             return proposed
-        return proposed.model_copy(
+        status = (
+            existing_work_item.status
+            if existing_work_item.status in {"blocked", "dismissed", "in_progress"}
+            else "approved"
+        )
+        return existing_work_item.model_copy(
             update={
-                "status": existing.work_item.status,
-                "linked_change_request": existing.work_item.linked_change_request,
-                "claim": existing.work_item.claim,
+                "status": status,
+                "summary": proposed.summary,
+                "detail": proposed.detail,
+                "severity": proposed.severity,
+                "file_path": proposed.file_path,
+                "line": proposed.line,
+                "remediation_context": proposed.remediation_context,
             }
         )
 
@@ -188,23 +302,14 @@ class GitHubFindingSyncService:
         *,
         finding: NormalizedFinding,
         repository_id: str,
+        existing: GitHubWorkItemLookupResult | None,
     ) -> str | None:
         """Move an unlinked approved work item back to the candidate queue."""
-        source = WorkItemSourceRef(
-            source=finding.source_id,
-            source_item_key=finding.finding_id,
-            repository_scope=repository_id,
-        )
-        existing = self.work_item_service.find_open_work_item_by_source(
-            repository_id=repository_id,
-            kind="remediation",
-            source=source,
-        )
         if existing is None:
             return None
         return self._demote_work_item_if_safe(
             repository_id=repository_id,
-            work_item=existing.work_item,
+            existing=existing,
         )
 
     def _reconcile_stale_work_items(
@@ -213,6 +318,7 @@ class GitHubFindingSyncService:
         repository_id: str,
         current_findings: list[NormalizedFinding],
         managed_source_ids: set[str],
+        open_work_items: list[GitHubWorkItemLookupResult],
     ) -> _StaleWorkItemReconciliationResult:
         """Demote safely stale items only from complete, managed source inventories."""
         current_source_keys = {
@@ -220,9 +326,7 @@ class GitHubFindingSyncService:
         }
         demoted_count = 0
         retained_count = 0
-        for existing in self.work_item_service.list_open_work_items(
-            repository_id=repository_id,
-        ):
+        for existing in open_work_items:
             work_item = existing.work_item
             if work_item.source.repository_scope != repository_id:
                 continue
@@ -232,7 +336,7 @@ class GitHubFindingSyncService:
                 continue
             demotion = self._demote_work_item_if_safe(
                 repository_id=repository_id,
-                work_item=work_item,
+                existing=existing,
             )
             if demotion == "demoted":
                 demoted_count += 1
@@ -247,12 +351,14 @@ class GitHubFindingSyncService:
         self,
         *,
         repository_id: str,
-        work_item: WorkItemState,
+        existing: GitHubWorkItemLookupResult,
     ) -> Literal["demoted", "retained"] | None:
         """Demote only an unlinked approved work item without overriding active work."""
+        work_item = existing.work_item
         if work_item.status == "approved" and work_item.linked_change_request is None:
-            result = self.work_item_service.upsert_work_item(
+            result = self.work_item_service.update_existing_work_item(
                 repository_id=repository_id,
+                existing=existing,
                 work_item=work_item.model_copy(update={"status": "candidate"}),
             )
             return "demoted" if result.action == "updated" else None

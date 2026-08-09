@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  ruff-sarif:
+  mypy-sarif:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,13 +41,14 @@ jobs:
             "base_branch": "main",
             "remediation": {
               "target_branch": "main",
-              "bootstrap_severities": ["medium", "high"]
+              "bootstrap_severities": ["medium", "high"],
+              "max_active_work_items": 5
             },
             "sarif": {
               "artifacts": [
                 {
-                  "path": "artifacts/ruff.sarif",
-                  "source_id": "ruff-sarif"
+                  "path": "artifacts/mypy.sarif",
+                  "source_id": "mypy"
                 }
               ]
             },
@@ -60,31 +61,26 @@ jobs:
           }
           EOF
 
-      - name: Emit source Ruff SARIF artifact
+      - name: Emit MyPy SARIF artifact for tests
         run: |
           mkdir -p artifacts
           set +e
-          uv run ruff check \
-            src/zeroone_ops/services/review/pipeline/review_candidate_generation_service.py \
-            src/zeroone_ops/services/review/publish/review_publisher.py \
-            --isolated \
-            --select SIM103,SIM114 \
-            --output-format sarif \
-            --output-file artifacts/ruff.sarif
-          status=$?
-          echo "ruff_exit_code=$status" >> "$GITHUB_OUTPUT"
+          uv run mypy --output json tests > artifacts/mypy.json
+          result=$?
+          uv run python examples/mypy_to_sarif.py artifacts/mypy.json artifacts/mypy.sarif
+          echo "mypy_exit_code=$result" >> "$GITHUB_OUTPUT"
           exit 0
-        id: emit_sarif
+        id: emit_mypy_sarif
 
-      - name: Upload Ruff SARIF artifact
+      - name: Upload MyPy SARIF artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ruff-sarif
-          path: artifacts/ruff.sarif
+          name: mypy-sarif
+          path: artifacts/mypy.sarif
 
       - name: Publish promoted GitHub findings
         run: uv run zeroone-ops findings sync
 
-      - name: Report Ruff finding count signal
+      - name: Report MyPy finding count signal
         run: |
-          echo "Ruff SARIF generation completed with exit code ${{ steps.emit_sarif.outputs.ruff_exit_code }}."
+          echo "MyPy JSON generation completed with exit code ${{ steps.emit_mypy_sarif.outputs.mypy_exit_code }}."
