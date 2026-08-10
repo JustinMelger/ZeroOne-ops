@@ -25,6 +25,9 @@ history, not here.
   summaries
 - shared remediation execution, validation setup/check commands, provider-local
   change-request publishing, and bounded branch naming
+- opt-in baseline-aware validation feedback: preserved baseline failures,
+  one-file correction feedback, compact work-item evidence, and provider-native
+  change-request validation summaries
 - shared promotion capacity for issue-mode repositories, with a configurable
   active-work limit and aggregate capacity backlog visibility
 - GitHub live validation from Ruff finding to remediation pull request, review
@@ -61,15 +64,9 @@ history, not here.
 
 ### Phase 9: Validation Feedback Loop
 
-- [ ] add opt-in baseline capture for configured validation commands while
-  preserving the current flow when disabled
-- [ ] classify post-edit validation as clean, baseline-preserved,
-  edited-file regression, or unscoped regression
-- [ ] feed bounded, edited-file-relevant diagnostics into one corrected-patch
-  generation pass while keeping the repair boundary to the original target and
-  one file
-- [ ] persist concise validation outcome evidence on GitHub and GitLab work
-  items and live-validate the four outcomes
+- [ ] live-validate the opt-in loop in one GitHub and one GitLab issue-mode
+  repository: clean validation, preserved baseline, corrected edited-file
+  regression, and unscoped-regression blocking
 - design: [functional validation feedback contract](docs/design/functional/functional-design-remediation-validation-feedback.md)
   and [technical implementation plan](docs/design/technical/technical-design-remediation-validation-feedback.md)
 
