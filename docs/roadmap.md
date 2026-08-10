@@ -77,9 +77,15 @@ history, not here.
 
 ### Runner Composition Cleanup
 
-- [ ] complete the behavior-preserving runner composition refactor: shared run
-  context, lazy provider builders, and focused workflow helpers while retaining
-  the current public runner entrypoints
+- [x] extract shared run context, lazy provider builders, derived operational
+  summary composition, and GitLab combined control-plane sequencing while
+  retaining current public runner entrypoints
+- [ ] extract GitHub/GitLab finding-sync orchestration into focused workflow
+  composition, retaining explicit legacy GitLab dashboard routing
+- [ ] extract remediation, recovery, and work-item lifecycle orchestration into
+  focused workflow composition without changing provider-local behavior
+- [ ] extract policy orchestration and review the remaining `runner.py` entry
+  points; retain only stable public routing and shared CLI-facing summaries
 
 ## Parked For Later
 
