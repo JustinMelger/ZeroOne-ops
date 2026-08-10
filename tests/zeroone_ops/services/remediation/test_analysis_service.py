@@ -33,11 +33,11 @@ def build_config(
     return AppConfig(
         execution_mode=execution_mode,
         base_branch="main",
-        validation_commands=validation_commands or [],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
             bootstrap_severities=["MAJOR"],
             max_retry_count=max_retry_count,
+            validation_commands=validation_commands or [],
             analysis=AnalysisConfig(
                 context_lines_before=1,
                 context_lines_after=1,

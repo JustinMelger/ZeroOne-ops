@@ -75,6 +75,12 @@ history, not here.
 - [ ] live-validate same-SHA review-projection repair after a recoverable
   projection warning
 
+### Runner Composition Cleanup
+
+- [ ] complete the behavior-preserving runner composition refactor: shared run
+  context, lazy provider builders, and focused workflow helpers while retaining
+  the current public runner entrypoints
+
 ## Parked For Later
 
 - external API/database-backed control plane
@@ -86,8 +92,6 @@ history, not here.
 - broader dashboard/history presentation improvements after operator usage
   establishes the need
 - retire GitLab dashboard mode after two maintenance-only minor releases
-- reduce runner composition duplication through a workflow context/factory when
-  it improves clarity without changing behavior
 - move remediation validation setup/check commands into a remediation-owned
   configuration block after rollout feedback confirms the current contract
 
