@@ -74,6 +74,7 @@ class WorkItemExecutionFailure(BaseModel):
     failed_command: str | None = None
     exit_code: int | None = None
     execution_url: str | None = None
+    validation_outcome: str | None = None
 
 
 class RecoveryEvent(BaseModel):

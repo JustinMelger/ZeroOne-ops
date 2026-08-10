@@ -12,6 +12,8 @@ from zeroone_ops.models.analysis import (
     IssueContext,
     PatchProposal,
     ValidationCommandResult,
+    ValidationComparison,
+    ValidationOutcome,
     ValidationResult,
 )
 from zeroone_ops.models.config import AppConfig
@@ -23,6 +25,15 @@ from zeroone_ops.services.remediation.fix_generator import FixGenerator
 from zeroone_ops.services.remediation.patch_applier import (
     PatchApplier,
     PatchApplyError,
+)
+from zeroone_ops.services.remediation.validation_feedback.validation_baseline_service import (
+    ValidationBaselineService,
+)
+from zeroone_ops.services.remediation.validation_feedback.validation_comparison_service import (
+    ValidationComparisonService,
+)
+from zeroone_ops.services.remediation.validation_feedback.validation_feedback_builder import (
+    ValidationFeedbackBuilder,
 )
 from zeroone_ops.services.remediation.validator import Validator
 from zeroone_ops.services.shared.workspace_snapshot import (
@@ -42,6 +53,7 @@ class PatchExecutionResult:
     validation_result: ValidationResult | None
     workspace_snapshot: WorkspaceSnapshot | None
     failure: FailureDetails | None = None
+    validation_comparison: ValidationComparison | None = None
 
 
 class PatchExecutionService:
@@ -90,6 +102,16 @@ class PatchExecutionService:
                 validation_result=None,
                 workspace_snapshot=None,
                 failure=bootstrap_failure,
+            )
+        if self.config.remediation.validation_feedback_enabled and self.config.validation_commands:
+            return self._execute_with_validation_feedback(
+                dry_run=dry_run,
+                patch=patch,
+                summary=summary,
+                fix_generator=fix_generator,
+                selected_issue=selected_issue,
+                context=context,
+                patch_factory=patch_factory,
             )
         for attempt in range(self.config.remediation.max_retry_count + 1):
             snapshot = self.workspace_snapshot_service.capture(patch.files_touched)
@@ -185,6 +207,134 @@ class PatchExecutionService:
             workspace_snapshot=None,
         )
 
+    def _execute_with_validation_feedback(
+        self,
+        *,
+        dry_run: bool,
+        patch: PatchProposal,
+        summary: str,
+        fix_generator: FixGenerator,
+        selected_issue: RemediationExecutionTarget,
+        context: IssueContext,
+        patch_factory: Callable[..., PatchProposal],
+    ) -> PatchExecutionResult:
+        """Run the opt-in baseline-aware one-file validation feedback loop."""
+        baseline = ValidationBaselineService(self.validator).capture(
+            self.config.validation_commands
+        )
+        comparison_service = ValidationComparisonService()
+        feedback_builder = ValidationFeedbackBuilder()
+        allowed_files = tuple(sorted(set(patch.files_touched)))
+        attempts = 1 if self.config.remediation.max_retry_count > 0 else 0
+
+        for attempt in range(attempts + 1):
+            snapshot = self.workspace_snapshot_service.capture(patch.files_touched)
+            try:
+                self.patch_applier.validate(patch)
+                self.patch_applier.apply(patch)
+            except PatchApplyError as error:
+                self.workspace_snapshot_service.restore(snapshot)
+                return PatchExecutionResult(
+                    summary=f"{summary}. Patch apply failed: {error}",
+                    patch=patch,
+                    patch_applied=False,
+                    validation_passed=False,
+                    validation_result=None,
+                    workspace_snapshot=snapshot,
+                    failure=FailureDetails(
+                        stage=FailureStage.PATCH_APPLY,
+                        message=f"Patch apply failed: {error}",
+                        retry_count=attempt,
+                    ),
+                )
+
+            post_edit = self.validator.run_all(self.config.validation_commands)
+            comparison = comparison_service.compare(
+                baseline=baseline,
+                post_edit=post_edit,
+                files_touched=patch.files_touched,
+            )
+            if comparison.allows_publication:
+                mode_label = "dry-run" if dry_run else "run"
+                outcome_summary = _validation_outcome_summary(comparison)
+                return PatchExecutionResult(
+                    summary=f"{summary}. Patch applied locally in {mode_label}. {outcome_summary}",
+                    patch=patch,
+                    patch_applied=True,
+                    validation_passed=comparison.outcome == "passed",
+                    validation_result=post_edit,
+                    workspace_snapshot=snapshot,
+                    validation_comparison=comparison,
+                )
+
+            self.workspace_snapshot_service.restore(snapshot)
+            if comparison.outcome == "actionable_regression" and attempt < attempts:
+                feedback = feedback_builder.build(
+                    comparison=comparison,
+                    files_touched=patch.files_touched,
+                )
+                try:
+                    regenerated_context = context.model_copy(
+                        update={"validation_feedback": feedback}
+                    )
+                    regenerated_patch = patch_factory(
+                        fix_generator=fix_generator,
+                        selected_issue=selected_issue,
+                        context=regenerated_context,
+                    )
+                    if tuple(sorted(set(regenerated_patch.files_touched))) != allowed_files:
+                        raise EditRenderError(
+                            "Validation-feedback retry must preserve the original one-file scope."
+                        )
+                    patch = regenerated_patch
+                    continue
+                except (EditRenderError, LLMClientError) as error:
+                    return PatchExecutionResult(
+                        summary=(
+                            f"{summary}. Structured edit generation failed during validation "
+                            f"feedback: {error}"
+                        ),
+                        patch=patch,
+                        patch_applied=False,
+                        validation_passed=False,
+                        validation_result=post_edit,
+                        workspace_snapshot=snapshot,
+                        validation_comparison=comparison,
+                        failure=FailureDetails(
+                            stage=FailureStage.ANALYSIS,
+                            message=(
+                                "Structured edit generation failed during validation feedback: "
+                                f"{error}"
+                            ),
+                            retry_count=attempt,
+                            validation_outcome=comparison.outcome,
+                        ),
+                    )
+
+            return PatchExecutionResult(
+                summary=(
+                    f"{summary}. "
+                    f"{_validation_outcome_summary(comparison, correction_attempted=attempt > 0)}"
+                ),
+                patch=patch,
+                patch_applied=False,
+                validation_passed=False,
+                validation_result=post_edit,
+                workspace_snapshot=snapshot,
+                validation_comparison=comparison,
+                failure=_build_validation_failure(
+                    validation_summary=_validation_outcome_summary(
+                        comparison,
+                        correction_attempted=attempt > 0,
+                    ),
+                    retry_count=attempt,
+                    command_result=_first_failed_command(post_edit),
+                    validation_outcome=comparison.outcome,
+                ),
+            )
+
+        raise AssertionError("Validation feedback attempts must return a result.")
+
     def _bootstrap_validation_environment(self) -> FailureDetails | None:
         """Prepare configured validation tooling once before patch execution."""
         if not self.config.validation_commands or not self.config.validation_setup_commands:
@@ -221,6 +371,7 @@ def _build_validation_failure(
     validation_summary: str,
     retry_count: int,
     command_result: ValidationCommandResult | None,
+    validation_outcome: ValidationOutcome | None = None,
 ) -> FailureDetails:
     """Build structured validation failure details."""
     stdout_excerpt = None
@@ -237,6 +388,7 @@ def _build_validation_failure(
         message=validation_summary,
         retry_count=retry_count,
         validation_summary=validation_summary,
+        validation_outcome=validation_outcome,
         failed_command=failed_command,
         exit_code=exit_code,
         stdout_excerpt=stdout_excerpt,
@@ -275,3 +427,29 @@ def _truncate_output(value: str, limit: int = 500) -> str | None:
     if len(stripped) <= limit:
         return stripped
     return f"{stripped[:limit]}..."
+
+
+def _first_failed_command(result: ValidationResult) -> ValidationCommandResult | None:
+    """Return the first failed command from complete validator evidence."""
+    return next((command for command in result.results if command.exit_code != 0), None)
+
+
+def _validation_outcome_summary(
+    comparison: ValidationComparison,
+    *,
+    correction_attempted: bool = False,
+) -> str:
+    """Render the concise operator-facing validation outcome."""
+    if comparison.outcome == "passed":
+        return "Validation passed."
+    if comparison.outcome == "baseline_preserved":
+        return "Validation preserved the existing baseline failures."
+    if comparison.outcome == "actionable_regression":
+        diagnostic = comparison.new_relevant_diagnostics[0]
+        retry_summary = (
+            "one correction attempt was used."
+            if correction_attempted
+            else "no correction attempt was permitted."
+        )
+        return f"Validation introduced a new diagnostic in {diagnostic.file_path}; {retry_summary}"
+    return "Validation failed outside the one-file repair boundary."

@@ -37,6 +37,7 @@ def build_config(
     validation_setup_commands: list[str] | None = None,
     validation_commands: list[str] | None = None,
     max_retry_count: int = 0,
+    validation_feedback_enabled: bool = False,
 ) -> AppConfig:
     return AppConfig(
         base_branch="main",
@@ -46,6 +47,7 @@ def build_config(
         remediation=RemediationConfig(
             bootstrap_severities=["LOW"],
             max_retry_count=max_retry_count,
+            validation_feedback_enabled=validation_feedback_enabled,
             analysis=AnalysisConfig(),
         ),
         gitlab=GitLabConfig(target_branch="main"),
@@ -250,6 +252,205 @@ def test_patch_execution_service_runs_setup_once_before_validation_retries(
         ["uv run pytest"],
         ["uv run pytest"],
     ]
+
+
+def test_patch_execution_service_retries_once_with_actionable_validation_feedback(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    service = PatchExecutionService(
+        config=build_config(
+            validation_commands=["ruff check ."],
+            max_retry_count=1,
+            validation_feedback_enabled=True,
+        ),
+        patch_applier=PatchApplier(tmp_path),
+        validator=Validator(tmp_path),
+        workspace_snapshot_service=WorkspaceSnapshotService(tmp_path),
+    )
+    results = iter(
+        [
+            ValidationResult(
+                passed=True,
+                results=[
+                    ValidationCommandResult(
+                        command="ruff check .",
+                        exit_code=0,
+                        stdout="",
+                        stderr="",
+                        duration_ms=1,
+                    )
+                ],
+                summary="All validation commands passed.",
+            ),
+            ValidationResult(
+                passed=False,
+                results=[
+                    ValidationCommandResult(
+                        command="ruff check .",
+                        exit_code=1,
+                        stdout="src/service.py:1:1: E999 generated regression",
+                        stderr="",
+                        duration_ms=1,
+                    )
+                ],
+                summary="Validation failed.",
+            ),
+            ValidationResult(
+                passed=True,
+                results=[
+                    ValidationCommandResult(
+                        command="ruff check .",
+                        exit_code=0,
+                        stdout="",
+                        stderr="",
+                        duration_ms=1,
+                    )
+                ],
+                summary="All validation commands passed.",
+            ),
+        ]
+    )
+    feedback_contexts: list[IssueContext] = []
+    monkeypatch.setattr(service.patch_applier, "validate", lambda proposal: None)
+    monkeypatch.setattr(service.patch_applier, "apply", lambda proposal: None)
+    monkeypatch.setattr(service.validator, "run_all", lambda commands: next(results))
+
+    def patch_factory(**kwargs) -> PatchProposal:
+        feedback_contexts.append(kwargs["context"])
+        return build_patch()
+
+    result = service.execute(
+        dry_run=True,
+        patch=build_patch(),
+        summary="summary",
+        fix_generator=StubFixGenerator(),
+        selected_issue=build_issue(),
+        context=build_context(),
+        patch_factory=patch_factory,
+    )
+
+    assert result.validation_comparison is not None
+    assert result.validation_comparison.outcome == "passed"
+    assert result.patch_applied is True
+    assert len(feedback_contexts) == 1
+    assert feedback_contexts[0].validation_feedback is not None
+    assert feedback_contexts[0].validation_feedback.diagnostics[0].file_path == "src/service.py"
+
+
+def test_patch_execution_service_accepts_preserved_baseline_without_clean_claim(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    service = PatchExecutionService(
+        config=build_config(
+            validation_commands=["uv run pytest"],
+            validation_feedback_enabled=True,
+        ),
+        patch_applier=PatchApplier(tmp_path),
+        validator=Validator(tmp_path),
+        workspace_snapshot_service=WorkspaceSnapshotService(tmp_path),
+    )
+    known_failure = ValidationResult(
+        passed=False,
+        results=[
+            ValidationCommandResult(
+                command="uv run pytest",
+                exit_code=1,
+                stdout="tests/unrelated.py:1: failed",
+                stderr="",
+                duration_ms=1,
+            )
+        ],
+        summary="Validation failed.",
+    )
+    monkeypatch.setattr(service.patch_applier, "validate", lambda proposal: None)
+    monkeypatch.setattr(service.patch_applier, "apply", lambda proposal: None)
+    monkeypatch.setattr(service.validator, "run_all", lambda commands: known_failure)
+
+    result = service.execute(
+        dry_run=True,
+        patch=build_patch(),
+        summary="summary",
+        fix_generator=StubFixGenerator(),
+        selected_issue=build_issue(),
+        context=build_context(),
+        patch_factory=lambda **kwargs: build_patch(),
+    )
+
+    assert result.patch_applied is True
+    assert result.validation_passed is False
+    assert result.validation_comparison is not None
+    assert result.validation_comparison.outcome == "baseline_preserved"
+
+
+def test_patch_execution_service_reports_when_feedback_retry_is_not_permitted(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    service = PatchExecutionService(
+        config=build_config(
+            validation_commands=["ruff check ."],
+            max_retry_count=0,
+            validation_feedback_enabled=True,
+        ),
+        patch_applier=PatchApplier(tmp_path),
+        validator=Validator(tmp_path),
+        workspace_snapshot_service=WorkspaceSnapshotService(tmp_path),
+    )
+    results = iter(
+        [
+            ValidationResult(
+                passed=True,
+                results=[
+                    ValidationCommandResult(
+                        command="ruff check .",
+                        exit_code=0,
+                        stdout="",
+                        stderr="",
+                        duration_ms=1,
+                    )
+                ],
+                summary="Validation passed.",
+            ),
+            ValidationResult(
+                passed=False,
+                results=[
+                    ValidationCommandResult(
+                        command="ruff check .",
+                        exit_code=1,
+                        stdout="src/service.py:1:1: E999 generated regression",
+                        stderr="",
+                        duration_ms=1,
+                    )
+                ],
+                summary="Validation failed.",
+            ),
+        ]
+    )
+    monkeypatch.setattr(service.patch_applier, "validate", lambda proposal: None)
+    monkeypatch.setattr(service.patch_applier, "apply", lambda proposal: None)
+    monkeypatch.setattr(service.validator, "run_all", lambda commands: next(results))
+
+    result = service.execute(
+        dry_run=True,
+        patch=build_patch(),
+        summary="summary",
+        fix_generator=StubFixGenerator(),
+        selected_issue=build_issue(),
+        context=build_context(),
+        patch_factory=lambda **kwargs: build_patch(),
+    )
+
+    assert result.failure is not None
+    assert result.failure.validation_outcome == "actionable_regression"
+    assert "no correction attempt was permitted" in result.failure.message
 
 
 def test_patch_execution_service_rejects_setup_that_changes_repository_files(

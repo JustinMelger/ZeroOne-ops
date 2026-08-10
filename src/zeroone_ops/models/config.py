@@ -176,6 +176,7 @@ class RemediationConfig(BaseModel):
     )
     max_retry_count: int = 1
     max_active_work_items: int = Field(default=10, ge=1)
+    validation_feedback_enabled: bool = False
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
 
     @property

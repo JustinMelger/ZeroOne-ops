@@ -28,6 +28,7 @@ def test_render_body_includes_recovery_commands_for_blocked_work_item() -> None:
                 retry_count=1,
                 run_id="run-42",
                 occurred_at=datetime(2026, 8, 7, 10, 0, tzinfo=UTC),
+                validation_outcome="unscoped_regression",
             ),
         }
     )
@@ -35,6 +36,7 @@ def test_render_body_includes_recovery_commands_for_blocked_work_item() -> None:
     body = GitLabWorkItemRenderer().render_body(work_item)
 
     assert "## Last Execution" in body
+    assert "- Validation outcome: `unscoped_regression`" in body
     assert "## Recovery" in body
     assert "Requeue for remediation: `/zeroone remediation requeue`" in body
     assert "Stop automation: `/zeroone remediation dismiss`" in body

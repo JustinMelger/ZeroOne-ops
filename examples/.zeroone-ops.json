@@ -44,6 +44,7 @@
     "max_active_work_items": 10,
     "bootstrap_severities": ["LOW"],
     "max_retry_count": 1,
+    "validation_feedback_enabled": false,
     "analysis": {
       "context_lines_before": 40,
       "context_lines_after": 40,

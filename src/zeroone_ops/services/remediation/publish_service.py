@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from zeroone_ops.models.analysis import ValidationComparison
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
@@ -82,6 +83,7 @@ class PublishService:
         selected_issue: RemediationExecutionTarget,
         change_request_title: str | None = None,
         change_request_description: str | None = None,
+        validation_comparison: ValidationComparison | None = None,
         commit_sha: str | None = None,
     ) -> PublishResult:
         """Push the current branch and create or reuse a change request."""
@@ -101,6 +103,7 @@ class PublishService:
                 source_branch=self.branch_manager.current_branch(),
                 selected_issue=selected_issue,
                 change_summary=change_request_description,
+                validation_comparison=validation_comparison,
             )
             control_plane_work_item = self._mark_control_plane_publish_started_best_effort(
                 selected_issue=selected_issue,
@@ -161,11 +164,13 @@ class PublishService:
         *,
         selected_issue: RemediationExecutionTarget,
         change_summary: str,
+        validation_comparison: ValidationComparison | None = None,
     ) -> str:
         """Build a deterministic change-request description."""
         return self.publication_request_builder.build_description(
             selected_issue=selected_issue,
             change_summary=change_summary,
+            validation_comparison=validation_comparison,
         )
 
     def _remediation_control_plane_instance(self) -> RemediationControlPlane:

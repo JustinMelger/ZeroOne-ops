@@ -88,6 +88,7 @@ def build_structured_edit_prompt(
         snippet_end_line=context.snippet.end_line,
         repository_guidance=_format_issue_repository_guidance(context),
         prior_review_feedback=_format_prior_review_feedback(context),
+        validation_feedback=_format_validation_feedback(context),
         code_snippet=context.snippet.content,
     )
 
@@ -119,6 +120,38 @@ def _format_prior_review_feedback(context: IssueContext) -> str:
             f"Review confidence reason: {feedback.review_confidence_reason or '(none)'}",
         ]
     )
+
+
+def _format_validation_feedback(context: IssueContext) -> str:
+    """Render bounded validator feedback for the single correction attempt."""
+    if context.validation_feedback is None:
+        return "(none)"
+    feedback = context.validation_feedback
+    diagnostic_lines = [
+        "- "
+        f"`{_escape_untrusted_validation_field(diagnostic.file_path)}` via "
+        f"`{_escape_untrusted_validation_field(diagnostic.command)}`: "
+        f"{_escape_untrusted_validation_field(diagnostic.excerpt)}"
+        for diagnostic in feedback.diagnostics
+    ]
+    return "\n".join(
+        [
+            "<<BEGIN UNTRUSTED VALIDATION FEEDBACK>>",
+            "Allowed files: "
+            + ", ".join(
+                f"`{_escape_untrusted_validation_field(path)}`"
+                for path in feedback.allowed_file_paths
+            ),
+            "New diagnostics:",
+            *diagnostic_lines,
+            "<<END UNTRUSTED VALIDATION FEEDBACK>>",
+        ]
+    )
+
+
+def _escape_untrusted_validation_field(value: str) -> str:
+    """Prevent untrusted feedback fields from reproducing prompt-block delimiters."""
+    return value.replace("<<", "[[").replace(">>", "]]")
 
 
 def _format_issue_repository_guidance(context: IssueContext) -> str:

@@ -1,5 +1,6 @@
 import pytest
 
+from zeroone_ops.models.analysis import ValidationComparison, ValidationResult
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import (
     AnalysisConfig,
@@ -271,6 +272,25 @@ def test_publish_service_description_prefers_remediation_category() -> None:
     )
 
     assert "- Type: `static_analysis_fix`" in description
+
+
+def test_publish_service_description_includes_baseline_preserved_validation() -> None:
+    service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
+    validation = ValidationResult(passed=False, results=[], summary="Validation failed.")
+
+    description = service.build_change_request_description(
+        selected_issue=build_issue(),
+        change_summary="summary",
+        validation_comparison=ValidationComparison(
+            outcome="baseline_preserved",
+            baseline=validation,
+            post_edit=validation,
+            baseline_failure_count=1,
+        ),
+    )
+
+    assert "## Validation" in description
+    assert "- Status: Validation baseline preserved" in description
 
 
 def test_publish_service_uses_generic_profile_for_unknown_source() -> None:

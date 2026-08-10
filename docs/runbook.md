@@ -69,6 +69,7 @@ In practice, the main remediation rollout keys now are:
 - `remediation.bootstrap_severities`
 - `remediation.max_retry_count`
 - `remediation.max_active_work_items`
+- `remediation.validation_feedback_enabled`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
 - `sarif.artifacts`
@@ -83,6 +84,12 @@ Authority note:
   bootstrap default is `low` and `medium` enabled with `high` disabled
 - GitLab operators change ongoing policy through strict `/zeroone policy ...`
   dashboard comments; GitHub repository admins use the dedicated policy issue
+
+Validation feedback is opt-in through `remediation.validation_feedback_enabled`.
+When enabled, remediation captures validation evidence before applying a
+single-file patch. It may retry once only for a newly introduced diagnostic in
+that same file; known baseline failures are retained as evidence rather than
+sent to the model.
 
 Only the remaining nested migration aliases still work during migration. The
 old flat top-level config keys no longer load, and new repository rollouts

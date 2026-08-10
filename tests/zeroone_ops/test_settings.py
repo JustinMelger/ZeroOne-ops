@@ -600,6 +600,7 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
             "bootstrap_severities": ["LOW", "MEDIUM"],
             "max_retry_count": 2,
             "max_active_work_items": 4,
+            "validation_feedback_enabled": true,
             "analysis": {
               "context_lines_before": 12,
               "context_lines_after": 18,
@@ -622,6 +623,7 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
     assert config.remediation.bootstrap_severities == ["LOW", "MEDIUM"]
     assert config.remediation.max_retry_count == 2
     assert config.remediation.max_active_work_items == 4
+    assert config.remediation.validation_feedback_enabled is True
     assert config.remediation.analysis.context_lines_before == 12
     assert config.remediation.analysis.context_lines_after == 18
     assert config.remediation.analysis.max_file_bytes == 1234
@@ -651,6 +653,7 @@ def test_settings_default_remediation_active_work_item_capacity_is_ten(
     config = load_config()
 
     assert config.remediation.max_active_work_items == 10
+    assert config.remediation.validation_feedback_enabled is False
 
 
 @pytest.mark.parametrize("capacity", [0, -1])

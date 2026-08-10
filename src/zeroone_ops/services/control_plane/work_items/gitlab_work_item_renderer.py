@@ -103,6 +103,8 @@ class GitLabWorkItemRenderer:
                 lines.append(f"- Command: `{failure.failed_command}`")
             if failure.exit_code is not None:
                 lines.append(f"- Exit code: `{failure.exit_code}`")
+            if failure.validation_outcome is not None:
+                lines.append(f"- Validation outcome: `{failure.validation_outcome}`")
             if failure.execution_url is not None:
                 lines.append(f"- Run: [View workflow logs]({failure.execution_url})")
         if work_item.status == "blocked":

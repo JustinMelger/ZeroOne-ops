@@ -13,6 +13,7 @@ from zeroone_ops.models.analysis import (
     AnalysisClassification,
     IssueContext,
     PatchProposal,
+    ValidationComparison,
     ValidationResult,
 )
 from zeroone_ops.models.config import AppConfig
@@ -64,6 +65,7 @@ class AnalysisResult:
     patch_applied: bool = False
     validation_passed: bool | None = None
     validation_result: ValidationResult | None = None
+    validation_comparison: ValidationComparison | None = None
     failure: FailureDetails | None = None
     workspace_snapshot: WorkspaceSnapshot | None = None
 
@@ -209,6 +211,7 @@ class AnalysisService:
             patch_applied=execution_result.patch_applied,
             validation_passed=execution_result.validation_passed,
             validation_result=execution_result.validation_result,
+            validation_comparison=execution_result.validation_comparison,
             failure=execution_result.failure,
             workspace_snapshot=execution_result.workspace_snapshot,
         )
