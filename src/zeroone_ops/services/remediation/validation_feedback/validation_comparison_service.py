@@ -42,6 +42,11 @@ class ValidationComparisonService:
             baseline_lines = _result_lines(baseline_result)
             post_lines = _result_lines(post_result)
             new_lines = sorted(post_lines - baseline_lines)
+            exit_code_changed = (
+                baseline_result is not None
+                and baseline_result.exit_code != 0
+                and baseline_result.exit_code != post_result.exit_code
+            )
             if baseline_result is None or baseline_result.exit_code == 0 or new_lines:
                 has_new_failure = True
             line_diagnostics, has_unscoped_diagnostic = _diagnostics_for_lines(
@@ -51,7 +56,10 @@ class ValidationComparisonService:
             )
             diagnostics.extend(line_diagnostics)
             has_unscoped_regression = (
-                has_unscoped_regression or baseline_result is None or has_unscoped_diagnostic
+                has_unscoped_regression
+                or baseline_result is None
+                or exit_code_changed
+                or has_unscoped_diagnostic
             )
 
         diagnostics.sort(key=lambda item: (item.file_path, item.command, item.excerpt))

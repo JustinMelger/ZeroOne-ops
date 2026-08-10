@@ -129,14 +129,19 @@ def _format_validation_feedback(context: IssueContext) -> str:
     feedback = context.validation_feedback
     diagnostic_lines = [
         "- "
-        f"`{diagnostic.file_path}` via `{diagnostic.command}`: "
-        f"{_escape_untrusted_validation_output(diagnostic.excerpt)}"
+        f"`{_escape_untrusted_validation_field(diagnostic.file_path)}` via "
+        f"`{_escape_untrusted_validation_field(diagnostic.command)}`: "
+        f"{_escape_untrusted_validation_field(diagnostic.excerpt)}"
         for diagnostic in feedback.diagnostics
     ]
     return "\n".join(
         [
             "<<BEGIN UNTRUSTED VALIDATION FEEDBACK>>",
-            "Allowed files: " + ", ".join(f"`{path}`" for path in feedback.allowed_file_paths),
+            "Allowed files: "
+            + ", ".join(
+                f"`{_escape_untrusted_validation_field(path)}`"
+                for path in feedback.allowed_file_paths
+            ),
             "New diagnostics:",
             *diagnostic_lines,
             "<<END UNTRUSTED VALIDATION FEEDBACK>>",
@@ -144,8 +149,8 @@ def _format_validation_feedback(context: IssueContext) -> str:
     )
 
 
-def _escape_untrusted_validation_output(value: str) -> str:
-    """Prevent command output from reproducing the prompt-block delimiters."""
+def _escape_untrusted_validation_field(value: str) -> str:
+    """Prevent untrusted feedback fields from reproducing prompt-block delimiters."""
     return value.replace("<<", "[[").replace(">>", "]]")
 
 

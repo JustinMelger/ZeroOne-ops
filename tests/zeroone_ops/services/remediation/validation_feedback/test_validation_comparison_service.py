@@ -52,6 +52,28 @@ def test_compare_preserves_baseline_failures_without_prompt_feedback() -> None:
     )
 
 
+def test_compare_blocks_a_changed_baseline_failure_exit_code() -> None:
+    baseline = ValidationBaseline(
+        result=build_result(
+            command="uv run pytest",
+            exit_code=1,
+            output="tests/other_test.py: assertion failed",
+        )
+    )
+    comparison = ValidationComparisonService().compare(
+        baseline=baseline,
+        post_edit=build_result(
+            command="uv run pytest",
+            exit_code=2,
+            output="tests/other_test.py: assertion failed",
+        ),
+        files_touched=["src/service.py"],
+    )
+
+    assert comparison.outcome == "unscoped_regression"
+    assert comparison.allows_publication is False
+
+
 def test_compare_marks_new_edited_file_diagnostic_actionable() -> None:
     baseline = ValidationBaseline(result=build_result(command="ruff check .", exit_code=0))
     post_edit = build_result(
