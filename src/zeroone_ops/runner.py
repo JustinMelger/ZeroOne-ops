@@ -5,78 +5,25 @@ This module acts as the composition root for the bot workflow.
 
 from __future__ import annotations
 
-import logging
 import secrets
 from dataclasses import replace
 from pathlib import Path
-from typing import Protocol
 
-import httpx
-
-from zeroone_ops.models.config import AppConfig, GitHubConnectionConfig, GitLabConnectionConfig
-from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RunStatus, utc_now
-from zeroone_ops.providers.github_client import GitHubClient, GitHubClientError
-from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
+from zeroone_ops.models.config import AppConfig
+from zeroone_ops.models.state import FailureDetails, FailureStage, RunStatus, utc_now
+from zeroone_ops.providers.github_client import GitHubClient
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
-from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
-from zeroone_ops.providers.gitlab_policy_client import GitLabPolicyClient
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
-from zeroone_ops.providers.review.github import GitHubReviewClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
-from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
-from zeroone_ops.services.control_plane.github_comment_authorization_service import (
-    GitHubCommentAuthorizationService,
-)
-from zeroone_ops.services.control_plane.overview.github_operational_summary_renderer import (
-    GitHubFindingSyncObservation,
-)
-from zeroone_ops.services.control_plane.overview.github_operational_summary_service import (
-    GitHubOperationalSummaryPublishResult,
-    GitHubOperationalSummaryService,
-)
-from zeroone_ops.services.control_plane.overview.github_operational_summary_store import (
-    GitHubOperationalSummaryStore,
-)
-from zeroone_ops.services.control_plane.overview.gitlab_operational_summary_service import (
-    GitLabOperationalSummaryPublishResult,
-    GitLabOperationalSummaryService,
-)
-from zeroone_ops.services.control_plane.overview.gitlab_operational_summary_store import (
-    GitLabOperationalSummaryStore,
-)
-from zeroone_ops.services.control_plane.overview.operational_summary_models import (
-    FindingSyncObservation,
-)
-from zeroone_ops.services.control_plane.policy.github_policy_issue_service import (
-    GitHubPolicyIssueService,
-)
-from zeroone_ops.services.control_plane.policy.github_policy_processing_runner import (
-    GitHubPolicyProcessingRunner,
-)
-from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_service import (
-    GitLabPolicyIssueService,
-)
-from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_store import (
-    GitLabPolicyIssueStore,
-)
 from zeroone_ops.services.control_plane.policy.gitlab_policy_note_authorization_service import (
     GitLabPolicyNoteAuthorizationService,
-)
-from zeroone_ops.services.control_plane.policy.gitlab_policy_processing_runner import (
-    GitLabPolicyProcessingRunner,
 )
 from zeroone_ops.services.control_plane.work_items.github_finding_sync_service import (
     GitHubFindingSyncService,
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_lifecycle_service import (
     GitHubWorkItemLifecycleService,
-)
-from zeroone_ops.services.control_plane.work_items.github_work_item_recovery_runner import (
-    GitHubWorkItemRecoveryRunner,
-)
-from zeroone_ops.services.control_plane.work_items.github_work_item_recovery_service import (
-    GitHubWorkItemRecoveryService,
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
@@ -133,20 +80,49 @@ from zeroone_ops.services.shared.run_state_service import (
     RunSummary,
 )
 from zeroone_ops.services.shared.state_store import StateStore
+from zeroone_ops.services.workflows.gitlab_issue_control_plane_workflow import (
+    GitLabIssueControlPlaneWorkflow,
+)
+from zeroone_ops.services.workflows.operational_summary import (
+    build_finding_sync_observation as _build_finding_sync_observation,
+)
+from zeroone_ops.services.workflows.operational_summary import (
+    format_count_summary as _format_count_summary,
+)
+from zeroone_ops.services.workflows.operational_summary import (
+    format_enabled_severities as _format_enabled_severities,
+)
+from zeroone_ops.services.workflows.operational_summary import (
+    format_finding_sync_reconciliation as _format_finding_sync_reconciliation,
+)
+from zeroone_ops.services.workflows.operational_summary import (
+    format_operational_summary_publication as _format_operational_summary_publication,
+)
+from zeroone_ops.services.workflows.operational_summary import (
+    publish_github_operational_summary as _publish_github_operational_summary,
+)
+from zeroone_ops.services.workflows.operational_summary import (
+    publish_gitlab_operational_summary as _publish_gitlab_operational_summary,
+)
+from zeroone_ops.services.workflows.provider_workflow_builders import (
+    build_dashboard_policy_view_builder,
+    build_github_policy_issue_service,
+    build_github_policy_processing_runner,
+    build_github_work_item_recovery_runner,
+    build_gitlab_policy_issue_service,
+    build_gitlab_policy_processing_runner,
+    build_review_platform_runtime,
+)
+from zeroone_ops.services.workflows.workflow_run_context import build_workflow_run_context
 from zeroone_ops.settings import (
     load_config,
-    load_current_change_request_number,
     load_current_github_issue_comment_id,
     load_current_github_issue_number,
-    load_current_github_pull_request_head_sha,
-    load_current_github_pull_request_number,
     load_github_connection_config,
     load_gitlab_connection_config,
     load_gitlab_project_id_override,
     load_sonarqube_project_key_override,
 )
-
-LOGGER = logging.getLogger(__name__)
 
 
 def _build_run_id() -> str:
@@ -155,146 +131,30 @@ def _build_run_id() -> str:
     return f"{timestamp}-{secrets.token_hex(4)}"
 
 
-def _build_dashboard_policy_view_builder(
-    *,
-    repo_root: Path,
-    config: AppConfig,
-    state: AppState,
-) -> DashboardPolicyViewBuilder:
-    """Build the shared policy-view builder used by control-plane workflows."""
-    return DashboardPolicyViewBuilder(
-        repo_root=repo_root,
-        config=config,
-        state=state,
-    )
-
-
-def _build_github_policy_processing_runner(
-    *,
-    repo_root: Path,
-    config: AppConfig,
-    state: AppState,
-    run_state_service: RunStateService,
-) -> GitHubPolicyProcessingRunner:
-    """Build the GitHub policy-processing runner and its provider-local transport."""
-    github_config = load_github_connection_config()
-    return GitHubPolicyProcessingRunner(
-        policy_issue_service=GitHubPolicyIssueService(
-            GitHubPolicyClient(github_config),
-            policy_view_builder=_build_dashboard_policy_view_builder(
-                repo_root=repo_root,
-                config=config,
-                state=state,
-            ),
-        ),
-        run_state_service=run_state_service,
-    )
-
-
-def _build_github_policy_issue_service(
-    *,
-    repo_root: Path,
-    config: AppConfig,
-    state: AppState,
-) -> GitHubPolicyIssueService:
-    """Build provider-local GitHub policy access for another control-plane workflow."""
-    return GitHubPolicyIssueService(
-        GitHubPolicyClient(load_github_connection_config()),
-        policy_view_builder=_build_dashboard_policy_view_builder(
-            repo_root=repo_root,
-            config=config,
-            state=state,
-        ),
-    )
-
-
-def _build_gitlab_policy_processing_runner(
-    *,
-    repo_root: Path,
-    config: AppConfig,
-    state: AppState,
-    run_state_service: RunStateService,
-) -> GitLabPolicyProcessingRunner:
-    """Build GitLab issue-mode policy processing with provider-local transport."""
-    return GitLabPolicyProcessingRunner(
-        policy_issue_service=_build_gitlab_policy_issue_service(
-            repo_root=repo_root,
-            config=config,
-            state=state,
-        ),
-        run_state_service=run_state_service,
-    )
-
-
-def _build_gitlab_policy_issue_service(
-    *,
-    repo_root: Path,
-    config: AppConfig,
-    state: AppState,
-) -> GitLabPolicyIssueService:
-    """Build provider-local GitLab policy access for issue-mode workflows."""
-    return GitLabPolicyIssueService(
-        GitLabPolicyClient(load_gitlab_connection_config()),
-        policy_view_builder=_build_dashboard_policy_view_builder(
-            repo_root=repo_root,
-            config=config,
-            state=state,
-        ),
-    )
-
-
-def _build_github_work_item_recovery_runner(
-    *,
-    config: AppConfig,
-    run_state_service: RunStateService,
-) -> tuple[GitHubWorkItemRecoveryRunner, GitHubWorkItemService]:
-    """Build GitHub recovery processing with provider-local issue transport."""
-    github_config = load_github_connection_config()
-    work_item_client = GitHubWorkItemClient(github_config)
-    work_item_service = GitHubWorkItemService(work_item_client)
-    recovery_service = GitHubWorkItemRecoveryService(
-        comment_client=work_item_client,
-        comment_authorization_service=GitHubCommentAuthorizationService(work_item_client),
-        work_item_service=work_item_service,
-    )
-    return (
-        GitHubWorkItemRecoveryRunner(
-            recovery_service=recovery_service,
-            run_state_service=run_state_service,
-        ),
-        work_item_service,
-    )
-
-
 def review(*, dry_run: bool = False) -> RunSummary:
     """Run the merge-request review workflow."""
     config = load_config()
-    state_store = StateStore(
-        config.state.path,
-        base_branch=config.base_branch,
-        gitlab_project_id=load_gitlab_project_id_override(),
-        sonarqube_project_key=load_sonarqube_project_key_override(),
+    context = build_workflow_run_context(
+        config=config,
+        run_id=_build_run_id(),
+        dry_run=dry_run,
     )
-    state = state_store.load()
     review_state_service = ReviewStateService(
-        state_store=state_store,
-        state=state,
+        state_store=context.state_store,
+        state=context.state,
         max_prior_review_passes=config.review.max_prior_review_passes,
     )
 
-    run_id = _build_run_id()
-    record = review_state_service.start_run(run_id)
-    repo_root = Path.cwd()
-    active_dry_run = dry_run or config.dry_run
+    record = review_state_service.start_run(context.run_id)
     (
         review_client,
         repository_id,
         current_change_request_number,
         triggered_head_sha,
         dashboard_client,
-    ) = _build_review_platform_runtime(config)
+    ) = build_review_platform_runtime(config)
     return ReviewRunner(
-        repo_root=repo_root,
+        repo_root=context.repo_root,
         config=config,
         review_client=review_client,
         dashboard_client=dashboard_client,
@@ -304,38 +164,8 @@ def review(*, dry_run: bool = False) -> RunSummary:
         current_change_request_number=current_change_request_number,
         triggered_head_sha=triggered_head_sha,
         record=record,
-        run_id=run_id,
-        active_dry_run=active_dry_run,
-    )
-
-
-def _build_review_platform_runtime(
-    config: AppConfig,
-) -> tuple[
-    ChangeRequestReviewPlatformProtocol,
-    str,
-    int | None,
-    str | None,
-    GitLabDashboardClient | None,
-]:
-    """Build platform-specific review dependencies for the active review workflow."""
-    if config.platform == "github":
-        github_config = load_github_connection_config()
-        return (
-            GitHubReviewClient(github_config),
-            github_config.repository,
-            load_current_github_pull_request_number(),
-            load_current_github_pull_request_head_sha(),
-            None,
-        )
-
-    gitlab_config = load_gitlab_connection_config()
-    return (
-        GitLabReviewClient(gitlab_config),
-        gitlab_config.project_id,
-        load_current_change_request_number(),
-        None,
-        GitLabDashboardClient(gitlab_config),
+        run_id=context.run_id,
+        active_dry_run=context.active_dry_run,
     )
 
 
@@ -357,33 +187,26 @@ def run_remediation(
             dry_run=dry_run,
             publish_operational_summary=publish_operational_summary,
         )
-    state_store = StateStore(
-        config.state.path,
-        base_branch=config.base_branch,
-        gitlab_project_id=load_gitlab_project_id_override(),
-        sonarqube_project_key=load_sonarqube_project_key_override(),
+    context = build_workflow_run_context(
+        config=config,
+        run_id=_build_run_id(),
+        dry_run=dry_run,
     )
-    state = state_store.load()
-    run_state_service = RunStateService(config=config, state_store=state_store, state=state)
-
-    run_id = _build_run_id()
-    record = run_state_service.start_run(run_id)
-    repo_root = Path.cwd()
-    active_dry_run = dry_run or config.dry_run
+    record = context.run_state_service.start_run(context.run_id)
     if config.platform == "github":
         github_config = load_github_connection_config()
         work_item_service = GitHubWorkItemService(GitHubWorkItemClient(github_config))
         summary = GitHubRemediationRunner(
-            repo_root=repo_root,
+            repo_root=context.repo_root,
             config=config,
             repository_id=github_config.repository,
             work_item_service=work_item_service,
-            run_state_service=run_state_service,
+            run_state_service=context.run_state_service,
         ).run(
             record=record,
-            active_dry_run=active_dry_run,
+            active_dry_run=context.active_dry_run,
         )
-        if active_dry_run or summary.status == RunStatus.NO_ISSUE:
+        if context.active_dry_run or summary.status == RunStatus.NO_ISSUE:
             return summary
         publication = _publish_github_operational_summary(
             github_config=github_config,
@@ -396,23 +219,23 @@ def run_remediation(
         )
     gitlab_config = load_gitlab_connection_config()
     return DashboardRemediationRunner(
-        repo_root=repo_root,
+        repo_root=context.repo_root,
         config=config,
         dashboard_service=DashboardService(
             GitLabDashboardClient(gitlab_config),
             policy_view_builder=DashboardPolicyViewBuilder(
-                repo_root=repo_root,
+                repo_root=context.repo_root,
                 config=config,
-                state=state,
+                state=context.state,
             ),
         ),
-        run_state_service=run_state_service,
+        run_state_service=context.run_state_service,
     ).run(
         project_id=gitlab_config.project_id,
-        state=state,
+        state=context.state,
         record=record,
-        run_id=run_id,
-        active_dry_run=active_dry_run,
+        run_id=context.run_id,
+        active_dry_run=context.active_dry_run,
     )
 
 
@@ -423,30 +246,26 @@ def _run_gitlab_issue_remediation(
     publish_operational_summary: bool = True,
 ) -> RunSummary:
     """Run one GitLab issue-mode remediation through the shared execution lifecycle."""
-    state_store = StateStore(
-        config.state.path,
-        base_branch=config.base_branch,
-        gitlab_project_id=load_gitlab_project_id_override(),
-        sonarqube_project_key=load_sonarqube_project_key_override(),
+    context = build_workflow_run_context(
+        config=config,
+        run_id=_build_run_id(),
+        dry_run=dry_run,
     )
-    state = state_store.load()
-    run_state_service = RunStateService(config=config, state_store=state_store, state=state)
-    record = run_state_service.start_run(_build_run_id())
+    record = context.run_state_service.start_run(context.run_id)
     gitlab_config = load_gitlab_connection_config()
     work_item_service = GitLabWorkItemService(GitLabWorkItemClient(gitlab_config))
     summary = GitLabRemediationRunner(
-        repo_root=Path.cwd(),
+        repo_root=context.repo_root,
         config=config,
         project_id=gitlab_config.project_id,
         work_item_service=work_item_service,
-        run_state_service=run_state_service,
+        run_state_service=context.run_state_service,
     ).run(
         record=record,
-        active_dry_run=dry_run or config.dry_run,
+        active_dry_run=context.active_dry_run,
     )
     if (
-        dry_run
-        or config.dry_run
+        context.active_dry_run
         or summary.status == RunStatus.NO_ISSUE
         or not publish_operational_summary
     ):
@@ -480,51 +299,46 @@ def sync_findings(*, dry_run: bool = False) -> RunSummary:
 def _sync_gitlab_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
     """Project normalized findings into the GitLab dashboard."""
     gitlab_config = load_gitlab_connection_config()
-    state_store = StateStore(
-        config.state.path,
-        base_branch=config.base_branch,
-        gitlab_project_id=load_gitlab_project_id_override(),
-        sonarqube_project_key=load_sonarqube_project_key_override(),
+    context = build_workflow_run_context(
+        config=config,
+        run_id=_build_run_id(),
+        dry_run=dry_run,
     )
-    state = state_store.load()
-    run_id = _build_run_id()
-    repo_root = Path.cwd()
-    active_dry_run = dry_run or config.dry_run
 
-    intake_service = IssueIntakeService(repo_root=repo_root, config=config)
+    intake_service = IssueIntakeService(repo_root=context.repo_root, config=config)
     collection = intake_service.collect_dashboard_sync_issues(
-        dry_run=active_dry_run,
-        run_id=run_id,
+        dry_run=context.active_dry_run,
+        run_id=context.run_id,
     )
     managed_source_ids = set(collection.finding_collection.metadata.managed_source_ids) or {
         finding.source_id for finding in collection.finding_collection.findings
     }
     if not collection.finding_collection.findings and not managed_source_ids:
         return RunSummary(
-            run_id=run_id,
+            run_id=context.run_id,
             status=collection_message_status(collection.message),
             message=f"[{config.execution_mode}] {collection.message}",
-            state_path=state_store.path,
+            state_path=context.state_store.path,
         )
-    if active_dry_run:
+    if context.active_dry_run:
         return RunSummary(
-            run_id=run_id,
+            run_id=context.run_id,
             status=collection_message_status("synced"),
             message=(
                 f"[{config.execution_mode}] Dry-run found "
                 f"{len(collection.finding_collection.findings)} "
                 "findings for dashboard sync."
             ),
-            state_path=state_store.path,
+            state_path=context.state_store.path,
         )
 
     sync_result = FindingDashboardSyncService(
         DashboardService(
             GitLabDashboardClient(gitlab_config),
             policy_view_builder=DashboardPolicyViewBuilder(
-                repo_root=repo_root,
+                repo_root=context.repo_root,
                 config=config,
-                state=state,
+                state=context.state,
             ),
         )
     ).sync(
@@ -533,34 +347,28 @@ def _sync_gitlab_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
         managed_source_ids=managed_source_ids,
     )
     return RunSummary(
-        run_id=run_id,
+        run_id=context.run_id,
         status=collection_message_status("synced"),
         message=(
             f"[{config.execution_mode}] Synced {sync_result.synced_count} "
             f"findings to the dashboard. Dashboard: {sync_result.dashboard_issue_url}"
         ),
-        state_path=state_store.path,
+        state_path=context.state_store.path,
     )
 
 
 def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
     """Project policy-promoted normalized findings into GitHub work items."""
-    state_store = StateStore(
-        config.state.path,
-        base_branch=config.base_branch,
-        gitlab_project_id=load_gitlab_project_id_override(),
-        sonarqube_project_key=load_sonarqube_project_key_override(),
+    context = build_workflow_run_context(
+        config=config,
+        run_id=_build_run_id(),
+        dry_run=dry_run,
     )
-    state = state_store.load()
-    run_state_service = RunStateService(config=config, state_store=state_store, state=state)
-    run_id = _build_run_id()
-    record = run_state_service.start_run(run_id)
-    repo_root = Path.cwd()
-    active_dry_run = dry_run or config.dry_run
-    intake_service = IssueIntakeService(repo_root=repo_root, config=config)
+    record = context.run_state_service.start_run(context.run_id)
+    intake_service = IssueIntakeService(repo_root=context.repo_root, config=config)
     collection = intake_service.collect_dashboard_sync_issues(
-        dry_run=active_dry_run,
-        run_id=run_id,
+        dry_run=context.active_dry_run,
+        run_id=context.run_id,
     )
     if (
         not collection.finding_collection.findings
@@ -568,20 +376,20 @@ def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
     ):
         record.status = collection_message_status(collection.message)
         record.updated_at = utc_now()
-        state_store.save(state)
-        return run_state_service.build_summary(
-            run_id=run_id,
+        context.state_store.save(context.state)
+        return context.run_state_service.build_summary(
+            run_id=context.run_id,
             status=record.status,
             message=collection.message,
         )
     github_config = load_github_connection_config()
-    policy_state = _build_github_policy_issue_service(
-        repo_root=repo_root,
+    policy_state = build_github_policy_issue_service(
+        repo_root=context.repo_root,
         config=config,
-        state=state,
+        state=context.state,
     ).load_policy_state(
         repository_id=github_config.repository,
-        persist=not active_dry_run,
+        persist=not context.active_dry_run,
     )
     work_item_service = GitHubWorkItemService(GitHubWorkItemClient(github_config))
     sync_result = GitHubFindingSyncService(work_item_service=work_item_service).sync(
@@ -590,7 +398,7 @@ def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
         policy_state=policy_state,
         managed_source_ids=set(collection.finding_collection.metadata.managed_source_ids),
         max_active_work_items=config.remediation.max_active_work_items,
-        persist=not active_dry_run,
+        persist=not context.active_dry_run,
     )
     summary_publication = (
         _publish_github_operational_summary(
@@ -598,12 +406,12 @@ def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
             work_item_service=work_item_service,
             latest_finding_sync=_build_finding_sync_observation(sync_result),
         )
-        if not active_dry_run
+        if not context.active_dry_run
         else None
     )
     record.status = collection_message_status("synced")
     record.updated_at = utc_now()
-    state_store.save(state)
+    context.state_store.save(context.state)
     publication_message = (
         (
             f"Dry-run identified {sync_result.promoted_count} findings eligible under "
@@ -612,14 +420,14 @@ def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
             "Dry-run does not load existing open work items, so active capacity and "
             "stale-item reconciliation are not included."
         )
-        if active_dry_run
+        if context.active_dry_run
         else (
             f"Published {sync_result.promoted_count} promoted findings as GitHub work items; "
             f"{sync_result.backlog_only_count} findings remain backlog-only."
         )
     )
-    return run_state_service.build_summary(
-        run_id=run_id,
+    return context.run_state_service.build_summary(
+        run_id=context.run_id,
         status=record.status,
         message=(
             publication_message + "\n"
@@ -638,36 +446,31 @@ def _sync_github_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
 def _sync_gitlab_issue_findings(*, config: AppConfig, dry_run: bool) -> RunSummary:
     """Project policy-promoted normalized findings into GitLab work-item issues."""
     gitlab_config = load_gitlab_connection_config()
-    state_store = StateStore(
-        config.state.path,
-        base_branch=config.base_branch,
-        gitlab_project_id=load_gitlab_project_id_override(),
-        sonarqube_project_key=load_sonarqube_project_key_override(),
+    context = build_workflow_run_context(
+        config=config,
+        run_id=_build_run_id(),
+        dry_run=dry_run,
     )
-    state = state_store.load()
-    run_id = _build_run_id()
-    repo_root = Path.cwd()
-    active_dry_run = dry_run or config.dry_run
-    intake_service = IssueIntakeService(repo_root=repo_root, config=config)
+    intake_service = IssueIntakeService(repo_root=context.repo_root, config=config)
     collection = intake_service.collect_dashboard_sync_issues(
-        dry_run=active_dry_run,
-        run_id=run_id,
+        dry_run=context.active_dry_run,
+        run_id=context.run_id,
     )
     metadata = collection.finding_collection.metadata
     if not collection.finding_collection.findings and not metadata.managed_source_ids:
         return RunSummary(
-            run_id=run_id,
+            run_id=context.run_id,
             status=collection_message_status(collection.message),
             message=f"[{config.execution_mode}] {collection.message}",
-            state_path=state_store.path,
+            state_path=context.state_store.path,
         )
-    policy_state = _build_gitlab_policy_issue_service(
-        repo_root=repo_root,
+    policy_state = build_gitlab_policy_issue_service(
+        repo_root=context.repo_root,
         config=config,
-        state=state,
+        state=context.state,
     ).load_policy_state(
         project_id=gitlab_config.project_id,
-        persist=not active_dry_run,
+        persist=not context.active_dry_run,
     )
     work_item_service = GitLabWorkItemService(GitLabWorkItemClient(gitlab_config))
     sync_result = GitLabFindingSyncService(work_item_service=work_item_service).sync(
@@ -676,7 +479,7 @@ def _sync_gitlab_issue_findings(*, config: AppConfig, dry_run: bool) -> RunSumma
         policy_state=policy_state,
         managed_source_ids=set(metadata.managed_source_ids),
         max_active_work_items=config.remediation.max_active_work_items,
-        persist=not active_dry_run,
+        persist=not context.active_dry_run,
     )
     summary_publication = (
         _publish_gitlab_operational_summary(
@@ -684,7 +487,7 @@ def _sync_gitlab_issue_findings(*, config: AppConfig, dry_run: bool) -> RunSumma
             work_item_service=work_item_service,
             latest_finding_sync=_build_finding_sync_observation(sync_result),
         )
-        if not active_dry_run
+        if not context.active_dry_run
         else None
     )
     publication_message = (
@@ -695,14 +498,14 @@ def _sync_gitlab_issue_findings(*, config: AppConfig, dry_run: bool) -> RunSumma
             "Dry-run does not load existing open work items, so active capacity and "
             "stale-item reconciliation are not included."
         )
-        if active_dry_run
+        if context.active_dry_run
         else (
             f"Published {sync_result.promoted_count} promoted findings as GitLab work items; "
             f"{sync_result.backlog_only_count} findings remain backlog-only."
         )
     )
     return RunSummary(
-        run_id=run_id,
+        run_id=context.run_id,
         status=RunStatus.SYNCED,
         message=(
             f"[{config.execution_mode}] {publication_message}\n"
@@ -715,178 +518,8 @@ def _sync_gitlab_issue_findings(*, config: AppConfig, dry_run: bool) -> RunSumma
             + _format_finding_sync_reconciliation(sync_result)
             + _format_operational_summary_publication(summary_publication)
         ),
-        state_path=state_store.path,
+        state_path=context.state_store.path,
     )
-
-
-def _publish_github_operational_summary(
-    *,
-    github_config: GitHubConnectionConfig,
-    work_item_service: GitHubWorkItemService,
-    latest_finding_sync: GitHubFindingSyncObservation | None,
-) -> GitHubOperationalSummaryPublishResult | None:
-    """Best-effort publish the derived summary after a control-plane transition."""
-    try:
-        issue_client = GitHubPolicyClient(github_config)
-        policy_issue = issue_client.find_open_issue(
-            repository_id=github_config.repository,
-            title="ZeroOne Ops Policy",
-            labels=["zeroone-policy"],
-        )
-        return GitHubOperationalSummaryService(
-            store=GitHubOperationalSummaryStore(issue_client)
-        ).publish(
-            repository_id=github_config.repository,
-            work_items=[
-                *work_item_service.list_open_work_items(repository_id=github_config.repository),
-                *work_item_service.list_closed_work_items(repository_id=github_config.repository),
-            ],
-            policy_issue_url=policy_issue.web_url if policy_issue is not None else None,
-            latest_finding_sync=latest_finding_sync,
-        )
-    except (GitHubClientError, httpx.HTTPError):
-        LOGGER.warning(
-            "GitHub operational summary publication failed after a control-plane transition",
-            exc_info=True,
-        )
-        return None
-
-
-def _publish_gitlab_operational_summary(
-    *,
-    gitlab_config: GitLabConnectionConfig,
-    work_item_service: GitLabWorkItemService,
-    latest_finding_sync: FindingSyncObservation | None,
-) -> GitLabOperationalSummaryPublishResult | None:
-    """Best-effort publish the derived GitLab summary after an issue-mode transition."""
-    try:
-        project_id = gitlab_config.project_id
-        issue_client = GitLabWorkItemClient(gitlab_config)
-        policy_issue = GitLabPolicyIssueStore(
-            GitLabPolicyClient(gitlab_config, issue_client=issue_client),
-            title="ZeroOne Ops Policy",
-            labels=["zeroone-policy"],
-        ).find_open_issue(project_id=project_id)
-        return GitLabOperationalSummaryService(
-            store=GitLabOperationalSummaryStore(issue_client)
-        ).publish(
-            project_id=project_id,
-            work_items=[
-                *work_item_service.list_open_work_items(project_id=project_id),
-                *work_item_service.list_closed_work_items(project_id=project_id),
-            ],
-            policy_issue_url=policy_issue.web_url if policy_issue is not None else None,
-            latest_finding_sync=latest_finding_sync,
-        )
-    except (GitLabClientError, httpx.HTTPError):
-        LOGGER.warning(
-            "GitLab operational summary publication failed after an issue-mode transition",
-            exc_info=True,
-        )
-        return None
-
-
-class _FindingSyncObservationResult(Protocol):
-    """Expose the successful finding-sync fields persisted by an overview."""
-
-    @property
-    def promoted_count(self) -> int:
-        """Return the count promoted into durable work-item coordination."""
-
-    @property
-    def backlog_only_count(self) -> int:
-        """Return the count intentionally retained in the backlog only."""
-
-    @property
-    def normalized_severity_counts(self) -> dict[str, int]:
-        """Return the normalized finding counts by severity."""
-
-    @property
-    def backlog_reason_counts(self) -> dict[str, int]:
-        """Return the backlog-only counts by policy reason."""
-
-
-def _build_finding_sync_observation(
-    sync_result: _FindingSyncObservationResult,
-) -> FindingSyncObservation:
-    """Build the bounded derived observation from one successful finding-sync result."""
-    return FindingSyncObservation(
-        observed_at=utc_now(),
-        total_findings=sync_result.promoted_count + sync_result.backlog_only_count,
-        promoted_findings=sync_result.promoted_count,
-        backlog_only_findings=sync_result.backlog_only_count,
-        severity_counts=sync_result.normalized_severity_counts,
-        backlog_reason_counts=sync_result.backlog_reason_counts,
-    )
-
-
-def _format_operational_summary_publication(
-    publication: (
-        GitHubOperationalSummaryPublishResult | GitLabOperationalSummaryPublishResult | None
-    ),
-) -> str:
-    """Render an optional derived-summary publication detail for CLI output."""
-    if publication is None:
-        return ""
-    return f"\nOperational summary {publication.action}: {publication.issue.web_url}."
-
-
-def _format_count_summary(counts: dict[str, int]) -> str:
-    """Render deterministic aggregate counts for one CLI-facing sync summary."""
-    if not counts:
-        return "none"
-    return ", ".join(f"{key}={value}" for key, value in counts.items())
-
-
-def _format_enabled_severities(enabled_severities: tuple[str, ...]) -> str:
-    """Render the resolved policy severities for one CLI-facing sync summary."""
-    return ", ".join(enabled_severities) or "none"
-
-
-class _FindingSyncReconciliationResult(Protocol):
-    """Expose finding-sync reconciliation counts for CLI rendering."""
-
-    @property
-    def demoted_to_candidate_count(self) -> int:
-        """Return the number of policy-demoted work items."""
-
-    @property
-    def retained_protected_count(self) -> int:
-        """Return the number of protected policy-reconciled work items."""
-
-    @property
-    def stale_demoted_to_candidate_count(self) -> int:
-        """Return the number of stale work items demoted to candidates."""
-
-    @property
-    def stale_retained_protected_count(self) -> int:
-        """Return the number of protected stale work items retained."""
-
-
-def _format_finding_sync_reconciliation(sync_result: _FindingSyncReconciliationResult) -> str:
-    """Render non-empty policy and stale-item lifecycle reconciliation details."""
-    if (
-        sync_result.demoted_to_candidate_count == 0
-        and sync_result.retained_protected_count == 0
-        and sync_result.stale_demoted_to_candidate_count == 0
-        and sync_result.stale_retained_protected_count == 0
-    ):
-        return ""
-    lines = []
-    if sync_result.demoted_to_candidate_count or sync_result.retained_protected_count:
-        lines.append(
-            "Policy reconciliation: "
-            f"demoted to candidate={sync_result.demoted_to_candidate_count}; "
-            f"protected work items retained={sync_result.retained_protected_count}."
-        )
-    if sync_result.stale_demoted_to_candidate_count or sync_result.stale_retained_protected_count:
-        lines.append(
-            "Stale finding reconciliation: "
-            f"demoted to candidate={sync_result.stale_demoted_to_candidate_count}; "
-            "protected work items retained="
-            f"{sync_result.stale_retained_protected_count}."
-        )
-    return "\n" + "\n".join(lines)
 
 
 def dashboard_reconcile(*, dry_run: bool = False) -> RunSummary:
@@ -995,9 +628,8 @@ def recover_work_item(
             failure=FailureDetails(stage=FailureStage.DASHBOARD_UPDATE, message=message),
         )
     github_config = load_github_connection_config()
-    recovery_runner, work_item_service = _build_github_work_item_recovery_runner(
-        config=config,
-        run_state_service=run_state_service,
+    recovery_runner, work_item_service = build_github_work_item_recovery_runner(
+        run_state_service=run_state_service
     )
     existing = next(
         (
@@ -1011,7 +643,7 @@ def recover_work_item(
     )
     policy_eligible = False
     if existing is not None:
-        policy_state = _build_github_policy_issue_service(
+        policy_state = build_github_policy_issue_service(
             repo_root=Path.cwd(),
             config=config,
             state=state,
@@ -1065,7 +697,7 @@ def _recover_gitlab_issue_work_items(
     gitlab_config = load_gitlab_connection_config()
     work_item_client = GitLabWorkItemClient(gitlab_config)
     work_item_service = GitLabWorkItemService(work_item_client)
-    policy_state = _build_gitlab_policy_issue_service(
+    policy_state = build_gitlab_policy_issue_service(
         repo_root=Path.cwd(),
         config=config,
         state=state,
@@ -1234,41 +866,22 @@ def run_gitlab_issue_control_plane(*, dry_run: bool = False) -> RunSummary:
             workflow="GitLab issue control plane",
         )
 
-    policy_summary = dashboard_policy(
-        dry_run=dry_run,
-        publish_operational_summary=False,
-    )
-    if policy_summary.status != RunStatus.SYNCED:
-        return policy_summary
+    def publish_overview() -> str:
+        # A blocked remediation can still have changed authoritative work-item state.
+        gitlab_config = load_gitlab_connection_config()
+        publication = _publish_gitlab_operational_summary(
+            gitlab_config=gitlab_config,
+            work_item_service=GitLabWorkItemService(GitLabWorkItemClient(gitlab_config)),
+            latest_finding_sync=None,
+        )
+        return _format_operational_summary_publication(publication)
 
-    recovery_summary = recover_work_item(
-        dry_run=dry_run,
-        publish_operational_summary=False,
-    )
-    if recovery_summary.status != RunStatus.SYNCED:
-        return recovery_summary
-
-    remediation_summary = run_remediation(
-        dry_run=dry_run,
-        publish_operational_summary=False,
-    )
-    if dry_run or config.dry_run:
-        return remediation_summary
-
-    # A blocked remediation can still have changed the authoritative work item.
-    # Refresh once after the combined operation so the overview remains current.
-    gitlab_config = load_gitlab_connection_config()
-    publication = _publish_gitlab_operational_summary(
-        gitlab_config=gitlab_config,
-        work_item_service=GitLabWorkItemService(GitLabWorkItemClient(gitlab_config)),
-        latest_finding_sync=None,
-    )
-    return replace(
-        remediation_summary,
-        message=(
-            remediation_summary.message + _format_operational_summary_publication(publication)
-        ),
-    )
+    return GitLabIssueControlPlaneWorkflow(
+        run_policy=dashboard_policy,
+        run_recovery=recover_work_item,
+        run_remediation=run_remediation,
+        publish_overview=publish_overview,
+    ).run(config=config, dry_run=dry_run)
 
 
 def dashboard_policy(
@@ -1294,7 +907,7 @@ def dashboard_policy(
 
     if config.platform == "github":
         github_config = load_github_connection_config()
-        return _build_github_policy_processing_runner(
+        return build_github_policy_processing_runner(
             repo_root=repo_root,
             config=config,
             state=state,
@@ -1309,7 +922,7 @@ def dashboard_policy(
     gitlab_config = load_gitlab_connection_config()
     gitlab_settings = config.require_gitlab_config(reason="GitLab policy processing")
     if gitlab_settings.control_plane_mode == "issues":
-        summary = _build_gitlab_policy_processing_runner(
+        summary = build_gitlab_policy_processing_runner(
             repo_root=repo_root,
             config=config,
             state=state,
@@ -1334,7 +947,7 @@ def dashboard_policy(
     return DashboardPolicyProcessingRunner(
         dashboard_service=DashboardService(
             GitLabDashboardClient(gitlab_config),
-            policy_view_builder=_build_dashboard_policy_view_builder(
+            policy_view_builder=build_dashboard_policy_view_builder(
                 repo_root=repo_root,
                 config=config,
                 state=state,

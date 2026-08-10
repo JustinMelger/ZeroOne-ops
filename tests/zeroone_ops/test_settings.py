@@ -393,6 +393,37 @@ def test_settings_migrate_legacy_gitlab_target_branch_to_remediation_target_bran
     assert "Use `remediation.target_branch`" in caplog.text
 
 
+def test_settings_migrate_top_level_validation_commands_to_remediation(
+    tmp_path: Path,
+    monkeypatch,
+    caplog: LogCaptureFixture,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "validation_setup_commands": ["setup-validation"],
+          "validation_commands": ["run-validation"],
+          "remediation": {
+            "target_branch": "main"
+          },
+          "gitlab": {
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.remediation.validation_setup_commands == ["setup-validation"]
+    assert config.remediation.validation_commands == ["run-validation"]
+    assert "Deprecated top-level remediation config fields" in caplog.text
+
+
 def test_settings_allow_null_gitlab_block_for_github_platform(
     tmp_path: Path,
     monkeypatch,
@@ -469,7 +500,11 @@ def test_settings_allow_solution_artifact_ci_override(tmp_path: Path, monkeypatc
     assert config.write_solution_artifacts_in_ci is True
 
 
-def test_settings_load_helper_following_review_config(tmp_path: Path, monkeypatch) -> None:
+def test_settings_warn_for_deprecated_review_tuning_config(
+    tmp_path: Path,
+    monkeypatch,
+    caplog: LogCaptureFixture,
+) -> None:
     monkeypatch.chdir(tmp_path)
 
     (tmp_path / ".zeroone-ops.json").write_text(
@@ -504,6 +539,9 @@ def test_settings_load_helper_following_review_config(tmp_path: Path, monkeypatc
     assert config.review.max_followed_helper_lines == 80
     assert config.review.max_followed_helper_lines_per_review == 160
     assert config.review.inline_comments_enabled is False
+    assert "Deprecated review tuning fields are still supported" in caplog.text
+    assert "review.enable_helper_following" in caplog.text
+    assert "review.max_followed_helper_lines_per_review" in caplog.text
 
 
 def test_settings_load_inline_comments_review_flag(tmp_path: Path, monkeypatch) -> None:

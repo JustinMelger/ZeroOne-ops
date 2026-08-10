@@ -480,15 +480,6 @@ Example `examples/.zeroone-ops.json`:
   "branch_prefix": "zeroone-ops",
   "execution_mode": "ci",
   "dry_run": false,
-  "validation_setup_commands": [
-    "uv sync --group dev --locked"
-  ],
-  "validation_commands": [
-    "uv run pytest",
-    "uv run mypy src",
-    "uv run ruff check .",
-    "uv run ruff format --check ."
-  ],
   "approval": {
     "required": true
   },
@@ -501,6 +492,15 @@ Example `examples/.zeroone-ops.json`:
     "inline_comments_enabled": false
   },
   "remediation": {
+    "validation_setup_commands": [
+      "uv sync --group dev --locked"
+    ],
+    "validation_commands": [
+      "uv run pytest",
+      "uv run mypy src",
+      "uv run ruff check .",
+      "uv run ruff format --check ."
+    ],
     "bootstrap_severities": ["LOW", "MEDIUM", "HIGH"],
     "max_retry_count": 1,
     "analysis": {
@@ -530,17 +530,25 @@ Suggested top-level model:
 ```python
 class AppConfig(BaseModel):
     execution_mode: Literal["local", "ci"] = "ci"
+    platform: Literal["gitlab", "github"] = "gitlab"
     base_branch: str
-    branch_prefix: str = "ai-sonar"
+    branch_prefix: str = "zeroone-ops"
     dry_run: bool = False
-    max_retry_count: int = 1
-    bootstrap_severities: list[str]
-    bootstrap_severities: list[str]
-    validation_commands: list[str]
-    analysis: AnalysisConfig
     approval: ApprovalConfig
-    gitlab: GitLabConfig
+    review: ReviewConfig
+    remediation: RemediationConfig
+    gitlab: GitLabConfig | None = None
+    github: GitHubConfig | None = None
     state: StateConfig
+
+
+class RemediationConfig(BaseModel):
+    target_branch: str | None = None
+    validation_setup_commands: list[str]
+    validation_commands: list[str]
+    bootstrap_severities: list[str]
+    max_retry_count: int = 1
+    analysis: AnalysisConfig
 ```
 
 ## 8. Data Model Design

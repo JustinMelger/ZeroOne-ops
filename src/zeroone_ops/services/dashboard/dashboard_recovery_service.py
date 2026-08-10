@@ -10,6 +10,9 @@ from zeroone_ops.models.gitlab import GitLabIssueNote
 from zeroone_ops.models.remediation import is_remediation_eligible_category
 from zeroone_ops.models.state import utc_now
 from zeroone_ops.models.work_item import RecoveryEvent
+from zeroone_ops.services.control_plane.policy.gitlab_policy_note_authorization_service import (
+    GitLabPolicyNoteAuthorizationService,
+)
 from zeroone_ops.services.dashboard.dashboard_recovery_command_parser import (
     DashboardRecoveryCommandParser,
 )
@@ -18,9 +21,6 @@ from zeroone_ops.services.dashboard.dashboard_recovery_state import (
     dashboard_item_to_work_item_state,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
-from zeroone_ops.services.dashboard.gitlab_policy_note_authorization_service import (
-    GitLabPolicyNoteAuthorizationService,
-)
 from zeroone_ops.services.intake.finding_workflow_policy_service import (
     FindingWorkflowPolicyService,
 )

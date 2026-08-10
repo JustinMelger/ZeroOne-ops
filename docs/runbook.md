@@ -70,6 +70,8 @@ In practice, the main remediation rollout keys now are:
 - `remediation.max_retry_count`
 - `remediation.max_active_work_items`
 - `remediation.validation_feedback_enabled`
+- `remediation.validation_setup_commands`
+- `remediation.validation_commands`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
 - `sarif.artifacts`

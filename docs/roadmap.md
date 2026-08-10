@@ -23,10 +23,17 @@ history, not here.
 - GitHub and GitLab issue control planes: policy issue, authoritative work-item
   issues, recovery commands, lifecycle reconciliation, and derived operational
   summaries
+- live-validated GitLab issue-mode policy, remediation, recovery, lifecycle,
+  dismissal suppression, blocked-work handling, stale-claim recovery, and the
+  derived operational summary
 - shared remediation execution, validation setup/check commands, provider-local
   change-request publishing, and bounded branch naming
-- shared promotion capacity for issue-mode repositories, with a configurable
-  active-work limit and aggregate capacity backlog visibility
+- opt-in baseline-aware validation feedback: preserved baseline failures,
+  one-file correction feedback, compact work-item evidence, and provider-native
+  change-request validation summaries
+- live-validated shared promotion capacity for GitHub and GitLab issue-mode
+  repositories, with a configurable active-work limit and aggregate capacity
+  backlog visibility
 - GitHub live validation from Ruff finding to remediation pull request, review
   projection, merge, and terminal work-item closure
 - GitLab/GitHub closed-unmerged convergence: preserve traceability, block
@@ -43,33 +50,11 @@ history, not here.
 - design: [functional recovery contract](docs/design/functional/functional-design-remediation-recovery.md)
   and [technical implementation plan](docs/design/technical/technical-design-remediation-recovery.md)
 
-### Phase 8: GitLab Issue-Mode Rollout
-
-- [ ] live-validate the GitLab operational summary alongside issue-mode policy,
-  remediation, recovery, lifecycle, dismissal suppression, blocked work, and
-  stale-claim recovery in two repositories
-- [ ] after each repository cutover, label and close its legacy dashboard while
-  preserving it as readable history without competing authority
-- design: [functional control-plane design](docs/design/functional/functional-design-gitlab-issue-control-plane.md)
-  and [technical implementation plan](docs/design/technical/technical-design-gitlab-issue-control-plane.md#phase-8e-operational-summary-implementation-plan)
-
-### Promotion Capacity Validation
-
-- [ ] live-validate a small capacity in one GitHub and one GitLab issue-mode
-  repository: confirm the queue stays bounded, a completed item frees a slot,
-  and capacity deferrals appear only as aggregate backlog counts
-
 ### Phase 9: Validation Feedback Loop
 
-- [ ] add opt-in baseline capture for configured validation commands while
-  preserving the current flow when disabled
-- [ ] classify post-edit validation as clean, baseline-preserved,
-  edited-file regression, or unscoped regression
-- [ ] feed bounded, edited-file-relevant diagnostics into one corrected-patch
-  generation pass while keeping the repair boundary to the original target and
-  one file
-- [ ] persist concise validation outcome evidence on GitHub and GitLab work
-  items and live-validate the four outcomes
+- [ ] live-validate the opt-in loop in one GitHub and one GitLab issue-mode
+  repository: clean validation, preserved baseline, corrected edited-file
+  regression, and unscoped-regression blocking
 - design: [functional validation feedback contract](docs/design/functional/functional-design-remediation-validation-feedback.md)
   and [technical implementation plan](docs/design/technical/technical-design-remediation-validation-feedback.md)
 
@@ -77,6 +62,18 @@ history, not here.
 
 - [ ] live-validate same-SHA review-projection repair after a recoverable
   projection warning
+
+### Runner Composition Cleanup
+
+- [x] extract shared run context, lazy provider builders, derived operational
+  summary composition, and GitLab combined control-plane sequencing while
+  retaining current public runner entrypoints
+- [ ] extract GitHub/GitLab finding-sync orchestration into focused workflow
+  composition, retaining explicit legacy GitLab dashboard routing
+- [ ] extract remediation, recovery, and work-item lifecycle orchestration into
+  focused workflow composition without changing provider-local behavior
+- [ ] extract policy orchestration and review the remaining `runner.py` entry
+  points; retain only stable public routing and shared CLI-facing summaries
 
 ## Parked For Later
 
@@ -89,8 +86,6 @@ history, not here.
 - broader dashboard/history presentation improvements after operator usage
   establishes the need
 - retire GitLab dashboard mode after two maintenance-only minor releases
-- reduce runner composition duplication through a workflow context/factory when
-  it improves clarity without changing behavior
 - move remediation validation setup/check commands into a remediation-owned
   configuration block after rollout feedback confirms the current contract
 

@@ -17,6 +17,9 @@ from zeroone_ops.models.dashboard import (
 from zeroone_ops.models.gitlab import GitLabIssueNote
 from zeroone_ops.models.policy import PolicyCommentSource
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
+from zeroone_ops.services.control_plane.policy.gitlab_policy_note_authorization_service import (
+    GitLabPolicyNoteAuthorizationService,
+)
 from zeroone_ops.services.control_plane.policy.policy_processing_service import (
     PolicyProcessingResult,
     PolicyProcessingService,
@@ -31,9 +34,6 @@ from zeroone_ops.services.dashboard.dashboard_policy_service import (
     DashboardPolicyViewBuilderProtocol,
 )
 from zeroone_ops.services.dashboard.dashboard_renderer import DashboardRenderer
-from zeroone_ops.services.dashboard.gitlab_policy_note_authorization_service import (
-    GitLabPolicyNoteAuthorizationService,
-)
 
 DEFAULT_SECTION_ITEM_LIMITS: dict[DashboardSectionKey, int] = {
     "open_candidates": 50,

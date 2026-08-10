@@ -125,6 +125,16 @@ def test_dashboard_sonar_warns_about_the_canonical_findings_command(
     assert "Use `zeroone-ops findings sync`" in result.output
 
 
+def test_dashboard_help_marks_legacy_aliases_as_deprecated() -> None:
+    result = _RUNNER.invoke(app, ["dashboard", "--help"])
+
+    assert result.exit_code == 0
+    assert "sonar" in result.output
+    assert "remediate" in result.output
+    assert "reconcile" in result.output
+    assert "deprecated" in result.output.lower()
+
+
 def test_dashboard_reconcile_warns_about_the_canonical_lifecycle_command(
     monkeypatch: MonkeyPatch,
 ) -> None:

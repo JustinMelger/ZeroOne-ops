@@ -97,6 +97,48 @@ def _warn_deprecated_config_fields(data: dict[str, Any]) -> None:
                 replacement,
             )
 
+    deprecated_top_level_remediation_fields = (
+        "validation_setup_commands",
+        "validation_commands",
+    )
+    configured_top_level_remediation_fields = [
+        field for field in deprecated_top_level_remediation_fields if field in data
+    ]
+    if configured_top_level_remediation_fields:
+        LOGGER.warning(
+            "Deprecated top-level remediation config fields are still supported: %s. "
+            "Use remediation.validation_setup_commands and remediation.validation_commands "
+            "instead; the top-level fields will be removed in a future major release.",
+            ", ".join(configured_top_level_remediation_fields),
+        )
+
+    review_data = data.get("review")
+    if not isinstance(review_data, dict):
+        return
+    deprecated_review_fields = (
+        "max_context_lines_before",
+        "max_context_lines_after",
+        "enable_function_context",
+        "max_function_context_lines",
+        "enable_helper_following",
+        "log_helper_following",
+        "helper_follow_depth",
+        "max_followed_helpers_per_function",
+        "max_followed_helper_lines",
+        "max_followed_helper_lines_per_review",
+        "max_review_feedback_retries",
+    )
+    configured_fields = [
+        f"review.{field}" for field in deprecated_review_fields if field in review_data
+    ]
+    if configured_fields:
+        LOGGER.warning(
+            "Deprecated review tuning fields are still supported: %s. "
+            "Remove them from configuration; stable internal defaults will replace them "
+            "in a future major release.",
+            ", ".join(configured_fields),
+        )
+
 
 def load_config() -> AppConfig:
     """Load and validate application configuration.

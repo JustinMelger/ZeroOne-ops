@@ -9,14 +9,6 @@
   "write_solution_artifacts_in_ci": false,
   "mock_llm_analysis_path": "fixtures/llm/analysis.json",
   "mock_llm_edit_path": "fixtures/llm/edit.json",
-  "validation_setup_commands": [
-    "uv sync --all-groups --locked"
-  ],
-  "validation_commands": [
-    "uv run ruff check .",
-    "uv run ruff format --check .",
-    "uv run mypy src"
-  ],
   "approval": {
     "required": true
   },
@@ -34,6 +26,14 @@
   },
   "remediation": {
     "target_branch": "main",
+    "validation_setup_commands": [
+      "uv sync --all-groups --locked"
+    ],
+    "validation_commands": [
+      "uv run ruff check .",
+      "uv run ruff format --check .",
+      "uv run mypy src"
+    ],
     "bootstrap_severities": ["LOW"],
     "max_retry_count": 1,
     "validation_feedback_enabled": false,

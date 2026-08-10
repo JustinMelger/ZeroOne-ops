@@ -239,6 +239,8 @@ For example:
 - `remediation.max_active_work_items`
 - `remediation.validation_feedback_enabled`
 - `remediation.target_branch`
+- `remediation.validation_setup_commands`
+- `remediation.validation_commands`
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
 - `sarif.artifacts`
@@ -253,9 +255,10 @@ repository when using GitHub or GitLab issue control planes. It defaults to
 limit. Deferred findings remain visible through aggregate backlog counts.
 
 The supported compatibility fields `review.platform`, `gitlab.target_branch`,
-and `remediation.supported_severities` emit non-blocking CI warnings with their
-replacement fields. They have no fixed removal version and should not be used
-in new configuration.
+`remediation.supported_severities`, `validation_setup_commands`, and
+`validation_commands` emit non-blocking CI warnings with their replacement
+fields. They have no fixed removal version and should not be used in new
+configuration.
 
 To test the real OpenAI path instead of local fixtures:
 

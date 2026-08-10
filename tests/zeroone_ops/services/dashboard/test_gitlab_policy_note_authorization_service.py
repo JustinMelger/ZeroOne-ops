@@ -2,7 +2,7 @@
 
 from zeroone_ops.models.gitlab import GitLabIssueNote
 from zeroone_ops.providers.gitlab_client import GitLabClientError
-from zeroone_ops.services.dashboard.gitlab_policy_note_authorization_service import (
+from zeroone_ops.services.control_plane.policy.gitlab_policy_note_authorization_service import (
     GitLabPolicyNoteAuthorizationService,
 )
 

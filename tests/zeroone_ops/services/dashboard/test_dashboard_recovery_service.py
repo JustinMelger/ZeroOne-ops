@@ -8,13 +8,13 @@ from zeroone_ops.models.dashboard import (
     DashboardSeverityPolicyStateEntry,
 )
 from zeroone_ops.models.gitlab import GitLabIssueNote
+from zeroone_ops.services.control_plane.policy.gitlab_policy_note_authorization_service import (
+    GitLabPolicyNoteAuthorizationService,
+)
 from zeroone_ops.services.dashboard.dashboard_recovery_service import (
     DashboardRecoveryService,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
-from zeroone_ops.services.dashboard.gitlab_policy_note_authorization_service import (
-    GitLabPolicyNoteAuthorizationService,
-)
 
 
 class FakeDashboardClient:

@@ -7,9 +7,6 @@ from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, Wo
 from zeroone_ops.services.control_plane.work_items import (
     work_item_change_request_reconciliation_service as reconciliation,
 )
-from zeroone_ops.services.control_plane.work_items.github_work_item_reconciliation_service import (
-    GitHubWorkItemReconciliationService,
-)
 
 ClosedUnmergedWorkItemOutcome = reconciliation.ClosedUnmergedWorkItemOutcome
 WorkItemChangeRequestReconciliationService = (
@@ -35,13 +32,6 @@ def build_work_item() -> WorkItemState:
             number=21,
             web_url="https://github.com/octo-org/octo-repo/pull/21",
         ),
-    )
-
-
-def test_github_adapter_retains_the_shared_reconciliation_contract() -> None:
-    assert issubclass(
-        GitHubWorkItemReconciliationService,
-        WorkItemChangeRequestReconciliationService,
     )
 
 

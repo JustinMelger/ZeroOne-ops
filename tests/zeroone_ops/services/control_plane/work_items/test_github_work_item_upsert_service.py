@@ -7,11 +7,11 @@ from zeroone_ops.models.work_item import (
     RecoveryEvent,
     WorkItemExecutionFailure,
 )
+from zeroone_ops.services.control_plane.work_items import (
+    work_item_change_request_reconciliation_service as reconciliation,
+)
 from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
     GitHubWorkItemLookupService,
-)
-from zeroone_ops.services.control_plane.work_items.github_work_item_reconciliation_service import (
-    GitHubWorkItemReconciliationService,
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_renderer import (
     GitHubWorkItemRenderer,
@@ -310,7 +310,7 @@ def test_upsert_persists_explicit_link_clear_from_reconciliation() -> None:
         client,
         lookup_service=GitHubWorkItemLookupService(client),
     )
-    reconciled = GitHubWorkItemReconciliationService().reconcile(
+    reconciled = reconciliation.WorkItemChangeRequestReconciliationService().reconcile(
         work_item=original,
         change_request_state=type(
             "State",

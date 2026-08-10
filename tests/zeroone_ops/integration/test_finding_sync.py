@@ -107,7 +107,10 @@ def test_publish_github_operational_summary_projects_finding_sync_observation(
             return []
 
     issue_client = FakeIssueClient()
-    monkeypatch.setattr("zeroone_ops.runner.GitHubPolicyClient", lambda config: issue_client)
+    monkeypatch.setattr(
+        "zeroone_ops.services.workflows.operational_summary.GitHubPolicyClient",
+        lambda config: issue_client,
+    )
 
     publication = _publish_github_operational_summary(
         github_config=GitHubConnectionConfig(
@@ -159,7 +162,7 @@ def test_publish_github_operational_summary_ignores_transport_failure(monkeypatc
             return []
 
     monkeypatch.setattr(
-        "zeroone_ops.runner.GitHubPolicyClient",
+        "zeroone_ops.services.workflows.operational_summary.GitHubPolicyClient",
         lambda config: FailingIssueClient(),
     )
 
@@ -240,7 +243,10 @@ def test_publish_gitlab_operational_summary_projects_observation_and_is_best_eff
             return []
 
     issue_client = FakeIssueClient()
-    monkeypatch.setattr("zeroone_ops.runner.GitLabWorkItemClient", lambda config: issue_client)
+    monkeypatch.setattr(
+        "zeroone_ops.services.workflows.operational_summary.GitLabWorkItemClient",
+        lambda config: issue_client,
+    )
     config = GitLabConnectionConfig(
         url="https://gitlab.example.com",
         token="token",
@@ -273,7 +279,7 @@ def test_publish_gitlab_operational_summary_projects_observation_and_is_best_eff
     assert "- Findings: `3`" in publication.issue.description
 
     monkeypatch.setattr(
-        "zeroone_ops.runner.GitLabWorkItemClient",
+        "zeroone_ops.services.workflows.operational_summary.GitLabWorkItemClient",
         lambda config: _FailingGitLabIssueClient(),
     )
     assert (
@@ -590,7 +596,7 @@ def test_recover_work_item_routes_gitlab_issue_mode_to_polling_runner(
 
     monkeypatch.setattr("zeroone_ops.runner.GitLabWorkItemRecoveryRunner.run", run)
     monkeypatch.setattr(
-        "zeroone_ops.runner._build_gitlab_policy_issue_service",
+        "zeroone_ops.runner.build_gitlab_policy_issue_service",
         lambda **kwargs: type(
             "PolicyService",
             (),
