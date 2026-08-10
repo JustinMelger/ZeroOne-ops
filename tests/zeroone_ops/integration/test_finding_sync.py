@@ -8,9 +8,6 @@ from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.gitlab import GitLabIssueInfo
 from zeroone_ops.models.state import RunStatus
 from zeroone_ops.runner import (
-    _build_finding_sync_observation,
-    _publish_github_operational_summary,
-    _publish_gitlab_operational_summary,
     recover_work_item,
     run_remediation,
     sync_findings,
@@ -32,6 +29,11 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_lifecycle_se
     GitLabWorkItemLifecycleResult,
 )
 from zeroone_ops.services.shared.run_summary_builder import RunSummary
+from zeroone_ops.services.workflows.operational_summary import (
+    build_finding_sync_observation,
+    publish_github_operational_summary,
+    publish_gitlab_operational_summary,
+)
 
 
 def _unset_sonarqube_environment(monkeypatch) -> None:
@@ -112,7 +114,7 @@ def test_publish_github_operational_summary_projects_finding_sync_observation(
         lambda config: issue_client,
     )
 
-    publication = _publish_github_operational_summary(
+    publication = publish_github_operational_summary(
         github_config=GitHubConnectionConfig(
             api_url="https://api.github.example.com",
             server_url="https://github.example.com",
@@ -120,7 +122,7 @@ def test_publish_github_operational_summary_projects_finding_sync_observation(
             repository="octo-org/octo-repo",
         ),
         work_item_service=FakeWorkItemService(),  # type: ignore[arg-type]
-        latest_finding_sync=_build_finding_sync_observation(
+        latest_finding_sync=build_finding_sync_observation(
             GitHubFindingSyncResult(
                 promoted_count=2,
                 backlog_only_count=3,
@@ -166,7 +168,7 @@ def test_publish_github_operational_summary_ignores_transport_failure(monkeypatc
         lambda config: FailingIssueClient(),
     )
 
-    publication = _publish_github_operational_summary(
+    publication = publish_github_operational_summary(
         github_config=GitHubConnectionConfig(
             api_url="https://api.github.example.com",
             server_url="https://github.example.com",
@@ -252,10 +254,10 @@ def test_publish_gitlab_operational_summary_projects_observation_and_is_best_eff
         token="token",
         project_id="123",
     )
-    publication = _publish_gitlab_operational_summary(
+    publication = publish_gitlab_operational_summary(
         gitlab_config=config,
         work_item_service=FakeWorkItemService(),  # type: ignore[arg-type]
-        latest_finding_sync=_build_finding_sync_observation(
+        latest_finding_sync=build_finding_sync_observation(
             GitLabFindingSyncResult(
                 promoted_count=2,
                 backlog_only_count=1,
@@ -283,7 +285,7 @@ def test_publish_gitlab_operational_summary_projects_observation_and_is_best_eff
         lambda config: _FailingGitLabIssueClient(),
     )
     assert (
-        _publish_gitlab_operational_summary(
+        publish_gitlab_operational_summary(
             gitlab_config=config,
             work_item_service=FakeWorkItemService(),  # type: ignore[arg-type]
             latest_finding_sync=None,

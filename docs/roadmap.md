@@ -68,7 +68,7 @@ history, not here.
 - [x] extract shared run context, lazy provider builders, derived operational
   summary composition, and GitLab combined control-plane sequencing while
   retaining current public runner entrypoints
-- [ ] extract GitHub/GitLab finding-sync orchestration into focused workflow
+- [x] extract GitHub/GitLab finding-sync orchestration into focused workflow
   composition, retaining explicit legacy GitLab dashboard routing
 - [ ] extract remediation, recovery, and work-item lifecycle orchestration into
   focused workflow composition without changing provider-local behavior
