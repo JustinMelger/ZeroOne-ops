@@ -1,6 +1,8 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from pytest import MonkeyPatch
+
 from zeroone_ops.models.analysis import (
     CodeContextSnippet,
     IssueContext,
@@ -1005,7 +1007,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
 
 def test_dashboard_reconcile_ci_blocks_item_when_merge_request_was_closed(
     tmp_path: Path,
-    monkeypatch,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
