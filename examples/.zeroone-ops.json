@@ -7,14 +7,6 @@
   "apply_patch_in_dry_run": false,
   "openai_solution_output_path": "artifacts/openai-solution.json",
   "write_solution_artifacts_in_ci": false,
-  "validation_setup_commands": [
-    "uv sync --all-groups --locked"
-  ],
-  "validation_commands": [
-    "uv run ruff check .",
-    "uv run ruff format --check .",
-    "uv run mypy src"
-  ],
   "approval": {
     "required": true
   },
@@ -41,6 +33,14 @@
   },
   "remediation": {
     "target_branch": "main",
+    "validation_setup_commands": [
+      "uv sync --all-groups --locked"
+    ],
+    "validation_commands": [
+      "uv run ruff check .",
+      "uv run ruff format --check .",
+      "uv run mypy src"
+    ],
     "max_active_work_items": 10,
     "bootstrap_severities": ["LOW"],
     "max_retry_count": 1,

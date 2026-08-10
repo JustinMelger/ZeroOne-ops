@@ -41,11 +41,11 @@ def build_config(
 ) -> AppConfig:
     return AppConfig(
         base_branch="main",
-        validation_setup_commands=validation_setup_commands or [],
-        validation_commands=validation_commands or [],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
             bootstrap_severities=["LOW"],
+            validation_setup_commands=validation_setup_commands or [],
+            validation_commands=validation_commands or [],
             max_retry_count=max_retry_count,
             validation_feedback_enabled=validation_feedback_enabled,
             analysis=AnalysisConfig(),

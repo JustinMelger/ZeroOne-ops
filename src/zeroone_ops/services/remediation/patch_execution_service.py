@@ -103,7 +103,10 @@ class PatchExecutionService:
                 workspace_snapshot=None,
                 failure=bootstrap_failure,
             )
-        if self.config.remediation.validation_feedback_enabled and self.config.validation_commands:
+        if (
+            self.config.remediation.validation_feedback_enabled
+            and self.config.remediation.validation_commands
+        ):
             return self._execute_with_validation_feedback(
                 dry_run=dry_run,
                 patch=patch,
@@ -135,7 +138,7 @@ class PatchExecutionService:
                     ),
                 )
 
-            validation_result = self.validator.run(self.config.validation_commands)
+            validation_result = self.validator.run(self.config.remediation.validation_commands)
             if validation_result.passed:
                 mode_label = "dry-run" if dry_run else "run"
                 success_summary = (
@@ -220,7 +223,7 @@ class PatchExecutionService:
     ) -> PatchExecutionResult:
         """Run the opt-in baseline-aware one-file validation feedback loop."""
         baseline = ValidationBaselineService(self.validator).capture(
-            self.config.validation_commands
+            self.config.remediation.validation_commands
         )
         comparison_service = ValidationComparisonService()
         feedback_builder = ValidationFeedbackBuilder()
@@ -248,7 +251,7 @@ class PatchExecutionService:
                     ),
                 )
 
-            post_edit = self.validator.run_all(self.config.validation_commands)
+            post_edit = self.validator.run_all(self.config.remediation.validation_commands)
             comparison = comparison_service.compare(
                 baseline=baseline,
                 post_edit=post_edit,
@@ -337,9 +340,12 @@ class PatchExecutionService:
 
     def _bootstrap_validation_environment(self) -> FailureDetails | None:
         """Prepare configured validation tooling once before patch execution."""
-        if not self.config.validation_commands or not self.config.validation_setup_commands:
+        if (
+            not self.config.remediation.validation_commands
+            or not self.config.remediation.validation_setup_commands
+        ):
             return None
-        setup_result = self.validator.run(self.config.validation_setup_commands)
+        setup_result = self.validator.run(self.config.remediation.validation_setup_commands)
         if not setup_result.passed:
             failed_command = setup_result.results[-1] if setup_result.results else None
             return _build_validation_bootstrap_failure(

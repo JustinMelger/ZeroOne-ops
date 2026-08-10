@@ -3,14 +3,6 @@
   "platform": "github",
   "base_branch": "main",
   "branch_prefix": "zeroone-ops",
-  "validation_setup_commands": [
-    "uv sync --all-groups --locked"
-  ],
-  "validation_commands": [
-    "uv run ruff check .",
-    "uv run ruff format --check .",
-    "uv run mypy src"
-  ],
   "review": {
     "max_changed_files": 10,
     "max_findings_per_review": 3,
@@ -22,6 +14,14 @@
   },
   "remediation": {
     "target_branch": "main",
+    "validation_setup_commands": [
+      "uv sync --all-groups --locked"
+    ],
+    "validation_commands": [
+      "uv run ruff check .",
+      "uv run ruff format --check .",
+      "uv run mypy src"
+    ],
     "max_active_work_items": 10,
     "validation_feedback_enabled": false,
     "bootstrap_severities": ["medium", "high"]

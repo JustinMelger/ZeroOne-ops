@@ -95,7 +95,7 @@ def review_command(
     _echo_review_summary(dry_run=dry_run)
 
 
-@dashboard_app.command("sonar")
+@dashboard_app.command("sonar", deprecated=True)
 def dashboard_sonar_command(
     dry_run: bool = typer.Option(False, "--dry-run", help="Run without updating the dashboard."),
 ) -> None:
@@ -117,7 +117,7 @@ def findings_sync_command(
     _echo_summary(sync_findings(dry_run=dry_run))
 
 
-@dashboard_app.command("remediate")
+@dashboard_app.command("remediate", deprecated=True)
 def dashboard_remediate_command(
     dry_run: bool = typer.Option(False, "--dry-run", help="Run without publishing remediation."),
 ) -> None:
@@ -178,7 +178,7 @@ def work_items_recover_command(
     _echo_summary(recover_work_item(dry_run=dry_run))
 
 
-@dashboard_app.command("reconcile")
+@dashboard_app.command("reconcile", deprecated=True)
 def dashboard_reconcile_command(
     dry_run: bool = typer.Option(
         False,

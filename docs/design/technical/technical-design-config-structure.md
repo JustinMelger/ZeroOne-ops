@@ -143,10 +143,9 @@ live repo adoption:
 - `apply_patch_in_dry_run`
 - `write_solution_artifacts_in_ci`
 - `openai_solution_output_path`
-- `validation_commands`
 - `gitlab`
+- `github`
 - `state`
-- `analysis`
 - `approval`
 
 ### Keep in `review`
@@ -158,6 +157,11 @@ live repo adoption:
 Recommended first fields:
 
 - `bootstrap_severities`
+- `target_branch`
+- `max_retry_count`
+- `validation_setup_commands`
+- `validation_commands`
+- `analysis`
 - `max_retry_count`
 - `analysis`
 
@@ -214,17 +218,6 @@ Why:
   "base_branch": "main",
   "branch_prefix": "zeroone-ops",
   "dry_run": false,
-  "validation_setup_commands": [
-    "uv sync --group dev --locked"
-  ],
-  "validation_commands": [
-    "uv run pytest",
-    "uv run mypy src",
-    "uv run ruff check ."
-  ],
-  "remediation": {
-    "target_branch": "main"
-  },
   "gitlab": {
     "labels": ["zeroone-ops", "sonarqube"],
     "merge_request_assignee_username": "justin"
@@ -257,6 +250,15 @@ Why:
     "inline_comments_enabled": false
   },
   "remediation": {
+    "target_branch": "main",
+    "validation_setup_commands": [
+      "uv sync --group dev --locked"
+    ],
+    "validation_commands": [
+      "uv run pytest",
+      "uv run mypy src",
+      "uv run ruff check ."
+    ],
     "bootstrap_severities": ["LOW", "MEDIUM", "HIGH"],
     "max_retry_count": 1,
     "analysis": {
