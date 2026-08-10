@@ -23,13 +23,17 @@ history, not here.
 - GitHub and GitLab issue control planes: policy issue, authoritative work-item
   issues, recovery commands, lifecycle reconciliation, and derived operational
   summaries
+- live-validated GitLab issue-mode policy, remediation, recovery, lifecycle,
+  dismissal suppression, blocked-work handling, stale-claim recovery, and the
+  derived operational summary
 - shared remediation execution, validation setup/check commands, provider-local
   change-request publishing, and bounded branch naming
 - opt-in baseline-aware validation feedback: preserved baseline failures,
   one-file correction feedback, compact work-item evidence, and provider-native
   change-request validation summaries
-- shared promotion capacity for issue-mode repositories, with a configurable
-  active-work limit and aggregate capacity backlog visibility
+- live-validated shared promotion capacity for GitHub and GitLab issue-mode
+  repositories, with a configurable active-work limit and aggregate capacity
+  backlog visibility
 - GitHub live validation from Ruff finding to remediation pull request, review
   projection, merge, and terminal work-item closure
 - GitLab/GitHub closed-unmerged convergence: preserve traceability, block
@@ -45,22 +49,6 @@ history, not here.
   GitLab
 - design: [functional recovery contract](docs/design/functional/functional-design-remediation-recovery.md)
   and [technical implementation plan](docs/design/technical/technical-design-remediation-recovery.md)
-
-### Phase 8: GitLab Issue-Mode Rollout
-
-- [ ] live-validate the GitLab operational summary alongside issue-mode policy,
-  remediation, recovery, lifecycle, dismissal suppression, blocked work, and
-  stale-claim recovery in two repositories
-- [ ] after each repository cutover, label and close its legacy dashboard while
-  preserving it as readable history without competing authority
-- design: [functional control-plane design](docs/design/functional/functional-design-gitlab-issue-control-plane.md)
-  and [technical implementation plan](docs/design/technical/technical-design-gitlab-issue-control-plane.md#phase-8e-operational-summary-implementation-plan)
-
-### Promotion Capacity Validation
-
-- [ ] live-validate a small capacity in one GitHub and one GitLab issue-mode
-  repository: confirm the queue stays bounded, a completed item frees a slot,
-  and capacity deferrals appear only as aggregate backlog counts
 
 ### Phase 9: Validation Feedback Loop
 
