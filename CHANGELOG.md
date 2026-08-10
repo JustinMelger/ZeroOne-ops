@@ -5,6 +5,21 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.54.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.53.0...zeroone-ops-v0.54.0) (2026-08-10)
+
+
+### Features
+
+* **control-plane:** add GitLab operational summary ([#320](https://github.com/JustinMelger/ZeroOne-ops/issues/320)) ([9940c5a](https://github.com/JustinMelger/ZeroOne-ops/commit/9940c5adc72449e1df0140e33202dbd6cb5cca89))
+* **control-plane:** promotion capacity ([#324](https://github.com/JustinMelger/ZeroOne-ops/issues/324)) ([66710e3](https://github.com/JustinMelger/ZeroOne-ops/commit/66710e3125fd2a37057af81e104bd7d4d1bb67b0))
+* **remediation:** link published changes to work items ([#331](https://github.com/JustinMelger/ZeroOne-ops/issues/331)) ([e1fadc5](https://github.com/JustinMelger/ZeroOne-ops/commit/e1fadc57d85ad7f07d8efbe7860c600778ceaba8))
+* **remediation:** validation feedback loop ([#336](https://github.com/JustinMelger/ZeroOne-ops/issues/336)) ([8c50670](https://github.com/JustinMelger/ZeroOne-ops/commit/8c50670d733a5e98648aa9efb2a97f9ad8e4d719))
+
+
+### Bug Fixes
+
+* **review:** project GitLab notes without web URLs ([#323](https://github.com/JustinMelger/ZeroOne-ops/issues/323)) ([e7d6b0d](https://github.com/JustinMelger/ZeroOne-ops/commit/e7d6b0d0c63acf4165ddc2f1af8e025b3efdb054))
+
 ## [0.53.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.52.0...zeroone-ops-v0.53.0) (2026-08-08)
 
 
