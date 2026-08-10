@@ -413,8 +413,14 @@ def test_github_remediation_refreshes_operational_summary_after_execution(
             action="updated",
         )
 
-    monkeypatch.setattr("zeroone_ops.runner.GitHubRemediationRunner", StubGitHubRemediationRunner)
-    monkeypatch.setattr("zeroone_ops.runner._publish_github_operational_summary", publish_summary)
+    monkeypatch.setattr(
+        "zeroone_ops.services.workflows.remediation_workflow.GitHubRemediationRunner",
+        StubGitHubRemediationRunner,
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.runner._publish_github_operational_summary",
+        publish_summary,
+    )
 
     summary = run_remediation()
 

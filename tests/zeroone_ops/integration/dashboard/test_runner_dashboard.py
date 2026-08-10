@@ -1989,7 +1989,10 @@ def test_run_remediation_routes_github_to_provider_local_runner(
                 state_path=tmp_path / ".zeroone-ops-state.json",
             )
 
-    monkeypatch.setattr("zeroone_ops.runner.GitHubRemediationRunner", StubGitHubRemediationRunner)
+    monkeypatch.setattr(
+        "zeroone_ops.services.workflows.remediation_workflow.GitHubRemediationRunner",
+        StubGitHubRemediationRunner,
+    )
 
     summary = run_remediation(dry_run=False)
     assert summary.status.value == "no_issue"
@@ -2040,7 +2043,10 @@ def test_run_remediation_routes_gitlab_issue_mode_to_provider_local_runner(
                 state_path=tmp_path / ".zeroone-ops-state.json",
             )
 
-    monkeypatch.setattr("zeroone_ops.runner.GitLabRemediationRunner", StubGitLabRemediationRunner)
+    monkeypatch.setattr(
+        "zeroone_ops.services.workflows.remediation_workflow.GitLabRemediationRunner",
+        StubGitLabRemediationRunner,
+    )
 
     summary = run_remediation(dry_run=False)
 
