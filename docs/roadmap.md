@@ -38,6 +38,8 @@ history, not here.
   projection, merge, and terminal work-item closure
 - GitLab/GitHub closed-unmerged convergence: preserve traceability, block
   automatic retries, and require a later explicit operator recovery action
+- runner composition split into focused finding-sync, remediation, recovery,
+  lifecycle, policy, and review workflows while preserving public commands
 - MLflow tracing support, Ruff pre-commit checks, and current CI workflows
 - copyable GitHub Actions and GitLab CI control-plane installation templates
 
@@ -50,7 +52,7 @@ history, not here.
 - design: [functional recovery contract](docs/design/functional/functional-design-remediation-recovery.md)
   and [technical implementation plan](docs/design/technical/technical-design-remediation-recovery.md)
 
-### Phase 9: Validation Feedback Loop
+### Phase 9: Validation Feedback Rollout
 
 - [ ] live-validate the opt-in loop in one GitHub and one GitLab issue-mode
   repository: clean validation, preserved baseline, corrected edited-file
@@ -62,20 +64,6 @@ history, not here.
 
 - [ ] live-validate same-SHA review-projection repair after a recoverable
   projection warning
-
-### Runner Composition Cleanup
-
-- [x] extract shared run context, lazy provider builders, derived operational
-  summary composition, and GitLab combined control-plane sequencing while
-  retaining current public runner entrypoints
-- [x] extract GitHub/GitLab finding-sync orchestration into focused workflow
-  composition, retaining explicit legacy GitLab dashboard routing
-- [x] extract remediation orchestration into focused workflow composition
-  without changing provider-local behavior
-- [x] extract recovery and work-item lifecycle orchestration into focused
-  workflow composition without changing provider-local behavior
-- [ ] extract policy orchestration and review the remaining `runner.py` entry
-  points; retain only stable public routing and shared CLI-facing summaries
 
 ## Parked For Later
 

@@ -43,6 +43,7 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_service impo
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
 )
+from zeroone_ops.settings import load_gitlab_connection_config
 
 LOGGER = logging.getLogger(__name__)
 
@@ -112,6 +113,17 @@ def publish_gitlab_operational_summary(
             exc_info=True,
         )
         return None
+
+
+def refresh_gitlab_operational_summary() -> str:
+    """Refresh the current GitLab issue-mode overview at the composition boundary."""
+    gitlab_config = load_gitlab_connection_config()
+    publication = publish_gitlab_operational_summary(
+        gitlab_config=gitlab_config,
+        work_item_service=GitLabWorkItemService(GitLabWorkItemClient(gitlab_config)),
+        latest_finding_sync=None,
+    )
+    return format_operational_summary_publication(publication)
 
 
 class FindingSyncObservationResult(Protocol):
