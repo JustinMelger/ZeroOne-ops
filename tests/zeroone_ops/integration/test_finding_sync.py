@@ -505,7 +505,8 @@ def test_work_item_status_dry_run_does_not_load_finding_inventory(
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.runner.GitHubWorkItemLifecycleService.reconcile",
+        "zeroone_ops.services.workflows.work_item_lifecycle_workflow."
+        "GitHubWorkItemLifecycleService.reconcile",
         reconcile,
     )
     summary = sync_work_item_status(dry_run=True)
@@ -557,7 +558,8 @@ def test_work_item_status_routes_gitlab_issue_mode_to_lifecycle_service(
         )
 
     monkeypatch.setattr(
-        "zeroone_ops.runner.GitLabWorkItemLifecycleService.reconcile",
+        "zeroone_ops.services.workflows.work_item_lifecycle_workflow."
+        "GitLabWorkItemLifecycleService.reconcile",
         reconcile,
     )
 
@@ -645,7 +647,8 @@ def test_work_item_status_refreshes_operational_summary_after_live_reconciliatio
     )
 
     monkeypatch.setattr(
-        "zeroone_ops.runner.GitHubWorkItemLifecycleService.reconcile",
+        "zeroone_ops.services.workflows.work_item_lifecycle_workflow."
+        "GitHubWorkItemLifecycleService.reconcile",
         lambda self, **kwargs: GitHubWorkItemLifecycleResult(
             recovered_stale_claim_count=0,
             demoted_to_candidate_count=0,
