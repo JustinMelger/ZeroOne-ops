@@ -72,6 +72,10 @@ history, not here.
 - [ ] persist and render compact execution evidence for bot-dismissed work
   items on GitHub and GitLab: decision summary, stage, run reference, and safe
   recovery guidance without copying raw model or command output into the issue
+- [ ] make remediation branch and change-request prefixes reflect normalized
+  remediation intent: keep `fix` for behavioral defects, use an appropriate
+  neutral prefix for test, typing, lint, or maintenance-only edits, and define
+  a stable fallback without deriving commit semantics from raw source wording
 
 ### Finding Intake Resilience
 
