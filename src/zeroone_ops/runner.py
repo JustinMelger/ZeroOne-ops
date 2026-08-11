@@ -50,18 +50,9 @@ from zeroone_ops.services.dashboard.dashboard_recovery_runner import (
     DashboardRecoveryRunner,
 )
 from zeroone_ops.services.dashboard.dashboard_recovery_service import DashboardRecoveryService
-from zeroone_ops.services.dashboard.dashboard_remediation_runner import (
-    DashboardRemediationRunner,
-)
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 from zeroone_ops.services.intake.finding_workflow_policy_service import (
     FindingWorkflowPolicyService,
-)
-from zeroone_ops.services.remediation.github_remediation_runner import (
-    GitHubRemediationRunner,
-)
-from zeroone_ops.services.remediation.gitlab_remediation_runner import (
-    GitLabRemediationRunner,
 )
 from zeroone_ops.services.review.pipeline.review_runner import ReviewRunner
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
@@ -92,6 +83,7 @@ from zeroone_ops.services.workflows.provider_workflow_builders import (
     build_gitlab_policy_processing_runner,
     build_review_platform_runtime,
 )
+from zeroone_ops.services.workflows.remediation_workflow import RemediationWorkflow
 from zeroone_ops.services.workflows.workflow_run_context import build_workflow_run_context
 from zeroone_ops.settings import (
     load_config,
@@ -160,104 +152,19 @@ def run_remediation(
 ) -> RunSummary:
     """Run remediation for the active platform."""
     config = load_config()
-    if _gitlab_issue_mode_is_active(config):
-        return _run_gitlab_issue_remediation(
-            config=config,
-            dry_run=dry_run,
-            publish_operational_summary=publish_operational_summary,
-        )
-    context = build_workflow_run_context(
+    return RemediationWorkflow(
         config=config,
-        run_id=_build_run_id(),
         dry_run=dry_run,
-    )
-    record = context.run_state_service.start_run(context.run_id)
-    if config.platform == "github":
-        github_config = load_github_connection_config()
-        work_item_service = GitHubWorkItemService(GitHubWorkItemClient(github_config))
-        summary = GitHubRemediationRunner(
-            repo_root=context.repo_root,
-            config=config,
-            repository_id=github_config.repository,
-            work_item_service=work_item_service,
-            run_state_service=context.run_state_service,
-        ).run(
-            record=record,
-            active_dry_run=context.active_dry_run,
-        )
-        if context.active_dry_run or summary.status == RunStatus.NO_ISSUE:
-            return summary
-        publication = _publish_github_operational_summary(
-            github_config=github_config,
-            work_item_service=work_item_service,
-            latest_finding_sync=None,
-        )
-        return replace(
-            summary,
-            message=summary.message + _format_operational_summary_publication(publication),
-        )
-    gitlab_config = load_gitlab_connection_config()
-    return DashboardRemediationRunner(
-        repo_root=context.repo_root,
-        config=config,
-        dashboard_service=DashboardService(
-            GitLabDashboardClient(gitlab_config),
-            policy_view_builder=DashboardPolicyViewBuilder(
-                repo_root=context.repo_root,
-                config=config,
-                state=context.state,
-            ),
-        ),
-        run_state_service=context.run_state_service,
-    ).run(
-        project_id=gitlab_config.project_id,
-        state=context.state,
-        record=record,
-        run_id=context.run_id,
-        active_dry_run=context.active_dry_run,
-    )
-
-
-def _run_gitlab_issue_remediation(
-    *,
-    config: AppConfig,
-    dry_run: bool,
-    publish_operational_summary: bool = True,
-) -> RunSummary:
-    """Run one GitLab issue-mode remediation through the shared execution lifecycle."""
-    context = build_workflow_run_context(
-        config=config,
-        run_id=_build_run_id(),
-        dry_run=dry_run,
-    )
-    record = context.run_state_service.start_run(context.run_id)
-    gitlab_config = load_gitlab_connection_config()
-    work_item_service = GitLabWorkItemService(GitLabWorkItemClient(gitlab_config))
-    summary = GitLabRemediationRunner(
-        repo_root=context.repo_root,
-        config=config,
-        project_id=gitlab_config.project_id,
-        work_item_service=work_item_service,
-        run_state_service=context.run_state_service,
-    ).run(
-        record=record,
-        active_dry_run=context.active_dry_run,
-    )
-    if (
-        context.active_dry_run
-        or summary.status == RunStatus.NO_ISSUE
-        or not publish_operational_summary
-    ):
-        return summary
-    publication = _publish_gitlab_operational_summary(
-        gitlab_config=gitlab_config,
-        work_item_service=work_item_service,
-        latest_finding_sync=None,
-    )
-    return replace(
-        summary,
-        message=summary.message + _format_operational_summary_publication(publication),
-    )
+        publish_operational_summary=publish_operational_summary,
+        build_run_id=_build_run_id,
+        build_context=build_workflow_run_context,
+        is_gitlab_issue_mode=_gitlab_issue_mode_is_active,
+        load_github_config=load_github_connection_config,
+        load_gitlab_config=load_gitlab_connection_config,
+        build_dashboard_policy_view=build_dashboard_policy_view_builder,
+        publish_github_summary=_publish_github_operational_summary,
+        publish_gitlab_summary=_publish_gitlab_operational_summary,
+    ).run()
 
 
 def sync_dashboard_sonar(*, dry_run: bool = False) -> RunSummary:
