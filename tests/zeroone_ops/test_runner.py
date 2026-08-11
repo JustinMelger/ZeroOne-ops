@@ -49,12 +49,9 @@ def test_gitlab_issue_control_plane_refreshes_summary_once(monkeypatch: MonkeyPa
             or remediation_summary
         ),
     )
-    monkeypatch.setattr("zeroone_ops.runner.load_gitlab_connection_config", lambda: object())
-    monkeypatch.setattr("zeroone_ops.runner.GitLabWorkItemClient", lambda _: object())
-    monkeypatch.setattr("zeroone_ops.runner.GitLabWorkItemService", lambda _: object())
     monkeypatch.setattr(
-        "zeroone_ops.runner._publish_gitlab_operational_summary",
-        lambda **kwargs: publication_calls.append(kwargs) or None,
+        "zeroone_ops.runner._refresh_gitlab_operational_summary",
+        lambda: publication_calls.append(object()) or "",
     )
 
     result = runner.run_gitlab_issue_control_plane()

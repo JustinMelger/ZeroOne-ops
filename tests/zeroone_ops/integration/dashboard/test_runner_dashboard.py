@@ -603,7 +603,7 @@ def test_dashboard_reconcile_rejects_gitlab_issue_mode(
     summary = dashboard_reconcile(dry_run=True)
 
     assert summary.status.value == "failed"
-    assert "dashboard reconciliation is not available yet" in summary.message
+    assert "does not support legacy dashboard reconciliation" in summary.message
 
 
 def test_dashboard_reconcile_dry_run_selects_change_request_opened_item(
