@@ -74,7 +74,7 @@ history, not here.
   without changing provider-local behavior
 - [x] extract recovery and work-item lifecycle orchestration into focused
   workflow composition without changing provider-local behavior
-- [ ] extract policy orchestration and review the remaining `runner.py` entry
+- [x] extract policy orchestration and review the remaining `runner.py` entry
   points; retain only stable public routing and shared CLI-facing summaries
 
 ## Parked For Later

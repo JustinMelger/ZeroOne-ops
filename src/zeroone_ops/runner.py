@@ -9,8 +9,6 @@ import secrets
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.state import RunStatus, utc_now
-from zeroone_ops.services.review.pipeline.review_runner import ReviewRunner
-from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.workflows.finding_sync_workflow import FindingSyncWorkflow
 from zeroone_ops.services.workflows.gitlab_issue_control_plane_workflow import (
@@ -37,6 +35,7 @@ from zeroone_ops.services.workflows.provider_workflow_builders import (
 )
 from zeroone_ops.services.workflows.recovery_workflow import RecoveryWorkflow
 from zeroone_ops.services.workflows.remediation_workflow import RemediationWorkflow
+from zeroone_ops.services.workflows.review_workflow import ReviewWorkflow
 from zeroone_ops.services.workflows.work_item_lifecycle_workflow import (
     WorkItemLifecycleWorkflow,
 )
@@ -59,39 +58,13 @@ def _build_run_id() -> str:
 def review(*, dry_run: bool = False) -> RunSummary:
     """Run the merge-request review workflow."""
     config = load_config()
-    context = build_workflow_run_context(
+    return ReviewWorkflow(
         config=config,
-        run_id=_build_run_id(),
         dry_run=dry_run,
-    )
-    review_state_service = ReviewStateService(
-        state_store=context.state_store,
-        state=context.state,
-        max_prior_review_passes=config.review.max_prior_review_passes,
-    )
-
-    record = review_state_service.start_run(context.run_id)
-    (
-        review_client,
-        repository_id,
-        current_change_request_number,
-        triggered_head_sha,
-        dashboard_client,
-    ) = build_review_platform_runtime(config)
-    return ReviewRunner(
-        repo_root=context.repo_root,
-        config=config,
-        review_client=review_client,
-        dashboard_client=dashboard_client,
-        review_state_service=review_state_service,
-    ).run(
-        repository_id=repository_id,
-        current_change_request_number=current_change_request_number,
-        triggered_head_sha=triggered_head_sha,
-        record=record,
-        run_id=context.run_id,
-        active_dry_run=context.active_dry_run,
-    )
+        build_run_id=_build_run_id,
+        build_context=build_workflow_run_context,
+        build_platform_runtime=build_review_platform_runtime,
+    ).run()
 
 
 def dashboard_remediate(*, dry_run: bool = False) -> RunSummary:
