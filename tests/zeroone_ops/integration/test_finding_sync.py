@@ -602,7 +602,10 @@ def test_recover_work_item_routes_gitlab_issue_mode_to_polling_runner(
             state_path=tmp_path / ".zeroone-ops-state.json",
         )
 
-    monkeypatch.setattr("zeroone_ops.runner.GitLabWorkItemRecoveryRunner.run", run)
+    monkeypatch.setattr(
+        "zeroone_ops.services.workflows.recovery_workflow.GitLabWorkItemRecoveryRunner.run",
+        run,
+    )
     monkeypatch.setattr(
         "zeroone_ops.runner.build_gitlab_policy_issue_service",
         lambda **kwargs: type(
