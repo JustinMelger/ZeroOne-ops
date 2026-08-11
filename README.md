@@ -71,7 +71,7 @@ commands are:
 
 ```bash
 uv run zeroone-ops findings sync --dry-run
-uv run zeroone-ops dashboard policy --dry-run
+uv run zeroone-ops control-plane policy --dry-run
 uv run zeroone-ops remediation run --dry-run
 uv run zeroone-ops work-items sync-status --dry-run
 uv run zeroone-ops work-items recover --dry-run
@@ -167,7 +167,7 @@ Severity control note:
   issue policy commands
 - GitHub work-item issues remain authoritative, while the operational summary
   is a read-only derived overview
-- use `zeroone-ops dashboard policy` to process policy commands
+- use `zeroone-ops control-plane policy` to process policy commands
 
 ### Remediation And Lifecycle
 

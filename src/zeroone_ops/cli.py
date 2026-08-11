@@ -152,6 +152,19 @@ def control_plane_run_command(
     _echo_summary(run_gitlab_issue_control_plane(dry_run=dry_run))
 
 
+@control_plane_app.command("policy")
+def control_plane_policy_command(
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Process policy commands without updating policy state.",
+    ),
+) -> None:
+    """Process policy commands for the active control plane."""
+    configure_logging()
+    _echo_summary(dashboard_policy(dry_run=dry_run))
+
+
 @work_items_app.command("sync-status")
 def work_items_sync_status_command(
     dry_run: bool = typer.Option(
@@ -195,16 +208,20 @@ def dashboard_reconcile_command(
     _echo_summary(dashboard_reconcile(dry_run=dry_run))
 
 
-@dashboard_app.command("policy")
+@dashboard_app.command("policy", deprecated=True)
 def dashboard_policy_command(
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
-        help="Run without updating dashboard policy state.",
+        help="Run without updating policy state.",
     ),
 ) -> None:
-    """Run the dedicated policy-processing workflow."""
+    """Legacy alias for ``control-plane policy``."""
     configure_logging()
+    _warn_deprecated_command(
+        command="zeroone-ops dashboard policy",
+        replacement="zeroone-ops control-plane policy",
+    )
     _echo_summary(dashboard_policy(dry_run=dry_run))
 
 

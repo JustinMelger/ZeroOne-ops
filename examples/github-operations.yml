@@ -178,7 +178,7 @@ jobs:
         run: uv sync --all-groups --locked
 
       - name: Process policy commands
-        run: zeroone-ops dashboard policy
+        run: zeroone-ops control-plane policy
 
   recovery:
     if: >-

@@ -47,6 +47,42 @@ def test_control_plane_run_prints_combined_workflow_summary(monkeypatch: MonkeyP
     assert "No remediation work item is eligible." in result.output
 
 
+def test_control_plane_policy_prints_policy_summary(monkeypatch: MonkeyPatch) -> None:
+    """The canonical policy command uses the shared CLI summary contract."""
+    summary = RunSummary(
+        run_id="run-1",
+        status=RunStatus.SYNCED,
+        message="[ci] Policy processed.",
+        state_path=Path(".zeroone-ops-state.json"),
+    )
+    monkeypatch.setattr("zeroone_ops.cli.dashboard_policy", lambda *, dry_run: summary)
+
+    result = _RUNNER.invoke(app, ["control-plane", "policy", "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "Deprecated command" not in result.output
+    assert "status=synced" in result.output
+
+
+def test_dashboard_policy_warns_about_the_canonical_control_plane_command(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """The legacy policy command gives operators a direct migration path."""
+    summary = RunSummary(
+        run_id="run-1",
+        status=RunStatus.SYNCED,
+        message="[ci] Policy processed.",
+        state_path=Path(".zeroone-ops-state.json"),
+    )
+    monkeypatch.setattr("zeroone_ops.cli.dashboard_policy", lambda *, dry_run: summary)
+
+    result = _RUNNER.invoke(app, ["dashboard", "policy", "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "Deprecated command `zeroone-ops dashboard policy`" in result.output
+    assert "Use `zeroone-ops control-plane policy`" in result.output
+
+
 def test_dashboard_remediate_remains_an_alias_for_neutral_remediation(
     monkeypatch: MonkeyPatch,
 ) -> None:
@@ -132,6 +168,7 @@ def test_dashboard_help_marks_legacy_aliases_as_deprecated() -> None:
     assert "sonar" in result.output
     assert "remediate" in result.output
     assert "reconcile" in result.output
+    assert "policy" in result.output
     assert "deprecated" in result.output.lower()
 
 

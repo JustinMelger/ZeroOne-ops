@@ -377,7 +377,7 @@ For a lower-cost review setup:
 Recommended first rollout order:
 
 1. manually run `zeroone_ops_dashboard` once to confirm dashboard discovery is healthy
-2. inspect dashboard policy locally with `zeroone-ops dashboard policy --dry-run`
+2. inspect policy locally with `zeroone-ops control-plane policy --dry-run`
 3. add one strict `/zeroone policy ...` dashboard comment and manually run
    `zeroone_ops_dashboard_policy`
 4. inspect one supported dashboard item locally with `zeroone-ops dashboard remediate --dry-run`
@@ -397,7 +397,7 @@ Dashboard rollout model:
   flow for active remediation work
 - keep `dashboard reconcile` as a separate later lifecycle job rather than
   chaining it directly after remediation
-- keep live `dashboard policy` CI-only in the first version; local use should stay `--dry-run`
+- keep live `control-plane policy` CI-only in the first version; local use should stay `--dry-run`
 - keep live `dashboard remediate` CI-only in the first version; local use should stay `--dry-run`
 - keep live `dashboard reconcile` CI-only in the first version; local use should stay `--dry-run`
 - let Sonar dashboard sync clean up only stale untouched `open` Sonar items; once remediation has touched an item, preserve the dashboard lifecycle history
@@ -901,8 +901,8 @@ Make sure the target repository has:
 Use this quick check after dashboard discovery is already healthy.
 
 For live policy mutation, keep the first rollout boundary simple: use
-`zeroone-ops dashboard policy --dry-run` for local inspection and use live
-`zeroone-ops dashboard policy` only from CI jobs.
+`zeroone-ops control-plane policy --dry-run` for local inspection and use live
+`zeroone-ops control-plane policy` only from CI jobs.
 
 ### Preconditions
 
@@ -917,7 +917,7 @@ Make sure the target repository has:
 
 ### Steps
 
-1. run `zeroone-ops dashboard policy --dry-run` locally
+1. run `zeroone-ops control-plane policy --dry-run` locally
 2. confirm the output reports the dashboard note counts and whether a policy
    change would be applied
 3. add one strict dashboard note such as `/zeroone policy severity disable high`

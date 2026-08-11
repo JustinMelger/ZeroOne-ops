@@ -38,4 +38,4 @@ jobs:
         run: uv sync --all-groups
 
       - name: Run policy processing
-        run: uv run zeroone-ops dashboard policy
+        run: uv run zeroone-ops control-plane policy
