@@ -185,6 +185,25 @@ Optional variables:
   - defaults to `false`
   - set to `true` only for debugging
 
+## Execution Trust Model
+
+Validation and setup commands execute arbitrary programs. Treat
+`remediation.validation_setup_commands` and
+`remediation.validation_commands`, plus repository code that those commands
+invoke, as executable CI policy rather than ordinary configuration. Review
+changes to these fields with the same care as CI workflow changes.
+
+Privileged remediation jobs must load the ZeroOne Ops configuration from a
+protected default-branch revision and run only from trusted triggers, such as
+scheduled or manually dispatched workflows. Do not execute remediation setup or
+validation commands in pull-request review jobs.
+
+Trusted configuration is necessary but not sufficient: commands such as
+`npm test`, `make test`, and `uv run pytest` can run repository scripts, build
+hooks, and test code. Use least-privilege credentials, do not expose unrelated
+secrets, and assume commands can access the workspace, network, and environment
+provided to the job. Apply the same model to GitHub Actions and GitLab CI.
+
 ## Required Token Permissions
 
 `SONARQUBE_TOKEN` must be able to read open issues for the configured project.

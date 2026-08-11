@@ -292,6 +292,24 @@ validation commands before and after a remediation patch, preserving known
 baseline failures and allowing one correction attempt only for a new diagnostic
 in the same editable file.
 
+## Execution Trust Model
+
+Validation and setup commands execute arbitrary programs. ZeroOne Ops treats
+`remediation.validation_setup_commands` and
+`remediation.validation_commands`, together with repository code those commands
+invoke, as executable CI policy rather than passive configuration. Changes to
+these fields deserve the same review as changes to CI workflow definitions.
+
+Privileged remediation workflows should load configuration from a protected
+default-branch revision and use trusted triggers such as scheduled or manual
+runs. Review workflows should not run remediation setup or validation commands.
+Even with trusted configuration, commands such as `npm test`, `make test`, or
+`uv run pytest` can execute repository scripts, build hooks, and test code.
+
+Use least-privilege credentials, avoid exposing unrelated secrets to these
+jobs, and assume configured commands can access the remediation workspace,
+network, and environment explicitly supplied by CI.
+
 ## Credentials And Secrets
 
 For local testing, the most common environment variables are:
