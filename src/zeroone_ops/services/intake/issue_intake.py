@@ -5,6 +5,7 @@ This module fetches SonarQube issues for dashboard inventory sync.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -105,12 +106,25 @@ class IssueIntakeService:
             if sonar_collection is not None:
                 collections.append(sonar_collection)
         for artifact in self.config.sarif.artifacts:
-            collections.append(
-                SarifFindingSource().collect_artifact_findings(
-                    artifact.path,
-                    declared_source_id=artifact.source_id,
+            try:
+                collections.append(
+                    SarifFindingSource().collect_artifact_findings(
+                        artifact.path,
+                        declared_source_id=artifact.source_id,
+                    )
                 )
-            )
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+                LOGGER.warning(
+                    "skipped unavailable SARIF artifact",
+                    extra={
+                        "artifact_path": str(artifact.path),
+                        "source_id": artifact.source_id,
+                        "error_type": type(error).__name__,
+                    },
+                )
+                collections.append(
+                    _unavailable_sarif_artifact_collection(artifact.path, artifact.source_id)
+                )
         return collections
 
     def _live_sonarqube_collection(self, *, run_id: str) -> FindingCollectionResult | None:
@@ -207,4 +221,19 @@ def _empty_finding_collection() -> FindingCollectionResult:
             source_id="dashboard_sync",
             statistics={"collected": 0},
         ),
+    )
+
+
+def _unavailable_sarif_artifact_collection(
+    artifact_path: Path,
+    source_id: str,
+) -> FindingCollectionResult:
+    """Record an unavailable artifact without claiming stale-reconciliation ownership."""
+    return FindingCollectionResult(
+        metadata=FindingCollectionMetadata(
+            source_id=source_id,
+            artifact_reference=str(artifact_path),
+            warnings=[f"SARIF artifact for source {source_id!r} was unavailable."],
+            statistics={"unavailable_artifacts": 1},
+        )
     )
