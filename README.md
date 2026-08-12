@@ -358,6 +358,11 @@ Pull a published image with:
 docker pull ghcr.io/<owner>/zeroone-ops:0.2.0
 ```
 
+Operational GitHub Actions and GitLab CI templates pin a released image tag.
+Replace the version deliberately when upgrading. Repositories requiring a
+stronger supply-chain boundary can pin the same release by immutable image
+digest instead.
+
 A GitLab CI example is provided in
 [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml). It uses the
 published `zeroone-ops` image and the canonical neutral commands. For GitHub

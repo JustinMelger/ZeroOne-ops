@@ -164,13 +164,36 @@ class PatchApplier:
                 raise PatchApplyError(
                     "Malformed unified diff: each file section must start with `diff --git`."
                 )
-            seen_files.add(_parse_diff_git_path(line))
+            diff_path = _parse_diff_git_path(line)
             index += 1
+            if index < len(lines) and lines[index].startswith(
+                (
+                    "GIT binary patch",
+                    "Binary files ",
+                    "similarity index ",
+                    "rename from ",
+                    "rename to ",
+                    "copy from ",
+                    "copy to ",
+                    "new file mode ",
+                    "deleted file mode ",
+                )
+            ):
+                raise PatchApplyError(
+                    "Malformed unified diff: only in-place text edits are supported."
+                )
             if index >= len(lines) or not lines[index].startswith("--- "):
                 raise PatchApplyError("Malformed unified diff: missing `---` file header.")
+            old_path = _parse_file_header_path(lines[index], prefix="--- ", side="a")
             index += 1
             if index >= len(lines) or not lines[index].startswith("+++ "):
                 raise PatchApplyError("Malformed unified diff: missing `+++` file header.")
+            new_path = _parse_file_header_path(lines[index], prefix="+++ ", side="b")
+            if old_path != diff_path or new_path != diff_path:
+                raise PatchApplyError(
+                    "Malformed unified diff: diff and file headers must describe the same path."
+                )
+            seen_files.add(diff_path)
             index += 1
             saw_hunk = False
             while index < len(lines) and not lines[index].startswith("diff --git "):
@@ -206,11 +229,18 @@ class PatchApplier:
                 saw_hunk = True
             if not saw_hunk:
                 raise PatchApplyError("Malformed unified diff: file section has no hunks.")
-        if not declared_files.issubset(seen_files):
+        self._validate_patch_paths(list(seen_files))
+        if declared_files != seen_files:
             missing_files = ", ".join(sorted(declared_files - seen_files))
+            unexpected_files = ", ".join(sorted(seen_files - declared_files))
+            details = []
+            if missing_files:
+                details.append(f"missing {missing_files}")
+            if unexpected_files:
+                details.append(f"unexpected {unexpected_files}")
             raise PatchApplyError(
-                "Malformed unified diff: files_touched does not match diff content "
-                f"for {missing_files}."
+                "Malformed unified diff: files_touched must exactly match diff content "
+                f"({'; '.join(details)})."
             )
 
 
@@ -232,10 +262,34 @@ def _parse_hunk_header(line: str) -> tuple[int, int]:
 
 def _parse_diff_git_path(line: str) -> str:
     """Parse the repository-relative path from a `diff --git` header."""
+    if '"' in line:
+        raise PatchApplyError("Malformed unified diff: quoted paths are not supported.")
     parts = line.split()
-    if len(parts) < 4:
+    if len(parts) != 4:
         raise PatchApplyError("Malformed unified diff: invalid `diff --git` header.")
     left = parts[2]
-    if not left.startswith("a/"):
-        raise PatchApplyError("Malformed unified diff: expected `a/` path in diff header.")
+    right = parts[3]
+    if not left.startswith("a/") or not right.startswith("b/"):
+        raise PatchApplyError(
+            "Malformed unified diff: expected `a/` and `b/` paths in diff header."
+        )
+    if left[2:] != right[2:]:
+        raise PatchApplyError("Malformed unified diff: renames are not supported.")
     return left[2:]
+
+
+def _parse_file_header_path(line: str, *, prefix: str, side: str) -> str:
+    """Return one unambiguous in-place file-header path."""
+    value = line.removeprefix(prefix)
+    if value == "/dev/null":
+        raise PatchApplyError(
+            "Malformed unified diff: file additions and deletions are not supported."
+        )
+    if "\t" in value or " " in value or value.startswith('"'):
+        raise PatchApplyError("Malformed unified diff: ambiguous file headers are not supported.")
+    expected_prefix = f"{side}/"
+    if not value.startswith(expected_prefix):
+        raise PatchApplyError(
+            f"Malformed unified diff: expected `{expected_prefix}` path in file header."
+        )
+    return value[len(expected_prefix) :]

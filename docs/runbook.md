@@ -335,6 +335,8 @@ Current job roles:
 
 - `zeroone_ops_findings_sync`
   - finding sync for SonarQube and configured SARIF sources
+- `zeroone_ops_ruff_sarif` and `zeroone_ops_mypy_sarif`
+  - optional, repository-owned SARIF producers whose artifacts feed finding sync
 - `zeroone_ops_control_plane`
   - GitLab issue-mode policy processing, work-item recovery, and one
     remediation attempt, followed by one derived-summary refresh
@@ -351,7 +353,7 @@ Recommended settings:
 - keep finding sync as a separate job from active remediation
 - for GitLab issue mode, use one `zeroone_ops_control_plane` job after finding
   sync; configure its 30-minute GitLab schedule with
-  `RUN_ZEROONE_OPS_CONTROL_PLANE=true`
+  `RUN_ZEROONE_OPS=true`
 - use the same variable on a default-branch pipeline for manual control-plane
   follow-up
 - keep lifecycle reconciliation as a separate job from active remediation so it
@@ -649,8 +651,9 @@ Make sure the target repository has:
 
 - a valid `.gitlab-ci.yml` based on
   [examples/.gitlab-ci.example.yml](../examples/.gitlab-ci.example.yml)
-- the published bot image reference updated to the current technical slug, such
-  as `ghcr.io/<owner>/zeroone-ops:latest`
+- the published bot image reference pinned to a current release, such as
+  `ghcr.io/<owner>/zeroone-ops:0.54.0`; use an immutable digest when the
+  repository requires stricter supply-chain pinning
 - a repository-specific `.zeroone-ops.json`, often copied from either:
   - [examples/.zeroone-ops.minimal.json](../examples/.zeroone-ops.minimal.json)
   - [examples/.zeroone-ops.json](../examples/.zeroone-ops.json)

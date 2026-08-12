@@ -79,3 +79,99 @@ def test_apply_rejects_malformed_hunk_header_counts(tmp_path: Path) -> None:
 
     with pytest.raises(PatchApplyError, match="hunk header line counts do not match body"):
         PatchApplier(repo_root).apply(proposal)
+
+
+@pytest.mark.parametrize(
+    ("files_touched", "unified_diff", "message"),
+    [
+        (
+            ["sample.txt"],
+            (
+                "diff --git a/sample.txt b/sample.txt\n"
+                "--- a/sample.txt\n"
+                "+++ b/sample.txt\n"
+                "@@ -1 +1 @@\n"
+                "-old\n"
+                "+new\n"
+                "diff --git a/other.txt b/other.txt\n"
+                "--- a/other.txt\n"
+                "+++ b/other.txt\n"
+                "@@ -1 +1 @@\n"
+                "-old\n"
+                "+new\n"
+            ),
+            "must exactly match",
+        ),
+        (
+            ["sample.txt"],
+            (
+                "diff --git a/../outside.txt b/../outside.txt\n"
+                "--- a/../outside.txt\n"
+                "+++ b/../outside.txt\n"
+                "@@ -1 +1 @@\n"
+                "-old\n"
+                "+new\n"
+            ),
+            "escapes repository root",
+        ),
+        (
+            ["sample.txt"],
+            (
+                "diff --git a/sample.txt b/sample.txt\n"
+                "--- a/sample.txt\n"
+                "+++ b/other.txt\n"
+                "@@ -1 +1 @@\n"
+                "-old\n"
+                "+new\n"
+            ),
+            "must describe the same path",
+        ),
+        (
+            ["sample.txt"],
+            (
+                "diff --git a/sample.txt b/sample.txt\n"
+                "new file mode 100644\n"
+                "--- /dev/null\n"
+                "+++ b/sample.txt\n"
+                "@@ -0,0 +1 @@\n"
+                "+new\n"
+            ),
+            "only in-place text edits",
+        ),
+        (
+            ["sample.txt"],
+            (
+                "diff --git a/sample.txt b/renamed.txt\n"
+                "similarity index 100%\n"
+                "rename from sample.txt\n"
+                "rename to renamed.txt\n"
+            ),
+            "renames are not supported",
+        ),
+        (
+            ["sample.txt"],
+            (
+                "diff --git a/sample.txt b/sample.txt\n"
+                "Binary files a/sample.txt and b/sample.txt differ\n"
+            ),
+            "only in-place text edits",
+        ),
+    ],
+)
+def test_validate_rejects_unsupported_or_out_of_scope_diff_paths(
+    tmp_path: Path,
+    files_touched: list[str],
+    unified_diff: str,
+    message: str,
+) -> None:
+    proposal = PatchProposal(
+        issue_key="AX1",
+        files_touched=files_touched,
+        unified_diff=unified_diff,
+        commit_message="fix: invalid patch",
+        change_request_title="fix: invalid patch",
+        change_request_description="summary",
+    )
+
+    with pytest.raises(PatchApplyError, match=message):
+        PatchApplier(tmp_path).validate(proposal)

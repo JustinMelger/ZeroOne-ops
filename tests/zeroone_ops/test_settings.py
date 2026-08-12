@@ -797,6 +797,42 @@ def test_settings_reject_removed_flat_remediation_and_sonar_keys(
         raise AssertionError("Expected SettingsError for removed flat config keys")
 
 
+@pytest.mark.parametrize(
+    ("config_fragment", "field_name"),
+    [
+        ('"unknown_root": true,', "unknown_root"),
+        ('"review": {"unknown_review": true},', "review.unknown_review"),
+        (
+            '"remediation": {"target_branch": "main", "unknown_remediation": true},',
+            "remediation.unknown_remediation",
+        ),
+    ],
+)
+def test_settings_reject_unknown_repository_config_fields(
+    tmp_path: Path,
+    monkeypatch,
+    config_fragment: str,
+    field_name: str,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(
+        f"""
+        {{
+          "base_branch": "main",
+          {config_fragment}
+          "gitlab": {{
+            "target_branch": "main",
+            "labels": []
+          }}
+        }}
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SettingsError, match=field_name):
+        load_config()
+
+
 def test_settings_keep_legacy_nested_supported_severities_compatible(
     tmp_path: Path,
     monkeypatch,

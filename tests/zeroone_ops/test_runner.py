@@ -63,3 +63,54 @@ def test_gitlab_issue_control_plane_refreshes_summary_once(monkeypatch: MonkeyPa
         ("remediation", False),
     ]
     assert len(publication_calls) == 1
+
+
+def test_gitlab_issue_control_plane_continues_after_no_op_policy(monkeypatch: MonkeyPatch) -> None:
+    """A normal policy scan without commands must not skip remediation."""
+    config = SimpleNamespace(dry_run=False)
+    no_policy_command = RunSummary(
+        run_id="run-1",
+        status=RunStatus.NO_ISSUE,
+        message="[ci] No policy commands found.",
+        state_path=Path(".zeroone-ops-state.json"),
+    )
+    synced_summary = RunSummary(
+        run_id="run-1",
+        status=RunStatus.SYNCED,
+        message="[ci] Recovery scan completed.",
+        state_path=Path(".zeroone-ops-state.json"),
+    )
+    remediation_summary = RunSummary(
+        run_id="run-1",
+        status=RunStatus.NO_ISSUE,
+        message="[ci] No remediation work item is eligible.",
+        state_path=Path(".zeroone-ops-state.json"),
+    )
+    component_calls: list[str] = []
+
+    monkeypatch.setattr("zeroone_ops.runner.load_config", lambda: config)
+    monkeypatch.setattr("zeroone_ops.runner._gitlab_issue_mode_is_active", lambda _: True)
+    monkeypatch.setattr(
+        "zeroone_ops.runner.dashboard_policy",
+        lambda *, dry_run, publish_operational_summary: (
+            component_calls.append("policy") or no_policy_command
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.runner.recover_work_item",
+        lambda *, dry_run, publish_operational_summary: (
+            component_calls.append("recovery") or synced_summary
+        ),
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.runner.run_remediation",
+        lambda *, dry_run, publish_operational_summary: (
+            component_calls.append("remediation") or remediation_summary
+        ),
+    )
+    monkeypatch.setattr("zeroone_ops.runner._refresh_gitlab_operational_summary", lambda: "")
+
+    result = runner.run_gitlab_issue_control_plane()
+
+    assert result == remediation_summary
+    assert component_calls == ["policy", "recovery", "remediation"]

@@ -1,5 +1,8 @@
 name: ZeroOne Ops Operations
 
+# Privileged jobs check out protected default-branch configuration. Treat
+# remediation setup and validation commands as executable CI policy.
+
 on:
   workflow_dispatch:
   issue_comment:
@@ -15,7 +18,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/<owner>/zeroone-ops:latest
+      image: ghcr.io/<owner>/zeroone-ops:0.54.0
     permissions:
       contents: read
       issues: write
@@ -64,7 +67,7 @@ jobs:
     needs: findings-sync
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/<owner>/zeroone-ops:latest
+      image: ghcr.io/<owner>/zeroone-ops:0.54.0
     concurrency:
       group: zeroone-ops-remediation-${{ github.repository }}
       cancel-in-progress: false
@@ -116,7 +119,7 @@ jobs:
       github.event_name == 'schedule'
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/<owner>/zeroone-ops:latest
+      image: ghcr.io/<owner>/zeroone-ops:0.54.0
     concurrency:
       group: zeroone-ops-remediation-${{ github.repository }}
       cancel-in-progress: false
@@ -153,7 +156,7 @@ jobs:
       contains(github.event.issue.labels.*.name, 'zeroone-policy')
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/<owner>/zeroone-ops:latest
+      image: ghcr.io/<owner>/zeroone-ops:0.54.0
     permissions:
       contents: read
       issues: write
@@ -187,7 +190,7 @@ jobs:
       contains(github.event.issue.labels.*.name, 'zeroone-work-item')
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/<owner>/zeroone-ops:latest
+      image: ghcr.io/<owner>/zeroone-ops:0.54.0
     concurrency:
       group: zeroone-ops-remediation-${{ github.repository }}
       cancel-in-progress: false

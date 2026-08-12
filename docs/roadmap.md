@@ -42,23 +42,13 @@ history, not here.
   automatic retries, and require a later explicit operator recovery action
 - runner composition split into focused finding-sync, remediation, recovery,
   lifecycle, policy, and review workflows while preserving public commands
+- remediation safety hardening: exact declared/parsed patch-path matching,
+  strict repository-config validation, release-pinned operational templates,
+  and documented execution-trust boundaries
 - MLflow tracing support, Ruff pre-commit checks, and current CI workflows
 - copyable GitHub Actions and GitLab CI control-plane installation templates
 
 ## Current Focus
-
-### Safety Hardening
-
-- [ ] require exact equality between declared patch paths and every parsed diff
-  path; validate parsed paths directly and add adversarial multi-file tests
-- [ ] reject unknown repository configuration fields while preserving explicit
-  legacy migrations and aliases
-- [ ] replace mutable operational-template image references with a documented
-  release-version or digest pinning pattern
-- [ ] document and audit the execution-trust model for validation and setup
-  commands: protected configuration revision, checked-out code, credentials,
-  trigger restrictions, network, and workspace access in GitHub and GitLab
-  templates
 
 ### Work-Item UX
 
