@@ -85,7 +85,7 @@ def test_apply_rejects_malformed_hunk_header_counts(tmp_path: Path) -> None:
     ("files_touched", "unified_diff", "message"),
     [
         (
-            ["sample.txt"],
+            ["sample.txt", "other.txt"],
             (
                 "diff --git a/sample.txt b/sample.txt\n"
                 "--- a/sample.txt\n"
@@ -100,7 +100,7 @@ def test_apply_rejects_malformed_hunk_header_counts(tmp_path: Path) -> None:
                 "-old\n"
                 "+new\n"
             ),
-            "must exactly match",
+            "must declare exactly one touched file",
         ),
         (
             ["sample.txt"],

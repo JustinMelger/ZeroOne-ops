@@ -366,6 +366,31 @@ def test_settings_migrate_legacy_review_platform_to_top_level_platform(
     assert "Use `platform`" in caplog.text
 
 
+def test_settings_ignore_legacy_review_platform_when_top_level_platform_exists(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "platform": "github",
+          "review": {
+            "platform": "gitlab"
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.platform == "github"
+    assert config.gitlab is None
+
+
 def test_settings_migrate_legacy_gitlab_target_branch_to_remediation_target_branch(
     tmp_path: Path,
     monkeypatch,

@@ -303,8 +303,9 @@ class AppConfig(RepositoryConfigModel):
             data["sarif"] = sarif
 
         review = dict(data.get("review", {}))
-        if "platform" not in data and "platform" in review:
-            data["platform"] = review.pop("platform")
+        legacy_review_platform = review.pop("platform", None)
+        if "platform" not in data and legacy_review_platform is not None:
+            data["platform"] = legacy_review_platform
         if review:
             data["review"] = review
         elif "review" in data:

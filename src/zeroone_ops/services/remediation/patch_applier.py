@@ -72,6 +72,10 @@ class PatchApplier:
         """
         if not files_touched:
             raise PatchApplyError("Patch proposal does not declare any touched files.")
+        if len(files_touched) != 1:
+            raise PatchApplyError(
+                "Patch proposal must declare exactly one touched file for remediation."
+            )
 
         for file_path in files_touched:
             posix_path = PurePosixPath(file_path)
