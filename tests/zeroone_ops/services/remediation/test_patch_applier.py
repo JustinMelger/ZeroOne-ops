@@ -14,7 +14,11 @@ def _init_git_repo(repo_root: Path) -> None:
     subprocess.run(["git", "init"], cwd=repo_root, check=True, capture_output=True, text=True)
 
 
-def test_apply_updates_file_from_unified_diff(tmp_path: Path) -> None:
+@pytest.mark.parametrize("include_index_metadata", [False, True])
+def test_apply_updates_file_from_unified_diff(
+    tmp_path: Path,
+    include_index_metadata: bool,
+) -> None:
     repo_root = tmp_path
     _init_git_repo(repo_root)
     target = repo_root / "sample.txt"
@@ -24,11 +28,12 @@ def test_apply_updates_file_from_unified_diff(tmp_path: Path) -> None:
         files_touched=["sample.txt"],
         unified_diff=(
             "diff --git a/sample.txt b/sample.txt\n"
-            "--- a/sample.txt\n"
-            "+++ b/sample.txt\n"
-            "@@ -1 +1 @@\n"
-            "-old\n"
-            "+new\n"
+            + ("index 3367afd..3e75765 100644\n" if include_index_metadata else "")
+            + "--- a/sample.txt\n"
+            + "+++ b/sample.txt\n"
+            + "@@ -1 +1 @@\n"
+            + "-old\n"
+            + "+new\n"
         ),
         commit_message="fix(sonar): update sample [AX1]",
         change_request_title="fix: update sample",

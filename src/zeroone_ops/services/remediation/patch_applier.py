@@ -170,6 +170,8 @@ class PatchApplier:
                 )
             diff_path = _parse_diff_git_path(line)
             index += 1
+            if index < len(lines) and _is_git_index_metadata(lines[index]):
+                index += 1
             if index < len(lines) and lines[index].startswith(
                 (
                     "GIT binary patch",
@@ -252,6 +254,7 @@ _HUNK_HEADER_RE = re.compile(
     r"^@@ -(?P<old_start>\d+)(?:,(?P<old_count>\d+))? "
     r"\+(?P<new_start>\d+)(?:,(?P<new_count>\d+))? @@"
 )
+_GIT_INDEX_METADATA_RE = re.compile(r"^index [0-9a-f]+\.\.[0-9a-f]+(?: [0-9]{6})?$")
 
 
 def _parse_hunk_header(line: str) -> tuple[int, int]:
@@ -262,6 +265,11 @@ def _parse_hunk_header(line: str) -> tuple[int, int]:
     old_count = match.group("old_count")
     new_count = match.group("new_count")
     return int(old_count or "1"), int(new_count or "1")
+
+
+def _is_git_index_metadata(line: str) -> bool:
+    """Return whether one line is standard non-semantic Git index metadata."""
+    return _GIT_INDEX_METADATA_RE.fullmatch(line) is not None
 
 
 def _parse_diff_git_path(line: str) -> str:
