@@ -292,6 +292,14 @@ validation commands before and after a remediation patch, preserving known
 baseline failures and allowing one correction attempt only for a new diagnostic
 in the same editable file.
 
+## Execution Trust Model
+
+Validation and setup commands are executable CI policy, not passive
+configuration. Treat changes to them like workflow changes, and run privileged
+remediation only from trusted default-branch configuration and triggers. See
+the [execution trust model](docs/runbook.md#execution-trust-model) for the
+complete operator guidance.
+
 ## Credentials And Secrets
 
 For local testing, the most common environment variables are:
