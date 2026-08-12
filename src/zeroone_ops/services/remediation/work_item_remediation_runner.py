@@ -35,7 +35,6 @@ from zeroone_ops.services.remediation.remediation_context_builder import (
 )
 from zeroone_ops.services.shared.branch_revision_lookup import build_branch_revision_lookup
 from zeroone_ops.services.shared.run_state_service import RunStateService, RunSummary
-from zeroone_ops.utils.git import build_remediation_branch_name
 
 LOGGER = logging.getLogger(__name__)
 _FAILURE_OUTPUT_LIMIT = 2_000
@@ -146,13 +145,7 @@ class WorkItemRemediationRunner:
             selected_issue=selected_target,
             context=context,
             dry_run=active_dry_run,
-            branch_name=build_remediation_branch_name(
-                branch_prefix=self.config.branch_prefix,
-                source=selected_target.source_type,
-                source_reference=selected_target.source_ref,
-                file_path=selected_target.file_path,
-                attempt_number=claimed_work_item.attempt_number,
-            ),
+            attempt_number=claimed_work_item.attempt_number,
         )
         if execution_result.failure is not None:
             self._mark_blocked_best_effort(
@@ -177,6 +170,8 @@ class WorkItemRemediationRunner:
                 selected_target=selected_target,
                 claimed_work_item=claimed_work_item,
                 active_dry_run=active_dry_run,
+                run_id=record.run_id,
+                summary=execution_result.status_message,
             )
             return self.run_state_service.finish_work_item(
                 record=record,
@@ -375,6 +370,8 @@ class WorkItemRemediationRunner:
         selected_target: RemediationExecutionTarget,
         claimed_work_item: WorkItemState,
         active_dry_run: bool,
+        run_id: str,
+        summary: str,
     ) -> None:
         """Project an intentional rejection without replacing the primary outcome."""
         if active_dry_run:
@@ -383,6 +380,15 @@ class WorkItemRemediationRunner:
             self.remediation_control_plane.mark_execution_dismissed(
                 selected_issue=selected_target,
                 existing_work_item=claimed_work_item,
+                execution_failure=WorkItemExecutionFailure(
+                    stage="analysis",
+                    summary=summary,
+                    retry_count=0,
+                    run_id=run_id,
+                    occurred_at=utc_now(),
+                    execution_url=self.execution_url_builder(),
+                    status="dismissed",
+                ),
             )
         except Exception:
             LOGGER.warning("work-item dismissed-state projection failed", exc_info=True)

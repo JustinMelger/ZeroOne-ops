@@ -55,3 +55,19 @@ def test_render_title_and_labels_are_bounded_and_provider_indexed() -> None:
         "zeroone-status:approved",
         "zeroone-source:sonarqube",
     ]
+
+
+def test_render_title_retains_line_for_similar_findings() -> None:
+    work_item = build_work_item().model_copy(
+        update={
+            "line": 1411,
+            "remediation_context": build_work_item().remediation_context.model_copy(
+                update={"diagnostic_code": "no-untyped-def"}
+            ),
+        }
+    )
+
+    title = GitLabWorkItemRenderer().render_title(work_item)
+
+    assert title.endswith(":1411")
+    assert len(title) <= 120

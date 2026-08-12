@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from zeroone_ops.models.analysis import ValidationComparison
+from zeroone_ops.models.analysis import RemediationIntent, ValidationComparison
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget, remediation_profile_for
 from zeroone_ops.services.remediation.change_request_publisher import ChangeRequestPublishRequest
@@ -23,6 +23,7 @@ class RemediationPublicationRequestBuilder:
         selected_issue: RemediationExecutionTarget,
         source_branch: str,
         change_summary: str,
+        remediation_intent: RemediationIntent = "chore",
         validation_comparison: ValidationComparison | None = None,
     ) -> ChangeRequestPublishRequest:
         """Build the complete provider-neutral request for one source branch."""
@@ -32,7 +33,10 @@ class RemediationPublicationRequestBuilder:
             target_branch=self.config.require_remediation_target_branch(
                 reason="Remediation publish",
             ),
-            title=self.build_title(selected_issue=selected_issue),
+            title=self.build_title(
+                selected_issue=selected_issue,
+                remediation_intent=remediation_intent,
+            ),
             description=self.build_description(
                 selected_issue=selected_issue,
                 change_summary=change_summary,
@@ -43,11 +47,26 @@ class RemediationPublicationRequestBuilder:
         )
 
     @staticmethod
-    def build_title(*, selected_issue: RemediationExecutionTarget) -> str:
+    def build_title(
+        *,
+        selected_issue: RemediationExecutionTarget,
+        remediation_intent: RemediationIntent = "chore",
+    ) -> str:
         """Build a deterministic conventional-commit-style change-request title."""
         issue_summary = selected_issue.rule_id or selected_issue.source_ref
         file_name = Path(selected_issue.file_path).name
-        return f"fix: remediate {issue_summary} in {file_name}"
+        return f"{remediation_intent}: remediate {issue_summary} in {file_name}"
+
+    @staticmethod
+    def build_commit_message(
+        *,
+        selected_issue: RemediationExecutionTarget,
+        remediation_intent: RemediationIntent,
+    ) -> str:
+        """Build a deterministic commit message for one remediation."""
+        issue_summary = selected_issue.rule_id or selected_issue.source_ref
+        file_name = Path(selected_issue.file_path).name
+        return f"{remediation_intent}: remediate {issue_summary} in {file_name}"
 
     @staticmethod
     def build_description(
@@ -84,8 +103,6 @@ class RemediationPublicationRequestBuilder:
             f"- Line: `{issue_line}`",
             f"- Message: {selected_issue.message}",
             "",
-            "## Notes",
-            profile.diff_note,
         ]
         if validation_comparison is not None:
             commands = [result.command for result in validation_comparison.post_edit.results]
@@ -102,7 +119,7 @@ class RemediationPublicationRequestBuilder:
                     "- Commands: " + ", ".join(f"`{command}`" for command in commands),
                 ]
             )
-        return "\n".join(lines)
+        return "\n".join(lines).rstrip()
 
     def _publication_options(self) -> tuple[list[str], str | None]:
         """Return provider-local publish options for the configured repository."""

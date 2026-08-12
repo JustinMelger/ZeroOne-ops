@@ -49,7 +49,7 @@ def test_rendering_prefers_concrete_detail_for_templated_finding_titles() -> Non
     title = renderer.render_title(work_item)
     body = renderer.render_body(work_item)
 
-    assert title == "ZeroOne Ops: C416 in api.py"
+    assert title == "ZeroOne Ops: C416 in api.py:42"
     assert "## Finding" in body
     assert "Unnecessary set comprehension (rewrite using set())" in body
     assert "- Source: Ruff SARIF" in body
@@ -92,6 +92,47 @@ def test_render_title_bounds_non_diagnostic_finding_text() -> None:
 
     assert len(title) <= 120
     assert title.endswith("...")
+
+
+def test_render_title_keeps_distinct_line_suffix_when_bounded() -> None:
+    work_item = build_work_item().model_copy(
+        update={
+            "summary": "A very long finding title " * 10,
+            "file_path": "src/a-very-long-file-name.py",
+            "line": 1411,
+            "remediation_context": build_work_item().remediation_context.model_copy(
+                update={"diagnostic_code": "C416"}
+            ),
+        }
+    )
+
+    title = GitHubWorkItemRenderer().render_title(work_item)
+
+    assert len(title) <= 120
+    assert title.endswith(":1411")
+
+
+def test_render_body_includes_dismissal_execution_evidence() -> None:
+    work_item = build_work_item(status="dismissed").model_copy(
+        update={
+            "execution_failure": WorkItemExecutionFailure(
+                status="dismissed",
+                stage="analysis",
+                summary="Manual review is required for this remediation.",
+                retry_count=0,
+                run_id="run-43",
+                occurred_at=datetime(2026, 8, 12, 10, 0, tzinfo=UTC),
+                execution_url="https://github.example.com/octo-org/octo-repo/actions/runs/43",
+            )
+        }
+    )
+
+    body = GitHubWorkItemRenderer().render_body(work_item)
+
+    assert "- Status: `dismissed`" in body
+    assert "- Stage: `analysis`" in body
+    assert "- Run ID: `run-43`" in body
+    assert "## Recovery" not in body
 
 
 def test_render_body_includes_last_execution_when_blocked() -> None:

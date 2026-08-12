@@ -95,6 +95,7 @@ class EditRenderer:
             commit_message=proposal.commit_message,
             change_request_title=proposal.change_request_title,
             change_request_description=proposal.change_request_description,
+            remediation_intent=proposal.remediation_intent,
         )
 
     def _apply_edit(self, content: str, edit: TextEdit) -> str:

@@ -109,8 +109,9 @@ class StubExecutionService:
         context: IssueContext,
         dry_run: bool,
         branch_name: str | None = None,
+        attempt_number: int = 1,
     ) -> ExecutionResult:
-        del context
+        del context, attempt_number
         self.calls.append((selected_issue, dry_run, branch_name))
         return self.result
 
@@ -168,8 +169,9 @@ class StubControlPlane:
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        execution_failure: WorkItemExecutionFailure | None = None,
     ) -> None:
-        del existing_work_item
+        del existing_work_item, execution_failure
         self.dismissed.append(selected_issue.item_id)
 
     def mark_execution_completed(

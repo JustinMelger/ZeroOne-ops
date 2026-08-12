@@ -254,9 +254,6 @@ def test_publish_service_builds_deterministic_description() -> None:
             "- File: `src/service.py`",
             "- Line: `1`",
             "- Message: Fixture issue",
-            "",
-            "## Notes",
-            "- Diff was rendered by the bot from a structured edit proposal.",
         ]
     )
 
@@ -347,7 +344,7 @@ def test_publish_service_builds_conventional_commit_change_request_title() -> No
         proposed_title="patch service please",
     )
 
-    assert title == "fix: remediate python:S2259 in service.py"
+    assert title == "chore: remediate python:S2259 in service.py"
 
 
 def test_publish_service_uses_pushed_branch_consistently() -> None:

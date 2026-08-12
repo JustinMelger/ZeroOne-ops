@@ -75,6 +75,7 @@ class WorkItemExecutionFailure(BaseModel):
     exit_code: int | None = None
     execution_url: str | None = None
     validation_outcome: str | None = None
+    status: Literal["blocked", "dismissed"] = "blocked"
 
 
 class RecoveryEvent(BaseModel):

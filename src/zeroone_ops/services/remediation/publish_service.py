@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from zeroone_ops.models.analysis import ValidationComparison
+from zeroone_ops.models.analysis import RemediationIntent, ValidationComparison
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
@@ -83,6 +83,7 @@ class PublishService:
         selected_issue: RemediationExecutionTarget,
         change_request_title: str | None = None,
         change_request_description: str | None = None,
+        remediation_intent: RemediationIntent = "chore",
         validation_comparison: ValidationComparison | None = None,
         commit_sha: str | None = None,
     ) -> PublishResult:
@@ -103,6 +104,7 @@ class PublishService:
                 source_branch=self.branch_manager.current_branch(),
                 selected_issue=selected_issue,
                 change_summary=change_request_description,
+                remediation_intent=remediation_intent,
                 validation_comparison=validation_comparison,
             )
             control_plane_work_item = self._mark_control_plane_publish_started_best_effort(
@@ -146,18 +148,23 @@ class PublishService:
         *,
         selected_issue: RemediationExecutionTarget,
         proposed_title: str,
+        remediation_intent: RemediationIntent = "chore",
     ) -> str:
         """Build a conventional-commit-style change-request title.
 
         Args:
             selected_issue: Selected remediation execution target.
             proposed_title: LLM-proposed change-request title.
+            remediation_intent: Analysis-derived publication intent.
 
         Returns:
             A deterministic conventional-commit-style title.
         """
         del proposed_title
-        return self.publication_request_builder.build_title(selected_issue=selected_issue)
+        return self.publication_request_builder.build_title(
+            selected_issue=selected_issue,
+            remediation_intent=remediation_intent,
+        )
 
     def build_change_request_description(
         self,
