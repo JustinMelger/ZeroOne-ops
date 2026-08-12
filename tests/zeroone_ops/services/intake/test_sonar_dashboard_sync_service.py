@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from pytest import LogCaptureFixture
+
 from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
@@ -8,6 +10,7 @@ from zeroone_ops.models.config import (
     RemediationConfig,
     ReviewConfig,
     SarifArtifactConfig,
+    SarifConfig,
     SonarQubeConfig,
     StateConfig,
 )
@@ -141,6 +144,40 @@ def test_intake_merge_preserves_unmanaged_source_collection(tmp_path: Path) -> N
     assert merged.metadata.managed_source_ids == []
 
 
+def test_intake_skips_unavailable_sarif_artifact_without_claiming_source_ownership(
+    tmp_path: Path,
+    caplog: LogCaptureFixture,
+) -> None:
+    config = AppConfig(
+        base_branch="main",
+        remediation=RemediationConfig(target_branch="main"),
+        gitlab=GitLabConfig(target_branch="main"),
+        sarif=SarifConfig(
+            artifacts=[
+                SarifArtifactConfig(
+                    path=tmp_path / "artifacts" / "missing.sarif",
+                    source_id="ruff-sarif",
+                )
+            ]
+        ),
+    )
+
+    collection = IssueIntakeService(
+        repo_root=tmp_path,
+        config=config,
+    ).collect_dashboard_sync_issues(dry_run=True, run_id="run-1")
+
+    metadata = collection.finding_collection.metadata
+    assert metadata.managed_source_ids == []
+    assert metadata.input_collections[0].source_id == "ruff-sarif"
+    assert metadata.input_collections[0].artifact_reference == str(
+        tmp_path / "artifacts" / "missing.sarif"
+    )
+    assert metadata.warnings == ["SARIF artifact for source 'ruff-sarif' was unavailable."]
+    assert metadata.statistics == {"unavailable_artifacts": 1}
+    assert "skipped unavailable SARIF artifact" in caplog.text
+
+
 def test_intake_bridge_rejects_findings_that_escape_repo_root(tmp_path: Path) -> None:
     repo_root = tmp_path
     config = AppConfig(
@@ -249,7 +286,11 @@ def test_intake_bridge_keeps_input_collection_provenance_for_mixed_sources(
         SarifArtifactConfig(
             path=repo_root / "artifacts" / "ruff.sarif",
             source_id="ruff-sarif",
-        )
+        ),
+        SarifArtifactConfig(
+            path=repo_root / "artifacts" / "missing.sarif",
+            source_id="mypy-sarif",
+        ),
     ]
 
     collection = IssueIntakeService(
@@ -257,7 +298,7 @@ def test_intake_bridge_keeps_input_collection_provenance_for_mixed_sources(
         config=config,
     ).collect_dashboard_sync_issues(dry_run=True, run_id="run-1")
 
-    assert len(collection.finding_collection.metadata.input_collections) == 2
+    assert len(collection.finding_collection.metadata.input_collections) == 3
     assert collection.finding_collection.metadata.managed_source_ids == [
         "ruff-sarif",
         "sonarqube",
@@ -270,6 +311,13 @@ def test_intake_bridge_keeps_input_collection_provenance_for_mixed_sources(
     assert collection.finding_collection.metadata.input_collections[1].artifact_reference == str(
         repo_root / "artifacts" / "ruff.sarif"
     )
+    assert collection.finding_collection.metadata.input_collections[2].source_id == "mypy-sarif"
+    assert collection.finding_collection.metadata.input_collections[2].artifact_reference == str(
+        repo_root / "artifacts" / "missing.sarif"
+    )
+    assert collection.finding_collection.metadata.warnings == [
+        "SARIF artifact for source 'mypy-sarif' was unavailable."
+    ]
 
 
 def test_intake_bridge_does_not_mark_locally_filtered_sources_as_fully_managed(

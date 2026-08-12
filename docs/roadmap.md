@@ -45,6 +45,9 @@ history, not here.
 - remediation safety hardening: exact declared/parsed patch-path matching,
   strict repository-config validation, release-pinned operational templates,
   and documented execution-trust boundaries
+- resilient multi-source SARIF intake: unavailable artifacts produce bounded
+  diagnostics without blocking available sources or claiming stale
+  reconciliation ownership
 - MLflow tracing support, Ruff pre-commit checks, and current CI workflows
 - copyable GitHub Actions and GitLab CI control-plane installation templates
 
