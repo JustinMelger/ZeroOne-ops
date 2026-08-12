@@ -42,6 +42,9 @@ history, not here.
   automatic retries, and require a later explicit operator recovery action
 - runner composition split into focused finding-sync, remediation, recovery,
   lifecycle, policy, and review workflows while preserving public commands
+- resilient multi-source SARIF intake: unavailable artifacts produce bounded
+  diagnostics without blocking available sources or claiming stale
+  reconciliation ownership
 - MLflow tracing support, Ruff pre-commit checks, and current CI workflows
 - copyable GitHub Actions and GitLab CI control-plane installation templates
 
@@ -76,12 +79,6 @@ history, not here.
   remediation intent: keep `fix` for behavioral defects, use an appropriate
   neutral prefix for test, typing, lint, or maintenance-only edits, and define
   a stable fallback without deriving commit semantics from raw source wording
-
-### Finding Intake Resilience
-
-- [ ] isolate configured SARIF artifact failures so available sources continue
-  to sync; record bounded per-artifact diagnostics and never stale-reconcile an
-  unavailable source as an authoritative empty inventory
 
 ### Policy Reconciliation
 
