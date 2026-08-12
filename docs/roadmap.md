@@ -73,6 +73,32 @@ history, not here.
   to sync; record bounded per-artifact diagnostics and never stale-reconcile an
   unavailable source as an authoritative empty inventory
 
+### Operational Readiness
+
+- [ ] add a read-only `config validate` command that reports invalid repository
+  config, deprecated aliases, missing provider selection, and unavailable
+  configured fixture or SARIF paths before a workflow performs work; design a
+  separate advisory `config migrate` mode before introducing any file rewrite
+- [ ] design workflow-scoped preflight checks for repository config, required
+  provider settings, reachable integrations, validation tools, and expected
+  SARIF artifacts; keep them explicit, bounded, and free of remediation or
+  lifecycle writes
+- [ ] turn the GitLab CI example into a versioned end-to-end template contract:
+  verify its scheduled/manual rules, job DAG, artifact wiring, resource groups,
+  and merge-request review route in a representative GitLab fixture or test
+  environment
+- [ ] define the derived-image toolchain contract for validation: retain the
+  thin non-root base image with Git, curl, and CA certificates; document how
+  operators extend it for language-specific tools without changing the
+  ZeroOne Ops image contract
+- [ ] add end-to-end scenario fixtures that span normalized intake, policy,
+  remediation, provider-native change requests, lifecycle reconciliation, and
+  derived summaries for both GitHub and GitLab issue mode
+- [ ] design a stable machine-readable run-summary output alongside the current
+  human CLI summary, including selected finding, policy decision, validation
+  outcome, change-request reference, lifecycle transition, and bounded error
+  evidence
+
 ### Policy Reconciliation
 
 - [ ] reconcile unlinked candidate work items that become policy-ineligible
