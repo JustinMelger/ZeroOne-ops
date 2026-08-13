@@ -1089,7 +1089,7 @@ def test_dashboard_reconcile_ci_blocks_item_when_merge_request_was_closed(
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
-    ):  # noqa: ANN202
+    ) -> object:  # noqa: ANN202
         del (
             self,
             project_id,
