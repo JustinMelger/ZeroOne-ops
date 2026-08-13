@@ -171,6 +171,7 @@ class PatchApplier:
             diff_path = _parse_diff_git_path(line)
             index += 1
             if index < len(lines) and _is_git_index_metadata(lines[index]):
+                _validate_git_index_mode(lines[index])
                 index += 1
             if index < len(lines) and lines[index].startswith(
                 (
@@ -183,6 +184,8 @@ class PatchApplier:
                     "copy to ",
                     "new file mode ",
                     "deleted file mode ",
+                    "old mode ",
+                    "new mode ",
                 )
             ):
                 raise PatchApplyError(
@@ -254,7 +257,8 @@ _HUNK_HEADER_RE = re.compile(
     r"^@@ -(?P<old_start>\d+)(?:,(?P<old_count>\d+))? "
     r"\+(?P<new_start>\d+)(?:,(?P<new_count>\d+))? @@"
 )
-_GIT_INDEX_METADATA_RE = re.compile(r"^index [0-9a-f]+\.\.[0-9a-f]+(?: [0-9]{6})?$")
+_GIT_INDEX_METADATA_RE = re.compile(r"^index [0-9a-f]+\.\.[0-9a-f]+(?: (?P<mode>[0-9]{6}))?$")
+_REGULAR_FILE_MODES = {"100644", "100755"}
 
 
 def _parse_hunk_header(line: str) -> tuple[int, int]:
@@ -270,6 +274,18 @@ def _parse_hunk_header(line: str) -> tuple[int, int]:
 def _is_git_index_metadata(line: str) -> bool:
     """Return whether one line is standard non-semantic Git index metadata."""
     return _GIT_INDEX_METADATA_RE.fullmatch(line) is not None
+
+
+def _validate_git_index_mode(line: str) -> None:
+    """Reject index metadata for non-regular files."""
+    match = _GIT_INDEX_METADATA_RE.fullmatch(line)
+    if match is None:
+        raise PatchApplyError("Malformed unified diff: invalid Git index metadata.")
+    mode = match.group("mode")
+    if mode is not None and mode not in _REGULAR_FILE_MODES:
+        raise PatchApplyError(
+            "Malformed unified diff: only regular text-file patches are supported."
+        )
 
 
 def _parse_diff_git_path(line: str) -> str:

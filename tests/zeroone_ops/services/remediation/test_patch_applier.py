@@ -161,6 +161,32 @@ def test_apply_rejects_malformed_hunk_header_counts(tmp_path: Path) -> None:
             ),
             "only in-place text edits",
         ),
+        (
+            ["sample.txt"],
+            (
+                "diff --git a/sample.txt b/sample.txt\n"
+                "index 3367afd..3e75765 120000\n"
+                "--- a/sample.txt\n"
+                "+++ b/sample.txt\n"
+                "@@ -1 +1 @@\n"
+                "-old\n"
+                "+new\n"
+            ),
+            "only regular text-file patches",
+        ),
+        (
+            ["sample.txt"],
+            (
+                "diff --git a/sample.txt b/sample.txt\n"
+                "index 3367afd..3e75765 160000\n"
+                "--- a/sample.txt\n"
+                "+++ b/sample.txt\n"
+                "@@ -1 +1 @@\n"
+                "-old\n"
+                "+new\n"
+            ),
+            "only regular text-file patches",
+        ),
     ],
 )
 def test_validate_rejects_unsupported_or_out_of_scope_diff_paths(
