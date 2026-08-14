@@ -1,5 +1,7 @@
 name: ZeroOne Ops Review
 
+# This review-only workflow never runs remediation setup or validation commands.
+
 on:
   pull_request:
     types:
@@ -17,7 +19,7 @@ jobs:
   zeroone-ops-review:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/<owner>/zeroone-ops:latest
+      image: ghcr.io/<owner>/zeroone-ops:0.54.0
 
     env:
       ZEROONE_OPS_EXECUTION_MODE: ci
@@ -38,7 +40,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

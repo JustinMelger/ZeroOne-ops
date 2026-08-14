@@ -9,10 +9,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import ClassVar, Literal
 
-from pydantic import AliasChoices, BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 
-class AnalysisConfig(BaseModel):
+class RepositoryConfigModel(BaseModel):
+    """Base model for strict repository-controlled configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class AnalysisConfig(RepositoryConfigModel):
     """Configure source context collection for analysis.
 
     Attributes:
@@ -26,7 +32,7 @@ class AnalysisConfig(BaseModel):
     max_file_bytes: int = 200_000
 
 
-class ApprovalConfig(BaseModel):
+class ApprovalConfig(RepositoryConfigModel):
     """Configure human approval behavior.
 
     Attributes:
@@ -36,7 +42,7 @@ class ApprovalConfig(BaseModel):
     required: bool = True
 
 
-class ReviewConfig(BaseModel):
+class ReviewConfig(RepositoryConfigModel):
     """Configure pull-request review behavior."""
 
     max_changed_files: int = 10
@@ -59,7 +65,7 @@ class ReviewConfig(BaseModel):
     skip_draft_merge_requests: bool = True
 
 
-class GitLabConfig(BaseModel):
+class GitLabConfig(RepositoryConfigModel):
     """Configure GitLab merge request behavior.
 
     Attributes:
@@ -75,7 +81,7 @@ class GitLabConfig(BaseModel):
     merge_request_assignee_username: str | None = None
 
 
-class GitHubConfig(BaseModel):
+class GitHubConfig(RepositoryConfigModel):
     """Configure GitHub pull request behavior.
 
     Attributes:
@@ -156,7 +162,7 @@ class OpenAIConnectionConfig(BaseModel):
     mlflow_experiment_id: str | None = None
 
 
-class StateConfig(BaseModel):
+class StateConfig(RepositoryConfigModel):
     """Configure local state persistence.
 
     Attributes:
@@ -166,7 +172,7 @@ class StateConfig(BaseModel):
     path: Path = Path(".zeroone-ops-state.json")
 
 
-class RemediationConfig(BaseModel):
+class RemediationConfig(RepositoryConfigModel):
     """Configure remediation workflow behavior."""
 
     target_branch: str | None = None
@@ -187,26 +193,26 @@ class RemediationConfig(BaseModel):
         return self.bootstrap_severities
 
 
-class SonarQubeConfig(BaseModel):
+class SonarQubeConfig(RepositoryConfigModel):
     """Configure SonarQube producer behavior."""
 
     mock_issues_path: Path | None = None
 
 
-class SarifConfig(BaseModel):
+class SarifConfig(RepositoryConfigModel):
     """Configure SARIF finding-source behavior."""
 
     artifacts: list[SarifArtifactConfig] = Field(default_factory=list)
 
 
-class SarifArtifactConfig(BaseModel):
+class SarifArtifactConfig(RepositoryConfigModel):
     """Declare one SARIF artifact and its stable finding-source identity."""
 
     path: Path
     source_id: str = Field(min_length=1)
 
 
-class AppConfig(BaseModel):
+class AppConfig(RepositoryConfigModel):
     """Represent validated runtime configuration.
 
     Attributes:
@@ -297,8 +303,13 @@ class AppConfig(BaseModel):
             data["sarif"] = sarif
 
         review = dict(data.get("review", {}))
-        if "platform" not in data and "platform" in review:
-            data["platform"] = review["platform"]
+        legacy_review_platform = review.pop("platform", None)
+        if "platform" not in data and legacy_review_platform is not None:
+            data["platform"] = legacy_review_platform
+        if review:
+            data["review"] = review
+        elif "review" in data:
+            data.pop("review")
 
         return data
 

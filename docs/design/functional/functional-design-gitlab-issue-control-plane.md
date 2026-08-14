@@ -100,7 +100,7 @@ The installed GitLab CI template exposes this as one
 `zeroone_ops_control_plane` job. It runs policy processing, recovery
 processing, and remediation sequentially after finding sync, when that job is
 enabled. A GitLab schedule enables it with
-`RUN_ZEROONE_OPS_CONTROL_PLANE=true`; the same variable exposes a manual
+`RUN_ZEROONE_OPS=true`; the same variable exposes a manual
 default-branch job for operator follow-up.
 
 ### Operational Summary

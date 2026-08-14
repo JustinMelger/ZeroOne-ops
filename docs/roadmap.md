@@ -42,6 +42,9 @@ history, not here.
   automatic retries, and require a later explicit operator recovery action
 - runner composition split into focused finding-sync, remediation, recovery,
   lifecycle, policy, and review workflows while preserving public commands
+- remediation safety hardening: exact declared/parsed patch-path matching,
+  strict repository-config validation, release-pinned operational templates,
+  and documented execution-trust boundaries
 - resilient multi-source SARIF intake: unavailable artifacts produce bounded
   diagnostics without blocking available sources or claiming stale
   reconciliation ownership
@@ -49,19 +52,6 @@ history, not here.
 - copyable GitHub Actions and GitLab CI control-plane installation templates
 
 ## Current Focus
-
-### Safety Hardening
-
-- [ ] require exact equality between declared patch paths and every parsed diff
-  path; validate parsed paths directly and add adversarial multi-file tests
-- [ ] reject unknown repository configuration fields while preserving explicit
-  legacy migrations and aliases
-- [ ] replace mutable operational-template image references with a documented
-  release-version or digest pinning pattern
-- [ ] document and audit the execution-trust model for validation and setup
-  commands: protected configuration revision, checked-out code, credentials,
-  trigger restrictions, network, and workspace access in GitHub and GitLab
-  templates
 
 ### Work-Item UX
 
@@ -79,6 +69,38 @@ history, not here.
   remediation intent: keep `fix` for behavioral defects, use an appropriate
   neutral prefix for test, typing, lint, or maintenance-only edits, and define
   a stable fallback without deriving commit semantics from raw source wording
+
+### Finding Intake Resilience
+
+- [ ] isolate configured SARIF artifact failures so available sources continue
+  to sync; record bounded per-artifact diagnostics and never stale-reconcile an
+  unavailable source as an authoritative empty inventory
+
+### Operational Readiness
+
+- [ ] add a read-only `config validate` command that reports invalid repository
+  config, deprecated aliases, missing provider selection, and unavailable
+  configured fixture or SARIF paths before a workflow performs work; design a
+  separate advisory `config migrate` mode before introducing any file rewrite
+- [ ] design workflow-scoped preflight checks for repository config, required
+  provider settings, reachable integrations, validation tools, and expected
+  SARIF artifacts; keep them explicit, bounded, and free of remediation or
+  lifecycle writes
+- [ ] turn the GitLab CI example into a versioned end-to-end template contract:
+  verify its scheduled/manual rules, job DAG, artifact wiring, resource groups,
+  and merge-request review route in a representative GitLab fixture or test
+  environment
+- [ ] define the derived-image toolchain contract for validation: retain the
+  thin non-root base image with Git, curl, and CA certificates; document how
+  operators extend it for language-specific tools without changing the
+  ZeroOne Ops image contract
+- [ ] add end-to-end scenario fixtures that span normalized intake, policy,
+  remediation, provider-native change requests, lifecycle reconciliation, and
+  derived summaries for both GitHub and GitLab issue mode
+- [ ] design a stable machine-readable run-summary output alongside the current
+  human CLI summary, including selected finding, policy decision, validation
+  outcome, change-request reference, lifecycle transition, and bounded error
+  evidence
 
 ### Policy Reconciliation
 

@@ -33,14 +33,14 @@ class GitLabIssueControlPlaneWorkflow:
             dry_run=dry_run,
             publish_operational_summary=False,
         )
-        if policy_summary.status != RunStatus.SYNCED:
+        if policy_summary.status == RunStatus.FAILED:
             return policy_summary
 
         recovery_summary = self._run_recovery(
             dry_run=dry_run,
             publish_operational_summary=False,
         )
-        if recovery_summary.status != RunStatus.SYNCED:
+        if recovery_summary.status == RunStatus.FAILED:
             return recovery_summary
 
         remediation_summary = self._run_remediation(

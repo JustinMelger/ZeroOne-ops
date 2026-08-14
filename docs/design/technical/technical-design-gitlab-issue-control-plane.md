@@ -169,7 +169,7 @@ history. It must not inspect unrelated project issues or replay commands from
 closed work-item issues.
 
 GitLab schedules are configured outside YAML. The initial schedule runs every
-30 minutes with `RUN_ZEROONE_OPS_CONTROL_PLANE=true`; the same variable exposes
+30 minutes with `RUN_ZEROONE_OPS=true`; the same variable exposes
 a manual default-branch job for operator follow-up. The CI job itself does not
 interpret `gitlab.control_plane_mode`: each invoked command selects exactly one
 authority from that configuration, preventing dual writes.

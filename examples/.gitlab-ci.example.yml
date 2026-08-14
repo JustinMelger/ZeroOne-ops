@@ -2,9 +2,18 @@ stages:
   - zeroone-ops-fix
   - zeroone-ops-review
 
+# The root .gitlab-ci.yml owns stage order. Scheduled operational jobs require
+# RUN_ZEROONE_OPS=true; manual jobs use the same variable on the default branch.
+.zeroone_ops_scheduled:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule" && $RUN_ZEROONE_OPS == "true"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS == "true"'
+      when: manual
+    - when: never
+
 .zeroone_ops_base:
   image:
-    name: ghcr.io/justinmelger/zeroone-ops:latest
+    name: ghcr.io/justinmelger/zeroone-ops:0.54.0
     entrypoint: [""]
   interruptible: false
   variables:
@@ -14,6 +23,11 @@ stages:
     GIT_DEPTH: "0"
     GITLAB_URL: "https://${CI_SERVER_HOST}"
     OPENAI_MODEL: "gpt-5.4-mini"
+    # Pin these in project/group CI variables when using the optional producer
+    # jobs below. Replace scan paths with repository-specific directories.
+    RUFF_VERSION: "0.14.0"
+    MYPY_VERSION: "1.18.2"
+    MYPY_TO_SARIF_SCRIPT: "scripts/mypy_to_sarif.py"
     # Optional MLflow tracing. Enable only when a reachable tracking server is
     # configured for this environment.
     # ZEROONE_MLFLOW_ENABLED: "true"
@@ -26,20 +40,80 @@ stages:
     # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
     # OPENAI_API_KEY
+    # Privileged jobs must use protected default-branch configuration. Remediation
+    # setup and validation commands are executable CI policy and run only in the
+    # control-plane remediation path below.
+
+.zeroone_ops_remediation_git_setup:
+  before_script:
+    - export GIT_CONFIG_GLOBAL="/tmp/gitconfig-${CI_JOB_ID}"
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - git config user.name "${GIT_AUTHOR_NAME:-ZeroOne Ops}"
+    - git config user.email "${GIT_AUTHOR_EMAIL:-zeroone-ops@example.com}"
+    - set +x
+    - >
+      git remote set-url origin
+      "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+  after_script:
+    - rm -f "$GIT_CONFIG_GLOBAL"
+
+# Optional SARIF producers. Keep these as separate jobs so their artifacts are
+# available to the shared finding sync. Replace `src tests` with your scan
+# paths, or remove either job when that producer is not configured.
+zeroone_ops_ruff_sarif:
+  extends: [.zeroone_ops_base, .zeroone_ops_scheduled]
+  image: python:3.13
+  stage: zeroone-ops-fix
+  before_script:
+    - mkdir -p artifacts
+    - pip install "ruff==${RUFF_VERSION}"
+  script:
+    - >
+      ruff check src tests --exit-zero --output-format sarif
+      --output-file artifacts/ruff.sarif
+  artifacts:
+    when: always
+    paths:
+      - artifacts/ruff.sarif
+
+zeroone_ops_mypy_sarif:
+  extends: [.zeroone_ops_base, .zeroone_ops_scheduled]
+  image: python:3.13
+  stage: zeroone-ops-fix
+  before_script:
+    - mkdir -p artifacts
+    - pip install "mypy==${MYPY_VERSION}"
+  script:
+    - |
+      set +e
+      mypy src tests --output json --no-error-summary > artifacts/mypy.json
+      mypy_exit=$?
+      set -e
+      if [ "$mypy_exit" -ne 0 ] && [ "$mypy_exit" -ne 1 ]; then
+        exit "$mypy_exit"
+      fi
+    # Copy examples/mypy_to_sarif.py into the configured repository-local path.
+    - python "$MYPY_TO_SARIF_SCRIPT" artifacts/mypy.json artifacts/mypy.sarif
+  artifacts:
+    when: always
+    paths:
+      - artifacts/mypy.sarif
 
 # Finding sync.
 # Keep this separate from remediation so operators can validate dashboard state
 # without also mutating the repository. This collects SonarQube findings and
 # any configured SARIF artifacts.
 zeroone_ops_findings_sync:
-  extends: .zeroone_ops_base
+  extends: [.zeroone_ops_base, .zeroone_ops_scheduled]
   stage: zeroone-ops-fix
   resource_group: zeroone-ops-findings-sync
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_FINDINGS_SYNC == "true"'
-      when: manual
-    - when: never
+  needs:
+    - job: zeroone_ops_ruff_sarif
+      artifacts: true
+      optional: true
+    - job: zeroone_ops_mypy_sarif
+      artifacts: true
+      optional: true
   variables:
     # Define these as masked and protected CI/CD variables where applicable:
     # SONARQUBE_URL
@@ -51,21 +125,16 @@ zeroone_ops_findings_sync:
 
 # GitLab issue-mode control plane.
 # Run policy commands, recovery commands, and one remediation attempt in this
-# order. Create a GitLab schedule with RUN_ZEROONE_OPS_CONTROL_PLANE=true to
+# order. Create a GitLab schedule with RUN_ZEROONE_OPS=true to
 # run it every 30 minutes. The same variable exposes a manual default-branch
 # job for operator follow-up.
 zeroone_ops_control_plane:
-  extends: .zeroone_ops_base
+  extends: [.zeroone_ops_base, .zeroone_ops_scheduled, .zeroone_ops_remediation_git_setup]
   stage: zeroone-ops-fix
   resource_group: zeroone-ops-remediation
   needs:
     - job: zeroone_ops_findings_sync
       optional: true
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule" && $RUN_ZEROONE_OPS_CONTROL_PLANE == "true"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_CONTROL_PLANE == "true"'
-      when: manual
-    - when: never
   variables:
     GIT_AUTHOR_NAME: "ZeroOne Ops"
     GIT_AUTHOR_EMAIL: "zeroone-ops@example.com"
@@ -74,32 +143,16 @@ zeroone_ops_control_plane:
     # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN
     # OPENAI_API_KEY
-  before_script:
-    - export GIT_CONFIG_GLOBAL="/tmp/gitconfig-${CI_JOB_ID}"
-    - git config --global --add safe.directory "$CI_PROJECT_DIR"
-    - git config user.name "$GIT_AUTHOR_NAME"
-    - git config user.email "$GIT_AUTHOR_EMAIL"
-    - set +x
-    - >
-      git remote set-url origin
-      "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
   script:
     - zeroone-ops control-plane run
-  after_script:
-    - rm -f "$GIT_CONFIG_GLOBAL"
 
 # Work-item lifecycle workflow.
 # Keep this as a separate later lifecycle job rather than chaining it directly
 # after remediation in the same pipeline.
 zeroone_ops_work_items_sync_status:
-  extends: .zeroone_ops_base
+  extends: [.zeroone_ops_base, .zeroone_ops_scheduled]
   stage: zeroone-ops-fix
   resource_group: zeroone-ops-work-items-sync-status
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RUN_ZEROONE_OPS_WORK_ITEMS_SYNC_STATUS == "true"'
-      when: manual
-    - when: never
   variables:
     # Define these as masked and protected CI/CD variables:
     # GITLAB_TOKEN

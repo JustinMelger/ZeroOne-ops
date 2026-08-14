@@ -622,7 +622,10 @@ class PatchProposal(BaseModel):
 
 For v1, `PatchProposal` is a bot-rendered artifact produced from a validated
 `StructuredEditProposal`. The bot applies it locally and rejects patches that
-touch files outside the repository.
+touch files outside the repository. The rendered diff must exactly match its
+declared one-file scope and represent an in-place edit to a regular text file;
+file additions, deletions, renames, mode changes, symlinks, gitlinks, and binary
+patches are rejected.
 
 ## 8.5 Validation Result Model
 
@@ -899,6 +902,10 @@ Before applying a patch:
 - verify branch is not the base branch,
 - verify target files are inside repo root,
 - verify no forbidden paths are touched, such as `.git/`,
+- verify the rendered diff exactly matches the declared one-file scope and only
+  uses regular-file modes (`100644` or `100755`),
+- reject file additions, deletions, renames, mode changes, symlinks, gitlinks,
+  and binary patches,
 - verify each structured edit matches exactly one location unless `line_hint`
   disambiguates it,
 - verify file count is within the configured maximum.
