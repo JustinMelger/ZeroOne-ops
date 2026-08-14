@@ -5,6 +5,21 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.54.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.54.0...zeroone-ops-v0.54.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* **deps:** update dependency openai to &gt;=2.52.0 ([#319](https://github.com/JustinMelger/ZeroOne-ops/issues/319)) ([1f3f05f](https://github.com/JustinMelger/ZeroOne-ops/commit/1f3f05fdd296bd6d15f6f7c35c622a343e69875a))
+* harden remediation safety boundaries ([#349](https://github.com/JustinMelger/ZeroOne-ops/issues/349)) ([588931e](https://github.com/JustinMelger/ZeroOne-ops/commit/588931e35ae4ecf204e7711e50c4e3c4836933e7))
+* isolate unavailable sarif artifacts ([#350](https://github.com/JustinMelger/ZeroOne-ops/issues/350)) ([d12a283](https://github.com/JustinMelger/ZeroOne-ops/commit/d12a28359d0a4a18657a6080ca8f0af41290d22c))
+* **tests:** annotate fake failure updater return ([#346](https://github.com/JustinMelger/ZeroOne-ops/issues/346)) ([23a95e3](https://github.com/JustinMelger/ZeroOne-ops/commit/23a95e327140679ac2c79ce6442c57aafae1b073))
+
+
+### Documentation
+
+* document execution trust and roadmap hardening ([#347](https://github.com/JustinMelger/ZeroOne-ops/issues/347)) ([65ae8da](https://github.com/JustinMelger/ZeroOne-ops/commit/65ae8da9bb2ece11430865bb054f4215802dab6e))
+
 ## [0.54.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.53.0...zeroone-ops-v0.54.0) (2026-08-10)
 
 
