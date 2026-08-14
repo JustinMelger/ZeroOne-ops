@@ -627,6 +627,7 @@ def test_publish_service_marks_github_work_item_blocked_when_publish_fails() -> 
         selected_issue=build_issue(),
         change_request_title="ignored",
         change_request_description="summary",
+        remediation_intent="fix",
         commit_sha="abc123",
     )
 
@@ -638,6 +639,7 @@ def test_publish_service_marks_github_work_item_blocked_when_publish_fails() -> 
     assert work_item_service.calls[1].publication_retry is not None
     assert work_item_service.calls[1].publication_retry.branch_name == "zeroone-ops/fix"
     assert work_item_service.calls[1].publication_retry.commit_sha == "abc123"
+    assert work_item_service.calls[1].publication_retry.remediation_intent == "fix"
 
 
 def test_publish_service_keeps_success_when_post_publish_work_item_sync_fails() -> None:

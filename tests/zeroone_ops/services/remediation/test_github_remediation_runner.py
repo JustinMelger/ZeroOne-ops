@@ -39,6 +39,7 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_upsert_servi
     GitHubWorkItemUpsertResult,
 )
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
+from zeroone_ops.services.remediation.change_request_publisher import ChangeRequestPublishRequest
 from zeroone_ops.services.remediation.control_plane import RemediationControlPlane
 from zeroone_ops.services.remediation.execution_service import ExecutionResult, ExecutionService
 from zeroone_ops.services.remediation.github_remediation_runner import GitHubRemediationRunner
@@ -122,15 +123,16 @@ class StubPublicationRetryService:
     def __init__(self, result: PublicationRetryResult) -> None:
         self.result = result
         self.calls: list[PublicationRetryState] = []
+        self.requests: list[ChangeRequestPublishRequest] = []
 
     def retry(
         self,
         *,
         publication_retry: PublicationRetryState,
-        request: object,
+        request: ChangeRequestPublishRequest,
     ) -> PublicationRetryResult:
-        del request
         self.calls.append(publication_retry)
+        self.requests.append(request)
         return self.result
 
 
@@ -449,6 +451,7 @@ def test_runner_retries_recorded_publication_without_rerunning_execution(
                 branch_name="zeroone-ops/ruff-sarif/fix",
                 commit_sha="abc123",
                 reason="change_request_publish_failed",
+                remediation_intent="fix",
             )
         }
     )
@@ -479,6 +482,7 @@ def test_runner_retries_recorded_publication_without_rerunning_execution(
     assert summary.change_request_url == "https://github.example.com/octo-org/octo-repo/pull/9"
     assert execution_service.calls == []
     assert retry_service.calls == [work_item.publication_retry]
+    assert retry_service.requests[0].title.startswith("fix:")
     assert control_plane.linked_change_requests == ["github-work-1"]
 
 

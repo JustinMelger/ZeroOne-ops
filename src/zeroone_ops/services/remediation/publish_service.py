@@ -127,6 +127,7 @@ class PublishService:
                         branch_name=pushed_branch,
                         commit_sha=commit_sha,
                         reason="change_request_publish_failed",
+                        remediation_intent=remediation_intent,
                     )
                     if pushed_branch is not None and commit_sha is not None
                     else None

@@ -312,6 +312,7 @@ class WorkItemRemediationRunner:
                 selected_issue=selected_target,
                 source_branch=publication_retry.branch_name,
                 change_summary="Retrying publication for the existing remediation branch.",
+                remediation_intent=publication_retry.remediation_intent,
             ),
         )
         if not result.succeeded or result.change_request is None:
