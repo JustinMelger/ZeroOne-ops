@@ -53,6 +53,7 @@ class ExecutionResult:
     published_change_request: ChangeRequestInfo | None = None
     publish_attempted: bool = False
     final_status: RunStatus | None = None
+    terminal_rejection_stage: FailureStage | None = None
 
 
 class ExecutionService:
@@ -230,6 +231,7 @@ class ExecutionService:
                 status_message=analysis_result.summary,
                 branch_name=branch_name,
                 final_status=RunStatus.REJECTED,
+                terminal_rejection_stage=FailureStage.ANALYSIS,
             )
         if dry_run or not self._should_commit(analysis_result):
             return ExecutionResult(
@@ -281,6 +283,7 @@ class ExecutionService:
                     status_message="Local approval rejected the proposed change.",
                     branch_name=branch_name,
                     final_status=RunStatus.REJECTED,
+                    terminal_rejection_stage=FailureStage.APPROVAL,
                 )
 
         try:

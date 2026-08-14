@@ -143,6 +143,7 @@ class StubControlPlane:
         self.blocked: list[str] = []
         self.execution_failures: list[WorkItemExecutionFailure | None] = []
         self.dismissed: list[str] = []
+        self.dismissal_failures: list[WorkItemExecutionFailure | None] = []
         self.completed: list[str] = []
         self.publish_blocked: list[str] = []
         self.linked_change_requests: list[str] = []
@@ -173,8 +174,9 @@ class StubControlPlane:
         existing_work_item: WorkItemState | None,
         execution_failure: WorkItemExecutionFailure | None = None,
     ) -> None:
-        del existing_work_item, execution_failure
+        del existing_work_item
         self.dismissed.append(selected_issue.item_id)
+        self.dismissal_failures.append(execution_failure)
 
     def mark_execution_completed(
         self,
@@ -366,7 +368,11 @@ def test_runner_dismisses_rejected_work_item(tmp_path: Path, context: IssueConte
         run_state_service=run_state_service,
         work_item_service=FakeGitHubWorkItemService(_work_item()),
         execution_service=StubExecutionService(
-            _execution_result(final_status=RunStatus.REJECTED, status_message="Rejected.")
+            _execution_result(
+                final_status=RunStatus.REJECTED,
+                status_message="Rejected.",
+                terminal_rejection_stage=FailureStage.APPROVAL,
+            )
         ),
         control_plane=control_plane,
     )
@@ -375,6 +381,9 @@ def test_runner_dismisses_rejected_work_item(tmp_path: Path, context: IssueConte
 
     assert summary.status == RunStatus.REJECTED
     assert control_plane.dismissed == ["github-work-1"]
+    dismissal_failure = control_plane.dismissal_failures[0]
+    assert dismissal_failure is not None
+    assert dismissal_failure.stage == "approval"
 
 
 def test_runner_projects_change_request_link_after_injected_execution(

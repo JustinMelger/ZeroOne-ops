@@ -10,6 +10,7 @@ from zeroone_ops.models.config import (
     RemediationConfig,
 )
 from zeroone_ops.models.remediation import RemediationExecutionTarget
+from zeroone_ops.models.state import FailureStage
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
 from zeroone_ops.services.remediation.change_request_publisher import (
     PublishedChangeRequest,
@@ -394,6 +395,7 @@ def test_execute_returns_rejected_when_local_approval_declines(
 
     assert result.failure is None
     assert result.final_status == "rejected"
+    assert result.terminal_rejection_stage == FailureStage.APPROVAL
     assert result.status_message == "Local approval rejected the proposed change."
     assert result.commit_sha is None
     assert target_file.read_text(encoding="utf-8") == "value = 1\n"
@@ -428,5 +430,6 @@ def test_execute_returns_rejected_when_analysis_requires_manual_review(
 
     assert result.failure is None
     assert result.final_status == "rejected"
+    assert result.terminal_rejection_stage == FailureStage.ANALYSIS
     assert result.status_message == "Patch generation skipped because manual review is required."
     assert result.commit_sha is None

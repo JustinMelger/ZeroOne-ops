@@ -172,6 +172,7 @@ class WorkItemRemediationRunner:
                 active_dry_run=active_dry_run,
                 run_id=record.run_id,
                 summary=execution_result.status_message,
+                stage=execution_result.terminal_rejection_stage or FailureStage.ANALYSIS,
             )
             return self.run_state_service.finish_work_item(
                 record=record,
@@ -373,6 +374,7 @@ class WorkItemRemediationRunner:
         active_dry_run: bool,
         run_id: str,
         summary: str,
+        stage: FailureStage,
     ) -> None:
         """Project an intentional rejection without replacing the primary outcome."""
         if active_dry_run:
@@ -382,7 +384,7 @@ class WorkItemRemediationRunner:
                 selected_issue=selected_target,
                 existing_work_item=claimed_work_item,
                 execution_failure=WorkItemExecutionFailure(
-                    stage="analysis",
+                    stage=stage.value,
                     summary=summary,
                     retry_count=0,
                     run_id=run_id,
