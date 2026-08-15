@@ -55,17 +55,17 @@ history, not here.
 
 ### Work-Item UX
 
-- [ ] distinguish same-rule, same-file findings in GitHub and GitLab work-item
+- [x] distinguish same-rule, same-file findings in GitHub and GitLab work-item
   titles with a compact source location; retain separate stable identities and
   branches, and defer any many-findings-per-file grouping design
-- [ ] refine generated change-request descriptions around operator decisions:
+- [x] refine generated change-request descriptions around operator decisions:
   require the existing proposal summary to explain the concrete edit and why;
   remove generic structured-edit provenance; retain concise scope and validation
   evidence that helps review, merge, or recovery decisions
-- [ ] persist and render compact execution evidence for bot-dismissed work
+- [x] persist and render compact execution evidence for bot-dismissed work
   items on GitHub and GitLab: decision summary, stage, run reference, and safe
   recovery guidance without copying raw model or command output into the issue
-- [ ] make remediation branch and change-request prefixes reflect normalized
+- [x] make remediation branch and change-request prefixes reflect normalized
   remediation intent: keep `fix` for behavioral defects, use an appropriate
   neutral prefix for test, typing, lint, or maintenance-only edits, and define
   a stable fallback without deriving commit semantics from raw source wording

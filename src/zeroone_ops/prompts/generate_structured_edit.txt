@@ -19,6 +19,7 @@ Prior review feedback:
 {prior_review_feedback}
 Validation feedback from the previous patch attempt:
 {validation_feedback}
+Analysis remediation intent: {remediation_intent}
 
 Requirements:
 - Return one or more exact edits for a single repository-relative file.
@@ -26,6 +27,8 @@ Requirements:
 - Keep the edit count small and minimal.
 - Use exact existing source text in `search_text`.
 - Keep the change minimal and scoped to the issue.
+- Set `remediation_intent` to the analysis intent: `fix` only for a behavioral correction and `chore` otherwise.
+- Make `change_request_description` a concise operator-facing summary of the concrete edit and why it is safe or needed.
 - Use `line_hint` when the same text may appear more than once.
 - Preserve existing behavior unless the issue explicitly requires a safe local fix.
 - Do not return a unified diff.

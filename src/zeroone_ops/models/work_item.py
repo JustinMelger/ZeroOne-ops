@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from zeroone_ops.models.analysis import RemediationIntent
 from zeroone_ops.models.finding import RemediationContext
 from zeroone_ops.models.review import ReviewClassification
 
@@ -61,6 +62,7 @@ class PublicationRetryState(BaseModel):
     branch_name: str
     commit_sha: str
     reason: Literal["change_request_publish_failed"]
+    remediation_intent: RemediationIntent = "chore"
 
 
 class WorkItemExecutionFailure(BaseModel):
@@ -75,6 +77,7 @@ class WorkItemExecutionFailure(BaseModel):
     exit_code: int | None = None
     execution_url: str | None = None
     validation_outcome: str | None = None
+    status: Literal["blocked", "dismissed"] = "blocked"
 
 
 class RecoveryEvent(BaseModel):

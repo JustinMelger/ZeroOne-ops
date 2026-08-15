@@ -47,6 +47,9 @@ The current v1 automation scope is intentionally narrow:
 - low-risk single-file fixes only
 - structured-edit generation with bot-rendered diffs
 - structured edits must touch exactly one file
+- issue-mode remediation branches, commits, and change requests use `fix` only
+  for analysis-declared behavioral corrections; typing, lint, test, and
+  maintenance changes use `chore`
 - provider-native GitLab merge request or GitHub pull request creation in
   `ci` mode
 - policy-controlled promotion, lifecycle reconciliation, and explicit operator
@@ -136,6 +139,10 @@ authorized operator comments `/zeroone remediation requeue` or
 `/zeroone remediation dismiss` on the affected work-item issue. Recovery only
 queues state. The normal remediation job remains the sole owner of patch
 generation, validation, branch creation, and change-request publication.
+
+When bot analysis dismisses a work item as unsuitable for automatic remediation,
+the work item stays terminal and records the decision in `Last Execution` with
+its run reference. Dismissed work is not offered a requeue command.
 
 The provider-native control plane renders an operator policy surface:
 
@@ -316,6 +323,7 @@ The merge request should contain:
 - labels from `examples/.zeroone-ops.json` or the repository-specific runtime
   config derived from it
 - a deterministic description template with:
+  - an operator-facing summary of the concrete edit and why it is needed or safe
   - issue key
   - rule
   - severity
@@ -324,7 +332,7 @@ The merge request should contain:
   - line
   - issue message
   - validation summary
-  - note that the diff was bot-rendered from a structured edit proposal
+  - validation outcome when validation feedback is enabled
 
 ## Recommended GitLab CI Setup
 

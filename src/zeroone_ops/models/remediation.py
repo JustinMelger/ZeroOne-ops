@@ -86,7 +86,6 @@ class RemediationProducerProfile:
     analysis_system_prompt: str
     structured_edit_system_prompt: str
     mr_section_title: str
-    diff_note: str
 
 
 _DEFAULT_PROFILE = RemediationProducerProfile(
@@ -99,7 +98,6 @@ _DEFAULT_PROFILE = RemediationProducerProfile(
         "You propose exact file edits for remediation items and return strictly structured JSON."
     ),
     mr_section_title="Remediation Target",
-    diff_note="- Diff was rendered by the bot from a structured edit proposal.",
 )
 
 _SONARQUBE_PROFILE = RemediationProducerProfile(
@@ -112,7 +110,6 @@ _SONARQUBE_PROFILE = RemediationProducerProfile(
         "You propose exact file edits for SonarQube issues and return strictly structured JSON."
     ),
     mr_section_title="Remediation Target",
-    diff_note="- Diff was rendered by the bot from a structured edit proposal.",
 )
 
 

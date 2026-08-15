@@ -8,7 +8,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from zeroone_ops.models.analysis import IssueContext, ValidationComparison
+from zeroone_ops.models.analysis import (
+    IssueContext,
+    PatchProposal,
+    RemediationIntent,
+    ValidationComparison,
+)
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
@@ -18,6 +23,9 @@ from zeroone_ops.services.remediation.analysis_service import (
     AnalysisService,
 )
 from zeroone_ops.services.remediation.control_plane import RemediationControlPlane
+from zeroone_ops.services.remediation.publication_request_builder import (
+    RemediationPublicationRequestBuilder,
+)
 from zeroone_ops.services.remediation.publish_service import (
     PublishResult,
     PublishService,
@@ -45,6 +53,7 @@ class ExecutionResult:
     published_change_request: ChangeRequestInfo | None = None
     publish_attempted: bool = False
     final_status: RunStatus | None = None
+    terminal_rejection_stage: FailureStage | None = None
 
 
 class ExecutionService:
@@ -100,13 +109,6 @@ class ExecutionService:
         if not dry_run:
             try:
                 self.branch_manager.ensure_ready()
-                branch_name = build_remediation_branch_name(
-                    branch_prefix=self.config.branch_prefix,
-                    source=selected_issue.source_type,
-                    source_reference=selected_issue.source_ref,
-                    file_path=selected_issue.file_path,
-                )
-                self.branch_manager.create_branch(branch_name)
             except BranchManagerError as error:
                 return ExecutionResult(
                     analysis_result=AnalysisResult(summary="Execution stopped before analysis."),
@@ -117,9 +119,24 @@ class ExecutionService:
                     ),
                 )
 
+        def prepare_branch(patch: PatchProposal) -> FailureDetails | None:
+            nonlocal branch_name
+            try:
+                branch_name = self._create_remediation_branch(
+                    selected_issue=selected_issue,
+                    remediation_intent=patch.remediation_intent,
+                )
+            except BranchManagerError as error:
+                return FailureDetails(
+                    stage=FailureStage.BRANCH_PREPARATION,
+                    message=f"Branch preparation failed: {error}",
+                )
+            return None
+
         analysis_result = self.analysis_service.analyze_issue(
             selected_issue=selected_issue,
             dry_run=dry_run,
+            pre_patch_handler=None if dry_run else prepare_branch,
         )
         return self._continue_execution(
             selected_issue=selected_issue,
@@ -135,19 +152,15 @@ class ExecutionService:
         context: IssueContext,
         dry_run: bool,
         branch_name: str | None = None,
+        attempt_number: int = 1,
     ) -> ExecutionResult:
         """Run the execution flow for one execution target with prebuilt context."""
         if not dry_run:
             try:
                 self.branch_manager.ensure_ready()
-                if branch_name is None:
-                    branch_name = build_remediation_branch_name(
-                        branch_prefix=self.config.branch_prefix,
-                        source=selected_issue.source_type,
-                        source_reference=selected_issue.source_ref,
-                        file_path=selected_issue.file_path,
-                    )
-                self.branch_manager.create_branch(branch_name)
+                if branch_name is not None:
+                    # Legacy dashboard callers retain their existing branch identity.
+                    self.branch_manager.create_branch(branch_name)
             except BranchManagerError as error:
                 return ExecutionResult(
                     analysis_result=AnalysisResult(summary="Execution stopped before analysis."),
@@ -158,11 +171,37 @@ class ExecutionService:
                     ),
                 )
 
-        analysis_result = self.analysis_service.analyze_issue_with_context(
-            selected_issue=selected_issue,
-            context=context,
-            dry_run=dry_run,
-        )
+        def prepare_branch(patch: PatchProposal) -> FailureDetails | None:
+            nonlocal branch_name
+            if branch_name is not None:
+                return None
+            try:
+                branch_name = self._create_remediation_branch(
+                    selected_issue=selected_issue,
+                    remediation_intent=patch.remediation_intent,
+                    attempt_number=attempt_number,
+                )
+            except BranchManagerError as error:
+                return FailureDetails(
+                    stage=FailureStage.BRANCH_PREPARATION,
+                    message=f"Branch preparation failed: {error}",
+                )
+            return None
+
+        if branch_name is not None:
+            # Keep the deprecated dashboard execution contract unchanged.
+            analysis_result = self.analysis_service.analyze_issue_with_context(
+                selected_issue=selected_issue,
+                context=context,
+                dry_run=dry_run,
+            )
+        else:
+            analysis_result = self.analysis_service.analyze_issue_with_context(
+                selected_issue=selected_issue,
+                context=context,
+                dry_run=dry_run,
+                pre_patch_handler=None if dry_run else prepare_branch,
+            )
         return self._continue_execution(
             selected_issue=selected_issue,
             analysis_result=analysis_result,
@@ -192,6 +231,7 @@ class ExecutionService:
                 status_message=analysis_result.summary,
                 branch_name=branch_name,
                 final_status=RunStatus.REJECTED,
+                terminal_rejection_stage=FailureStage.ANALYSIS,
             )
         if dry_run or not self._should_commit(analysis_result):
             return ExecutionResult(
@@ -230,7 +270,10 @@ class ExecutionService:
                 issue=selected_issue,
                 changed_files=patch.files_touched,
                 validation=validation_result,
-                commit_message=patch.commit_message,
+                commit_message=RemediationPublicationRequestBuilder.build_commit_message(
+                    selected_issue=selected_issue,
+                    remediation_intent=patch.remediation_intent,
+                ),
                 change_request_title=patch.change_request_title,
             )
             if not approved:
@@ -240,11 +283,15 @@ class ExecutionService:
                     status_message="Local approval rejected the proposed change.",
                     branch_name=branch_name,
                     final_status=RunStatus.REJECTED,
+                    terminal_rejection_stage=FailureStage.APPROVAL,
                 )
 
         try:
             commit_sha = self.branch_manager.commit_and_push(
-                patch.commit_message,
+                RemediationPublicationRequestBuilder.build_commit_message(
+                    selected_issue=selected_issue,
+                    remediation_intent=patch.remediation_intent,
+                ),
                 push=False,
                 files_to_commit=patch.files_touched,
             )
@@ -272,6 +319,7 @@ class ExecutionService:
             selected_issue=selected_issue,
             change_request_title=patch.change_request_title,
             change_request_description=patch.change_request_description,
+            remediation_intent=patch.remediation_intent,
             validation_comparison=analysis_result.validation_comparison,
             commit_sha=commit_sha,
         )
@@ -299,6 +347,24 @@ class ExecutionService:
             publish_attempted=True,
         )
 
+    def _create_remediation_branch(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        remediation_intent: RemediationIntent,
+        attempt_number: int = 1,
+    ) -> str:
+        """Create the one intent-named branch after patch scope is known."""
+        branch_name = build_remediation_branch_name(
+            branch_prefix=f"{self.config.branch_prefix}/{remediation_intent}",
+            source=selected_issue.source_type,
+            source_reference=selected_issue.source_ref,
+            file_path=selected_issue.file_path,
+            attempt_number=attempt_number,
+        )
+        self.branch_manager.create_branch(branch_name)
+        return branch_name
+
     def _should_commit(self, analysis_result: AnalysisResult) -> bool:
         """Check whether execution should continue to commit creation."""
         return (
@@ -319,6 +385,7 @@ class ExecutionService:
         selected_issue: RemediationExecutionTarget,
         change_request_title: str,
         change_request_description: str,
+        remediation_intent: RemediationIntent,
         validation_comparison: ValidationComparison | None,
         commit_sha: str,
     ) -> PublishResult:
@@ -327,6 +394,7 @@ class ExecutionService:
             selected_issue=selected_issue,
             change_request_title=change_request_title,
             change_request_description=change_request_description,
+            remediation_intent=remediation_intent,
             validation_comparison=validation_comparison,
             commit_sha=commit_sha,
         )

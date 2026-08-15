@@ -10,6 +10,7 @@ from zeroone_ops.models.config import (
     RemediationConfig,
 )
 from zeroone_ops.models.remediation import RemediationExecutionTarget
+from zeroone_ops.models.state import FailureStage
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
 from zeroone_ops.services.remediation.change_request_publisher import (
     PublishedChangeRequest,
@@ -76,11 +77,15 @@ def fake_analysis_result(
     *,
     selected_issue: RemediationExecutionTarget,
     dry_run: bool,
+    pre_patch_handler=None,  # noqa: ANN001
 ) -> AnalysisResult:
     del selected_issue, dry_run
+    patch = build_patch()
+    if pre_patch_handler is not None:
+        assert pre_patch_handler(patch) is None
     return AnalysisResult(
         summary="Patch applied locally in run. All validation commands passed.",
-        patch=build_patch(),
+        patch=patch,
         patch_applied=True,
         validation_passed=True,
         validation_result=ValidationResult(
@@ -109,7 +114,10 @@ def test_execute_returns_analysis_summary_in_dry_run(tmp_path: Path, monkeypatch
     service = ExecutionService(tmp_path, build_config())
 
     def fake_analyze_issue(
-        *, selected_issue: RemediationExecutionTarget, dry_run: bool
+        *,
+        selected_issue: RemediationExecutionTarget,
+        dry_run: bool,
+        pre_patch_handler=None,  # noqa: ANN001
     ) -> AnalysisResult:
         del selected_issue
         assert dry_run is True
@@ -136,12 +144,18 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
 
     def fake_analyze_issue(
-        *, selected_issue: RemediationExecutionTarget, dry_run: bool
+        *,
+        selected_issue: RemediationExecutionTarget,
+        dry_run: bool,
+        pre_patch_handler=None,  # noqa: ANN001
     ) -> AnalysisResult:
         del selected_issue, dry_run
+        patch = build_patch()
+        if pre_patch_handler is not None:
+            assert pre_patch_handler(patch) is None
         return AnalysisResult(
             summary="Patch applied locally in run. All validation commands passed.",
-            patch=build_patch(),
+            patch=patch,
             patch_applied=True,
             validation_passed=True,
             validation_result=ValidationResult(
@@ -197,7 +211,7 @@ def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> 
     assert result.failure.stage.value == "commit"
     assert result.status_message == "Commit failed: git commit failed"
     assert result.branch_name == build_remediation_branch_name(
-        branch_prefix="zeroone-ops",
+        branch_prefix="zeroone-ops/chore",
         source="sonarqube",
         source_reference="FIXTURE-1",
         file_path="src/service.py",
@@ -213,13 +227,16 @@ def test_execute_reuses_existing_merge_request_in_ci_mode(tmp_path: Path, monkey
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
     monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analysis_result)
 
+    captured: dict[str, str] = {}
+
     def fake_commit(
         commit_message: str,
         *,
         push: bool = False,
         files_to_commit: list[str] | None = None,
     ) -> str:
-        del commit_message, push
+        captured["commit_message"] = commit_message
+        del push
         assert files_to_commit == ["src/service.py"]
         return "abc123"
 
@@ -234,7 +251,7 @@ def test_execute_reuses_existing_merge_request_in_ci_mode(tmp_path: Path, monkey
 
     assert result.failure is None
     assert result.branch_name == build_remediation_branch_name(
-        branch_prefix="zeroone-ops",
+        branch_prefix="zeroone-ops/chore",
         source="sonarqube",
         source_reference="FIXTURE-1",
         file_path="src/service.py",
@@ -245,6 +262,7 @@ def test_execute_reuses_existing_merge_request_in_ci_mode(tmp_path: Path, monkey
         result.change_request_url == "https://gitlab.example.com/group/project/-/merge_requests/9"
     )
     assert result.publish_attempted is True
+    assert captured["commit_message"] == "chore: remediate python:S2259 in service.py"
 
 
 def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
@@ -301,7 +319,7 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
     assert (
         result.change_request_url == "https://gitlab.example.com/group/project/-/merge_requests/10"
     )
-    assert captured["title"] == "fix: remediate python:S2259 in service.py"
+    assert captured["title"] == "chore: remediate python:S2259 in service.py"
     assert captured["description"] == "\n".join(
         [
             "## Summary",
@@ -317,9 +335,6 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
             "- File: `src/service.py`",
             "- Line: `1`",
             "- Message: Fixture issue",
-            "",
-            "## Notes",
-            "- Diff was rendered by the bot from a structured edit proposal.",
         ]
     )
 
@@ -338,12 +353,18 @@ def test_execute_returns_rejected_when_local_approval_declines(
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
 
     def fake_analyze_issue(
-        *, selected_issue: RemediationExecutionTarget, dry_run: bool
+        *,
+        selected_issue: RemediationExecutionTarget,
+        dry_run: bool,
+        pre_patch_handler=None,  # noqa: ANN001
     ) -> AnalysisResult:
         del selected_issue, dry_run
+        patch = build_patch()
+        if pre_patch_handler is not None:
+            assert pre_patch_handler(patch) is None
         return AnalysisResult(
             summary="Patch applied locally in run. All validation commands passed.",
-            patch=build_patch(),
+            patch=patch,
             patch_applied=True,
             validation_passed=True,
             validation_result=ValidationResult(
@@ -374,6 +395,7 @@ def test_execute_returns_rejected_when_local_approval_declines(
 
     assert result.failure is None
     assert result.final_status == "rejected"
+    assert result.terminal_rejection_stage == FailureStage.APPROVAL
     assert result.status_message == "Local approval rejected the proposed change."
     assert result.commit_sha is None
     assert target_file.read_text(encoding="utf-8") == "value = 1\n"
@@ -389,9 +411,12 @@ def test_execute_returns_rejected_when_analysis_requires_manual_review(
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
 
     def fake_analyze_issue(
-        *, selected_issue: RemediationExecutionTarget, dry_run: bool
+        *,
+        selected_issue: RemediationExecutionTarget,
+        dry_run: bool,
+        pre_patch_handler=None,  # noqa: ANN001
     ) -> AnalysisResult:
-        del selected_issue, dry_run
+        del selected_issue, dry_run, pre_patch_handler
         return AnalysisResult(
             summary="Patch generation skipped because manual review is required.",
             patch=None,
@@ -405,5 +430,6 @@ def test_execute_returns_rejected_when_analysis_requires_manual_review(
 
     assert result.failure is None
     assert result.final_status == "rejected"
+    assert result.terminal_rejection_stage == FailureStage.ANALYSIS
     assert result.status_message == "Patch generation skipped because manual review is required."
     assert result.commit_sha is None

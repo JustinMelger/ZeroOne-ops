@@ -17,6 +17,7 @@ type ValidationOutcome = Literal[
     "actionable_regression",
     "unscoped_regression",
 ]
+type RemediationIntent = Literal["fix", "chore"]
 
 
 class AnalysisClassification(StrEnum):
@@ -45,6 +46,7 @@ class IssueAnalysis(BaseModel):
     risk_notes: list[str] = Field(default_factory=list)
     target_files: list[str] = Field(default_factory=list)
     proposed_strategy: str
+    remediation_intent: RemediationIntent = "chore"
 
 
 class CodeContextSnippet(BaseModel):
@@ -139,6 +141,7 @@ class IssueContext(BaseModel):
     repository_guidance: list[RepositoryGuidanceContext] = Field(default_factory=list)
     prior_review_feedback: PriorReviewFeedback | None = None
     validation_feedback: ValidationFeedback | None = None
+    remediation_intent: RemediationIntent | None = None
 
 
 class PatchProposal(BaseModel):
@@ -163,6 +166,7 @@ class PatchProposal(BaseModel):
     change_request_description: str = Field(
         validation_alias=AliasChoices("change_request_description", "mr_description")
     )
+    remediation_intent: RemediationIntent = "chore"
 
     @property
     def mr_title(self) -> str:
@@ -211,6 +215,7 @@ class StructuredEditProposal(BaseModel):
     change_request_description: str = Field(
         validation_alias=AliasChoices("change_request_description", "mr_description")
     )
+    remediation_intent: RemediationIntent = "chore"
 
     @property
     def mr_title(self) -> str:

@@ -1,8 +1,14 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
-from zeroone_ops.models.analysis import StructuredEditProposal, TextEdit
+from zeroone_ops.models.analysis import (
+    AnalysisClassification,
+    IssueAnalysis,
+    StructuredEditProposal,
+    TextEdit,
+)
 from zeroone_ops.services.remediation.edit_renderer import (
     EditRenderer,
     EditRenderError,
@@ -33,6 +39,46 @@ def test_render_creates_patch_from_exact_text_replacement(tmp_path: Path) -> Non
     assert "diff --git a/sample.py b/sample.py\n" in patch.unified_diff
     assert "-if enabled == True:\n" in patch.unified_diff
     assert "+if enabled:\n" in patch.unified_diff
+
+
+def test_render_preserves_valid_remediation_intent(tmp_path: Path) -> None:
+    target = tmp_path / "sample.py"
+    target.write_text("value = 1\n", encoding="utf-8")
+    proposal = StructuredEditProposal(
+        issue_key="AX1",
+        edits=[TextEdit(file_path="sample.py", search_text="value = 1", replace_text="value = 2")],
+        commit_message="ignored",
+        change_request_title="ignored",
+        change_request_description="Update the value without changing surrounding behavior.",
+        remediation_intent="fix",
+    )
+
+    patch = EditRenderer(tmp_path).render(proposal)
+
+    assert patch.remediation_intent == "fix"
+
+
+def test_structured_edit_rejects_invalid_remediation_intent() -> None:
+    with pytest.raises(ValidationError, match="remediation_intent"):
+        StructuredEditProposal(
+            issue_key="AX1",
+            edits=[],
+            commit_message="ignored",
+            change_request_title="ignored",
+            change_request_description="summary",
+            remediation_intent="refactor",  # type: ignore[arg-type]
+        )
+
+
+def test_analysis_rejects_invalid_remediation_intent() -> None:
+    with pytest.raises(ValidationError, match="remediation_intent"):
+        IssueAnalysis(
+            issue_key="AX1",
+            classification=AnalysisClassification.AUTO_FIXABLE,
+            summary="summary",
+            proposed_strategy="strategy",
+            remediation_intent="refactor",  # type: ignore[arg-type]
+        )
 
 
 def test_render_rejects_when_search_text_is_missing(tmp_path: Path) -> None:

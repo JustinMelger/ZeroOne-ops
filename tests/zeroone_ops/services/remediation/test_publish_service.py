@@ -254,9 +254,6 @@ def test_publish_service_builds_deterministic_description() -> None:
             "- File: `src/service.py`",
             "- Line: `1`",
             "- Message: Fixture issue",
-            "",
-            "## Notes",
-            "- Diff was rendered by the bot from a structured edit proposal.",
         ]
     )
 
@@ -347,7 +344,7 @@ def test_publish_service_builds_conventional_commit_change_request_title() -> No
         proposed_title="patch service please",
     )
 
-    assert title == "fix: remediate python:S2259 in service.py"
+    assert title == "chore: remediate python:S2259 in service.py"
 
 
 def test_publish_service_uses_pushed_branch_consistently() -> None:
@@ -630,6 +627,7 @@ def test_publish_service_marks_github_work_item_blocked_when_publish_fails() -> 
         selected_issue=build_issue(),
         change_request_title="ignored",
         change_request_description="summary",
+        remediation_intent="fix",
         commit_sha="abc123",
     )
 
@@ -641,6 +639,7 @@ def test_publish_service_marks_github_work_item_blocked_when_publish_fails() -> 
     assert work_item_service.calls[1].publication_retry is not None
     assert work_item_service.calls[1].publication_retry.branch_name == "zeroone-ops/fix"
     assert work_item_service.calls[1].publication_retry.commit_sha == "abc123"
+    assert work_item_service.calls[1].publication_retry.remediation_intent == "fix"
 
 
 def test_publish_service_keeps_success_when_post_publish_work_item_sync_fails() -> None:

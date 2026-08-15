@@ -89,6 +89,7 @@ def build_structured_edit_prompt(
         repository_guidance=_format_issue_repository_guidance(context),
         prior_review_feedback=_format_prior_review_feedback(context),
         validation_feedback=_format_validation_feedback(context),
+        remediation_intent=context.remediation_intent or "chore",
         code_snippet=context.snippet.content,
     )
 

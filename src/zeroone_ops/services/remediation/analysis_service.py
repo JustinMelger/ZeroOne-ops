@@ -6,6 +6,7 @@ patch proposal work for a selected SonarQube issue.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -104,12 +105,14 @@ class AnalysisService:
         *,
         selected_issue: RemediationExecutionTarget,
         dry_run: bool,
+        pre_patch_handler: Callable[[PatchProposal], FailureDetails | None] | None = None,
     ) -> AnalysisResult:
         """Analyze a selected execution target.
 
         Args:
             selected_issue: Selected remediation execution target.
             dry_run: Whether the current run is in dry-run mode.
+            pre_patch_handler: Optional live-execution preparation before patch application.
 
         Returns:
             Structured analysis result for the selected issue.
@@ -121,6 +124,7 @@ class AnalysisService:
             selected_issue=selected_issue,
             context=context,
             dry_run=dry_run,
+            pre_patch_handler=pre_patch_handler,
         )
 
     def analyze_issue_with_context(
@@ -129,6 +133,7 @@ class AnalysisService:
         selected_issue: RemediationExecutionTarget,
         context: IssueContext,
         dry_run: bool,
+        pre_patch_handler: Callable[[PatchProposal], FailureDetails | None] | None = None,
     ) -> AnalysisResult:
         """Analyze a selected execution target with prebuilt source context."""
         llm_client = self._build_llm_client()
@@ -163,8 +168,11 @@ class AnalysisService:
             patch = self._generate_patch(
                 fix_generator=fix_generator,
                 selected_issue=selected_issue,
-                context=context,
+                context=context.model_copy(
+                    update={"remediation_intent": analysis.remediation_intent}
+                ),
                 artifact_service=artifact_service,
+                remediation_intent=analysis.remediation_intent,
             )
         except EditRenderError as error:
             return AnalysisResult(
@@ -187,12 +195,20 @@ class AnalysisService:
         artifact_service.write_patch(issue_key=selected_issue.source_ref, patch=patch)
         summary = (
             f"{summary}. Proposed files: {', '.join(patch.files_touched)}. "
-            f"Change request title: {patch.change_request_title}. "
-            "Diff rendered by bot from structured edit proposal."
+            f"Change request title: {patch.change_request_title}."
         )
         should_apply_patch = not dry_run or self.config.apply_patch_in_dry_run
         if not should_apply_patch:
             return AnalysisResult(summary=summary, patch=patch)
+        if pre_patch_handler is not None:
+            preparation_failure = pre_patch_handler(patch)
+            if preparation_failure is not None:
+                return AnalysisResult(
+                    summary=f"{summary}. {preparation_failure.message}",
+                    patch=patch,
+                    validation_passed=False,
+                    failure=preparation_failure,
+                )
         execution_result = self.patch_execution_service.execute(
             dry_run=dry_run,
             patch=patch,
@@ -202,7 +218,12 @@ class AnalysisService:
             context=context,
             patch_factory=lambda **kwargs: self._generate_patch(
                 artifact_service=artifact_service,
-                **kwargs,
+                fix_generator=kwargs["fix_generator"],
+                selected_issue=kwargs["selected_issue"],
+                context=kwargs["context"].model_copy(
+                    update={"remediation_intent": analysis.remediation_intent}
+                ),
+                remediation_intent=analysis.remediation_intent,
             ),
         )
         return AnalysisResult(
@@ -248,6 +269,7 @@ class AnalysisService:
         selected_issue: RemediationExecutionTarget,
         context: IssueContext,
         artifact_service: SolutionArtifactService,
+        remediation_intent: str,
     ) -> PatchProposal:
         """Generate a patch proposal from a structured edit.
 
@@ -256,6 +278,7 @@ class AnalysisService:
             selected_issue: Selected SonarQube issue.
             context: Built issue context.
             artifact_service: Artifact persistence service for analysis outputs.
+            remediation_intent: Analysis-derived intent that controls publication naming.
 
         Returns:
             The generated patch proposal.
@@ -270,4 +293,5 @@ class AnalysisService:
             raise EditRenderError(
                 "V1 automation only supports structured edits that touch exactly one file."
             )
-        return self.edit_renderer.render(structured_edit)
+        patch = self.edit_renderer.render(structured_edit)
+        return patch.model_copy(update={"remediation_intent": remediation_intent})

@@ -69,6 +69,7 @@ class RemediationControlPlane(Protocol):
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        execution_failure: WorkItemExecutionFailure | None = None,
     ) -> None:
         """Best-effort transition after remediation is intentionally rejected."""
 
@@ -136,9 +137,10 @@ class NoOpRemediationControlPlane:
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        execution_failure: WorkItemExecutionFailure | None = None,
     ) -> None:
         """Ignore dismissed-state projection when no control plane is active."""
-        del selected_issue, existing_work_item
+        del selected_issue, existing_work_item, execution_failure
 
     def mark_execution_completed(
         self,
@@ -258,6 +260,7 @@ class WorkItemRemediationControlPlane:
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        execution_failure: WorkItemExecutionFailure | None = None,
     ) -> None:
         """Best-effort transition of work-item state after rejected remediation."""
         if existing_work_item is None:
@@ -268,6 +271,7 @@ class WorkItemRemediationControlPlane:
                 status="dismissed",
                 linked_change_request=existing_work_item.linked_change_request,
                 existing_work_item=existing_work_item,
+                execution_failure=execution_failure,
             )
         except (GitHubClientError, GitLabClientError, RuntimeError):
             return

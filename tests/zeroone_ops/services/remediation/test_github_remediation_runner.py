@@ -39,6 +39,7 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_upsert_servi
     GitHubWorkItemUpsertResult,
 )
 from zeroone_ops.services.remediation.analysis_service import AnalysisResult
+from zeroone_ops.services.remediation.change_request_publisher import ChangeRequestPublishRequest
 from zeroone_ops.services.remediation.control_plane import RemediationControlPlane
 from zeroone_ops.services.remediation.execution_service import ExecutionResult, ExecutionService
 from zeroone_ops.services.remediation.github_remediation_runner import GitHubRemediationRunner
@@ -109,8 +110,9 @@ class StubExecutionService:
         context: IssueContext,
         dry_run: bool,
         branch_name: str | None = None,
+        attempt_number: int = 1,
     ) -> ExecutionResult:
-        del context
+        del context, attempt_number
         self.calls.append((selected_issue, dry_run, branch_name))
         return self.result
 
@@ -121,15 +123,16 @@ class StubPublicationRetryService:
     def __init__(self, result: PublicationRetryResult) -> None:
         self.result = result
         self.calls: list[PublicationRetryState] = []
+        self.requests: list[ChangeRequestPublishRequest] = []
 
     def retry(
         self,
         *,
         publication_retry: PublicationRetryState,
-        request: object,
+        request: ChangeRequestPublishRequest,
     ) -> PublicationRetryResult:
-        del request
         self.calls.append(publication_retry)
+        self.requests.append(request)
         return self.result
 
 
@@ -140,6 +143,7 @@ class StubControlPlane:
         self.blocked: list[str] = []
         self.execution_failures: list[WorkItemExecutionFailure | None] = []
         self.dismissed: list[str] = []
+        self.dismissal_failures: list[WorkItemExecutionFailure | None] = []
         self.completed: list[str] = []
         self.publish_blocked: list[str] = []
         self.linked_change_requests: list[str] = []
@@ -168,9 +172,11 @@ class StubControlPlane:
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        execution_failure: WorkItemExecutionFailure | None = None,
     ) -> None:
         del existing_work_item
         self.dismissed.append(selected_issue.item_id)
+        self.dismissal_failures.append(execution_failure)
 
     def mark_execution_completed(
         self,
@@ -362,7 +368,11 @@ def test_runner_dismisses_rejected_work_item(tmp_path: Path, context: IssueConte
         run_state_service=run_state_service,
         work_item_service=FakeGitHubWorkItemService(_work_item()),
         execution_service=StubExecutionService(
-            _execution_result(final_status=RunStatus.REJECTED, status_message="Rejected.")
+            _execution_result(
+                final_status=RunStatus.REJECTED,
+                status_message="Rejected.",
+                terminal_rejection_stage=FailureStage.APPROVAL,
+            )
         ),
         control_plane=control_plane,
     )
@@ -371,6 +381,9 @@ def test_runner_dismisses_rejected_work_item(tmp_path: Path, context: IssueConte
 
     assert summary.status == RunStatus.REJECTED
     assert control_plane.dismissed == ["github-work-1"]
+    dismissal_failure = control_plane.dismissal_failures[0]
+    assert dismissal_failure is not None
+    assert dismissal_failure.stage == "approval"
 
 
 def test_runner_projects_change_request_link_after_injected_execution(
@@ -447,6 +460,7 @@ def test_runner_retries_recorded_publication_without_rerunning_execution(
                 branch_name="zeroone-ops/ruff-sarif/fix",
                 commit_sha="abc123",
                 reason="change_request_publish_failed",
+                remediation_intent="fix",
             )
         }
     )
@@ -477,6 +491,7 @@ def test_runner_retries_recorded_publication_without_rerunning_execution(
     assert summary.change_request_url == "https://github.example.com/octo-org/octo-repo/pull/9"
     assert execution_service.calls == []
     assert retry_service.calls == [work_item.publication_retry]
+    assert retry_service.requests[0].title.startswith("fix:")
     assert control_plane.linked_change_requests == ["github-work-1"]
 
 

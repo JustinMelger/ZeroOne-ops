@@ -19,9 +19,15 @@ class GitHubWorkItemRenderer:
         diagnostic_code = work_item.remediation_context.diagnostic_code
         if diagnostic_code is not None and work_item.file_path is not None:
             title = f"ZeroOne Ops: {diagnostic_code} in {Path(work_item.file_path).name}"
+            line = work_item.line
         else:
             title = f"ZeroOne Ops: {self._finding_description(work_item)}"
-        return _truncate_title(title, maximum_length=self._MAX_TITLE_LENGTH)
+            line = None
+        return _title_with_location(
+            title,
+            line=line,
+            maximum_length=self._MAX_TITLE_LENGTH,
+        )
 
     def render_body(self, work_item: WorkItemState) -> str:
         """Render one deterministic GitHub work-item issue body."""
@@ -91,7 +97,7 @@ class GitHubWorkItemRenderer:
                     "",
                     "## Last Execution",
                     "",
-                    "- Status: `blocked`",
+                    f"- Status: `{failure.status}`",
                     f"- Stage: `{failure.stage}`",
                     f"- Summary: {failure.summary}",
                     f"- Retries used: `{failure.retry_count}`",
@@ -178,3 +184,13 @@ def _truncate_title(value: str, *, maximum_length: int) -> str:
     if len(value) <= maximum_length:
         return value
     return f"{value[: maximum_length - 3].rstrip()}..."
+
+
+def _title_with_location(value: str, *, line: int | None, maximum_length: int) -> str:
+    """Append a stable compact location while preserving the title bound."""
+    if line is None:
+        return _truncate_title(value, maximum_length=maximum_length)
+    suffix = f":{line}"
+    if len(suffix) >= maximum_length:
+        return _truncate_title(f"{value} {suffix}", maximum_length=maximum_length)
+    return f"{_truncate_title(value, maximum_length=maximum_length - len(suffix))}{suffix}"

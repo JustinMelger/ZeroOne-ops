@@ -540,7 +540,7 @@ def test_analyze_issue_prefers_bot_rendered_diff_from_structured_edit(
         dry_run=True,
     )
 
-    assert "Diff rendered by bot from structured edit proposal." in result.summary
+    assert "Diff rendered by bot from structured edit proposal." not in result.summary
     assert result.patch_applied is True
     assert result.validation_passed is True
     assert result.patch is not None
