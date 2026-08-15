@@ -51,13 +51,24 @@ def _parse_observation(value: object) -> FindingSyncObservation | None:
     backlog_only_findings = value.get("backlog_only_findings")
     severity_counts = _parse_counts(value.get("severity_counts"))
     backlog_reason_counts = _parse_counts(value.get("backlog_reason_counts"))
+    policy_deferred_count = _parse_optional_count(value, "policy_deferred_count")
+    policy_reactivated_count = _parse_optional_count(value, "policy_reactivated_count")
+    no_longer_detected_count = _parse_optional_count(value, "no_longer_detected_count")
+    projection_warning_count = _parse_optional_count(value, "projection_warning_count")
     if observed_at is None or not _is_nonnegative_count(total_findings):
         return None
     if not _is_nonnegative_count(promoted_findings) or not _is_nonnegative_count(
         backlog_only_findings
     ):
         return None
-    if severity_counts is None or backlog_reason_counts is None:
+    if (
+        severity_counts is None
+        or backlog_reason_counts is None
+        or policy_deferred_count is None
+        or policy_reactivated_count is None
+        or no_longer_detected_count is None
+        or projection_warning_count is None
+    ):
         return None
     if total_findings != promoted_findings + backlog_only_findings:
         return None
@@ -68,6 +79,10 @@ def _parse_observation(value: object) -> FindingSyncObservation | None:
         backlog_only_findings=backlog_only_findings,
         severity_counts=severity_counts,
         backlog_reason_counts=backlog_reason_counts,
+        policy_deferred_count=policy_deferred_count,
+        policy_reactivated_count=policy_reactivated_count,
+        no_longer_detected_count=no_longer_detected_count,
+        projection_warning_count=projection_warning_count,
     )
 
 
@@ -96,6 +111,14 @@ def _parse_counts(value: object) -> dict[str, int] | None:
             return None
         counts[key] = count
     return counts
+
+
+def _parse_optional_count(payload: dict[object, object], key: str) -> int | None:
+    """Read one backward-compatible optional non-negative aggregate count."""
+    if key not in payload:
+        return 0
+    value = payload[key]
+    return value if _is_nonnegative_count(value) else None
 
 
 def _is_nonnegative_count(value: object) -> TypeGuard[int]:

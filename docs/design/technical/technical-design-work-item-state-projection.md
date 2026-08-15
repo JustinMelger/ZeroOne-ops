@@ -23,7 +23,7 @@ The shared state policy is pure and owns only the mapping from
 
 ```text
 candidate, approved, in_progress, blocked -> open
-completed, dismissed, policy_deferred -> closed
+completed, dismissed, policy_deferred, capacity_deferred -> closed
 ```
 
 It does not import provider clients or interpret labels.
@@ -54,6 +54,32 @@ locator is introduced.
 8. Provider-local projection updates renderer-owned state and labels, then
    ensures the provider issue is open or closed according to the shared state
    policy.
+
+## Capacity Queue Projection (Locked Follow-Up)
+
+The current `candidate` behavior leaves capacity-deferred history visible as
+open issues. The next capacity projection slice introduces a closed
+`capacity_deferred` state so open issues represent only work that can progress.
+
+Finding sync will load the narrow closed inventory indexed by
+`zeroone-work-item` and `zeroone-status:capacity_deferred` alongside the open
+authoritative inventory. It will construct one provider-neutral candidate set
+from new eligible findings, eligible active candidates during transition, and
+matching closed `capacity_deferred` records.
+
+The shared capacity planner owns selection:
+
+- open `approved` and `in_progress` remediation items consume capacity and are
+  preserved;
+- blocked, dismissed, terminal, and policy-deferred items do not consume it;
+- remaining eligible work is ordered by normalized severity (`high`, `medium`,
+  `low`) and then stable finding identity;
+- only records selected for available capacity project as open `approved` work;
+- every other eligible record projects as closed `capacity_deferred` work.
+
+This is a state-projection change, not a source-adapter rule. It applies
+identically to GitHub and GitLab issue mode. More refined aging, source
+balancing, and operator-set priority are intentionally out of scope.
 
 Before step 5, finding sync re-reads the exact open work-item identity and
 verifies it remains unlinked with status `candidate` or `approved`. If the
@@ -120,13 +146,16 @@ the same provider-local projection operation to repair a mismatch.
   and from `no_change_required`.
 - Add `zeroone-status:policy_deferred` through the existing derived label
   vocabulary.
+- Add `capacity_deferred` and its derived status label in the follow-up capacity
+  projection slice.
 - Add provider-parity rendering for a `Deferred by Policy` section.
 - Extend operational summary counts to distinguish policy-deferred work only
   as an aggregate, not as an active open-work count.
 
 ## Compatibility And Boundaries
 
-- Existing `candidate` remains the state for policy-eligible capacity deferral.
+- Until the follow-up capacity projection ships, existing `candidate` remains
+  the compatibility state for policy-eligible capacity deferral.
 - Existing dismissed tombstone suppression remains unchanged and continues to
   use the narrow closed dismissed-label lookup.
 - Policy-deferred transitions are allowed only from unlinked `candidate` and

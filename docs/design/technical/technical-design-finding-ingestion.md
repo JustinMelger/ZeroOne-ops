@@ -658,6 +658,11 @@ Additional v1 rules:
 - each sync recomputes the eligible ordering, allowing newly observed
   higher-severity findings to take the next available slot
 
+The later work-item capacity-projection slice keeps durable capacity-deferred
+work closed rather than reopening it as an open `candidate`. New eligible
+findings and matching closed deferred work share this same queue and ordering;
+closed history does not receive a priority bonus at the same severity.
+
 More refined sorting, source balancing, age-based fairness, and operator-set
 priority are intentionally deferred until live backlog data shows they are
 needed.

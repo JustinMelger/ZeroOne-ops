@@ -174,6 +174,22 @@ class FindingSyncResult(Protocol):
     def stale_retained_protected_count(self) -> int:
         """Return protected stale item count."""
 
+    @property
+    def policy_deferred_count(self) -> int:
+        """Return the count closed as policy-deferred."""
+
+    @property
+    def policy_reactivated_count(self) -> int:
+        """Return the count reopened by policy."""
+
+    @property
+    def no_longer_detected_count(self) -> int:
+        """Return the count completed from a managed inventory."""
+
+    @property
+    def projection_warning_count(self) -> int:
+        """Return non-fatal provider projection warnings."""
+
 
 class FindingSyncWorkflow:
     """Route normalized findings to the configured control-plane storage."""
@@ -278,7 +294,8 @@ class FindingSyncWorkflow:
         ):
             record.status = _collection_message_status(collection.message)
             record.updated_at = utc_now()
-            context.state_store.save(context.state)
+            if not context.active_dry_run:
+                context.state_store.save(context.state)
             return context.run_state_service.build_summary(
                 run_id=context.run_id,
                 status=record.status,
@@ -302,6 +319,7 @@ class FindingSyncWorkflow:
             managed_source_ids=set(collection.finding_collection.metadata.managed_source_ids),
             max_active_work_items=self.config.remediation.max_active_work_items,
             persist=not context.active_dry_run,
+            run_id=context.run_id,
         )
         summary_publication = (
             self.publish_github_summary(
@@ -314,7 +332,8 @@ class FindingSyncWorkflow:
         )
         record.status = _collection_message_status("synced")
         record.updated_at = utc_now()
-        context.state_store.save(context.state)
+        if not context.active_dry_run:
+            context.state_store.save(context.state)
         return context.run_state_service.build_summary(
             run_id=context.run_id,
             status=record.status,
@@ -356,6 +375,7 @@ class FindingSyncWorkflow:
             managed_source_ids=set(metadata.managed_source_ids),
             max_active_work_items=self.config.remediation.max_active_work_items,
             persist=not context.active_dry_run,
+            run_id=context.run_id,
         )
         summary_publication = (
             self.publish_gitlab_summary(
@@ -417,8 +437,7 @@ class FindingSyncWorkflow:
                 f"Dry-run identified {promoted_count} findings eligible under "
                 "the configured policy; "
                 f"{backlog_only_count} findings are policy-backlog-only.\n"
-                "Dry-run does not load existing open work items, so active capacity and "
-                "stale-item reconciliation are not included."
+                "Dry-run loaded authoritative work-item indexes but made no changes."
             )
             if active_dry_run
             else (

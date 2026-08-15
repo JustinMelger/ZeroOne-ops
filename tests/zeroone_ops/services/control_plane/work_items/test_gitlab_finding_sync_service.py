@@ -20,7 +20,10 @@ class FakeGitLabWorkItemService:
     def __init__(self) -> None:
         self.work_items: dict[tuple[str, str, str | None, str], WorkItemState] = {}
         self.listed_work_items: list[GitLabWorkItemLookupResult] | None = None
+        self.closed_deferred_work_items: list[GitLabWorkItemLookupResult] | None = None
         self.update_existing_calls = 0
+        self.closed_issue_iids: list[int] = []
+        self.reopened_issue_iids: list[int] = []
 
     def upsert_work_item(
         self,
@@ -96,7 +99,28 @@ class FakeGitLabWorkItemService:
             _lookup(work_item)
             for work_item in self.work_items.values()
             if work_item.source.repository_scope == project_id
+            and work_item.status != "policy_deferred"
         ]
+
+    def list_closed_policy_deferred_work_items(
+        self, *, project_id: str
+    ) -> list[GitLabWorkItemLookupResult]:
+        if self.closed_deferred_work_items is not None:
+            return self.closed_deferred_work_items
+        return [
+            _lookup(work_item)
+            for work_item in self.work_items.values()
+            if work_item.source.repository_scope == project_id
+            and work_item.status == "policy_deferred"
+        ]
+
+    def close_work_item_issue(self, *, project_id: str, issue_iid: int) -> None:
+        del project_id
+        self.closed_issue_iids.append(issue_iid)
+
+    def reopen_work_item_issue(self, *, project_id: str, issue_iid: int) -> None:
+        del project_id
+        self.reopened_issue_iids.append(issue_iid)
 
 
 def _issue(work_item: WorkItemState) -> GitLabIssueInfo:
@@ -241,6 +265,129 @@ def test_sync_uses_provider_upsert_for_duplicate_authoritative_identities() -> N
 
     assert result.promoted_count == 1
     assert work_item_service.update_existing_calls == 0
+
+
+def test_sync_skips_ambiguous_closed_policy_deferred_work_items() -> None:
+    work_item_service = FakeGitLabWorkItemService()
+    service = GitLabFindingSyncService(
+        work_item_service=work_item_service,  # type: ignore[arg-type]
+    )
+    project_id = "group/project"
+
+    service.sync(
+        project_id=project_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+    service.sync(
+        project_id=project_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=False),
+    )
+    original = next(iter(work_item_service.work_items.values()))
+    work_item_service.closed_deferred_work_items = [
+        _lookup(original),
+        _lookup(original.model_copy(update={"work_item_id": "work-duplicate-copy"})),
+    ]
+
+    result = service.sync(
+        project_id=project_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+
+    assert result.promoted_count == 0
+    assert result.backlog_only_count == 1
+    assert result.backlog_reason_counts == {"work_item_identity_ambiguous": 1}
+    assert next(iter(work_item_service.work_items.values())).status == "policy_deferred"
+
+
+def test_sync_defers_unlinked_approved_work_item_when_severity_is_disabled() -> None:
+    work_item_service = FakeGitLabWorkItemService()
+    service = GitLabFindingSyncService(
+        work_item_service=work_item_service,  # type: ignore[arg-type]
+    )
+    project_id = "group/project"
+
+    service.sync(
+        project_id=project_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+    result = service.sync(
+        project_id=project_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=False),
+    )
+
+    work_item = next(iter(work_item_service.work_items.values()))
+
+    assert result.policy_deferred_count == 1
+    assert work_item.status == "policy_deferred"
+    assert work_item.policy_deferral is not None
+    assert work_item_service.closed_issue_iids == [1]
+
+
+def test_sync_reopens_policy_deferred_work_item_when_severity_is_enabled() -> None:
+    work_item_service = FakeGitLabWorkItemService()
+    service = GitLabFindingSyncService(
+        work_item_service=work_item_service,  # type: ignore[arg-type]
+    )
+    project_id = "group/project"
+
+    service.sync(
+        project_id=project_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+    service.sync(
+        project_id=project_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=False),
+    )
+    result = service.sync(
+        project_id=project_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+
+    work_item = next(iter(work_item_service.work_items.values()))
+
+    assert result.policy_reactivated_count == 1
+    assert work_item.status == "approved"
+    assert work_item.policy_deferral is None
+    assert work_item_service.reopened_issue_iids == [1]
+
+
+def test_sync_completes_deferred_work_only_after_managed_source_drops_finding() -> None:
+    work_item_service = FakeGitLabWorkItemService()
+    service = GitLabFindingSyncService(
+        work_item_service=work_item_service,  # type: ignore[arg-type]
+    )
+    project_id = "group/project"
+
+    service.sync(
+        project_id=project_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+    service.sync(
+        project_id=project_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=False),
+    )
+    result = service.sync(
+        project_id=project_id,
+        findings=[],
+        policy_state=_policy_state(medium_enabled=False),
+        managed_source_ids={"ruff"},
+    )
+
+    work_item = next(iter(work_item_service.work_items.values()))
+
+    assert result.no_longer_detected_count == 1
+    assert work_item.status == "completed"
+    assert work_item.resolution == "no_longer_detected"
 
 
 def test_sync_demotes_stale_unlinked_approved_work_item_from_managed_source() -> None:

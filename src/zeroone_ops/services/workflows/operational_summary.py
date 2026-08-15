@@ -145,6 +145,22 @@ class FindingSyncObservationResult(Protocol):
     def backlog_reason_counts(self) -> dict[str, int]:
         """Return backlog-only finding counts by policy reason."""
 
+    @property
+    def policy_deferred_count(self) -> int:
+        """Return the number of work items closed as policy-deferred."""
+
+    @property
+    def policy_reactivated_count(self) -> int:
+        """Return the number of deferred work items reopened by policy."""
+
+    @property
+    def no_longer_detected_count(self) -> int:
+        """Return the number of deferred items completed from inventory."""
+
+    @property
+    def projection_warning_count(self) -> int:
+        """Return bounded provider projection warnings."""
+
 
 def build_finding_sync_observation(
     sync_result: FindingSyncObservationResult,
@@ -157,6 +173,10 @@ def build_finding_sync_observation(
         backlog_only_findings=sync_result.backlog_only_count,
         severity_counts=sync_result.normalized_severity_counts,
         backlog_reason_counts=sync_result.backlog_reason_counts,
+        policy_deferred_count=sync_result.policy_deferred_count,
+        policy_reactivated_count=sync_result.policy_reactivated_count,
+        no_longer_detected_count=sync_result.no_longer_detected_count,
+        projection_warning_count=sync_result.projection_warning_count,
     )
 
 
@@ -202,6 +222,22 @@ class FindingSyncReconciliationResult(Protocol):
     def stale_retained_protected_count(self) -> int:
         """Return the number of protected stale work items retained."""
 
+    @property
+    def policy_deferred_count(self) -> int:
+        """Return the number of work items closed as policy-deferred."""
+
+    @property
+    def policy_reactivated_count(self) -> int:
+        """Return the number of deferred work items reopened by policy."""
+
+    @property
+    def no_longer_detected_count(self) -> int:
+        """Return the number of deferred items completed from inventory."""
+
+    @property
+    def projection_warning_count(self) -> int:
+        """Return bounded provider projection warnings."""
+
 
 def format_finding_sync_reconciliation(sync_result: FindingSyncReconciliationResult) -> str:
     """Render non-empty policy and stale-item reconciliation details."""
@@ -210,6 +246,10 @@ def format_finding_sync_reconciliation(sync_result: FindingSyncReconciliationRes
         and sync_result.retained_protected_count == 0
         and sync_result.stale_demoted_to_candidate_count == 0
         and sync_result.stale_retained_protected_count == 0
+        and sync_result.policy_deferred_count == 0
+        and sync_result.policy_reactivated_count == 0
+        and sync_result.no_longer_detected_count == 0
+        and sync_result.projection_warning_count == 0
     ):
         return ""
     lines = []
@@ -218,6 +258,19 @@ def format_finding_sync_reconciliation(sync_result: FindingSyncReconciliationRes
             "Policy reconciliation: "
             f"demoted to candidate={sync_result.demoted_to_candidate_count}; "
             f"protected work items retained={sync_result.retained_protected_count}."
+        )
+    if (
+        sync_result.policy_deferred_count
+        or sync_result.policy_reactivated_count
+        or sync_result.no_longer_detected_count
+        or sync_result.projection_warning_count
+    ):
+        lines.append(
+            "Policy state projection: "
+            f"deferred={sync_result.policy_deferred_count}; "
+            f"reactivated={sync_result.policy_reactivated_count}; "
+            f"no longer detected={sync_result.no_longer_detected_count}; "
+            f"warnings={sync_result.projection_warning_count}."
         )
     if sync_result.stale_demoted_to_candidate_count or sync_result.stale_retained_protected_count:
         lines.append(

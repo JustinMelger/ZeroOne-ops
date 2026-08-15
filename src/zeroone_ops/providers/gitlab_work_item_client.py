@@ -129,6 +129,17 @@ class GitLabWorkItemClient:
         )
         return normalize_issue(payload)
 
+    def reopen_issue(self, *, project_id: str, issue_iid: int) -> GitLabIssueInfo:
+        """Reopen one authoritative GitLab work-item issue."""
+        payload = self._issue_payload(
+            self._http_client.put(
+                self._issue_path(project_id, issue_iid),
+                data={"state_event": "reopen"},
+            ),
+            error_message="Unexpected GitLab work-item issue reopen payload.",
+        )
+        return normalize_issue(payload)
+
     def list_issue_notes(
         self,
         *,

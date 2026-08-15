@@ -35,6 +35,7 @@ derived projections:
 | `completed` | closed |
 | `dismissed` | closed |
 | `policy_deferred` | closed |
+| `capacity_deferred` (planned) | closed |
 
 Labels remain discovery indexes and operator filters. They must never be used
 as the authority for a status transition; parsed machine state remains the
@@ -60,10 +61,11 @@ currently `candidate` or `approved`. It must preserve `in_progress`, `blocked`,
 `dismissed`, and items linked to a change request. Those are lifecycle-owned
 or operator-owned states.
 
-When policy makes the same finding eligible again, a later successful finding
-sync reopens the same provider issue and restores it to `approved` when
-capacity permits, or `candidate` when capacity defers it. The original
-identity and history remain intact.
+Today, when policy makes the same finding eligible again, a later successful
+finding sync reopens the same provider issue as `approved` when capacity
+permits or as `candidate` when capacity defers it. The planned
+`capacity_deferred` follow-up replaces that latter open-candidate projection
+with a closed backlog state. The original identity and history remain intact.
 
 When a complete managed source inventory no longer reports a policy-deferred
 finding, finding sync moves the already closed item to `completed` with
@@ -87,7 +89,7 @@ with zero findings is the only empty inventory that may reconcile prior work.
 |---|---|---|
 | `candidate` | move to `policy_deferred` | promote through the capacity plan or remain `candidate` |
 | `approved` without a linked change request | move to `policy_deferred` | retain `approved` |
-| `policy_deferred` | retain closed | reopen as `approved` or `candidate` through the capacity plan |
+| `policy_deferred` | retain closed | today: reopen as `approved` or `candidate`; planned: retain closed as `capacity_deferred` when capacity is full |
 | `in_progress` | retain | retain; lifecycle owns the active attempt |
 | `blocked` | retain | retain; recovery owns the next action |
 | `dismissed` | retain | retain; dismissal suppression remains authoritative |
@@ -96,6 +98,27 @@ with zero findings is the only empty inventory that may reconcile prior work.
 A policy command changes only policy state. It does not enumerate or close
 work-item issues. The next successful finding sync performs the bounded policy
 reconciliation using its current inventory.
+
+## Capacity-Deferred Work (Locked Follow-Up)
+
+The active provider-issue list is an operator work queue, not a complete
+finding inventory. A policy-eligible finding that cannot enter the configured
+active remediation budget remains durable but closed as `capacity_deferred`.
+It is not represented as an open `candidate` solely because capacity is full.
+
+Finding sync selects from one shared queue that includes newly observed
+policy-eligible findings and matching closed `capacity_deferred` records. It:
+
+1. preserves existing open `approved` and `in_progress` work without demoting
+   it when capacity is lowered;
+2. orders all remaining eligible work by `high`, `medium`, `low`, then stable
+   finding identity;
+3. opens only the selected work as `approved`; and
+4. keeps all remaining eligible work closed as `capacity_deferred`.
+
+Closed backlog history does not receive a priority bonus over a newly observed
+finding at the same severity. Aging, source balancing, and operator-assigned
+priority remain future policy work.
 
 ## Responsibilities
 

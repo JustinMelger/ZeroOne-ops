@@ -549,8 +549,9 @@ def test_sync_dashboard_sonar_uses_gitlab_work_items_in_issue_mode(
         managed_source_ids,
         max_active_work_items,
         persist,
+        run_id,
     ):
-        del self, policy_state, managed_source_ids
+        del self, policy_state, managed_source_ids, run_id
         sync_calls.append((project_id, len(findings), max_active_work_items, persist))
         return GitLabFindingSyncResult(
             promoted_count=1,
@@ -577,7 +578,7 @@ def test_sync_dashboard_sonar_uses_gitlab_work_items_in_issue_mode(
 
     assert summary.status.value == "synced"
     assert "Dry-run identified 1 findings eligible under the configured policy" in summary.message
-    assert "active capacity and stale-item reconciliation are not included" in summary.message
+    assert "loaded authoritative work-item indexes but made no changes" in summary.message
     assert policy_calls == [("123", False)]
     assert sync_calls == [("123", 1, 10, False)]
 

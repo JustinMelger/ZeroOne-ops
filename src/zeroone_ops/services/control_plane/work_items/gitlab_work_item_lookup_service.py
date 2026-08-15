@@ -19,6 +19,7 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_renderer imp
 )
 from zeroone_ops.services.control_plane.work_items.work_item_labels import (
     dismissed_work_item_query_labels,
+    policy_deferred_work_item_query_labels,
     work_item_source_query_labels,
 )
 
@@ -147,6 +148,22 @@ class GitLabWorkItemLookupService:
                 and result.work_item.source == source
                 and result.work_item.status == "dismissed"
             )
+        ]
+
+    def list_closed_policy_deferred_work_items(
+        self, *, project_id: str
+    ) -> list[GitLabWorkItemLookupResult]:
+        """Return closed, reversibly deferred authoritative work items."""
+        return [
+            result
+            for result in self._parse_work_items(
+                self.client.list_closed_issues(
+                    project_id=project_id,
+                    labels=policy_deferred_work_item_query_labels(),
+                ),
+                is_open=False,
+            )
+            if result.work_item.status == "policy_deferred"
         ]
 
     def list_open_work_items(self, *, project_id: str) -> list[GitLabWorkItemLookupResult]:

@@ -22,6 +22,7 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_service impo
 class FakeGitHubWorkItemClient:
     def __init__(self) -> None:
         self.issues: list[GitHubIssueInfo] = []
+        self.closed_issues: list[GitHubIssueInfo] = []
 
     def list_open_issues(
         self,
@@ -39,7 +40,7 @@ class FakeGitHubWorkItemClient:
         labels: list[str] | None = None,
     ) -> list[GitHubIssueInfo]:
         del repository_id, labels
-        return []
+        return list(self.closed_issues)
 
     def create_issue(
         self,
@@ -57,6 +58,20 @@ class FakeGitHubWorkItemClient:
             title=title,
             body=body,
         )
+        self.issues.append(issue)
+        return issue
+
+    def close_issue(self, *, repository_id: str, issue_number: int) -> GitHubIssueInfo:
+        del repository_id
+        issue = next(issue for issue in self.issues if issue.number == issue_number)
+        self.issues = [item for item in self.issues if item.number != issue_number]
+        self.closed_issues.append(issue)
+        return issue
+
+    def reopen_issue(self, *, repository_id: str, issue_number: int) -> GitHubIssueInfo:
+        del repository_id
+        issue = next(issue for issue in self.closed_issues if issue.number == issue_number)
+        self.closed_issues = [item for item in self.closed_issues if item.number != issue_number]
         self.issues.append(issue)
         return issue
 
@@ -79,6 +94,10 @@ class FakeGitHubWorkItemClient:
         )
         self.issues = [
             issue if existing.number == issue_number else existing for existing in self.issues
+        ]
+        self.closed_issues = [
+            issue if existing.number == issue_number else existing
+            for existing in self.closed_issues
         ]
         return issue
 
@@ -295,7 +314,7 @@ def test_sync_reuses_existing_authoritative_work_item() -> None:
     assert len(client.issues) == 1
 
 
-def test_sync_demotes_unlinked_approved_work_item_when_severity_is_disabled() -> None:
+def test_sync_defers_unlinked_approved_work_item_when_severity_is_disabled() -> None:
     client = FakeGitHubWorkItemClient()
     service = GitHubFindingSyncService(
         work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
@@ -313,17 +332,18 @@ def test_sync_demotes_unlinked_approved_work_item_when_severity_is_disabled() ->
         policy_state=_policy_state(medium_enabled=False),
     )
 
-    parsed = GitHubWorkItemParser().parse_work_item_state(client.issues[0].body)
+    parsed = GitHubWorkItemParser().parse_work_item_state(client.closed_issues[0].body)
 
     assert result.backlog_only_count == 1
-    assert result.demoted_to_candidate_count == 1
+    assert result.policy_deferred_count == 1
     assert result.retained_protected_count == 0
     assert result.updated_count == 1
     assert parsed is not None
-    assert parsed.status == "candidate"
+    assert parsed.status == "policy_deferred"
+    assert parsed.policy_deferral is not None
 
 
-def test_sync_repromotes_candidate_work_item_when_severity_is_enabled() -> None:
+def test_sync_reopens_policy_deferred_work_item_when_severity_is_enabled() -> None:
     client = FakeGitHubWorkItemClient()
     service = GitHubFindingSyncService(
         work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
@@ -349,10 +369,45 @@ def test_sync_repromotes_candidate_work_item_when_severity_is_enabled() -> None:
     parsed = GitHubWorkItemParser().parse_work_item_state(client.issues[0].body)
 
     assert result.promoted_count == 1
+    assert result.policy_reactivated_count == 1
     assert result.updated_count == 1
     assert len(client.issues) == 1
     assert parsed is not None
     assert parsed.status == "approved"
+
+
+def test_sync_skips_ambiguous_closed_policy_deferred_work_items() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    repository_id = "octo-org/octo-repo"
+
+    service.sync(
+        repository_id=repository_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+    service.sync(
+        repository_id=repository_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=False),
+    )
+    original = client.closed_issues[0]
+    client.closed_issues.append(
+        original.model_copy(update={"id": 2, "number": 2, "web_url": "https://example.com/2"})
+    )
+
+    result = service.sync(
+        repository_id=repository_id,
+        findings=[_finding()],
+        policy_state=_policy_state(medium_enabled=True),
+    )
+
+    assert result.promoted_count == 0
+    assert result.backlog_only_count == 1
+    assert result.backlog_reason_counts == {"work_item_identity_ambiguous": 1}
+    assert client.issues == []
 
 
 def test_sync_keeps_in_progress_work_item_when_severity_is_disabled() -> None:

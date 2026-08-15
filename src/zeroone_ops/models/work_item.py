@@ -19,10 +19,11 @@ WorkItemStatus = Literal[
     "blocked",
     "completed",
     "dismissed",
+    "policy_deferred",
 ]
 RecoveryAction = Literal["dismiss", "requeue"]
 RecoveryPlan = Literal["retry_publication", "start_fresh"]
-WorkItemResolution = Literal["merged", "no_change_required"]
+WorkItemResolution = Literal["merged", "no_change_required", "no_longer_detected"]
 
 
 class ChangeRequestRef(BaseModel):
@@ -80,6 +81,14 @@ class WorkItemExecutionFailure(BaseModel):
     status: Literal["blocked", "dismissed"] = "blocked"
 
 
+class WorkItemPolicyDeferral(BaseModel):
+    """Record why a work item was reversibly deferred by policy."""
+
+    reason: str
+    run_id: str
+    occurred_at: datetime
+
+
 class RecoveryEvent(BaseModel):
     """Record one accepted operator recovery decision for a work item."""
 
@@ -116,6 +125,7 @@ class WorkItemState(BaseModel):
     claim: WorkItemClaim | None = None
     publication_retry: PublicationRetryState | None = None
     execution_failure: WorkItemExecutionFailure | None = None
+    policy_deferral: WorkItemPolicyDeferral | None = None
     attempt_number: int = Field(default=1, ge=1)
     recovery_events: list[RecoveryEvent] = Field(default_factory=list)
     resolution: WorkItemResolution | None = None
