@@ -298,7 +298,7 @@ def test_sync_closes_existing_work_outside_capacity_and_reopens_it_when_capacity
     assert reopened.capacity_deferral is None
 
 
-def test_sync_uses_provider_upsert_for_duplicate_authoritative_identities() -> None:
+def test_sync_skips_duplicate_open_authoritative_identities() -> None:
     work_item_service = FakeGitLabWorkItemService()
     service = GitLabFindingSyncService(
         work_item_service=work_item_service,  # type: ignore[arg-type]
@@ -324,7 +324,9 @@ def test_sync_uses_provider_upsert_for_duplicate_authoritative_identities() -> N
         policy_state=policy_state,
     )
 
-    assert result.promoted_count == 1
+    assert result.promoted_count == 0
+    assert result.backlog_only_count == 1
+    assert result.backlog_reason_counts == {"work_item_identity_ambiguous": 1}
     assert work_item_service.update_existing_calls == 0
 
 

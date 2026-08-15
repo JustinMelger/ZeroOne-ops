@@ -168,7 +168,10 @@ class GitLabFindingSyncService:
             )
             existing = existing_by_identity.get(existing_identity)
             deferred = deferred_by_identity.get(existing_identity)
-            if existing_identity in ambiguous_deferred_identities:
+            if (
+                existing_identity in duplicate_identities
+                or existing_identity in ambiguous_deferred_identities
+            ):
                 LOGGER.warning(
                     "GitLab finding sync skipped ambiguous work-item identity",
                     extra={"finding_id": finding.finding_id, "source_id": finding.source_id},

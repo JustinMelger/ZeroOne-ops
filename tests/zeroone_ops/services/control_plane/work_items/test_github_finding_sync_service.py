@@ -315,7 +315,7 @@ def test_sync_dry_run_does_not_load_or_write_work_items() -> None:
     assert client.issues == []
 
 
-def test_sync_uses_provider_upsert_for_duplicate_authoritative_identities(monkeypatch) -> None:
+def test_sync_skips_duplicate_open_authoritative_identities(monkeypatch) -> None:
     client = FakeGitHubWorkItemClient()
     service = GitHubFindingSyncService(
         work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
@@ -339,11 +339,12 @@ def test_sync_uses_provider_upsert_for_duplicate_authoritative_identities(monkey
         )
     )
 
-    def fail_direct_update(**kwargs):
+    def fail_provider_write(**kwargs):
         del kwargs
-        raise AssertionError("Duplicate identities must use provider upsert handling.")
+        raise AssertionError("Ambiguous identities must not be written.")
 
-    monkeypatch.setattr(service.work_item_service, "update_existing_work_item", fail_direct_update)
+    monkeypatch.setattr(service.work_item_service, "upsert_work_item", fail_provider_write)
+    monkeypatch.setattr(service.work_item_service, "update_existing_work_item", fail_provider_write)
 
     result = service.sync(
         repository_id=repository_id,
@@ -351,7 +352,9 @@ def test_sync_uses_provider_upsert_for_duplicate_authoritative_identities(monkey
         policy_state=policy_state,
     )
 
-    assert result.unchanged_count == 1
+    assert result.promoted_count == 0
+    assert result.backlog_only_count == 1
+    assert result.backlog_reason_counts == {"work_item_identity_ambiguous": 1}
 
 
 def test_sync_reuses_existing_authoritative_work_item() -> None:
