@@ -18,6 +18,7 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_renderer imp
     GitHubWorkItemRenderer,
 )
 from zeroone_ops.services.control_plane.work_items.work_item_labels import (
+    capacity_deferred_work_item_query_labels,
     dismissed_work_item_query_labels,
     policy_deferred_work_item_query_labels,
     work_item_source_query_labels,
@@ -57,18 +58,29 @@ class GitHubWorkItemLookupService:
         kind: WorkItemKind,
         source: WorkItemSourceRef,
     ) -> GitHubWorkItemLookupResult | None:
-        """Return the matching open authoritative work item when present."""
-        for result in self._parse_work_items(
-            self.client.list_open_issues(
-                repository_id=repository_id,
-                labels=work_item_source_query_labels(source.source),
-            ),
-            is_open=True,
-        ):
-            if result.work_item.kind != kind:
-                continue
-            if result.work_item.source == source:
-                return result
+        """Return the uniquely matching open authoritative work item, if any."""
+        matches = [
+            result
+            for result in self._parse_work_items(
+                self.client.list_open_issues(
+                    repository_id=repository_id,
+                    labels=work_item_source_query_labels(source.source),
+                ),
+                is_open=True,
+            )
+            if result.work_item.kind == kind and result.work_item.source == source
+        ]
+        if len(matches) <= 1:
+            return matches[0] if matches else None
+        LOGGER.warning(
+            "multiple GitHub work items share one authoritative identity; reuse skipped",
+            extra={
+                "repository_id": repository_id,
+                "source": source.source,
+                "source_item_key": source.source_item_key,
+                "issue_numbers": [result.issue.number for result in matches],
+            },
+        )
         return None
 
     def find_open_work_item_by_change_request(
@@ -165,6 +177,22 @@ class GitHubWorkItemLookupService:
                 is_open=False,
             )
             if result.work_item.status == "policy_deferred"
+        ]
+
+    def list_closed_capacity_deferred_work_items(
+        self, *, repository_id: str
+    ) -> list[GitHubWorkItemLookupResult]:
+        """Return closed work items deferred by active-capacity limits."""
+        return [
+            result
+            for result in self._parse_work_items(
+                self.client.list_closed_issues(
+                    repository_id=repository_id,
+                    labels=capacity_deferred_work_item_query_labels(),
+                ),
+                is_open=False,
+            )
+            if result.work_item.status == "capacity_deferred"
         ]
 
     def _parse_work_items(

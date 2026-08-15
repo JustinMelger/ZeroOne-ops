@@ -42,7 +42,7 @@ def test_defers_only_unlinked_candidate_or_approved_work() -> None:
     )
 
 
-def test_reopens_deferred_work_according_to_capacity() -> None:
+def test_reopens_or_retains_deferred_work_according_to_capacity() -> None:
     service = FindingPolicyReconciliationService()
 
     assert (
@@ -59,7 +59,41 @@ def test_reopens_deferred_work_according_to_capacity() -> None:
             policy_eligible=True,
             promotion_eligible=False,
         ).action
-        == "reopen_candidate"
+        == "move_to_capacity_deferred"
+    )
+
+
+def test_reconciles_capacity_deferred_work_between_policy_and_capacity() -> None:
+    service = FindingPolicyReconciliationService()
+
+    assert (
+        service.decide_for_current_finding(
+            work_item=_work_item(status="capacity_deferred"),
+            policy_eligible=False,
+            promotion_eligible=False,
+        ).action
+        == "move_to_policy_deferred"
+    )
+    assert (
+        service.decide_for_current_finding(
+            work_item=_work_item(status="capacity_deferred"),
+            policy_eligible=True,
+            promotion_eligible=False,
+        ).action
+        == "retain_capacity_deferred"
+    )
+
+
+def test_retains_approved_work_when_capacity_is_exhausted() -> None:
+    service = FindingPolicyReconciliationService()
+
+    assert (
+        service.decide_for_current_finding(
+            work_item=_work_item(status="approved"),
+            policy_eligible=True,
+            promotion_eligible=False,
+        ).action
+        == "none"
     )
 
 

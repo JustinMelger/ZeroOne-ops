@@ -99,7 +99,7 @@ class FakeGitLabWorkItemService:
             _lookup(work_item)
             for work_item in self.work_items.values()
             if work_item.source.repository_scope == project_id
-            and work_item.status != "policy_deferred"
+            and work_item.status not in {"policy_deferred", "capacity_deferred"}
         ]
 
     def list_closed_policy_deferred_work_items(
@@ -112,6 +112,16 @@ class FakeGitLabWorkItemService:
             for work_item in self.work_items.values()
             if work_item.source.repository_scope == project_id
             and work_item.status == "policy_deferred"
+        ]
+
+    def list_closed_capacity_deferred_work_items(
+        self, *, project_id: str
+    ) -> list[GitLabWorkItemLookupResult]:
+        return [
+            _lookup(work_item)
+            for work_item in self.work_items.values()
+            if work_item.source.repository_scope == project_id
+            and work_item.status == "capacity_deferred"
         ]
 
     def close_work_item_issue(self, *, project_id: str, issue_iid: int) -> None:
@@ -235,6 +245,57 @@ def test_sync_defers_eligible_findings_when_active_capacity_is_full() -> None:
     assert result.backlog_only_count == 1
     assert result.backlog_reason_counts == {"promotion_capacity_exhausted": 1}
     assert len(work_item_service.work_items) == 1
+
+
+def test_sync_closes_existing_work_outside_capacity_and_reopens_it_when_capacity_frees() -> None:
+    work_item_service = FakeGitLabWorkItemService()
+    service = GitLabFindingSyncService(
+        work_item_service=work_item_service,  # type: ignore[arg-type]
+    )
+    project_id = "group/project"
+    policy_state = _policy_state(medium_enabled=True)
+    findings = [
+        _finding(finding_id="high", severity="high"),
+        _finding(finding_id="medium", severity="medium"),
+    ]
+
+    service.sync(
+        project_id=project_id,
+        findings=findings,
+        policy_state=policy_state,
+        max_active_work_items=2,
+    )
+    medium_key = ("ruff", "medium", project_id, "remediation")
+    work_item_service.work_items[medium_key] = work_item_service.work_items[medium_key].model_copy(
+        update={"status": "candidate"}
+    )
+    deferred_result = service.sync(
+        project_id=project_id,
+        findings=findings,
+        policy_state=policy_state,
+        max_active_work_items=1,
+    )
+
+    deferred = next(
+        work_item
+        for work_item in work_item_service.work_items.values()
+        if work_item.status == "capacity_deferred"
+    )
+    assert deferred_result.capacity_deferred_count == 1
+    assert deferred.capacity_deferral is not None
+
+    del work_item_service.work_items[("ruff", "high", project_id, "remediation")]
+    reactivated_result = service.sync(
+        project_id=project_id,
+        findings=[findings[1]],
+        policy_state=policy_state,
+        max_active_work_items=1,
+    )
+
+    assert reactivated_result.policy_reactivated_count == 1
+    reopened = next(iter(work_item_service.work_items.values()))
+    assert reopened.status == "approved"
+    assert reopened.capacity_deferral is None
 
 
 def test_sync_uses_provider_upsert_for_duplicate_authoritative_identities() -> None:

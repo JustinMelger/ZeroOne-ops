@@ -150,6 +150,10 @@ class FindingSyncObservationResult(Protocol):
         """Return the number of work items closed as policy-deferred."""
 
     @property
+    def capacity_deferred_count(self) -> int:
+        """Return the number of work items closed as capacity-deferred."""
+
+    @property
     def policy_reactivated_count(self) -> int:
         """Return the number of deferred work items reopened by policy."""
 
@@ -174,6 +178,7 @@ def build_finding_sync_observation(
         severity_counts=sync_result.normalized_severity_counts,
         backlog_reason_counts=sync_result.backlog_reason_counts,
         policy_deferred_count=sync_result.policy_deferred_count,
+        capacity_deferred_count=sync_result.capacity_deferred_count,
         policy_reactivated_count=sync_result.policy_reactivated_count,
         no_longer_detected_count=sync_result.no_longer_detected_count,
         projection_warning_count=sync_result.projection_warning_count,
@@ -227,6 +232,10 @@ class FindingSyncReconciliationResult(Protocol):
         """Return the number of work items closed as policy-deferred."""
 
     @property
+    def capacity_deferred_count(self) -> int:
+        """Return the number of work items closed as capacity-deferred."""
+
+    @property
     def policy_reactivated_count(self) -> int:
         """Return the number of deferred work items reopened by policy."""
 
@@ -247,6 +256,7 @@ def format_finding_sync_reconciliation(sync_result: FindingSyncReconciliationRes
         and sync_result.stale_demoted_to_candidate_count == 0
         and sync_result.stale_retained_protected_count == 0
         and sync_result.policy_deferred_count == 0
+        and sync_result.capacity_deferred_count == 0
         and sync_result.policy_reactivated_count == 0
         and sync_result.no_longer_detected_count == 0
         and sync_result.projection_warning_count == 0
@@ -261,13 +271,15 @@ def format_finding_sync_reconciliation(sync_result: FindingSyncReconciliationRes
         )
     if (
         sync_result.policy_deferred_count
+        or sync_result.capacity_deferred_count
         or sync_result.policy_reactivated_count
         or sync_result.no_longer_detected_count
         or sync_result.projection_warning_count
     ):
         lines.append(
-            "Policy state projection: "
+            "Deferred-work projection: "
             f"deferred={sync_result.policy_deferred_count}; "
+            f"capacity deferred={sync_result.capacity_deferred_count}; "
             f"reactivated={sync_result.policy_reactivated_count}; "
             f"no longer detected={sync_result.no_longer_detected_count}; "
             f"warnings={sync_result.projection_warning_count}."

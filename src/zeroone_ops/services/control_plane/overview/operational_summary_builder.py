@@ -25,11 +25,16 @@ class OperationalSummaryBuilder:
         recent_outcome_limit: int = 5,
     ) -> OperationalSummaryView:
         """Return one derived summary view from open and closed work-item records."""
-        counts = {status: 0 for status in ("candidate", "approved", "in_progress", "blocked")}
+        counts = {
+            status: 0
+            for status in ("candidate", "approved", "in_progress", "blocked", "capacity_deferred")
+        }
         active_change_requests: list[OperationalSummaryEntry] = []
         recent_outcomes: list[OperationalSummaryEntry] = []
         for work_item in work_items:
-            if work_item.is_open and work_item.status in counts:
+            if work_item.status == "capacity_deferred":
+                counts[work_item.status] += 1
+            elif work_item.is_open and work_item.status in counts:
                 counts[work_item.status] += 1
             entry = OperationalSummaryEntry(
                 title=work_item.title,

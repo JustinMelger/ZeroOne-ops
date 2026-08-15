@@ -20,6 +20,7 @@ WorkItemStatus = Literal[
     "completed",
     "dismissed",
     "policy_deferred",
+    "capacity_deferred",
 ]
 RecoveryAction = Literal["dismiss", "requeue"]
 RecoveryPlan = Literal["retry_publication", "start_fresh"]
@@ -89,6 +90,14 @@ class WorkItemPolicyDeferral(BaseModel):
     occurred_at: datetime
 
 
+class WorkItemCapacityDeferral(BaseModel):
+    """Record why a work item is waiting outside active remediation capacity."""
+
+    reason: Literal["promotion_capacity_exhausted"]
+    run_id: str
+    occurred_at: datetime
+
+
 class RecoveryEvent(BaseModel):
     """Record one accepted operator recovery decision for a work item."""
 
@@ -126,6 +135,7 @@ class WorkItemState(BaseModel):
     publication_retry: PublicationRetryState | None = None
     execution_failure: WorkItemExecutionFailure | None = None
     policy_deferral: WorkItemPolicyDeferral | None = None
+    capacity_deferral: WorkItemCapacityDeferral | None = None
     attempt_number: int = Field(default=1, ge=1)
     recovery_events: list[RecoveryEvent] = Field(default_factory=list)
     resolution: WorkItemResolution | None = None

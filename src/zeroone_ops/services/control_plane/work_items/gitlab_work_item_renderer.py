@@ -131,6 +131,18 @@ class GitLabWorkItemRenderer:
                     f"- Recorded: `{deferral.occurred_at.isoformat()}`",
                 ]
             )
+        if work_item.capacity_deferral is not None:
+            capacity_deferral = work_item.capacity_deferral
+            lines.extend(
+                [
+                    "",
+                    "## Capacity Deferral",
+                    "",
+                    f"- Reason: `{capacity_deferral.reason}`",
+                    f"- Sync run: `{capacity_deferral.run_id}`",
+                    f"- Recorded: `{capacity_deferral.occurred_at.isoformat()}`",
+                ]
+            )
         if work_item.status == "blocked":
             lines.extend(self._render_recovery_instructions(work_item))
         lines.extend(["", "## Machine State", ""])

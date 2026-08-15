@@ -17,6 +17,7 @@ class FindingSyncObservation:
     severity_counts: dict[str, int]
     backlog_reason_counts: dict[str, int]
     policy_deferred_count: int = 0
+    capacity_deferred_count: int = 0
     policy_reactivated_count: int = 0
     no_longer_detected_count: int = 0
     projection_warning_count: int = 0

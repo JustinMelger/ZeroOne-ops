@@ -139,3 +139,11 @@ class GitHubWorkItemService:
         return self.lookup_service.list_closed_policy_deferred_work_items(
             repository_id=repository_id
         )
+
+    def list_closed_capacity_deferred_work_items(
+        self, *, repository_id: str
+    ) -> list[GitHubWorkItemLookupResult]:
+        """Return closed work items deferred by active capacity."""
+        return self.lookup_service.list_closed_capacity_deferred_work_items(
+            repository_id=repository_id
+        )

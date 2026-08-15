@@ -233,6 +233,69 @@ def test_sync_defers_eligible_findings_when_active_capacity_is_full() -> None:
     assert len(client.issues) == 1
 
 
+def test_sync_closes_existing_work_outside_capacity_and_reopens_it_when_capacity_frees() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    repository_id = "octo-org/octo-repo"
+    policy_state = _policy_state(medium_enabled=True)
+    findings = [
+        _finding(finding_id="high", severity="high"),
+        _finding(finding_id="medium", severity="medium"),
+    ]
+
+    service.sync(
+        repository_id=repository_id,
+        findings=findings,
+        policy_state=policy_state,
+        max_active_work_items=2,
+    )
+    medium_issue = next(issue for issue in client.issues if "medium" in issue.body)
+    medium_work_item = GitHubWorkItemParser().parse_work_item_state(medium_issue.body)
+    assert medium_work_item is not None
+    client.issues = [
+        issue.model_copy(
+            update={
+                "body": GitHubWorkItemRenderer().render_body(
+                    medium_work_item.model_copy(update={"status": "candidate"})
+                )
+            }
+        )
+        if issue.number == medium_issue.number
+        else issue
+        for issue in client.issues
+    ]
+    deferred_result = service.sync(
+        repository_id=repository_id,
+        findings=findings,
+        policy_state=policy_state,
+        max_active_work_items=1,
+    )
+
+    deferred = GitHubWorkItemParser().parse_work_item_state(client.closed_issues[0].body)
+
+    assert deferred_result.capacity_deferred_count == 1
+    assert deferred is not None
+    assert deferred.status == "capacity_deferred"
+    assert deferred.capacity_deferral is not None
+
+    client.issues = []
+    reactivated_result = service.sync(
+        repository_id=repository_id,
+        findings=[findings[1]],
+        policy_state=policy_state,
+        max_active_work_items=1,
+    )
+
+    assert reactivated_result.policy_reactivated_count == 1
+    assert len(client.issues) == 1
+    reopened = GitHubWorkItemParser().parse_work_item_state(client.issues[0].body)
+    assert reopened is not None
+    assert reopened.status == "approved"
+    assert reopened.capacity_deferral is None
+
+
 def test_sync_dry_run_does_not_load_or_write_work_items() -> None:
     client = FakeGitHubWorkItemClient()
     service = GitHubFindingSyncService(

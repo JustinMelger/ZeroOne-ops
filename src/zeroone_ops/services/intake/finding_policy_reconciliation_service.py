@@ -32,7 +32,13 @@ class FindingPolicyReconciliationService:
             if not policy_eligible:
                 return PolicyReconciliationDecision("retain_deferred")
             return PolicyReconciliationDecision(
-                "reopen_approved" if promotion_eligible else "reopen_candidate"
+                "reopen_approved" if promotion_eligible else "move_to_capacity_deferred"
+            )
+        if work_item.status == "capacity_deferred":
+            if not policy_eligible:
+                return PolicyReconciliationDecision("move_to_policy_deferred")
+            return PolicyReconciliationDecision(
+                "reopen_approved" if promotion_eligible else "retain_capacity_deferred"
             )
         if not policy_eligible:
             if (
@@ -41,6 +47,8 @@ class FindingPolicyReconciliationService:
             ):
                 return PolicyReconciliationDecision("defer", "policy_ineligible")
             return PolicyReconciliationDecision("retain_protected")
+        if work_item.status == "candidate" and not promotion_eligible:
+            return PolicyReconciliationDecision("move_to_capacity_deferred")
         return PolicyReconciliationDecision("none")
 
     def decide_for_missing_finding(
@@ -50,6 +58,6 @@ class FindingPolicyReconciliationService:
         source_is_managed: bool,
     ) -> PolicyReconciliationDecision:
         """Resolve deferred work only from a complete managed source inventory."""
-        if work_item.status == "policy_deferred" and source_is_managed:
+        if work_item.status in {"policy_deferred", "capacity_deferred"} and source_is_managed:
             return PolicyReconciliationDecision("complete_no_longer_detected")
         return PolicyReconciliationDecision("none")

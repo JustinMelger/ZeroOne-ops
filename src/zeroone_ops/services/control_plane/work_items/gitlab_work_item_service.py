@@ -103,3 +103,9 @@ class GitLabWorkItemService:
     ) -> list[GitLabWorkItemLookupResult]:
         """Return closed work items deferred by the current policy."""
         return self.lookup_service.list_closed_policy_deferred_work_items(project_id=project_id)
+
+    def list_closed_capacity_deferred_work_items(
+        self, *, project_id: str
+    ) -> list[GitLabWorkItemLookupResult]:
+        """Return closed work items deferred by active capacity."""
+        return self.lookup_service.list_closed_capacity_deferred_work_items(project_id=project_id)

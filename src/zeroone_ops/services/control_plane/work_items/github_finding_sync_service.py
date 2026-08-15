@@ -12,6 +12,7 @@ from uuid import uuid4
 from zeroone_ops.models.finding import NormalizedFinding
 from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.models.work_item import (
+    WorkItemCapacityDeferral,
     WorkItemKind,
     WorkItemPolicyDeferral,
     WorkItemSourceRef,
@@ -53,6 +54,7 @@ class GitHubFindingSyncResult:
     enabled_severities: tuple[str, ...]
     backlog_reason_counts: dict[str, int]
     policy_deferred_count: int = 0
+    capacity_deferred_count: int = 0
     policy_reactivated_count: int = 0
     no_longer_detected_count: int = 0
     projection_warning_count: int = 0
@@ -105,12 +107,19 @@ class GitHubFindingSyncService:
         backlog_reason_counts: Counter[str] = Counter()
         projection_warning_count = 0
         policy_deferred_count = 0
+        capacity_deferred_count = 0
         policy_reactivated_count = 0
         no_longer_detected_count = 0
         open_work_items = self.work_item_service.list_open_work_items(repository_id=repository_id)
         deferred_work_items = self.work_item_service.list_closed_policy_deferred_work_items(
             repository_id=repository_id
         )
+        capacity_deferred_work_items = (
+            self.work_item_service.list_closed_capacity_deferred_work_items(
+                repository_id=repository_id
+            )
+        )
+        deferred_work_items = [*deferred_work_items, *capacity_deferred_work_items]
         existing_by_identity: dict[
             tuple[str, str, str | None, WorkItemKind], GitHubWorkItemLookupResult
         ] = {}
@@ -200,6 +209,47 @@ class GitHubFindingSyncService:
                     elif outcome == "retained":
                         retained_protected_count += 1
                 continue
+            if reconciliation.action == "move_to_policy_deferred":
+                backlog_only_count += 1
+                backlog_reason_counts[policy_decision.reason] += 1
+                if persist and deferred is not None:
+                    if self._update_closed_deferral(
+                        repository_id=repository_id,
+                        existing=deferred,
+                        status="policy_deferred",
+                        run_id=run_id,
+                    ):
+                        policy_deferred_count += 1
+                    else:
+                        projection_warning_count += 1
+                continue
+            if reconciliation.action == "move_to_capacity_deferred":
+                backlog_only_count += 1
+                backlog_reason_counts[decision.reason] += 1
+                if persist:
+                    if existing is not None:
+                        if self._defer_to_capacity_if_current(
+                            repository_id=repository_id,
+                            finding=finding,
+                            run_id=run_id,
+                        ):
+                            capacity_deferred_count += 1
+                            updated_count += 1
+                    elif deferred is not None:
+                        if self._update_closed_deferral(
+                            repository_id=repository_id,
+                            existing=deferred,
+                            status="capacity_deferred",
+                            run_id=run_id,
+                        ):
+                            capacity_deferred_count += 1
+                        else:
+                            projection_warning_count += 1
+                continue
+            if reconciliation.action == "retain_capacity_deferred":
+                backlog_only_count += 1
+                backlog_reason_counts[decision.reason] += 1
+                continue
             if reconciliation.action == "retain_deferred":
                 backlog_only_count += 1
                 backlog_reason_counts[policy_decision.reason] += 1
@@ -222,12 +272,9 @@ class GitHubFindingSyncService:
                         existing_work_item=deferred.work_item,
                     ).model_copy(
                         update={
-                            "status": (
-                                "approved"
-                                if reconciliation.action == "reopen_approved"
-                                else "candidate"
-                            ),
+                            "status": "approved",
                             "policy_deferral": None,
+                            "capacity_deferral": None,
                         }
                     )
                     if self._reopen_and_update(
@@ -300,6 +347,8 @@ class GitHubFindingSyncService:
                         update={
                             "status": "completed",
                             "resolution": "no_longer_detected",
+                            "policy_deferral": None,
+                            "capacity_deferral": None,
                         }
                     )
                     try:
@@ -310,7 +359,7 @@ class GitHubFindingSyncService:
                         )
                     except Exception:
                         LOGGER.warning(
-                            "GitHub policy-deferred completion projection failed",
+                            "GitHub deferred work-item completion projection failed",
                             exc_info=True,
                         )
                         projection_warning_count += 1
@@ -334,6 +383,7 @@ class GitHubFindingSyncService:
             ),
             backlog_reason_counts=dict(sorted(backlog_reason_counts.items())),
             policy_deferred_count=policy_deferred_count,
+            capacity_deferred_count=capacity_deferred_count,
             policy_reactivated_count=policy_reactivated_count,
             no_longer_detected_count=no_longer_detected_count,
             projection_warning_count=projection_warning_count,
@@ -395,6 +445,79 @@ class GitHubFindingSyncService:
             )
         except Exception:
             LOGGER.warning("GitHub policy-deferred reactivation projection failed", exc_info=True)
+            return False
+        return True
+
+    def _defer_to_capacity_if_current(
+        self, *, repository_id: str, finding: NormalizedFinding, run_id: str
+    ) -> bool:
+        """Close a still-safe durable candidate outside active capacity."""
+        source = WorkItemSourceRef(
+            source=finding.source_id,
+            source_item_key=finding.finding_id,
+            repository_scope=repository_id,
+        )
+        existing = self.work_item_service.find_open_work_item_by_source(
+            repository_id=repository_id, kind="remediation", source=source
+        )
+        if (
+            existing is None
+            or existing.work_item.status != "candidate"
+            or existing.work_item.linked_change_request is not None
+        ):
+            return False
+        deferred = existing.work_item.model_copy(
+            update={
+                "status": "capacity_deferred",
+                "capacity_deferral": WorkItemCapacityDeferral(
+                    reason="promotion_capacity_exhausted",
+                    run_id=run_id,
+                    occurred_at=datetime.now(UTC),
+                ),
+            }
+        )
+        try:
+            self.work_item_service.update_existing_work_item(
+                repository_id=repository_id, existing=existing, work_item=deferred
+            )
+            self.work_item_service.close_work_item_issue(
+                repository_id=repository_id, issue_number=existing.issue.number
+            )
+        except Exception:
+            LOGGER.warning("GitHub capacity-deferred projection failed", exc_info=True)
+            return False
+        return True
+
+    def _update_closed_deferral(
+        self,
+        *,
+        repository_id: str,
+        existing: GitHubWorkItemLookupResult,
+        status: Literal["policy_deferred", "capacity_deferred"],
+        run_id: str,
+    ) -> bool:
+        """Update a closed deferred record without reopening its provider issue."""
+        update: dict[str, object] = {
+            "status": status,
+            "policy_deferral": None,
+            "capacity_deferral": None,
+        }
+        if status == "policy_deferred":
+            update["policy_deferral"] = WorkItemPolicyDeferral(
+                reason="policy_ineligible", run_id=run_id, occurred_at=datetime.now(UTC)
+            )
+        else:
+            update["capacity_deferral"] = WorkItemCapacityDeferral(
+                reason="promotion_capacity_exhausted", run_id=run_id, occurred_at=datetime.now(UTC)
+            )
+        try:
+            self.work_item_service.update_existing_work_item(
+                repository_id=repository_id,
+                existing=existing,
+                work_item=existing.work_item.model_copy(update=update),
+            )
+        except Exception:
+            LOGGER.warning("GitHub deferred work-item projection failed", exc_info=True)
             return False
         return True
 

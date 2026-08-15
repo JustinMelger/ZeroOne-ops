@@ -179,6 +179,10 @@ class FindingSyncResult(Protocol):
         """Return the count closed as policy-deferred."""
 
     @property
+    def capacity_deferred_count(self) -> int:
+        """Return the count closed as capacity-deferred."""
+
+    @property
     def policy_reactivated_count(self) -> int:
         """Return the count reopened by policy."""
 

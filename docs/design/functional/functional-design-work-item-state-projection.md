@@ -102,9 +102,10 @@ reconciliation using its current inventory.
 ## Capacity-Deferred Work (Locked Follow-Up)
 
 The active provider-issue list is an operator work queue, not a complete
-finding inventory. A policy-eligible finding that cannot enter the configured
-active remediation budget remains durable but closed as `capacity_deferred`.
-It is not represented as an open `candidate` solely because capacity is full.
+finding inventory. Existing durable policy-eligible work that cannot enter the
+configured active remediation budget remains closed as `capacity_deferred`.
+Newly observed capacity-exhausted findings remain aggregate backlog-only work
+until capacity selects them; they do not create a provider issue.
 
 Finding sync selects from one shared queue that includes newly observed
 policy-eligible findings and matching closed `capacity_deferred` records. It:
@@ -113,8 +114,9 @@ policy-eligible findings and matching closed `capacity_deferred` records. It:
    it when capacity is lowered;
 2. orders all remaining eligible work by `high`, `medium`, `low`, then stable
    finding identity;
-3. opens only the selected work as `approved`; and
-4. keeps all remaining eligible work closed as `capacity_deferred`.
+3. opens only selected durable work as `approved`;
+4. keeps unselected durable work closed as `capacity_deferred`; and
+5. leaves unselected newly observed findings as non-durable backlog-only work.
 
 Closed backlog history does not receive a priority bonus over a newly observed
 finding at the same severity. Aging, source balancing, and operator-assigned

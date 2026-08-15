@@ -39,3 +39,8 @@ def dismissed_work_item_query_labels() -> list[str]:
 def policy_deferred_work_item_query_labels() -> list[str]:
     """Return the narrow index for reversibly deferred closed work items."""
     return [AUTHORITATIVE_WORK_ITEM_LABEL, work_item_status_label("policy_deferred")]
+
+
+def capacity_deferred_work_item_query_labels() -> list[str]:
+    """Return the narrow index labels for capacity-deferred work items."""
+    return [AUTHORITATIVE_WORK_ITEM_LABEL, work_item_status_label("capacity_deferred")]

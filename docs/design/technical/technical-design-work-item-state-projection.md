@@ -57,9 +57,10 @@ locator is introduced.
 
 ## Capacity Queue Projection (Locked Follow-Up)
 
-The current `candidate` behavior leaves capacity-deferred history visible as
-open issues. The next capacity projection slice introduces a closed
-`capacity_deferred` state so open issues represent only work that can progress.
+Capacity projection uses a closed `capacity_deferred` state so open issues
+represent only work that can progress. Newly observed findings outside the
+budget remain non-durable aggregate backlog-only work; no provider issue is
+created for them.
 
 Finding sync will load the narrow closed inventory indexed by
 `zeroone-work-item` and `zeroone-status:capacity_deferred` alongside the open
@@ -75,7 +76,9 @@ The shared capacity planner owns selection:
 - remaining eligible work is ordered by normalized severity (`high`, `medium`,
   `low`) and then stable finding identity;
 - only records selected for available capacity project as open `approved` work;
-- every other eligible record projects as closed `capacity_deferred` work.
+- existing durable candidates outside capacity project as closed
+  `capacity_deferred` work;
+- newly observed findings outside capacity remain aggregate backlog-only work.
 
 This is a state-projection change, not a source-adapter rule. It applies
 identically to GitHub and GitLab issue mode. More refined aging, source

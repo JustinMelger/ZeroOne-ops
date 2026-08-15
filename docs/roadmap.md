@@ -88,7 +88,7 @@ history, not here.
   into a reversible closed `policy_deferred` state on GitHub and GitLab;
   preserve protected active work and aggregate backlog visibility, then reopen
   the same issue when policy later re-enables the finding
-- [ ] project policy-eligible work that exceeds active remediation capacity into
+- [x] project policy-eligible durable work that exceeds active remediation capacity into
   a reversible closed `capacity_deferred` backlog on GitHub and GitLab; reopen
   only work selected by the shared severity-then-stable-identity budget
 - design: [functional work-item state projection](design/functional/functional-design-work-item-state-projection.md)
