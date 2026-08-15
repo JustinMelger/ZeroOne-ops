@@ -68,6 +68,7 @@ def test_list_closed_issues_requests_closed_state() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/repos/octo-org/octo-repo/issues"
         assert request.url.params["state"] == "closed"
+        assert request.url.params["labels"] == "zeroone-work-item,zeroone-status:dismissed"
         return httpx.Response(
             200,
             json=[
@@ -90,7 +91,10 @@ def test_list_closed_issues_requests_closed_state() -> None:
         ),
     )
 
-    issues = client.list_closed_issues(repository_id="octo-org/octo-repo")
+    issues = client.list_closed_issues(
+        repository_id="octo-org/octo-repo",
+        labels=["zeroone-work-item", "zeroone-status:dismissed"],
+    )
 
     assert [issue.number for issue in issues] == [11]
     assert issues[0].updated_at is not None

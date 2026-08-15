@@ -17,6 +17,10 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_parser impor
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_renderer import (
     GitLabWorkItemRenderer,
 )
+from zeroone_ops.services.control_plane.work_items.work_item_labels import (
+    dismissed_work_item_query_labels,
+    work_item_source_query_labels,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -111,7 +115,13 @@ class GitLabWorkItemLookupService:
         """Return all open authoritative items matching one stable identity."""
         return [
             result
-            for result in self.list_open_work_items(project_id=project_id)
+            for result in self._parse_work_items(
+                self.client.list_open_issues(
+                    project_id=project_id,
+                    labels=work_item_source_query_labels(source.source),
+                ),
+                is_open=True,
+            )
             if result.work_item.kind == kind and result.work_item.source == source
         ]
 
@@ -125,7 +135,13 @@ class GitLabWorkItemLookupService:
         """Return closed dismissed tombstones matching one stable identity."""
         return [
             result
-            for result in self.list_closed_work_items(project_id=project_id)
+            for result in self._parse_work_items(
+                self.client.list_closed_issues(
+                    project_id=project_id,
+                    labels=dismissed_work_item_query_labels(),
+                ),
+                is_open=False,
+            )
             if (
                 result.work_item.kind == kind
                 and result.work_item.source == source

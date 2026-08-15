@@ -41,6 +41,35 @@ def test_upsert_creates_when_identity_is_missing() -> None:
     assert client.created_issue.title == "ZeroOne Ops: Remediate Sonar issue AX123 in api.py"
 
 
+def test_upsert_suppresses_a_matching_closed_dismissed_work_item() -> None:
+    dismissed = build_work_item(status="dismissed")
+    renderer = GitHubWorkItemRenderer()
+    client = FakeGitHubWorkItemClient()
+    client.closed_issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(dismissed),
+            body=renderer.render_body(dismissed),
+        )
+    ]
+    service = GitHubWorkItemUpsertService(
+        client,
+        lookup_service=GitHubWorkItemLookupService(client),
+    )
+
+    result = service.upsert_work_item(
+        repository_id="octo-org/octo-repo",
+        work_item=build_work_item(),
+    )
+
+    assert result.action == "suppressed"
+    assert result.work_item.status == "dismissed"
+    assert client.created_issue is None
+    assert client.list_labels == ["zeroone-work-item", "zeroone-status:dismissed"]
+
+
 def test_upsert_updates_matching_open_issue_when_state_changes() -> None:
     renderer = GitHubWorkItemRenderer()
     original = build_work_item(status="approved")

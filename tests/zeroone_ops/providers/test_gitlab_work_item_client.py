@@ -60,6 +60,30 @@ def test_list_open_issues_paginates_and_normalizes_issue_metadata() -> None:
     assert issues[0].created_at is not None
 
 
+def test_list_closed_issues_filters_by_all_requested_labels() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/api/v4/projects/group/project/issues"
+        assert request.url.params.get("state") == "closed"
+        assert request.url.params.get("labels") == "zeroone-work-item,zeroone-status:dismissed"
+        return httpx.Response(200, json=[issue_payload(iid=1, state="closed")])
+
+    client = GitLabWorkItemClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    issues = client.list_closed_issues(
+        project_id="group/project",
+        labels=["zeroone-work-item", "zeroone-status:dismissed"],
+    )
+
+    assert [issue.iid for issue in issues] == [1]
+
+
 def test_create_update_and_close_issue_send_full_work_item_state() -> None:
     requests: list[httpx.Request] = []
 

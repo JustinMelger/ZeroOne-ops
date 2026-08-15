@@ -25,7 +25,7 @@ class GitHubWorkItemUpsertResult:
     """Summarize one authoritative GitHub work-item upsert."""
 
     issue: GitHubIssueInfo
-    action: Literal["created", "updated", "unchanged"]
+    action: Literal["created", "updated", "unchanged", "suppressed"]
     work_item: WorkItemState
 
 
@@ -62,6 +62,20 @@ class GitHubWorkItemUpsertService:
             source=work_item.source,
         )
         if existing is None:
+            dismissed_matches = self.lookup_service.list_closed_dismissed_work_items_by_source(
+                repository_id=repository_id,
+                kind=work_item.kind,
+                source=work_item.source,
+            )
+            if len(dismissed_matches) > 1:
+                raise ValueError("Cannot upsert an ambiguously matched dismissed work item.")
+            if dismissed_matches:
+                dismissed = dismissed_matches[0]
+                return GitHubWorkItemUpsertResult(
+                    issue=dismissed.issue,
+                    action="suppressed",
+                    work_item=dismissed.work_item,
+                )
             return GitHubWorkItemUpsertResult(
                 issue=self.client.create_issue(
                     repository_id=repository_id,

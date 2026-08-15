@@ -72,7 +72,7 @@ def test_lookup_skips_malformed_state_and_returns_matching_authoritative_issue()
 
     assert result is not None
     assert result.issue.iid == 2
-    assert client.list_labels == ["zeroone-work-item"]
+    assert client.list_labels == ["zeroone-work-item", "zeroone-source:sonarqube"]
 
 
 def test_lookup_returns_no_match_for_duplicate_authoritative_identity(caplog) -> None:
@@ -112,6 +112,23 @@ def test_list_closed_work_items_marks_results_as_closed() -> None:
     assert len(results) == 1
     assert results[0].is_open is False
     assert results[0].work_item.status == "dismissed"
+
+
+def test_lookup_filters_closed_dismissed_tombstones_by_status_label() -> None:
+    original = build_work_item(status="dismissed")
+    client = FakeGitLabWorkItemClient()
+    client.closed_issues = [
+        issue(iid=1, description=GitLabWorkItemRenderer().render_body(original))
+    ]
+
+    results = GitLabWorkItemLookupService(client).list_closed_dismissed_work_items_by_source(  # type: ignore[arg-type]
+        project_id="group/project",
+        kind=original.kind,
+        source=original.source,
+    )
+
+    assert [result.work_item for result in results] == [original]
+    assert client.list_labels == ["zeroone-work-item", "zeroone-status:dismissed"]
 
 
 def test_lookup_returns_work_item_linked_to_change_request() -> None:

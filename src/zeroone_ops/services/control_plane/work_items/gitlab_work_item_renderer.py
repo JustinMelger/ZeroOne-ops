@@ -6,12 +6,18 @@ import json
 from pathlib import Path
 
 from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.services.control_plane.work_items.work_item_labels import (
+    AUTHORITATIVE_WORK_ITEM_LABEL as WORK_ITEM_LABEL,
+)
+from zeroone_ops.services.control_plane.work_items.work_item_labels import (
+    render_work_item_labels,
+)
 
 
 class GitLabWorkItemRenderer:
     """Render authoritative GitLab work-item issues."""
 
-    AUTHORITATIVE_WORK_ITEM_LABEL = "zeroone-work-item"
+    AUTHORITATIVE_WORK_ITEM_LABEL = WORK_ITEM_LABEL
     _MAX_TITLE_LENGTH = 120
 
     def render_title(self, work_item: WorkItemState) -> str:
@@ -121,11 +127,7 @@ class GitLabWorkItemRenderer:
 
     def render_labels(self, work_item: WorkItemState) -> list[str]:
         """Render the provider-local label projection for one work item."""
-        return [
-            self.AUTHORITATIVE_WORK_ITEM_LABEL,
-            f"zeroone-status:{work_item.status}",
-            f"zeroone-source:{work_item.source.source}",
-        ]
+        return render_work_item_labels(work_item)
 
     def _finding_description(self, work_item: WorkItemState) -> str:
         """Return the most concrete available operator-facing finding text."""

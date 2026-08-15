@@ -69,7 +69,7 @@ def test_lookup_filters_reuse_scan_to_authoritative_work_item_label() -> None:
     )
 
     assert result is not None
-    assert client.list_labels == ["zeroone-work-item"]
+    assert client.list_labels == ["zeroone-work-item", "zeroone-source:sonarqube"]
 
 
 def test_list_open_work_items_returns_parseable_authoritative_records() -> None:
@@ -116,6 +116,29 @@ def test_list_closed_work_items_returns_parseable_authoritative_records() -> Non
     assert [result.work_item for result in results] == [original]
     assert client.list_labels == ["zeroone-work-item"]
     assert not results[0].is_open
+
+
+def test_lookup_filters_closed_dismissed_tombstones_by_status_label() -> None:
+    original = build_work_item(status="dismissed")
+    client = FakeGitHubWorkItemClient()
+    client.closed_issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=GitHubWorkItemRenderer().render_title(original),
+            body=GitHubWorkItemRenderer().render_body(original),
+        )
+    ]
+
+    results = GitHubWorkItemLookupService(client).list_closed_dismissed_work_items_by_source(
+        repository_id="octo-org/octo-repo",
+        kind=original.kind,
+        source=original.source,
+    )
+
+    assert [result.work_item for result in results] == [original]
+    assert client.list_labels == ["zeroone-work-item", "zeroone-status:dismissed"]
 
 
 def test_lookup_skips_projection_when_multiple_work_items_link_one_change_request(caplog) -> None:
