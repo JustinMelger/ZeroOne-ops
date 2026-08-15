@@ -48,33 +48,13 @@ history, not here.
 - resilient multi-source SARIF intake: unavailable artifacts produce bounded
   diagnostics without blocking available sources or claiming stale
   reconciliation ownership
+- operator-focused GitHub and GitLab work-item UX: location-disambiguated
+  titles, concrete change-request summaries, durable bot-dismissal evidence,
+  and intent-aware `fix` or `chore` change requests
 - MLflow tracing support, Ruff pre-commit checks, and current CI workflows
 - copyable GitHub Actions and GitLab CI control-plane installation templates
 
 ## Current Focus
-
-### Work-Item UX
-
-- [x] distinguish same-rule, same-file findings in GitHub and GitLab work-item
-  titles with a compact source location; retain separate stable identities and
-  branches, and defer any many-findings-per-file grouping design
-- [x] refine generated change-request descriptions around operator decisions:
-  require the existing proposal summary to explain the concrete edit and why;
-  remove generic structured-edit provenance; retain concise scope and validation
-  evidence that helps review, merge, or recovery decisions
-- [x] persist and render compact execution evidence for bot-dismissed work
-  items on GitHub and GitLab: decision summary, stage, run reference, and safe
-  recovery guidance without copying raw model or command output into the issue
-- [x] make remediation branch and change-request prefixes reflect normalized
-  remediation intent: keep `fix` for behavioral defects, use an appropriate
-  neutral prefix for test, typing, lint, or maintenance-only edits, and define
-  a stable fallback without deriving commit semantics from raw source wording
-
-### Finding Intake Resilience
-
-- [ ] isolate configured SARIF artifact failures so available sources continue
-  to sync; record bounded per-artifact diagnostics and never stale-reconcile an
-  unavailable source as an authoritative empty inventory
 
 ### Operational Readiness
 
@@ -183,6 +163,9 @@ history, not here.
   the executable-CI-policy trust model has been live-reviewed
 - make MLflow tracing an optional package extra after tracing rollout feedback
   confirms the supported installation profile
+- deterministic file-level finding inventories and a later remediation-unit
+  boundary; preserve individual findings and provenance without treating a file
+  group as one automatic remediation
 
 ## Reference Docs
 
@@ -190,6 +173,8 @@ history, not here.
 - [runbook.md](runbook.md)
 - [design/functional/functional-design-finding-ingestion.md](design/functional/functional-design-finding-ingestion.md)
 - [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
+- [design/functional/functional-design-finding-file-grouping.md](design/functional/functional-design-finding-file-grouping.md)
+- [design/technical/technical-design-finding-file-grouping.md](design/technical/technical-design-finding-file-grouping.md)
 - [design/technical/technical-design-github-platform-support.md](design/technical/technical-design-github-platform-support.md)
 - [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
 - [design/functional/functional-design-remediation-recovery.md](design/functional/functional-design-remediation-recovery.md)
