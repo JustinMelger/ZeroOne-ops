@@ -85,9 +85,11 @@ history, not here.
 ### Policy Reconciliation
 
 - [ ] reconcile unlinked candidate work items that become policy-ineligible
-  into a non-cluttering terminal or hidden policy-deferred state on GitHub and
-  GitLab; preserve protected active work and aggregate backlog visibility, then
-  define the re-enable behavior explicitly
+  into a reversible closed `policy_deferred` state on GitHub and GitLab;
+  preserve protected active work and aggregate backlog visibility, then reopen
+  the same issue when policy later re-enables the finding
+- design: [functional work-item state projection](design/functional/functional-design-work-item-state-projection.md)
+  and [technical work-item state projection](design/technical/technical-design-work-item-state-projection.md)
 
 ### Trace Observability
 
@@ -102,7 +104,8 @@ history, not here.
   a projected `findings_present` result must become an explicit actionable
   state, preserve the linked change request and review evidence, and define
   bounded automatic versus operator-command rework without treating it as a
-  normal fresh remediation claim
+  normal fresh remediation claim; reuse the work-item state-projection boundary
+  for provider issue-state rendering
 
 ### Remediation Mergeability
 
@@ -166,6 +169,9 @@ history, not here.
 - deterministic file-level finding inventories and a later remediation-unit
   boundary; preserve individual findings and provenance without treating a file
   group as one automatic remediation
+- provider-bound conditional work-item transitions and atomic claims, so
+  concurrent finding sync, remediation, recovery, and lifecycle jobs do not
+  rely on CI scheduling or resource groups for correctness
 
 ## Reference Docs
 
@@ -175,6 +181,8 @@ history, not here.
 - [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
 - [design/functional/functional-design-finding-file-grouping.md](design/functional/functional-design-finding-file-grouping.md)
 - [design/technical/technical-design-finding-file-grouping.md](design/technical/technical-design-finding-file-grouping.md)
+- [design/functional/functional-design-work-item-state-projection.md](design/functional/functional-design-work-item-state-projection.md)
+- [design/technical/technical-design-work-item-state-projection.md](design/technical/technical-design-work-item-state-projection.md)
 - [design/technical/technical-design-github-platform-support.md](design/technical/technical-design-github-platform-support.md)
 - [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
 - [design/functional/functional-design-remediation-recovery.md](design/functional/functional-design-remediation-recovery.md)
