@@ -112,6 +112,21 @@ def test_render_title_keeps_distinct_line_suffix_when_bounded() -> None:
     assert title.endswith(":1411")
 
 
+def test_render_title_bounds_oversized_line_suffix() -> None:
+    work_item = build_work_item().model_copy(
+        update={
+            "line": int("9" * 130),
+            "remediation_context": build_work_item().remediation_context.model_copy(
+                update={"diagnostic_code": "C416"}
+            ),
+        }
+    )
+
+    title = GitHubWorkItemRenderer().render_title(work_item)
+
+    assert len(title) <= 120
+
+
 def test_render_body_includes_dismissal_execution_evidence() -> None:
     work_item = build_work_item(status="dismissed").model_copy(
         update={

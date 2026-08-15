@@ -192,4 +192,6 @@ def _title_with_location(value: str, *, line: int | None, maximum_length: int) -
     if line is None:
         return _truncate_title(value, maximum_length=maximum_length)
     suffix = f":{line}"
+    if len(suffix) >= maximum_length:
+        return _truncate_title(f"{value} {suffix}", maximum_length=maximum_length)
     return f"{_truncate_title(value, maximum_length=maximum_length - len(suffix))}{suffix}"
