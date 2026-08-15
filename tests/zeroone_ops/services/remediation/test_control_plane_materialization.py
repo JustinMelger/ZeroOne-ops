@@ -56,6 +56,15 @@ class FakeGitHubWorkItemClient:
         del repository_id, labels
         return list(self.issues)
 
+    def list_closed_issues(
+        self,
+        *,
+        repository_id: str,
+        labels: list[str] | None = None,
+    ) -> list[GitHubIssueInfo]:
+        del repository_id, labels
+        return []
+
     def create_issue(
         self,
         *,
