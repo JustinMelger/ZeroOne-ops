@@ -72,6 +72,41 @@ def test_lookup_filters_reuse_scan_to_authoritative_work_item_label() -> None:
     assert client.list_labels == ["zeroone-work-item", "zeroone-source:sonarqube"]
 
 
+def test_lookup_skips_duplicate_authoritative_source_identities(caplog) -> None:
+    renderer = GitHubWorkItemRenderer()
+    original = build_work_item()
+    duplicate = original.model_copy(update={"work_item_id": "work-duplicate"})
+    client = FakeGitHubWorkItemClient()
+    client.issues = [
+        GitHubIssueInfo(
+            id=10,
+            number=11,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/11",
+            title=renderer.render_title(original),
+            body=renderer.render_body(original),
+        ),
+        GitHubIssueInfo(
+            id=12,
+            number=13,
+            web_url="https://github.example.com/octo-org/octo-repo/issues/13",
+            title=renderer.render_title(duplicate),
+            body=renderer.render_body(duplicate),
+        ),
+    ]
+
+    result = GitHubWorkItemLookupService(client).find_open_work_item_by_source(
+        repository_id="octo-org/octo-repo",
+        kind=original.kind,
+        source=original.source,
+    )
+
+    assert result is None
+    assert any(
+        "multiple GitHub work items share one authoritative identity" in message
+        for message in caplog.messages
+    )
+
+
 def test_list_open_work_items_returns_parseable_authoritative_records() -> None:
     renderer = GitHubWorkItemRenderer()
     original = build_work_item()

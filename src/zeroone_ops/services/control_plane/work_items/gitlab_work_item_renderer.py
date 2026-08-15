@@ -119,6 +119,30 @@ class GitLabWorkItemRenderer:
                 lines.append(f"- Validation outcome: `{failure.validation_outcome}`")
             if failure.execution_url is not None:
                 lines.append(f"- Run: [View workflow logs]({failure.execution_url})")
+        if work_item.policy_deferral is not None:
+            deferral = work_item.policy_deferral
+            lines.extend(
+                [
+                    "",
+                    "## Policy Deferral",
+                    "",
+                    f"- Reason: `{deferral.reason}`",
+                    f"- Sync run: `{deferral.run_id}`",
+                    f"- Recorded: `{deferral.occurred_at.isoformat()}`",
+                ]
+            )
+        if work_item.capacity_deferral is not None:
+            capacity_deferral = work_item.capacity_deferral
+            lines.extend(
+                [
+                    "",
+                    "## Capacity Deferral",
+                    "",
+                    f"- Reason: `{capacity_deferral.reason}`",
+                    f"- Sync run: `{capacity_deferral.run_id}`",
+                    f"- Recorded: `{capacity_deferral.occurred_at.isoformat()}`",
+                ]
+            )
         if work_item.status == "blocked":
             lines.extend(self._render_recovery_instructions(work_item))
         lines.extend(["", "## Machine State", ""])

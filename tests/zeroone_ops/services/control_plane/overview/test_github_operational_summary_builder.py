@@ -31,6 +31,7 @@ def test_builder_projects_open_state_active_prs_and_bounded_outcomes() -> None:
         "approved": 1,
         "in_progress": 1,
         "blocked": 1,
+        "capacity_deferred": 0,
     }
     assert [entry.status for entry in view.active_change_requests] == ["in_progress"]
     assert view.active_change_requests[0].web_url == (
@@ -101,8 +102,26 @@ def test_builder_excludes_closed_issue_with_nonterminal_embedded_state() -> None
         "approved": 0,
         "in_progress": 0,
         "blocked": 0,
+        "capacity_deferred": 0,
     }
     assert view.active_change_requests == []
+
+
+def test_builder_includes_closed_capacity_deferred_work() -> None:
+    result = _lookup_result(status="capacity_deferred", number=1)
+    closed_result = GitHubWorkItemLookupResult(
+        issue=result.issue,
+        work_item=result.work_item,
+        is_open=False,
+    )
+
+    view = GitHubOperationalSummaryBuilder().build(
+        work_items=[closed_result],
+        policy_issue_url=None,
+        latest_finding_sync=None,
+    )
+
+    assert view.work_item_counts["capacity_deferred"] == 1
 
 
 def _lookup_result(

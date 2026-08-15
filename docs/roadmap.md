@@ -84,10 +84,13 @@ history, not here.
 
 ### Policy Reconciliation
 
-- [ ] reconcile unlinked candidate work items that become policy-ineligible
+- [x] reconcile unlinked candidate work items that become policy-ineligible
   into a reversible closed `policy_deferred` state on GitHub and GitLab;
   preserve protected active work and aggregate backlog visibility, then reopen
   the same issue when policy later re-enables the finding
+- [x] project policy-eligible durable work that exceeds active remediation capacity into
+  a reversible closed `capacity_deferred` backlog on GitHub and GitLab; reopen
+  only work selected by the shared severity-then-stable-identity budget
 - design: [functional work-item state projection](design/functional/functional-design-work-item-state-projection.md)
   and [technical work-item state projection](design/technical/technical-design-work-item-state-projection.md)
 

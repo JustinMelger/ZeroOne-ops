@@ -15,7 +15,12 @@ from zeroone_ops.services.control_plane.work_items import (
 
 LOGGER = logging.getLogger(__name__)
 _STALE_CLAIM_AGE = timedelta(hours=24)
-_NATIVE_ISSUE_TERMINAL_STATUSES = {"completed", "dismissed"}
+_NATIVE_ISSUE_TERMINAL_STATUSES = {
+    "completed",
+    "dismissed",
+    "policy_deferred",
+    "capacity_deferred",
+}
 
 
 @dataclass(frozen=True)

@@ -189,6 +189,18 @@ class GitHubWorkItemUpsertService:
             and parsed.execution_failure is not None
         ):
             update["execution_failure"] = parsed.execution_failure
+        if (
+            "policy_deferral" not in work_item.model_fields_set
+            and work_item.policy_deferral is None
+            and parsed.policy_deferral is not None
+        ):
+            update["policy_deferral"] = parsed.policy_deferral
+        if (
+            "capacity_deferral" not in work_item.model_fields_set
+            and work_item.capacity_deferral is None
+            and parsed.capacity_deferral is not None
+        ):
+            update["capacity_deferral"] = parsed.capacity_deferral
         if "attempt_number" not in work_item.model_fields_set:
             update["attempt_number"] = parsed.attempt_number
         if "recovery_events" not in work_item.model_fields_set:

@@ -37,6 +37,11 @@ def test_render_summary_shows_read_only_operational_view() -> None:
                     "promotion_capacity_exhausted": 2,
                     "severity_disabled": 1,
                 },
+                policy_deferred_count=1,
+                capacity_deferred_count=2,
+                policy_reactivated_count=2,
+                no_longer_detected_count=3,
+                projection_warning_count=4,
             ),
             active_change_requests_omitted_count=2,
         )
@@ -47,6 +52,7 @@ def test_render_summary_shows_read_only_operational_view() -> None:
     assert "- Ready: `2`" in body
     assert "- In progress: `1`" in body
     assert "- Blocked: `1`" in body
+    assert "- Capacity deferred: `0`" in body
     assert "## Active Remediation PRs" in body
     assert "[ZeroOne Ops: E712 in service.py]" in body
     assert "2 additional active remediation pull requests are omitted." in body
@@ -54,6 +60,10 @@ def test_render_summary_shows_read_only_operational_view() -> None:
     assert "- Backlog only: `3`" in body
     assert "`high`: 2, `medium`: 3" in body
     assert "`promotion_capacity_exhausted`: 2, `severity_disabled`: 1" in body
+    assert (
+        "Deferred-work transitions: deferred=1; capacity deferred=2; reactivated=2; "
+        "no longer detected=3; warnings=4"
+    ) in body
     assert "## Recent Outcomes" in body
     assert "[ZeroOne Ops: C416 in helpers.py]" in body
     assert "[Open the ZeroOne Ops policy issue]" in body

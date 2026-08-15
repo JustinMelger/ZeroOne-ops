@@ -158,6 +158,8 @@ class GitLabWorkItemUpsertService:
             "projected_review",
             "publication_retry",
             "execution_failure",
+            "policy_deferral",
+            "capacity_deferral",
             "resolution",
         ):
             existing_value = getattr(parsed, field_name)

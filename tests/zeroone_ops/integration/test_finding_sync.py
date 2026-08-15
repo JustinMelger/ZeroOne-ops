@@ -351,13 +351,22 @@ def test_sync_findings_dry_run_collects_sarif_without_gitlab_configuration(
         "GitHubPolicyIssueService.load_policy_state",
         lambda self, repository_id, persist: _policy_state(),
     )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.github_work_item_client.GitHubWorkItemClient.list_open_issues",
+        lambda self, **kwargs: [],
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.github_work_item_client.GitHubWorkItemClient.list_closed_issues",
+        lambda self, **kwargs: [],
+    )
 
     summary = sync_findings(dry_run=True)
 
     assert summary.status.value == "synced"
     assert "Dry-run identified 1 findings eligible under the configured policy" in summary.message
     assert "0 findings are policy-backlog-only" in summary.message
-    assert "active capacity and stale-item reconciliation are not included" in summary.message
+    assert "loaded authoritative work-item indexes but made no changes" in summary.message
+    assert not (tmp_path / ".zeroone-ops-state.json").exists()
     assert "Normalized severities: medium=1." in summary.message
     assert "Promotion policy: enabled=high, medium; backlog reasons: none." in summary.message
     assert "[ci] [ci]" not in summary.message
@@ -460,10 +469,19 @@ def test_sync_findings_dry_run_reconciles_empty_managed_sarif_source(
         "GitHubPolicyIssueService.load_policy_state",
         lambda self, repository_id, persist: _policy_state(),
     )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.github_work_item_client.GitHubWorkItemClient.list_open_issues",
+        lambda self, **kwargs: [],
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.providers.github_work_item_client.GitHubWorkItemClient.list_closed_issues",
+        lambda self, **kwargs: [],
+    )
 
     summary = sync_findings(dry_run=True)
 
     assert summary.status.value == "synced"
+    assert not (tmp_path / ".zeroone-ops-state.json").exists()
     assert "Dry-run identified 0 findings eligible under the configured policy" in summary.message
     assert "No dashboard-syncable findings found." not in summary.message
 

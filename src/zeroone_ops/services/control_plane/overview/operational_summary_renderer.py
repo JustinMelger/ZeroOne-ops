@@ -70,6 +70,7 @@ class OperationalSummaryRenderer:
             "approved": "Ready",
             "in_progress": "In progress",
             "blocked": "Blocked",
+            "capacity_deferred": "Capacity deferred",
         }
         return [f"- {label}: `{counts.get(status, 0)}`" for status, label in labels.items()]
 
@@ -105,6 +106,12 @@ class OperationalSummaryRenderer:
             f"- Backlog only: `{observation.backlog_only_findings}`",
             f"- Severities: {_render_counts(observation.severity_counts)}",
             f"- Backlog reasons: {_render_counts(observation.backlog_reason_counts)}",
+            "- Deferred-work transitions: "
+            f"deferred={observation.policy_deferred_count}; "
+            f"capacity deferred={observation.capacity_deferred_count}; "
+            f"reactivated={observation.policy_reactivated_count}; "
+            f"no longer detected={observation.no_longer_detected_count}; "
+            f"warnings={observation.projection_warning_count}",
         ]
 
     def _render_state_block(
@@ -147,6 +154,11 @@ def _finding_sync_payload(observation: FindingSyncObservation) -> dict[str, obje
         "backlog_only_findings": observation.backlog_only_findings,
         "severity_counts": observation.severity_counts,
         "backlog_reason_counts": observation.backlog_reason_counts,
+        "policy_deferred_count": observation.policy_deferred_count,
+        "capacity_deferred_count": observation.capacity_deferred_count,
+        "policy_reactivated_count": observation.policy_reactivated_count,
+        "no_longer_detected_count": observation.no_longer_detected_count,
+        "projection_warning_count": observation.projection_warning_count,
     }
 
 

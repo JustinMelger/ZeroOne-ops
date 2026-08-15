@@ -83,6 +83,13 @@ class GitHubWorkItemService:
             issue_number=issue_number,
         )
 
+    def reopen_work_item_issue(self, *, repository_id: str, issue_number: int) -> None:
+        """Reopen one closed authoritative work-item issue."""
+        self.upsert_service.client.reopen_issue(
+            repository_id=repository_id,
+            issue_number=issue_number,
+        )
+
     def update_existing_work_item(
         self,
         *,
@@ -124,3 +131,19 @@ class GitHubWorkItemService:
     ) -> list[GitHubWorkItemLookupResult]:
         """Return all parseable closed authoritative work items in one repository."""
         return self.lookup_service.list_closed_work_items(repository_id=repository_id)
+
+    def list_closed_policy_deferred_work_items(
+        self, *, repository_id: str
+    ) -> list[GitHubWorkItemLookupResult]:
+        """Return closed work items deferred by the current policy."""
+        return self.lookup_service.list_closed_policy_deferred_work_items(
+            repository_id=repository_id
+        )
+
+    def list_closed_capacity_deferred_work_items(
+        self, *, repository_id: str
+    ) -> list[GitHubWorkItemLookupResult]:
+        """Return closed work items deferred by active capacity."""
+        return self.lookup_service.list_closed_capacity_deferred_work_items(
+            repository_id=repository_id
+        )
