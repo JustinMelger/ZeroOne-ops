@@ -16,8 +16,6 @@ This folder is organized around two needs:
 
 ## Active Reference
 
-- [dashboard-feedback-log.md](dashboard-feedback-log.md)
-  - live examples and recurring dashboard/operator workflow failure patterns
 - [review-bot-judgment-strategy.md](review-bot-judgment-strategy.md)
   - current framing for review quality and judgment calibration
 - [review-flow-mermaid.md](review-flow-mermaid.md)
@@ -52,6 +50,6 @@ Recommended entry points:
 - [design/technical/technical-design-dashboard-policy-acknowledgements.md](design/technical/technical-design-dashboard-policy-acknowledgements.md)
 - [design/technical/technical-design-config-structure.md](design/technical/technical-design-config-structure.md)
 
-Operational review and remediation feedback now lives in Notion rather than in
-repo-local feedback logs. Keep implementation plans, product decisions, and
-design contracts in this repo.
+Operational review and remediation feedback is captured in Notion and verified
+against provider-native issue and change-request evidence. Keep implementation
+plans, product decisions, and design contracts in this repo.

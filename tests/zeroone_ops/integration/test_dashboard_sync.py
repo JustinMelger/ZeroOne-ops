@@ -110,6 +110,7 @@ def test_sync_dashboard_sonar_dry_run_reports_eligible_issue_count(
           },
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "labels": []
           }
         }
@@ -153,6 +154,7 @@ def test_sync_dashboard_sonar_ci_mode_publishes_dashboard_summary(
           },
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "labels": []
           }
         }
@@ -203,6 +205,7 @@ def test_sync_dashboard_sonar_reports_no_eligible_issues_in_ci_mode(
           },
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "labels": []
           }
         }
@@ -306,6 +309,7 @@ def test_sync_findings_dry_run_reports_sarif_finding_count_on_gitlab(
           },
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "labels": []
           }
         }
@@ -384,6 +388,7 @@ def test_sync_dashboard_sonar_ci_mode_publishes_sarif_dashboard_summary(
           },
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "labels": []
           }
         }

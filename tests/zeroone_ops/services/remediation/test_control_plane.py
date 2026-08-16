@@ -67,7 +67,11 @@ def test_build_remediation_control_plane_returns_noop_for_gitlab_dashboard_mode(
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
             ),
-            gitlab=GitLabConfig(target_branch="main", labels=["zeroone-ops"]),
+            gitlab=GitLabConfig(
+                control_plane_mode="dashboard",
+                target_branch="main",
+                labels=["zeroone-ops"],
+            ),
         ),
         gitlab_work_item_service=work_item_service,
         gitlab_project_id="group/project",
@@ -177,7 +181,11 @@ def test_gitlab_runner_rejects_dashboard_mode(tmp_path: Path) -> None:
             bootstrap_severities=["MAJOR"],
             analysis=AnalysisConfig(),
         ),
-        gitlab=GitLabConfig(target_branch="main", labels=["zeroone-ops"]),
+        gitlab=GitLabConfig(
+            control_plane_mode="dashboard",
+            target_branch="main",
+            labels=["zeroone-ops"],
+        ),
     )
     work_item_service = GitLabWorkItemService(DummyGitLabWorkItemClient())  # type: ignore[arg-type]
 

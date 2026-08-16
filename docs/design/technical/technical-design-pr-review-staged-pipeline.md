@@ -53,8 +53,9 @@ split into:
 - precision-oriented final authority,
 - explicit consistency gating before publish.
 
-That gap matters because the feedback log now shows contradiction classes that
-are not well explained by overlap or continuity design alone.
+That gap matters because historical review outcomes and current issue-mode and
+Notion feedback show contradiction classes that are not well explained by
+overlap or continuity design alone.
 
 This staged design is therefore the next major architecture track after the
 dashboard operator-policy work, not a retroactive rewrite of the original v1
@@ -543,7 +544,7 @@ The artifact builder is not a second judge. It is a packaging boundary.
 ## 9. Validator Rules
 
 The validator should begin with a narrow set of contradiction classes driven by
-real logged failures.
+observed review outcomes.
 
 Recommended first rules:
 
@@ -553,11 +554,12 @@ Recommended first rules:
 - reject other strict shape contradictions where the publish artifact cannot be
   interpreted coherently from its structured fields.
 
-The validator should grow from real logged failures, not from speculative rule
-sprawl.
+The validator should grow from observed review outcomes, not from speculative
+rule sprawl.
 
-The initial rule set should be mapped directly to known failure classes in the
-feedback log so each validator rule has a concrete motivating example.
+The initial rule set should be mapped directly to known failure classes from
+published review evidence and Notion feedback so each validator rule has a
+concrete motivating example.
 
 Recommended v1 boundary:
 
@@ -850,7 +852,8 @@ from prior persisted review state.
 
 ## 14. Evaluation Inputs
 
-The feedback log should be the initial evaluator seed.
+Published review evidence and Notion feedback should be the initial evaluator
+seed.
 
 Useful first labeled buckets:
 

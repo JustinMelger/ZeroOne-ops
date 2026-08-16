@@ -28,6 +28,8 @@ history, not here.
   derived operational summary
 - shared remediation execution, validation setup/check commands, provider-local
   change-request publishing, and bounded branch naming
+- remediation-owned `validation_setup_commands` and `validation_commands`
+  configuration
 - live-validated opt-in baseline-aware validation feedback on GitHub and
   GitLab issue-mode repositories: clean validation, preserved baseline
   failures, one-file correction feedback, compact work-item evidence,
@@ -36,6 +38,9 @@ history, not here.
 - live-validated shared promotion capacity for GitHub and GitLab issue-mode
   repositories, with a configurable active-work limit and aggregate capacity
   backlog visibility
+- reversible policy and capacity reconciliation for GitHub and GitLab issue
+  mode: protected work stays active, while eligible unlinked work can move
+  between open coordination and closed deferred backlog
 - GitHub live validation from Ruff finding to remediation pull request, review
   projection, merge, and terminal work-item closure
 - GitLab/GitHub closed-unmerged convergence: preserve traceability, block
@@ -45,12 +50,15 @@ history, not here.
 - remediation safety hardening: exact declared/parsed patch-path matching,
   strict repository-config validation, release-pinned operational templates,
   and documented execution-trust boundaries
+- live-validated fresh-attempt recovery branch identity on GitHub and GitLab
 - resilient multi-source SARIF intake: unavailable artifacts produce bounded
   diagnostics without blocking available sources or claiming stale
   reconciliation ownership
 - operator-focused GitHub and GitLab work-item UX: location-disambiguated
   titles, concrete change-request summaries, durable bot-dismissal evidence,
   and intent-aware `fix` or `chore` change requests
+- retired the repo-local dashboard feedback log; Notion plus provider-native
+  issue and change-request evidence are the active operational feedback sources
 - MLflow tracing support, Ruff pre-commit checks, and current CI workflows
 - copyable GitHub Actions and GitLab CI control-plane installation templates
 
@@ -82,17 +90,12 @@ history, not here.
   outcome, change-request reference, lifecycle transition, and bounded error
   evidence
 
-### Policy Reconciliation
+### Finding Priority Semantics
 
-- [x] reconcile unlinked candidate work items that become policy-ineligible
-  into a reversible closed `policy_deferred` state on GitHub and GitLab;
-  preserve protected active work and aggregate backlog visibility, then reopen
-  the same issue when policy later re-enables the finding
-- [x] project policy-eligible durable work that exceeds active remediation capacity into
-  a reversible closed `capacity_deferred` backlog on GitHub and GitLab; reopen
-  only work selected by the shared severity-then-stable-identity budget
-- design: [functional work-item state projection](design/functional/functional-design-work-item-state-projection.md)
-  and [technical work-item state projection](design/technical/technical-design-work-item-state-projection.md)
+- [ ] investigate SARIF tool-level severity versus workflow priority: confirm
+  appropriate defaults for MyPy, Ruff, and future security-oriented sources;
+  preserve raw SARIF levels as source evidence; and design bounded
+  per-artifact mappings without fragmenting the shared promotion policy
 
 ### Trace Observability
 
@@ -133,20 +136,6 @@ history, not here.
   before auto-fix; require manual classification when that proof is unclear;
   prevent structured-edit generation from overriding the analysis decision
 
-### Documentation Cleanup
-
-- [ ] retire the repo-local dashboard feedback log as an active reference after
-  preserving any still-relevant historical decisions; update design references
-  to use issue-mode evidence and Notion feedback without changing legacy
-  dashboard runtime compatibility
-
-### Phase 7: Recovery Rollout
-
-- [ ] implement and live-validate fresh-attempt branch identity on GitHub and
-  GitLab
-- design: [functional recovery contract](docs/design/functional/functional-design-remediation-recovery.md)
-  and [technical implementation plan](docs/design/technical/technical-design-remediation-recovery.md)
-
 ### Review Rollout
 
 - [ ] live-validate same-SHA review-projection repair after a recoverable
@@ -163,8 +152,6 @@ history, not here.
 - broader dashboard/history presentation improvements after operator usage
   establishes the need
 - retire GitLab dashboard mode after two maintenance-only minor releases
-- move remediation validation setup/check commands into a remediation-owned
-  configuration block after rollout feedback confirms the current contract
 - consider an argv-style alternative to shell-based validation commands after
   the executable-CI-policy trust model has been live-reviewed
 - make MLflow tracing an optional package extra after tracing rollout feedback

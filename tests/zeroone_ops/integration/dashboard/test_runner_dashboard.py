@@ -161,6 +161,7 @@ def test_dashboard_remediate_dry_run_returns_no_issue_summary(tmp_path: Path, mo
           "base_branch": "main",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -207,6 +208,7 @@ def test_dashboard_reconcile_dry_run_returns_no_issue_summary(tmp_path: Path, mo
           "base_branch": "main",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -291,6 +293,7 @@ def test_sync_dashboard_sonar_dry_run_collects_broad_inventory_not_remediation_s
             "bootstrap_severities": ["LOW"]
           }},
           "gitlab": {{
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }},
@@ -324,6 +327,7 @@ def test_dashboard_policy_dry_run_returns_policy_processing_summary(
           "base_branch": "main",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -625,6 +629,7 @@ def test_dashboard_reconcile_dry_run_selects_change_request_opened_item(
           "base_branch": "main",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -723,6 +728,7 @@ def test_dashboard_reconcile_live_run_requires_ci_mode(
           "execution_mode": "local",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -753,6 +759,7 @@ def test_dashboard_reconcile_ci_marks_item_done_when_merge_request_is_merged(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -876,6 +883,7 @@ def test_dashboard_reconcile_ci_processes_multiple_selected_items(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -1022,6 +1030,7 @@ def test_dashboard_reconcile_ci_blocks_item_when_merge_request_was_closed(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -1145,6 +1154,7 @@ def test_dashboard_reconcile_ci_blocks_closed_reviewed_item(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -1275,6 +1285,7 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -1404,6 +1415,7 @@ def test_dashboard_reconcile_ci_fails_on_ambiguous_closed_merge_request(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -1496,6 +1508,7 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -1620,6 +1633,7 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -1735,6 +1749,7 @@ def test_dashboard_reconcile_ci_marks_missing_branch_item_failed_and_continues_b
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -1910,6 +1925,7 @@ def test_dashboard_remediate_live_run_requires_ci_mode(tmp_path: Path, monkeypat
           "execution_mode": "local",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -2074,6 +2090,7 @@ def test_dashboard_remediate_ci_success_marks_dashboard_change_request_opened(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -2271,6 +2288,7 @@ def test_dashboard_remediate_ci_consumes_retry_feedback_when_retry_eligible(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -2462,6 +2480,7 @@ def test_dashboard_remediate_ci_recovers_stale_in_progress_item_before_execution
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -2610,6 +2629,7 @@ def test_dashboard_remediate_fails_when_change_request_opened_update_cannot_pers
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -2830,6 +2850,7 @@ def test_dashboard_remediate_fails_when_failed_update_cannot_persist(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -3046,6 +3067,7 @@ def test_dashboard_remediate_ci_failure_marks_dashboard_failed(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -3250,6 +3272,7 @@ def test_dashboard_remediate_ci_rejection_marks_dashboard_rejected(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -3437,6 +3460,7 @@ def test_dashboard_remediate_ci_manual_analysis_marks_dashboard_rejected(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
@@ -3626,6 +3650,7 @@ def test_dashboard_remediate_ci_commit_failure_restores_workspace_and_failed_sta
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }

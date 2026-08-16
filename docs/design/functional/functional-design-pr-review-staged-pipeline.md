@@ -42,7 +42,8 @@ The current review flow still asks one path to do too many things at once:
 - decide final classification,
 - keep the final artifact internally coherent.
 
-The feedback log already shows the main failure modes this creates:
+Historical review outcomes and current issue-mode and Notion feedback show the
+main failure modes this creates:
 
 - `no_findings` outputs whose summary or confidence reason still describes a
   plausible regression,
@@ -224,8 +225,9 @@ or contradictory final combinations such as:
 The validator should act as a hard publish boundary rather than a passive
 logging step.
 
-It should begin narrowly, using contradiction classes that already appear in
-the live feedback log, instead of trying to become a general second reviewer.
+It should begin narrowly, using contradiction classes observed in published
+review evidence and Notion feedback, instead of trying to become a general
+second reviewer.
 
 ## 10. Fallback And Repair Behavior
 
@@ -315,7 +317,8 @@ Important design inputs include:
 These live examples should continue to guide the design of stage contracts and
 validation rules.
 
-The review feedback log also suggests rough ownership boundaries for failures:
+Historical review evidence also suggests rough ownership boundaries for
+failures:
 
 - contradiction-heavy artifact failures are often validator-owned,
 - unstable or weak final-survival decisions are often reconciliation-owned,
@@ -347,7 +350,8 @@ Expected implementation stance:
 
 Recommended sequence:
 
-1. use the current feedback log as the evidence base,
+1. use current issue-mode review evidence and Notion feedback as the evidence
+   base,
 2. introduce candidate generation as an explicitly non-authoritative stage,
 3. let reconciliation own final accepted findings and classification,
 4. add validator-style publish gates for contradiction-heavy artifact classes,
@@ -357,6 +361,6 @@ Recommended sequence:
 The staged split should be introduced incrementally:
 
 - first as a design-aligned restructuring of the current review workflow,
-- then as a quality-improvement track driven by logged failures,
+- then as a quality-improvement track driven by observed review outcomes,
 - and only later as a broader optimization effort once stage ownership has
   proven stable in live use.

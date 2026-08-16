@@ -76,7 +76,7 @@ class GitLabConfig(RepositoryConfigModel):
     """
 
     target_branch: str | None = None
-    control_plane_mode: Literal["dashboard", "issues"] = "dashboard"
+    control_plane_mode: Literal["dashboard", "issues"] = "issues"
     labels: list[str] = Field(default_factory=list)
     merge_request_assignee_username: str | None = None
 

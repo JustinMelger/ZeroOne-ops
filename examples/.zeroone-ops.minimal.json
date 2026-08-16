@@ -7,6 +7,7 @@
     "validation_feedback_enabled": false
   },
   "gitlab": {
+    "control_plane_mode": "issues",
     "labels": []
   }
 }
