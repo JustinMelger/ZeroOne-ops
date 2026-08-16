@@ -40,17 +40,19 @@ locator is introduced.
 2. It also loads closed policy-deferred work items once, using both labels:
    `zeroone-work-item` and `zeroone-status:policy_deferred`.
 3. Both inventories are parsed and verified before identity matching.
-4. Policy evaluation runs before promotion capacity.
-5. For a policy-ineligible unlinked `candidate` or `approved` item, finding
-   sync constructs the next canonical state with status `policy_deferred` and
-   passes it to provider-local projection.
+4. Before policy evaluation, a complete managed inventory resolves an absent
+   exact identity as `completed/no_longer_detected` when the work item is
+   unlinked `candidate` or `approved`, or already deferred. Linked,
+   `in_progress`, blocked, and dismissed work remains protected.
+5. Policy evaluation then runs before promotion capacity for findings still in
+   the inventory. For a policy-ineligible unlinked `candidate` or `approved`
+   item, finding sync constructs the next canonical state with status
+   `policy_deferred` and passes it to provider-local projection.
 6. For a matching closed `policy_deferred` item that becomes eligible, finding
    sync chooses `approved` or `candidate` using the existing capacity plan and
    passes that next state to projection.
-7. When a complete managed source inventory no longer contains a matching
-   policy-deferred identity, finding sync moves the item to `completed` with
-   resolution `no_longer_detected`. Incomplete, unavailable, or
-   non-authoritative inventories leave deferred items unchanged.
+7. Incomplete, unavailable, or non-authoritative inventories never infer
+   absence and leave existing work unchanged.
 8. Provider-local projection updates renderer-owned state and labels, then
    ensures the provider issue is open or closed according to the shared state
    policy.

@@ -413,7 +413,7 @@ def test_sync_defers_unlinked_approved_work_item_when_severity_is_disabled() -> 
     assert parsed.policy_deferral is not None
 
 
-def test_sync_defers_stale_work_item_when_its_severity_is_disabled() -> None:
+def test_sync_completes_stale_work_item_when_its_severity_is_disabled() -> None:
     client = FakeGitHubWorkItemClient()
     service = GitHubFindingSyncService(
         work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
@@ -430,17 +430,18 @@ def test_sync_defers_stale_work_item_when_its_severity_is_disabled() -> None:
         findings=[],
         managed_source_ids={"ruff"},
         policy_state=_policy_state(medium_enabled=False, high_enabled=False),
-        run_id="policy-disable-high",
+        run_id="complete-missing-high",
     )
 
     parsed = GitHubWorkItemParser().parse_work_item_state(client.closed_issues[0].body)
 
-    assert result.policy_deferred_count == 1
+    assert result.no_longer_detected_count == 1
+    assert result.policy_deferred_count == 0
     assert result.stale_demoted_to_candidate_count == 0
     assert parsed is not None
-    assert parsed.status == "policy_deferred"
-    assert parsed.policy_deferral is not None
-    assert parsed.policy_deferral.run_id == "policy-disable-high"
+    assert parsed.status == "completed"
+    assert parsed.resolution == "no_longer_detected"
+    assert parsed.policy_deferral is None
 
 
 def test_sync_reopens_policy_deferred_work_item_when_severity_is_enabled() -> None:
@@ -667,7 +668,7 @@ def test_sync_keeps_linked_work_item_when_severity_is_disabled() -> None:
     assert parsed.linked_change_request.number == 42
 
 
-def test_sync_demotes_stale_work_item_from_complete_managed_source() -> None:
+def test_sync_completes_stale_work_item_from_complete_managed_source() -> None:
     client = FakeGitHubWorkItemClient()
     service = GitHubFindingSyncService(
         work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
@@ -686,13 +687,15 @@ def test_sync_demotes_stale_work_item_from_complete_managed_source() -> None:
         managed_source_ids={"ruff"},
     )
 
-    parsed = GitHubWorkItemParser().parse_work_item_state(client.issues[0].body)
+    parsed = GitHubWorkItemParser().parse_work_item_state(client.closed_issues[0].body)
 
-    assert result.stale_demoted_to_candidate_count == 1
+    assert result.stale_demoted_to_candidate_count == 0
     assert result.stale_retained_protected_count == 0
+    assert result.no_longer_detected_count == 1
     assert result.updated_count == 1
     assert parsed is not None
-    assert parsed.status == "candidate"
+    assert parsed.status == "completed"
+    assert parsed.resolution == "no_longer_detected"
 
 
 def test_sync_does_not_reconcile_stale_items_without_managed_source_ownership() -> None:

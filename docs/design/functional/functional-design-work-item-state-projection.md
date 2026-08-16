@@ -67,12 +67,13 @@ permits or as `candidate` when capacity defers it. The planned
 `capacity_deferred` follow-up replaces that latter open-candidate projection
 with a closed backlog state. The original identity and history remain intact.
 
-When a complete managed source inventory no longer reports a policy-deferred
-finding, finding sync moves the already closed item to `completed` with
-resolution `no_longer_detected`. The provider issue remains closed, but its
-rendered state and status label make clear that ZeroOne Ops did not remediate
-the finding. It may have been fixed manually or disappeared through another
-change.
+When a complete managed source inventory no longer reports an exact finding
+identity, finding sync moves safe unlinked `candidate` or `approved` work, and
+already closed deferred work, to `completed` with resolution
+`no_longer_detected` before evaluating policy. The provider issue remains
+closed, but its rendered state and status label make clear that ZeroOne Ops did
+not remediate the finding. It may have been fixed manually or disappeared
+through another change.
 
 An incomplete, unavailable, or non-authoritative source inventory must not
 make this transition. In that case the deferred item remains unchanged.
@@ -83,7 +84,15 @@ unavailable, not empty. Existing work for that source remains unchanged until
 a later complete source run reports its inventory. A valid complete artifact
 with zero findings is the only empty inventory that may reconcile prior work.
 
+Finding identity is location-bound in v1. A diagnostic moved by an unrelated
+change can therefore create a new occurrence while the prior occurrence closes
+as `no_longer_detected`. Relocation-aware occurrence matching is deferred to
+the later finding-grouping design.
+
 ### Policy-Deferred Transition Rules
+
+This table applies only while the exact finding remains present in a complete
+managed inventory. Absence follows the `no_longer_detected` precedence above.
 
 | Current status | Finding is policy-ineligible | Finding is policy-eligible |
 |---|---|---|
