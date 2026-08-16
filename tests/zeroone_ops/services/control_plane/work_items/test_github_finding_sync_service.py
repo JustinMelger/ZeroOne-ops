@@ -126,12 +126,16 @@ def _finding(
     )
 
 
-def _policy_state(*, medium_enabled: bool) -> DashboardPolicyState:
+def _policy_state(
+    *,
+    medium_enabled: bool,
+    high_enabled: bool = True,
+) -> DashboardPolicyState:
     return DashboardPolicyState(
         severity_policy=[
             DashboardSeverityPolicyStateEntry(severity="low", enabled=False),
             DashboardSeverityPolicyStateEntry(severity="medium", enabled=medium_enabled),
-            DashboardSeverityPolicyStateEntry(severity="high", enabled=True),
+            DashboardSeverityPolicyStateEntry(severity="high", enabled=high_enabled),
         ]
     )
 
@@ -409,6 +413,37 @@ def test_sync_defers_unlinked_approved_work_item_when_severity_is_disabled() -> 
     assert parsed.policy_deferral is not None
 
 
+def test_sync_completes_stale_work_item_when_its_severity_is_disabled() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    repository_id = "octo-org/octo-repo"
+
+    service.sync(
+        repository_id=repository_id,
+        findings=[_finding(finding_id="mypy:no-untyped-def:1080", severity="high")],
+        policy_state=_policy_state(medium_enabled=False),
+    )
+    result = service.sync(
+        repository_id=repository_id,
+        findings=[],
+        managed_source_ids={"ruff"},
+        policy_state=_policy_state(medium_enabled=False, high_enabled=False),
+        run_id="complete-missing-high",
+    )
+
+    parsed = GitHubWorkItemParser().parse_work_item_state(client.closed_issues[0].body)
+
+    assert result.no_longer_detected_count == 1
+    assert result.policy_deferred_count == 0
+    assert result.stale_demoted_to_candidate_count == 0
+    assert parsed is not None
+    assert parsed.status == "completed"
+    assert parsed.resolution == "no_longer_detected"
+    assert parsed.policy_deferral is None
+
+
 def test_sync_reopens_policy_deferred_work_item_when_severity_is_enabled() -> None:
     client = FakeGitHubWorkItemClient()
     service = GitHubFindingSyncService(
@@ -633,7 +668,7 @@ def test_sync_keeps_linked_work_item_when_severity_is_disabled() -> None:
     assert parsed.linked_change_request.number == 42
 
 
-def test_sync_demotes_stale_work_item_from_complete_managed_source() -> None:
+def test_sync_completes_stale_work_item_from_complete_managed_source() -> None:
     client = FakeGitHubWorkItemClient()
     service = GitHubFindingSyncService(
         work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
@@ -652,13 +687,15 @@ def test_sync_demotes_stale_work_item_from_complete_managed_source() -> None:
         managed_source_ids={"ruff"},
     )
 
-    parsed = GitHubWorkItemParser().parse_work_item_state(client.issues[0].body)
+    parsed = GitHubWorkItemParser().parse_work_item_state(client.closed_issues[0].body)
 
-    assert result.stale_demoted_to_candidate_count == 1
+    assert result.stale_demoted_to_candidate_count == 0
     assert result.stale_retained_protected_count == 0
+    assert result.no_longer_detected_count == 1
     assert result.updated_count == 1
     assert parsed is not None
-    assert parsed.status == "candidate"
+    assert parsed.status == "completed"
+    assert parsed.resolution == "no_longer_detected"
 
 
 def test_sync_does_not_reconcile_stale_items_without_managed_source_ownership() -> None:

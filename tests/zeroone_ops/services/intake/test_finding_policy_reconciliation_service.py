@@ -97,9 +97,10 @@ def test_retains_approved_work_when_capacity_is_exhausted() -> None:
     )
 
 
-def test_completes_missing_deferred_work_only_for_managed_source() -> None:
+def test_completes_missing_safe_work_only_for_managed_source() -> None:
     service = FindingPolicyReconciliationService()
     deferred = _work_item(status="policy_deferred")
+    capacity_deferred = _work_item(status="capacity_deferred")
 
     assert (
         service.decide_for_missing_finding(work_item=deferred, source_is_managed=True).action
@@ -109,3 +110,36 @@ def test_completes_missing_deferred_work_only_for_managed_source() -> None:
         service.decide_for_missing_finding(work_item=deferred, source_is_managed=False).action
         == "none"
     )
+    assert (
+        service.decide_for_missing_finding(
+            work_item=capacity_deferred, source_is_managed=True
+        ).action
+        == "complete_no_longer_detected"
+    )
+
+
+def test_completes_missing_unlinked_open_work_but_retains_protected_work() -> None:
+    service = FindingPolicyReconciliationService()
+
+    assert (
+        service.decide_for_missing_finding(
+            work_item=_work_item(status="candidate"), source_is_managed=True
+        ).action
+        == "complete_no_longer_detected"
+    )
+    assert (
+        service.decide_for_missing_finding(
+            work_item=_work_item(status="approved"), source_is_managed=True
+        ).action
+        == "complete_no_longer_detected"
+    )
+    for work_item in (
+        _work_item(status="in_progress"),
+        _work_item(status="blocked"),
+        _work_item(status="dismissed"),
+        _work_item(status="approved", linked=True),
+    ):
+        assert (
+            service.decide_for_missing_finding(work_item=work_item, source_is_managed=True).action
+            == "none"
+        )

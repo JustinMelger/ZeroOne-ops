@@ -41,6 +41,9 @@ history, not here.
 - reversible policy and capacity reconciliation for GitHub and GitLab issue
   mode: protected work stays active, while eligible unlinked work can move
   between open coordination and closed deferred backlog
+- complete-inventory stale reconciliation: absent exact findings close as
+  `no_longer_detected` before policy evaluation, with location-bound identity
+  documented until occurrence-aware reconciliation is designed
 - GitHub live validation from Ruff finding to remediation pull request, review
   projection, merge, and terminal work-item closure
 - GitLab/GitHub closed-unmerged convergence: preserve traceability, block

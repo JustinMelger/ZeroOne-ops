@@ -57,7 +57,14 @@ class FindingPolicyReconciliationService:
         work_item: WorkItemState,
         source_is_managed: bool,
     ) -> PolicyReconciliationDecision:
-        """Resolve deferred work only from a complete managed source inventory."""
-        if work_item.status in {"policy_deferred", "capacity_deferred"} and source_is_managed:
+        """Resolve safely stale work only from a complete managed source inventory."""
+        if not source_is_managed:
+            return PolicyReconciliationDecision("none")
+        if work_item.status in {"policy_deferred", "capacity_deferred"}:
+            return PolicyReconciliationDecision("complete_no_longer_detected")
+        if (
+            work_item.status in {"candidate", "approved"}
+            and work_item.linked_change_request is None
+        ):
             return PolicyReconciliationDecision("complete_no_longer_detected")
         return PolicyReconciliationDecision("none")

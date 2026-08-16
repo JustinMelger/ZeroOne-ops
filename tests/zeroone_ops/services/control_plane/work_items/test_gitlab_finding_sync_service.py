@@ -167,12 +167,16 @@ def _finding(
     )
 
 
-def _policy_state(*, medium_enabled: bool) -> DashboardPolicyState:
+def _policy_state(
+    *,
+    medium_enabled: bool,
+    high_enabled: bool = True,
+) -> DashboardPolicyState:
     return DashboardPolicyState(
         severity_policy=[
             DashboardSeverityPolicyStateEntry(severity="low", enabled=False),
             DashboardSeverityPolicyStateEntry(severity="medium", enabled=medium_enabled),
-            DashboardSeverityPolicyStateEntry(severity="high", enabled=True),
+            DashboardSeverityPolicyStateEntry(severity="high", enabled=high_enabled),
         ]
     )
 
@@ -391,6 +395,37 @@ def test_sync_defers_unlinked_approved_work_item_when_severity_is_disabled() -> 
     assert work_item_service.closed_issue_iids == [1]
 
 
+def test_sync_completes_stale_work_item_when_its_severity_is_disabled() -> None:
+    work_item_service = FakeGitLabWorkItemService()
+    service = GitLabFindingSyncService(
+        work_item_service=work_item_service,  # type: ignore[arg-type]
+    )
+    project_id = "group/project"
+
+    service.sync(
+        project_id=project_id,
+        findings=[_finding(finding_id="mypy:no-untyped-def:1080", severity="high")],
+        policy_state=_policy_state(medium_enabled=False),
+    )
+    result = service.sync(
+        project_id=project_id,
+        findings=[],
+        managed_source_ids={"ruff"},
+        policy_state=_policy_state(medium_enabled=False, high_enabled=False),
+        run_id="complete-missing-high",
+    )
+
+    work_item = next(iter(work_item_service.work_items.values()))
+
+    assert result.no_longer_detected_count == 1
+    assert result.policy_deferred_count == 0
+    assert result.stale_demoted_to_candidate_count == 0
+    assert work_item.status == "completed"
+    assert work_item.resolution == "no_longer_detected"
+    assert work_item.policy_deferral is None
+    assert work_item_service.closed_issue_iids == [1]
+
+
 def test_sync_reopens_policy_deferred_work_item_when_severity_is_enabled() -> None:
     work_item_service = FakeGitLabWorkItemService()
     service = GitLabFindingSyncService(
@@ -453,7 +488,7 @@ def test_sync_completes_deferred_work_only_after_managed_source_drops_finding() 
     assert work_item.resolution == "no_longer_detected"
 
 
-def test_sync_demotes_stale_unlinked_approved_work_item_from_managed_source() -> None:
+def test_sync_completes_stale_unlinked_approved_work_item_from_managed_source() -> None:
     work_item_service = FakeGitLabWorkItemService()
     service = GitLabFindingSyncService(
         work_item_service=work_item_service,  # type: ignore[arg-type]
@@ -472,5 +507,9 @@ def test_sync_demotes_stale_unlinked_approved_work_item_from_managed_source() ->
         managed_source_ids={"ruff"},
     )
 
-    assert result.stale_demoted_to_candidate_count == 1
-    assert next(iter(work_item_service.work_items.values())).status == "candidate"
+    work_item = next(iter(work_item_service.work_items.values()))
+
+    assert result.stale_demoted_to_candidate_count == 0
+    assert result.no_longer_detected_count == 1
+    assert work_item.status == "completed"
+    assert work_item.resolution == "no_longer_detected"

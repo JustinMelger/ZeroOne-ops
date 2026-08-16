@@ -337,15 +337,28 @@ class GitHubFindingSyncService:
                 current_findings=findings,
                 managed_source_ids=managed_source_ids,
                 open_work_items=open_work_items,
+                policy_state=policy_state,
+                run_id=run_id,
             )
             stale_demoted_to_candidate_count = stale_result.demoted_count
             stale_retained_protected_count = stale_result.retained_count
             updated_count += stale_result.demoted_count
+            updated_count += stale_result.policy_deferred_count
+            updated_count += stale_result.no_longer_detected_count
+            policy_deferred_count += stale_result.policy_deferred_count
+            no_longer_detected_count += stale_result.no_longer_detected_count
+            projection_warning_count += stale_result.projection_warning_count
             for deferred in deferred_work_items:
-                if deferred.work_item.source.source in managed_source_ids and (
-                    deferred.work_item.source.source,
-                    deferred.work_item.source.source_item_key,
-                ) not in {(finding.source_id, finding.finding_id) for finding in findings}:
+                missing_decision = self.policy_reconciliation_service.decide_for_missing_finding(
+                    work_item=deferred.work_item,
+                    source_is_managed=deferred.work_item.source.source in managed_source_ids
+                    and (
+                        deferred.work_item.source.source,
+                        deferred.work_item.source.source_item_key,
+                    )
+                    not in {(finding.source_id, finding.finding_id) for finding in findings},
+                )
+                if missing_decision.action == "complete_no_longer_detected":
                     completed = deferred.work_item.model_copy(
                         update={
                             "status": "completed",
@@ -401,6 +414,20 @@ class GitHubFindingSyncService:
             source_item_key=finding.finding_id,
             repository_scope=repository_id,
         )
+        return self._defer_source_if_current(
+            repository_id=repository_id,
+            source=source,
+            run_id=run_id,
+        )
+
+    def _defer_source_if_current(
+        self,
+        *,
+        repository_id: str,
+        source: WorkItemSourceRef,
+        run_id: str,
+    ) -> Literal["deferred", "retained", "warning"]:
+        """Close one still-safe work item after re-reading its authoritative state."""
         existing = self.work_item_service.find_open_work_item_by_source(
             repository_id=repository_id, kind="remediation", source=source
         )
@@ -653,13 +680,18 @@ class GitHubFindingSyncService:
         current_findings: list[NormalizedFinding],
         managed_source_ids: set[str],
         open_work_items: list[GitHubWorkItemLookupResult],
+        policy_state: PolicyState,
+        run_id: str,
     ) -> _StaleWorkItemReconciliationResult:
-        """Demote safely stale items only from complete, managed source inventories."""
+        """Resolve stale work before evaluating policy for reported findings."""
         current_source_keys = {
             (finding.source_id, finding.finding_id) for finding in current_findings
         }
         demoted_count = 0
         retained_count = 0
+        policy_deferred_count = 0
+        no_longer_detected_count = 0
+        projection_warning_count = 0
         for existing in open_work_items:
             work_item = existing.work_item
             if work_item.source.repository_scope != repository_id:
@@ -667,6 +699,38 @@ class GitHubFindingSyncService:
             if work_item.source.source not in managed_source_ids:
                 continue
             if (work_item.source.source, work_item.source.source_item_key) in current_source_keys:
+                continue
+            missing_decision = self.policy_reconciliation_service.decide_for_missing_finding(
+                work_item=work_item,
+                source_is_managed=True,
+            )
+            if missing_decision.action == "complete_no_longer_detected":
+                completion_outcome = self._complete_source_if_current(
+                    repository_id=repository_id,
+                    source=work_item.source,
+                )
+                if completion_outcome == "completed":
+                    no_longer_detected_count += 1
+                elif completion_outcome == "retained":
+                    retained_count += 1
+                else:
+                    projection_warning_count += 1
+                continue
+            if not self.workflow_policy_service.is_work_item_eligible(
+                work_item=work_item,
+                policy_state=policy_state,
+            ):
+                outcome = self._defer_source_if_current(
+                    repository_id=repository_id,
+                    source=work_item.source,
+                    run_id=run_id,
+                )
+                if outcome == "deferred":
+                    policy_deferred_count += 1
+                elif outcome == "retained":
+                    retained_count += 1
+                else:
+                    projection_warning_count += 1
                 continue
             demotion = self._demote_work_item_if_safe(
                 repository_id=repository_id,
@@ -679,7 +743,53 @@ class GitHubFindingSyncService:
         return _StaleWorkItemReconciliationResult(
             demoted_count=demoted_count,
             retained_count=retained_count,
+            policy_deferred_count=policy_deferred_count,
+            no_longer_detected_count=no_longer_detected_count,
+            projection_warning_count=projection_warning_count,
         )
+
+    def _complete_source_if_current(
+        self,
+        *,
+        repository_id: str,
+        source: WorkItemSourceRef,
+    ) -> Literal["completed", "retained", "warning"]:
+        """Close a still-safe missing item after re-reading canonical state."""
+        existing = self.work_item_service.find_open_work_item_by_source(
+            repository_id=repository_id,
+            kind="remediation",
+            source=source,
+        )
+        if existing is None:
+            return "retained"
+        decision = self.policy_reconciliation_service.decide_for_missing_finding(
+            work_item=existing.work_item,
+            source_is_managed=True,
+        )
+        if decision.action != "complete_no_longer_detected":
+            return "retained"
+        completed = existing.work_item.model_copy(
+            update={
+                "status": "completed",
+                "resolution": "no_longer_detected",
+                "policy_deferral": None,
+                "capacity_deferral": None,
+            }
+        )
+        try:
+            self.work_item_service.update_existing_work_item(
+                repository_id=repository_id,
+                existing=existing,
+                work_item=completed,
+            )
+            self.work_item_service.close_work_item_issue(
+                repository_id=repository_id,
+                issue_number=existing.issue.number,
+            )
+        except Exception:
+            LOGGER.warning("GitHub stale work-item completion projection failed", exc_info=True)
+            return "warning"
+        return "completed"
 
     def _demote_work_item_if_safe(
         self,
@@ -707,3 +817,6 @@ class _StaleWorkItemReconciliationResult:
 
     demoted_count: int
     retained_count: int
+    policy_deferred_count: int
+    no_longer_detected_count: int
+    projection_warning_count: int
