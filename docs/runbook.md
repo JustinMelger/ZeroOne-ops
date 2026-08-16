@@ -765,7 +765,7 @@ Do not use a rename issue or a fix that obviously needs multiple files.
 
 A successful smoke test should produce:
 
-- one selected SonarQube issue
+- one selected remediation item
 - one bot branch
 - one merge request
 - a diff limited to one file

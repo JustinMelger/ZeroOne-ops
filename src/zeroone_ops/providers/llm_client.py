@@ -24,7 +24,7 @@ from zeroone_ops.models.analysis import (
     StructuredEditProposal,
 )
 from zeroone_ops.models.config import OpenAIConnectionConfig
-from zeroone_ops.models.remediation import RemediationExecutionTarget, remediation_profile_for
+from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.review import (
     CandidateAnnotation,
     CandidateReviewFinding,
@@ -53,6 +53,10 @@ from zeroone_ops.utils.solution_artifacts import write_solution_artifact
 
 LOGGER = logging.getLogger(__name__)
 _MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED = False
+_ANALYSIS_SYSTEM_PROMPT = "You analyze remediation items and return strictly structured JSON."
+_STRUCTURED_EDIT_SYSTEM_PROMPT = (
+    "You propose exact file edits for remediation items and return strictly structured JSON."
+)
 
 
 class LLMClientError(RuntimeError):
@@ -170,14 +174,13 @@ class OpenAILLMClient(LLMClient):
             LLMClientError: If the API call fails or returns an invalid payload.
         """
         input_text = build_analysis_prompt(issue, context)
-        profile = remediation_profile_for(issue)
         try:
             response = self.client.responses.parse(
                 model=self.config.model,
                 input=[
                     {
                         "role": "system",
-                        "content": profile.analysis_system_prompt,
+                        "content": _ANALYSIS_SYSTEM_PROMPT,
                     },
                     {"role": "user", "content": input_text},
                 ],
@@ -215,14 +218,13 @@ class OpenAILLMClient(LLMClient):
             LLMClientError: If the API call fails or returns invalid output.
         """
         input_text = build_structured_edit_prompt(issue, context)
-        profile = remediation_profile_for(issue)
         try:
             response = self.client.responses.parse(
                 model=self.config.model,
                 input=[
                     {
                         "role": "system",
-                        "content": profile.structured_edit_system_prompt,
+                        "content": _STRUCTURED_EDIT_SYSTEM_PROMPT,
                     },
                     {"role": "user", "content": input_text},
                 ],

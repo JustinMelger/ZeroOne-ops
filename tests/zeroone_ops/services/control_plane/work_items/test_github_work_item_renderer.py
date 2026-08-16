@@ -59,6 +59,17 @@ def test_rendering_prefers_concrete_detail_for_templated_finding_titles() -> Non
     assert "No remediation pull request is linked yet." in body
 
 
+def test_rendering_uses_my_py_sarif_source_label() -> None:
+    renderer = GitHubWorkItemRenderer()
+    work_item = build_work_item().model_copy(
+        update={"source": build_work_item().source.model_copy(update={"source": "mypy-sarif"})}
+    )
+
+    body = renderer.render_body(work_item)
+
+    assert "- Source: MyPy SARIF" in body
+
+
 def test_rendering_includes_distinct_detail_for_non_templated_findings() -> None:
     renderer = GitHubWorkItemRenderer()
     work_item = build_work_item().model_copy(

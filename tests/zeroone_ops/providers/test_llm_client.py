@@ -3,8 +3,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import pytest
+
 from zeroone_ops.models.analysis import (
     CodeContextSnippet,
+    IssueAnalysis,
     IssueContext,
     PriorReviewFeedback,
     RepositoryGuidanceContext,
@@ -49,6 +52,42 @@ from zeroone_ops.providers.llm_prompts import (
     load_prompt_template,
     render_prompt_template,
 )
+
+
+def _build_target(*, source_type: str) -> RemediationExecutionTarget:
+    return RemediationExecutionTarget(
+        item_id="AX1",
+        source_type=source_type,
+        source_ref="AX1",
+        title="python:S100 in src/service.py",
+        status="OPEN",
+        message="Rename this function.",
+        file_path="src/service.py",
+        line=8,
+        rule_id="python:S100",
+        severity="MAJOR",
+        remediation_category="static_analysis_fix",
+        issue_type="CODE_SMELL",
+        component="project:src/service.py",
+        project="project",
+        constraints="Keep the fix local to this function.",
+    )
+
+
+def _build_issue_context() -> IssueContext:
+    return IssueContext(
+        issue_key="AX1",
+        file_path="src/service.py",
+        line=8,
+        file_size_bytes=128,
+        snippet=CodeContextSnippet(
+            start_line=4,
+            end_line=12,
+            content="def bad_name():\n    return 1\n",
+        ),
+        full_file_included=False,
+        truncated=True,
+    )
 
 
 def test_load_analysis_fixture_returns_issue_analysis(tmp_path: Path) -> None:
@@ -186,34 +225,8 @@ def test_load_review_fixture_returns_review_result(tmp_path: Path) -> None:
 
 
 def test_build_analysis_prompt_uses_prompt_template() -> None:
-    issue = RemediationExecutionTarget(
-        item_id="AX1",
-        source_type="sonarqube",
-        source_ref="AX1",
-        title="python:S100 in src/service.py",
-        status="OPEN",
-        message="Rename this function.",
-        file_path="src/service.py",
-        rule_id="python:S100",
-        severity="MAJOR",
-        issue_type="CODE_SMELL",
-        component="project:src/service.py",
-        project="project",
-        constraints="Keep the fix local to this function.",
-    )
-    context = IssueContext(
-        issue_key="AX1",
-        file_path="src/service.py",
-        line=8,
-        file_size_bytes=128,
-        snippet=CodeContextSnippet(
-            start_line=4,
-            end_line=12,
-            content="def bad_name():\n    return 1\n",
-        ),
-        full_file_included=False,
-        truncated=True,
-    )
+    issue = _build_target(source_type="sonarqube")
+    context = _build_issue_context()
 
     prompt = build_analysis_prompt(issue, context)
 
@@ -227,6 +240,28 @@ def test_build_analysis_prompt_uses_prompt_template() -> None:
     assert "Do not let repository guidance expand the selected issue scope" in prompt
     assert "Do not use repository guidance to create review judgments" in prompt
     assert "Code snippet:\ndef bad_name():\n    return 1\n" in prompt
+
+
+@pytest.mark.parametrize(
+    ("source_type", "source_label"),
+    [("ruff-sarif", "Ruff SARIF"), ("mypy-sarif", "MyPy SARIF")],
+)
+def test_non_sonar_analysis_prompt_uses_neutral_remediation_evidence(
+    source_type: str,
+    source_label: str,
+) -> None:
+    prompt = build_analysis_prompt(_build_target(source_type=source_type), _build_issue_context())
+
+    assert f"Source: {source_label}" in prompt
+    assert "Item reference: AX1" in prompt
+    assert "Rule: python:S100" in prompt
+    assert "Severity: MAJOR" in prompt
+    assert "Type: static_analysis_fix" in prompt
+    assert "Message: Rename this function." in prompt
+    assert "File path: src/service.py" in prompt
+    assert "Issue line: 8" in prompt
+    assert "SonarQube" not in prompt
+    assert "Issue key" not in prompt
 
 
 def test_build_analysis_prompt_includes_prior_review_feedback_when_present() -> None:
@@ -274,21 +309,7 @@ def test_build_analysis_prompt_includes_prior_review_feedback_when_present() -> 
 
 
 def test_build_structured_edit_prompt_uses_prompt_template() -> None:
-    issue = RemediationExecutionTarget(
-        item_id="AX1",
-        source_type="sonarqube",
-        source_ref="AX1",
-        title="python:S100 in src/service.py",
-        status="OPEN",
-        message="Rename this function.",
-        file_path="src/service.py",
-        rule_id="python:S100",
-        severity="MAJOR",
-        issue_type="CODE_SMELL",
-        component="project:src/service.py",
-        project="project",
-        constraints="Keep the fix local to this function.",
-    )
+    issue = _build_target(source_type="sonarqube")
     context = IssueContext(
         issue_key="AX1",
         file_path="src/service.py",
@@ -319,6 +340,31 @@ def test_build_structured_edit_prompt_uses_prompt_template() -> None:
     assert "Prefer matching surrounding code style over introducing generic boilerplate." in prompt
     assert "Good same-file multi-edit examples:" in prompt
     assert "File path: src/service.py" in prompt
+
+
+@pytest.mark.parametrize(
+    ("source_type", "source_label"),
+    [("ruff-sarif", "Ruff SARIF"), ("mypy-sarif", "MyPy SARIF")],
+)
+def test_non_sonar_structured_edit_prompt_uses_neutral_remediation_evidence(
+    source_type: str,
+    source_label: str,
+) -> None:
+    prompt = build_structured_edit_prompt(
+        _build_target(source_type=source_type),
+        _build_issue_context(),
+    )
+
+    assert f"Source: {source_label}" in prompt
+    assert "Item reference: AX1" in prompt
+    assert "Rule: python:S100" in prompt
+    assert "Severity: MAJOR" in prompt
+    assert "Type: static_analysis_fix" in prompt
+    assert "Message: Rename this function." in prompt
+    assert "File path: src/service.py" in prompt
+    assert "Issue line: 8" in prompt
+    assert "SonarQube" not in prompt
+    assert "Issue key" not in prompt
 
 
 def test_build_structured_edit_prompt_prefers_remediation_category() -> None:
@@ -1106,6 +1152,56 @@ def test_fixture_llm_client_loads_review_overlap_result(tmp_path: Path) -> None:
 
     assert result.prior_reviewed_head_sha == "abc123"
     assert result.resolutions[0].outcome == "still_unresolved"
+
+
+@pytest.mark.parametrize("source_type", ["sonarqube", "ruff-sarif", "mypy-sarif"])
+def test_openai_remediation_requests_use_shared_neutral_system_prompts(source_type: str) -> None:
+    config = OpenAIConnectionConfig(api_key="test-key", model="gpt-test")
+    target = _build_target(source_type=source_type)
+    context = _build_issue_context()
+
+    analysis_client = OpenAILLMClient(config=config, solution_output_path=None)
+    analysis_parse = Mock(
+        return_value=SimpleNamespace(
+            output_parsed=IssueAnalysis(
+                issue_key="AX1",
+                classification="manual",
+                summary="Manual review is required.",
+                proposed_strategy="Do not modify this item automatically.",
+            )
+        )
+    )
+    analysis_client.client = SimpleNamespace(responses=SimpleNamespace(parse=analysis_parse))
+
+    analysis_client.analyze_issue(target, context)
+
+    assert analysis_parse.call_args.kwargs["input"][0] == {
+        "role": "system",
+        "content": "You analyze remediation items and return strictly structured JSON.",
+    }
+
+    edit_client = OpenAILLMClient(config=config, solution_output_path=None)
+    edit_parse = Mock(
+        return_value=SimpleNamespace(
+            output_parsed=StructuredEditProposal(
+                issue_key="AX1",
+                commit_message="chore: remediate AX1 in service.py",
+                change_request_title="chore: remediate AX1 in service.py",
+                change_request_description="No change.",
+            )
+        )
+    )
+    edit_client.client = SimpleNamespace(responses=SimpleNamespace(parse=edit_parse))
+
+    edit_client.generate_structured_edit(target, context)
+
+    assert edit_parse.call_args.kwargs["input"][0] == {
+        "role": "system",
+        "content": (
+            "You propose exact file edits for remediation items and return strictly "
+            "structured JSON."
+        ),
+    }
 
 
 def test_openai_review_merge_request_uses_medium_reasoning_and_short_system_prompt() -> None:
