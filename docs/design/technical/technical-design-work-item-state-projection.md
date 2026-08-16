@@ -149,6 +149,8 @@ the same provider-local projection operation to repair a mismatch.
 - Add `no_longer_detected` to `WorkItemResolution` for findings absent from a
   complete managed source inventory. It is distinct from remediation success
   and from `no_change_required`.
+- Render any terminal resolution in the provider issue's `Status` section with
+  an operator-facing label while retaining the canonical value in machine state.
 - Add `zeroone-status:policy_deferred` through the existing derived label
   vocabulary.
 - Add `capacity_deferred` and its derived status label in the follow-up capacity

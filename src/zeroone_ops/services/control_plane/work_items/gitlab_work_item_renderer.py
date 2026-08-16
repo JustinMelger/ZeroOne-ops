@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from zeroone_ops.models.remediation import remediation_source_display_name
-from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.models.work_item import WorkItemState, work_item_resolution_display_name
 from zeroone_ops.services.control_plane.work_items.work_item_labels import (
     AUTHORITATIVE_WORK_ITEM_LABEL as WORK_ITEM_LABEL,
 )
@@ -59,6 +59,8 @@ class GitLabWorkItemRenderer:
                 f"- Source: {remediation_source_display_name(work_item.source.source)}",
             ]
         )
+        if work_item.resolution is not None:
+            lines.append(f"- Resolution: {work_item_resolution_display_name(work_item.resolution)}")
         lines.extend(["", "## Location", ""])
         if work_item.file_path is not None:
             lines.append(f"- File: `{work_item.file_path}`")
