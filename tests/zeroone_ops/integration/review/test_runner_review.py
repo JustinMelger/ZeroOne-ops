@@ -869,6 +869,7 @@ def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
           "execution_mode": "ci",
           "validation_commands": [],
           "gitlab": {
+            "control_plane_mode": "dashboard",
             "target_branch": "main",
             "labels": []
           }
