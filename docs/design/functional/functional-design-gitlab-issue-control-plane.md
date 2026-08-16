@@ -124,14 +124,14 @@ authoritative state in the same mode.
 
 ## Cutover And Rollout
 
-Introduce an explicit GitLab control-plane mode:
+GitLab uses issue mode by default. The explicit GitLab control-plane modes are:
 
-- `dashboard`: current behavior for existing repositories; and
 - `issues`: policy issue plus authoritative work-item issues, with an optional
-  derived summary.
+  derived summary; and
+- `dashboard`: explicitly selected legacy compatibility behavior.
 
 New issue-mode rollouts begin with empty GitLab issue control-plane records.
-Existing dashboard repositories use switch-and-sync by default:
+Existing dashboard repositories use an explicit switch-and-sync cutover:
 
 1. Confirm `remediation.bootstrap_severities` expresses the desired initial
    issue-mode policy.
@@ -146,11 +146,10 @@ After cutover, apply the `zeroone-legacy-dashboard` label and close the legacy
 dashboard issue. It remains readable historical context without competing with
 the policy issue or active work-item issues.
 
-During the bounded live-testing rollout, changing `gitlab.control_plane_mode`
-to `issues` explicitly accepts that active claims, linked merge requests,
-blocked or dismissed work, recovery history, and other dashboard lifecycle
-state are not transferred. Participating repositories must receive that
-rollout notice.
+Changing an existing dashboard repository to `issues` explicitly accepts that
+active claims, linked merge requests, blocked or dismissed work, recovery
+history, and other dashboard lifecycle state are not transferred. Operators
+must receive that cutover notice before changing the mode.
 
 Dashboard policy commands and exclusions are not transferred. Operators use the
 new policy issue to apply any desired overrides after cutover. This keeps the

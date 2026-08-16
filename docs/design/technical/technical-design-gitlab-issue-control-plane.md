@@ -176,10 +176,9 @@ authority from that configuration, preventing dual writes.
 
 ## Cutover Implementation
 
-Introduce `gitlab.control_plane_mode` with explicit values `dashboard` and
-`issues`. The default remains `dashboard` for existing repositories during the
-cutover window. New examples may use `issues` once the first live rollout is
-validated.
+Use `issues` as the default for `gitlab.control_plane_mode`. `dashboard`
+remains an explicit legacy compatibility mode for repositories that have not
+completed their cutover.
 
 Cutover is operator-controlled:
 
