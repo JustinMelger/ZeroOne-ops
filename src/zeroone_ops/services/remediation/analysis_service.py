@@ -1,7 +1,7 @@
 """Issue analysis service.
 
 This module builds source context and coordinates LLM-backed issue analysis and
-patch proposal work for a selected SonarQube issue.
+patch proposal work for one selected remediation target.
 """
 
 from __future__ import annotations
@@ -275,7 +275,7 @@ class AnalysisService:
 
         Args:
             fix_generator: LLM-backed fix generator.
-            selected_issue: Selected SonarQube issue.
+            selected_issue: Selected remediation target.
             context: Built issue context.
             artifact_service: Artifact persistence service for analysis outputs.
             remediation_intent: Analysis-derived intent that controls publication naming.

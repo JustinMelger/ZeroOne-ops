@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from zeroone_ops.models.remediation import remediation_source_display_name
 from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.services.control_plane.work_items.work_item_labels import (
     AUTHORITATIVE_WORK_ITEM_LABEL as WORK_ITEM_LABEL,
@@ -55,7 +56,7 @@ class GitHubWorkItemRenderer:
                 "",
                 f"- Status: `{work_item.status}`",
                 f"- Severity: `{work_item.severity or 'unknown'}`",
-                f"- Source: {self._source_label(work_item.source.source)}",
+                f"- Source: {remediation_source_display_name(work_item.source.source)}",
             ]
         )
         lines.extend(["", "## Location", ""])
@@ -158,13 +159,6 @@ class GitHubWorkItemRenderer:
         if work_item.detail is not None and _looks_like_template(work_item.summary):
             return work_item.detail
         return work_item.summary
-
-    def _source_label(self, source: str) -> str:
-        """Render known finding sources with operator-facing names."""
-        return {
-            "ruff-sarif": "Ruff SARIF",
-            "sonarqube": "SonarQube",
-        }.get(source, source.replace("-", " ").title())
 
     @staticmethod
     def _render_recovery_instructions(work_item: WorkItemState) -> list[str]:

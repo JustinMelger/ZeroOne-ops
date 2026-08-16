@@ -69,10 +69,6 @@ history, not here.
 
 ### Operational Readiness
 
-- [ ] add a read-only `config validate` command that reports invalid repository
-  config, deprecated aliases, missing provider selection, and unavailable
-  configured fixture or SARIF paths before a workflow performs work; design a
-  separate advisory `config migrate` mode before introducing any file rewrite
 - [ ] design workflow-scoped preflight checks for repository config, required
   provider settings, reachable integrations, validation tools, and expected
   SARIF artifacts; keep them explicit, bounded, and free of remediation or
@@ -126,10 +122,8 @@ history, not here.
 
 ### Remediation Source Neutrality
 
-- [ ] audit remediation prompts, source profiles, context labels, and remaining
-  SonarQube-era naming against SARIF and future normalized sources; retain only
-  deliberate source-specific guidance and make generic remediation semantics
-  explicit in tests
+- [x] make remediation prompts, source profiles, and operator-facing labels
+  source-neutral; retain SonarQube-specific wording only as source evidence
 
 ### Remediation Semantic Safety
 
@@ -155,6 +149,10 @@ history, not here.
 - broader dashboard/history presentation improvements after operator usage
   establishes the need
 - retire GitLab dashboard mode after two maintenance-only minor releases
+- add read-only `config validate` and advisory `config migrate`
+  tooling for deprecated aliases, missing provider selection, and unavailable
+  configured fixture or SARIF paths; v1 continues to use load-time errors,
+  deprecation warnings, and configuration documentation without file rewrites
 - consider an argv-style alternative to shell-based validation commands after
   the executable-CI-policy trust model has been live-reviewed
 - make MLflow tracing an optional package extra after tracing rollout feedback

@@ -312,6 +312,56 @@ def test_publish_service_uses_generic_profile_for_unknown_source() -> None:
     assert "- Item reference: `job-1`" in description
 
 
+@pytest.mark.parametrize(
+    ("source_type", "source_label", "work_item_url"),
+    [
+        ("ruff-sarif", "Ruff SARIF", None),
+        ("mypy-sarif", "MyPy SARIF", None),
+        (
+            "ruff-sarif",
+            "Ruff SARIF",
+            "https://github.example.com/octo-org/octo-repo/issues/11",
+        ),
+        (
+            "mypy-sarif",
+            "MyPy SARIF",
+            "https://github.example.com/octo-org/octo-repo/issues/12",
+        ),
+    ],
+)
+def test_publish_service_describes_normalized_sources_with_or_without_tracking_work_item(
+    source_type: str,
+    source_label: str,
+    work_item_url: str | None,
+) -> None:
+    service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
+    source_ref = "src/service.py::lint_fix::SIM103"
+
+    description = service.build_change_request_description(
+        selected_issue=RemediationExecutionTarget(
+            item_id="work-1",
+            source_type=source_type,
+            source_ref=source_ref,
+            title="Return the condition directly",
+            status="in_progress",
+            message="Return the condition directly.",
+            file_path="src/service.py",
+            work_item_url=work_item_url,
+        ),
+        change_summary="summary",
+    )
+
+    assert "## Remediation Target" in description
+    assert f"- Source: `{source_label}`" in description
+    assert f"- Source ID: `{source_type}`" in description
+    assert "## Validation" not in description
+    if work_item_url is None:
+        assert f"- Item reference: `{source_ref}`" in description
+    else:
+        assert f"- Tracking work item: {work_item_url}" in description
+        assert f"- Item reference: `{source_ref}`" not in description
+
+
 def test_publish_service_links_issue_mode_work_item_in_description() -> None:
     service = PublishService(config=build_config(), branch_manager=StubBranchManager())  # type: ignore[arg-type]
 

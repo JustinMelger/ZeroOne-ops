@@ -18,6 +18,16 @@ def test_render_body_uses_gitlab_merge_request_wording() -> None:
     assert "zeroone-work-item-state" in body
 
 
+def test_rendering_uses_my_py_sarif_source_label() -> None:
+    work_item = build_work_item().model_copy(
+        update={"source": build_work_item().source.model_copy(update={"source": "mypy-sarif"})}
+    )
+
+    body = GitLabWorkItemRenderer().render_body(work_item)
+
+    assert "- Source: MyPy SARIF" in body
+
+
 def test_render_body_includes_recovery_commands_for_blocked_work_item() -> None:
     work_item = build_work_item().model_copy(
         update={

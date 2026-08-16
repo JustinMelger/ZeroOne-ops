@@ -77,14 +77,12 @@ class RemediationExecutionTarget(BaseModel):
 
 @dataclass(frozen=True)
 class RemediationProducerProfile:
-    """Describe producer-specific prompt and publication behavior."""
+    """Describe producer-specific operator-facing presentation."""
 
     source_type: str
     source_display_name: str
     target_display_name: str
     item_reference_label: str
-    analysis_system_prompt: str
-    structured_edit_system_prompt: str
     mr_section_title: str
 
 
@@ -93,10 +91,6 @@ _DEFAULT_PROFILE = RemediationProducerProfile(
     source_display_name="Remediation",
     target_display_name="remediation item",
     item_reference_label="Item reference",
-    analysis_system_prompt=("You analyze remediation items and return strictly structured JSON."),
-    structured_edit_system_prompt=(
-        "You propose exact file edits for remediation items and return strictly structured JSON."
-    ),
     mr_section_title="Remediation Target",
 )
 
@@ -105,10 +99,6 @@ _SONARQUBE_PROFILE = RemediationProducerProfile(
     source_display_name="SonarQube",
     target_display_name="SonarQube issue",
     item_reference_label="Issue key",
-    analysis_system_prompt=("You analyze SonarQube issues and return strictly structured JSON."),
-    structured_edit_system_prompt=(
-        "You propose exact file edits for SonarQube issues and return strictly structured JSON."
-    ),
     mr_section_title="Remediation Target",
 )
 
@@ -122,12 +112,17 @@ def remediation_profile_for(
     return replace(
         _DEFAULT_PROFILE,
         source_type=target.source_type,
-        source_display_name=_source_display_name(target.source_type),
+        source_display_name=remediation_source_display_name(target.source_type),
     )
 
 
-def _source_display_name(source_type: str) -> str:
+def remediation_source_display_name(source_type: str) -> str:
     """Return a concise human label for a normalized finding source."""
-    if source_type == "ruff-sarif":
-        return "Ruff SARIF"
+    known_labels = {
+        "sonarqube": "SonarQube",
+        "ruff-sarif": "Ruff SARIF",
+        "mypy-sarif": "MyPy SARIF",
+    }
+    if source_type in known_labels:
+        return known_labels[source_type]
     return source_type.replace("-", " ").replace("_", " ").title()
