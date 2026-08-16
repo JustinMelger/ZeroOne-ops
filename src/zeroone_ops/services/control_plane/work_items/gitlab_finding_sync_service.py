@@ -327,15 +327,25 @@ class GitLabFindingSyncService:
                 updated_count += 1
             else:
                 unchanged_count += 1
-        stale_result = _StaleWorkItemReconciliationResult(demoted_count=0, retained_count=0)
+        stale_result = _StaleWorkItemReconciliationResult(
+            demoted_count=0,
+            retained_count=0,
+            policy_deferred_count=0,
+            projection_warning_count=0,
+        )
         if persist and managed_source_ids:
             stale_result = self._reconcile_stale_work_items(
                 project_id=project_id,
                 current_findings=findings,
                 managed_source_ids=managed_source_ids,
                 open_work_items=open_work_items,
+                policy_state=policy_state,
+                run_id=run_id,
             )
             updated_count += stale_result.demoted_count
+            updated_count += stale_result.policy_deferred_count
+            policy_deferred_count += stale_result.policy_deferred_count
+            projection_warning_count += stale_result.projection_warning_count
             current_source_keys = {(finding.source_id, finding.finding_id) for finding in findings}
             for deferred in deferred_work_items:
                 if (
@@ -401,6 +411,20 @@ class GitLabFindingSyncService:
             source_item_key=finding.finding_id,
             repository_scope=project_id,
         )
+        return self._defer_source_if_current(
+            project_id=project_id,
+            source=source,
+            run_id=run_id,
+        )
+
+    def _defer_source_if_current(
+        self,
+        *,
+        project_id: str,
+        source: WorkItemSourceRef,
+        run_id: str,
+    ) -> Literal["deferred", "retained", "warning"]:
+        """Close one still-safe work item after re-reading its authoritative state."""
         existing = self.work_item_service.find_open_work_item_by_source(
             project_id=project_id, kind="remediation", source=source
         )
@@ -641,6 +665,8 @@ class GitLabFindingSyncService:
         current_findings: list[NormalizedFinding],
         managed_source_ids: set[str],
         open_work_items: list[GitLabWorkItemLookupResult],
+        policy_state: PolicyState,
+        run_id: str,
     ) -> _StaleWorkItemReconciliationResult:
         """Demote safely stale items only from complete managed source inventories."""
         current_source_keys = {
@@ -648,6 +674,8 @@ class GitLabFindingSyncService:
         }
         demoted_count = 0
         retained_count = 0
+        policy_deferred_count = 0
+        projection_warning_count = 0
         for existing in open_work_items:
             work_item = existing.work_item
             if work_item.source.repository_scope != project_id:
@@ -655,6 +683,22 @@ class GitLabFindingSyncService:
             if work_item.source.source not in managed_source_ids:
                 continue
             if (work_item.source.source, work_item.source.source_item_key) in current_source_keys:
+                continue
+            if not self.workflow_policy_service.is_work_item_eligible(
+                work_item=work_item,
+                policy_state=policy_state,
+            ):
+                outcome = self._defer_source_if_current(
+                    project_id=project_id,
+                    source=work_item.source,
+                    run_id=run_id,
+                )
+                if outcome == "deferred":
+                    policy_deferred_count += 1
+                elif outcome == "retained":
+                    retained_count += 1
+                else:
+                    projection_warning_count += 1
                 continue
             demotion = self._demote_work_item_if_safe(project_id=project_id, existing=existing)
             if demotion == "demoted":
@@ -664,6 +708,8 @@ class GitLabFindingSyncService:
         return _StaleWorkItemReconciliationResult(
             demoted_count=demoted_count,
             retained_count=retained_count,
+            policy_deferred_count=policy_deferred_count,
+            projection_warning_count=projection_warning_count,
         )
 
     def _demote_work_item_if_safe(
@@ -692,3 +738,5 @@ class _StaleWorkItemReconciliationResult:
 
     demoted_count: int
     retained_count: int
+    policy_deferred_count: int
+    projection_warning_count: int
