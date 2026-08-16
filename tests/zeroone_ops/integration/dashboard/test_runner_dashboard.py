@@ -1081,7 +1081,7 @@ def test_dashboard_reconcile_ci_blocks_item_when_merge_request_was_closed(
         )()
 
     def fake_mark_failed(
-        self,
+        self: object,
         *,
         project_id: str,
         dashboard_item_id: str,
