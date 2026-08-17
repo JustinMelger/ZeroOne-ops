@@ -215,7 +215,7 @@ def main() -> None:
         app()
     except SettingsError as error:
         typer.echo(f"Configuration error: {error}", err=True)
-        raise typer.Exit(code=2) from None
+        raise SystemExit(2) from None
 
 
 if __name__ == "__main__":

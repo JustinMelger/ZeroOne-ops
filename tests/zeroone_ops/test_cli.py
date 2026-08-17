@@ -1,7 +1,8 @@
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
-import typer
 from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
@@ -168,10 +169,33 @@ def test_main_renders_settings_error_without_traceback(
 
     monkeypatch.setattr("zeroone_ops.cli.app", raise_settings_error)
 
-    with pytest.raises(typer.Exit) as error:
+    with pytest.raises(SystemExit) as error:
         main()
 
-    assert error.value.exit_code == 2
+    assert error.value.code == 2
     assert capsys.readouterr().err == (
         "Configuration error: Invalid configuration: review.unsupported_option: unknown field\n"
     )
+
+
+def test_module_entrypoint_reports_invalid_config_without_traceback(tmp_path: Path) -> None:
+    """The installed process entrypoint exits cleanly for strict config failures."""
+    (tmp_path / ".zeroone-ops.json").write_text(
+        '{"platform": "github", "base_branch": "main", "unknown_option": true}',
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-m", "zeroone_ops.cli", "findings", "sync"],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 2
+    assert completed.stdout == ""
+    assert completed.stderr == (
+        "Configuration error: Invalid configuration: unknown_option: unknown field\n"
+    )
+    assert "Traceback" not in completed.stderr
