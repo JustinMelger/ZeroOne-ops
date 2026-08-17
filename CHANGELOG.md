@@ -5,6 +5,28 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.55.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.54.1...zeroone-ops-v0.55.0) (2026-08-17)
+
+
+### Features
+
+* **control-plane:** reconcile policy-deferred work ([#354](https://github.com/JustinMelger/ZeroOne-ops/issues/354)) ([deb7d59](https://github.com/JustinMelger/ZeroOne-ops/commit/deb7d59ec11f414240dc32b0318a619cb0db8764))
+* **remediation:** improve work item UX ([#351](https://github.com/JustinMelger/ZeroOne-ops/issues/351)) ([cdd4c06](https://github.com/JustinMelger/ZeroOne-ops/commit/cdd4c06a29998dfce4ef22d742e11704965baa1f))
+
+
+### Bug Fixes
+
+* **control-plane:** defer stale policy-ineligible work ([#365](https://github.com/JustinMelger/ZeroOne-ops/issues/365)) ([e6d6e3a](https://github.com/JustinMelger/ZeroOne-ops/commit/e6d6e3ace8743083506aeeb38c57da947e7fcaf5))
+* **control-plane:** index dismissed work items by labels ([a1faa10](https://github.com/JustinMelger/ZeroOne-ops/commit/a1faa10bd63f2ac1e0397a31cafecd314ffc4b8f))
+* **control-plane:** show terminal work item resolutions ([#366](https://github.com/JustinMelger/ZeroOne-ops/issues/366)) ([6cd1a5f](https://github.com/JustinMelger/ZeroOne-ops/commit/6cd1a5f160a6354378d2f9e681373234419288dc))
+* **deps:** update python dependencies ([#355](https://github.com/JustinMelger/ZeroOne-ops/issues/355)) ([363d2f2](https://github.com/JustinMelger/ZeroOne-ops/commit/363d2f210f6f80a3d7f8d6073548373bee7f2b3f))
+
+
+### Documentation
+
+* add finding grouping design ([c80c382](https://github.com/JustinMelger/ZeroOne-ops/commit/c80c3828655ca6142df3b5c44819618e6eca70eb))
+* **control-plane:** design work-item state projection ([446b8d8](https://github.com/JustinMelger/ZeroOne-ops/commit/446b8d837bf0b584127d7cab25cac48c2b632ed8))
+
 ## [0.54.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.54.0...zeroone-ops-v0.54.1) (2026-08-14)
 
 
