@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from zeroone_ops.services.intake.sarif_finding_source import SarifFindingSource
+from zeroone_ops.services.intake.sarif_finding_source import (
+    SarifFindingSource,
+    _normalize_sarif_level,
+)
 
 
 def test_collect_artifact_findings_normalizes_ruff_sarif_results(tmp_path: Path) -> None:
@@ -70,6 +73,24 @@ def test_collect_artifact_findings_normalizes_ruff_sarif_results(tmp_path: Path)
     assert finding.source_metadata is not None
     assert finding.source_metadata.native_id == "line-hash-1"
     assert finding.source_metadata.source_url is not None
+    assert finding.source_metadata.attributes["level"] == "warning"
+
+
+def test_normalize_sarif_level_uses_artifact_mapping_before_generic_mapping() -> None:
+    severity_mapping = {
+        "error": "medium",
+        "warning": "medium",
+        "default": "low",
+    }
+
+    assert _normalize_sarif_level("error", severity_mapping=severity_mapping) == "medium"
+    assert _normalize_sarif_level("warning", severity_mapping=severity_mapping) == "medium"
+    assert _normalize_sarif_level("note", severity_mapping=severity_mapping) == "low"
+    assert _normalize_sarif_level(None, severity_mapping=severity_mapping) == "low"
+    assert _normalize_sarif_level("error") == "high"
+    assert _normalize_sarif_level("warning") == "medium"
+    assert _normalize_sarif_level("note") == "low"
+    assert _normalize_sarif_level(None) == "medium"
 
 
 def test_collect_artifact_findings_uses_fallback_identity_without_native_key(
@@ -122,6 +143,42 @@ def test_collect_artifact_findings_uses_fallback_identity_without_native_key(
     assert finding.source_metadata is not None
     assert finding.source_metadata.native_id is None
     assert finding.severity == "high"
+
+
+def test_collect_artifact_findings_applies_artifact_severity_mapping(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "mypy.sarif"
+    artifact.write_text(
+        """
+        {
+          "version": "2.1.0",
+          "runs": [{
+            "tool": {"driver": {"name": "mypy"}},
+            "results": [{
+              "ruleId": "no-untyped-def",
+              "level": "error",
+              "message": {"text": "Function is missing a type annotation."},
+              "locations": [{"physicalLocation": {
+                "artifactLocation": {"uri": "src/service.py"},
+                "region": {"startLine": 4}
+              }}]
+            }]
+          }]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(
+        artifact,
+        severity_mapping={"error": "medium", "default": "medium"},
+    )
+
+    finding = result.findings[0]
+    assert finding.severity == "medium"
+    assert finding.source_metadata is not None
+    assert finding.source_metadata.attributes["level"] == "error"
 
 
 def test_collect_artifact_findings_defaults_missing_level_to_medium(

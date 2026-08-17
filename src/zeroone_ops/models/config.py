@@ -11,6 +11,9 @@ from typing import ClassVar, Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
+type SarifSeverityLevel = Literal["error", "warning", "note", "none", "default"]
+type SarifSeverityMapping = dict[SarifSeverityLevel, Literal["low", "medium", "high"]]
+
 
 class RepositoryConfigModel(BaseModel):
     """Base model for strict repository-controlled configuration."""
@@ -210,6 +213,7 @@ class SarifArtifactConfig(RepositoryConfigModel):
 
     path: Path
     source_id: str = Field(min_length=1)
+    severity_mapping: SarifSeverityMapping = Field(default_factory=dict)
 
 
 class AppConfig(RepositoryConfigModel):

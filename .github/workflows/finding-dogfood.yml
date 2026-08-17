@@ -48,7 +48,12 @@ jobs:
               "artifacts": [
                 {
                   "path": "artifacts/mypy.sarif",
-                  "source_id": "mypy-sarif"
+                  "source_id": "mypy-sarif",
+                  "severity_mapping": {
+                    "error": "medium",
+                    "warning": "medium",
+                    "default": "medium"
+                  }
                 },
                 {
                   "path": "artifacts/ruff.sarif",

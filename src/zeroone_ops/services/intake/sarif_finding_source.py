@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
-from typing import Literal
+from typing import Literal, cast
 from urllib.parse import unquote
 
+from zeroone_ops.models.config import SarifSeverityLevel, SarifSeverityMapping
 from zeroone_ops.models.finding import (
     FindingCollectionMetadata,
     FindingCollectionResult,
@@ -36,6 +37,7 @@ class SarifFindingSource:
         artifact_path: Path,
         *,
         declared_source_id: str | None = None,
+        severity_mapping: SarifSeverityMapping | None = None,
     ) -> FindingCollectionResult:
         """Collect normalized findings from one SARIF artifact file."""
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
@@ -65,7 +67,11 @@ class SarifFindingSource:
                     skipped_for_run,
                     source_id,
                     is_complete,
-                ) = _collect_run_findings(run, repo_root=self.repo_root)
+                ) = _collect_run_findings(
+                    run,
+                    repo_root=self.repo_root,
+                    severity_mapping=severity_mapping,
+                )
                 warnings.extend(warnings_for_run)
                 skipped_count += skipped_for_run
                 if declared_source_id is not None and source_id != declared_source_id:
@@ -111,6 +117,7 @@ def _collect_run_findings(
     run: JsonDict,
     *,
     repo_root: Path,
+    severity_mapping: SarifSeverityMapping | None,
 ) -> tuple[list[NormalizedFinding], list[str], int, str, bool]:
     """Normalize one SARIF run into findings plus bounded warnings."""
     driver = _dict_value(_dict_value(run, "tool"), "driver")
@@ -136,6 +143,7 @@ def _collect_run_findings(
             tool_name=tool_name,
             source_id=source_id,
             repo_root=repo_root,
+            severity_mapping=severity_mapping,
         )
         if finding is None:
             skipped_count += 1
@@ -155,6 +163,7 @@ def _normalize_result(
     tool_name: str | None,
     source_id: str,
     repo_root: Path,
+    severity_mapping: SarifSeverityMapping | None,
 ) -> NormalizedFinding | None:
     """Normalize one SARIF result into the shared finding contract."""
     repository_path = _repository_path_from_result(result, repo_root=repo_root)
@@ -186,7 +195,7 @@ def _normalize_result(
     return NormalizedFinding(
         finding_id=finding_id,
         source_id=source_id,
-        severity=_normalize_sarif_level(level),
+        severity=_normalize_sarif_level(level, severity_mapping=severity_mapping),
         title=title,
         summary=summary,
         repository_path=repository_path,
@@ -464,11 +473,26 @@ def _string_or_none(value: object) -> str | None:
     return None
 
 
-def _normalize_sarif_level(level: str | None) -> Literal["low", "medium", "high"]:
+def _normalize_sarif_level(
+    level: str | None,
+    *,
+    severity_mapping: SarifSeverityMapping | None = None,
+) -> Literal["low", "medium", "high"]:
     """Map SARIF result levels into normalized workflow severities."""
-    normalized = (level or "warning").lower()
+    normalized = (level or "none").lower()
+    if severity_mapping is not None:
+        mapped_severity = (
+            severity_mapping.get(cast(SarifSeverityLevel, normalized))
+            if normalized in {"error", "warning", "note", "none"}
+            else None
+        )
+        mapped_severity = mapped_severity or severity_mapping.get("default")
+        if mapped_severity is not None:
+            return mapped_severity
     if normalized == "error":
         return "high"
     if normalized == "warning":
+        return "medium"
+    if level is None:
         return "medium"
     return "low"

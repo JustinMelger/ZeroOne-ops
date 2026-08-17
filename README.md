@@ -145,9 +145,28 @@ test "$mypy_status" -le 1
 ```
 
 Configure `artifacts/mypy.sarif` with a stable source ID such as
-`mypy-sarif`. Exit code `1` means Mypy found type errors and still produces an
-authoritative artifact; an exit code above `1` means the analysis did not
-complete and should fail the pipeline.
+`mypy-sarif`. Mypy commonly reports typing and test-maintenance diagnostics as
+SARIF errors, so an artifact-local mapping can give them medium workflow
+priority while retaining the raw SARIF level as source evidence:
+
+```json
+{
+  "path": "artifacts/mypy.sarif",
+  "source_id": "mypy-sarif",
+  "severity_mapping": {
+    "error": "medium",
+    "warning": "medium",
+    "default": "medium"
+  }
+}
+```
+
+Exit code `1` means Mypy found type errors and still produces an authoritative
+artifact; an exit code above `1` means the analysis did not complete and should
+fail the pipeline. Artifact mappings support `error`, `warning`, `note`,
+`none`, and `default`; unmapped levels use the existing SARIF mapping of
+`error` to high, `warning` or an absent level to medium, and other levels to
+low.
 
 Severity control note:
 
@@ -244,6 +263,7 @@ For example:
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
 - `sarif.artifacts`
+- `sarif.artifacts[].severity_mapping`
 
 New configuration should use these nested blocks. GitLab examples can combine
 SonarQube and SARIF intake; GitHub examples use Ruff as one lightweight SARIF
