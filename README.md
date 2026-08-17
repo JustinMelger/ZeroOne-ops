@@ -241,7 +241,7 @@ For example:
 - `remediation.target_branch`
 - `remediation.validation_setup_commands`
 - `remediation.validation_commands`
-- `remediation.analysis`
+- `remediation.analysis.max_file_bytes`
 - `sonarqube.mock_issues_path`
 - `sarif.artifacts`
 

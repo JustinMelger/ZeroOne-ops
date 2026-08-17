@@ -112,6 +112,26 @@ def _warn_deprecated_config_fields(data: dict[str, Any]) -> None:
             ", ".join(configured_top_level_remediation_fields),
         )
 
+    remediation_data = data.get("remediation")
+    if isinstance(remediation_data, dict):
+        deprecated_analysis_fields = (
+            "context_lines_before",
+            "context_lines_after",
+        )
+        configured_analysis_fields = [
+            f"remediation.analysis.{field}"
+            for field in deprecated_analysis_fields
+            if isinstance(remediation_data.get("analysis"), dict)
+            and field in remediation_data["analysis"]
+        ]
+        if configured_analysis_fields:
+            LOGGER.warning(
+                "Deprecated remediation analysis tuning fields are still supported: %s. "
+                "Remove them from configuration; stable internal defaults will replace them "
+                "in a future major release.",
+                ", ".join(configured_analysis_fields),
+            )
+
     review_data = data.get("review")
     if not isinstance(review_data, dict):
         return
@@ -127,6 +147,7 @@ def _warn_deprecated_config_fields(data: dict[str, Any]) -> None:
         "max_followed_helper_lines",
         "max_followed_helper_lines_per_review",
         "max_review_feedback_retries",
+        "skip_draft_merge_requests",
     )
     configured_fields = [
         f"review.{field}" for field in deprecated_review_fields if field in review_data

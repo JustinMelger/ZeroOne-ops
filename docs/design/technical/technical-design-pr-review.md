@@ -344,8 +344,8 @@ Example review-specific config shape:
   "review": {
     "max_changed_files": 10,
     "max_findings_per_review": 3,
-    "max_context_lines_before": 30,
-    "max_context_lines_after": 30,
+    "max_context_lines_before": 400,
+    "max_context_lines_after": 400,
     "publish_no_findings_note": true,
     "inline_comments_enabled": false,
     "supported_paths": ["src/", "app/"],

@@ -75,7 +75,7 @@ In practice, the main remediation rollout keys now are:
 - `remediation.validation_feedback_enabled`
 - `remediation.validation_setup_commands`
 - `remediation.validation_commands`
-- `remediation.analysis`
+- `remediation.analysis.max_file_bytes`
 - `sonarqube.mock_issues_path`
 - `sarif.artifacts`
 

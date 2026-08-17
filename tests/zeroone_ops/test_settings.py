@@ -571,7 +571,8 @@ def test_settings_warn_for_deprecated_review_tuning_config(
             "helper_follow_depth": 1,
             "max_followed_helpers_per_function": 2,
             "max_followed_helper_lines": 80,
-            "max_followed_helper_lines_per_review": 160
+            "max_followed_helper_lines_per_review": 160,
+            "skip_draft_merge_requests": false
           },
           "gitlab": {
             "labels": []
@@ -589,10 +590,14 @@ def test_settings_warn_for_deprecated_review_tuning_config(
     assert config.review.max_followed_helpers_per_function == 2
     assert config.review.max_followed_helper_lines == 80
     assert config.review.max_followed_helper_lines_per_review == 160
+    assert config.review.skip_draft_merge_requests is False
+    assert config.review.max_context_lines_before == 400
+    assert config.review.max_context_lines_after == 400
     assert config.review.inline_comments_enabled is False
     assert "Deprecated review tuning fields are still supported" in caplog.text
     assert "review.enable_helper_following" in caplog.text
     assert "review.max_followed_helper_lines_per_review" in caplog.text
+    assert "review.skip_draft_merge_requests" in caplog.text
 
 
 def test_settings_load_inline_comments_review_flag(tmp_path: Path, monkeypatch) -> None:
@@ -677,6 +682,7 @@ def test_settings_load_gitlab_merge_request_assignee_username(
 def test_settings_load_nested_remediation_and_sonarqube_config(
     tmp_path: Path,
     monkeypatch,
+    caplog: LogCaptureFixture,
 ) -> None:
     monkeypatch.chdir(tmp_path)
 
@@ -717,6 +723,8 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
     assert config.remediation.analysis.context_lines_after == 18
     assert config.remediation.analysis.max_file_bytes == 1234
     assert config.sonarqube.mock_issues_path == Path("fixtures/sonar/issues.json")
+    assert "Deprecated remediation analysis tuning fields are still supported" in caplog.text
+    assert "remediation.analysis.context_lines_before" in caplog.text
 
 
 def test_settings_default_remediation_active_work_item_capacity_is_ten(

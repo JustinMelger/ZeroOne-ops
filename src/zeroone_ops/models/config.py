@@ -46,8 +46,8 @@ class ReviewConfig(RepositoryConfigModel):
     """Configure pull-request review behavior."""
 
     max_changed_files: int = 10
-    max_context_lines_before: int = 30
-    max_context_lines_after: int = 30
+    max_context_lines_before: int = 400
+    max_context_lines_after: int = 400
     enable_function_context: bool = True
     max_function_context_lines: int = 200
     enable_helper_following: bool = True
