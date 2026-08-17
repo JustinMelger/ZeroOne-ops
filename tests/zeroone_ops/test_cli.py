@@ -1,11 +1,14 @@
 from pathlib import Path
 
+import pytest
+import typer
 from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
-from zeroone_ops.cli import app
+from zeroone_ops.cli import app, main
 from zeroone_ops.models.state import RunStatus
 from zeroone_ops.services.shared.run_summary_builder import RunSummary
+from zeroone_ops.settings import SettingsError
 
 _RUNNER = CliRunner()
 
@@ -152,3 +155,23 @@ def test_dashboard_reconcile_warns_about_the_canonical_lifecycle_command(
     assert result.exit_code == 0
     assert "Deprecated command `zeroone-ops dashboard reconcile`" in result.output
     assert "Use `zeroone-ops work-items sync-status`" in result.output
+
+
+def test_main_renders_settings_error_without_traceback(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Repository config errors remain fatal but are concise for CI operators."""
+
+    def raise_settings_error() -> None:
+        raise SettingsError("Invalid configuration: review.unsupported_option: unknown field")
+
+    monkeypatch.setattr("zeroone_ops.cli.app", raise_settings_error)
+
+    with pytest.raises(typer.Exit) as error:
+        main()
+
+    assert error.value.exit_code == 2
+    assert capsys.readouterr().err == (
+        "Configuration error: Invalid configuration: review.unsupported_option: unknown field\n"
+    )

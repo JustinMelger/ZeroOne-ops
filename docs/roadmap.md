@@ -69,6 +69,14 @@ history, not here.
 
 ### Operational Readiness
 
+- [ ] improve dirty-workspace remediation diagnostics: retain the safe
+  pre-branch guard while listing a bounded set of tracked/untracked paths and
+  an omitted-path count, so operators can identify generated state or artifact
+  files that need to be ignored or cleaned before retrying
+- [ ] improve validation-setup failure evidence: render a bounded, sanitized
+  command-output excerpt and workflow-log link on blocked work items so
+  operators can diagnose package-registry or tool-authentication failures
+  without exposing tokens, authorization headers, or credential-bearing URLs
 - [ ] design workflow-scoped preflight checks for repository config, required
   provider settings, reachable integrations, validation tools, and expected
   SARIF artifacts; keep them explicit, bounded, and free of remediation or

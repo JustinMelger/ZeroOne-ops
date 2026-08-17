@@ -217,7 +217,19 @@ def load_config() -> AppConfig:
     try:
         return AppConfig.model_validate(data)
     except ValidationError as error:
-        raise SettingsError(f"Invalid configuration: {error}") from error
+        raise SettingsError(_format_config_validation_error(error)) from error
+
+
+def _format_config_validation_error(error: ValidationError) -> str:
+    """Render validation failures without echoing configured values or a traceback."""
+    problems: list[str] = []
+    for detail in error.errors(include_input=False):
+        location = ".".join(str(part) for part in detail["loc"])
+        if detail["type"] == "extra_forbidden":
+            problems.append(f"{location}: unknown field")
+        else:
+            problems.append(f"{location}: {detail['msg']}")
+    return f"Invalid configuration: {'; '.join(problems)}"
 
 
 def load_sonarqube_connection_config() -> SonarQubeConnectionConfig:

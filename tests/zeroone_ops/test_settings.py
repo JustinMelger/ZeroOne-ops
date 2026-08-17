@@ -892,6 +892,30 @@ def test_settings_reject_unknown_repository_config_fields(
         load_config()
 
 
+def test_settings_reports_unknown_fields_without_config_values(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Strict config failures name the field without reflecting configured input."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "review": {"unknown_review": "secret-value"},
+          "gitlab": {"labels": []}
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SettingsError) as error:
+        load_config()
+
+    assert str(error.value) == "Invalid configuration: review.unknown_review: unknown field"
+    assert "secret-value" not in str(error.value)
+
+
 def test_settings_keep_legacy_nested_supported_severities_compatible(
     tmp_path: Path,
     monkeypatch,

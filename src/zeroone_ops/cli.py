@@ -20,6 +20,7 @@ from zeroone_ops.runner import (
     sync_work_item_status,
 )
 from zeroone_ops.services.shared.run_state_service import RunSummary
+from zeroone_ops.settings import SettingsError
 
 app = typer.Typer(add_completion=False, help="ZeroOne Ops CLI.")
 review_app = typer.Typer(add_completion=False, help="Merge request review workflow.")
@@ -210,7 +211,11 @@ def dashboard_policy_command(
 
 def main() -> None:
     """Start the CLI application."""
-    app()
+    try:
+        app()
+    except SettingsError as error:
+        typer.echo(f"Configuration error: {error}", err=True)
+        raise typer.Exit(code=2) from None
 
 
 if __name__ == "__main__":
