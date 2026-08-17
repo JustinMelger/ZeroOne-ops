@@ -78,6 +78,7 @@ In practice, the main remediation rollout keys now are:
 - `remediation.analysis`
 - `sonarqube.mock_issues_path`
 - `sarif.artifacts`
+- `sarif.artifacts[].severity_mapping`
 
 Authority note:
 

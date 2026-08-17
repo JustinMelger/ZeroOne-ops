@@ -286,6 +286,7 @@ def test_intake_bridge_keeps_input_collection_provenance_for_mixed_sources(
         SarifArtifactConfig(
             path=repo_root / "artifacts" / "ruff.sarif",
             source_id="ruff-sarif",
+            severity_mapping={"warning": "low"},
         ),
         SarifArtifactConfig(
             path=repo_root / "artifacts" / "missing.sarif",
@@ -311,6 +312,11 @@ def test_intake_bridge_keeps_input_collection_provenance_for_mixed_sources(
     assert collection.finding_collection.metadata.input_collections[1].artifact_reference == str(
         repo_root / "artifacts" / "ruff.sarif"
     )
+    assert [
+        finding.severity
+        for finding in collection.finding_collection.findings
+        if finding.source_id == "ruff-sarif"
+    ] == ["low"]
     assert collection.finding_collection.metadata.input_collections[2].source_id == "mypy-sarif"
     assert collection.finding_collection.metadata.input_collections[2].artifact_reference == str(
         repo_root / "artifacts" / "missing.sarif"

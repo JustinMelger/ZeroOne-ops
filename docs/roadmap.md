@@ -91,10 +91,10 @@ history, not here.
 
 ### Finding Priority Semantics
 
-- [ ] investigate SARIF tool-level severity versus workflow priority: confirm
-  appropriate defaults for MyPy, Ruff, and future security-oriented sources;
-  preserve raw SARIF levels as source evidence; and design bounded
-  per-artifact mappings without fragmenting the shared promotion policy
+- [x] add bounded per-artifact SARIF severity mappings while preserving raw
+  levels as source evidence and one shared promotion policy; MyPy dogfood maps
+  its broad error output to medium priority, while unmapped artifacts retain
+  generic SARIF mapping
 
 ### Trace Observability
 

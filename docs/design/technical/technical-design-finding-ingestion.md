@@ -463,7 +463,12 @@ The config shape should be:
     "artifacts": [
       {
         "path": "artifacts/ruff.sarif",
-        "source_id": "ruff-sarif"
+        "source_id": "ruff-sarif",
+        "severity_mapping": {
+          "error": "high",
+          "warning": "medium",
+          "default": "low"
+        }
       }
     ]
   }
@@ -477,6 +482,9 @@ Rules:
 - the ingestion source reads existing files from those paths
 - the analyzer pipeline remains responsible for generating the artifacts
 - each configured artifact represents one logical SARIF tool source
+- an optional artifact-local `severity_mapping` maps SARIF `error`, `warning`,
+  `note`, `none`, or `default` levels to shared workflow severities; absent
+  mappings retain the generic SARIF mapping
 - an empty artifact uses its declared `source_id` for authoritative stale-item
   reconciliation
 - a non-empty artifact whose derived tool source does not match its declared

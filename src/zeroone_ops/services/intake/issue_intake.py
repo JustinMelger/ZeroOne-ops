@@ -111,6 +111,7 @@ class IssueIntakeService:
                     SarifFindingSource().collect_artifact_findings(
                         artifact.path,
                         declared_source_id=artifact.source_id,
+                        severity_mapping=artifact.severity_mapping,
                     )
                 )
             except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:

@@ -790,7 +790,11 @@ def test_settings_load_sarif_artifacts(tmp_path: Path, monkeypatch) -> None:
           "sarif": {
             "artifacts": [
               {"path": "artifacts/ruff.sarif", "source_id": "ruff-sarif"},
-              {"path": "artifacts/codeql.sarif", "source_id": "codeql-sarif"}
+              {
+                "path": "artifacts/codeql.sarif",
+                "source_id": "codeql-sarif",
+                "severity_mapping": {"error": "high", "default": "medium"}
+              }
             ]
           },
           "gitlab": {
@@ -803,10 +807,53 @@ def test_settings_load_sarif_artifacts(tmp_path: Path, monkeypatch) -> None:
 
     config = load_config()
 
-    assert [(artifact.path, artifact.source_id) for artifact in config.sarif.artifacts] == [
-        (Path("artifacts/ruff.sarif"), "ruff-sarif"),
-        (Path("artifacts/codeql.sarif"), "codeql-sarif"),
+    assert [
+        (artifact.path, artifact.source_id, artifact.severity_mapping)
+        for artifact in config.sarif.artifacts
+    ] == [
+        (Path("artifacts/ruff.sarif"), "ruff-sarif", {}),
+        (
+            Path("artifacts/codeql.sarif"),
+            "codeql-sarif",
+            {"error": "high", "default": "medium"},
+        ),
     ]
+
+
+@pytest.mark.parametrize(
+    ("severity_mapping", "expected_location"),
+    [
+        ('{"unexpected": "medium"}', "sarif.artifacts.0.severity_mapping.unexpected"),
+        ('{"error": "urgent"}', "sarif.artifacts.0.severity_mapping.error"),
+    ],
+)
+def test_settings_reject_invalid_sarif_severity_mapping(
+    tmp_path: Path,
+    monkeypatch,
+    severity_mapping: str,
+    expected_location: str,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(
+        f"""
+        {{
+          "base_branch": "main",
+          "remediation": {{"target_branch": "main"}},
+          "sarif": {{
+            "artifacts": [{{
+              "path": "artifacts/mypy.sarif",
+              "source_id": "mypy-sarif",
+              "severity_mapping": {severity_mapping}
+            }}]
+          }},
+          "gitlab": {{"labels": []}}
+        }}
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SettingsError, match=expected_location):
+        load_config()
 
 
 def test_settings_reject_removed_flat_remediation_and_sonar_keys(
