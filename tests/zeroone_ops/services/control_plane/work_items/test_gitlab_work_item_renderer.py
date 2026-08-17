@@ -28,6 +28,22 @@ def test_rendering_uses_my_py_sarif_source_label() -> None:
     assert "- Source: MyPy SARIF" in body
 
 
+def test_rendering_includes_terminal_resolution_only_when_present() -> None:
+    renderer = GitLabWorkItemRenderer()
+    no_longer_detected = build_work_item(status="completed").model_copy(
+        update={"resolution": "no_longer_detected"}
+    )
+    no_change_required = build_work_item(status="completed").model_copy(
+        update={"resolution": "no_change_required"}
+    )
+    merged = build_work_item(status="completed").model_copy(update={"resolution": "merged"})
+
+    assert "- Resolution: No longer detected" in renderer.render_body(no_longer_detected)
+    assert "- Resolution: No change required" in renderer.render_body(no_change_required)
+    assert "- Resolution: Merged" in renderer.render_body(merged)
+    assert "- Resolution:" not in renderer.render_body(build_work_item())
+
+
 def test_render_body_includes_recovery_commands_for_blocked_work_item() -> None:
     work_item = build_work_item().model_copy(
         update={

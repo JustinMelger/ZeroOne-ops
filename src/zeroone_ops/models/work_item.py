@@ -27,6 +27,15 @@ RecoveryPlan = Literal["retry_publication", "start_fresh"]
 WorkItemResolution = Literal["merged", "no_change_required", "no_longer_detected"]
 
 
+def work_item_resolution_display_name(resolution: WorkItemResolution) -> str:
+    """Return the operator-facing label for one terminal work-item resolution."""
+    return {
+        "merged": "Merged",
+        "no_change_required": "No change required",
+        "no_longer_detected": "No longer detected",
+    }[resolution]
+
+
 class ChangeRequestRef(BaseModel):
     """Represent one linked provider-backed change request."""
 
