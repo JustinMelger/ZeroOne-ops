@@ -487,8 +487,8 @@ Example `examples/.zeroone-ops.json`:
     "max_changed_files": 5,
     "max_findings_per_review": 3,
     "max_prior_review_passes": 2,
-    "max_context_lines_before": 30,
-    "max_context_lines_after": 30,
+    "max_context_lines_before": 400,
+    "max_context_lines_after": 400,
     "inline_comments_enabled": false
   },
   "remediation": {

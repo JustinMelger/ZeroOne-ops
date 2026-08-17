@@ -1,11 +1,15 @@
+import subprocess
+import sys
 from pathlib import Path
 
+import pytest
 from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
-from zeroone_ops.cli import app
+from zeroone_ops.cli import app, main
 from zeroone_ops.models.state import RunStatus
 from zeroone_ops.services.shared.run_summary_builder import RunSummary
+from zeroone_ops.settings import SettingsError
 
 _RUNNER = CliRunner()
 
@@ -152,3 +156,46 @@ def test_dashboard_reconcile_warns_about_the_canonical_lifecycle_command(
     assert result.exit_code == 0
     assert "Deprecated command `zeroone-ops dashboard reconcile`" in result.output
     assert "Use `zeroone-ops work-items sync-status`" in result.output
+
+
+def test_main_renders_settings_error_without_traceback(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Repository config errors remain fatal but are concise for CI operators."""
+
+    def raise_settings_error() -> None:
+        raise SettingsError("Invalid configuration: review.unsupported_option: unknown field")
+
+    monkeypatch.setattr("zeroone_ops.cli.app", raise_settings_error)
+
+    with pytest.raises(SystemExit) as error:
+        main()
+
+    assert error.value.code == 2
+    assert capsys.readouterr().err == (
+        "Configuration error: Invalid configuration: review.unsupported_option: unknown field\n"
+    )
+
+
+def test_module_entrypoint_reports_invalid_config_without_traceback(tmp_path: Path) -> None:
+    """The installed process entrypoint exits cleanly for strict config failures."""
+    (tmp_path / ".zeroone-ops.json").write_text(
+        '{"platform": "github", "base_branch": "main", "unknown_option": true}',
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-m", "zeroone_ops.cli", "findings", "sync"],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 2
+    assert completed.stdout == ""
+    assert completed.stderr == (
+        "Configuration error: Invalid configuration: unknown_option: unknown field\n"
+    )
+    assert "Traceback" not in completed.stderr
