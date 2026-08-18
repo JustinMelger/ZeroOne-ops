@@ -18,6 +18,9 @@ history, not here.
   developer-facing notes, and bounded inline comments
 - provider-neutral normalized finding ingestion with SonarQube and SARIF/Ruff
   adapters
+- bounded per-artifact SARIF severity mappings with raw levels retained as
+  source evidence; MyPy dogfood maps its broad error output to medium priority,
+  while unmapped artifacts retain generic SARIF mapping
 - GitLab dashboard control plane with Maintainer/Owner-authorized policy
   commands, remediation, review projection, and lifecycle reconciliation
 - GitHub and GitLab issue control planes: policy issue, authoritative work-item
@@ -97,13 +100,6 @@ history, not here.
   outcome, change-request reference, lifecycle transition, and bounded error
   evidence
 
-### Finding Priority Semantics
-
-- [x] add bounded per-artifact SARIF severity mappings while preserving raw
-  levels as source evidence and one shared promotion policy; MyPy dogfood maps
-  its broad error output to medium priority, while unmapped artifacts retain
-  generic SARIF mapping
-
 ### Trace Observability
 
 - [ ] investigate and design MLflow trace correlation for repository, platform,
@@ -145,6 +141,21 @@ history, not here.
 
 - [ ] live-validate same-SHA review-projection repair after a recoverable
   projection warning
+
+### Review Finding Clarity
+
+- [ ] define and enforce a bounded self-contained finding contract: every
+  actionable finding states the affected behavior, concise causal impact,
+  scoped fix, and relevant locations; require an expanded causal walkthrough
+  only for cross-flow or behavior-sensitive changes, not routine local issues
+
+### Review Summary UX
+
+- [ ] design GitHub/GitLab mutable review summaries: maintain one current
+  provider comment per change request, guarded by reviewed revision so an
+  older run cannot overwrite newer results; retain line-level comments and
+  durable continuity evidence separately rather than creating a new visible
+  summary comment for every run
 
 ## Parked For Later
 
