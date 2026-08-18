@@ -1,5 +1,8 @@
 # AI Pull Request Review Bot Functional Design
 
+> **Status: Historical.** This is the initial GitLab-first review design.
+> For the current cross-provider contract, see the [design index](../README.md).
+
 ## 1. Purpose
 
 Build an AI bot that:

@@ -1,5 +1,8 @@
 # AI Code Ops Dashboard Technical Design
 
+> **Status: Historical.** GitLab dashboard mode is deprecated compatibility
+> behavior. For current issue-mode contracts, see the [design index](../README.md).
+
 ## 1. Scope
 
 This document defines the technical design for the GitLab-first dashboard

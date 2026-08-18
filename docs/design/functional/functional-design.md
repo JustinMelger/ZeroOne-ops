@@ -1,5 +1,8 @@
 # ZeroOne Ops Functional Design
 
+> **Status: Historical.** This is the original SonarQube and GitLab-first
+> foundation. For current contracts, see the [design index](../README.md).
+
 ## 1. Purpose
 
 Build an AI bot that:

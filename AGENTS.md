@@ -15,6 +15,7 @@ Current workflow behavior and future direction are documented in:
 
 - [docs/README.md](docs/README.md)
 - [docs/roadmap.md](docs/roadmap.md)
+- [docs/design/README.md](docs/design/README.md)
 - [docs/design/functional/functional-design-finding-ingestion.md](docs/design/functional/functional-design-finding-ingestion.md)
 - [docs/design/technical/technical-design-finding-ingestion.md](docs/design/technical/technical-design-finding-ingestion.md)
 - [docs/design/functional/functional-design-work-item-state-projection.md](docs/design/functional/functional-design-work-item-state-projection.md)

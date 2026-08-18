@@ -1,5 +1,8 @@
 # ZeroOne Ops Technical Design
 
+> **Status: Historical.** This is the original SonarQube and GitLab-first
+> foundation. For current contracts, see the [design index](../README.md).
+
 ## 1. Scope
 
 This document defines the technical design for v1 of the ZeroOne Ops described in [functional-design.md](../functional/functional-design.md).

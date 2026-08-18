@@ -1,5 +1,8 @@
 # ZeroOne Ops Dashboard Policy Acknowledgements Functional Design
 
+> **Status: Historical.** GitLab dashboard mode is deprecated compatibility
+> behavior. For current issue-mode contracts, see the [design index](../README.md).
+
 ## 1. Purpose
 
 Define the operator-facing behavior for dashboard policy acknowledgement
