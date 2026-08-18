@@ -133,6 +133,26 @@ def test_execute_returns_analysis_summary_in_dry_run(tmp_path: Path, monkeypatch
     assert result.status_message == "Analysis ready."
 
 
+def test_execute_reports_detailed_dirty_workspace_failure(tmp_path: Path, monkeypatch) -> None:
+    service = ExecutionService(tmp_path, build_config())
+    message = (
+        "Repository has uncommitted or untracked changes:\n"
+        "- untracked: artifacts/mypy.sarif\n"
+        "Ignore generated runtime files or clean the workspace before retrying."
+    )
+
+    def raise_dirty_workspace_error() -> None:
+        raise BranchManagerError(message)
+
+    monkeypatch.setattr(service.branch_manager, "ensure_ready", raise_dirty_workspace_error)
+
+    result = service.execute(selected_issue=build_issue(), dry_run=False)
+
+    assert result.failure is not None
+    assert result.failure.stage == FailureStage.BRANCH_PREPARATION
+    assert result.failure.message == f"Branch preparation failed: {message}"
+
+
 def test_execute_returns_commit_failure_details(tmp_path: Path, monkeypatch) -> None:
     service = ExecutionService(tmp_path, build_config(execution_mode="local"))
     (tmp_path / "src").mkdir()

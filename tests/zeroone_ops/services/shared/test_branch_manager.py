@@ -6,6 +6,8 @@ import pytest
 from zeroone_ops.services.shared.branch_manager import (
     BranchManager,
     BranchManagerError,
+    _format_dirty_workspace_message,
+    _parse_porcelain_status,
 )
 
 
@@ -29,10 +31,107 @@ def _init_git_repo(repo_root: Path) -> None:
 
 def test_ensure_ready_rejects_dirty_repository(tmp_path: Path) -> None:
     _init_git_repo(tmp_path)
-    (tmp_path / "sample.txt").write_text("dirty\n", encoding="utf-8")
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    (artifacts / "mypy.sarif").write_text("{}\n", encoding="utf-8")
+    (tmp_path / ".zeroone-ops-state.json").write_text("{}\n", encoding="utf-8")
 
-    with pytest.raises(BranchManagerError, match="uncommitted or untracked"):
+    with pytest.raises(BranchManagerError) as error:
         BranchManager(tmp_path).ensure_ready()
+
+    assert str(error.value) == (
+        "Repository has uncommitted or untracked changes:\n"
+        "- untracked: .zeroone-ops-state.json\n"
+        "- untracked: artifacts/mypy.sarif\n"
+        "Ignore generated runtime files or clean the workspace before retrying."
+    )
+
+
+def test_ensure_ready_uses_safe_decoding_for_non_utf8_filenames(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    commands: list[dict[str, object]] = []
+
+    def run_git_command(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        commands.append(kwargs)
+        command = args[0]
+        assert isinstance(command, list)
+        stdout = (
+            "true"
+            if command[1:3] == ["rev-parse", "--is-inside-work-tree"]
+            else "?? generated-\\xff.txt\0"
+        )
+        return subprocess.CompletedProcess(command, returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.shared.branch_manager.subprocess.run",
+        run_git_command,
+    )
+
+    with pytest.raises(BranchManagerError) as error:
+        BranchManager(tmp_path).ensure_ready()
+
+    assert r"untracked: generated-\\xff.txt" in str(error.value)
+    assert all(command["encoding"] == "utf-8" for command in commands)
+    assert all(command["errors"] == "backslashreplace" for command in commands)
+
+
+def test_ensure_ready_ignores_gitignored_generated_files(tmp_path: Path) -> None:
+    _init_git_repo(tmp_path)
+    (tmp_path / ".gitignore").write_text("artifacts/\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", ".gitignore"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "chore: ignore artifacts"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    (artifacts / "ruff.sarif").write_text("{}\n", encoding="utf-8")
+
+    BranchManager(tmp_path).ensure_ready()
+
+
+def test_parse_porcelain_status_categorizes_workspace_changes() -> None:
+    changes = _parse_porcelain_status(
+        " M path with spaces.py\0"
+        "M  staged.py\0"
+        "?? artifacts/mypy.sarif\0"
+        "R  renamed.py\0original.py\0"
+        "C  copied.py\0source.py\0"
+    )
+
+    assert [(change.category, change.path, change.previous_path) for change in changes] == [
+        ("modified", "path with spaces.py", None),
+        ("staged modification", "staged.py", None),
+        ("untracked", "artifacts/mypy.sarif", None),
+        ("renamed", "renamed.py", "original.py"),
+        ("copied", "copied.py", "source.py"),
+    ]
+
+
+def test_dirty_workspace_message_is_bounded_and_markdown_safe() -> None:
+    changes = _parse_porcelain_status("".join(f"?? generated-{index}.txt\0" for index in range(11)))
+
+    message = _format_dirty_workspace_message(changes)
+
+    assert "- untracked: generated-0.txt" in message
+    assert "generated-9.txt" in message
+    assert "... and 1 more paths." in message
+
+    unsafe_message = _format_dirty_workspace_message(
+        _parse_porcelain_status("?? unsafe_[name]\\path\n.txt\0")
+    )
+
+    assert "unsafe\\_\\[name\\]\\\\path\\n.txt" in unsafe_message
 
 
 def test_build_branch_name_is_predictable() -> None:

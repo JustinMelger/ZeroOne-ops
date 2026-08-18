@@ -210,6 +210,34 @@ def test_render_body_includes_last_execution_when_blocked() -> None:
     assert "Stop automation: `/zeroone remediation dismiss`" in body
 
 
+def test_render_body_includes_dirty_workspace_diagnostics() -> None:
+    work_item = build_work_item(status="blocked").model_copy(
+        update={
+            "execution_failure": WorkItemExecutionFailure(
+                stage="branch_preparation",
+                summary=(
+                    "Branch preparation failed: Repository has uncommitted or untracked changes:\n"
+                    "- untracked: artifacts/mypy.sarif\n"
+                    "Ignore generated runtime files or clean the workspace before retrying."
+                ),
+                retry_count=0,
+                run_id="run-44",
+                occurred_at=datetime(2026, 8, 17, 10, 0, tzinfo=UTC),
+                execution_url="https://github.example.com/octo-org/octo-repo/actions/runs/44",
+            )
+        }
+    )
+
+    body = GitHubWorkItemRenderer().render_body(work_item)
+
+    assert "- Stage: `branch_preparation`" in body
+    assert "- untracked: artifacts/mypy.sarif" in body
+    assert (
+        "[View workflow logs](https://github.example.com/octo-org/octo-repo/actions/runs/44)"
+        in body
+    )
+
+
 def test_render_body_shows_publication_recovery_instructions_only_when_blocked() -> None:
     renderer = GitHubWorkItemRenderer()
     work_item = build_work_item().model_copy(

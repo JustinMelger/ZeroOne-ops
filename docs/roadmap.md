@@ -69,7 +69,7 @@ history, not here.
 
 ### Operational Readiness
 
-- [ ] improve dirty-workspace remediation diagnostics: retain the safe
+- [x] improve dirty-workspace remediation diagnostics: retain the safe
   pre-branch guard while listing a bounded set of tracked/untracked paths and
   an omitted-path count, so operators can identify generated state or artifact
   files that need to be ignored or cleaned before retrying

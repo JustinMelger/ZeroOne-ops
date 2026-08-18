@@ -68,6 +68,31 @@ def test_render_body_includes_recovery_commands_for_blocked_work_item() -> None:
     assert "Stop automation: `/zeroone remediation dismiss`" in body
 
 
+def test_render_body_includes_dirty_workspace_diagnostics() -> None:
+    work_item = build_work_item(status="blocked").model_copy(
+        update={
+            "execution_failure": WorkItemExecutionFailure(
+                stage="branch_preparation",
+                summary=(
+                    "Branch preparation failed: Repository has uncommitted or untracked changes:\n"
+                    "- untracked: artifacts/mypy.sarif\n"
+                    "Ignore generated runtime files or clean the workspace before retrying."
+                ),
+                retry_count=0,
+                run_id="run-44",
+                occurred_at=datetime(2026, 8, 17, 10, 0, tzinfo=UTC),
+                execution_url="https://gitlab.example.com/group/project/-/jobs/44",
+            )
+        }
+    )
+
+    body = GitLabWorkItemRenderer().render_body(work_item)
+
+    assert "- Stage: `branch_preparation`" in body
+    assert "- untracked: artifacts/mypy.sarif" in body
+    assert "[View workflow logs](https://gitlab.example.com/group/project/-/jobs/44)" in body
+
+
 def test_render_title_and_labels_are_bounded_and_provider_indexed() -> None:
     work_item = build_work_item().model_copy(
         update={"summary": "A very long finding title " * 10, "file_path": None}
