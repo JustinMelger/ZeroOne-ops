@@ -118,7 +118,7 @@ The review workflow is provider-native:
 
 The control plane includes scheduled lifecycle reconciliation:
 
-- GitLab dashboard items and GitHub work-item issues retain change-request
+- GitLab and GitHub work-item issues retain change-request
   traceability
 - deterministic transitions for merged, closed-unmerged, stale, and blocked
   remediation work
@@ -148,10 +148,10 @@ its run reference. Dismissed work is not offered a requeue command.
 The provider-native control plane renders an operator policy surface:
 
 - current severity policy and excluded issue classes are shown for visibility
-- GitLab dashboard markdown and GitHub operational summaries are derived views,
-  not authoritative mutation surfaces
-- GitLab rewrites recognized legacy dashboard bodies into the current schema
-  before normal dashboard-backed workflows continue
+- GitLab and GitHub operational summaries are derived views, not authoritative
+  mutation surfaces
+- GitLab dashboard-mode compatibility rewrites recognized legacy dashboard
+  bodies before the corresponding legacy workflow continues
 
 ## Required CI Variables
 
@@ -282,18 +282,16 @@ blocking rollout issues.
 
 In normal `ci` mode, one run should do the following:
 
-1. fetch open SonarQube issues
-2. filter to locally existing files
-3. skip issues already represented by an open bot merge request or active state
-4. select the next eligible issue
-5. build focused context for that issue
-6. run OpenAI analysis
-7. request a structured edit
-8. render the diff locally in the bot
-9. apply the patch
-10. run validation commands
-11. commit and push a branch
-12. create or reuse a GitLab merge request
+1. collect configured finding sources, such as SonarQube and SARIF artifacts
+2. normalize findings and sync them into the provider-native issue control
+   plane under current policy and capacity
+3. process authorized policy and recovery commands
+4. select one eligible approved work item for remediation
+5. build focused context, run OpenAI analysis, and request one structured edit
+6. apply and validate the bounded patch
+7. commit and push a branch, then create or reuse a GitLab merge request or
+   GitHub pull request
+8. reconcile linked change requests later through `work-items sync-status`
 
 If no eligible issue remains, the run should exit cleanly with `no_issue`.
 
@@ -406,48 +404,32 @@ For a lower-cost review setup:
 
 Recommended first rollout order:
 
-1. manually run `zeroone_ops_dashboard` once to confirm dashboard discovery is healthy
-2. inspect dashboard policy locally with `zeroone-ops dashboard policy --dry-run`
-3. add one strict `/zeroone policy ...` dashboard comment and manually run
-   `zeroone_ops_dashboard_policy`
-4. inspect one supported dashboard item locally with `zeroone-ops dashboard remediate --dry-run`
-5. manually run one live CI pipeline where `zeroone_ops_dashboard_remediate`
-   follows `zeroone_ops_dashboard`
-6. manually run `zeroone_ops_dashboard_reconcile` once after a remediation MR
-   is merged or closed
-7. manually run `zeroone_ops_review` on one small merge request pipeline
+1. set `gitlab.control_plane_mode` to `issues` for GitLab installations
+2. manually run `findings sync` on the protected default branch and inspect
+   the policy and work-item issues
+3. add one strict `/zeroone policy ...` comment to the policy issue and run
+   policy processing
+4. inspect one approved work item with `remediation run --dry-run`
+5. manually run the provider's live control-plane/remediation workflow
+6. run `work-items sync-status` after the resulting merge request or pull
+   request is merged or closed
+7. manually run `review` on one small change request
 8. enable schedules only after all workflows behave as expected
-
-Dashboard rollout model:
-
-- keep Sonar dashboard sync as a separate discovery producer for Sonar-derived dashboard items
-- keep dashboard policy processing as the separate operator-command consumer
-  for policy mutation
-- treat `dashboard sync` then `dashboard remediate` as the normal ordered CI
-  flow for active remediation work
-- keep `dashboard reconcile` as a separate later lifecycle job rather than
-  chaining it directly after remediation
-- keep live `dashboard policy` CI-only in the first version; local use should stay `--dry-run`
-- keep live `dashboard remediate` CI-only in the first version; local use should stay `--dry-run`
-- keep live `dashboard reconcile` CI-only in the first version; local use should stay `--dry-run`
-- let Sonar dashboard sync clean up only stale untouched `open` Sonar items; once remediation has touched an item, preserve the dashboard lifecycle history
 
 ## Expected Reconciliation Workflow Behavior
 
 In normal `ci` mode, one reconciliation run should do the following:
 
-1. load the dashboard
-2. select one `mr_opened` item with stored MR URL, branch name, and commit SHA
-3. fetch the current merge request state from GitLab
-4. decide one lifecycle outcome:
-   - `done` when the MR was merged
-   - `open` when the MR was closed without merge and the work still remains
-   - `done` when the MR was closed without merge and the dashboard shows the
-     Sonar issue is no longer active
-   - `failed` when MR metadata is missing, inaccessible, or no longer matches
+1. load authoritative open work-item issues with linked change requests
+2. fetch the current merge-request or pull-request state from the provider
+3. decide one lifecycle outcome:
+   - `completed` when the change request was merged
+   - `blocked` when it was closed without merge and work remains
+   - retain protected work when metadata is missing, inaccessible, or no longer matches
      stored traceability
-5. update the dashboard item while preserving remediation metadata
-6. persist the reconciliation outcome in local state
+4. update the authoritative work-item issue while preserving remediation
+   metadata and provider labels
+5. close terminal provider issues and refresh the derived summary
 
 If no reconciliation-ready item remains, the run should exit cleanly with
 `no_issue`.
@@ -632,10 +614,11 @@ When an issue already has an open merge request:
 1. review or close that merge request
 2. rerun the bot only after deciding whether the issue should remain in scope
 
-When a merge request should no longer be managed by the bot:
+When a change request should no longer be managed by the bot:
 
-1. close the merge request
-2. resolve or reclassify the SonarQube issue
+1. close the merge request or pull request
+2. requeue or dismiss the affected work item through its displayed operator
+   command when appropriate
 3. rerun only if the issue should still be considered eligible
 
 ## Debugging Guidance
@@ -895,7 +878,10 @@ Required workflow permissions:
 - `issues: write` to claim and project the authoritative work item
 - `pull-requests: write` to create or reuse the remediation pull request
 
-## Dashboard Discovery Smoke Check
+## Legacy GitLab Dashboard Smoke Checks
+
+> **Deprecated:** These checks document dashboard-mode compatibility only. New
+> GitLab installations must use issue mode and the control-plane workflow above.
 
 Use this quick check after the remediation workflow is already healthy.
 
@@ -927,7 +913,7 @@ Make sure the target repository has:
 - stale untouched `open` Sonar items disappear or move out of the open section when they no longer exist upstream
 - Sonar-derived items already in remediation-owned states such as `in_progress` or `mr_opened` remain visible instead of being cleared by sync
 
-## Dashboard Policy Smoke Check
+### Dashboard Policy Smoke Check
 
 Use this quick check after dashboard discovery is already healthy.
 
@@ -966,7 +952,7 @@ Make sure the target repository has:
   the dashboard body plus note replay
 - remediation pickup now sees the updated canonical policy on its next run
 
-## Dashboard Remediation Smoke Test Recipe
+### Dashboard Remediation Smoke Test Recipe
 
 Use this recipe before enabling scheduled dashboard-backed remediation in a
 repository.
@@ -1040,11 +1026,13 @@ Do not move to scheduled dashboard remediation yet if you see:
 
 Before calling the target repository setup stable, confirm:
 
-- the pipeline can fetch SonarQube issues
-- the bot creates exactly one branch and one merge request per issue
-- duplicate issues are skipped on rerun
+- the pipeline collects every configured finding source successfully
+- the bot creates at most one branch and one provider-native change request per
+  work item
+- duplicate work items are skipped on rerun
 - validation commands match the repository
-- the GitLab token can both push and create merge requests
+- the provider token can push and create the required merge request or pull
+  request
 - operators know where to inspect failures and how to rerun safely
 - the smoke test and immediate rerun both behave as expected
-- Sonar dashboard sync remains the discovery/update mechanism for Sonar-derived dashboard items and does not replace later merge-request reconciliation
+- finding sync and lifecycle reconciliation remain separate workflows

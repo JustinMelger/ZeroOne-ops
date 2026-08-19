@@ -56,6 +56,9 @@ history, not here.
 - remediation safety hardening: exact declared/parsed patch-path matching,
   strict repository-config validation, release-pinned operational templates,
   and documented execution-trust boundaries
+- bounded dirty-workspace remediation diagnostics: preserve the safe
+  pre-branch guard while showing tracked or untracked paths and clear cleanup
+  guidance in provider work-item evidence
 - live-validated fresh-attempt recovery branch identity on GitHub and GitLab
 - resilient multi-source SARIF intake: unavailable artifacts produce bounded
   diagnostics without blocking available sources or claiming stale
@@ -63,6 +66,8 @@ history, not here.
 - operator-focused GitHub and GitLab work-item UX: location-disambiguated
   titles, concrete change-request summaries, durable bot-dismissal evidence,
   and intent-aware `fix` or `chore` change requests
+- source-neutral remediation prompts and operator-facing labels, with
+  SonarQube-specific terminology retained only as source evidence
 - retired the repo-local dashboard feedback log; Notion plus provider-native
   issue and change-request evidence are the active operational feedback sources
 - MLflow tracing support, Ruff pre-commit checks, and current CI workflows
@@ -72,10 +77,6 @@ history, not here.
 
 ### Operational Readiness
 
-- [x] improve dirty-workspace remediation diagnostics: retain the safe
-  pre-branch guard while listing a bounded set of tracked/untracked paths and
-  an omitted-path count, so operators can identify generated state or artifact
-  files that need to be ignored or cleaned before retrying
 - [ ] improve validation-setup failure evidence: render a bounded, sanitized
   command-output excerpt and workflow-log link on blocked work items so
   operators can diagnose package-registry or tool-authentication failures
@@ -123,11 +124,6 @@ history, not here.
   preserve the linked request and conflict evidence, move the work item to an
   explicit recoverable state, and give operators a clear requeue, dismiss, or
   manual-resolution path without automatic rebases or force-pushes
-
-### Remediation Source Neutrality
-
-- [x] make remediation prompts, source profiles, and operator-facing labels
-  source-neutral; retain SonarQube-specific wording only as source evidence
 
 ### Remediation Semantic Safety
 
@@ -187,14 +183,13 @@ history, not here.
 
 - [README.md](README.md)
 - [runbook.md](runbook.md)
+- [design/README.md](design/README.md)
 - [design/functional/functional-design-finding-ingestion.md](design/functional/functional-design-finding-ingestion.md)
 - [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
 - [design/functional/functional-design-finding-file-grouping.md](design/functional/functional-design-finding-file-grouping.md)
 - [design/technical/technical-design-finding-file-grouping.md](design/technical/technical-design-finding-file-grouping.md)
 - [design/functional/functional-design-work-item-state-projection.md](design/functional/functional-design-work-item-state-projection.md)
 - [design/technical/technical-design-work-item-state-projection.md](design/technical/technical-design-work-item-state-projection.md)
-- [design/technical/technical-design-github-platform-support.md](design/technical/technical-design-github-platform-support.md)
-- [design/technical/technical-design-dashboard-remediation.md](design/technical/technical-design-dashboard-remediation.md)
 - [design/functional/functional-design-remediation-recovery.md](design/functional/functional-design-remediation-recovery.md)
 - [design/technical/technical-design-remediation-recovery.md](design/technical/technical-design-remediation-recovery.md)
 - [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)

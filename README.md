@@ -31,8 +31,8 @@ control-plane installation experience. See the [roadmap](docs/roadmap.md).
 flowchart TD
     A[Finding producers\nSonarQube / SARIF] --> B[Normalized finding intake]
     B --> C{Platform control plane}
-    C --> D[GitLab dashboard]
-    C --> E[GitHub policy and work items]
+    C --> D[GitLab policy and work-item issues]
+    C --> E[GitHub policy and work-item issues]
     D --> F[Shared remediation]
     E --> F
     F --> G[GitLab MR / GitHub PR]
@@ -40,7 +40,8 @@ flowchart TD
     G --> I[Lifecycle reconciliation]
     I --> D
     I --> E
-    E --> J[Derived GitHub operational summary]
+    D --> J[Derived operational summaries]
+    E --> J
 ```
 
 ## Quick Start
@@ -123,9 +124,10 @@ uv run pre-commit run --all-files
 
 - normalize SonarQube and configured SARIF findings into the shared finding
   contract
-- project findings into the GitLab dashboard or GitHub work-item issues
-- keep backlog-only findings visible in the GitHub operational summary without
-  turning every finding into an issue
+- project promoted findings into authoritative GitLab or GitHub work-item
+  issues
+- keep non-promoted findings visible only as aggregate backlog counts in the
+  derived operational summary, without turning every finding into an issue
 
 ### Mypy JSON To SARIF
 

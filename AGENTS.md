@@ -1,4 +1,4 @@
-# AGENT.md
+# AGENTS.md
 
 ## Purpose
 
@@ -14,14 +14,19 @@ When there is any ambiguity, follow that document over this summary.
 Current workflow behavior and future direction are documented in:
 
 - [docs/README.md](docs/README.md)
-- [docs/design/functional/functional-design.md](docs/design/functional/functional-design.md)
-- [docs/design/technical/technical-design.md](docs/design/technical/technical-design.md)
-- [docs/design/functional/functional-design-pr-review.md](docs/design/functional/functional-design-pr-review.md)
-- [docs/design/technical/technical-design-pr-review.md](docs/design/technical/technical-design-pr-review.md)
-- [docs/design/functional/functional-design-dashboard.md](docs/design/functional/functional-design-dashboard.md)
-- [docs/design/functional/functional-design-dashboard-remediation.md](docs/design/functional/functional-design-dashboard-remediation.md)
-- [docs/design/technical/technical-design-dashboard.md](docs/design/technical/technical-design-dashboard.md)
-- [docs/design/technical/technical-design-dashboard-remediation.md](docs/design/technical/technical-design-dashboard-remediation.md)
+- [docs/roadmap.md](docs/roadmap.md)
+- [docs/design/README.md](docs/design/README.md)
+- [docs/design/functional/functional-design-finding-ingestion.md](docs/design/functional/functional-design-finding-ingestion.md)
+- [docs/design/technical/technical-design-finding-ingestion.md](docs/design/technical/technical-design-finding-ingestion.md)
+- [docs/design/functional/functional-design-work-item-state-projection.md](docs/design/functional/functional-design-work-item-state-projection.md)
+- [docs/design/technical/technical-design-work-item-state-projection.md](docs/design/technical/technical-design-work-item-state-projection.md)
+- [docs/design/functional/functional-design-remediation-recovery.md](docs/design/functional/functional-design-remediation-recovery.md)
+- [docs/design/technical/technical-design-remediation-recovery.md](docs/design/technical/technical-design-remediation-recovery.md)
+- [docs/design/functional/functional-design-pr-review-staged-pipeline.md](docs/design/functional/functional-design-pr-review-staged-pipeline.md)
+
+Older dashboard and GitLab-first design documents preserve implementation
+history. Do not treat them as current product direction unless a compatibility
+change explicitly targets legacy dashboard mode.
 
 Operational feedback and longer-horizon research/planning now live in Notion.
 Keep the repo focused on current roadmap, implementation contracts, and design
@@ -29,11 +34,13 @@ truth.
 
 ## Repository Intent
 
-This repository contains a GitLab-first automation platform that currently
-ships:
+ZeroOne Ops is a GitLab- and GitHub-compatible control plane for governed
+OpenAI-assisted engineering workflows. It currently ships:
 
-- a SonarQube remediation workflow
-- a pull request review workflow
+- staged change-request review with durable continuity evidence
+- normalized finding ingestion from SonarQube and SARIF-based sources
+- policy, work-item, remediation, recovery, lifecycle, and operational-summary
+  workflows using provider-native issues and change requests
 
 The codebase is intentionally structured to keep domain logic testable and
 maintainable as new workflows are added.
@@ -50,6 +57,12 @@ maintainable as new workflows are added.
   service layers.
 - Use typed models for data crossing service boundaries.
 - Add or update tests with behavior changes, especially for regressions.
+- Treat repository configuration that invokes setup or validation commands as
+  executable CI policy. Do not weaken its trusted-default-branch or
+  least-privilege execution boundary without an explicit design change.
+- GitLab dashboard mode is deprecated compatibility behavior. Keep new
+  control-plane behavior in GitHub/GitLab issue mode unless a design explicitly
+  requires dashboard support.
 
 ## Layering Summary
 
@@ -96,6 +109,13 @@ Check that:
 - operator-facing surfaces and machine-facing state are still clearly separated
 - any real boundary change is reflected in the relevant design and runbook docs
 
+For stateful work-item changes, preserve this separation:
+
+- finding sync owns inventory and policy/capacity projection
+- remediation owns execution outcomes and linked change requests
+- lifecycle owns provider-native change-request terminal reconciliation
+- provider labels are indexes; persisted machine state remains authoritative
+
 ## Review Expectations
 
 When reviewing changes in this repository:
@@ -109,6 +129,10 @@ When reviewing changes in this repository:
   relevant docs
 - prefer findings tied to repository rules and behavioral risk over generic
   style commentary
+- keep actionable findings self-contained but bounded: state the affected
+  behavior, concise cause and impact, scoped fix, and relevant locations;
+  reserve expanded causal walkthroughs for cross-flow or behavior-sensitive
+  changes
 
 ## Required Verification
 

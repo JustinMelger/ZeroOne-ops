@@ -1,5 +1,9 @@
 # ZeroOne Ops Config Structure Technical Design
 
+> **Status: Historical.** This records a completed configuration migration.
+> For current configuration behavior, use the config reference and the
+> [design index](../README.md).
+
 ## 1. Scope
 
 This document defines the near-term configuration direction before remediation

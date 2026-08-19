@@ -1,5 +1,8 @@
 # ZeroOne Ops GitHub Platform Support Technical Design
 
+> **Status: Historical.** This records the completed GitHub rollout. For
+> current cross-provider contracts, see the [design index](../README.md).
+
 ## 1. Scope
 
 This document defines a technical design direction for making GitHub a

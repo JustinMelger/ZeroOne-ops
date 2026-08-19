@@ -1,5 +1,8 @@
 # Review Package Layout
 
+> **Status: Historical.** This records a completed package-layout refactor.
+> For current review contracts, see the [design index](../README.md).
+
 ## Purpose
 
 This design gave Phase `2b` a concrete package-boundary target before source

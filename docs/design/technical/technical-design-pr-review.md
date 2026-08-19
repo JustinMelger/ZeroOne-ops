@@ -1,5 +1,8 @@
 # ZeroOne Ops Pull Request Review Technical Design
 
+> **Status: Historical.** This is the initial GitLab-first review design.
+> For the current cross-provider contract, see the [design index](../README.md).
+
 ## 1. Scope
 
 This document defines the technical design for v1 of the GitLab-first pull
