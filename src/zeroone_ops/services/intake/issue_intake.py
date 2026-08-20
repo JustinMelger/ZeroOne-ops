@@ -96,23 +96,24 @@ class IssueIntakeService:
         """Return raw finding collections from configured dashboard sources."""
         collections: list[FindingCollectionResult] = []
         if dry_run and self.config.sonarqube.mock_issues_path is not None:
-            collections.append(
+            fixture_collection = (
                 SonarFindingSource()
                 .collect_fixture_findings(self.config.sonarqube.mock_issues_path)
                 .collection
             )
+            collections.append(fixture_collection)
+            self._log_collection_count(fixture_collection, run_id=run_id)
         else:
-            sonar_collection = self._live_sonarqube_collection(run_id=run_id)
-            if sonar_collection is not None:
-                collections.append(sonar_collection)
+            live_collection = self._live_sonarqube_collection(run_id=run_id)
+            if live_collection is not None:
+                collections.append(live_collection)
+                self._log_collection_count(live_collection, run_id=run_id)
         for artifact in self.config.sarif.artifacts:
             try:
-                collections.append(
-                    SarifFindingSource().collect_artifact_findings(
-                        artifact.path,
-                        declared_source_id=artifact.source_id,
-                        severity_mapping=artifact.severity_mapping,
-                    )
+                sarif_collection = SarifFindingSource().collect_artifact_findings(
+                    artifact.path,
+                    declared_source_id=artifact.source_id,
+                    severity_mapping=artifact.severity_mapping,
                 )
             except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
                 LOGGER.warning(
@@ -123,10 +124,24 @@ class IssueIntakeService:
                         "error_type": type(error).__name__,
                     },
                 )
-                collections.append(
-                    _unavailable_sarif_artifact_collection(artifact.path, artifact.source_id)
+                sarif_collection = _unavailable_sarif_artifact_collection(
+                    artifact.path,
+                    artifact.source_id,
                 )
+            collections.append(sarif_collection)
+            self._log_collection_count(sarif_collection, run_id=run_id)
         return collections
+
+    def _log_collection_count(self, collection: FindingCollectionResult, *, run_id: str) -> None:
+        """Log normalized finding counts per source collection for CI diagnostics."""
+        finding_count = len(collection.findings)
+        source_id = collection.metadata.source_id
+        LOGGER.info(
+            "finding intake source=%s normalized_findings=%d run_id=%s",
+            source_id,
+            finding_count,
+            run_id,
+        )
 
     def _live_sonarqube_collection(self, *, run_id: str) -> FindingCollectionResult | None:
         """Return the live SonarQube finding collection when credentials are configured."""
