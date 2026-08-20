@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from pytest import LogCaptureFixture
@@ -176,6 +177,60 @@ def test_intake_skips_unavailable_sarif_artifact_without_claiming_source_ownersh
     assert metadata.warnings == ["SARIF artifact for source 'ruff-sarif' was unavailable."]
     assert metadata.statistics == {"unavailable_artifacts": 1}
     assert "skipped unavailable SARIF artifact" in caplog.text
+
+
+def test_intake_logs_normalized_finding_count_per_sarif_source(
+    tmp_path: Path,
+    caplog: LogCaptureFixture,
+) -> None:
+    artifact_path = tmp_path / "artifacts" / "ruff.sarif"
+    mypy_artifact_path = tmp_path / "artifacts" / "mypy.sarif"
+    artifact_path.parent.mkdir()
+    artifact_path.write_text(
+        """
+        {
+          "runs": [{
+            "tool": {"driver": {"name": "Ruff", "rules": [{"id": "E712"}]}},
+            "results": [{
+              "ruleId": "E712",
+              "level": "warning",
+              "message": {"text": "Use direct truthiness."},
+              "locations": [{"physicalLocation": {
+                "artifactLocation": {"uri": "src/service.py"},
+                "region": {"startLine": 1}
+              }}]
+            }]
+          }]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    mypy_artifact_path.write_text(
+        artifact_path.read_text(encoding="utf-8").replace('"Ruff"', '"mypy"'),
+        encoding="utf-8",
+    )
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = flag == True\n", encoding="utf-8")
+    config = AppConfig(
+        base_branch="main",
+        remediation=RemediationConfig(target_branch="main"),
+        gitlab=GitLabConfig(target_branch="main"),
+        sarif=SarifConfig(
+            artifacts=[
+                SarifArtifactConfig(path=artifact_path, source_id="ruff-sarif"),
+                SarifArtifactConfig(path=mypy_artifact_path, source_id="mypy-sarif"),
+            ]
+        ),
+    )
+    caplog.set_level(logging.INFO, logger="zeroone_ops.services.intake.issue_intake")
+
+    IssueIntakeService(repo_root=tmp_path, config=config).collect_dashboard_sync_issues(
+        dry_run=True,
+        run_id="run-1",
+    )
+
+    assert "finding intake source=ruff-sarif normalized_findings=1 run_id=run-1" in caplog.text
+    assert "finding intake source=mypy-sarif normalized_findings=1 run_id=run-1" in caplog.text
 
 
 def test_intake_bridge_rejects_findings_that_escape_repo_root(tmp_path: Path) -> None:
