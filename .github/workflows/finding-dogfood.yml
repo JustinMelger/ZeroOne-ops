@@ -2,6 +2,14 @@ name: Finding Dogfood
 
 on:
   workflow_dispatch:
+  schedule:
+    # Feed the daily lifecycle and remediation runs with current findings.
+    - cron: "0 7 * * *"
+
+concurrency:
+  # Keep finding projection, lifecycle, and remediation state transitions serialized.
+  group: zeroone-ops-remediation-${{ github.repository }}
+  cancel-in-progress: false
 
 jobs:
   finding-sarif:
@@ -11,7 +19,7 @@ jobs:
       issues: write
 
     env:
-      ZEROONE_OPS_CONFIG: .zeroone-ops-finding-dogfood.json
+      ZEROONE_OPS_CONFIG: .zeroone-ops.json
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GITHUB_REPOSITORY: ${{ github.repository }}
 
@@ -31,44 +39,6 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync --all-groups
-
-      - name: Write SARIF-only dogfood config
-        run: |
-          cat <<'EOF' > "$ZEROONE_OPS_CONFIG"
-          {
-            "execution_mode": "ci",
-            "platform": "github",
-            "base_branch": "main",
-            "remediation": {
-              "target_branch": "main",
-              "bootstrap_severities": ["medium", "high"],
-              "max_active_work_items": 5
-            },
-            "sarif": {
-              "artifacts": [
-                {
-                  "path": "artifacts/mypy.sarif",
-                  "source_id": "mypy-sarif",
-                  "severity_mapping": {
-                    "error": "medium",
-                    "warning": "medium",
-                    "default": "medium"
-                  }
-                },
-                {
-                  "path": "artifacts/ruff.sarif",
-                  "source_id": "ruff-sarif"
-                }
-              ]
-            },
-            "github": {
-              "labels": []
-            },
-            "state": {
-              "path": ".zeroone-ops-state.json"
-            }
-          }
-          EOF
 
       - name: Emit MyPy SARIF artifact for tests
         run: |

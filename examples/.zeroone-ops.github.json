@@ -9,8 +9,7 @@
     "max_prior_review_passes": 2,
     "inline_comments_enabled": false,
     "supported_paths": ["src/", "app/"],
-    "ignored_paths": ["src/generated/"],
-    "skip_draft_merge_requests": true
+    "ignored_paths": ["src/generated/"]
   },
   "remediation": {
     "target_branch": "main",
@@ -35,8 +34,7 @@
     ]
   },
   "github": {
-    "labels": ["zeroone-ops", "zeroone-remediation"],
-    "_comment_pull_request_assignee_username": "Optional: add your GitHub username here to assign remediation pull requests."
+    "labels": ["zeroone-ops", "zeroone-remediation"]
   },
   "state": {
     "path": ".zeroone-ops-state.json"

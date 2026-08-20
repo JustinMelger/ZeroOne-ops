@@ -12,24 +12,11 @@
   },
   "review": {
     "max_changed_files": 5,
-    "enable_function_context": true,
-    "max_function_context_lines": 200,
-    "enable_helper_following": true,
-    "log_helper_following": false,
-    "helper_follow_depth": 1,
-    "max_followed_helpers_per_function": 3,
-    "max_followed_helper_lines": 120,
-    "max_followed_helper_lines_per_review": 240,
     "max_findings_per_review": 3,
     "max_prior_review_passes": 2,
-    "max_context_lines_before": 30,
-    "max_context_lines_after": 30,
     "inline_comments_enabled": false,
-    "_comment_supported_paths": "Optional allowlist. If omitted or empty, review considers all non-ignored changed paths.",
     "supported_paths": ["src/", "app/"],
-    "ignored_paths": ["src/generated/"],
-    "skip_draft_merge_requests": true,
-    "max_review_feedback_retries": 1
+    "ignored_paths": ["src/generated/"]
   },
   "remediation": {
     "target_branch": "main",
@@ -46,15 +33,12 @@
     "max_retry_count": 1,
     "validation_feedback_enabled": false,
     "analysis": {
-      "context_lines_before": 40,
-      "context_lines_after": 40,
       "max_file_bytes": 200000
     }
   },
   "gitlab": {
     "control_plane_mode": "issues",
-    "labels": ["zeroone-ops", "sonarqube"],
-    "_comment_merge_request_assignee_username": "Optional: add your GitLab username here to assign remediation merge requests."
+    "labels": ["zeroone-ops", "sonarqube"]
   },
   "state": {
     "path": ".zeroone-ops-state.json"
