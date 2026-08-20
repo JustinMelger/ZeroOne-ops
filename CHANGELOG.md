@@ -5,6 +5,25 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.56.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.55.0...zeroone-ops-v0.56.0) (2026-08-20)
+
+
+### Features
+
+* **intake:** log normalized findings by source ([#380](https://github.com/JustinMelger/ZeroOne-ops/issues/380)) ([8f78e72](https://github.com/JustinMelger/ZeroOne-ops/commit/8f78e7213b710b9a83480e1b7b3d5851c7410b57))
+* **intake:** support SARIF severity mapping ([#372](https://github.com/JustinMelger/ZeroOne-ops/issues/372)) ([b56b753](https://github.com/JustinMelger/ZeroOne-ops/commit/b56b7536298e96037194ce7ee83606aaa9272004))
+
+
+### Bug Fixes
+
+* **remediation:** clarify dirty workspace failures ([#375](https://github.com/JustinMelger/ZeroOne-ops/issues/375)) ([acea61e](https://github.com/JustinMelger/ZeroOne-ops/commit/acea61eb70e01fb2ccc600fb2014b7ea2203ccba))
+
+
+### Documentation
+
+* clarify current design contracts ([#378](https://github.com/JustinMelger/ZeroOne-ops/issues/378)) ([96f4486](https://github.com/JustinMelger/ZeroOne-ops/commit/96f44861a1f5248204d4bfd74b11bb5ff61a8d9c))
+* update roadmap prioririties ([#376](https://github.com/JustinMelger/ZeroOne-ops/issues/376)) ([8ec66f0](https://github.com/JustinMelger/ZeroOne-ops/commit/8ec66f0c33bea55d90380cff56b1fd134b103038))
+
 ## [0.55.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.54.1...zeroone-ops-v0.55.0) (2026-08-17)
 
 
