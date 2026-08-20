@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from pathlib import Path, PurePosixPath
 from typing import Literal, cast
 from urllib.parse import unquote
@@ -23,6 +24,7 @@ from zeroone_ops.utils.finding_identity import (
 
 JsonDict = dict[str, object]
 _SARIF_FALLBACK_IDENTITY_CATEGORY = "lint_fix"
+LOGGER = logging.getLogger(__name__)
 
 
 class SarifFindingSource:
@@ -48,6 +50,7 @@ class SarifFindingSource:
         skipped_count = 0
         artifact_source_ids: set[str] = set()
         source_completeness: dict[str, bool] = {}
+        reported_tool_source_ids: set[str] = set()
         fallback_source_id = declared_source_id or _artifact_fallback_source_id(artifact_path)
         runs = payload.get("runs", [])
         empty_runs = isinstance(runs, list) and not runs
@@ -60,6 +63,8 @@ class SarifFindingSource:
                 if not isinstance(run, dict):
                     warnings.append("Skipped SARIF run with unexpected non-object shape.")
                     skipped_count += 1
+                    if declared_source_id is not None:
+                        source_completeness[declared_source_id] = False
                     continue
                 (
                     findings_for_run,
@@ -70,22 +75,28 @@ class SarifFindingSource:
                 ) = _collect_run_findings(
                     run,
                     repo_root=self.repo_root,
+                    canonical_source_id=declared_source_id,
                     severity_mapping=severity_mapping,
                 )
                 warnings.extend(warnings_for_run)
                 skipped_count += skipped_for_run
-                if declared_source_id is not None and source_id != declared_source_id:
-                    skipped_count += max(1, len(findings_for_run))
-                    warnings.append(
-                        "Skipped SARIF run because its tool source "
-                        f"{source_id!r} does not match declared source "
-                        f"{declared_source_id!r}."
+                if (
+                    declared_source_id is not None
+                    and source_id != declared_source_id
+                    and source_id not in reported_tool_source_ids
+                ):
+                    LOGGER.info(
+                        "mapped SARIF tool source=%s to configured source=%s artifact=%s",
+                        source_id,
+                        declared_source_id,
+                        artifact_path,
                     )
-                    continue
+                    reported_tool_source_ids.add(source_id)
+                canonical_source_id = declared_source_id or source_id
                 findings.extend(findings_for_run)
-                artifact_source_ids.add(source_id)
-                source_completeness[source_id] = (
-                    source_completeness.get(source_id, True) and is_complete
+                artifact_source_ids.add(canonical_source_id)
+                source_completeness[canonical_source_id] = (
+                    source_completeness.get(canonical_source_id, True) and is_complete
                 )
 
         return FindingCollectionResult(
@@ -117,6 +128,7 @@ def _collect_run_findings(
     run: JsonDict,
     *,
     repo_root: Path,
+    canonical_source_id: str | None,
     severity_mapping: SarifSeverityMapping | None,
 ) -> tuple[list[NormalizedFinding], list[str], int, str, bool]:
     """Normalize one SARIF run into findings plus bounded warnings."""
@@ -141,7 +153,8 @@ def _collect_run_findings(
             result=result,
             rule_index=rule_index,
             tool_name=tool_name,
-            source_id=source_id,
+            source_id=canonical_source_id or source_id,
+            tool_source_id=source_id,
             repo_root=repo_root,
             severity_mapping=severity_mapping,
         )
@@ -162,6 +175,7 @@ def _normalize_result(
     rule_index: dict[str, JsonDict],
     tool_name: str | None,
     source_id: str,
+    tool_source_id: str,
     repo_root: Path,
     severity_mapping: SarifSeverityMapping | None,
 ) -> NormalizedFinding | None:
@@ -211,6 +225,7 @@ def _normalize_result(
             source_url=_string_or_none(rule.get("helpUri")),
             attributes={
                 "tool": tool_name,
+                "tool_source_id": tool_source_id,
                 "rule_id": rule_id,
                 "level": level,
                 "rule_name": _string_or_none(rule.get("name")),
