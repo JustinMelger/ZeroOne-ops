@@ -67,6 +67,8 @@ history, not here.
 - resilient multi-source SARIF intake: unavailable artifacts produce bounded
   diagnostics without blocking available sources or claiming stale
   reconciliation ownership
+- configured SARIF artifact source IDs are canonical durable namespaces, while
+  scanner-reported tool identities remain provenance
 - operator-focused GitHub and GitLab work-item UX: location-disambiguated
   titles, concrete change-request summaries, durable bot-dismissal evidence,
   and intent-aware `fix` or `chore` change requests
@@ -81,6 +83,10 @@ history, not here.
 
 ### Operational Readiness
 
+- [ ] design runtime-workspace ownership for remediation: configured generated
+  SARIF artifacts and ZeroOne state must not require `.gitignore` entries to
+  permit a clean remediation branch, while real tracked or untracked operator
+  changes remain protected by the dirty-workspace guard
 - [ ] design workflow-scoped preflight checks for repository config, required
   provider settings, reachable integrations, validation tools, and expected
   SARIF artifacts; keep them explicit, bounded, and free of remediation or

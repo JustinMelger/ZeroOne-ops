@@ -1,5 +1,6 @@
 """Safety contracts for copyable CI workflow templates."""
 
+import re
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -14,8 +15,13 @@ def test_operational_templates_pin_zeroone_image_versions() -> None:
     for template_path in template_paths:
         template = (REPOSITORY_ROOT / template_path).read_text(encoding="utf-8")
 
-        assert "zeroone-ops:latest" not in template
-        assert "zeroone-ops:0.54.0" in template
+        image_references = re.findall(r"zeroone-ops:([^\s\"']+)", template)
+
+        assert image_references
+        assert all(
+            re.fullmatch(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?", reference)
+            for reference in image_references
+        )
 
 
 def test_github_operations_uses_trusted_default_branch_checkout() -> None:

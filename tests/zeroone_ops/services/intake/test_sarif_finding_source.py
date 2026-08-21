@@ -1,4 +1,7 @@
+import logging
 from pathlib import Path
+
+from pytest import LogCaptureFixture
 
 from zeroone_ops.services.intake.sarif_finding_source import (
     SarifFindingSource,
@@ -1034,6 +1037,15 @@ def test_collect_artifact_findings_keeps_all_run_source_ids_for_mixed_tool_artif
     assert result.metadata.source_id == "sarif"
     assert result.metadata.managed_source_ids == ["codeql-sarif", "ruff-sarif"]
 
+    configured_result = SarifFindingSource().collect_artifact_findings(
+        artifact,
+        declared_source_id="security-sarif",
+    )
+
+    assert configured_result.metadata.source_id == "security-sarif"
+    assert configured_result.metadata.managed_source_ids == ["security-sarif"]
+    assert {finding.source_id for finding in configured_result.findings} == {"security-sarif"}
+
 
 def test_collect_artifact_findings_keeps_fallback_managed_source_for_empty_artifact(
     tmp_path: Path,
@@ -1074,8 +1086,9 @@ def test_collect_artifact_findings_uses_declared_source_for_empty_artifact(
     assert result.metadata.managed_source_ids == ["ruff-sarif"]
 
 
-def test_collect_artifact_findings_rejects_mismatched_declared_tool_source(
+def test_collect_artifact_findings_uses_declared_source_for_semgrep_tool(
     tmp_path: Path,
+    caplog: LogCaptureFixture,
 ) -> None:
     artifact = tmp_path / "quality-report.sarif"
     artifact.write_text(
@@ -1084,28 +1097,46 @@ def test_collect_artifact_findings_rejects_mismatched_declared_tool_source(
           "version": "2.1.0",
           "runs": [
             {
-              "tool": {"driver": {"name": "Ruff"}},
-              "results": []
+              "tool": {"driver": {"name": "Semgrep OSS"}},
+              "results": [
+                {
+                  "ruleId": "no-direct-request",
+                  "level": "warning",
+                  "message": {"text": "Avoid direct requests."},
+                  "locations": [
+                    {
+                      "physicalLocation": {
+                        "artifactLocation": {"uri": "src/module.py"},
+                        "region": {"startLine": 8}
+                      }
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
         """.strip(),
         encoding="utf-8",
     )
+    caplog.set_level(logging.INFO, logger="zeroone_ops.services.intake.sarif_finding_source")
 
     result = SarifFindingSource().collect_artifact_findings(
         artifact,
-        declared_source_id="codeql-sarif",
+        declared_source_id="semgrep-sarif",
     )
 
-    assert result.findings == []
-    assert result.metadata.source_id == "codeql-sarif"
-    assert result.metadata.managed_source_ids == []
-    assert result.metadata.statistics == {"collected": 0, "skipped": 1}
-    assert result.metadata.warnings == [
-        "Skipped SARIF run because its tool source 'ruff-sarif' does not match "
-        "declared source 'codeql-sarif'."
-    ]
+    assert result.metadata.source_id == "semgrep-sarif"
+    assert result.metadata.managed_source_ids == ["semgrep-sarif"]
+    assert result.metadata.statistics == {"collected": 1, "skipped": 0}
+    assert result.findings[0].source_id == "semgrep-sarif"
+    assert result.findings[0].source_metadata is not None
+    assert result.findings[0].source_metadata.attributes["tool"] == "Semgrep OSS"
+    assert result.findings[0].source_metadata.attributes["tool_source_id"] == "semgrep-oss-sarif"
+    assert (
+        "mapped SARIF tool source=semgrep-oss-sarif to configured source=semgrep-sarif artifact="
+        in caplog.text
+    )
 
 
 def test_collect_artifact_findings_does_not_manage_partially_collected_tool_source(
@@ -1155,3 +1186,23 @@ def test_collect_artifact_findings_does_not_manage_partially_collected_tool_sour
     assert len(result.findings) == 1
     assert result.metadata.managed_source_ids == []
     assert result.metadata.statistics == {"collected": 1, "skipped": 1}
+
+
+def test_collect_artifact_findings_does_not_manage_partial_declared_source(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "semgrep.sarif"
+    artifact.write_text(
+        '{"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "Semgrep OSS"}}, '
+        '"results": []}, "invalid-run"]}',
+        encoding="utf-8",
+    )
+
+    result = SarifFindingSource().collect_artifact_findings(
+        artifact,
+        declared_source_id="semgrep-sarif",
+    )
+
+    assert result.metadata.source_id == "semgrep-sarif"
+    assert result.metadata.managed_source_ids == []
+    assert result.metadata.statistics == {"collected": 0, "skipped": 1}

@@ -163,6 +163,13 @@ priority while retaining the raw SARIF level as source evidence:
 }
 ```
 
+`source_id` is an operator-owned, stable source namespace. It is used for
+finding identity and reconciliation even when a scanner reports a different
+tool name. For example, a Semgrep report with driver name `Semgrep OSS` can use
+the stable configured ID `semgrep-sarif`; the reported tool identity remains
+available as source metadata. Changing an existing `source_id` creates a new
+source namespace and does not migrate existing work items.
+
 Exit code `1` means Mypy found type errors and still produces an authoritative
 artifact; an exit code above `1` means the analysis did not complete and should
 fail the pipeline. Artifact mappings support `error`, `warning`, `note`,
