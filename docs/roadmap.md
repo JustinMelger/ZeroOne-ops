@@ -59,6 +59,10 @@ history, not here.
 - bounded dirty-workspace remediation diagnostics: preserve the safe
   pre-branch guard while showing tracked or untracked paths and clear cleanup
   guidance in provider work-item evidence
+- validation-setup failure guidance in GitHub and GitLab work items: preserve
+  the failed command, exit code, and workflow-log link while directing
+  operators to likely toolchain, lockfile, registry, or authentication causes
+  without persisting command output
 - live-validated fresh-attempt recovery branch identity on GitHub and GitLab
 - resilient multi-source SARIF intake: unavailable artifacts produce bounded
   diagnostics without blocking available sources or claiming stale
@@ -77,10 +81,6 @@ history, not here.
 
 ### Operational Readiness
 
-- [ ] improve validation-setup failure evidence: render a bounded, sanitized
-  command-output excerpt and workflow-log link on blocked work items so
-  operators can diagnose package-registry or tool-authentication failures
-  without exposing tokens, authorization headers, or credential-bearing URLs
 - [ ] design workflow-scoped preflight checks for repository config, required
   provider settings, reachable integrations, validation tools, and expected
   SARIF artifacts; keep them explicit, bounded, and free of remediation or
