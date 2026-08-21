@@ -4,7 +4,12 @@ from typing import cast
 
 import pytest
 
-from zeroone_ops.models.analysis import CodeContextSnippet, IssueContext
+from zeroone_ops.models.analysis import (
+    CodeContextSnippet,
+    IssueContext,
+    ValidationComparison,
+    ValidationResult,
+)
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import (
     AnalysisConfig,
@@ -453,6 +458,45 @@ def test_runner_projects_change_request_link_after_injected_execution(
     assert control_plane.blocked == []
     assert control_plane.dismissed == []
     assert control_plane.linked_change_requests == ["github-work-1"]
+
+
+def test_runner_exposes_successful_validation_feedback_outcome(
+    tmp_path: Path,
+    context: IssueContext,
+) -> None:
+    """Successful validation-feedback results remain available for workflow tracing."""
+    del context
+    run_state_service = _run_state_service(tmp_path)
+    runner = _runner(
+        tmp_path=tmp_path,
+        run_state_service=run_state_service,
+        work_item_service=FakeGitHubWorkItemService(_work_item()),
+        execution_service=StubExecutionService(
+            _execution_result(
+                analysis_result=AnalysisResult(
+                    summary="Analysis completed.",
+                    validation_comparison=ValidationComparison(
+                        outcome="baseline_preserved",
+                        baseline=ValidationResult(passed=False, summary="baseline failed"),
+                        post_edit=ValidationResult(passed=False, summary="baseline preserved"),
+                        baseline_failure_count=1,
+                    ),
+                ),
+                change_request_url="https://github.example.com/octo-org/octo-repo/pull/9",
+                change_request_action="created",
+                published_change_request=ChangeRequestInfo(
+                    iid=9,
+                    web_url="https://github.example.com/octo-org/octo-repo/pull/9",
+                    title="fix: remediation",
+                ),
+            )
+        ),
+        control_plane=StubControlPlane(),
+    )
+
+    summary = runner.run(record=run_state_service.start_run("run-1"), active_dry_run=False)
+
+    assert summary.validation_outcome == "baseline_preserved"
 
 
 def test_runner_blocks_published_change_request_without_provider_identity(

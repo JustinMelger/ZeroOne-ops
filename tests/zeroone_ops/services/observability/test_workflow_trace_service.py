@@ -63,6 +63,7 @@ def test_workflow_trace_records_initial_and_final_tags(monkeypatch, tmp_path) ->
                 state_path=tmp_path / "state.json",
                 work_item_id="work-1",
                 change_request_url="https://github.example.com/pull/1",
+                validation_outcome="baseline_preserved",
             )
         )
 
@@ -81,6 +82,7 @@ def test_workflow_trace_records_initial_and_final_tags(monkeypatch, tmp_path) ->
             "zeroone.outcome": "change_request_created",
             "zeroone.work_item_id": "work-1",
             "zeroone.change_request_url": "https://github.example.com/pull/1",
+            "zeroone.validation_outcome": "baseline_preserved",
         },
     ]
 

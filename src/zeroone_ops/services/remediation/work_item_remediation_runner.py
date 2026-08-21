@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
+from zeroone_ops.models.analysis import ValidationOutcome
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
@@ -23,7 +24,7 @@ from zeroone_ops.services.remediation.control_plane import (
     RemediationControlPlane,
     build_remediation_control_plane,
 )
-from zeroone_ops.services.remediation.execution_service import ExecutionService
+from zeroone_ops.services.remediation.execution_service import ExecutionResult, ExecutionService
 from zeroone_ops.services.remediation.publication_request_builder import (
     RemediationPublicationRequestBuilder,
 )
@@ -151,6 +152,7 @@ class WorkItemRemediationRunner:
             dry_run=active_dry_run,
             attempt_number=claimed_work_item.attempt_number,
         )
+        validation_outcome = _validation_outcome(execution_result)
         if execution_result.failure is not None:
             self._mark_blocked_best_effort(
                 selected_target=selected_target,
@@ -185,6 +187,7 @@ class WorkItemRemediationRunner:
                 message=execution_result.status_message,
                 branch_name=execution_result.branch_name,
                 commit_sha=execution_result.commit_sha,
+                validation_outcome=validation_outcome,
             )
 
         if execution_result.change_request_url is not None:
@@ -225,6 +228,7 @@ class WorkItemRemediationRunner:
                 commit_sha=execution_result.commit_sha,
                 change_request_url=execution_result.change_request_url,
                 change_request_action=execution_result.change_request_action,
+                validation_outcome=validation_outcome,
             )
 
         self._mark_completed_best_effort(
@@ -239,6 +243,7 @@ class WorkItemRemediationRunner:
             message=execution_result.status_message,
             branch_name=execution_result.branch_name,
             commit_sha=execution_result.commit_sha,
+            validation_outcome=validation_outcome,
         )
 
     def _mark_blocked_best_effort(
@@ -460,3 +465,9 @@ def _failure_summary_message(failure: FailureDetails) -> str:
     if len(excerpt) > _FAILURE_OUTPUT_LIMIT:
         excerpt = f"{excerpt[:_FAILURE_OUTPUT_LIMIT]}\n... output truncated"
     return f"{failure.message}\n\nFailed command output:\n{excerpt}"
+
+
+def _validation_outcome(execution_result: ExecutionResult) -> ValidationOutcome | None:
+    """Return the compact comparison outcome when feedback validation ran."""
+    comparison = execution_result.analysis_result.validation_comparison
+    return None if comparison is None else comparison.outcome

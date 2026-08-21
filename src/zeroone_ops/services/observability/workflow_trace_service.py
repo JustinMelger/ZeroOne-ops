@@ -35,9 +35,10 @@ class WorkflowTraceContext:
 class WorkflowTraceScope:
     """Attach final workflow outcome metadata before the root trace closes."""
 
-    def __init__(self, *, enabled: bool) -> None:
+    def __init__(self, *, enabled: bool, trace_id: str | None = None) -> None:
         """Initialize a scope that is either active or a no-op."""
         self.enabled = enabled
+        self.trace_id = trace_id
 
     def complete(self, *, summary: RunSummary, failure: FailureDetails | None = None) -> None:
         """Attach compact final outcome metadata to the active workflow trace."""
@@ -50,14 +51,20 @@ class WorkflowTraceScope:
             tags["zeroone.work_item_id"] = summary.work_item_id
         if summary.change_request_url:
             tags["zeroone.change_request_url"] = summary.change_request_url
-        if failure is not None and failure.validation_outcome is not None:
-            tags["zeroone.validation_outcome"] = failure.validation_outcome
+        validation_outcome = summary.validation_outcome
+        if validation_outcome is None and failure is not None:
+            validation_outcome = failure.validation_outcome
+        if validation_outcome is not None:
+            tags["zeroone.validation_outcome"] = validation_outcome
         try:
             mlflow.update_current_trace(tags=tags)
         except Exception:
             LOGGER.warning("MLflow workflow trace completion failed", exc_info=True)
             return
-        LOGGER.info("MLflow workflow trace completed", extra={"zeroone_run_id": summary.run_id})
+        LOGGER.info(
+            "MLflow workflow trace completed",
+            extra={"zeroone_run_id": summary.run_id, "mlflow_trace_id": self.trace_id},
+        )
 
 
 class WorkflowTraceService:
@@ -88,17 +95,21 @@ class WorkflowTraceService:
 
         workflow_failed = False
         try:
-            with span_context:
+            with span_context as span:
                 try:
                     mlflow.update_current_trace(tags=tags)
                 except Exception:
                     LOGGER.warning("MLflow workflow trace initialization failed", exc_info=True)
                 LOGGER.info(
                     "MLflow workflow trace started",
-                    extra={"zeroone_run_id": context.run_id, "zeroone_workflow": context.workflow},
+                    extra={
+                        "zeroone_run_id": context.run_id,
+                        "zeroone_workflow": context.workflow,
+                        "mlflow_trace_id": _trace_id(span),
+                    },
                 )
                 try:
-                    yield WorkflowTraceScope(enabled=True)
+                    yield WorkflowTraceScope(enabled=True, trace_id=_trace_id(span))
                 except BaseException:
                     workflow_failed = True
                     raise
@@ -142,3 +153,9 @@ def _initial_tags(context: WorkflowTraceContext) -> dict[str, str]:
     if context.change_request_number is not None:
         tags["zeroone.change_request_number"] = str(context.change_request_number)
     return tags
+
+
+def _trace_id(span: object) -> str | None:
+    """Return a trace identifier when the active MLflow span exposes one."""
+    trace_id = getattr(span, "trace_id", None)
+    return trace_id if isinstance(trace_id, str) else None
