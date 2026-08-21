@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from zeroone_ops.settings import load_openai_connection_config
+from zeroone_ops.settings import load_mlflow_tracing_config, load_openai_connection_config
 
 
 def test_load_openai_connection_config_from_dotenv(tmp_path: Path, monkeypatch) -> None:
@@ -44,3 +44,20 @@ def test_load_openai_connection_config_with_mlflow_env(tmp_path: Path, monkeypat
     assert config.mlflow_tracking_uri == "http://localhost:5000"
     assert config.mlflow_experiment_name == "zeroone-ops-review"
     assert config.mlflow_experiment_id == "123"
+
+
+def test_load_mlflow_tracing_config_does_not_require_openai_credentials(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Workflow tracing can start before a workflow constructs an OpenAI client."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.setenv("ZEROONE_MLFLOW_ENABLED", "true")
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://mlflow.example.com")
+
+    config = load_mlflow_tracing_config()
+
+    assert config.enabled is True
+    assert config.tracking_uri == "http://mlflow.example.com"

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from zeroone_ops.models.analysis import ValidationOutcome
 from zeroone_ops.models.state import RunStatus
 
 
@@ -22,6 +23,7 @@ class RunSummary:
     branch_name: str | None = None
     commit_sha: str | None = None
     change_request_url: str | None = None
+    validation_outcome: ValidationOutcome | None = None
 
 
 class RunSummaryBuilder:
@@ -45,6 +47,7 @@ class RunSummaryBuilder:
         commit_sha: str | None = None,
         change_request_url: str | None = None,
         change_request_action: str | None = None,
+        validation_outcome: ValidationOutcome | None = None,
     ) -> RunSummary:
         """Build one CLI-facing run summary."""
         summary = f"[{self.execution_mode}] {message}"
@@ -64,4 +67,5 @@ class RunSummaryBuilder:
             branch_name=branch_name,
             commit_sha=commit_sha,
             change_request_url=change_request_url,
+            validation_outcome=validation_outcome,
         )
