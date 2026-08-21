@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import replace
 from pathlib import Path
 from typing import Protocol
@@ -34,6 +35,13 @@ from zeroone_ops.services.dashboard.dashboard_remediation_runner import (
     DashboardRemediationRunner,
 )
 from zeroone_ops.services.dashboard.dashboard_service import DashboardService
+from zeroone_ops.services.observability.workflow_trace_service import (
+    WorkflowTraceContext,
+    WorkflowTraceScope,
+    WorkflowTraceService,
+    workflow_execution_url,
+    workflow_model,
+)
 from zeroone_ops.services.remediation.github_remediation_runner import (
     GitHubRemediationRunner,
 )
@@ -45,6 +53,7 @@ from zeroone_ops.services.workflows.operational_summary import (
     format_operational_summary_publication,
 )
 from zeroone_ops.services.workflows.workflow_run_context import WorkflowRunContext
+from zeroone_ops.settings import load_mlflow_tracing_config
 
 
 class WorkflowRunContextBuilder(Protocol):
@@ -144,27 +153,29 @@ class RemediationWorkflow:
         record = context.run_state_service.start_run(context.run_id)
         github_config = self.load_github_config()
         work_item_service = GitHubWorkItemService(GitHubWorkItemClient(github_config))
-        summary = GitHubRemediationRunner(
+        runner = GitHubRemediationRunner(
             repo_root=context.repo_root,
             config=self.config,
             repository_id=github_config.repository,
             work_item_service=work_item_service,
             run_state_service=context.run_state_service,
-        ).run(
-            record=record,
-            active_dry_run=context.active_dry_run,
         )
-        if context.active_dry_run or summary.status == RunStatus.NO_ISSUE:
+        if context.active_dry_run:
+            return runner.run(record=record, active_dry_run=True)
+        with self._remediation_trace(context=context, repository=github_config.repository) as trace:
+            summary = runner.run(record=record, active_dry_run=False)
+            if summary.status != RunStatus.NO_ISSUE:
+                publication = self.publish_github_summary(
+                    github_config=github_config,
+                    work_item_service=work_item_service,
+                    latest_finding_sync=None,
+                )
+                summary = replace(
+                    summary,
+                    message=summary.message + format_operational_summary_publication(publication),
+                )
+            trace.complete(summary=summary, failure=record.failure)
             return summary
-        publication = self.publish_github_summary(
-            github_config=github_config,
-            work_item_service=work_item_service,
-            latest_finding_sync=None,
-        )
-        return replace(
-            summary,
-            message=summary.message + format_operational_summary_publication(publication),
-        )
 
     def _run_gitlab_issue_remediation(self) -> RunSummary:
         """Run one GitLab issue-mode remediation and optionally refresh its summary."""
@@ -172,38 +183,36 @@ class RemediationWorkflow:
         record = context.run_state_service.start_run(context.run_id)
         gitlab_config = self.load_gitlab_config()
         work_item_service = GitLabWorkItemService(GitLabWorkItemClient(gitlab_config))
-        summary = GitLabRemediationRunner(
+        runner = GitLabRemediationRunner(
             repo_root=context.repo_root,
             config=self.config,
             project_id=gitlab_config.project_id,
             work_item_service=work_item_service,
             run_state_service=context.run_state_service,
-        ).run(
-            record=record,
-            active_dry_run=context.active_dry_run,
         )
-        if (
-            context.active_dry_run
-            or summary.status == RunStatus.NO_ISSUE
-            or not self.publish_operational_summary
-        ):
+        if context.active_dry_run:
+            return runner.run(record=record, active_dry_run=True)
+        with self._remediation_trace(context=context, repository=gitlab_config.project_id) as trace:
+            summary = runner.run(record=record, active_dry_run=False)
+            if summary.status != RunStatus.NO_ISSUE and self.publish_operational_summary:
+                publication = self.publish_gitlab_summary(
+                    gitlab_config=gitlab_config,
+                    work_item_service=work_item_service,
+                    latest_finding_sync=None,
+                )
+                summary = replace(
+                    summary,
+                    message=summary.message + format_operational_summary_publication(publication),
+                )
+            trace.complete(summary=summary, failure=record.failure)
             return summary
-        publication = self.publish_gitlab_summary(
-            gitlab_config=gitlab_config,
-            work_item_service=work_item_service,
-            latest_finding_sync=None,
-        )
-        return replace(
-            summary,
-            message=summary.message + format_operational_summary_publication(publication),
-        )
 
     def _run_legacy_gitlab_dashboard_remediation(self) -> RunSummary:
         """Run the visible legacy GitLab dashboard remediation path."""
         context = self._build_context()
         record = context.run_state_service.start_run(context.run_id)
         gitlab_config = self.load_gitlab_config()
-        return DashboardRemediationRunner(
+        runner = DashboardRemediationRunner(
             repo_root=context.repo_root,
             config=self.config,
             dashboard_service=DashboardService(
@@ -215,12 +224,53 @@ class RemediationWorkflow:
                 ),
             ),
             run_state_service=context.run_state_service,
-        ).run(
-            project_id=gitlab_config.project_id,
-            state=context.state,
-            record=record,
-            run_id=context.run_id,
-            active_dry_run=context.active_dry_run,
+        )
+        if context.active_dry_run:
+            return runner.run(
+                project_id=gitlab_config.project_id,
+                state=context.state,
+                record=record,
+                run_id=context.run_id,
+                active_dry_run=True,
+            )
+        with WorkflowTraceService(load_mlflow_tracing_config()).trace(
+            WorkflowTraceContext(
+                workflow="remediation",
+                run_id=context.run_id,
+                platform=self.config.platform,
+                repository=gitlab_config.project_id,
+                execution_mode=self.config.execution_mode,
+                model=workflow_model(),
+                workflow_url=workflow_execution_url(),
+            )
+        ) as trace:
+            summary = runner.run(
+                project_id=gitlab_config.project_id,
+                state=context.state,
+                record=record,
+                run_id=context.run_id,
+                active_dry_run=False,
+            )
+            trace.complete(summary=summary, failure=record.failure)
+            return summary
+
+    def _remediation_trace(
+        self,
+        *,
+        context: WorkflowRunContext,
+        repository: str,
+    ) -> AbstractContextManager[WorkflowTraceScope]:
+        """Build the optional root trace for one live remediation execution."""
+        return WorkflowTraceService(load_mlflow_tracing_config()).trace(
+            WorkflowTraceContext(
+                workflow="remediation",
+                run_id=context.run_id,
+                platform=self.config.platform,
+                repository=repository,
+                execution_mode=self.config.execution_mode,
+                model=workflow_model(),
+                workflow_url=workflow_execution_url(),
+            )
         )
 
     def _build_context(self) -> WorkflowRunContext:

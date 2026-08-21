@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 
+from zeroone_ops.models.analysis import ValidationOutcome
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.state import (
     AppState,
@@ -274,6 +275,7 @@ class RunStateService:
         change_request_url: str | None = None,
         change_request_action: str | None = None,
         failure: FailureDetails | None = None,
+        validation_outcome: ValidationOutcome | None = None,
     ) -> RunSummary:
         """Persist one provider-neutral work-item run and return its summary."""
         record.work_item_id = work_item_id
@@ -294,6 +296,7 @@ class RunStateService:
             commit_sha=commit_sha,
             change_request_url=change_request_url,
             change_request_action=change_request_action,
+            validation_outcome=validation_outcome,
         )
 
     def build_summary(

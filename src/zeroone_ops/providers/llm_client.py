@@ -8,14 +8,8 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import Callable
 from pathlib import Path
-from typing import cast
 
-import mlflow
-import mlflow.openai as mlflow_openai
-import mlflow.tracing as mlflow_tracing
-from mlflow.entities.trace_location import MlflowExperimentLocation
 from openai import OpenAI
 
 from zeroone_ops.models.analysis import (
@@ -49,10 +43,10 @@ from zeroone_ops.providers.llm_prompts import (
     build_review_precision_prompt,
     build_structured_edit_prompt,
 )
+from zeroone_ops.services.observability.mlflow_tracing import configure_mlflow_tracing
 from zeroone_ops.utils.solution_artifacts import write_solution_artifact
 
 LOGGER = logging.getLogger(__name__)
-_MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED = False
 _ANALYSIS_SYSTEM_PROMPT = "You analyze remediation items and return strictly structured JSON."
 _STRUCTURED_EDIT_SYSTEM_PROMPT = (
     "You propose exact file edits for remediation items and return strictly structured JSON."
@@ -153,7 +147,7 @@ class OpenAILLMClient(LLMClient):
         """
         self.config = config
         self.solution_output_path = solution_output_path
-        _configure_mlflow_openai_autologging(config)
+        configure_mlflow_tracing(config.mlflow_tracing)
         self.client = OpenAI(api_key=config.api_key, base_url=config.base_url)
 
     def analyze_issue(
@@ -355,42 +349,6 @@ class OpenAILLMClient(LLMClient):
         if response.output_parsed is None:
             raise LLMClientError("OpenAI review precision did not return parsed output.")
         return response.output_parsed
-
-
-def _configure_mlflow_openai_autologging(config: OpenAIConnectionConfig) -> None:
-    """Enable optional MLflow OpenAI autologging without affecting normal runs."""
-    global _MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED
-
-    if not config.mlflow_enabled or _MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED:
-        return
-
-    try:
-        if config.mlflow_tracking_uri:
-            mlflow.set_tracking_uri(config.mlflow_tracking_uri)
-        if config.mlflow_experiment_name:
-            mlflow.set_experiment(config.mlflow_experiment_name)
-        if config.mlflow_experiment_id:
-            mlflow_tracing.set_destination(
-                MlflowExperimentLocation(experiment_id=config.mlflow_experiment_id)
-            )
-        autolog = cast(Callable[..., None], mlflow_openai.autolog)
-        autolog(silent=True, log_traces=True)
-    except Exception:
-        LOGGER.warning(
-            "MLflow OpenAI autologging setup failed; continuing without tracing.",
-            exc_info=True,
-        )
-        return
-
-    _MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED = True
-    LOGGER.info(
-        "MLflow OpenAI autologging enabled",
-        extra={
-            "mlflow_tracking_uri": config.mlflow_tracking_uri,
-            "mlflow_experiment_name": config.mlflow_experiment_name,
-            "mlflow_experiment_id": config.mlflow_experiment_id,
-        },
-    )
 
 
 class FixtureLLMClient(LLMClient):

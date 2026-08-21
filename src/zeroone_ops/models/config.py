@@ -143,6 +143,15 @@ class SonarQubeConnectionConfig(BaseModel):
     page_size: int = 100
 
 
+class MLflowTracingConfig(BaseModel):
+    """Configure optional MLflow tracing without requiring LLM credentials."""
+
+    enabled: bool = False
+    tracking_uri: str | None = None
+    experiment_name: str | None = None
+    experiment_id: str | None = None
+
+
 class OpenAIConnectionConfig(BaseModel):
     """Configure OpenAI API connectivity.
 
@@ -163,6 +172,16 @@ class OpenAIConnectionConfig(BaseModel):
     mlflow_tracking_uri: str | None = None
     mlflow_experiment_name: str | None = None
     mlflow_experiment_id: str | None = None
+
+    @property
+    def mlflow_tracing(self) -> MLflowTracingConfig:
+        """Return the MLflow tracing configuration for this LLM connection."""
+        return MLflowTracingConfig(
+            enabled=self.mlflow_enabled,
+            tracking_uri=self.mlflow_tracking_uri,
+            experiment_name=self.mlflow_experiment_name,
+            experiment_id=self.mlflow_experiment_id,
+        )
 
 
 class StateConfig(RepositoryConfigModel):
