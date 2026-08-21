@@ -66,6 +66,19 @@ jobs:
           exit 0
         id: emit_ruff_sarif
 
+      - name: Emit Semgrep SARIF artifact for source code
+        run: |
+          set +e
+          uvx --from semgrep==1.173.0 semgrep scan \
+            --config auto \
+            --sarif \
+            --output artifacts/semgrep.sarif \
+            src
+          result=$?
+          echo "semgrep_exit_code=$result" >> "$GITHUB_OUTPUT"
+          exit 0
+        id: emit_semgrep_sarif
+
       - name: Upload finding SARIF artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -79,3 +92,4 @@ jobs:
         run: |
           echo "MyPy JSON generation completed with exit code ${{ steps.emit_mypy_sarif.outputs.mypy_exit_code }}."
           echo "Ruff SARIF generation completed with exit code ${{ steps.emit_ruff_sarif.outputs.ruff_exit_code }}."
+          echo "Semgrep SARIF generation completed with exit code ${{ steps.emit_semgrep_sarif.outputs.semgrep_exit_code }}."

@@ -52,6 +52,13 @@
       {
         "path": "artifacts/ruff.sarif",
         "source_id": "ruff-sarif"
+      },
+      {
+        "path": "artifacts/semgrep.sarif",
+        "source_id": "semgrep-sarif",
+        "severity_mapping": {
+          "default": "medium"
+        }
       }
     ]
   },
