@@ -1,3 +1,4 @@
+import logging
 import subprocess
 from pathlib import Path
 
@@ -7,7 +8,10 @@ from zeroone_ops.services.shared.branch_manager import (
     BranchManager,
     BranchManagerError,
     _format_dirty_workspace_message,
-    _parse_porcelain_status,
+)
+from zeroone_ops.services.shared.runtime_workspace import (
+    RuntimeWorkspacePolicy,
+    parse_porcelain_status,
 )
 
 
@@ -100,8 +104,77 @@ def test_ensure_ready_ignores_gitignored_generated_files(tmp_path: Path) -> None
     BranchManager(tmp_path).ensure_ready()
 
 
+def test_ensure_ready_allows_only_configured_untracked_runtime_outputs(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    _init_git_repo(tmp_path)
+    caplog.set_level(logging.INFO)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    (tmp_path / ".zeroone-ops-state.json").write_text("{}\n", encoding="utf-8")
+    (artifacts / "ruff.sarif").write_text("{}\n", encoding="utf-8")
+
+    manager = BranchManager(
+        tmp_path,
+        runtime_workspace_policy=RuntimeWorkspacePolicy(
+            frozenset({".zeroone-ops-state.json", "artifacts/ruff.sarif"})
+        ),
+    )
+
+    manager.ensure_ready()
+
+    assert "ignored configured runtime workspace output(s)" in caplog.text
+    assert ".zeroone-ops-state.json" in caplog.text
+    assert "artifacts/ruff.sarif" in caplog.text
+
+
+def test_ensure_ready_rejects_unconfigured_runtime_artifact(tmp_path: Path) -> None:
+    _init_git_repo(tmp_path)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    (artifacts / "semgrep.sarif").write_text("{}\n", encoding="utf-8")
+
+    with pytest.raises(BranchManagerError) as error:
+        BranchManager(
+            tmp_path,
+            runtime_workspace_policy=RuntimeWorkspacePolicy(frozenset({"artifacts/ruff.sarif"})),
+        ).ensure_ready()
+
+    assert "- untracked: artifacts/semgrep.sarif" in str(error.value)
+
+
+def test_ensure_ready_rejects_modified_configured_runtime_output(tmp_path: Path) -> None:
+    _init_git_repo(tmp_path)
+    state_path = tmp_path / ".zeroone-ops-state.json"
+    state_path.write_text("{}\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", state_path.name],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "chore: add state fixture"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    state_path.write_text('{"changed": true}\n', encoding="utf-8")
+
+    with pytest.raises(BranchManagerError) as error:
+        BranchManager(
+            tmp_path,
+            runtime_workspace_policy=RuntimeWorkspacePolicy(frozenset({state_path.name})),
+        ).ensure_ready()
+
+    assert "- modified: .zeroone-ops-state.json" in str(error.value)
+
+
 def test_parse_porcelain_status_categorizes_workspace_changes() -> None:
-    changes = _parse_porcelain_status(
+    changes = parse_porcelain_status(
         " M path with spaces.py\0"
         "M  staged.py\0"
         "?? artifacts/mypy.sarif\0"
@@ -119,7 +192,7 @@ def test_parse_porcelain_status_categorizes_workspace_changes() -> None:
 
 
 def test_dirty_workspace_message_is_bounded_and_markdown_safe() -> None:
-    changes = _parse_porcelain_status("".join(f"?? generated-{index}.txt\0" for index in range(11)))
+    changes = parse_porcelain_status("".join(f"?? generated-{index}.txt\0" for index in range(11)))
 
     message = _format_dirty_workspace_message(changes)
 
@@ -128,7 +201,7 @@ def test_dirty_workspace_message_is_bounded_and_markdown_safe() -> None:
     assert "... and 1 more paths." in message
 
     unsafe_message = _format_dirty_workspace_message(
-        _parse_porcelain_status("?? unsafe_[name]\\path\n.txt\0")
+        parse_porcelain_status("?? unsafe_[name]\\path\n.txt\0")
     )
 
     assert "unsafe\\_\\[name\\]\\\\path\\n.txt" in unsafe_message

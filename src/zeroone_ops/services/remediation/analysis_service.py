@@ -41,6 +41,7 @@ from zeroone_ops.services.remediation.solution_artifact_service import (
     SolutionArtifactService,
 )
 from zeroone_ops.services.remediation.validator import Validator
+from zeroone_ops.services.shared.runtime_workspace import RuntimeWorkspacePolicy
 from zeroone_ops.services.shared.workspace_snapshot import (
     WorkspaceSnapshot,
     WorkspaceSnapshotService,
@@ -77,14 +78,22 @@ class AnalysisService:
     Args:
         repo_root: Repository root path.
         config: Loaded application configuration.
+        runtime_workspace_policy: Shared rule for generated runtime outputs.
     """
 
-    def __init__(self, repo_root: Path, config: AppConfig) -> None:
+    def __init__(
+        self,
+        repo_root: Path,
+        config: AppConfig,
+        *,
+        runtime_workspace_policy: RuntimeWorkspacePolicy | None = None,
+    ) -> None:
         """Initialize the analysis service.
 
         Args:
             repo_root: Repository root path.
             config: Loaded application configuration.
+            runtime_workspace_policy: Shared rule for generated runtime outputs.
         """
         self.repo_root = repo_root
         self.config = config
@@ -93,11 +102,16 @@ class AnalysisService:
         self.patch_applier = PatchApplier(repo_root)
         self.validator = Validator(repo_root)
         self.workspace_snapshot_service = WorkspaceSnapshotService(repo_root)
+        runtime_workspace_policy = runtime_workspace_policy or RuntimeWorkspacePolicy.from_config(
+            config=config,
+            repo_root=repo_root,
+        )
         self.patch_execution_service = PatchExecutionService(
             config=config,
             patch_applier=self.patch_applier,
             validator=self.validator,
             workspace_snapshot_service=self.workspace_snapshot_service,
+            runtime_workspace_policy=runtime_workspace_policy,
         )
 
     def analyze_issue(

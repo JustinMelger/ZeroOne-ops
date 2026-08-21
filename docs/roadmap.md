@@ -83,10 +83,10 @@ history, not here.
 
 ### Operational Readiness
 
-- [ ] design runtime-workspace ownership for remediation: configured generated
-  SARIF artifacts and ZeroOne state must not require `.gitignore` entries to
-  permit a clean remediation branch, while real tracked or untracked operator
-  changes remain protected by the dirty-workspace guard
+- [x] runtime-workspace ownership for remediation: configured generated SARIF
+  artifacts, ZeroOne state, and solution artifacts no longer require
+  `.gitignore` entries for clean remediation branches; real tracked or
+  untracked operator changes remain protected by the shared workspace guard
 - [ ] design workflow-scoped preflight checks for repository config, required
   provider settings, reachable integrations, validation tools, and expected
   SARIF artifacts; keep them explicit, bounded, and free of remediation or

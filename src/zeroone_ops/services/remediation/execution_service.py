@@ -35,6 +35,7 @@ from zeroone_ops.services.shared.branch_manager import (
     BranchManager,
     BranchManagerError,
 )
+from zeroone_ops.services.shared.runtime_workspace import RuntimeWorkspacePolicy
 from zeroone_ops.services.shared.workspace_snapshot import WorkspaceSnapshotService
 from zeroone_ops.utils.git import build_remediation_branch_name
 
@@ -80,9 +81,20 @@ class ExecutionService:
         """
         self.repo_root = repo_root
         self.config = config
-        self.analysis_service = AnalysisService(repo_root=repo_root, config=config)
+        runtime_workspace_policy = RuntimeWorkspacePolicy.from_config(
+            config=config,
+            repo_root=repo_root,
+        )
+        self.analysis_service = AnalysisService(
+            repo_root=repo_root,
+            config=config,
+            runtime_workspace_policy=runtime_workspace_policy,
+        )
         self.approval_service = ApprovalService()
-        self.branch_manager = BranchManager(repo_root)
+        self.branch_manager = BranchManager(
+            repo_root,
+            runtime_workspace_policy=runtime_workspace_policy,
+        )
         self.workspace_snapshot_service = WorkspaceSnapshotService(repo_root)
         self.publish_service = PublishService(
             config=config,

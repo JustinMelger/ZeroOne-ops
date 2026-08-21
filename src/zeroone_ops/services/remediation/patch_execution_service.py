@@ -36,6 +36,11 @@ from zeroone_ops.services.remediation.validation_feedback.validation_feedback_bu
     ValidationFeedbackBuilder,
 )
 from zeroone_ops.services.remediation.validator import Validator
+from zeroone_ops.services.shared.runtime_workspace import (
+    RuntimeWorkspacePolicy,
+    log_ignored_runtime_outputs,
+    parse_porcelain_status,
+)
 from zeroone_ops.services.shared.workspace_snapshot import (
     WorkspaceSnapshot,
     WorkspaceSnapshotService,
@@ -64,6 +69,7 @@ class PatchExecutionService:
         patch_applier: Patch applier implementation.
         validator: Validation command runner.
         workspace_snapshot_service: Workspace snapshot service.
+        runtime_workspace_policy: Shared rule for generated runtime outputs.
     """
 
     def __init__(
@@ -73,12 +79,20 @@ class PatchExecutionService:
         patch_applier: PatchApplier,
         validator: Validator,
         workspace_snapshot_service: WorkspaceSnapshotService,
+        runtime_workspace_policy: RuntimeWorkspacePolicy | None = None,
     ) -> None:
         """Initialize the patch execution service."""
         self.config = config
         self.patch_applier = patch_applier
         self.validator = validator
         self.workspace_snapshot_service = workspace_snapshot_service
+        self.runtime_workspace_policy = (
+            runtime_workspace_policy
+            or RuntimeWorkspacePolicy.from_config(
+                config=config,
+                repo_root=patch_applier.repo_root,
+            )
+        )
 
     def execute(
         self,
@@ -361,7 +375,12 @@ class PatchExecutionService:
                 ),
                 command_result=repository_status,
             )
-        if repository_status.stdout.strip():
+        changes = parse_porcelain_status(repository_status.stdout)
+        blocking_changes, ignored_runtime_outputs = self.runtime_workspace_policy.split_changes(
+            changes
+        )
+        log_ignored_runtime_outputs(ignored_runtime_outputs)
+        if blocking_changes:
             return _build_validation_bootstrap_failure(
                 validation_summary=(
                     "Validation environment setup changed repository files. Setup commands must "
