@@ -9,10 +9,15 @@ from zeroone_ops.services.intake.finding_promotion_capacity_service import (
 )
 
 
-def _finding(*, finding_id: str, severity: str = "high") -> NormalizedFinding:
+def _finding(
+    *,
+    finding_id: str,
+    severity: str = "high",
+    source_id: str = "ruff",
+) -> NormalizedFinding:
     return NormalizedFinding(
         finding_id=finding_id,
-        source_id="ruff",
+        source_id=source_id,
         severity=severity,  # type: ignore[arg-type]
         title=f"Finding {finding_id}",
         summary=f"Summary for {finding_id}.",
@@ -78,6 +83,65 @@ def test_plan_stably_breaks_same_severity_ties_by_finding_identity() -> None:
 
     assert plan.decision_for(first).disposition == "promote"
     assert plan.decision_for(second).reason == "promotion_capacity_exhausted"
+
+
+def test_plan_prioritizes_configured_sources_before_severity() -> None:
+    lower_priority_high = _finding(
+        finding_id="high",
+        severity="high",
+        source_id="ruff-sarif",
+    )
+    higher_priority_medium = _finding(
+        finding_id="medium",
+        severity="medium",
+        source_id="semgrep-sarif",
+    )
+
+    plan = FindingPromotionCapacityService().plan(
+        findings=[lower_priority_high, higher_priority_medium],
+        policy_state=_policy_state(),
+        open_work_items=[],
+        repository_scope="octo-org/octo-repo",
+        max_active_work_items=1,
+        source_priorities={"semgrep-sarif": 20, "ruff-sarif": 100},
+    )
+
+    assert plan.decision_for(higher_priority_medium).disposition == "promote"
+    assert plan.decision_for(lower_priority_high).reason == "promotion_capacity_exhausted"
+
+
+def test_plan_uses_severity_then_identity_when_source_priorities_are_equal() -> None:
+    medium = _finding(finding_id="medium", severity="medium", source_id="mypy-sarif")
+    high = _finding(finding_id="high", severity="high", source_id="ruff-sarif")
+
+    plan = FindingPromotionCapacityService().plan(
+        findings=[medium, high],
+        policy_state=_policy_state(),
+        open_work_items=[],
+        repository_scope="octo-org/octo-repo",
+        max_active_work_items=1,
+        source_priorities={"mypy-sarif": 50, "ruff-sarif": 50},
+    )
+
+    assert plan.decision_for(high).disposition == "promote"
+    assert plan.decision_for(medium).reason == "promotion_capacity_exhausted"
+
+
+def test_plan_uses_the_default_source_priority_for_unconfigured_sources() -> None:
+    high = _finding(finding_id="high", severity="high", source_id="unconfigured-sarif")
+    medium = _finding(finding_id="medium", severity="medium", source_id="ruff-sarif")
+
+    plan = FindingPromotionCapacityService().plan(
+        findings=[medium, high],
+        policy_state=_policy_state(),
+        open_work_items=[],
+        repository_scope="octo-org/octo-repo",
+        max_active_work_items=1,
+        source_priorities={"ruff-sarif": 100},
+    )
+
+    assert plan.decision_for(high).disposition == "promote"
+    assert plan.decision_for(medium).reason == "promotion_capacity_exhausted"
 
 
 def test_plan_does_not_count_protected_work_or_block_candidate_repromotion() -> None:

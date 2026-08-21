@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
@@ -90,6 +91,7 @@ class GitHubFindingSyncService:
         policy_state: PolicyState,
         managed_source_ids: set[str] | None = None,
         max_active_work_items: int = 10,
+        source_priorities: Mapping[str, int] | None = None,
         persist: bool = True,
         run_id: str = "finding-sync",
     ) -> GitHubFindingSyncResult:
@@ -160,6 +162,7 @@ class GitHubFindingSyncService:
             ),
             repository_scope=repository_id,
             max_active_work_items=max_active_work_items,
+            source_priorities=source_priorities,
         )
         for finding in findings:
             normalized_severity_counts[finding.severity] += 1

@@ -22,6 +22,12 @@
       "uv run mypy src"
     ],
     "max_active_work_items": 10,
+    "source_priorities": {
+      "sonarqube": 10,
+      "semgrep-sarif": 20,
+      "ruff-sarif": 100,
+      "mypy-sarif": 100
+    },
     "validation_feedback_enabled": false,
     "bootstrap_severities": ["medium", "high"]
   },

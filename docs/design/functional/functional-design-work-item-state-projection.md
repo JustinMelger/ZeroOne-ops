@@ -121,15 +121,16 @@ policy-eligible findings and matching closed `capacity_deferred` records. It:
 
 1. preserves existing open `approved` and `in_progress` work without demoting
    it when capacity is lowered;
-2. orders all remaining eligible work by `high`, `medium`, `low`, then stable
-   finding identity;
+2. orders all remaining eligible work by configured source priority (or the
+   neutral default tier `100`), then `high`, `medium`, `low`, stable source ID,
+   and stable finding identity;
 3. opens only selected durable work as `approved`;
 4. keeps unselected durable work closed as `capacity_deferred`; and
 5. leaves unselected newly observed findings as non-durable backlog-only work.
 
 Closed backlog history does not receive a priority bonus over a newly observed
-finding at the same severity. Aging, source balancing, and operator-assigned
-priority remain future policy work.
+finding at the same source-priority tier and severity. Aging, source balancing,
+and operator-assigned per-rule priority remain future policy work.
 
 ## Responsibilities
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from zeroone_ops.models.finding import NormalizedFinding
@@ -15,6 +16,7 @@ from zeroone_ops.services.intake.finding_workflow_policy_service import (
 _ACTIVE_STATUSES = {"approved", "in_progress"}
 _PROTECTED_STATUSES = {"blocked", "dismissed"}
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+DEFAULT_SOURCE_PRIORITY = 100
 
 
 @dataclass(frozen=True)
@@ -47,6 +49,7 @@ class FindingPromotionCapacityService:
         open_work_items: list[WorkItemState],
         repository_scope: str,
         max_active_work_items: int,
+        source_priorities: Mapping[str, int] | None = None,
     ) -> FindingPromotionCapacityPlan:
         """Return policy and capacity decisions for one complete finding inventory."""
         decisions = {
@@ -85,8 +88,10 @@ class FindingPromotionCapacityService:
             and (finding.source_id, finding.finding_id) not in active_keys
             and (finding.source_id, finding.finding_id) not in protected_keys
         ]
+        source_priorities = source_priorities or {}
         candidate_findings.sort(
             key=lambda finding: (
+                source_priorities.get(finding.source_id, DEFAULT_SOURCE_PRIORITY),
                 _SEVERITY_ORDER[finding.severity],
                 finding.source_id,
                 finding.finding_id,

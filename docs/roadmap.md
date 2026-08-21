@@ -114,6 +114,14 @@ history, not here.
   stage; keep trace metadata bounded and avoid leaking secrets or raw operator
   context
 
+### Finding Promotion
+
+- [x] add configurable source promotion priorities for GitHub and GitLab issue
+  mode: rank policy-eligible new, candidate, and deferred work by open-ended
+  stable source ID before normalized severity and finding identity; preserve
+  active `approved` and `in_progress` work, and give unspecified sources a
+  documented neutral default priority
+
 ### Remediation Review Feedback
 
 - [ ] design and investigate a GitHub/GitLab remediation review-feedback loop:

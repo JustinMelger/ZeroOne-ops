@@ -322,6 +322,7 @@ class FindingSyncWorkflow:
             policy_state=policy_state,
             managed_source_ids=set(collection.finding_collection.metadata.managed_source_ids),
             max_active_work_items=self.config.remediation.max_active_work_items,
+            source_priorities=self.config.remediation.source_priorities,
             persist=not context.active_dry_run,
             run_id=context.run_id,
         )
@@ -378,6 +379,7 @@ class FindingSyncWorkflow:
             policy_state=policy_state,
             managed_source_ids=set(metadata.managed_source_ids),
             max_active_work_items=self.config.remediation.max_active_work_items,
+            source_priorities=self.config.remediation.source_priorities,
             persist=not context.active_dry_run,
             run_id=context.run_id,
         )

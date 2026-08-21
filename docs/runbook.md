@@ -72,6 +72,7 @@ In practice, the main remediation rollout keys now are:
 - `remediation.bootstrap_severities`
 - `remediation.max_retry_count`
 - `remediation.max_active_work_items`
+- `remediation.source_priorities`
 - `remediation.validation_feedback_enabled`
 - `remediation.validation_setup_commands`
 - `remediation.validation_commands`
@@ -672,6 +673,11 @@ In GitHub and GitLab issue control-plane modes,
 `remediation.max_active_work_items` defaults to `10` and bounds open approved
 and in-progress remediation work items across all finding sources. Findings
 that exceed the limit remain backlog-only until a later sync finds capacity.
+
+`remediation.source_priorities` optionally orders policy-eligible sources
+before severity when capacity is constrained. Lower non-negative values are
+higher priority; omitted sources use the neutral default `100`, preserving the
+existing severity-first order when no mapping is configured.
 
 Finding-sync dry runs evaluate local findings and policy without loading open
 work items. Their output does not preview active-capacity decisions or

@@ -7,12 +7,14 @@ environment overrides.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import ClassVar, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 type SarifSeverityLevel = Literal["error", "warning", "note", "none", "default"]
 type SarifSeverityMapping = dict[SarifSeverityLevel, Literal["low", "medium", "high"]]
+type SourcePriority = Annotated[int, Field(ge=0, strict=True)]
+type SourcePriorityMapping = dict[Annotated[str, Field(min_length=1)], SourcePriority]
 
 
 class RepositoryConfigModel(BaseModel):
@@ -187,6 +189,7 @@ class RemediationConfig(RepositoryConfigModel):
     )
     max_retry_count: int = 1
     max_active_work_items: int = Field(default=10, ge=1)
+    source_priorities: SourcePriorityMapping = Field(default_factory=dict)
     validation_feedback_enabled: bool = False
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
 
