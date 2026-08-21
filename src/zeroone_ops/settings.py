@@ -19,6 +19,7 @@ from zeroone_ops.models.config import (
     AppConfig,
     GitHubConnectionConfig,
     GitLabConnectionConfig,
+    MLflowTracingConfig,
     OpenAIConnectionConfig,
     SonarQubeConnectionConfig,
 )
@@ -278,15 +279,27 @@ def load_openai_connection_config() -> OpenAIConnectionConfig:
         names = ", ".join(missing)
         raise SettingsError(f"Missing required OpenAI environment variables: {names}")
 
+    mlflow_config = load_mlflow_tracing_config()
     return OpenAIConnectionConfig(
         api_key=required["OPENAI_API_KEY"] or "",
         model=required["OPENAI_MODEL"] or "",
         base_url=os.environ.get("OPENAI_BASE_URL"),
-        mlflow_enabled=(os.environ.get("ZEROONE_MLFLOW_ENABLED") or "").lower()
+        mlflow_enabled=mlflow_config.enabled,
+        mlflow_tracking_uri=mlflow_config.tracking_uri,
+        mlflow_experiment_name=mlflow_config.experiment_name,
+        mlflow_experiment_id=mlflow_config.experiment_id,
+    )
+
+
+def load_mlflow_tracing_config() -> MLflowTracingConfig:
+    """Load optional MLflow tracing settings without requiring OpenAI credentials."""
+    _load_environment_file()
+    return MLflowTracingConfig(
+        enabled=(os.environ.get("ZEROONE_MLFLOW_ENABLED") or "").lower()
         in {"1", "true", "yes", "on"},
-        mlflow_tracking_uri=os.environ.get("MLFLOW_TRACKING_URI"),
-        mlflow_experiment_name=os.environ.get("MLFLOW_EXPERIMENT_NAME"),
-        mlflow_experiment_id=os.environ.get("MLFLOW_EXPERIMENT_ID"),
+        tracking_uri=os.environ.get("MLFLOW_TRACKING_URI"),
+        experiment_name=os.environ.get("MLFLOW_EXPERIMENT_NAME"),
+        experiment_id=os.environ.get("MLFLOW_EXPERIMENT_ID"),
     )
 
 

@@ -34,7 +34,6 @@ from zeroone_ops.models.review import (
     ReviewHelperContext,
     ReviewResult,
 )
-from zeroone_ops.providers import llm_client
 from zeroone_ops.providers.llm_client import FixtureLLMClient, OpenAILLMClient
 from zeroone_ops.providers.llm_fixtures import (
     load_analysis_fixture,
@@ -52,6 +51,7 @@ from zeroone_ops.providers.llm_prompts import (
     load_prompt_template,
     render_prompt_template,
 )
+from zeroone_ops.services.observability import mlflow_tracing
 
 
 def _build_target(*, source_type: str) -> RemediationExecutionTarget:
@@ -1330,24 +1330,24 @@ def test_openai_client_enables_optional_mlflow_autologging(monkeypatch, caplog) 
     calls: list[tuple[str, object]] = []
     caplog.set_level(logging.INFO)
 
-    monkeypatch.setattr(llm_client, "_MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED", False)
+    monkeypatch.setattr(mlflow_tracing, "_MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED", False)
     monkeypatch.setattr(
-        llm_client.mlflow,
+        mlflow_tracing.mlflow,
         "set_tracking_uri",
         lambda uri: calls.append(("tracking_uri", uri)),
     )
     monkeypatch.setattr(
-        llm_client.mlflow,
+        mlflow_tracing.mlflow,
         "set_experiment",
         lambda name: calls.append(("experiment", name)),
     )
     monkeypatch.setattr(
-        llm_client.mlflow_tracing,
+        mlflow_tracing.mlflow_tracing,
         "set_destination",
         lambda destination: calls.append(("destination", destination.experiment_id)),
     )
     monkeypatch.setattr(
-        llm_client.mlflow_openai,
+        mlflow_tracing.mlflow_openai,
         "autolog",
         lambda **kwargs: calls.append(("autolog", kwargs)),
     )
@@ -1374,12 +1374,12 @@ def test_openai_client_enables_optional_mlflow_autologging(monkeypatch, caplog) 
 
 
 def test_openai_client_continues_when_mlflow_setup_fails(monkeypatch, caplog) -> None:
-    monkeypatch.setattr(llm_client, "_MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED", False)
+    monkeypatch.setattr(mlflow_tracing, "_MLFLOW_OPENAI_AUTOLOGGING_CONFIGURED", False)
 
     def fail_autolog() -> None:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(llm_client.mlflow_openai, "autolog", fail_autolog)
+    monkeypatch.setattr(mlflow_tracing.mlflow_openai, "autolog", fail_autolog)
 
     OpenAILLMClient(
         config=OpenAIConnectionConfig(
