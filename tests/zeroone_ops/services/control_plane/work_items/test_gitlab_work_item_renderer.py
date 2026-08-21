@@ -68,6 +68,33 @@ def test_render_body_includes_recovery_commands_for_blocked_work_item() -> None:
     assert "Stop automation: `/zeroone remediation dismiss`" in body
 
 
+def test_render_body_includes_validation_setup_guidance() -> None:
+    work_item = build_work_item(status="blocked").model_copy(
+        update={
+            "execution_failure": WorkItemExecutionFailure(
+                stage="validation_setup",
+                summary=(
+                    "Validation environment setup failed. Check the workflow logs for "
+                    "package-registry access, missing validation tools, lockfile compatibility, "
+                    "or repository-specific authentication requirements."
+                ),
+                retry_count=0,
+                run_id="run-setup",
+                occurred_at=datetime(2026, 8, 21, 10, 0, tzinfo=UTC),
+                failed_command="uv sync --locked",
+                exit_code=1,
+                execution_url="https://gitlab.example.com/group/project/-/jobs/44",
+            )
+        }
+    )
+
+    body = GitLabWorkItemRenderer().render_body(work_item)
+
+    assert "- Stage: `validation_setup`" in body
+    assert "package-registry access" in body
+    assert "[View workflow logs](" in body
+
+
 def test_render_body_includes_dirty_workspace_diagnostics() -> None:
     work_item = build_work_item(status="blocked").model_copy(
         update={

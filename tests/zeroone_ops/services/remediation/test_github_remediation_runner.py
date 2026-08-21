@@ -359,6 +359,41 @@ def test_runner_blocks_failed_work_item(
     )
 
 
+def test_runner_persists_validation_setup_guidance_without_command_output(
+    tmp_path: Path,
+    context: IssueContext,
+) -> None:
+    del context
+    run_state_service = _run_state_service(tmp_path)
+    control_plane = StubControlPlane()
+    runner = _runner(
+        tmp_path=tmp_path,
+        run_state_service=run_state_service,
+        work_item_service=FakeGitHubWorkItemService(_work_item()),
+        execution_service=StubExecutionService(
+            _execution_result(
+                failure=FailureDetails(
+                    stage=FailureStage.VALIDATION_SETUP,
+                    message="Validation environment setup failed: uv sync --locked (exit code 1).",
+                    failed_command="uv sync --locked",
+                    exit_code=1,
+                    stderr_excerpt="Authorization: Bearer private-token",
+                )
+            )
+        ),
+        control_plane=control_plane,
+    )
+
+    runner.run(record=run_state_service.start_run("run-1"), active_dry_run=False)
+
+    execution_failure = control_plane.execution_failures[0]
+    assert execution_failure is not None
+    assert "package-registry access" in execution_failure.summary
+    assert "private-token" not in execution_failure.summary
+    assert execution_failure.failed_command == "uv sync --locked"
+    assert execution_failure.exit_code == 1
+
+
 def test_runner_dismisses_rejected_work_item(tmp_path: Path, context: IssueContext) -> None:
     del context
     run_state_service = _run_state_service(tmp_path)

@@ -38,6 +38,10 @@ from zeroone_ops.services.shared.run_state_service import RunStateService, RunSu
 
 LOGGER = logging.getLogger(__name__)
 _FAILURE_OUTPUT_LIMIT = 2_000
+_VALIDATION_SETUP_GUIDANCE = (
+    "Check the workflow logs for package-registry access, missing validation tools, "
+    "lockfile compatibility, or repository-specific authentication requirements."
+)
 
 
 class _WorkItemIntakeResult(Protocol):
@@ -430,9 +434,12 @@ class WorkItemRemediationRunner:
         run_id: str,
     ) -> WorkItemExecutionFailure:
         """Build durable operator context for one failed remediation run."""
+        summary = failure.message
+        if failure.stage == FailureStage.VALIDATION_SETUP:
+            summary = f"{summary} {_VALIDATION_SETUP_GUIDANCE}"
         return WorkItemExecutionFailure(
             stage=failure.stage.value,
-            summary=failure.message,
+            summary=summary,
             retry_count=failure.retry_count,
             run_id=run_id,
             occurred_at=utc_now(),
