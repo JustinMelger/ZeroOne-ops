@@ -487,8 +487,12 @@ Rules:
   mappings retain the generic SARIF mapping
 - an empty artifact uses its declared `source_id` for authoritative stale-item
   reconciliation
-- a non-empty artifact whose derived tool source does not match its declared
-  `source_id` is reported as a warning and remains non-authoritative
+- the declared `source_id` is the authoritative stable namespace for every
+  run in the artifact; the scanner-derived tool source is retained only as
+  provenance
+- a configured artifact is authoritative only when all of its runs are
+  complete; malformed or rejected runs prevent stale reconciliation for that
+  source
 
 Why:
 
