@@ -46,6 +46,12 @@ def test_review_forwards_github_runtime_and_dry_run(tmp_path: Path, monkeypatch)
         "zeroone_ops.services.workflows.review_workflow.ReviewRunner",
         StubReviewRunner,
     )
+    monkeypatch.setattr(
+        "zeroone_ops.services.workflows.review_workflow.WorkflowTraceService.trace",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("Dry-run review must not create an MLflow root trace.")
+        ),
+    )
     runtime_calls: list[AppConfig] = []
     config = _config(platform="github", state_path=tmp_path / ".zeroone-ops-state.json")
     workflow = ReviewWorkflow(

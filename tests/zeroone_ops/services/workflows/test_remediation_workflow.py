@@ -99,6 +99,62 @@ def test_github_no_issue_does_not_load_gitlab_or_publish_summary(
     assert summary.status == RunStatus.NO_ISSUE
 
 
+def test_github_dry_run_does_not_create_workflow_trace(tmp_path: Path, monkeypatch) -> None:
+    """Dry-run remediation does not create an MLflow root trace."""
+    monkeypatch.chdir(tmp_path)
+
+    class StubGitHubRemediationRunner:
+        def __init__(self, **kwargs: object) -> None:
+            del kwargs
+
+        def run(self, **kwargs: object) -> RunSummary:
+            assert kwargs["active_dry_run"] is True
+            return RunSummary(
+                run_id="run-1",
+                status=RunStatus.NO_ISSUE,
+                message="[ci] No eligible GitHub work items.",
+                state_path=tmp_path / ".zeroone-ops-state.json",
+            )
+
+    monkeypatch.setattr(
+        "zeroone_ops.services.workflows.remediation_workflow.GitHubRemediationRunner",
+        StubGitHubRemediationRunner,
+    )
+    monkeypatch.setattr(
+        "zeroone_ops.services.workflows.remediation_workflow.WorkflowTraceService.trace",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("Dry-run remediation must not create an MLflow root trace.")
+        ),
+    )
+
+    workflow = RemediationWorkflow(
+        config=_github_config(state_path=tmp_path / ".zeroone-ops-state.json"),
+        dry_run=True,
+        publish_operational_summary=True,
+        build_run_id=lambda: "run-1",
+        build_context=build_workflow_run_context,
+        is_gitlab_issue_mode=_is_gitlab_issue_mode,
+        load_github_config=lambda: GitHubConnectionConfig(
+            api_url="https://api.github.example.com",
+            server_url="https://github.example.com",
+            token="token",
+            repository="octo-org/octo-repo",
+        ),
+        load_gitlab_config=lambda: (_ for _ in ()).throw(AssertionError("Unexpected GitLab load.")),
+        build_dashboard_policy_view=lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("Unexpected dashboard construction.")
+        ),
+        publish_github_summary=lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("Dry-run remediation must not publish a summary.")
+        ),
+        publish_gitlab_summary=lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("Unexpected GitLab summary publication.")
+        ),
+    )
+
+    assert workflow.run().status is RunStatus.NO_ISSUE
+
+
 def test_gitlab_issue_mode_can_suppress_summary_for_combined_control_plane(
     tmp_path: Path,
     monkeypatch,
