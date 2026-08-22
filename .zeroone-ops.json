@@ -33,6 +33,12 @@
     "bootstrap_severities": ["medium", "high"],
     "max_retry_count": 1,
     "max_active_work_items": 5,
+    "source_priorities": {
+      "sonarqube": 10,
+      "semgrep-sarif": 20,
+      "ruff-sarif": 100,
+      "mypy-sarif": 100
+    },
     "validation_feedback_enabled": false,
     "analysis": {
       "max_file_bytes": 200000

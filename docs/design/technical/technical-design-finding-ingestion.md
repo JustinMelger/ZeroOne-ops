@@ -623,8 +623,8 @@ This means:
 - SonarQube findings and Ruff SARIF findings should flow through the same
   shared promotion boundary
 - the same shared severity, policy, and lifecycle rules should apply first
-- source-specific queue tuning is deferred until there is explicit operator or
-  product pressure to introduce it
+- source priority is an explicit repository-level capacity input, while
+  source-specific quotas and fairness policies remain deferred
 
 This keeps the ingestion seam honest. If normalized findings immediately split
 back into source-local queue rules, then the new shared ingestion contract is
@@ -638,6 +638,11 @@ provider concern. The first version applies
 GitLab and GitHub. Its default is `10`; configured values must be positive
 integers.
 
+`remediation.source_priorities` is an optional mapping from stable normalized
+source IDs to non-negative integer tiers. Lower values rank first; sources not
+listed use the neutral tier `100`. This means an absent mapping preserves the
+existing severity-first behavior.
+
 The rule is:
 
 - collect and reconcile the full normalized finding inventory before deciding
@@ -647,7 +652,8 @@ The rule is:
 - exclude blocked, dismissed, and terminal work items from capacity while
   retaining them as visible operator records
 - consider only findings already eligible under the shared workflow policy
-- order eligible findings by severity, then stable finding identity
+- order eligible findings by source priority, severity, stable source ID, then
+  stable finding identity
 - promote only enough eligible findings to fill available capacity
 - retain the remaining eligible findings as backlog-only with
   `promotion_capacity_exhausted` as their visible backlog reason
@@ -675,9 +681,9 @@ work closed rather than reopening it as an open `candidate`. New eligible
 findings and matching closed deferred work share this same queue and ordering;
 closed history does not receive a priority bonus at the same severity.
 
-More refined sorting, source balancing, age-based fairness, and operator-set
-priority are intentionally deferred until live backlog data shows they are
-needed.
+More refined sorting, source balancing, age-based fairness, and per-rule
+operator-set priority are intentionally deferred until live backlog data shows
+they are needed.
 
 ### 12.8 Locked Decision: Visibility Rollout Precedes Remediation Widening
 

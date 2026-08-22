@@ -265,6 +265,7 @@ For example:
 - `review.inline_comments_enabled`
 - `remediation.bootstrap_severities`
 - `remediation.max_active_work_items`
+- `remediation.source_priorities`
 - `remediation.validation_feedback_enabled`
 - `remediation.target_branch`
 - `remediation.validation_setup_commands`
@@ -282,6 +283,24 @@ producer example.
 repository when using GitHub or GitLab issue control planes. It defaults to
 `10`; only open approved and in-progress remediation work items consume the
 limit. Deferred findings remain visible through aggregate backlog counts.
+
+`remediation.source_priorities` optionally ranks policy-eligible work before
+severity when capacity is limited. Lower non-negative values have higher
+priority; sources not in the mapping use the neutral tier `100`, preserving
+severity-first behavior when the mapping is omitted. For example:
+
+```json
+{
+  "remediation": {
+    "source_priorities": {
+      "sonarqube": 10,
+      "semgrep-sarif": 20,
+      "ruff-sarif": 100,
+      "mypy-sarif": 100
+    }
+  }
+}
+```
 
 The supported compatibility fields `review.platform`, `gitlab.target_branch`,
 `remediation.supported_severities`, `validation_setup_commands`, and

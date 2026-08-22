@@ -695,6 +695,7 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
             "bootstrap_severities": ["LOW", "MEDIUM"],
             "max_retry_count": 2,
             "max_active_work_items": 4,
+            "source_priorities": {"sonarqube": 10, "ruff-sarif": 100},
             "validation_feedback_enabled": true,
             "analysis": {
               "context_lines_before": 12,
@@ -718,6 +719,7 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
     assert config.remediation.bootstrap_severities == ["LOW", "MEDIUM"]
     assert config.remediation.max_retry_count == 2
     assert config.remediation.max_active_work_items == 4
+    assert config.remediation.source_priorities == {"sonarqube": 10, "ruff-sarif": 100}
     assert config.remediation.validation_feedback_enabled is True
     assert config.remediation.analysis.context_lines_before == 12
     assert config.remediation.analysis.context_lines_after == 18
@@ -750,6 +752,7 @@ def test_settings_default_remediation_active_work_item_capacity_is_ten(
     config = load_config()
 
     assert config.remediation.max_active_work_items == 10
+    assert config.remediation.source_priorities == {}
     assert config.remediation.validation_feedback_enabled is False
 
 
@@ -783,6 +786,33 @@ def test_settings_reject_non_positive_remediation_active_work_item_capacity(
         assert "greater than or equal to 1" in str(error)
     else:  # pragma: no cover - defensive guard
         raise AssertionError("Expected SettingsError for non-positive active work item capacity")
+
+
+@pytest.mark.parametrize("priority", ["-1", "true"])
+def test_settings_reject_invalid_remediation_source_priority(
+    tmp_path: Path,
+    monkeypatch,
+    priority: str,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "remediation": {
+            "target_branch": "main",
+            "source_priorities": {"semgrep-sarif": PRIORITY}
+          },
+          "gitlab": {
+            "labels": []
+          }
+        }
+        """.replace("PRIORITY", priority).strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SettingsError, match="remediation.source_priorities.semgrep-sarif"):
+        load_config()
 
 
 def test_settings_load_sarif_artifacts(tmp_path: Path, monkeypatch) -> None:

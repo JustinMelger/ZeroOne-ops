@@ -151,10 +151,11 @@ def _finding(
     *,
     finding_id: str = "ruff:E712:service",
     severity: str = "medium",
+    source_id: str = "ruff",
 ) -> NormalizedFinding:
     return NormalizedFinding(
         finding_id=finding_id,
-        source_id="ruff",
+        source_id=source_id,
         severity=severity,  # type: ignore[arg-type]
         title="Avoid equality comparisons to True",
         summary="Use direct truthiness instead of == True.",
@@ -249,6 +250,33 @@ def test_sync_defers_eligible_findings_when_active_capacity_is_full() -> None:
     assert result.backlog_only_count == 1
     assert result.backlog_reason_counts == {"promotion_capacity_exhausted": 1}
     assert len(work_item_service.work_items) == 1
+
+
+def test_sync_uses_source_priority_before_severity_for_capacity() -> None:
+    work_item_service = FakeGitLabWorkItemService()
+    service = GitLabFindingSyncService(
+        work_item_service=work_item_service,  # type: ignore[arg-type]
+    )
+
+    result = service.sync(
+        project_id="group/project",
+        findings=[
+            _finding(finding_id="ruff-high", severity="high", source_id="ruff-sarif"),
+            _finding(
+                finding_id="semgrep-medium",
+                severity="medium",
+                source_id="semgrep-sarif",
+            ),
+        ],
+        policy_state=_policy_state(medium_enabled=True),
+        max_active_work_items=1,
+        source_priorities={"semgrep-sarif": 20, "ruff-sarif": 100},
+    )
+
+    assert result.promoted_count == 1
+    assert result.backlog_reason_counts == {"promotion_capacity_exhausted": 1}
+    work_item = next(iter(work_item_service.work_items.values()))
+    assert work_item.source.source == "semgrep-sarif"
 
 
 def test_sync_closes_existing_work_outside_capacity_and_reopens_it_when_capacity_frees() -> None:

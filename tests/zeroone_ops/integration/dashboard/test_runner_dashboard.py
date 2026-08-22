@@ -552,10 +552,11 @@ def test_sync_dashboard_sonar_uses_gitlab_work_items_in_issue_mode(
         policy_state,
         managed_source_ids,
         max_active_work_items,
+        source_priorities,
         persist,
         run_id,
     ):
-        del self, policy_state, managed_source_ids, run_id
+        del self, policy_state, managed_source_ids, source_priorities, run_id
         sync_calls.append((project_id, len(findings), max_active_work_items, persist))
         return GitLabFindingSyncResult(
             promoted_count=1,
