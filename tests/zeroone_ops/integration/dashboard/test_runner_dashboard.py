@@ -1141,7 +1141,7 @@ def test_dashboard_reconcile_ci_blocks_item_when_merge_request_was_closed(
 
 def test_dashboard_reconcile_ci_blocks_closed_reviewed_item(
     tmp_path: Path,
-    monkeypatch,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
