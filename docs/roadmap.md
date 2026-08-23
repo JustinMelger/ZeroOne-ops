@@ -153,6 +153,16 @@ history, not here.
   durable continuity evidence separately rather than creating a new visible
   summary comment for every run
 
+### Review Configuration
+
+- [ ] design shared glob-pattern semantics for `review.supported_paths` and
+  `review.ignored_paths`, applied consistently to changed-file selection and
+  helper-following context while preserving repository-relative path safety
+- [ ] design optional provider-native remediation reviewer assignment: support
+  configured reviewer lists after change-request creation or reuse, keep
+  GitHub users/teams and GitLab user-ID resolution explicit, and retain
+  best-effort assignee behavior independently
+
 ## Parked For Later
 
 - external API/database-backed control plane
