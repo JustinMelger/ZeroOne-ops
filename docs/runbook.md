@@ -347,8 +347,12 @@ The merge request should contain:
 
 ## Recommended GitLab CI Setup
 
-Use the example pipeline from
-[examples/.gitlab-ci.example.yml](../examples/.gitlab-ci.example.yml).
+Use the supported GitLab CI installation template from
+[examples/.gitlab-ci.example.yml](../examples/.gitlab-ci.example.yml). Its
+pinned `ZERO_ONE_OPS_VERSION` default is the template compatibility version;
+update it intentionally when upgrading to a later released version. This is an
+include template: the root `.gitlab-ci.yml` must define `zeroone-ops-fix`
+before `zeroone-ops-review` in its `stages` list.
 
 Current job roles:
 
@@ -356,25 +360,26 @@ Current job roles:
   - finding sync for SonarQube and configured SARIF sources
 - `zeroone_ops_ruff_sarif` and `zeroone_ops_mypy_sarif`
   - optional, repository-owned SARIF producers whose artifacts feed finding sync
+  - the MyPy job requires a repository-owned JSON-to-SARIF converter at
+    `MYPY_TO_SARIF_SCRIPT`; remove the job when MyPy is not configured
 - `zeroone_ops_control_plane`
   - GitLab issue-mode policy processing, work-item recovery, and one
     remediation attempt, followed by one derived-summary refresh
 - `zeroone_ops_work_items_sync_status`
-  - scheduled work-item lifecycle reconciliation after merge request state
-    changes
+  - lifecycle reconciliation before finding sync, so merged or closed merge
+    requests converge before the next promotion decision
 - `zeroone_ops_review`
   - merge request review note publication with no code changes
 
 Recommended settings:
 
 - run only on the default branch
-- trigger from a schedule or explicit manual run
+- create a scheduled default-branch pipeline with `OPERATION=zeroone_ops`; use
+  the same variable for an explicit GitLab web pipeline when operator follow-up
+  is needed
 - keep finding sync as a separate job from active remediation
 - for GitLab issue mode, use one `zeroone_ops_control_plane` job after finding
-  sync; configure its 30-minute GitLab schedule with
-  `RUN_ZEROONE_OPS=true`
-- use the same variable on a default-branch pipeline for manual control-plane
-  follow-up
+  sync; schedule it at the desired cadence with `OPERATION=zeroone_ops`
 - keep lifecycle reconciliation as a separate job from active remediation so it
   only owns post-merge-request lifecycle convergence
 - use `resource_group` per workflow so overlapping runs of the same workflow do
@@ -383,6 +388,12 @@ Recommended settings:
 - use `GIT_DEPTH=0`
 - set a fixed git author/committer identity
 - rewrite `origin` to use `GITLAB_TOKEN` for authenticated pushes
+- set `ZEROONE_RUFF_SCAN_ENABLED=false` or
+  `ZEROONE_MYPY_SCAN_ENABLED=false` when the matching optional producer is not
+  configured; add a repository-owned SonarQube scanner job before finding sync
+  when SonarQube analysis must run in the same pipeline
+- keep `UV_VERSION` pinned when remediation validation commands use `uv`; the
+  template installs it only in the remediation job
 
 For review-only jobs, branch push credentials are not required because the
 workflow only reads merge requests and writes merge request notes.

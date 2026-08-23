@@ -1,6 +1,7 @@
 name: ZeroOne Ops Review
 
 # This review-only workflow never runs remediation setup or validation commands.
+# Set the repository variable ZERO_ONE_OPS_VERSION to upgrade deliberately.
 
 on:
   pull_request:
@@ -19,7 +20,7 @@ jobs:
   zeroone-ops-review:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/<owner>/zeroone-ops:0.54.0
+      image: ghcr.io/<owner>/zeroone-ops:${{ vars.ZERO_ONE_OPS_VERSION || '0.56.0' }}
 
     env:
       ZEROONE_OPS_EXECUTION_MODE: ci

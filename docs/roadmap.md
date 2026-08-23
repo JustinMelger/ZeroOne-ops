@@ -44,6 +44,10 @@ history, not here.
 - reversible policy and capacity reconciliation for GitHub and GitLab issue
   mode: protected work stays active, while eligible unlinked work can move
   between open coordination and closed deferred backlog
+- configurable source promotion priorities for GitHub and GitLab issue mode:
+  policy-eligible work ranks by stable source ID before normalized severity
+  and finding identity, while active `approved` and `in_progress` work remains
+  protected and unspecified sources share a neutral default priority
 - complete-inventory stale reconciliation: absent exact findings close as
   `no_longer_detected` before policy evaluation, with location-bound identity
   documented until occurrence-aware reconciliation is designed
@@ -59,6 +63,9 @@ history, not here.
 - bounded dirty-workspace remediation diagnostics: preserve the safe
   pre-branch guard while showing tracked or untracked paths and clear cleanup
   guidance in provider work-item evidence
+- remediation runtime-workspace ownership: exact configured untracked state,
+  SARIF, and solution-output paths no longer block branch preparation, while
+  tracked, staged, renamed, or unconfigured workspace changes remain protected
 - validation-setup failure guidance in GitHub and GitLab work items: preserve
   the failed command, exit code, and workflow-log link while directing
   operators to likely toolchain, lockfile, registry, or authentication causes
@@ -76,25 +83,19 @@ history, not here.
   SonarQube-specific terminology retained only as source evidence
 - retired the repo-local dashboard feedback log; Notion plus provider-native
   issue and change-request evidence are the active operational feedback sources
-- MLflow tracing support, Ruff pre-commit checks, and current CI workflows
+- optional MLflow workflow root traces for live review and remediation, with
+  repository, platform, run, workflow, work-item, change-request, outcome,
+  and validation-outcome correlation; plus Ruff pre-commit checks and current
+  CI workflows
 - copyable GitHub Actions and GitLab CI control-plane installation templates
+- versioned GitLab CI installation template contract: release-pinned image,
+  structured job-DAG and security-boundary checks, and a matching GitLab
+  issue-mode configuration fixture
 
 ## Current Focus
 
 ### Operational Readiness
 
-- [x] runtime-workspace ownership for remediation: configured generated SARIF
-  artifacts, ZeroOne state, and solution artifacts no longer require
-  `.gitignore` entries for clean remediation branches; real tracked or
-  untracked operator changes remain protected by the shared workspace guard
-- [ ] design workflow-scoped preflight checks for repository config, required
-  provider settings, reachable integrations, validation tools, and expected
-  SARIF artifacts; keep them explicit, bounded, and free of remediation or
-  lifecycle writes
-- [ ] turn the GitLab CI example into a versioned end-to-end template contract:
-  verify its scheduled/manual rules, job DAG, artifact wiring, resource groups,
-  and merge-request review route in a representative GitLab fixture or test
-  environment
 - [ ] define the derived-image toolchain contract for validation: retain the
   thin non-root base image with Git, curl, and CA certificates; document how
   operators extend it for language-specific tools without changing the
@@ -106,21 +107,6 @@ history, not here.
   human CLI summary, including selected finding, policy decision, validation
   outcome, change-request reference, lifecycle transition, and bounded error
   evidence
-
-### Trace Observability
-
-- [ ] investigate and design MLflow trace correlation for repository, platform,
-  ZeroOne run ID, workflow, change request, revision, and review/remediation
-  stage; keep trace metadata bounded and avoid leaking secrets or raw operator
-  context
-
-### Finding Promotion
-
-- [x] add configurable source promotion priorities for GitHub and GitLab issue
-  mode: rank policy-eligible new, candidate, and deferred work by open-ended
-  stable source ID before normalized severity and finding identity; preserve
-  active `approved` and `in_progress` work, and give unspecified sources a
-  documented neutral default priority
 
 ### Remediation Review Feedback
 
@@ -182,6 +168,9 @@ history, not here.
   tooling for deprecated aliases, missing provider selection, and unavailable
   configured fixture or SARIF paths; v1 continues to use load-time errors,
   deprecation warnings, and configuration documentation without file rewrites
+- consider optional workflow-scoped preflight commands only after workflow-local
+  diagnostics prove insufficient; keep any future readiness checks read-only
+  and free of remediation, lifecycle, or provider-state writes
 - consider an argv-style alternative to shell-based validation commands after
   the executable-CI-policy trust model has been live-reviewed
 - make MLflow tracing an optional package extra after tracing rollout feedback

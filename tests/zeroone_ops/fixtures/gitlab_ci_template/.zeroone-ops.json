@@ -1,0 +1,28 @@
+{
+  "execution_mode": "ci",
+  "platform": "gitlab",
+  "base_branch": "main",
+  "openai_solution_output_path": "artifacts/openai-solution.json",
+  "remediation": {
+    "target_branch": "main"
+  },
+  "sarif": {
+    "artifacts": [
+      {
+        "path": "artifacts/ruff.sarif",
+        "source_id": "ruff-sarif"
+      },
+      {
+        "path": "artifacts/mypy.sarif",
+        "source_id": "mypy-sarif"
+      }
+    ]
+  },
+  "gitlab": {
+    "control_plane_mode": "issues",
+    "labels": []
+  },
+  "state": {
+    "path": ".zeroone-ops-state.json"
+  }
+}
