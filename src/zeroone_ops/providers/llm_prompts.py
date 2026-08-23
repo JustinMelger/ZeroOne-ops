@@ -159,15 +159,28 @@ def _format_validation_feedback(context: IssueContext) -> str:
 
 
 def _format_remediation_untrusted_block(*, label: str, content: str) -> str:
-    """Render safely escaped remediation evidence outside trusted instructions."""
-    escaped_content = content.replace("<<", "[[").replace(">>", "]]")
+    """Render untrusted evidence with a marker that does not alter its content."""
+    begin_marker, end_marker = _remediation_untrusted_block_markers(label=label, content=content)
     return "\n".join(
         [
-            f"<<BEGIN UNTRUSTED {label}>>",
-            escaped_content,
-            f"<<END UNTRUSTED {label}>>",
+            begin_marker,
+            content,
+            end_marker,
         ]
     )
+
+
+def _remediation_untrusted_block_markers(*, label: str, content: str) -> tuple[str, str]:
+    """Choose deterministic block markers that do not occur in the evidence."""
+    suffix = ""
+    index = 2
+    while True:
+        begin_marker = f"<<BEGIN UNTRUSTED {label}{suffix}>>"
+        end_marker = f"<<END UNTRUSTED {label}{suffix}>>"
+        if begin_marker not in content and end_marker not in content:
+            return begin_marker, end_marker
+        suffix = f" #{index}"
+        index += 1
 
 
 def _format_issue_repository_guidance(context: IssueContext) -> str:
