@@ -89,7 +89,37 @@ class Validator:
 
     def repository_status(self) -> ValidationCommandResult:
         """Return the current non-ignored repository status for setup safety checks."""
-        return self._run_command("git status --porcelain")
+        command = "git status --porcelain=v1 -z --untracked-files=all"
+        started = time.perf_counter()
+        try:
+            # Match branch preparation's safe porcelain decoding without changing
+            # repository-configured validation command behavior.
+            completed = subprocess.run(  # nosec B603 B607
+                ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
+                cwd=self.repo_root,
+                text=True,
+                encoding="utf-8",
+                errors="backslashreplace",
+                capture_output=True,
+                timeout=self.timeout_seconds,
+                check=False,
+            )
+            returncode = completed.returncode
+            stdout = completed.stdout
+            stderr = completed.stderr
+        except subprocess.TimeoutExpired as error:
+            returncode = 124
+            stdout = _coerce_output(error.stdout)
+            stderr = _coerce_output(error.stderr)
+            stderr = f"{stderr}\nCommand timed out after {self.timeout_seconds}s.".strip()
+        duration_ms = int((time.perf_counter() - started) * 1000)
+        return ValidationCommandResult(
+            command=command,
+            exit_code=returncode,
+            stdout=stdout,
+            stderr=stderr,
+            duration_ms=duration_ms,
+        )
 
     def _run_command(self, command: str) -> ValidationCommandResult:
         """Run a single validation command.

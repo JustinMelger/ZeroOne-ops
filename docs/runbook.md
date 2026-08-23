@@ -213,6 +213,17 @@ hooks, and test code. Use least-privilege credentials, do not expose unrelated
 secrets, and assume commands can access the workspace, network, and environment
 provided to the job. Apply the same model to GitHub Actions and GitLab CI.
 
+### Runtime Workspace Outputs
+
+Remediation permits untracked generated outputs only when their exact
+repository-relative paths are configured as `state.path`, a
+`sarif.artifacts[].path`, or `openai_solution_output_path`. This avoids a
+repository `.gitignore` requirement for ZeroOne-owned runtime files.
+
+The exception does not cover directories, globs, unconfigured artifact files,
+or any tracked, staged, deleted, renamed, copied, or conflicted path. Keep
+operator changes outside these exact outputs clean before running remediation.
+
 ## Required Token Permissions
 
 `SONARQUBE_TOKEN` must be able to read open issues for the configured project.

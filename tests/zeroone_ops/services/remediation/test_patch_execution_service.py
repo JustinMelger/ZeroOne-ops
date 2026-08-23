@@ -254,6 +254,83 @@ def test_patch_execution_service_runs_setup_once_before_validation_retries(
     ]
 
 
+def test_validation_setup_allows_configured_untracked_runtime_outputs(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = PatchExecutionService(
+        config=build_config(
+            validation_setup_commands=["uv sync --locked"],
+            validation_commands=["uv run pytest"],
+        ),
+        patch_applier=PatchApplier(tmp_path),
+        validator=Validator(tmp_path),
+        workspace_snapshot_service=WorkspaceSnapshotService(tmp_path),
+    )
+    monkeypatch.setattr(
+        service.validator,
+        "run",
+        lambda commands: ValidationResult(
+            passed=True,
+            results=[],
+            summary="All validation commands passed.",
+        ),
+    )
+    monkeypatch.setattr(
+        service.validator,
+        "repository_status",
+        lambda: ValidationCommandResult(
+            command="git status --porcelain=v1 -z --untracked-files=all",
+            exit_code=0,
+            stdout="?? .zeroone-ops-state.json\0?? artifacts/openai-solution.json\0",
+            stderr="",
+            duration_ms=1,
+        ),
+    )
+
+    assert service._bootstrap_validation_environment() is None
+
+
+def test_validation_setup_rejects_unconfigured_untracked_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = PatchExecutionService(
+        config=build_config(
+            validation_setup_commands=["uv sync --locked"],
+            validation_commands=["uv run pytest"],
+        ),
+        patch_applier=PatchApplier(tmp_path),
+        validator=Validator(tmp_path),
+        workspace_snapshot_service=WorkspaceSnapshotService(tmp_path),
+    )
+    monkeypatch.setattr(
+        service.validator,
+        "run",
+        lambda commands: ValidationResult(
+            passed=True,
+            results=[],
+            summary="All validation commands passed.",
+        ),
+    )
+    monkeypatch.setattr(
+        service.validator,
+        "repository_status",
+        lambda: ValidationCommandResult(
+            command="git status --porcelain=v1 -z --untracked-files=all",
+            exit_code=0,
+            stdout="?? artifacts/semgrep.sarif\0",
+            stderr="",
+            duration_ms=1,
+        ),
+    )
+
+    failure = service._bootstrap_validation_environment()
+
+    assert failure is not None
+    assert failure.stage.value == "validation_setup"
+
+
 def test_patch_execution_service_retries_once_with_actionable_validation_feedback(
     tmp_path: Path,
     monkeypatch,

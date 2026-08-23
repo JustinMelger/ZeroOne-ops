@@ -19,6 +19,7 @@ historical records that explain how ZeroOne Ops reached its present architecture
   and [technical design](technical/technical-design-remediation-recovery.md)
 - [Remediation validation-feedback functional design](functional/functional-design-remediation-validation-feedback.md)
   and [technical design](technical/technical-design-remediation-validation-feedback.md)
+- [Runtime workspace ownership technical design](technical/technical-design-runtime-workspace-ownership.md)
 - [Staged review-pipeline functional design](functional/functional-design-pr-review-staged-pipeline.md)
   and [technical design](technical/technical-design-pr-review-staged-pipeline.md)
 
