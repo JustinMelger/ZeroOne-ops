@@ -49,8 +49,9 @@ flowchart TD
 Then choose one provider setup:
 
 - **GitLab:** copy [examples/.zeroone-ops.json](examples/.zeroone-ops.json)
-  to `.zeroone-ops.json` and add
-  [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml) to the
+  to `.zeroone-ops.json`, include
+  [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml), and
+  declare its `zeroone-ops-fix` and `zeroone-ops-review` stages in the root
   project pipeline.
 - **GitHub:** copy
   [examples/.zeroone-ops.github.json](examples/.zeroone-ops.github.json) to
@@ -411,11 +412,15 @@ Replace the version deliberately when upgrading. Repositories requiring a
 stronger supply-chain boundary can pin the same release by immutable image
 digest instead.
 
-A GitLab CI example is provided in
+A supported GitLab CI installation template is provided in
 [examples/.gitlab-ci.example.yml](examples/.gitlab-ci.example.yml). It uses the
-published `zeroone-ops` image and the canonical neutral commands. For GitHub
-review smoke tests, use [examples/github-review.yml](examples/github-review.yml)
-as the starting workflow file. For the GitHub control plane, copy
+published `zeroone-ops` image and the canonical neutral commands. Its default
+`ZERO_ONE_OPS_VERSION` is the template compatibility version; upgrade
+intentionally by changing that project or group variable to a later released
+ZeroOne Ops version. GitHub templates use the matching repository variable for
+their default image pin. For GitHub review smoke tests, use
+[examples/github-review.yml](examples/github-review.yml) as the starting
+workflow file. For the GitHub control plane, copy
 [examples/github-operations.yml](examples/github-operations.yml) and the
 GitHub JSON config template together.
 
