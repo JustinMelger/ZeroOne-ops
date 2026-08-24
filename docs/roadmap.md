@@ -110,12 +110,13 @@ history, not here.
 
 ### Remediation Review Feedback
 
-- [ ] design and investigate a GitHub/GitLab remediation review-feedback loop:
-  a projected `findings_present` result must become an explicit actionable
-  state, preserve the linked change request and review evidence, and define
-  bounded automatic versus operator-command rework without treating it as a
-  normal fresh remediation claim; reuse the work-item state-projection boundary
-  for provider issue-state rendering
+- [x] define the GitHub/GitLab remediation review-feedback contract: projected
+  `findings_present` becomes an explicit actionable state, retains the linked
+  change request and review evidence, and uses operator-controlled same-branch
+  revision rather than a normal fresh remediation claim
+- [ ] implement the documented review-feedback loop after design review
+- design: [functional remediation review feedback](design/functional/functional-design-remediation-review-feedback.md)
+  and [technical remediation review feedback](design/technical/technical-design-remediation-review-feedback.md)
 
 ### Remediation Mergeability
 
