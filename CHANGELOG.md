@@ -5,6 +5,27 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.57.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.56.0...zeroone-ops-v0.57.0) (2026-08-24)
+
+
+### Features
+
+* **control-plane:** prioritize finding sources ([#388](https://github.com/JustinMelger/ZeroOne-ops/issues/388)) ([a9973f6](https://github.com/JustinMelger/ZeroOne-ops/commit/a9973f6c8fdc1c9bdb250392b3607da58fe3990c))
+* **observability:** trace review and remediation workflows ([#389](https://github.com/JustinMelger/ZeroOne-ops/issues/389)) ([4001912](https://github.com/JustinMelger/ZeroOne-ops/commit/4001912f7e98c82f916a829a7e9c374db95c1a7d))
+
+
+### Bug Fixes
+
+* allow configured remediation runtime outputs ([#387](https://github.com/JustinMelger/ZeroOne-ops/issues/387)) ([ec6ccdc](https://github.com/JustinMelger/ZeroOne-ops/commit/ec6ccdc760f4d31044f06375670ba1ec230aea89))
+* clarify validation setup failures ([#383](https://github.com/JustinMelger/ZeroOne-ops/issues/383)) ([313c05b](https://github.com/JustinMelger/ZeroOne-ops/commit/313c05bc194a8354878e919245bd57cf56e148c5))
+* **intake:** honor configured SARIF source IDs ([#381](https://github.com/JustinMelger/ZeroOne-ops/issues/381)) ([abd6862](https://github.com/JustinMelger/ZeroOne-ops/commit/abd686206762f5791384366937f1348826eb39bd))
+* **remediation:** isolate untrusted prompt evidence ([#396](https://github.com/JustinMelger/ZeroOne-ops/issues/396)) ([0fa6661](https://github.com/JustinMelger/ZeroOne-ops/commit/0fa6661b04aac12b3f7a72f70fcac9265f996d3e))
+
+
+### Documentation
+
+* **roadmap:** add review configuration follow-ups ([c4c12d5](https://github.com/JustinMelger/ZeroOne-ops/commit/c4c12d59fae8bd25fbe16400fadf0b7f18e86036))
+
 ## [0.56.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.55.0...zeroone-ops-v0.56.0) (2026-08-20)
 
 
