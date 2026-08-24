@@ -5,13 +5,13 @@ description = "Governed OpenAI-assisted pipeline agents for GitLab and GitHub."
 readme = "README.md"
 requires-python = "==3.13.*"
 dependencies = [
-  "gitpython>=3.1.58",
+  "gitpython>=3.1.59",
   "httpx>=0.28.1",
   "mako>=1.4.1",
   "mlflow-tracing>=3.15.1",
   "openai>=2.52.0",
   "pydantic>=2.13.4",
-  "python-dotenv>=1.2.2",
+  "python-dotenv>=1.2.3",
   "typer>=0.27.1",
   "urllib3==2.7.0",
 ]
@@ -50,14 +50,14 @@ exclude-newer = "7 days"
 dev = [
   "bandit>=1.9.4",
   "import-linter>=2.13",
-  "pre-commit>=4.6.1",
-  "mypy>=2.3.0",
+  "pre-commit>=4.6.2",
+  "mypy>=2.3.1",
   "pip==26.2.1",
   "pip-audit>=2.10.1",
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
   "pyyaml>=6.0.3",
-  "ruff>=0.16.2",
+  "ruff>=0.16.3",
 ]
 
 [tool.ruff]
