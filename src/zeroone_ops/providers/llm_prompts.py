@@ -8,6 +8,7 @@ from importlib import resources
 from zeroone_ops.models.analysis import IssueContext
 from zeroone_ops.models.remediation import (
     RemediationExecutionTarget,
+    RemediationProducerProfile,
     remediation_profile_for,
 )
 from zeroone_ops.models.review import (
@@ -45,23 +46,13 @@ def build_analysis_prompt(issue: RemediationExecutionTarget, context: IssueConte
     return render_prompt_template(
         "analyze_issue.txt",
         target_display_name=profile.target_display_name,
-        source_display_name=profile.source_display_name,
-        item_reference_label=profile.item_reference_label,
-        issue_key=issue.source_ref,
-        rule=issue.rule_id or "unknown",
-        severity=issue.severity,
-        issue_type=issue.remediation_category or issue.issue_type or issue.source_type,
-        message=issue.message,
-        file_path=context.file_path,
-        issue_line=context.line,
-        constraints=issue.constraints or "(none)",
-        snippet_start_line=context.snippet.start_line,
-        snippet_end_line=context.snippet.end_line,
-        full_file_included=context.full_file_included,
-        context_truncated=context.truncated,
+        target_evidence=_format_remediation_target_evidence(issue, context, profile),
         repository_guidance=_format_issue_repository_guidance(context),
         prior_review_feedback=_format_prior_review_feedback(context),
-        code_snippet=context.snippet.content,
+        code_snippet=_format_remediation_untrusted_block(
+            label="Source code snippet",
+            content=context.snippet.content,
+        ),
     )
 
 
@@ -74,102 +65,134 @@ def build_structured_edit_prompt(
     return render_prompt_template(
         "generate_structured_edit.txt",
         target_display_name=profile.target_display_name,
-        source_display_name=profile.source_display_name,
-        item_reference_label=profile.item_reference_label,
-        issue_key=issue.source_ref,
-        rule=issue.rule_id or "unknown",
-        severity=issue.severity,
-        issue_type=issue.remediation_category or issue.issue_type or issue.source_type,
-        message=issue.message,
-        file_path=context.file_path,
-        issue_line=context.line,
-        constraints=issue.constraints or "(none)",
-        snippet_start_line=context.snippet.start_line,
-        snippet_end_line=context.snippet.end_line,
+        target_evidence=_format_remediation_target_evidence(issue, context, profile),
         repository_guidance=_format_issue_repository_guidance(context),
         prior_review_feedback=_format_prior_review_feedback(context),
         validation_feedback=_format_validation_feedback(context),
         remediation_intent=context.remediation_intent or "chore",
-        code_snippet=context.snippet.content,
+        code_snippet=_format_remediation_untrusted_block(
+            label="Source code snippet",
+            content=context.snippet.content,
+        ),
+    )
+
+
+def _format_remediation_target_evidence(
+    issue: RemediationExecutionTarget,
+    context: IssueContext,
+    profile: RemediationProducerProfile,
+) -> str:
+    """Render scanner-derived target fields as one explicitly untrusted packet."""
+    return _format_remediation_untrusted_block(
+        label="Remediation target evidence",
+        content="\n".join(
+            [
+                f"Source: {profile.source_display_name}",
+                f"{profile.item_reference_label}: {issue.source_ref}",
+                f"Rule: {issue.rule_id or 'unknown'}",
+                f"Severity: {issue.severity or '(none)'}",
+                "Type: " + (issue.remediation_category or issue.issue_type or issue.source_type),
+                f"Message: {issue.message}",
+                f"File path: {context.file_path}",
+                f"Issue line: {context.line if context.line is not None else '(none)'}",
+                f"Constraints: {issue.constraints or '(none)'}",
+                f"Snippet start line: {context.snippet.start_line}",
+                f"Snippet end line: {context.snippet.end_line}",
+                f"Full file included: {context.full_file_included}",
+                f"Context truncated: {context.truncated}",
+            ]
+        ),
     )
 
 
 def _format_prior_review_feedback(context: IssueContext) -> str:
     """Render bounded prior review feedback for retry-aware remediation prompts."""
     if context.prior_review_feedback is None:
-        return "(none)"
+        return _format_remediation_untrusted_block(label="Prior review feedback", content="(none)")
     feedback = context.prior_review_feedback
-    return "\n".join(
-        [
-            f"Review status: {feedback.review_status}",
-            "Findings count: "
-            + (
-                str(feedback.review_findings_count)
-                if feedback.review_findings_count is not None
-                else "(none)"
-            ),
-            f"Reviewed SHA: {feedback.reviewed_head_sha or '(none)'}",
-            "Retry count already consumed: "
-            + (str(feedback.retry_count) if feedback.retry_count is not None else "0"),
-            f"Feedback summary: {feedback.review_feedback_summary or '(none)'}",
-            "Review confidence: "
-            + (
-                str(feedback.review_confidence)
-                if feedback.review_confidence is not None
-                else "(none)"
-            ),
-            f"Review confidence reason: {feedback.review_confidence_reason or '(none)'}",
-        ]
+    return _format_remediation_untrusted_block(
+        label="Prior review feedback",
+        content="\n".join(
+            [
+                f"Review status: {feedback.review_status}",
+                "Findings count: "
+                + (
+                    str(feedback.review_findings_count)
+                    if feedback.review_findings_count is not None
+                    else "(none)"
+                ),
+                f"Reviewed SHA: {feedback.reviewed_head_sha or '(none)'}",
+                "Retry count already consumed: "
+                + (str(feedback.retry_count) if feedback.retry_count is not None else "0"),
+                f"Feedback summary: {feedback.review_feedback_summary or '(none)'}",
+                "Review confidence: "
+                + (
+                    str(feedback.review_confidence)
+                    if feedback.review_confidence is not None
+                    else "(none)"
+                ),
+                f"Review confidence reason: {feedback.review_confidence_reason or '(none)'}",
+            ]
+        ),
     )
 
 
 def _format_validation_feedback(context: IssueContext) -> str:
     """Render bounded validator feedback for the single correction attempt."""
     if context.validation_feedback is None:
-        return "(none)"
+        return _format_remediation_untrusted_block(label="Validation feedback", content="(none)")
     feedback = context.validation_feedback
     diagnostic_lines = [
-        "- "
-        f"`{_escape_untrusted_validation_field(diagnostic.file_path)}` via "
-        f"`{_escape_untrusted_validation_field(diagnostic.command)}`: "
-        f"{_escape_untrusted_validation_field(diagnostic.excerpt)}"
+        f"- `{diagnostic.file_path}` via `{diagnostic.command}`: {diagnostic.excerpt}"
         for diagnostic in feedback.diagnostics
     ]
+    return _format_remediation_untrusted_block(
+        label="Validation feedback",
+        content="\n".join(
+            [
+                "Allowed files: " + ", ".join(f"`{path}`" for path in feedback.allowed_file_paths),
+                "New diagnostics:",
+                *diagnostic_lines,
+            ]
+        ),
+    )
+
+
+def _format_remediation_untrusted_block(*, label: str, content: str) -> str:
+    """Render untrusted evidence with a marker that does not alter its content."""
+    begin_marker, end_marker = _remediation_untrusted_block_markers(label=label, content=content)
     return "\n".join(
         [
-            "<<BEGIN UNTRUSTED VALIDATION FEEDBACK>>",
-            "Allowed files: "
-            + ", ".join(
-                f"`{_escape_untrusted_validation_field(path)}`"
-                for path in feedback.allowed_file_paths
-            ),
-            "New diagnostics:",
-            *diagnostic_lines,
-            "<<END UNTRUSTED VALIDATION FEEDBACK>>",
+            begin_marker,
+            content,
+            end_marker,
         ]
     )
 
 
-def _escape_untrusted_validation_field(value: str) -> str:
-    """Prevent untrusted feedback fields from reproducing prompt-block delimiters."""
-    return value.replace("<<", "[[").replace(">>", "]]")
+def _remediation_untrusted_block_markers(*, label: str, content: str) -> tuple[str, str]:
+    """Choose deterministic block markers that do not occur in the evidence."""
+    suffix = ""
+    index = 2
+    while True:
+        begin_marker = f"<<BEGIN UNTRUSTED {label}{suffix}>>"
+        end_marker = f"<<END UNTRUSTED {label}{suffix}>>"
+        if begin_marker not in content and end_marker not in content:
+            return begin_marker, end_marker
+        suffix = f" #{index}"
+        index += 1
 
 
 def _format_issue_repository_guidance(context: IssueContext) -> str:
     """Render bounded repository guidance for remediation prompts."""
     if not context.repository_guidance:
-        return "(none)"
-    return "\n\n".join(
-        [
-            "\n".join(
-                [
-                    f"<<BEGIN REPOSITORY GUIDANCE {guidance.file_path}>>",
-                    guidance.summary,
-                    f"<<END REPOSITORY GUIDANCE {guidance.file_path}>>",
-                ]
-            )
+        return _format_remediation_untrusted_block(label="Repository guidance", content="(none)")
+    return _format_remediation_untrusted_block(
+        label="Repository guidance",
+        content="\n\n".join(
+            f"File: {guidance.file_path}\n{guidance.summary}"
             for guidance in context.repository_guidance
-        ]
+        ),
     )
 
 
