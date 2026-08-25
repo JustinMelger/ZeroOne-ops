@@ -84,6 +84,23 @@ def test_load_repository_guidance_uses_only_configured_paths_in_declared_order(
     ]
 
 
+def test_load_repository_guidance_skips_symlink_outside_repository(
+    tmp_path: Path,
+    caplog,
+) -> None:
+    external_guidance = tmp_path.parent / "external-guidance.md"
+    external_guidance.write_text("# External\nDo not include this.\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").symlink_to(external_guidance)
+
+    with caplog.at_level(logging.WARNING):
+        guidance = load_repository_guidance(tmp_path)
+
+    assert guidance == []
+    assert "skipped repository guidance outside repository" in caplog.text
+    assert "path=AGENTS.md" in caplog.text
+    assert "Do not include this" not in caplog.text
+
+
 def test_load_repository_guidance_skips_navigation_and_preserves_markdown_blocks(
     tmp_path: Path,
 ) -> None:

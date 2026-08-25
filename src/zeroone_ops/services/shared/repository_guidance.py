@@ -71,16 +71,21 @@ def load_repository_guidance(
 ) -> list[RepositoryGuidanceContext]:
     """Load a few bounded repository guidance excerpts when available."""
     guidance_paths: list[Path] = []
+    resolved_repo_root = repo_root.resolve()
     paths = GUIDANCE_PATHS if configured_paths is None else configured_paths
     for relative_path in paths:
         target = repo_root / relative_path
-        if target.exists() and target.is_file():
-            guidance_paths.append(target)
+        _append_repository_guidance_path(guidance_paths, target, repo_root, resolved_repo_root)
     if configured_paths is None:
         for pattern in GUIDANCE_GLOBS:
             for target in sorted(repo_root.glob(pattern)):
-                if target.is_file() and target not in guidance_paths:
-                    guidance_paths.append(target)
+                if target not in guidance_paths:
+                    _append_repository_guidance_path(
+                        guidance_paths,
+                        target,
+                        repo_root,
+                        resolved_repo_root,
+                    )
 
     guidance_entries: list[RepositoryGuidanceContext] = []
     for target in guidance_paths[:MAX_GUIDANCE_FILES]:
@@ -112,6 +117,26 @@ def load_repository_guidance(
             )
         )
     return guidance_entries
+
+
+def _append_repository_guidance_path(
+    guidance_paths: list[Path],
+    target: Path,
+    repo_root: Path,
+    resolved_repo_root: Path,
+) -> None:
+    """Append an existing regular guidance file contained by the repository."""
+    if not target.exists() or not target.is_file():
+        return
+    try:
+        target.resolve().relative_to(resolved_repo_root)
+    except (OSError, ValueError):
+        LOGGER.warning(
+            "skipped repository guidance outside repository [path=%s]",
+            target.relative_to(repo_root).as_posix(),
+        )
+        return
+    guidance_paths.append(target)
 
 
 def _extract_guidance_summary(path: Path) -> _GuidanceSelection:
