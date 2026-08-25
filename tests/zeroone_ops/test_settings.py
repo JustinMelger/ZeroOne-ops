@@ -111,6 +111,71 @@ def test_settings_default_gitlab_control_plane_mode_is_issues(
     assert config.require_gitlab_config(reason="test").control_plane_mode == "issues"
 
 
+def test_settings_load_repository_guidance_paths(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(
+        """
+        {
+          "base_branch": "main",
+          "repository_guidance_paths": [
+            "AGENTS.md",
+            "docs/engineering-standards.md"
+          ],
+          "remediation": {
+            "target_branch": "main"
+          },
+          "gitlab": {
+            "labels": []
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.repository_guidance_paths == [
+        "AGENTS.md",
+        "docs/engineering-standards.md",
+    ]
+
+
+@pytest.mark.parametrize(
+    "guidance_paths",
+    [
+        '[""]',
+        '["/etc/passwd"]',
+        '["docs/../AGENTS.md"]',
+        '["AGENTS.md", "./AGENTS.md"]',
+        '["docs/*.md"]',
+    ],
+)
+def test_settings_reject_unsafe_repository_guidance_paths(
+    tmp_path: Path,
+    monkeypatch,
+    guidance_paths: str,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(
+        f"""
+        {{
+          "base_branch": "main",
+          "repository_guidance_paths": {guidance_paths},
+          "remediation": {{
+            "target_branch": "main"
+          }},
+          "gitlab": {{
+            "labels": []
+          }}
+        }}
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SettingsError, match="repository_guidance_paths"):
+        load_config()
+
+
 def test_settings_accept_gitlab_issue_control_plane_mode(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".zeroone-ops.json").write_text(
