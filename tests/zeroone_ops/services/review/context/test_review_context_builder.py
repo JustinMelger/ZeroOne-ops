@@ -34,6 +34,7 @@ def build_config(
     max_followed_helpers_per_function: int = 3,
     max_followed_helper_lines: int = 120,
     max_followed_helper_lines_per_review: int = 240,
+    repository_guidance_paths: list[str] | None = None,
 ) -> AppConfig:
     return AppConfig(
         base_branch="main",
@@ -57,6 +58,7 @@ def build_config(
             supported_paths=supported_paths or [],
             ignored_paths=ignored_paths or [],
         ),
+        repository_guidance_paths=repository_guidance_paths,
         gitlab=GitLabConfig(target_branch="main"),
     )
 
@@ -461,6 +463,39 @@ def test_build_loads_bounded_repository_guidance(tmp_path: Path) -> None:
     ]
     assert "Prefer regression tests" in result.context.repository_guidance[0].summary
     assert "Prefer no findings" in result.context.repository_guidance[1].summary
+
+
+def test_build_uses_configured_repository_guidance_paths(tmp_path: Path) -> None:
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    (source_dir / "service.py").write_text("value = 2\n", encoding="utf-8")
+    (tmp_path / "CONTRIBUTING.md").write_text(
+        "# Contributing\nUse the configured review guidance.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "# Agents\nThis default guidance must not be loaded.\n",
+        encoding="utf-8",
+    )
+    merge_request = build_merge_request(
+        changes=[
+            ChangeRequestChangedFile(
+                old_path="src/service.py",
+                new_path="src/service.py",
+                diff="@@ -1,1 +1,1 @@\n-value = 1\n+value = 2\n",
+            )
+        ]
+    )
+
+    result = ReviewContextBuilder(
+        repo_root=tmp_path,
+        config=build_config(repository_guidance_paths=["CONTRIBUTING.md"]),
+    ).build(merge_request)
+
+    assert result.context is not None
+    assert [guidance.file_path for guidance in result.context.repository_guidance] == [
+        "CONTRIBUTING.md"
+    ]
 
 
 def test_build_includes_same_file_direct_helper_context_for_python_changes(tmp_path: Path) -> None:

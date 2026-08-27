@@ -9,6 +9,10 @@
   "write_solution_artifacts_in_ci": false,
   "mock_llm_analysis_path": "fixtures/llm/analysis.json",
   "mock_llm_edit_path": "fixtures/llm/edit.json",
+  "repository_guidance_paths": [
+    "AGENTS.md",
+    "docs/engineering-standards.md"
+  ],
   "approval": {
     "required": true
   },

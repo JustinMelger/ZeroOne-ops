@@ -341,6 +341,20 @@ validation commands before and after a remediation patch, preserving known
 baseline failures and allowing one correction attempt only for a new diagnostic
 in the same editable file.
 
+`repository_guidance_paths` optionally defines the exact repository files used
+as bounded guidance for both review and remediation. When omitted, ZeroOne Ops
+uses its built-in guidance discovery; when configured, the list replaces those
+defaults and does not expand globs. Markdown guidance keeps source order within
+selected sections while
+skipping navigation-only links; headings, prose, instruction-bearing list items,
+and adjacent fenced examples remain bounded prompt evidence. A commands, setup,
+verification, or testing section is selected first when present. The remaining
+sections prioritize review expectations, working rules, instructions,
+verification, testing, and architecture over descriptive sections. The three
+selected sections contribute up to 12, 10, and 10 lines respectively, so one
+long section cannot consume the full file budget.
+Guidance files must be UTF-8 text; unreadable files are skipped with a warning.
+
 ## Execution Trust Model
 
 Validation and setup commands are executable CI policy, not passive

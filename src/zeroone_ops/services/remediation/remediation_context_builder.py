@@ -33,7 +33,12 @@ class RemediationContextBuilder:
         if context is None:
             return None
         context = context.model_copy(
-            update={"repository_guidance": load_repository_guidance(self.repo_root)}
+            update={
+                "repository_guidance": load_repository_guidance(
+                    self.repo_root,
+                    configured_paths=self.config.repository_guidance_paths,
+                )
+            }
         )
         prior_review_feedback = _build_prior_review_feedback(work_item)
         if prior_review_feedback is None:
