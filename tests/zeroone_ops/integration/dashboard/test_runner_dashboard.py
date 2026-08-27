@@ -1234,7 +1234,7 @@ def test_dashboard_reconcile_ci_blocks_closed_reviewed_item(
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
-    ):  # noqa: ANN202
+    ) -> None:  # noqa: ANN202
         del self, project_id, dashboard_item_id, run_id, error_message
         recorded_updates.append((retry_count, retry_eligible, retry_block_reason))
         updated_item = selected_item.model_copy(
