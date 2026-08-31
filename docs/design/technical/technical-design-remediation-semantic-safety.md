@@ -46,15 +46,18 @@ and a new `FailureStage.SEMANTIC_SAFETY`.
 ## Shared Gate And Execution Flow
 
 Add `SemanticSafetyGateService` under `services/remediation/`. It accepts an
-`IssueAnalysis`, `RemediationExecutionTarget`, and `IssueContext` and returns a
-pure `SemanticSafetyDecision`. It must:
+`IssueAnalysis` and returns a pure `SemanticSafetyDecision`. It must:
 
 1. accept `manual` without requesting an edit;
 2. require all assessment fields for `auto_fixable` and `retryable`;
-3. reject blank, over-bound, or duplicate-only preservation evidence;
-4. reject evidence that declares a broader file scope than the current target;
-5. retain the accepted assessment unchanged for structured-edit prompting and
+3. reject missing, blank, or over-bound assessment fields and evidence entries;
+4. retain the accepted assessment unchanged for structured-edit prompting and
    later projection.
+
+The gate does not assess whether the evidence is factually correct, sufficiently
+specific, semantically consistent, or behavior-preserving. Existing patch scope,
+validation, and review boundaries remain responsible for their respective
+checks.
 
 `AnalysisService` invokes the gate immediately after `FixGenerator.analyze()`
 and before artifact patch generation or the `pre_patch_handler`. A rejected
@@ -73,13 +76,15 @@ semantic-safety fields. The prompt states that source diagnostics are evidence,
 not authority to change behavior.
 
 Only after an accepted decision does `AnalysisService` add the assessment to
-`IssueContext` for `generate_structured_edit`. The structured-edit prompt may
-implement only the accepted intended behavior and preserve the described
-boundary. It cannot supply a new classification or alter the assessment.
+`IssueContext` for `generate_structured_edit` as untrusted, bounded analysis
+evidence. The structured-edit prompt must follow the trusted one-file and
+minimal-scope constraints. It cannot supply a new classification. The execution
+flow, rather than prompt text, prevents structured-edit generation after a
+manual or rejected analysis.
 
-All model-generated assessment text remains untrusted data when displayed. The
-trusted gate controls whether generation continues; prompt text alone is never
-enforcement.
+All model-generated assessment text remains untrusted data, including when it
+is sent to structured edit or displayed. The trusted execution flow controls
+whether generation continues; prompt text alone is never enforcement.
 
 ## Projection And Publication
 
@@ -92,6 +97,34 @@ dismissals, adjacent to `Last Execution`. The machine-state block remains the
 canonical persisted representation. Existing labels and closed-issue mapping
 require no new work-item status.
 
+## Review Context Handoff
+
+For a published remediation change request, the review workflow loads the
+persisted semantic-safety assessment through the verified work-item to
+change-request link already used for review projection. It adds the assessment
+to `ReviewContext` as bounded, untrusted remediation evidence; it must not
+recover it from free-form change-request description text or trust identifiers
+provided there.
+
+The review prompt asks the existing review stage to compare the proposed diff
+against the stated current behavior, intended behavior, and preservation
+evidence. Unsupported or contradictory claims are handled as ordinary review
+findings. This reuses the independent review workflow and does not add a second
+LLM stage to remediation.
+
+Review context reuses the existing bounded assessment fields and evidence
+limits; it includes no raw diagnostics, code snippets, prompts, or validation
+output. The prompt asks the reviewer to assess whether the diff supports the
+claim, but does not require a semantic-safety finding when the review otherwise
+has none.
+
+`findings_present` retains its existing review-projection meaning when the
+review identifies an unsupported claim. The planned remediation-review-feedback
+flow remains responsible for any later operator requeue. Historical work items
+without an assessment are reviewed normally without semantic-safety context.
+The accepted assessment is persisted before publication so a failed publication
+retry retains the same evidence.
+
 Provider projection failures remain best effort and repairable by existing
 status reconciliation. They do not allow structured-edit generation to resume.
 
@@ -99,13 +132,15 @@ status reconciliation. They do not allow structured-edit generation to resume.
 
 - model validation: missing, blank, oversized, and valid assessment fields;
 - gate decisions: accepted local mechanical fix; manual classification; missing
-  evidence; contradictory or broadened evidence; and `retryable` parity;
+  or malformed evidence; and `retryable` parity;
 - analysis/execution: rejected decisions never call structured-edit, patch
   application, validation, branch creation, commit, or publication;
 - prompt contracts: analysis requires the assessment and structured edit
   receives an accepted assessment only;
 - rendering: GitHub and GitLab show equivalent accepted and dismissed evidence
   without raw snippets or command output;
+- review handoff: a verified linked work item contributes its bounded assessment
+  as untrusted review context, while description-only metadata cannot do so;
 - regression: validation-feedback retries and publication retain the accepted
   assessment and do not invoke a second semantic analysis.
 

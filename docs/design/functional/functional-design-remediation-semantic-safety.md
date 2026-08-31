@@ -50,26 +50,28 @@ it must state the narrow intended correction and what surrounding behavior
 remains unchanged.
 
 The assessment is a bounded model claim grounded in local context, not a formal
-proof. Missing, generic, contradictory, or scope-expanding evidence is not
-sufficient for automatic remediation.
+proof. The deterministic gate requires only non-empty, bounded fields and at
+least one evidence entry. It does not determine whether that evidence is true,
+specific, non-contradictory, or sufficient to preserve behavior.
 
 ## Decision Rules
 
 1. Analysis classifies the item as `auto_fixable`, `retryable`, or `manual` and
    produces the required assessment.
-2. An independent deterministic gate validates the assessment shape, required
-   non-empty evidence, and compatibility with the existing one-file workflow.
+2. An independent deterministic gate validates only assessment shape: required,
+   bounded non-empty fields and at least one evidence entry.
 3. `auto_fixable` and `retryable` proceed only when the gate accepts the
    assessment. The structured-edit request receives the accepted assessment as
-   a trusted workflow constraint.
+   untrusted analysis evidence; trusted workflow policy retains the one-file
+   and minimal-scope constraints.
 4. `manual`, or an analysis that fails the gate, never invokes structured-edit
    generation, patch application, validation, branch creation, or publication.
 5. A structured edit cannot change the analysis classification or broaden the
    stated intended behavior. Existing patch scope and safety checks remain the
    final enforcement layer.
 
-The gate does not decide whether the semantic claim is true. It enforces that a
-complete, locally scoped claim exists before automation proceeds.
+The gate does not decide whether the semantic claim is true. It enforces only
+that a complete, bounded claim is present before automation proceeds.
 
 ## Operator Experience
 
@@ -77,6 +79,14 @@ For a gate-approved patch, the generated pull or merge request includes a short
 **Semantic Safety** section: current behavior, intended behavior, and bounded
 local preservation evidence. It is supporting review evidence, not approval or
 a claim that validation passed.
+
+When the existing review workflow evaluates that pull or merge request, it
+receives the same assessment as explicitly labeled, untrusted remediation
+evidence. The review can compare the proposed diff with the stated current
+behavior, intended behavior, and preservation claim without a second
+remediation-stage model call. A finding that the claim is unsupported or
+contradicted remains normal review feedback; it does not make the assessment a
+formal proof.
 
 When the analysis is `manual` or the gate rejects its evidence, the work item
 uses the existing terminal `dismissed` outcome. Its provider issue closes and
@@ -98,6 +108,8 @@ the issue manually.
 - analysis and structured-edit workflow requirements are trusted policy;
 - the remediation analysis service owns semantic-safety evaluation;
 - shared execution owns the hard stop before branch and patch work;
+- review receives semantic-safety evidence only through a verified work-item to
+  change-request link, never by trusting description-provided identifiers;
 - GitHub and GitLab work-item renderers project compact final evidence only;
 - finding sync and lifecycle do not reinterpret semantic evidence or reopen a
   dismissed item.
