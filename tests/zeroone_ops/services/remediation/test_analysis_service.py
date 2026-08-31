@@ -17,6 +17,7 @@ from zeroone_ops.models.config import (
     RemediationConfig,
 )
 from zeroone_ops.models.remediation import RemediationExecutionTarget
+from zeroone_ops.models.state import FailureStage
 from zeroone_ops.services.remediation.analysis_service import AnalysisService
 from zeroone_ops.services.remediation.patch_applier import PatchApplyError
 
@@ -88,6 +89,32 @@ def test_analyze_issue_returns_context_summary_when_no_llm_configured(
     )
 
     assert "Context ready from lines" in result.summary
+
+
+def test_analyze_issue_returns_analysis_failure_for_invalid_llm_response(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+    analysis_path = tmp_path / "analysis.json"
+    analysis_path.write_text("{not valid JSON", encoding="utf-8")
+
+    result = AnalysisService(
+        tmp_path,
+        build_config(mock_llm_analysis_path=analysis_path),
+    ).analyze_issue(
+        selected_issue=build_issue(),
+        dry_run=True,
+    )
+
+    assert result.failure is not None
+    assert result.failure.stage is FailureStage.ANALYSIS
+    assert "Analysis generation failed" in result.summary
 
 
 def test_analyze_issue_applies_patch_in_dry_run_from_fixture(
@@ -437,6 +464,7 @@ def test_analyze_issue_retries_validation_with_regenerated_structured_edit(
     class RetryLLMClient:
         def __init__(self) -> None:
             self.edit_calls = 0
+            self.semantic_safety_assessments: list[SemanticSafetyAssessment | None] = []
 
         def analyze_issue(self, issue: RemediationExecutionTarget, context) -> IssueAnalysis:
             del issue, context
@@ -455,8 +483,9 @@ def test_analyze_issue_retries_validation_with_regenerated_structured_edit(
             issue: RemediationExecutionTarget,
             context,
         ) -> StructuredEditProposal:
-            del issue, context
+            del issue
             self.edit_calls += 1
+            self.semantic_safety_assessments.append(context.semantic_safety)
             replacement = "value = 3" if self.edit_calls == 1 else "value = 2"
             return StructuredEditProposal(
                 issue_key="FIXTURE-1",
@@ -497,6 +526,7 @@ def test_analyze_issue_retries_validation_with_regenerated_structured_edit(
     assert result.patch_applied is True
     assert result.validation_passed is True
     assert retry_client.edit_calls == 2
+    assert retry_client.semantic_safety_assessments == [_semantic_safety(), _semantic_safety()]
     assert (tmp_path / "src" / "service.py").read_text(encoding="utf-8") == "value = 2\n"
 
 

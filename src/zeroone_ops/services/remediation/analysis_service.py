@@ -169,7 +169,18 @@ class AnalysisService:
         artifact_service = SolutionArtifactService(
             llm_client.solution_output_path if isinstance(llm_client, OpenAILLMClient) else None
         )
-        analysis = fix_generator.analyze(selected_issue, context)
+        try:
+            analysis = fix_generator.analyze(selected_issue, context)
+        except LLMClientError as error:
+            message = f"Analysis generation failed: {error}"
+            return AnalysisResult(
+                summary=message,
+                validation_passed=False,
+                failure=FailureDetails(
+                    stage=FailureStage.ANALYSIS,
+                    message=message,
+                ),
+            )
         semantic_safety = self.semantic_safety_gate_service.decide(analysis)
         artifact_service.write_analysis(issue_key=selected_issue.source_ref, analysis=analysis)
         summary = (
@@ -248,7 +259,10 @@ class AnalysisService:
                 fix_generator=kwargs["fix_generator"],
                 selected_issue=kwargs["selected_issue"],
                 context=kwargs["context"].model_copy(
-                    update={"remediation_intent": analysis.remediation_intent}
+                    update={
+                        "remediation_intent": analysis.remediation_intent,
+                        "semantic_safety": semantic_safety.assessment,
+                    }
                 ),
                 remediation_intent=analysis.remediation_intent,
             ),
