@@ -1355,7 +1355,7 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
     recorded_updates: list[tuple[int | None, bool | None, str | None]] = []
 
     def fake_mark_failed(
-        self,
+        self: object,
         *,
         project_id: str,
         dashboard_item_id: str,
@@ -1364,7 +1364,7 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
-    ):  # noqa: ANN202
+    ) -> object:  # noqa: ANN202
         del self, project_id, dashboard_item_id, run_id, error_message
         recorded_updates.append((retry_count, retry_eligible, retry_block_reason))
         updated_item = selected_item.model_copy(
