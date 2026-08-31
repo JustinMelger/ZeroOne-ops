@@ -13,6 +13,9 @@ from zeroone_ops.services.control_plane.work_items.work_item_labels import (
 from zeroone_ops.services.control_plane.work_items.work_item_labels import (
     render_work_item_labels,
 )
+from zeroone_ops.services.remediation.semantic_safety_presentation import (
+    render_semantic_safety_lines,
+)
 
 
 class GitHubWorkItemRenderer:
@@ -122,6 +125,8 @@ class GitHubWorkItemRenderer:
                 lines.append(f"- Validation outcome: `{failure.validation_outcome}`")
             if failure.execution_url is not None:
                 lines.append(f"- Run: [View workflow logs]({failure.execution_url})")
+        if work_item.semantic_safety is not None:
+            lines.extend(render_semantic_safety_lines(work_item.semantic_safety))
         if work_item.policy_deferral is not None:
             deferral = work_item.policy_deferral
             lines.extend(

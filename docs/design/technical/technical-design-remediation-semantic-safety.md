@@ -2,8 +2,8 @@
 
 ## Status
 
-Current contract. Implement after review alongside the functional semantic-safety
-design.
+Implemented contract. This design defines the shared gate, provider projections,
+and verified review-context handoff.
 
 ## Scope And Boundary
 

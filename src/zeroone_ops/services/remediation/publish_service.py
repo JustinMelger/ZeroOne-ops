@@ -5,11 +5,19 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from zeroone_ops.models.analysis import RemediationIntent, ValidationComparison
+from zeroone_ops.models.analysis import (
+    RemediationIntent,
+    SemanticSafetyAssessment,
+    ValidationComparison,
+)
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
-from zeroone_ops.models.work_item import PublicationRetryState, WorkItemState
+from zeroone_ops.models.work_item import (
+    PublicationRetryState,
+    WorkItemSemanticSafety,
+    WorkItemState,
+)
 from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.services.remediation.change_request_publisher import (
@@ -85,6 +93,7 @@ class PublishService:
         change_request_description: str | None = None,
         remediation_intent: RemediationIntent = "chore",
         validation_comparison: ValidationComparison | None = None,
+        semantic_safety: SemanticSafetyAssessment | None = None,
         commit_sha: str | None = None,
     ) -> PublishResult:
         """Push the current branch and create or reuse a change request."""
@@ -106,9 +115,15 @@ class PublishService:
                 change_summary=change_request_description,
                 remediation_intent=remediation_intent,
                 validation_comparison=validation_comparison,
+                semantic_safety=semantic_safety,
             )
             control_plane_work_item = self._mark_control_plane_publish_started_best_effort(
                 selected_issue=selected_issue,
+                semantic_safety=(
+                    None
+                    if semantic_safety is None
+                    else WorkItemSemanticSafety(assessment=semantic_safety)
+                ),
             )
             pushed_branch = self.branch_manager.push_current_branch()
             published_change_request = publisher.publish(publication_request)
@@ -128,6 +143,7 @@ class PublishService:
                         commit_sha=commit_sha,
                         reason="change_request_publish_failed",
                         remediation_intent=remediation_intent,
+                        semantic_safety=semantic_safety,
                     )
                     if pushed_branch is not None and commit_sha is not None
                     else None
@@ -193,11 +209,13 @@ class PublishService:
         self,
         *,
         selected_issue: RemediationExecutionTarget,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> WorkItemState | None:
         """Project publish-start state without blocking change-request publication."""
         try:
             return self._remediation_control_plane_instance().mark_publish_started(
                 selected_issue=selected_issue,
+                semantic_safety=semantic_safety,
             )
         except (GitHubClientError, GitLabClientError, RuntimeError):
             LOGGER.warning(

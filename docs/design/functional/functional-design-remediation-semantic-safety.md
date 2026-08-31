@@ -2,8 +2,8 @@
 
 ## Status
 
-Current contract. Implementation follows after review of this functional and
-technical design pair.
+Implemented contract. The semantic-safety gate, provider projections, and
+verified review-context handoff follow this design.
 
 ## Purpose
 

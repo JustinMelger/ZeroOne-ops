@@ -128,7 +128,7 @@ history, not here.
 ### Remediation Semantic Safety
 
 - [x] define mandatory semantic-safety analysis and terminal manual handling
-- [ ] implement the shared semantic-safety gate, bounded provider evidence, and
+- [x] implement the shared semantic-safety gate, bounded provider evidence, and
   analysis/structured-edit contracts before the remediation feedback loop
 - design: [functional semantic safety](design/functional/functional-design-remediation-semantic-safety.md)
   and [technical semantic safety](design/technical/technical-design-remediation-semantic-safety.md)
