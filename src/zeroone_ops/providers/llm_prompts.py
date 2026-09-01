@@ -69,6 +69,7 @@ def build_structured_edit_prompt(
         repository_guidance=_format_issue_repository_guidance(context),
         prior_review_feedback=_format_prior_review_feedback(context),
         validation_feedback=_format_validation_feedback(context),
+        semantic_safety=_format_semantic_safety(context),
         remediation_intent=context.remediation_intent or "chore",
         code_snippet=_format_remediation_untrusted_block(
             label="Source code snippet",
@@ -153,6 +154,27 @@ def _format_validation_feedback(context: IssueContext) -> str:
                 "Allowed files: " + ", ".join(f"`{path}`" for path in feedback.allowed_file_paths),
                 "New diagnostics:",
                 *diagnostic_lines,
+            ]
+        ),
+    )
+
+
+def _format_semantic_safety(context: IssueContext) -> str:
+    """Render accepted analysis evidence for structured-edit generation."""
+    assessment = context.semantic_safety
+    if assessment is None:
+        return _format_remediation_untrusted_block(
+            label="Semantic-safety assessment",
+            content="(none)",
+        )
+    return _format_remediation_untrusted_block(
+        label="Semantic-safety assessment",
+        content="\n".join(
+            [
+                f"Current behavior: {assessment.current_behavior}",
+                f"Intended behavior: {assessment.intended_behavior}",
+                "Preservation evidence:",
+                *[f"- {evidence}" for evidence in assessment.preservation_evidence],
             ]
         ),
     )
@@ -523,6 +545,18 @@ def _format_remediation_review_context(
                 f"Message: {context.message or '(none)'}",
                 f"Validation: {context.validation_summary or '(none)'}",
                 f"Notes: {context.notes or '(none)'}",
+                "Semantic safety: "
+                + (
+                    "(none)"
+                    if context.semantic_safety is None
+                    else "\n"
+                    + "  Current behavior: "
+                    + context.semantic_safety.current_behavior
+                    + "\n  Intended behavior: "
+                    + context.semantic_safety.intended_behavior
+                    + "\n  Preservation evidence: "
+                    + " | ".join(context.semantic_safety.preservation_evidence)
+                ),
             ]
         ),
     )

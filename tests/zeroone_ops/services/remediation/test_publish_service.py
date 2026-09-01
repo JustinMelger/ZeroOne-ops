@@ -135,7 +135,9 @@ class StubRemediationControlPlane(RemediationControlPlane):
         self,
         *,
         selected_issue: RemediationExecutionTarget,
+        semantic_safety=None,
     ) -> WorkItemState:
+        del semantic_safety
         work_item = WorkItemState(
             work_item_id="work-1",
             kind="remediation",
@@ -183,7 +185,9 @@ class StubRemediationControlPlane(RemediationControlPlane):
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        semantic_safety=None,
     ) -> None:
+        del semantic_safety
         self.mark_publish_blocked(
             selected_issue=selected_issue,
             existing_work_item=existing_work_item,
@@ -194,8 +198,9 @@ class StubRemediationControlPlane(RemediationControlPlane):
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        semantic_safety=None,
     ) -> None:
-        del selected_issue, existing_work_item
+        del selected_issue, existing_work_item, semantic_safety
 
     def mark_execution_completed(
         self,
@@ -211,6 +216,7 @@ class StubRemediationControlPlane(RemediationControlPlane):
         selected_issue: RemediationExecutionTarget,
         published_change_request: ChangeRequestInfo,
         existing_work_item: WorkItemState | None,
+        semantic_safety=None,
     ) -> None:
         del selected_issue
         if existing_work_item is None:
@@ -222,6 +228,7 @@ class StubRemediationControlPlane(RemediationControlPlane):
                     number=published_change_request.iid,
                     web_url=published_change_request.web_url,
                 ),
+                "semantic_safety": semantic_safety,
             }
         )
         self.calls.append(updated_work_item)

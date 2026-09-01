@@ -15,6 +15,7 @@ from zeroone_ops.models.state import FailureDetails, FailureStage, RunRecord, Ru
 from zeroone_ops.models.work_item import (
     PublicationRetryState,
     WorkItemExecutionFailure,
+    WorkItemSemanticSafety,
     WorkItemState,
 )
 from zeroone_ops.services.remediation.change_request_publisher import (
@@ -160,6 +161,7 @@ class WorkItemRemediationRunner:
                 active_dry_run=active_dry_run,
                 failure=execution_result.failure,
                 run_id=record.run_id,
+                semantic_safety=_semantic_safety_record(execution_result),
             )
             return self.run_state_service.finish_work_item(
                 record=record,
@@ -179,6 +181,14 @@ class WorkItemRemediationRunner:
                 run_id=record.run_id,
                 summary=execution_result.status_message,
                 stage=execution_result.terminal_rejection_stage or FailureStage.ANALYSIS,
+                semantic_safety=(
+                    None
+                    if execution_result.analysis_result.semantic_safety is None
+                    else WorkItemSemanticSafety(
+                        assessment=execution_result.analysis_result.semantic_safety.assessment,
+                        rejection_reason=execution_result.analysis_result.semantic_safety.reason,
+                    )
+                ),
             )
             return self.run_state_service.finish_work_item(
                 record=record,
@@ -203,6 +213,7 @@ class WorkItemRemediationRunner:
                     active_dry_run=active_dry_run,
                     failure=failure,
                     run_id=record.run_id,
+                    semantic_safety=_semantic_safety_record(execution_result),
                 )
                 return self.run_state_service.finish_work_item(
                     record=record,
@@ -218,6 +229,7 @@ class WorkItemRemediationRunner:
                 claimed_work_item=claimed_work_item,
                 published_change_request=published_change_request,
                 active_dry_run=active_dry_run,
+                semantic_safety=_semantic_safety_record(execution_result),
             )
             return self.run_state_service.finish_work_item(
                 record=record,
@@ -254,6 +266,7 @@ class WorkItemRemediationRunner:
         active_dry_run: bool,
         failure: FailureDetails | None = None,
         run_id: str | None = None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Project an execution failure without replacing the primary outcome."""
         if active_dry_run:
@@ -267,6 +280,7 @@ class WorkItemRemediationRunner:
                     if failure is None or run_id is None
                     else self._build_execution_failure(failure=failure, run_id=run_id)
                 ),
+                semantic_safety=semantic_safety,
             )
         except Exception:
             LOGGER.warning("work-item blocked-state projection failed", exc_info=True)
@@ -278,6 +292,7 @@ class WorkItemRemediationRunner:
         claimed_work_item: WorkItemState,
         published_change_request: ChangeRequestInfo,
         active_dry_run: bool,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Link a published change request through the runner-owned control plane."""
         if active_dry_run:
@@ -287,6 +302,7 @@ class WorkItemRemediationRunner:
                 selected_issue=selected_target,
                 published_change_request=published_change_request,
                 existing_work_item=claimed_work_item,
+                semantic_safety=semantic_safety,
             )
         except Exception:
             LOGGER.warning("work-item change-request link projection failed", exc_info=True)
@@ -323,6 +339,7 @@ class WorkItemRemediationRunner:
                 source_branch=publication_retry.branch_name,
                 change_summary="Retrying publication for the existing remediation branch.",
                 remediation_intent=publication_retry.remediation_intent,
+                semantic_safety=publication_retry.semantic_safety,
             ),
         )
         if not result.succeeded or result.change_request is None:
@@ -346,6 +363,11 @@ class WorkItemRemediationRunner:
             selected_issue=selected_target,
             published_change_request=result.change_request,
             existing_work_item=claimed_work_item,
+            semantic_safety=(
+                None
+                if publication_retry.semantic_safety is None
+                else WorkItemSemanticSafety(assessment=publication_retry.semantic_safety)
+            ),
         )
         return self.run_state_service.finish_work_item(
             record=record,
@@ -384,6 +406,7 @@ class WorkItemRemediationRunner:
         run_id: str,
         summary: str,
         stage: FailureStage,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Project an intentional rejection without replacing the primary outcome."""
         if active_dry_run:
@@ -401,6 +424,7 @@ class WorkItemRemediationRunner:
                     execution_url=self.execution_url_builder(),
                     status="dismissed",
                 ),
+                semantic_safety=semantic_safety,
             )
         except Exception:
             LOGGER.warning("work-item dismissed-state projection failed", exc_info=True)
@@ -471,3 +495,14 @@ def _validation_outcome(execution_result: ExecutionResult) -> ValidationOutcome 
     """Return the compact comparison outcome when feedback validation ran."""
     comparison = execution_result.analysis_result.validation_comparison
     return None if comparison is None else comparison.outcome
+
+
+def _semantic_safety_record(execution_result: ExecutionResult) -> WorkItemSemanticSafety | None:
+    """Return compact semantic-safety evidence for a projected execution state."""
+    decision = execution_result.analysis_result.semantic_safety
+    if decision is None:
+        return None
+    return WorkItemSemanticSafety(
+        assessment=decision.assessment,
+        rejection_reason=decision.reason,
+    )

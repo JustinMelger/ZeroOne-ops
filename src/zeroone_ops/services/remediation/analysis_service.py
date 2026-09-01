@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from zeroone_ops.models.analysis import (
-    AnalysisClassification,
     IssueContext,
     PatchProposal,
+    SemanticSafetyDecision,
     ValidationComparison,
     ValidationResult,
 )
@@ -36,6 +36,9 @@ from zeroone_ops.services.remediation.patch_execution_service import (
 )
 from zeroone_ops.services.remediation.remediation_context_builder import (
     RemediationContextBuilder,
+)
+from zeroone_ops.services.remediation.semantic_safety_gate_service import (
+    SemanticSafetyGateService,
 )
 from zeroone_ops.services.remediation.solution_artifact_service import (
     SolutionArtifactService,
@@ -70,6 +73,8 @@ class AnalysisResult:
     validation_comparison: ValidationComparison | None = None
     failure: FailureDetails | None = None
     workspace_snapshot: WorkspaceSnapshot | None = None
+    semantic_safety: SemanticSafetyDecision | None = None
+    terminal_rejection_stage: FailureStage | None = None
 
 
 class AnalysisService:
@@ -113,6 +118,7 @@ class AnalysisService:
             workspace_snapshot_service=self.workspace_snapshot_service,
             runtime_workspace_policy=runtime_workspace_policy,
         )
+        self.semantic_safety_gate_service = SemanticSafetyGateService()
 
     def analyze_issue(
         self,
@@ -163,7 +169,19 @@ class AnalysisService:
         artifact_service = SolutionArtifactService(
             llm_client.solution_output_path if isinstance(llm_client, OpenAILLMClient) else None
         )
-        analysis = fix_generator.analyze(selected_issue, context)
+        try:
+            analysis = fix_generator.analyze(selected_issue, context)
+        except LLMClientError as error:
+            message = f"Analysis generation failed: {error}"
+            return AnalysisResult(
+                summary=message,
+                validation_passed=False,
+                failure=FailureDetails(
+                    stage=FailureStage.ANALYSIS,
+                    message=message,
+                ),
+            )
+        semantic_safety = self.semantic_safety_gate_service.decide(analysis)
         artifact_service.write_analysis(issue_key=selected_issue.source_ref, analysis=analysis)
         summary = (
             f"Analysis classification: {analysis.classification.value}. "
@@ -172,18 +190,24 @@ class AnalysisService:
         relative_artifact_path = artifact_service.relative_path(self.repo_root)
         if relative_artifact_path is not None:
             summary = f"{summary}. Solution file: {relative_artifact_path}"
-        if analysis.classification == AnalysisClassification.MANUAL:
+        if not semantic_safety.accepted:
             artifact_service.write_manual_rejection(issue_key=selected_issue.source_ref)
+            reason = semantic_safety.reason or "Semantic-safety assessment was rejected."
             return AnalysisResult(
-                summary=f"{summary}. Patch generation skipped because manual review is required.",
+                summary=f"{summary}. Patch generation skipped: {reason}",
                 validation_passed=False,
+                semantic_safety=semantic_safety,
+                terminal_rejection_stage=FailureStage.SEMANTIC_SAFETY,
             )
         try:
             patch = self._generate_patch(
                 fix_generator=fix_generator,
                 selected_issue=selected_issue,
                 context=context.model_copy(
-                    update={"remediation_intent": analysis.remediation_intent}
+                    update={
+                        "remediation_intent": analysis.remediation_intent,
+                        "semantic_safety": semantic_safety.assessment,
+                    }
                 ),
                 artifact_service=artifact_service,
                 remediation_intent=analysis.remediation_intent,
@@ -235,7 +259,10 @@ class AnalysisService:
                 fix_generator=kwargs["fix_generator"],
                 selected_issue=kwargs["selected_issue"],
                 context=kwargs["context"].model_copy(
-                    update={"remediation_intent": analysis.remediation_intent}
+                    update={
+                        "remediation_intent": analysis.remediation_intent,
+                        "semantic_safety": semantic_safety.assessment,
+                    }
                 ),
                 remediation_intent=analysis.remediation_intent,
             ),
@@ -249,6 +276,7 @@ class AnalysisService:
             validation_comparison=execution_result.validation_comparison,
             failure=execution_result.failure,
             workspace_snapshot=execution_result.workspace_snapshot,
+            semantic_safety=semantic_safety,
         )
 
     def _build_llm_client(self) -> FixtureLLMClient | OpenAILLMClient | None:

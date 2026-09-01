@@ -77,6 +77,11 @@ def test_analysis_rejects_invalid_remediation_intent() -> None:
             classification=AnalysisClassification.AUTO_FIXABLE,
             summary="summary",
             proposed_strategy="strategy",
+            semantic_safety={
+                "current_behavior": "Current local behavior.",
+                "intended_behavior": "Minimal correction.",
+                "preservation_evidence": ["One-file scope."],
+            },
             remediation_intent="refactor",  # type: ignore[arg-type]
         )
 
