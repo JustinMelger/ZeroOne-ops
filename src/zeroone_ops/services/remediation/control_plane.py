@@ -15,6 +15,7 @@ from zeroone_ops.models.work_item import (
     ChangeRequestRef,
     PublicationRetryState,
     WorkItemExecutionFailure,
+    WorkItemSemanticSafety,
     WorkItemSourceRef,
     WorkItemState,
     WorkItemStatus,
@@ -52,6 +53,7 @@ class RemediationControlPlane(Protocol):
         self,
         *,
         selected_issue: RemediationExecutionTarget,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> WorkItemState | None:
         """Record that remediation publish has started."""
 
@@ -61,6 +63,7 @@ class RemediationControlPlane(Protocol):
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
         execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Best-effort transition after a promoted remediation flow fails early."""
 
@@ -70,6 +73,7 @@ class RemediationControlPlane(Protocol):
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
         execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Best-effort transition after remediation is intentionally rejected."""
 
@@ -96,6 +100,7 @@ class RemediationControlPlane(Protocol):
         selected_issue: RemediationExecutionTarget,
         published_change_request: ChangeRequestInfo,
         existing_work_item: WorkItemState | None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Best-effort sync of the published change request onto control-plane state."""
 
@@ -117,9 +122,10 @@ class NoOpRemediationControlPlane:
         self,
         *,
         selected_issue: RemediationExecutionTarget,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> WorkItemState | None:
         """Ignore publish-start projection when no control plane is active."""
-        del selected_issue
+        del selected_issue, semantic_safety
         return None
 
     def mark_execution_blocked(
@@ -128,9 +134,10 @@ class NoOpRemediationControlPlane:
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
         execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Ignore blocked-state projection when no control plane is active."""
-        del selected_issue, existing_work_item, execution_failure
+        del selected_issue, existing_work_item, execution_failure, semantic_safety
 
     def mark_execution_dismissed(
         self,
@@ -138,9 +145,10 @@ class NoOpRemediationControlPlane:
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
         execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Ignore dismissed-state projection when no control plane is active."""
-        del selected_issue, existing_work_item, execution_failure
+        del selected_issue, existing_work_item, execution_failure, semantic_safety
 
     def mark_execution_completed(
         self,
@@ -167,9 +175,10 @@ class NoOpRemediationControlPlane:
         selected_issue: RemediationExecutionTarget,
         published_change_request: ChangeRequestInfo,
         existing_work_item: WorkItemState | None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Ignore change-request link projection when no control plane is active."""
-        del selected_issue, published_change_request, existing_work_item
+        del selected_issue, published_change_request, existing_work_item, semantic_safety
 
 
 class WorkItemRemediationControlPlane:
@@ -210,12 +219,14 @@ class WorkItemRemediationControlPlane:
         self,
         *,
         selected_issue: RemediationExecutionTarget,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> WorkItemState:
         """Create or update the authoritative work item as in progress."""
         return self._upsert_work_item(
             selected_issue=selected_issue,
             status="in_progress",
             linked_change_request=None,
+            semantic_safety=semantic_safety,
         )
 
     def mark_publish_blocked(
@@ -239,6 +250,7 @@ class WorkItemRemediationControlPlane:
         existing_work_item: WorkItemState | None,
         publication_retry: PublicationRetryState | None = None,
         execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Best-effort transition of work-item state after a failed execution path."""
         if existing_work_item is None:
@@ -251,6 +263,7 @@ class WorkItemRemediationControlPlane:
                 existing_work_item=existing_work_item,
                 publication_retry=publication_retry,
                 execution_failure=execution_failure,
+                semantic_safety=semantic_safety,
             )
         except (GitHubClientError, GitLabClientError, RuntimeError):
             return
@@ -261,6 +274,7 @@ class WorkItemRemediationControlPlane:
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
         execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Best-effort transition of work-item state after rejected remediation."""
         if existing_work_item is None:
@@ -272,6 +286,7 @@ class WorkItemRemediationControlPlane:
                 linked_change_request=existing_work_item.linked_change_request,
                 existing_work_item=existing_work_item,
                 execution_failure=execution_failure,
+                semantic_safety=semantic_safety,
             )
         except (GitHubClientError, GitLabClientError, RuntimeError):
             return
@@ -301,6 +316,7 @@ class WorkItemRemediationControlPlane:
         selected_issue: RemediationExecutionTarget,
         published_change_request: ChangeRequestInfo,
         existing_work_item: WorkItemState | None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Best-effort sync of the linked change request onto work-item state."""
         try:
@@ -309,6 +325,7 @@ class WorkItemRemediationControlPlane:
                 status="in_progress",
                 linked_change_request=published_change_request,
                 existing_work_item=existing_work_item,
+                semantic_safety=semantic_safety,
             )
         except (GitHubClientError, GitLabClientError, RuntimeError):
             LOGGER.warning(
@@ -328,6 +345,7 @@ class WorkItemRemediationControlPlane:
         existing_work_item: WorkItemState | None = None,
         publication_retry: PublicationRetryState | None = None,
         execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> WorkItemState:
         """Create or update the authoritative provider work-item issue."""
         work_item = self._build_work_item(
@@ -337,6 +355,7 @@ class WorkItemRemediationControlPlane:
             existing_work_item=existing_work_item,
             publication_retry=publication_retry,
             execution_failure=execution_failure,
+            semantic_safety=semantic_safety,
         )
         return self.upsert_work_item(work_item)
 
@@ -379,6 +398,7 @@ class WorkItemRemediationControlPlane:
         existing_work_item: WorkItemState | None,
         publication_retry: PublicationRetryState | None = None,
         execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> WorkItemState:
         """Build the canonical work-item state for remediation publication."""
         return WorkItemState(
@@ -413,6 +433,13 @@ class WorkItemRemediationControlPlane:
             ),
             publication_retry=publication_retry,
             execution_failure=execution_failure,
+            semantic_safety=(
+                semantic_safety
+                if semantic_safety is not None
+                else None
+                if existing_work_item is None
+                else existing_work_item.semantic_safety
+            ),
         )
 
     def _normalize_change_request_ref(

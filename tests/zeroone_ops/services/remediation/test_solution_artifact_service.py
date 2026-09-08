@@ -20,6 +20,11 @@ def build_analysis() -> IssueAnalysis:
         risk_notes=[],
         target_files=["src/service.py"],
         proposed_strategy="Make the minimal fix.",
+        semantic_safety={
+            "current_behavior": "Current local behavior.",
+            "intended_behavior": "Minimal correction.",
+            "preservation_evidence": ["One-file scope."],
+        },
     )
 
 

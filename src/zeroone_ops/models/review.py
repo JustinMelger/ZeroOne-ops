@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from zeroone_ops.models.analysis import RepositoryGuidanceContext
+from zeroone_ops.models.analysis import RepositoryGuidanceContext, SemanticSafetyAssessment
 
 ReviewClassification = Literal["no_findings", "findings_present", "manual_review_only"]
 ReviewFindingSeverity = Literal["high", "medium", "low"]
@@ -121,6 +121,7 @@ class RemediationReviewContext(BaseModel):
     message: str | None = None
     validation_summary: str | None = None
     notes: str | None = None
+    semantic_safety: SemanticSafetyAssessment | None = None
 
 
 class PriorReviewFinding(BaseModel):

@@ -1,6 +1,10 @@
 import pytest
 
-from zeroone_ops.models.analysis import ValidationComparison, ValidationResult
+from zeroone_ops.models.analysis import (
+    SemanticSafetyAssessment,
+    ValidationComparison,
+    ValidationResult,
+)
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import (
     AnalysisConfig,
@@ -14,6 +18,7 @@ from zeroone_ops.models.remediation import RemediationExecutionTarget, Remediati
 from zeroone_ops.models.work_item import (
     ChangeRequestRef,
     PublicationRetryState,
+    WorkItemSemanticSafety,
     WorkItemSourceRef,
     WorkItemState,
 )
@@ -121,6 +126,7 @@ class StubRemediationControlPlane(RemediationControlPlane):
         self.error_on_call = error_on_call
         self.sync_error_message = sync_error_message
         self.blocked_error_message = blocked_error_message
+        self.link_sync_semantic_safety: WorkItemSemanticSafety | None = None
 
     def materialize_promoted_work_item(
         self,
@@ -135,7 +141,9 @@ class StubRemediationControlPlane(RemediationControlPlane):
         self,
         *,
         selected_issue: RemediationExecutionTarget,
+        semantic_safety=None,
     ) -> WorkItemState:
+        del semantic_safety
         work_item = WorkItemState(
             work_item_id="work-1",
             kind="remediation",
@@ -183,7 +191,9 @@ class StubRemediationControlPlane(RemediationControlPlane):
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        semantic_safety=None,
     ) -> None:
+        del semantic_safety
         self.mark_publish_blocked(
             selected_issue=selected_issue,
             existing_work_item=existing_work_item,
@@ -194,8 +204,9 @@ class StubRemediationControlPlane(RemediationControlPlane):
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        semantic_safety=None,
     ) -> None:
-        del selected_issue, existing_work_item
+        del selected_issue, existing_work_item, semantic_safety
 
     def mark_execution_completed(
         self,
@@ -211,8 +222,10 @@ class StubRemediationControlPlane(RemediationControlPlane):
         selected_issue: RemediationExecutionTarget,
         published_change_request: ChangeRequestInfo,
         existing_work_item: WorkItemState | None,
+        semantic_safety=None,
     ) -> None:
         del selected_issue
+        self.link_sync_semantic_safety = semantic_safety
         if existing_work_item is None:
             return
         updated_work_item = existing_work_item.model_copy(
@@ -222,6 +235,7 @@ class StubRemediationControlPlane(RemediationControlPlane):
                     number=published_change_request.iid,
                     web_url=published_change_request.web_url,
                 ),
+                "semantic_safety": semantic_safety,
             }
         )
         self.calls.append(updated_work_item)
@@ -774,16 +788,25 @@ def test_publish_service_keeps_success_when_pre_publish_work_item_sync_fails() -
         remediation_control_plane=work_item_service,
     )
 
+    semantic_safety = SemanticSafetyAssessment(
+        current_behavior="The selected code has the reported issue.",
+        intended_behavior="Apply the minimal correction.",
+        preservation_evidence=["The change remains within the selected file."],
+    )
     result = service.publish(
         selected_issue=build_issue(),
         change_request_title="ignored",
         change_request_description="summary",
+        semantic_safety=semantic_safety,
     )
 
     assert result.error_message is None
     assert result.change_request_url == "https://github.com/octo-org/octo-repo/pull/23"
     assert result.change_request_action == "created"
     assert len(work_item_service.calls) == 1
+    assert work_item_service.link_sync_semantic_safety == WorkItemSemanticSafety(
+        assessment=semantic_safety
+    )
 
 
 def test_publish_service_builds_default_control_plane_lazily(

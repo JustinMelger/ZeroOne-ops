@@ -67,8 +67,9 @@ class StubRemediationControlPlane:
         self,
         *,
         selected_issue: RemediationExecutionTarget,
+        semantic_safety=None,
     ) -> WorkItemState | None:
-        del selected_issue
+        del selected_issue, semantic_safety
         return None
 
     def mark_publish_blocked(
@@ -84,7 +85,9 @@ class StubRemediationControlPlane:
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        semantic_safety=None,
     ) -> None:
+        del semantic_safety
         self.blocked_calls.append((selected_issue, existing_work_item))
 
     def mark_execution_dismissed(
@@ -92,7 +95,9 @@ class StubRemediationControlPlane:
         *,
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
+        semantic_safety=None,
     ) -> None:
+        del semantic_safety
         self.dismissed_calls.append((selected_issue, existing_work_item))
 
     def mark_execution_completed(
@@ -109,8 +114,9 @@ class StubRemediationControlPlane:
         selected_issue: RemediationExecutionTarget,
         published_change_request: ChangeRequestInfo,
         existing_work_item: WorkItemState | None,
+        semantic_safety=None,
     ) -> None:
-        del selected_issue, published_change_request, existing_work_item
+        del selected_issue, published_change_request, existing_work_item, semantic_safety
 
 
 def build_config() -> AppConfig:

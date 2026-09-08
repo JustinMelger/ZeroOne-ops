@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from zeroone_ops.models.analysis import RemediationIntent
+from zeroone_ops.models.analysis import RemediationIntent, SemanticSafetyAssessment
 from zeroone_ops.models.finding import RemediationContext
 from zeroone_ops.models.review import ReviewClassification
 
@@ -74,6 +74,7 @@ class PublicationRetryState(BaseModel):
     commit_sha: str
     reason: Literal["change_request_publish_failed"]
     remediation_intent: RemediationIntent = "chore"
+    semantic_safety: SemanticSafetyAssessment | None = None
 
 
 class WorkItemExecutionFailure(BaseModel):
@@ -89,6 +90,13 @@ class WorkItemExecutionFailure(BaseModel):
     execution_url: str | None = None
     validation_outcome: str | None = None
     status: Literal["blocked", "dismissed"] = "blocked"
+
+
+class WorkItemSemanticSafety(BaseModel):
+    """Persist compact untrusted semantic-safety evidence for an execution attempt."""
+
+    assessment: SemanticSafetyAssessment | None = None
+    rejection_reason: str | None = None
 
 
 class WorkItemPolicyDeferral(BaseModel):
@@ -143,6 +151,7 @@ class WorkItemState(BaseModel):
     claim: WorkItemClaim | None = None
     publication_retry: PublicationRetryState | None = None
     execution_failure: WorkItemExecutionFailure | None = None
+    semantic_safety: WorkItemSemanticSafety | None = None
     policy_deferral: WorkItemPolicyDeferral | None = None
     capacity_deferral: WorkItemCapacityDeferral | None = None
     attempt_number: int = Field(default=1, ge=1)

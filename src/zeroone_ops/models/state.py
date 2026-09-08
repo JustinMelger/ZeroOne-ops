@@ -50,6 +50,7 @@ class FailureStage(StrEnum):
     ISSUE_INTAKE = "issue_intake"
     DASHBOARD_UPDATE = "dashboard_update"
     ANALYSIS = "analysis"
+    SEMANTIC_SAFETY = "semantic_safety"
     PATCH_APPLY = "patch_apply"
     VALIDATION_SETUP = "validation_setup"
     VALIDATION = "validation"
