@@ -1334,7 +1334,7 @@ def test_dashboard_reconcile_ci_blocks_retry_for_manual_review_only(
         )(),
     )
 
-    def fake_get_change_request_state(*, project_id: str, change_request_number: int):  # noqa: ANN202
+    def fake_get_change_request_state(*, project_id: str, change_request_number: int) -> object:  # noqa: ANN202
         del project_id
         return type(
             "GitLabMergeRequestState",
