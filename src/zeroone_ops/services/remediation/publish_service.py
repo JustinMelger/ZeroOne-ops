@@ -105,6 +105,9 @@ class PublishService:
             )
         control_plane_work_item = None
         pushed_branch: str | None = None
+        work_item_semantic_safety = (
+            None if semantic_safety is None else WorkItemSemanticSafety(assessment=semantic_safety)
+        )
         try:
             publisher = self.change_request_publisher or build_remediation_change_request_publisher(
                 self.config
@@ -119,11 +122,7 @@ class PublishService:
             )
             control_plane_work_item = self._mark_control_plane_publish_started_best_effort(
                 selected_issue=selected_issue,
-                semantic_safety=(
-                    None
-                    if semantic_safety is None
-                    else WorkItemSemanticSafety(assessment=semantic_safety)
-                ),
+                semantic_safety=work_item_semantic_safety,
             )
             pushed_branch = self.branch_manager.push_current_branch()
             published_change_request = publisher.publish(publication_request)
@@ -131,6 +130,7 @@ class PublishService:
                 selected_issue=selected_issue,
                 published_change_request=published_change_request.info,
                 existing_work_item=control_plane_work_item,
+                semantic_safety=work_item_semantic_safety,
             )
         except (BranchManagerError, GitLabClientError, GitHubClientError, RuntimeError) as error:
             self._mark_control_plane_blocked_best_effort(
@@ -230,6 +230,7 @@ class PublishService:
         selected_issue: RemediationExecutionTarget,
         published_change_request: ChangeRequestInfo,
         existing_work_item: WorkItemState | None,
+        semantic_safety: WorkItemSemanticSafety | None,
     ) -> None:
         """Sync the published change request onto control-plane state without altering success."""
         try:
@@ -237,6 +238,7 @@ class PublishService:
                 selected_issue=selected_issue,
                 published_change_request=published_change_request,
                 existing_work_item=existing_work_item,
+                semantic_safety=semantic_safety,
             )
         except (GitHubClientError, GitLabClientError, RuntimeError):
             LOGGER.warning(
