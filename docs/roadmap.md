@@ -127,15 +127,15 @@ history, not here.
 
 ### Remediation Semantic Safety
 
-- [ ] design a semantic-safety gate for rule-driven remediation: treat source
-  diagnostics as evidence rather than instructions; require analysis to state
-  current behavior, intended behavior, and local behavior-preservation evidence
-  before auto-fix; require manual classification when that proof is unclear;
-  prevent structured-edit generation from overriding the analysis decision
+- [x] define mandatory semantic-safety analysis and terminal manual handling
+- [x] implement the shared semantic-safety gate, bounded provider evidence, and
+  analysis/structured-edit contracts before the remediation feedback loop
+- design: [functional semantic safety](design/functional/functional-design-remediation-semantic-safety.md)
+  and [technical semantic safety](design/technical/technical-design-remediation-semantic-safety.md)
 
 ### Review Rollout
 
-- [ ] live-validate same-SHA review-projection repair after a recoverable
+- [x] live-validate same-SHA review-projection repair after a recoverable
   projection warning
 
 ### Review Finding Clarity

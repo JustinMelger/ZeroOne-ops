@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
-from zeroone_ops.models.work_item import WorkItemExecutionFailure
+from zeroone_ops.models.analysis import SemanticSafetyAssessment
+from zeroone_ops.models.work_item import WorkItemExecutionFailure, WorkItemSemanticSafety
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_renderer import (
     GitLabWorkItemRenderer,
 )
@@ -42,6 +43,28 @@ def test_rendering_includes_terminal_resolution_only_when_present() -> None:
     assert "- Resolution: No change required" in renderer.render_body(no_change_required)
     assert "- Resolution: Merged" in renderer.render_body(merged)
     assert "- Resolution:" not in renderer.render_body(build_work_item())
+
+
+def test_rendering_includes_semantic_safety_evidence_when_present() -> None:
+    work_item = build_work_item().model_copy(
+        update={
+            "semantic_safety": WorkItemSemanticSafety(
+                assessment=SemanticSafetyAssessment(
+                    current_behavior="The old condition accepts None.",
+                    intended_behavior="The condition rejects None.",
+                    preservation_evidence=["Only the local condition changes."],
+                )
+            )
+        }
+    )
+
+    body = GitLabWorkItemRenderer().render_body(work_item)
+
+    assert "## Semantic Safety" in body
+    assert "- Current behavior: The old condition accepts None." in body
+    assert "- Intended behavior: The condition rejects None." in body
+    assert "  - Only the local condition changes." in body
+    assert "## Semantic Safety" not in GitLabWorkItemRenderer().render_body(build_work_item())
 
 
 def test_render_body_includes_recovery_commands_for_blocked_work_item() -> None:

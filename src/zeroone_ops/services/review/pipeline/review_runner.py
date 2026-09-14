@@ -11,8 +11,10 @@ import httpx
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
     ChangeRequestReviewCandidate,
+    ChangeRequestReviewContext,
     PriorReviewContext,
     PriorReviewPass,
+    RemediationReviewContext,
     ReviewClassification,
     ReviewComment,
     ReviewResult,
@@ -28,7 +30,10 @@ from zeroone_ops.models.state import (
     ReviewRunDiagnostics,
     RunRecord,
 )
+from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.providers.github_client import GitHubClientError
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
+from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 from zeroone_ops.providers.review.platform import (
@@ -87,6 +92,7 @@ from zeroone_ops.services.review.publish.review_publisher import ReviewPublisher
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.settings import (
+    SettingsError,
     load_github_connection_config,
     load_gitlab_connection_config,
 )
@@ -217,6 +223,7 @@ class ReviewRunner:
                     message=context_result.message,
                 ),
             )
+        context = context_result.context
         prior_review_context = self._load_prior_review_context(
             run_id=run_id,
             repository_id=repository_id,
@@ -224,21 +231,11 @@ class ReviewRunner:
             current_head_sha=selected_change_request.head_sha,
         )
         if prior_review_context is not None:
-            context_result = context_result.__class__(
-                context=context_result.context.model_copy(
-                    update={"prior_review_context": prior_review_context}
-                ),
-                message=context_result.message,
-            )
-        context = context_result.context
-        if context is None:  # pragma: no cover - defensive guard after enrichment
-            return self.review_state_service.fail_review(
-                record=record,
-                error_message=(f"[{self.config.execution_mode}] Could not build review context."),
-                failure=FailureDetails(
-                    stage=FailureStage.REVIEW_CONTEXT,
-                    message="Could not build review context.",
-                ),
+            context = context.model_copy(update={"prior_review_context": prior_review_context})
+        if not active_dry_run:
+            context = self._with_verified_semantic_safety(
+                repository_id=repository_id,
+                context=context,
             )
 
         changed_file_count = len(context.changed_files)
@@ -524,6 +521,47 @@ class ReviewRunner:
                 GitLabWorkItemService(GitLabWorkItemClient(gitlab_config))
             )
         return None
+
+    def _with_verified_semantic_safety(
+        self,
+        *,
+        repository_id: str,
+        context: ChangeRequestReviewContext,
+    ) -> ChangeRequestReviewContext:
+        """Attach persisted remediation evidence only through a verified work-item link."""
+        try:
+            work_item: WorkItemState | None
+            if self.config.platform == "github":
+                github_result = GitHubWorkItemService(
+                    GitHubWorkItemClient(load_github_connection_config())
+                ).find_open_work_item_by_change_request(
+                    repository_id=repository_id,
+                    change_request_number=context.change_request_number,
+                )
+                work_item = None if github_result is None else github_result.work_item
+            elif self._gitlab_issue_mode_is_active():
+                gitlab_result = GitLabWorkItemService(
+                    GitLabWorkItemClient(load_gitlab_connection_config())
+                ).find_open_work_item_by_change_request(
+                    project_id=repository_id,
+                    change_request_number=context.change_request_number,
+                )
+                work_item = None if gitlab_result is None else gitlab_result.work_item
+            else:
+                return context
+        except (GitHubClientError, GitLabClientError, SettingsError, httpx.HTTPError):
+            LOGGER.warning("review semantic-safety lookup failed", exc_info=True)
+            return context
+        if work_item is None or work_item.semantic_safety is None:
+            return context
+        remediation_context = context.remediation_context or RemediationReviewContext()
+        return context.model_copy(
+            update={
+                "remediation_context": remediation_context.model_copy(
+                    update={"semantic_safety": work_item.semantic_safety.assessment}
+                )
+            }
+        )
 
     def _retry_same_sha_projection_if_needed(
         self,

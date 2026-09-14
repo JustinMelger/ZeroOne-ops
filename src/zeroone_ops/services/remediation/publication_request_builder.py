@@ -4,10 +4,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from zeroone_ops.models.analysis import RemediationIntent, ValidationComparison
+from zeroone_ops.models.analysis import (
+    RemediationIntent,
+    SemanticSafetyAssessment,
+    ValidationComparison,
+)
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget, remediation_profile_for
 from zeroone_ops.services.remediation.change_request_publisher import ChangeRequestPublishRequest
+from zeroone_ops.services.remediation.semantic_safety_presentation import (
+    render_semantic_safety_lines,
+)
 
 
 class RemediationPublicationRequestBuilder:
@@ -25,6 +32,7 @@ class RemediationPublicationRequestBuilder:
         change_summary: str,
         remediation_intent: RemediationIntent = "chore",
         validation_comparison: ValidationComparison | None = None,
+        semantic_safety: SemanticSafetyAssessment | None = None,
     ) -> ChangeRequestPublishRequest:
         """Build the complete provider-neutral request for one source branch."""
         labels, assignee_username = self._publication_options()
@@ -41,6 +49,7 @@ class RemediationPublicationRequestBuilder:
                 selected_issue=selected_issue,
                 change_summary=change_summary,
                 validation_comparison=validation_comparison,
+                semantic_safety=semantic_safety,
             ),
             labels=labels,
             assignee_username=assignee_username,
@@ -74,6 +83,7 @@ class RemediationPublicationRequestBuilder:
         selected_issue: RemediationExecutionTarget,
         change_summary: str,
         validation_comparison: ValidationComparison | None = None,
+        semantic_safety: SemanticSafetyAssessment | None = None,
     ) -> str:
         """Build a deterministic change-request description."""
         profile = remediation_profile_for(selected_issue)
@@ -119,6 +129,8 @@ class RemediationPublicationRequestBuilder:
                     "- Commands: " + ", ".join(f"`{command}`" for command in commands),
                 ]
             )
+        if semantic_safety is not None:
+            lines.extend(render_semantic_safety_lines(semantic_safety))
         return "\n".join(lines).rstrip()
 
     def _publication_options(self) -> tuple[list[str], str | None]:

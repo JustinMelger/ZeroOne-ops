@@ -12,6 +12,7 @@ from zeroone_ops.models.analysis import (
     IssueContext,
     PatchProposal,
     RemediationIntent,
+    SemanticSafetyAssessment,
     ValidationComparison,
 )
 from zeroone_ops.models.change_request import ChangeRequestInfo
@@ -243,7 +244,9 @@ class ExecutionService:
                 status_message=analysis_result.summary,
                 branch_name=branch_name,
                 final_status=RunStatus.REJECTED,
-                terminal_rejection_stage=FailureStage.ANALYSIS,
+                terminal_rejection_stage=(
+                    analysis_result.terminal_rejection_stage or FailureStage.ANALYSIS
+                ),
             )
         if dry_run or not self._should_commit(analysis_result):
             return ExecutionResult(
@@ -333,6 +336,11 @@ class ExecutionService:
             change_request_description=patch.change_request_description,
             remediation_intent=patch.remediation_intent,
             validation_comparison=analysis_result.validation_comparison,
+            semantic_safety=(
+                None
+                if analysis_result.semantic_safety is None
+                else analysis_result.semantic_safety.assessment
+            ),
             commit_sha=commit_sha,
         )
         if publish_result.error_message is not None:
@@ -399,6 +407,7 @@ class ExecutionService:
         change_request_description: str,
         remediation_intent: RemediationIntent,
         validation_comparison: ValidationComparison | None,
+        semantic_safety: SemanticSafetyAssessment | None,
         commit_sha: str,
     ) -> PublishResult:
         """Delegate publish behavior to the dedicated publish service."""
@@ -408,6 +417,7 @@ class ExecutionService:
             change_request_description=change_request_description,
             remediation_intent=remediation_intent,
             validation_comparison=validation_comparison,
+            semantic_safety=semantic_safety,
             commit_sha=commit_sha,
         )
 

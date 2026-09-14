@@ -8,5 +8,10 @@
   "target_files": [
     "src/ai_sonar_bot/runner.py"
   ],
-  "proposed_strategy": "Remove or refactor the flagged code path with the smallest safe edit."
+  "proposed_strategy": "Remove or refactor the flagged code path with the smallest safe edit.",
+  "semantic_safety": {
+    "current_behavior": "The selected code contains the reported local issue.",
+    "intended_behavior": "Apply the smallest safe one-file correction.",
+    "preservation_evidence": ["The proposed change remains in the selected local code path."]
+  }
 }

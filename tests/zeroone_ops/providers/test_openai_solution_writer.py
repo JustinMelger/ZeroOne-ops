@@ -13,6 +13,11 @@ def test_write_solution_artifact_persists_analysis_and_patch(tmp_path: Path) -> 
         risk_notes=[],
         target_files=["src/service.py"],
         proposed_strategy="Make the minimal fix.",
+        semantic_safety={
+            "current_behavior": "Current local behavior.",
+            "intended_behavior": "Minimal correction.",
+            "preservation_evidence": ["One-file scope."],
+        },
     )
     patch = PatchProposal(
         issue_key="AX1",
