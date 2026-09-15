@@ -57,6 +57,22 @@ actionable findings. It is displayed for operators and supplied to a later
 revision as untrusted evidence. The change request remains the complete
 human-readable review record.
 
+`findings_present` is actionable only when it includes a valid bounded feedback
+packet. A malformed or absent packet is projected as `manual_review_only` with
+a warning, not as a requeueable state. A `manual_review_only` result never
+clears existing actionable feedback: it preserves
+`review_feedback_required` when that state already exists, and otherwise only
+updates review evidence.
+
+A review projection is accepted only when its reviewed SHA remains the current
+linked PR/MR head and is not older than the persisted projection. An older or
+otherwise stale review cannot overwrite newer feedback or a queued revision.
+
+A newer review projection supersedes any queued revision request. If a review
+arrives while the item is `review_revision_queued`, the item returns to
+`review_feedback_required` with the newer reviewed SHA and evidence. The prior
+operator command cannot revise against stale feedback.
+
 ## Operator Flow
 
 An authorized operator reviews the remediation PR/MR and its projected review
@@ -71,6 +87,20 @@ The command requests a revision; it does not immediately generate code. The
 normal remediation workflow later claims `review_revision_queued` work and is
 the only component allowed to edit code, validate, commit, push, or update the
 change request.
+
+The same command remains state-aware. On `blocked` work it uses the existing
+recovery flow; on `review_feedback_required` work it queues a same-branch
+revision; all other statuses reject it. A command on the PR/MR, operational
+summary, or another non-work-item surface is never authoritative.
+
+The linked PR/MR review summary must direct operators to the authoritative
+work-item issue when review feedback requires action. It includes a compact
+link to that issue and states that requeue commands are accepted there, not on
+the PR/MR. The work-item issue renders the `review_feedback_required` status,
+the linked PR/MR, bounded projected findings, and the exact requeue command.
+The operational summary remains an inspection surface: it may link to the
+active PR/MR and show the feedback-required status, but it does not accept
+commands.
 
 There is no `dismiss` action while the linked PR/MR remains open. An operator
 who decides not to pursue the change closes the PR/MR through the provider;
@@ -92,9 +122,10 @@ result is projected.
 
 For a valid queued revision, the remediation workflow checks out the verified
 existing source branch. It generates and applies only a patch within the
-original one-file scope, runs the configured validation safeguards, and pushes
-only a normal fast-forward commit. The existing PR/MR is updated; no second
-change request is created.
+original remediation target file, regardless of locations mentioned in review
+feedback. It runs the configured validation safeguards and pushes only a normal
+fast-forward commit. The existing PR/MR is updated; no second change request
+is created.
 
 If the remote branch changes before push, a non-fast-forward failure is treated
 as stale feedback. The revision does not overwrite the branch and returns to
@@ -104,16 +135,26 @@ as stale feedback. The revision does not overwrite the branch and returns to
 
 - A successful revision returns the item to `in_progress`, clears the queued
   revision marker, and retains the projected review evidence until a newer
-  review supersedes it.
+  review supersedes it. The normal PR/MR review trigger then evaluates the new
+  revision; no automatic requeue occurs.
 - A failed, rejected, invalid-scope, or stale revision returns the item to
   `review_feedback_required` with existing bounded last-execution evidence.
+- In revision mode, a semantic-safety rejection is revision failure evidence,
+  not a terminal dismissal. The linked PR/MR and actionable review feedback
+  remain available for the operator to resolve manually or requeue after a
+  newer review.
 - Lifecycle reconciliation must preserve `review_feedback_required` and
   `review_revision_queued` while the linked PR/MR is open. It must not rewrite
   them to ordinary `in_progress`.
+- A stale revision claim returns to `review_feedback_required` with bounded
+  recovery evidence. It must never become ordinary `approved` work.
 - Merged and closed-unmerged PR/MR handling remains lifecycle-owned. Once the
   request is no longer open, this design does not reuse it.
 - Repeated revisions require a new explicit operator command after each review
   result. There is no automatic feedback loop in v1.
+- V1 reuses the existing read-before-write protection for work-item claims. It
+  does not claim provider-bound compare-and-set semantics; a later atomic-claim
+  slice remains responsible for that stronger concurrency guarantee.
 
 ## Provider Parity And Authorization
 

@@ -46,11 +46,28 @@ projection decision must:
    `review_feedback_required`; and
 4. preserve linked, terminal, and provider ownership boundaries.
 
+A `findings_present` artifact without a valid bounded feedback packet projects
+as `manual_review_only` with a warning and does not expose requeue. A
+`manual_review_only` projection preserves existing
+`review_feedback_required` feedback rather than clearing it.
+
+A projection must verify that its reviewed SHA still matches the current linked
+request head and is not older than the persisted projection before writing. A
+stale result is logged and ignored so it cannot overwrite a newer feedback
+packet or queued-revision marker.
+
+A newer review artifact supersedes a queued revision marker and restores
+`review_feedback_required`. This prevents an earlier command reference and
+reviewed SHA from authorizing a revision after a newer review is available.
+
 Add a provider-neutral review-feedback decision service alongside recovery
 decisions. It accepts an authorized `requeue` request only for
 `review_feedback_required` work with actionable projected feedback. It records
 the request and returns `review_revision_queued`. It must reject unsupported
 actions, stale command references, absent feedback, and incorrect states.
+The command router delegates the same requeue spelling to this service only for
+`review_feedback_required`; it retains existing blocked-work recovery routing
+for `blocked` items and rejects every other status.
 
 Existing blocked-work recovery remains separate. It continues to own
 publication retry, fresh attempts, and dismissal. A linked open PR/MR with
@@ -68,9 +85,12 @@ claiming or executing queued work, each adapter must verify:
 - its source branch is non-empty and safe for Git operations.
 
 The GitHub/GitLab remediation intake services select queued revision work
-separately from unlinked approved work. They claim it atomically through the
-existing provider upsert boundary and pass an explicit revision execution
-target to the shared runner.
+separately from unlinked approved work. They use the existing re-read guard
+before mutating a claim and pass an explicit revision execution target to the
+shared runner. V1 does not claim provider-bound compare-and-set behavior;
+stronger atomic claims remain deferred to the corresponding roadmap work.
+Revision claims persist existing claim metadata so stale-claim recovery can
+return an abandoned revision to `review_feedback_required`, never `approved`.
 
 The branch manager gains a narrow existing-branch checkout operation. It must
 fetch the named remote branch, verify its head SHA before editing, checkout a
@@ -82,7 +102,16 @@ push is a stale revision failure, not a branch-reuse fallback.
 the deprecated dashboard branch parameter. Revision mode reuses the same
 analysis, structured-edit, patch, one-file validation, rollback, commit, and
 publication logic. Publication verifies and updates the existing PR/MR; it does
-not search for or create another request.
+not search for or create another request. Revision mode fixes only the persisted
+original remediation target file; review-feedback locations are untrusted
+evidence and cannot expand that scope. After a successful fast-forward update,
+the item returns to `in_progress` and the normal provider review trigger
+produces the next review projection.
+
+Fresh remediation semantic-safety rejection retains its terminal dismissal
+behavior. In revision mode, the same rejection instead maps to bounded
+execution evidence and restores `review_feedback_required`, preserving the
+linked request and actionable feedback for operator handling.
 
 ## Lifecycle And Rendering
 
@@ -98,6 +127,12 @@ GitHub and GitLab renderers add:
 - a requeue instruction only for `review_feedback_required`; and
 - queued-revision and last-execution evidence without exposing raw prompts,
   validation output, credentials, or branch commands.
+
+The review-summary publisher adds a compact action-required notice for
+`findings_present` remediation reviews. It links to the uniquely verified
+work-item issue and states that commands belong on that issue, not on the
+PR/MR. Operational summaries remain read-only and may show the feedback status
+alongside their existing active-change-request link.
 
 Operational summaries count both feedback statuses as active remediation work.
 Finding sync and capacity planning preserve them as protected linked work.
