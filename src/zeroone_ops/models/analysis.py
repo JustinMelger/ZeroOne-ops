@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 type ValidationOutcome = Literal[
     "passed",
@@ -18,6 +18,9 @@ type ValidationOutcome = Literal[
     "unscoped_regression",
 ]
 type RemediationIntent = Literal["fix", "chore"]
+_MAX_SEMANTIC_SAFETY_TEXT_LENGTH = 600
+_MAX_PRESERVATION_EVIDENCE_ITEMS = 5
+_MAX_PRESERVATION_EVIDENCE_LENGTH = 400
 
 
 class AnalysisClassification(StrEnum):
@@ -26,6 +29,44 @@ class AnalysisClassification(StrEnum):
     AUTO_FIXABLE = "auto_fixable"
     RETRYABLE = "retryable"
     MANUAL = "manual"
+
+
+class SemanticSafetyAssessment(BaseModel):
+    """Represent bounded, untrusted analysis evidence for one remediation."""
+
+    current_behavior: str = Field(max_length=_MAX_SEMANTIC_SAFETY_TEXT_LENGTH)
+    intended_behavior: str = Field(max_length=_MAX_SEMANTIC_SAFETY_TEXT_LENGTH)
+    preservation_evidence: list[str] = Field(
+        min_length=1,
+        max_length=_MAX_PRESERVATION_EVIDENCE_ITEMS,
+    )
+
+    @field_validator("current_behavior", "intended_behavior")
+    @classmethod
+    def _require_non_blank_text(cls, value: str) -> str:
+        """Reject empty evidence while preserving the model-provided text."""
+        if not value.strip():
+            raise ValueError("Semantic-safety text must not be blank.")
+        return value
+
+    @field_validator("preservation_evidence")
+    @classmethod
+    def _require_bounded_non_blank_evidence(cls, values: list[str]) -> list[str]:
+        """Reject empty or oversized evidence entries without judging their truth."""
+        for value in values:
+            if not value.strip():
+                raise ValueError("Semantic-safety evidence entries must not be blank.")
+            if len(value) > _MAX_PRESERVATION_EVIDENCE_LENGTH:
+                raise ValueError("Semantic-safety evidence entries exceed the allowed length.")
+        return values
+
+
+class SemanticSafetyDecision(BaseModel):
+    """Capture the deterministic shape decision for one assessment."""
+
+    accepted: bool
+    reason: str | None = None
+    assessment: SemanticSafetyAssessment | None = None
 
 
 class IssueAnalysis(BaseModel):
@@ -47,6 +88,7 @@ class IssueAnalysis(BaseModel):
     target_files: list[str] = Field(default_factory=list)
     proposed_strategy: str
     remediation_intent: RemediationIntent = "chore"
+    semantic_safety: SemanticSafetyAssessment
 
 
 class CodeContextSnippet(BaseModel):
@@ -142,6 +184,7 @@ class IssueContext(BaseModel):
     prior_review_feedback: PriorReviewFeedback | None = None
     validation_feedback: ValidationFeedback | None = None
     remediation_intent: RemediationIntent | None = None
+    semantic_safety: SemanticSafetyAssessment | None = None
 
 
 class PatchProposal(BaseModel):

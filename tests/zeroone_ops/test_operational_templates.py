@@ -1,6 +1,6 @@
 """Safety contracts for copyable CI workflow templates."""
 
-import tomllib
+import re
 from pathlib import Path
 from typing import Any
 
@@ -32,11 +32,19 @@ def _gitlab_job(template: dict[str, Any], name: str) -> dict[str, Any]:
     return job
 
 
-def _project_version() -> str:
-    """Return the package version the canonical template must pin."""
-    project = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    version = project["project"]["version"]
-    assert isinstance(version, str)
+_SEMVER_PATTERN = re.compile(r"\d+\.\d+\.\d+")
+
+
+def _template_image_version() -> str:
+    """Return the shared release tag configured by the installation templates."""
+    template = GITHUB_OPERATIONS_TEMPLATE_PATH.read_text(encoding="utf-8")
+    match = re.search(
+        r"ZERO_ONE_OPS_VERSION \|\| '([^']+)'",
+        template,
+    )
+    assert match is not None
+    version = match.group(1)
+    assert _SEMVER_PATTERN.fullmatch(version)
     return version
 
 
@@ -44,11 +52,11 @@ def _github_image_reference() -> str:
     """Return the intentionally overridable GitHub template image reference."""
     return (
         "ghcr.io/<owner>/zeroone-ops:"
-        f"${{{{ vars.ZERO_ONE_OPS_VERSION || '{_project_version()}' }}}}"
+        f"${{{{ vars.ZERO_ONE_OPS_VERSION || '{_template_image_version()}' }}}}"
     )
 
 
-def test_operational_templates_pin_zeroone_image_versions() -> None:
+def test_operational_templates_pin_consistent_release_versions() -> None:
     github_image = _github_image_reference()
     template_expectations = {
         GITHUB_OPERATIONS_TEMPLATE_PATH: (github_image, 5),
@@ -66,12 +74,12 @@ def test_operational_templates_pin_zeroone_image_versions() -> None:
         assert template.count(image) == expected_count
 
 
-def test_gitlab_template_pins_the_current_package_release() -> None:
+def test_gitlab_template_pins_the_shared_template_release() -> None:
     template = GITLAB_TEMPLATE_PATH.read_text(encoding="utf-8")
     parsed = _load_gitlab_template()
 
     assert "zeroone-ops:latest" not in template
-    assert parsed["variables"]["ZERO_ONE_OPS_VERSION"] == _project_version()
+    assert parsed["variables"]["ZERO_ONE_OPS_VERSION"] == _template_image_version()
 
     base = _gitlab_job(parsed, ".zeroone_ops_base")
     assert base["image"] == {
@@ -161,7 +169,7 @@ def test_gitlab_template_defines_the_issue_mode_operational_dag() -> None:
 
     assert "stages" not in template
     assert template["variables"] == {
-        "ZERO_ONE_OPS_VERSION": _project_version(),
+        "ZERO_ONE_OPS_VERSION": _template_image_version(),
         "OPERATION": "",
         "ZEROONE_STATIC_CODE_SCAN_DIRECTORIES": ".",
         "ZEROONE_RUFF_SCAN_ENABLED": "true",

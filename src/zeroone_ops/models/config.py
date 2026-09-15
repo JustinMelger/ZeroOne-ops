@@ -6,15 +6,24 @@ environment overrides.
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Annotated, ClassVar, Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 type SarifSeverityLevel = Literal["error", "warning", "note", "none", "default"]
 type SarifSeverityMapping = dict[SarifSeverityLevel, Literal["low", "medium", "high"]]
 type SourcePriority = Annotated[int, Field(ge=0, strict=True)]
 type SourcePriorityMapping = dict[Annotated[str, Field(min_length=1)], SourcePriority]
+
+_GUIDANCE_GLOB_CHARACTERS = frozenset("*?[]")
 
 
 class RepositoryConfigModel(BaseModel):
@@ -271,6 +280,7 @@ class AppConfig(RepositoryConfigModel):
     write_solution_artifacts_in_ci: bool = False
     mock_llm_analysis_path: Path | None = None
     mock_llm_edit_path: Path | None = None
+    repository_guidance_paths: list[str] | None = None
     approval: ApprovalConfig = Field(default_factory=ApprovalConfig)
     review: ReviewConfig = Field(default_factory=ReviewConfig)
     remediation: RemediationConfig = Field(default_factory=RemediationConfig)
@@ -289,6 +299,36 @@ class AppConfig(RepositoryConfigModel):
             "mock_sonar_issues_path",
         }
     )
+
+    @field_validator("repository_guidance_paths")
+    @classmethod
+    def _validate_repository_guidance_paths(cls, value: list[str] | None) -> list[str] | None:
+        """Validate explicit repository guidance paths as safe literal paths."""
+        if value is None:
+            return None
+
+        normalized_paths: list[str] = []
+        seen_paths: set[str] = set()
+        for raw_path in value:
+            if not raw_path or not raw_path.strip():
+                raise ValueError("repository_guidance_paths entries must not be empty.")
+            if "\\" in raw_path or _GUIDANCE_GLOB_CHARACTERS.intersection(raw_path):
+                raise ValueError(
+                    "repository_guidance_paths entries must be literal POSIX paths without globs."
+                )
+            path = PurePosixPath(raw_path)
+            if path.is_absolute() or path == PurePosixPath(".") or ".." in path.parts:
+                raise ValueError(
+                    "repository_guidance_paths entries must be repository-relative paths."
+                )
+            normalized_path = path.as_posix()
+            if normalized_path in seen_paths:
+                raise ValueError(
+                    "repository_guidance_paths entries must be unique after normalization."
+                )
+            seen_paths.add(normalized_path)
+            normalized_paths.append(normalized_path)
+        return normalized_paths
 
     @model_validator(mode="before")
     @classmethod

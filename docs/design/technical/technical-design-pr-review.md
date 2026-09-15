@@ -229,8 +229,19 @@ not contain that metadata.
 
 Repository guidance should stay bounded and deterministic:
 
-- only known guidance file locations should be considered in v1,
-- only a short excerpt from each file should be included,
+- when `repository_guidance_paths` is omitted, only known guidance file
+  locations are considered; when it is configured, only its exact safe paths
+  are considered and default glob discovery is disabled,
+- Markdown-aware selection preserves headings, prose, instruction-bearing list
+  items, and adjacent fenced examples while skipping navigation-only links,
+- one commands, setup, verification, or testing section is selected first when
+  available; the remaining sections prioritize review expectations, working
+  rules, instructions, verification, testing, and architecture before
+  descriptive sections; the three selected sections contribute up to 12, 10,
+  and 10 lines respectively while preserving source order within each section
+  and for equal-priority ties,
+- only a short excerpt from each file should be included, with selection and
+  truncation metadata logged without guidance contents,
 - the guidance should act as repository-specific standards rather than as an
   override for the core review rules.
 

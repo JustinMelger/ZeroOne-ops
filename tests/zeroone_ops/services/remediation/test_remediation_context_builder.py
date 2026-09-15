@@ -13,7 +13,11 @@ from zeroone_ops.services.remediation.remediation_context_builder import (
 )
 
 
-def build_config(*, max_file_bytes: int = 200_000) -> AppConfig:
+def build_config(
+    *,
+    max_file_bytes: int = 200_000,
+    repository_guidance_paths: list[str] | None = None,
+) -> AppConfig:
     return AppConfig(
         base_branch="main",
         validation_commands=[],
@@ -22,6 +26,7 @@ def build_config(*, max_file_bytes: int = 200_000) -> AppConfig:
             bootstrap_severities=["LOW"],
             analysis=AnalysisConfig(max_file_bytes=max_file_bytes),
         ),
+        repository_guidance_paths=repository_guidance_paths,
         gitlab=GitLabConfig(target_branch="main"),
     )
 
@@ -138,3 +143,25 @@ def test_build_attaches_repository_guidance_when_available(tmp_path: Path) -> No
     ]
     assert "Prefer regression tests" in context.repository_guidance[0].summary
     assert "Prefer no findings" in context.repository_guidance[1].summary
+
+
+def test_build_uses_configured_repository_guidance_paths(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text("a = 1\nb = 2\nc = 3\n", encoding="utf-8")
+    (tmp_path / "CONTRIBUTING.md").write_text(
+        "# Contributing\nUse the configured remediation guidance.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "# Agents\nThis default guidance must not be loaded.\n",
+        encoding="utf-8",
+    )
+    builder = RemediationContextBuilder(
+        tmp_path,
+        build_config(repository_guidance_paths=["CONTRIBUTING.md"]),
+    )
+
+    context = builder.build(build_work_item())
+
+    assert context is not None
+    assert [guidance.file_path for guidance in context.repository_guidance] == ["CONTRIBUTING.md"]

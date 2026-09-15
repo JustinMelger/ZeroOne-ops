@@ -200,7 +200,10 @@ class ReviewContextBuilder:
                 author_username=change_request.author_username,
                 diff_refs=change_request.diff_refs,
                 remediation_context=_parse_remediation_context(change_request.description),
-                repository_guidance=load_repository_guidance(self.repo_root),
+                repository_guidance=load_repository_guidance(
+                    self.repo_root,
+                    configured_paths=self.config.repository_guidance_paths,
+                ),
                 changed_files=changed_files,
             ),
             message="",

@@ -167,8 +167,9 @@ class StubControlPlane:
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
         execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety=None,
     ) -> None:
-        del existing_work_item
+        del existing_work_item, semantic_safety
         self.blocked.append(selected_issue.item_id)
         self.execution_failures.append(execution_failure)
 
@@ -178,8 +179,9 @@ class StubControlPlane:
         selected_issue: RemediationExecutionTarget,
         existing_work_item: WorkItemState | None,
         execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety=None,
     ) -> None:
-        del existing_work_item
+        del existing_work_item, semantic_safety
         self.dismissed.append(selected_issue.item_id)
         self.dismissal_failures.append(execution_failure)
 
