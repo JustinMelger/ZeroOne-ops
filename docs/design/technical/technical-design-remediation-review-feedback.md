@@ -99,7 +99,12 @@ fast-forward push. A changed remote head, checkout failure, or non-fast-forward
 push is a stale revision failure, not a branch-reuse fallback.
 
 `ExecutionService` receives an explicit revision mode rather than overloading
-the deprecated dashboard branch parameter. Revision mode reuses the same
+the deprecated dashboard branch parameter. Its dedicated `execute_revision`
+entrypoint performs the workspace guard and verified checkout before building
+source snippets or repository guidance. No default-branch context is reused.
+Missing or unreadable context produces an intake failure without model calls.
+Dry runs preview eligibility without checking out or analyzing the revision.
+Revision mode reuses the same
 analysis, structured-edit, patch, one-file validation, rollback, commit, and
 publication logic. Publication verifies and updates the existing PR/MR; it does
 not search for or create another request. Revision mode fixes only the persisted
@@ -112,6 +117,12 @@ Fresh remediation semantic-safety rejection retains its terminal dismissal
 behavior. In revision mode, the same rejection instead maps to bounded
 execution evidence and restores `review_feedback_required`, preserving the
 linked request and actionable feedback for operator handling.
+
+All revision failures use the claimed queued state to select feedback-required
+projection, including failures before context exists. That projection clears
+the claim and queued marker while retaining the request and review packet.
+Publication rechecks the exact remote head before a normal push; this is a
+read-before-write guard, not an atomic provider claim.
 
 ## Lifecycle And Rendering
 

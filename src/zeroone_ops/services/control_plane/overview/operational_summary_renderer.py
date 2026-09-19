@@ -71,6 +71,8 @@ class OperationalSummaryRenderer:
             "in_progress": "In progress",
             "blocked": "Blocked",
             "capacity_deferred": "Capacity deferred",
+            "review_feedback_required": "Review feedback required",
+            "review_revision_queued": "Revision queued",
         }
         return [f"- {label}: `{counts.get(status, 0)}`" for status, label in labels.items()]
 

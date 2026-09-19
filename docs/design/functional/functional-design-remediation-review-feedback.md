@@ -121,7 +121,11 @@ as stale and the item remains `review_feedback_required` until a current review
 result is projected.
 
 For a valid queued revision, the remediation workflow checks out the verified
-existing source branch. It generates and applies only a patch within the
+branch before reading code or repository guidance. Unavailable context restores
+`review_feedback_required` with execution evidence; it never becomes ordinary
+blocked work. Dry runs inspect eligibility without modifying the checkout.
+The workflow uses the verified existing source branch. It generates and applies
+only a patch within the
 original remediation target file, regardless of locations mentioned in review
 feedback. It runs the configured validation safeguards and pushes only a normal
 fast-forward commit. The existing PR/MR is updated; no second change request

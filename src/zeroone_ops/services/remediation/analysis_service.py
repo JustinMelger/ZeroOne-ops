@@ -335,5 +335,9 @@ class AnalysisService:
             raise EditRenderError(
                 "V1 automation only supports structured edits that touch exactly one file."
             )
+        if selected_issue.revision_branch is not None and target_files != {
+            selected_issue.file_path
+        }:
+            raise EditRenderError("Review revisions may edit only the original remediation file.")
         patch = self.edit_renderer.render(structured_edit)
         return patch.model_copy(update={"remediation_intent": remediation_intent})

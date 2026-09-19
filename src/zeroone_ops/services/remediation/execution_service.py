@@ -19,6 +19,7 @@ from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.state import FailureDetails, FailureStage, RunStatus
+from zeroone_ops.models.work_item import ChangeRequestRef
 from zeroone_ops.services.remediation.analysis_service import (
     AnalysisResult,
     AnalysisService,
@@ -31,6 +32,7 @@ from zeroone_ops.services.remediation.publish_service import (
     PublishResult,
     PublishService,
 )
+from zeroone_ops.services.remediation.remediation_context_builder import RemediationContextBuilder
 from zeroone_ops.services.shared.approval import ApprovalService
 from zeroone_ops.services.shared.branch_manager import (
     BranchManager,
@@ -156,7 +158,66 @@ class ExecutionService:
             analysis_result=analysis_result,
             dry_run=dry_run,
             branch_name=branch_name,
+            revision_change_request=None,
         )
+
+    def execute_revision(
+        self, *, selected_issue: RemediationExecutionTarget, dry_run: bool
+    ) -> ExecutionResult:
+        """Build revision context only after checking out the verified request head."""
+        if dry_run:
+            return ExecutionResult(
+                analysis_result=AnalysisResult(summary="Revision available for verified checkout."),
+                status_message="Revision available for verified checkout.",
+            )
+        branch = selected_issue.revision_branch
+        sha = selected_issue.reviewed_sha
+        try:
+            if branch is None or sha is None or selected_issue.revision_change_request is None:
+                raise BranchManagerError("Revision requires a verified branch, SHA, and request.")
+            self.branch_manager.ensure_ready()
+            self.branch_manager.checkout_existing_remote_branch(
+                branch_name=branch, expected_head_sha=sha
+            )
+        except BranchManagerError as error:
+            message = f"Branch preparation failed: {error}"
+            return ExecutionResult(
+                analysis_result=AnalysisResult(summary=message),
+                status_message=message,
+                failure=FailureDetails(stage=FailureStage.BRANCH_PREPARATION, message=message),
+            )
+        try:
+            context = RemediationContextBuilder(self.repo_root, self.config).build(selected_issue)
+        except (OSError, UnicodeError):
+            context = None
+        if context is None:
+            message = f"Context unavailable for remediation work item {selected_issue.item_id}."
+            return ExecutionResult(
+                analysis_result=AnalysisResult(summary=message),
+                status_message=message,
+                branch_name=branch,
+                failure=FailureDetails(stage=FailureStage.ISSUE_INTAKE, message=message),
+            )
+        analysis_result = self.analysis_service.analyze_issue_with_context(
+            selected_issue=selected_issue, context=context, dry_run=False
+        )
+        result = self._continue_execution(
+            selected_issue=selected_issue,
+            analysis_result=analysis_result,
+            dry_run=False,
+            branch_name=branch,
+            revision_change_request=selected_issue.revision_change_request,
+        )
+        if (
+            result.failure is None
+            and result.final_status != RunStatus.REJECTED
+            and result.change_request_url is None
+        ):
+            result.failure = FailureDetails(
+                stage=FailureStage.ANALYSIS,
+                message="Revision did not produce a published correction. " + result.status_message,
+            )
+        return result
 
     def execute_with_context(
         self,
@@ -220,6 +281,7 @@ class ExecutionService:
             analysis_result=analysis_result,
             dry_run=dry_run,
             branch_name=branch_name,
+            revision_change_request=None,
         )
 
     def _continue_execution(
@@ -229,6 +291,7 @@ class ExecutionService:
         analysis_result: AnalysisResult,
         dry_run: bool,
         branch_name: str | None,
+        revision_change_request: ChangeRequestRef | None,
     ) -> ExecutionResult:
         """Continue execution after analysis has completed."""
         if analysis_result.failure is not None:
@@ -328,6 +391,40 @@ class ExecutionService:
                 status_message=analysis_result.summary,
                 branch_name=branch_name,
                 commit_sha=commit_sha,
+            )
+
+        if revision_change_request is not None:
+            try:
+                if branch_name is None or selected_issue.reviewed_sha is None:
+                    raise BranchManagerError("Revision publication requires the reviewed branch.")
+                self.branch_manager.push_revision_branch(
+                    branch_name=branch_name, expected_head_sha=selected_issue.reviewed_sha
+                )
+            except BranchManagerError as error:
+                return ExecutionResult(
+                    analysis_result=analysis_result,
+                    status_message=f"Revision publish failed: {error}",
+                    failure=FailureDetails(
+                        stage=FailureStage.PUBLISH,
+                        message=f"Revision publish failed: {error}",
+                    ),
+                    branch_name=branch_name,
+                    commit_sha=commit_sha,
+                    publish_attempted=True,
+                )
+            return ExecutionResult(
+                analysis_result=analysis_result,
+                status_message=analysis_result.summary,
+                branch_name=branch_name,
+                commit_sha=commit_sha,
+                change_request_url=revision_change_request.web_url,
+                change_request_action="updated",
+                published_change_request=ChangeRequestInfo(
+                    iid=revision_change_request.number,
+                    web_url=revision_change_request.web_url,
+                    title="Existing remediation change request",
+                ),
+                publish_attempted=True,
             )
 
         publish_result = self._publish_branch_and_create_change_request(

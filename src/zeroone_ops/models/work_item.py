@@ -21,10 +21,40 @@ WorkItemStatus = Literal[
     "dismissed",
     "policy_deferred",
     "capacity_deferred",
+    "review_feedback_required",
+    "review_revision_queued",
 ]
 RecoveryAction = Literal["dismiss", "requeue"]
 RecoveryPlan = Literal["retry_publication", "start_fresh"]
 WorkItemResolution = Literal["merged", "no_change_required", "no_longer_detected"]
+
+ACTIVE_REMEDIATION_STATUSES = frozenset(
+    {"approved", "in_progress", "review_feedback_required", "review_revision_queued"}
+)
+PROTECTED_REMEDIATION_STATUSES = frozenset(
+    {
+        "blocked",
+        "dismissed",
+        "in_progress",
+        "review_feedback_required",
+        "review_revision_queued",
+    }
+)
+
+
+def is_active_remediation_status(status: WorkItemStatus) -> bool:
+    """Return whether a work-item status consumes active remediation capacity."""
+    return status in ACTIVE_REMEDIATION_STATUSES
+
+
+def is_protected_remediation_status(status: WorkItemStatus) -> bool:
+    """Return whether finding sync must retain an execution-owned work item."""
+    return status in PROTECTED_REMEDIATION_STATUSES
+
+
+def is_review_feedback_status(status: WorkItemStatus) -> bool:
+    """Return whether one open work item is owned by remediation review feedback."""
+    return status in {"review_feedback_required", "review_revision_queued"}
 
 
 def work_item_resolution_display_name(resolution: WorkItemResolution) -> str:
@@ -57,7 +87,38 @@ class ProjectedReviewState(BaseModel):
     classification: ReviewClassification
     reviewed_sha: str
     review_note_url: str | None = None
+    review_note_reference: str | None = None
     follow_up_required: bool
+    feedback: ProjectedReviewFeedback | None = None
+
+
+class ProjectedReviewFinding(BaseModel):
+    """Persist one bounded actionable review finding for a remediation revision."""
+
+    title: str = Field(min_length=1, max_length=300)
+    file_path: str = Field(min_length=1, max_length=500)
+    line_start: int | None = Field(default=None, ge=1)
+    line_end: int | None = Field(default=None, ge=1)
+    evidence: str = Field(min_length=1, max_length=1_000)
+    explanation: str = Field(min_length=1, max_length=1_000)
+    suggested_follow_up: str = Field(min_length=1, max_length=1_000)
+
+
+class ProjectedReviewFeedback(BaseModel):
+    """Persist the compact review evidence eligible for a bounded revision."""
+
+    summary: str = Field(min_length=1, max_length=1_000)
+    finding_count: int = Field(ge=1, le=20)
+    findings: list[ProjectedReviewFinding] = Field(min_length=1, max_length=20)
+
+
+class ReviewRevisionRequest(BaseModel):
+    """Record one authorized request to revise the linked change request."""
+
+    actor: str = Field(min_length=1, max_length=200)
+    request_reference: str = Field(min_length=1, max_length=300)
+    occurred_at: datetime
+    reviewed_sha: str = Field(min_length=1, max_length=200)
 
 
 class WorkItemClaim(BaseModel):
@@ -148,6 +209,7 @@ class WorkItemState(BaseModel):
     remediation_context: RemediationContext = Field(default_factory=RemediationContext)
     linked_change_request: ChangeRequestRef | None = None
     projected_review: ProjectedReviewState | None = None
+    review_revision_request: ReviewRevisionRequest | None = None
     claim: WorkItemClaim | None = None
     publication_retry: PublicationRetryState | None = None
     execution_failure: WorkItemExecutionFailure | None = None

@@ -115,6 +115,9 @@ history, not here.
   change request and review evidence, and uses operator-controlled same-branch
   revision rather than a normal fresh remediation claim
 - [ ] implement the documented review-feedback loop after design review
+- [x] repair revision checkout/context ordering, failure-state preservation,
+  verified work-item action notices, and shared execution/provider-parity coverage
+- [ ] live-validate same-request revisions and failure recovery on GitHub and GitLab
 - design: [functional remediation review feedback](design/functional/functional-design-remediation-review-feedback.md)
   and [technical remediation review feedback](design/technical/technical-design-remediation-review-feedback.md)
 

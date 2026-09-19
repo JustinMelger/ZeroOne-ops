@@ -138,8 +138,24 @@ class WorkItemLifecycleService:
                     "recovered_stale_claim",
                 )
             return None, "unchanged"
-        if work_item.status not in {"approved", "in_progress", "blocked"}:
+        if work_item.status not in {
+            "approved",
+            "in_progress",
+            "blocked",
+            "review_feedback_required",
+            "review_revision_queued",
+        }:
             return None, "unchanged"
+        if self._is_stale_revision_claim(work_item=work_item, now=now):
+            LOGGER.info(
+                "recovered stale queued %s remediation revision claim",
+                self.provider_name,
+                extra={"work_item_id": work_item.work_item_id},
+            )
+            return (
+                work_item.model_copy(update={"status": "review_feedback_required", "claim": None}),
+                "recovered_stale_claim",
+            )
         return self._reconcile_linked_change_request(work_item=work_item)
 
     def _reconcile_linked_change_request(
@@ -209,9 +225,27 @@ class WorkItemLifecycleService:
             return False
         return now.astimezone(UTC) - claimed_at.astimezone(UTC) >= _STALE_CLAIM_AGE
 
+    def _is_stale_revision_claim(self, *, work_item: WorkItemState, now: datetime) -> bool:
+        """Return whether an in-flight linked revision claim exceeded the recovery window."""
+        if work_item.status != "review_revision_queued" or work_item.claim is None:
+            return False
+        claimed_at = work_item.claim.claimed_at
+        if claimed_at.tzinfo is None:
+            LOGGER.warning(
+                "%s work-item lifecycle recovered queued revision with naive claim timestamp",
+                self.provider_name,
+                extra={"work_item_id": work_item.work_item_id},
+            )
+            return True
+        return now.astimezone(UTC) - claimed_at.astimezone(UTC) >= _STALE_CLAIM_AGE
+
     @staticmethod
     def _blocked_with_link(work_item: WorkItemState) -> WorkItemState:
         """Block uncertain reconciliation while retaining linked change-request traceability."""
+        if work_item.status == "review_revision_queued":
+            return work_item.model_copy(
+                update={"status": "review_feedback_required", "claim": None}
+            )
         return work_item.model_copy(update={"status": "blocked", "claim": None})
 
 

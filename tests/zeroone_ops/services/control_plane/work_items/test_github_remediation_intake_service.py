@@ -1,7 +1,14 @@
 from datetime import UTC, datetime
 
 from zeroone_ops.models.github import GitHubIssueInfo
-from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, WorkItemState
+from zeroone_ops.models.work_item import (
+    ChangeRequestRef,
+    ProjectedReviewFeedback,
+    ProjectedReviewFinding,
+    ProjectedReviewState,
+    WorkItemSourceRef,
+    WorkItemState,
+)
 from zeroone_ops.services.control_plane.work_items.github_remediation_intake_service import (
     GitHubRemediationIntakeService,
 )
@@ -244,3 +251,62 @@ def test_select_and_claim_dry_run_does_not_claim_the_work_item() -> None:
         == "https://github.example.com/octo-org/octo-repo/issues/11"
     )
     assert fake_service.upserted_work_items == []
+
+
+def test_select_and_claim_prioritizes_queued_review_revision() -> None:
+    queued = _with_identity(
+        build_work_item(status="review_revision_queued"),
+        work_item_id="work-revision",
+    ).model_copy(
+        update={
+            "severity": "low",
+            "linked_change_request": ChangeRequestRef(
+                number=4,
+                web_url="https://github.example.com/octo-org/octo-repo/pull/4",
+            ),
+            "projected_review": ProjectedReviewState(
+                classification="findings_present",
+                reviewed_sha="reviewed-sha",
+                review_note_reference="github-comment-1",
+                follow_up_required=True,
+                feedback=ProjectedReviewFeedback(
+                    summary="Preserve the error path.",
+                    finding_count=1,
+                    findings=[
+                        ProjectedReviewFinding(
+                            title="Preserve errors.",
+                            file_path="src/api.py",
+                            line_start=42,
+                            evidence="The new branch returns success.",
+                            explanation="Clients receive an incorrect response.",
+                            suggested_follow_up="Retain the error response.",
+                        )
+                    ],
+                ),
+            ),
+        }
+    )
+    approved = _with_identity(build_work_item(status="approved"), work_item_id="work-approved")
+    service = GitHubRemediationIntakeService(
+        work_item_service=FakeGitHubWorkItemService(  # type: ignore[arg-type]
+            [
+                _lookup_result(
+                    number=11,
+                    created_at=datetime(2026, 7, 3, tzinfo=UTC),
+                    work_item=approved,
+                ),
+                _lookup_result(
+                    number=12,
+                    created_at=datetime(2026, 7, 4, tzinfo=UTC),
+                    work_item=queued,
+                ),
+            ]
+        )
+    )
+
+    result = service.select_and_claim(repository_id="octo-org/octo-repo")
+
+    assert result.selected_target is not None
+    assert result.selected_target.item_id == "work-revision"
+    assert result.claimed_work_item is not None
+    assert result.claimed_work_item.status == "review_revision_queued"

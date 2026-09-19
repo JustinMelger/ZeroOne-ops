@@ -77,6 +77,16 @@ class RemediationControlPlane(Protocol):
     ) -> None:
         """Best-effort transition after remediation is intentionally rejected."""
 
+    def mark_review_feedback_required(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+        execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
+    ) -> None:
+        """Restore actionable review feedback after a failed revision."""
+
     def mark_execution_completed(
         self,
         *,
@@ -148,6 +158,17 @@ class NoOpRemediationControlPlane:
         semantic_safety: WorkItemSemanticSafety | None = None,
     ) -> None:
         """Ignore dismissed-state projection when no control plane is active."""
+        del selected_issue, existing_work_item, execution_failure, semantic_safety
+
+    def mark_review_feedback_required(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+        execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
+    ) -> None:
+        """Ignore revision failure projection when no control plane is active."""
         del selected_issue, existing_work_item, execution_failure, semantic_safety
 
     def mark_execution_completed(
@@ -262,6 +283,29 @@ class WorkItemRemediationControlPlane:
                 linked_change_request=existing_work_item.linked_change_request,
                 existing_work_item=existing_work_item,
                 publication_retry=publication_retry,
+                execution_failure=execution_failure,
+                semantic_safety=semantic_safety,
+            )
+        except (GitHubClientError, GitLabClientError, RuntimeError):
+            return
+
+    def mark_review_feedback_required(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+        execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety: WorkItemSemanticSafety | None = None,
+    ) -> None:
+        """Restore linked review-feedback state instead of blocking a failed revision."""
+        if existing_work_item is None:
+            return
+        try:
+            self._upsert_work_item(
+                selected_issue=selected_issue,
+                status="review_feedback_required",
+                linked_change_request=existing_work_item.linked_change_request,
+                existing_work_item=existing_work_item,
                 execution_failure=execution_failure,
                 semantic_safety=semantic_safety,
             )
@@ -431,6 +475,16 @@ class WorkItemRemediationControlPlane:
                 if linked_change_request is None
                 else self._normalize_change_request_ref(linked_change_request)
             ),
+            projected_review=(
+                None if existing_work_item is None else existing_work_item.projected_review
+            ),
+            review_revision_request=(
+                None
+                if existing_work_item is None
+                or status in {"in_progress", "review_feedback_required"}
+                else existing_work_item.review_revision_request
+            ),
+            claim=None,
             publication_retry=publication_retry,
             execution_failure=execution_failure,
             semantic_safety=(

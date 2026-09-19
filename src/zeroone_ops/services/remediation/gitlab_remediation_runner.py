@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
+from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.services.control_plane.work_items.gitlab_remediation_intake_service import (
     GitLabRemediationIntakeResult,
     GitLabRemediationIntakeService,
@@ -24,6 +25,7 @@ from zeroone_ops.services.remediation.work_item_remediation_runner import (
     WorkItemRemediationRunner,
 )
 from zeroone_ops.services.shared.run_state_service import RunStateService
+from zeroone_ops.settings import load_gitlab_connection_config
 
 
 class GitLabRemediationRunner(WorkItemRemediationRunner):
@@ -66,6 +68,12 @@ class GitLabRemediationRunner(WorkItemRemediationRunner):
             ),
             remediation_control_plane=control_plane,
             publication_retry_service=publication_retry_service,
+            change_request_state_lookup=lambda change_request_number: GitLabReviewClient(
+                load_gitlab_connection_config()
+            ).get_change_request_state(
+                project_id=project_id,
+                change_request_number=change_request_number,
+            ),
         )
 
     def _select_and_claim(

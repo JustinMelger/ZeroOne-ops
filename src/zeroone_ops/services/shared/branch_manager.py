@@ -94,6 +94,32 @@ class BranchManager:
         """
         self._run_git_command(["checkout", "-b", branch_name])
 
+    def checkout_existing_remote_branch(
+        self,
+        *,
+        branch_name: str,
+        expected_head_sha: str,
+        remote_name: str = "origin",
+    ) -> None:
+        """Fetch and check out one verified remote branch without rewriting history."""
+        self._run_git_command(["fetch", remote_name, branch_name])
+        remote_ref = f"{remote_name}/{branch_name}"
+        actual_head_sha = self._run_git_command(["rev-parse", remote_ref]).strip()
+        if actual_head_sha != expected_head_sha:
+            raise BranchManagerError(
+                "Linked change-request branch changed after review; request a current review first."
+            )
+        local_branch = self._run_git_command(["branch", "--list", branch_name]).strip()
+        if local_branch:
+            self._run_git_command(["checkout", branch_name])
+            local_head_sha = self._run_git_command(["rev-parse", "HEAD"]).strip()
+            if local_head_sha != expected_head_sha:
+                raise BranchManagerError(
+                    "Local remediation branch differs from the reviewed remote branch."
+                )
+            return
+        self._run_git_command(["checkout", "-b", branch_name, "--track", remote_ref])
+
     def commit_and_push(
         self,
         commit_message: str,
@@ -137,6 +163,15 @@ class BranchManager:
         current_branch = self.current_branch()
         self._run_git_command(["push", "-u", remote_name, current_branch])
         return current_branch
+
+    def push_revision_branch(self, *, branch_name: str, expected_head_sha: str) -> str:
+        """Recheck the reviewed remote head before a normal, non-forced revision push."""
+        if self.current_branch() != branch_name:
+            raise BranchManagerError("Checked-out branch no longer matches the revision branch.")
+        remote = self._run_git_command(["ls-remote", "origin", f"refs/heads/{branch_name}"])
+        if not remote.strip() or remote.split()[0] != expected_head_sha:
+            raise BranchManagerError("Linked change-request branch changed during revision.")
+        return self.push_current_branch()
 
     def current_branch(self) -> str:
         """Return the checked-out branch name before a remote side effect."""
