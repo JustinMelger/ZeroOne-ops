@@ -116,8 +116,10 @@ class StubExecutionService:
         dry_run: bool,
         branch_name: str | None = None,
         attempt_number: int = 1,
+        revision_branch: str | None = None,
+        reviewed_sha: str | None = None,
     ) -> ExecutionResult:
-        del context, attempt_number
+        del context, attempt_number, revision_branch, reviewed_sha
         self.calls.append((selected_issue, dry_run, branch_name))
         return self.result
 
@@ -146,6 +148,7 @@ class StubControlPlane:
 
     def __init__(self) -> None:
         self.blocked: list[str] = []
+        self.review_feedback_required: list[str] = []
         self.execution_failures: list[WorkItemExecutionFailure | None] = []
         self.dismissed: list[str] = []
         self.dismissal_failures: list[WorkItemExecutionFailure | None] = []
@@ -184,6 +187,17 @@ class StubControlPlane:
         del existing_work_item, semantic_safety
         self.dismissed.append(selected_issue.item_id)
         self.dismissal_failures.append(execution_failure)
+
+    def mark_review_feedback_required(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        existing_work_item: WorkItemState | None,
+        execution_failure: WorkItemExecutionFailure | None = None,
+        semantic_safety=None,
+    ) -> None:
+        del existing_work_item, execution_failure, semantic_safety
+        self.review_feedback_required.append(selected_issue.item_id)
 
     def mark_execution_completed(
         self,

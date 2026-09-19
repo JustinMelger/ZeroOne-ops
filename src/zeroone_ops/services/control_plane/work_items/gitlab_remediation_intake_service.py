@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from pathlib import PurePosixPath
+from datetime import datetime
 
 from zeroone_ops.models.gitlab import GitLabIssueInfo
 from zeroone_ops.models.remediation import RemediationExecutionTarget
@@ -17,11 +16,13 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_lookup_servi
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
 )
+from zeroone_ops.services.control_plane.work_items.remediation_work_item_selection_service import (
+    is_remediation_execution_eligible,
+    remediation_execution_selection_key,
+)
 from zeroone_ops.services.remediation.remediation_execution_adapter import (
     control_plane_work_item_to_execution_target,
 )
-
-_SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
 @dataclass(frozen=True)
@@ -87,7 +88,11 @@ class GitLabRemediationIntakeService:
             project_id=project_id,
             work_item=selected.work_item.model_copy(
                 update={
-                    "status": "in_progress",
+                    "status": (
+                        "review_revision_queued"
+                        if selected.work_item.status == "review_revision_queued"
+                        else "in_progress"
+                    ),
                     "claim": WorkItemClaim(claimed_at=self.clock(), run_id=run_id),
                 }
             ),
@@ -108,32 +113,15 @@ class GitLabRemediationIntakeService:
         result: GitLabWorkItemLookupResult,
     ) -> GitLabWorkItemLookupResult | None:
         """Return one execution-ready approved remediation record when eligible."""
-        work_item = result.work_item
-        if work_item.kind != "remediation" or work_item.status != "approved":
-            return None
-        if work_item.linked_change_request is not None:
-            return None
-        if not _is_safe_repository_path(work_item.file_path):
-            return None
-        return result
+        return result if is_remediation_execution_eligible(result.work_item) else None
 
     def _selection_key(
         self,
         result: GitLabWorkItemLookupResult,
-    ) -> tuple[int, datetime, int]:
+    ) -> tuple[int, int, datetime, int]:
         """Return the stable priority order for eligible GitLab work items."""
-        severity = result.work_item.severity or "low"
-        created_at = result.issue.created_at or datetime.max.replace(tzinfo=UTC)
-        return (
-            _SEVERITY_ORDER.get(severity.lower(), len(_SEVERITY_ORDER)),
-            created_at,
-            result.issue.iid,
+        return remediation_execution_selection_key(
+            result.work_item,
+            created_at=result.issue.created_at,
+            provider_issue_number=result.issue.iid,
         )
-
-
-def _is_safe_repository_path(file_path: str | None) -> bool:
-    """Return whether one stored work-item path remains within the repository."""
-    if not file_path:
-        return False
-    path = PurePosixPath(file_path)
-    return bool(path.parts) and not path.is_absolute() and ".." not in path.parts

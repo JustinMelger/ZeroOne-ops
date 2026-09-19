@@ -133,6 +133,15 @@ def _format_prior_review_feedback(context: IssueContext) -> str:
                     else "(none)"
                 ),
                 f"Review confidence reason: {feedback.review_confidence_reason or '(none)'}",
+                "Actionable findings:",
+                *[
+                    "- "
+                    f"{finding.file_path}:{finding.line_start or '?'} {finding.title}\n"
+                    f"  Evidence: {finding.evidence}\n"
+                    f"  Impact: {finding.explanation}\n"
+                    f"  Follow-up: {finding.suggested_follow_up}"
+                    for finding in feedback.findings
+                ],
             ]
         ),
     )

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Protocol
 
 from zeroone_ops.models.analysis import ValidationOutcome
-from zeroone_ops.models.change_request import ChangeRequestInfo
+from zeroone_ops.models.change_request import ChangeRequestInfo, ChangeRequestState
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.state import FailureDetails, FailureStage, RunRecord, RunStatus, utc_now
@@ -79,6 +79,7 @@ class WorkItemRemediationRunner:
         remediation_control_plane: RemediationControlPlane | None = None,
         publication_retry_service: PublicationRetryService | None = None,
         execution_url_builder: Callable[[], str | None] | None = None,
+        change_request_state_lookup: Callable[[int], ChangeRequestState] | None = None,
     ) -> None:
         """Initialize shared remediation execution over one work-item control plane."""
         self.repo_root = repo_root
@@ -93,6 +94,7 @@ class WorkItemRemediationRunner:
         )
         self.publication_retry_service = publication_retry_service
         self.execution_url_builder = execution_url_builder or (lambda: None)
+        self.change_request_state_lookup = change_request_state_lookup
 
     def run(self, *, record: RunRecord, active_dry_run: bool) -> RunSummary:
         """Select, execute, and project one provider work item."""
@@ -120,6 +122,27 @@ class WorkItemRemediationRunner:
                 issue_count=intake_result.item_count,
             )
 
+        revision_target, revision_failure = self._prepare_revision_target(
+            selected_target=selected_target,
+            claimed_work_item=claimed_work_item,
+        )
+        if revision_failure is not None:
+            self._mark_blocked_best_effort(
+                selected_target=selected_target,
+                claimed_work_item=claimed_work_item,
+                active_dry_run=active_dry_run,
+                failure=revision_failure,
+                run_id=record.run_id,
+            )
+            return self.run_state_service.finish_work_item(
+                record=record,
+                work_item_id=selected_target.item_id,
+                status=RunStatus.FAILED,
+                message=revision_failure.message,
+                failure=revision_failure,
+            )
+        selected_target = revision_target
+
         if claimed_work_item.publication_retry is not None:
             return self._retry_recorded_publication(
                 selected_target=selected_target,
@@ -128,31 +151,37 @@ class WorkItemRemediationRunner:
                 active_dry_run=active_dry_run,
             )
 
-        context = RemediationContextBuilder(self.repo_root, self.config).build(selected_target)
-        if context is None:
-            message = f"Context unavailable for remediation work item {selected_target.item_id}."
-            failure = FailureDetails(stage=FailureStage.ISSUE_INTAKE, message=message)
-            self._mark_blocked_best_effort(
-                selected_target=selected_target,
-                claimed_work_item=claimed_work_item,
-                active_dry_run=active_dry_run,
-                failure=failure,
-                run_id=record.run_id,
+        if selected_target.revision_branch is not None:
+            execution_result = self.execution_service.execute_revision(
+                selected_issue=selected_target, dry_run=active_dry_run
             )
-            return self.run_state_service.finish_work_item(
-                record=record,
-                work_item_id=selected_target.item_id,
-                status=RunStatus.FAILED,
-                message=message,
-                failure=failure,
+        else:
+            context = RemediationContextBuilder(self.repo_root, self.config).build(selected_target)
+            if context is None:
+                message = (
+                    f"Context unavailable for remediation work item {selected_target.item_id}."
+                )
+                failure = FailureDetails(stage=FailureStage.ISSUE_INTAKE, message=message)
+                self._mark_blocked_best_effort(
+                    selected_target=selected_target,
+                    claimed_work_item=claimed_work_item,
+                    active_dry_run=active_dry_run,
+                    failure=failure,
+                    run_id=record.run_id,
+                )
+                return self.run_state_service.finish_work_item(
+                    record=record,
+                    work_item_id=selected_target.item_id,
+                    status=RunStatus.FAILED,
+                    message=message,
+                    failure=failure,
+                )
+            execution_result = self.execution_service.execute_with_context(
+                selected_issue=selected_target,
+                context=context,
+                dry_run=active_dry_run,
+                attempt_number=claimed_work_item.attempt_number,
             )
-
-        execution_result = self.execution_service.execute_with_context(
-            selected_issue=selected_target,
-            context=context,
-            dry_run=active_dry_run,
-            attempt_number=claimed_work_item.attempt_number,
-        )
         validation_outcome = _validation_outcome(execution_result)
         if execution_result.failure is not None:
             self._mark_blocked_best_effort(
@@ -174,22 +203,35 @@ class WorkItemRemediationRunner:
             )
 
         if execution_result.final_status == RunStatus.REJECTED:
-            self._mark_dismissed_best_effort(
-                selected_target=selected_target,
-                claimed_work_item=claimed_work_item,
-                active_dry_run=active_dry_run,
-                run_id=record.run_id,
-                summary=execution_result.status_message,
-                stage=execution_result.terminal_rejection_stage or FailureStage.ANALYSIS,
-                semantic_safety=(
-                    None
-                    if execution_result.analysis_result.semantic_safety is None
-                    else WorkItemSemanticSafety(
-                        assessment=execution_result.analysis_result.semantic_safety.assessment,
-                        rejection_reason=execution_result.analysis_result.semantic_safety.reason,
-                    )
-                ),
-            )
+            if selected_target.revision_branch is not None:
+                self._mark_blocked_best_effort(
+                    selected_target=selected_target,
+                    claimed_work_item=claimed_work_item,
+                    active_dry_run=active_dry_run,
+                    run_id=record.run_id,
+                    failure=FailureDetails(
+                        stage=execution_result.terminal_rejection_stage or FailureStage.ANALYSIS,
+                        message=execution_result.status_message,
+                    ),
+                    semantic_safety=_semantic_safety_record(execution_result),
+                )
+            else:
+                self._mark_dismissed_best_effort(
+                    selected_target=selected_target,
+                    claimed_work_item=claimed_work_item,
+                    active_dry_run=active_dry_run,
+                    run_id=record.run_id,
+                    summary=execution_result.status_message,
+                    stage=execution_result.terminal_rejection_stage or FailureStage.ANALYSIS,
+                    semantic_safety=(
+                        None
+                        if execution_result.analysis_result.semantic_safety is None
+                        else WorkItemSemanticSafety(
+                            assessment=execution_result.analysis_result.semantic_safety.assessment,
+                            rejection_reason=execution_result.analysis_result.semantic_safety.reason,
+                        )
+                    ),
+                )
             return self.run_state_service.finish_work_item(
                 record=record,
                 work_item_id=selected_target.item_id,
@@ -272,7 +314,12 @@ class WorkItemRemediationRunner:
         if active_dry_run:
             return
         try:
-            self.remediation_control_plane.mark_execution_blocked(
+            marker = (
+                self.remediation_control_plane.mark_review_feedback_required
+                if claimed_work_item.status == "review_revision_queued"
+                else self.remediation_control_plane.mark_execution_blocked
+            )
+            marker(
                 selected_issue=selected_target,
                 existing_work_item=claimed_work_item,
                 execution_failure=(
@@ -456,6 +503,58 @@ class WorkItemRemediationRunner:
         """Return one provider-local work-item selection and claim."""
         raise NotImplementedError
 
+    def _prepare_revision_target(
+        self,
+        *,
+        selected_target: RemediationExecutionTarget,
+        claimed_work_item: WorkItemState,
+    ) -> tuple[RemediationExecutionTarget, FailureDetails | None]:
+        """Verify a queued revision still targets the reviewed open change request."""
+        if claimed_work_item.status != "review_revision_queued":
+            return selected_target, None
+        linked = claimed_work_item.linked_change_request
+        projected = claimed_work_item.projected_review
+        if linked is None or projected is None or projected.feedback is None:
+            return selected_target, FailureDetails(
+                stage=FailureStage.ISSUE_INTAKE,
+                message="Queued review revision is missing linked change-request feedback.",
+            )
+        if self.change_request_state_lookup is None:
+            return selected_target, FailureDetails(
+                stage=FailureStage.ISSUE_INTAKE,
+                message="Queued review revision cannot load the linked change request.",
+            )
+        try:
+            state = self.change_request_state_lookup(linked.number)
+        except Exception as error:
+            return selected_target, FailureDetails(
+                stage=FailureStage.ISSUE_INTAKE,
+                message=(
+                    f"Queued review revision could not verify the linked change request: {error}"
+                ),
+            )
+        if (
+            state.iid != linked.number
+            or state.web_url != linked.web_url
+            or state.state != "opened"
+            or state.head_sha != projected.reviewed_sha
+            or not _is_safe_branch_name(state.source_branch)
+        ):
+            return selected_target, FailureDetails(
+                stage=FailureStage.ISSUE_INTAKE,
+                message=(
+                    "Queued review revision is stale; request a current review before requeueing."
+                ),
+            )
+        return selected_target.model_copy(
+            update={
+                "review_feedback": projected.feedback,
+                "revision_branch": state.source_branch,
+                "reviewed_sha": projected.reviewed_sha,
+                "revision_change_request": linked,
+            }
+        ), None
+
     def _build_execution_failure(
         self,
         *,
@@ -505,4 +604,14 @@ def _semantic_safety_record(execution_result: ExecutionResult) -> WorkItemSemant
     return WorkItemSemanticSafety(
         assessment=decision.assessment,
         rejection_reason=decision.reason,
+    )
+
+
+def _is_safe_branch_name(value: str) -> bool:
+    """Return whether a provider branch name is safe for explicit Git argv use."""
+    return (
+        bool(value)
+        and not value.startswith("-")
+        and ".." not in value
+        and not any(character.isspace() for character in value)
     )

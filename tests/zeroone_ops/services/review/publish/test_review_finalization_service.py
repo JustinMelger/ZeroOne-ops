@@ -68,7 +68,7 @@ def test_finalize_projects_review_after_successful_publish() -> None:
     assert projection_service.calls[0] == {
         "repository_id": "owner/repo",
         "context": context,
-        "classification": "findings_present",
+        "artifact": build_artifact(),
         "reviewed_sha": "abc123",
         "review_note_id": 42,
         "review_note_url": "https://example.com/note/42",

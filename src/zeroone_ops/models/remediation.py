@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from zeroone_ops.models.work_item import ChangeRequestRef, ProjectedReviewFeedback
+
 STATIC_ANALYSIS_FIX_CATEGORY = "static_analysis_fix"
 _LEGACY_REMEDIATION_CATEGORY_ALIASES = {
     "code_smell_fix": STATIC_ANALYSIS_FIX_CATEGORY,
@@ -73,6 +75,10 @@ class RemediationExecutionTarget(BaseModel):
     expected_change: str | None = None
     constraints: str | None = None
     acceptance_criteria: list[str] = Field(default_factory=list)
+    review_feedback: ProjectedReviewFeedback | None = None
+    revision_branch: str | None = None
+    reviewed_sha: str | None = None
+    revision_change_request: ChangeRequestRef | None = None
 
 
 @dataclass(frozen=True)

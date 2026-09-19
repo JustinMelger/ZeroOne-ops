@@ -142,6 +142,21 @@ authorized operator comments `/zeroone remediation requeue` or
 queues state. The normal remediation job remains the sole owner of patch
 generation, validation, branch creation, and change-request publication.
 
+When the review of an open remediation pull or merge request reports actionable
+findings, its authoritative work-item issue moves to
+`review_feedback_required`. The issue renders bounded review evidence and the
+same `/zeroone remediation requeue` command. That command queues one revision
+of the existing branch only after ZeroOne Ops verifies the reviewed head is
+still current; it never creates a second pull or merge request. Commands on
+the pull or merge request itself are not authoritative.
+
+Actionable review comments link back to the uniquely linked work-item issue
+with requeue instructions. Revision execution reads source and guidance only
+after checking out the reviewed branch. Preparation, context, validation, or
+publication failures return the item to `review_feedback_required`, preserving
+its request link and feedback and recording the failure in `Last Execution`.
+A revision dry run checks eligibility without checkout or model analysis.
+
 When bot analysis dismisses a work item as unsuitable for automatic remediation,
 the work item stays terminal and records the decision in `Last Execution` with
 its run reference. Dismissed work is not offered a requeue command.

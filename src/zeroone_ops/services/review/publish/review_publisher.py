@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from urllib.parse import quote, urlsplit
 
 from zeroone_ops.models.review import (
     ChangeRequestReviewContext,
@@ -18,6 +19,9 @@ from zeroone_ops.models.state import ReviewInlineCommentDecision
 from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPublishClientProtocol,
     ReviewPlatformClientError,
+)
+from zeroone_ops.services.control_plane.review_projection import (
+    review_feedback_projection_decision_service as feedback_projection,
 )
 from zeroone_ops.services.review.publish.review_response_state import (
     render_confidence_label,
@@ -244,6 +248,22 @@ class ReviewPublisher:
                 [
                     *_render_clear_detail(context=context, artifact=artifact),
                     *_render_advisory_notes(artifact),
+                ]
+            )
+
+        remediation = context.remediation_context
+        work_item_url = None if remediation is None else remediation.verified_work_item_url
+        if (
+            work_item_url
+            and urlsplit(work_item_url).scheme in {"https", "http"}
+            and feedback_projection.build_projected_review_feedback(artifact) is not None
+        ):
+            safe_url = quote(work_item_url, safe=":/?=&%#")
+            lines.extend(
+                [
+                    "",
+                    f"To request a revision, post `/zeroone remediation requeue` on the "
+                    f"[work-item issue]({safe_url}), not on this change request.",
                 ]
             )
 

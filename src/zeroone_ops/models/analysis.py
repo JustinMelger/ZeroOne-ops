@@ -115,6 +115,19 @@ class PriorReviewFeedback(BaseModel):
     review_confidence_reason: str | None = None
     reviewed_head_sha: str | None = None
     retry_count: int | None = None
+    findings: list[PriorReviewFeedbackFinding] = Field(default_factory=list)
+
+
+class PriorReviewFeedbackFinding(BaseModel):
+    """Represent one bounded projected finding supplied to a remediation revision."""
+
+    title: str
+    file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
+    evidence: str
+    explanation: str
+    suggested_follow_up: str
 
 
 class RepositoryGuidanceContext(BaseModel):
