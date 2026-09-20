@@ -98,6 +98,12 @@ local tracking branch without force-resetting remote history, and use a normal
 fast-forward push. A changed remote head, checkout failure, or non-fast-forward
 push is a stale revision failure, not a branch-reuse fallback.
 
+Provider branch names are literal names, never fetch refspecs. The shared
+branch manager rejects refspec operators, patterns, and revision shorthand,
+then runs read-only `git check-ref-format --branch` before revision fetch or
+push. Invalid names fail before remote access or local ref changes, including
+for direct callers outside provider orchestration.
+
 `ExecutionService` receives an explicit revision mode rather than overloading
 the deprecated dashboard branch parameter. Its dedicated `execute_revision`
 entrypoint performs the workspace guard and verified checkout before building

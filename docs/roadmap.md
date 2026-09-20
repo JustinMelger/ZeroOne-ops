@@ -91,86 +91,54 @@ history, not here.
 - versioned GitLab CI installation template contract: release-pinned image,
   structured job-DAG and security-boundary checks, and a matching GitLab
   issue-mode configuration fixture
+- mandatory structural semantic-safety gate with bounded analysis claims,
+  operator evidence, and verified review-context handoff; structural validation
+  does not establish semantic correctness
+- operator-controlled GitHub/GitLab same-request review-feedback revisions,
+  verified checkout before context construction, one-use command receipts,
+  claim exclusion, failure evidence, and persisted projection repair;
+  live rollout validation remains below
+- live-validated same-SHA review-projection repair after a recoverable warning
 
 ## Current Focus
 
-### Operational Readiness
+### V1 Release Readiness
 
-- [ ] define the derived-image toolchain contract for validation: retain the
+- [ ] document the derived-image toolchain contract for validation: retain the
   thin non-root base image with Git, curl, and CA certificates; document how
   operators extend it for language-specific tools without changing the
   ZeroOne Ops image contract
-- [ ] add end-to-end scenario fixtures that span normalized intake, policy,
-  remediation, provider-native change requests, lifecycle reconciliation, and
-  derived summaries for both GitHub and GitLab issue mode
-- [ ] design a stable machine-readable run-summary output alongside the current
-  human CLI summary, including selected finding, policy decision, validation
-  outcome, change-request reference, lifecycle transition, and bounded error
-  evidence
-
-### Remediation Review Feedback
-
-- [x] define the GitHub/GitLab remediation review-feedback contract: projected
-  `findings_present` becomes an explicit actionable state, retains the linked
-  change request and review evidence, and uses operator-controlled same-branch
-  revision rather than a normal fresh remediation claim
-- [ ] implement the documented review-feedback loop after design review
-- [x] repair revision checkout/context ordering, failure-state preservation,
-  verified work-item action notices, and shared execution/provider-parity coverage
-- [x] consolidate revision command receipts, claim exclusion, review supersession,
-  persisted projection repair, and terminal lifecycle transitions
 - [ ] live-validate same-request revisions and failure recovery on GitHub and GitLab
-- design: [functional remediation review feedback](design/functional/functional-design-remediation-review-feedback.md)
+- [ ] smoke-test manual merge-conflict recovery on both providers: close the
+  conflicted PR/MR, reconcile its work item to `blocked`, then explicitly
+  requeue a policy-eligible fresh attempt
+
+Review-feedback design: [functional contract](design/functional/functional-design-remediation-review-feedback.md)
   and [technical remediation review feedback](design/technical/technical-design-remediation-review-feedback.md)
 
-### Remediation Mergeability
+V1 uses the existing manual recovery path rather than automatic merge-conflict
+detection or rebasing. After a failed revision push in a reused workspace,
+retry from a fresh checkout; automatic local-branch recovery remains post-v1.
 
-- [ ] design GitHub/GitLab handling for remediation change requests that become
-  unmergeable because of merge conflicts: detect the provider-native state,
-  preserve the linked request and conflict evidence, move the work item to an
-  explicit recoverable state, and give operators a clear requeue, dismiss, or
-  manual-resolution path without automatic rebases or force-pushes
+## Parked For Later (Post-v1)
 
-### Remediation Semantic Safety
-
-- [x] define mandatory semantic-safety analysis and terminal manual handling
-- [x] implement the shared semantic-safety gate, bounded provider evidence, and
-  analysis/structured-edit contracts before the remediation feedback loop
-- design: [functional semantic safety](design/functional/functional-design-remediation-semantic-safety.md)
-  and [technical semantic safety](design/technical/technical-design-remediation-semantic-safety.md)
-
-### Review Rollout
-
-- [x] live-validate same-SHA review-projection repair after a recoverable
-  projection warning
-
-### Review Finding Clarity
-
-- [ ] define and enforce a bounded self-contained finding contract: every
-  actionable finding states the affected behavior, concise causal impact,
-  scoped fix, and relevant locations; require an expanded causal walkthrough
-  only for cross-flow or behavior-sensitive changes, not routine local issues
-
-### Review Summary UX
-
-- [ ] design GitHub/GitLab mutable review summaries: maintain one current
-  provider comment per change request, guarded by reviewed revision so an
-  older run cannot overwrite newer results; retain line-level comments and
-  durable continuity evidence separately rather than creating a new visible
-  summary comment for every run
-
-### Review Configuration
-
-- [ ] design shared glob-pattern semantics for `review.supported_paths` and
-  `review.ignored_paths`, applied consistently to changed-file selection and
-  helper-following context while preserving repository-relative path safety
-- [ ] design optional provider-native remediation reviewer assignment: support
-  configured reviewer lists after change-request creation or reuse, keep
-  GitHub users/teams and GitLab user-ID resolution explicit, and retain
-  best-effort assignee behavior independently
-
-## Parked For Later
-
+- broader end-to-end scenario fixtures across intake, policy, remediation,
+  provider-native change requests, lifecycle, and summaries on both providers
+- stable machine-readable run summaries alongside human CLI output, including
+  finding, policy decision, validation, request, lifecycle, and bounded errors
+- automatic merge-conflict detection and operator guidance with preserved
+  linkage; no automatic rebases or force-pushes
+- safe retry in reused workspaces after a failed revision push without
+  discarding unpublished operator commits
+- bounded self-contained review findings as an ongoing quality refinement:
+  behavior, causal impact, scoped fix, and locations, with expanded explanation
+  only where needed
+- mutable GitHub/GitLab review summaries guarded by reviewed revision, keeping
+  line-level comments and durable continuity evidence separate
+- shared glob semantics for review include/exclude paths and helper context,
+  preserving repository-relative path safety
+- optional provider-native remediation reviewer assignment, with explicit
+  GitHub user/team and GitLab user-ID handling, separate from assignees
 - external API/database-backed control plane
 - additional structured finding adapters and a later shared cross-source
   reconciliation/deduplication stage
@@ -211,4 +179,8 @@ history, not here.
 - [design/technical/technical-design-work-item-state-projection.md](design/technical/technical-design-work-item-state-projection.md)
 - [design/functional/functional-design-remediation-recovery.md](design/functional/functional-design-remediation-recovery.md)
 - [design/technical/technical-design-remediation-recovery.md](design/technical/technical-design-remediation-recovery.md)
+- [design/functional/functional-design-remediation-review-feedback.md](design/functional/functional-design-remediation-review-feedback.md)
+- [design/technical/technical-design-remediation-review-feedback.md](design/technical/technical-design-remediation-review-feedback.md)
+- [design/functional/functional-design-remediation-semantic-safety.md](design/functional/functional-design-remediation-semantic-safety.md)
+- [design/technical/technical-design-remediation-semantic-safety.md](design/technical/technical-design-remediation-semantic-safety.md)
 - [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)

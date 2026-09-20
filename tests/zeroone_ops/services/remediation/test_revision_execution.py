@@ -282,7 +282,8 @@ class WorkItemStore:
 
 @pytest.mark.parametrize("platform", ["github", "gitlab"])
 @pytest.mark.parametrize(
-    "outcome", ["success", "context", "semantic", "validation", "push", "closed", "drift"]
+    "outcome",
+    ["success", "context", "semantic", "validation", "push", "closed", "drift", "refspec"],
 )
 def test_queued_revision_provider_parity(tmp_path, monkeypatch, platform, outcome):
     root, sha = revision_repository(tmp_path, base_has_target=False)
@@ -340,7 +341,7 @@ def test_queued_revision_provider_parity(tmp_path, monkeypatch, platform, outcom
     execution = ExecutionService(root, config)
 
     def analyze(*, selected_issue, context, dry_run):
-        assert outcome not in {"context", "closed", "drift"}
+        assert outcome not in {"context", "closed", "drift", "refspec"}
         assert context.prior_review_feedback.findings[0].evidence == "Returns success"
         if outcome == "semantic":
             return AnalysisResult(
@@ -405,9 +406,17 @@ def test_queued_revision_provider_parity(tmp_path, monkeypatch, platform, outcom
         iid=9,
         web_url=linked.web_url,
         state="closed" if outcome == "closed" else "opened",
-        source_branch="remediation",
+        source_branch=(
+            "+refs/heads/source:refs/heads/destination" if outcome == "refspec" else "remediation"
+        ),
         head_sha="new-head" if outcome == "drift" else sha,
     )
+    if outcome == "refspec":
+        monkeypatch.setattr(
+            execution.branch_manager,
+            "checkout_existing_remote_branch",
+            Mock(side_effect=AssertionError("Refspec must never reach checkout")),
+        )
     runner.run(record=run_state.start_run("revision-run"), active_dry_run=False)
     assert store.work_item.work_item_id == "work-1"
     assert store.work_item.status == (

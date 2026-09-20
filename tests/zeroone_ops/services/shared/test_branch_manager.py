@@ -33,6 +33,102 @@ def _init_git_repo(repo_root: Path) -> None:
     )
 
 
+@pytest.mark.parametrize("operation", ["checkout", "push"])
+@pytest.mark.parametrize(
+    "branch_name",
+    [
+        "",
+        "+refs/heads/source:refs/heads/destination",
+        "source:destination",
+        ":destination",
+        "+source",
+        "^source",
+        "--all",
+        "refs/heads/*",
+        "branch?",
+        "branch[ab]",
+        "@{-1}",
+        "branch\x00name",
+        "branch\nname",
+    ],
+)
+def test_revision_rejects_refspec_arguments_before_git(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, operation: str, branch_name: str
+) -> None:
+    manager = BranchManager(tmp_path)
+    commands: list[list[str]] = []
+
+    def unexpected_git(args: list[str]) -> str:
+        commands.append(args)
+        pytest.fail("Nonliteral branch arguments must be rejected before invoking Git.")
+
+    monkeypatch.setattr(manager, "_run_git_command", unexpected_git)
+    with pytest.raises(BranchManagerError, match="literal, valid Git branch name"):
+        if operation == "checkout":
+            manager.checkout_existing_remote_branch(
+                branch_name=branch_name, expected_head_sha="sha"
+            )
+        else:
+            manager.push_revision_branch(branch_name=branch_name, expected_head_sha="sha")
+    assert commands == []
+
+
+@pytest.mark.parametrize("operation", ["checkout", "push"])
+@pytest.mark.parametrize(
+    "branch_name", ["HEAD", "/branch", "branch/", "branch.lock", "a//b", "a~b"]
+)
+def test_revision_uses_git_ref_rules_before_remote_access(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, operation: str, branch_name: str
+) -> None:
+    manager = BranchManager(tmp_path)
+    run_git = manager._run_git_command
+    commands: list[list[str]] = []
+
+    def validated_git(args: list[str]) -> str:
+        commands.append(args)
+        assert args[0] == "check-ref-format"
+        return run_git(args)
+
+    monkeypatch.setattr(manager, "_run_git_command", validated_git)
+    with pytest.raises(BranchManagerError, match="literal, valid Git branch name"):
+        if operation == "checkout":
+            manager.checkout_existing_remote_branch(
+                branch_name=branch_name, expected_head_sha="sha"
+            )
+        else:
+            manager.push_revision_branch(branch_name=branch_name, expected_head_sha="sha")
+    assert commands == [["check-ref-format", "--branch", branch_name]]
+
+
+@pytest.mark.parametrize("branch_name", ["chore/revision-2", "fix/issue#123", "fix/a+b"])
+def test_revision_checkout_accepts_literal_branch_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, branch_name: str
+) -> None:
+    manager = BranchManager(tmp_path)
+    run_git = manager._run_git_command
+    commands: list[list[str]] = []
+
+    def checked_git(args: list[str]) -> str:
+        commands.append(args)
+        if args[0] == "check-ref-format":
+            return run_git(args)
+        if args[0] == "rev-parse":
+            return "reviewed-sha\n"
+        return ""
+
+    monkeypatch.setattr(manager, "_run_git_command", checked_git)
+    manager.checkout_existing_remote_branch(
+        branch_name=branch_name, expected_head_sha="reviewed-sha"
+    )
+    assert commands == [
+        ["check-ref-format", "--branch", branch_name],
+        ["fetch", "origin", branch_name],
+        ["rev-parse", f"origin/{branch_name}"],
+        ["branch", "--list", branch_name],
+        ["checkout", "-b", branch_name, "--track", f"origin/{branch_name}"],
+    ]
+
+
 def test_ensure_ready_rejects_dirty_repository(tmp_path: Path) -> None:
     _init_git_repo(tmp_path)
     artifacts = tmp_path / "artifacts"

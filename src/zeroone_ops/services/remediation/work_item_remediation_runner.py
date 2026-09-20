@@ -37,6 +37,7 @@ from zeroone_ops.services.remediation.remediation_context_builder import (
 )
 from zeroone_ops.services.shared.branch_revision_lookup import build_branch_revision_lookup
 from zeroone_ops.services.shared.run_state_service import RunStateService, RunSummary
+from zeroone_ops.utils.git import is_literal_branch_argument
 
 LOGGER = logging.getLogger(__name__)
 _FAILURE_OUTPUT_LIMIT = 2_000
@@ -538,7 +539,7 @@ class WorkItemRemediationRunner:
             or state.web_url != linked.web_url
             or state.state != "opened"
             or state.head_sha != projected.reviewed_sha
-            or not _is_safe_branch_name(state.source_branch)
+            or not is_literal_branch_argument(state.source_branch)
         ):
             return selected_target, FailureDetails(
                 stage=FailureStage.ISSUE_INTAKE,
@@ -604,14 +605,4 @@ def _semantic_safety_record(execution_result: ExecutionResult) -> WorkItemSemant
     return WorkItemSemanticSafety(
         assessment=decision.assessment,
         rejection_reason=decision.reason,
-    )
-
-
-def _is_safe_branch_name(value: str) -> bool:
-    """Return whether a provider branch name is safe for explicit Git argv use."""
-    return (
-        bool(value)
-        and not value.startswith("-")
-        and ".." not in value
-        and not any(character.isspace() for character in value)
     )
