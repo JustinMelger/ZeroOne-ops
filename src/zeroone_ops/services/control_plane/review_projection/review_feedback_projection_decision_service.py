@@ -52,12 +52,30 @@ class ReviewFeedbackProjectionDecisionService:
                 "Review findings were not actionable because bounded feedback was unavailable."
             )
 
-        # A manual-only review must not erase actionable feedback awaiting an operator.
+        cancelled_revision: dict[str, object] = {
+            "claim": None,
+            "review_revision_request": None,
+            "last_revision_command": (
+                work_item.last_revision_command or work_item.review_revision_request
+            ),
+        }
+        # Manual review cannot authorize old feedback against a different SHA.
+        # Retain the original packet and require a new operator decision.
         if (
             classification == "manual_review_only"
-            and work_item.status == "review_feedback_required"
+            and work_item.status in {"review_feedback_required", "review_revision_queued"}
+            and existing is not None
+            and existing.feedback is not None
         ):
-            return ReviewFeedbackProjectionDecision("unchanged", work_item, warning)
+            retained = work_item.model_copy(
+                update={
+                    **cancelled_revision,
+                    "status": "review_feedback_required",
+                }
+            )
+            return ReviewFeedbackProjectionDecision(
+                "unchanged" if retained == work_item else "updated", retained, warning
+            )
 
         projected_review = ProjectedReviewState(
             classification=classification,
@@ -72,10 +90,11 @@ class ReviewFeedbackProjectionDecisionService:
             update.update(
                 {
                     "status": "review_feedback_required",
-                    "claim": None,
-                    "review_revision_request": None,
+                    **cancelled_revision,
                 }
             )
+        elif work_item.status in {"review_feedback_required", "review_revision_queued"}:
+            update.update({"status": "in_progress", **cancelled_revision})
         return ReviewFeedbackProjectionDecision(
             "updated",
             work_item.model_copy(update=update),

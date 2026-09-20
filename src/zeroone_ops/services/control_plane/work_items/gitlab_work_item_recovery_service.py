@@ -102,6 +102,8 @@ class GitLabWorkItemRecoveryService:
         }
         if current.work_item.review_revision_request is not None:
             processed_references.add(current.work_item.review_revision_request.request_reference)
+        if current.work_item.last_revision_command is not None:
+            processed_references.add(current.work_item.last_revision_command.request_reference)
         matched = accepted = rejected = 0
         for note in sorted(authorized_notes, key=_note_sort_key):
             command = self.command_parser.parse(note.body)

@@ -201,6 +201,10 @@ class ReviewFinalizationService:
                         review_note_url=note_url,
                     )
                     projection_action = getattr(projection_result, "action", None)
+                    decision_warning = getattr(projection_result, "warning", None)
+                    if isinstance(decision_warning, str):
+                        projection_warning = f"Review projection warning: {decision_warning}"
+                        LOGGER.warning(projection_warning)
                     if projection_action in {"updated", "unchanged"}:
                         LOGGER.info(
                             "review projection mirrored",

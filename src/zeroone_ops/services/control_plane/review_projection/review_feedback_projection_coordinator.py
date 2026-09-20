@@ -19,6 +19,7 @@ class ReviewFeedbackProjectionOutcome:
 
     action: str
     work_item: WorkItemState | None = None
+    warning: str | None = None
 
 
 class ReviewFeedbackProjectionCoordinator:
@@ -62,8 +63,11 @@ class ReviewFeedbackProjectionCoordinator:
             review_note_reference=review_note_reference,
         )
         if decision.action == "unchanged":
-            return ReviewFeedbackProjectionOutcome(action="unchanged", work_item=existing)
+            return ReviewFeedbackProjectionOutcome(
+                action="unchanged", work_item=existing, warning=decision.warning
+            )
         return ReviewFeedbackProjectionOutcome(
             action="updated",
             work_item=upsert_work_item(decision.work_item),
+            warning=decision.warning,
         )

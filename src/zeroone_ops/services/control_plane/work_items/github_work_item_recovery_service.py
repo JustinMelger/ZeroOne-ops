@@ -158,6 +158,8 @@ class GitHubWorkItemRecoveryService:
         }
         if current.work_item.review_revision_request is not None:
             processed_references.add(current.work_item.review_revision_request.request_reference)
+        if current.work_item.last_revision_command is not None:
+            processed_references.add(current.work_item.last_revision_command.request_reference)
         for comment in sorted(comments, key=_comment_sort_key):
             command = self.command_parser.parse(comment.body)
             if not command.matched_prefix:

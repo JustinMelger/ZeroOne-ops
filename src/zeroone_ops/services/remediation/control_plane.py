@@ -485,6 +485,12 @@ class WorkItemRemediationControlPlane:
                 else existing_work_item.review_revision_request
             ),
             claim=None,
+            last_revision_command=(
+                None
+                if existing_work_item is None
+                else existing_work_item.last_revision_command
+                or existing_work_item.review_revision_request
+            ),
             publication_retry=publication_retry,
             execution_failure=execution_failure,
             semantic_safety=(

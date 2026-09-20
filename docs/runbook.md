@@ -155,7 +155,21 @@ with requeue instructions. Revision execution reads source and guidance only
 after checking out the reviewed branch. Preparation, context, validation, or
 publication failures return the item to `review_feedback_required`, preserving
 its request link and feedback and recording the failure in `Last Execution`.
+When failure evidence matches the latest revision command and reviewed SHA,
+the issue also displays **Last revision failed** above the requeue guidance.
+This display-only notice disappears when another revision is queued or succeeds.
 A revision dry run checks eligibility without checkout or model analysis.
+
+Each accepted revision command is consumed once, including when execution
+fails. Send a new command after inspecting the failure; rerunning a polling job
+or redelivering the original comment does not authorize another attempt.
+Claimed revisions cannot be selected again before stale-claim recovery. A new
+clean review cancels queued revision work; a manual-only review preserves any
+prior actionable feedback and requires a fresh operator decision.
+
+Same-SHA projection repair reuses persisted structured review evidence. Older
+records without that evidence remain pending with a warning requiring a new
+review, rather than silently losing the findings.
 
 When bot analysis dismisses a work item as unsuitable for automatic remediation,
 the work item stays terminal and records the decision in `Last Execution` with

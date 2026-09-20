@@ -417,6 +417,8 @@ def test_queued_revision_provider_parity(tmp_path, monkeypatch, platform, outcom
     assert store.work_item.projected_review.feedback == feedback
     assert store.work_item.claim is None
     assert store.work_item.review_revision_request is None
+    assert store.work_item.last_revision_command is not None
+    assert store.work_item.last_revision_command.request_reference == "comment-1"
     if outcome != "success":
         assert store.work_item.execution_failure is not None
     else:

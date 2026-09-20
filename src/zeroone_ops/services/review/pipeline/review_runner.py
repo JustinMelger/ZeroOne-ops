@@ -610,6 +610,7 @@ class ReviewRunner:
             classification=review_state.status,
             note_id=review_state.note_id,
             note_url=review_state.note_url,
+            artifact=review_state.projection_artifact,
         )
         self.review_state_service.update_projection_retry_state(
             change_request_number=change_request.change_request_number,
@@ -631,6 +632,7 @@ class ReviewRunner:
         classification: str | None,
         note_id: int | None,
         note_url: str | None,
+        artifact: PublishableReviewArtifact | None = None,
     ) -> str | None:
         """Retry projection only for one previously published same-SHA review."""
         if classification not in _AUTHORITATIVE_REVIEW_CLASSIFICATIONS:
@@ -639,6 +641,11 @@ class ReviewRunner:
             )
         if note_id is None and note_url is None:
             return "Review projection warning: persisted review note reference was unavailable."
+        if artifact is None and classification == "findings_present":
+            return (
+                "Review projection warning: persisted structured findings are unavailable; "
+                "a new review is required."
+            )
         context_result = ReviewContextBuilder(
             repo_root=self.repo_root,
             config=self.config,
@@ -653,7 +660,8 @@ class ReviewRunner:
             projection_result = projection_service.project_review(
                 repository_id=repository_id,
                 context=context,
-                artifact=PublishableReviewArtifact(
+                artifact=artifact
+                or PublishableReviewArtifact(
                     classification=cast(ReviewClassification, classification),
                     summary="Previously published review projection repair.",
                 ),
@@ -680,6 +688,9 @@ class ReviewRunner:
                 "projection_action": projection_result.action,
             },
         )
+        warning = getattr(projection_result, "warning", None)
+        if isinstance(warning, str):
+            return f"Review projection warning: {warning}"
         return None
 
     def _gitlab_issue_mode_is_active(self) -> bool:

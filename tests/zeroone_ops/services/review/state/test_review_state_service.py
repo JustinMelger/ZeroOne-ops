@@ -110,6 +110,7 @@ def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
     assert loaded.reviews["17:abc123"].note_id == 55
     assert loaded.reviews["17:abc123"].note_url is not None
     assert loaded.reviews["17:abc123"].projection_retry_pending is True
+    assert loaded.reviews["17:abc123"].projection_artifact == build_artifact()
     assert (
         loaded.reviews["17:abc123"].projection_retry_warning
         == "Review projection warning: projection boom"

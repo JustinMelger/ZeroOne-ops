@@ -20,7 +20,8 @@ def is_remediation_execution_eligible(work_item: WorkItemState) -> bool:
     if work_item.status == "approved" and work_item.linked_change_request is not None:
         return False
     if work_item.status == "review_revision_queued" and (
-        work_item.linked_change_request is None
+        work_item.claim is not None
+        or work_item.linked_change_request is None
         or work_item.projected_review is None
         or work_item.projected_review.feedback is None
     ):

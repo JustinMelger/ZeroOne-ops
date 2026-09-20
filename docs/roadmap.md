@@ -117,6 +117,8 @@ history, not here.
 - [ ] implement the documented review-feedback loop after design review
 - [x] repair revision checkout/context ordering, failure-state preservation,
   verified work-item action notices, and shared execution/provider-parity coverage
+- [x] consolidate revision command receipts, claim exclusion, review supersession,
+  persisted projection repair, and terminal lifecycle transitions
 - [ ] live-validate same-request revisions and failure recovery on GitHub and GitLab
 - design: [functional remediation review feedback](design/functional/functional-design-remediation-review-feedback.md)
   and [technical remediation review feedback](design/technical/technical-design-remediation-review-feedback.md)

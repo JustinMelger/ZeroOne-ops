@@ -54,6 +54,18 @@ class WorkItemCommandDecisionService:
                     occurred_at=occurred_at,
                 ),
             )
+        previous = work_item.last_revision_command or work_item.review_revision_request
+        if previous is not None and (
+            request_reference == previous.request_reference
+            or occurred_at.tzinfo is None
+            or previous.occurred_at.tzinfo is None
+            or occurred_at <= previous.occurred_at
+        ):
+            return ReviewFeedbackDecision(
+                accepted=False,
+                message="Command was already consumed or is stale.",
+                work_item=work_item,
+            )
         return self.recovery_decision_service.decide(
             work_item=work_item,
             request=RecoveryRequest(

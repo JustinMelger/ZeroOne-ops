@@ -210,6 +210,7 @@ class WorkItemState(BaseModel):
     linked_change_request: ChangeRequestRef | None = None
     projected_review: ProjectedReviewState | None = None
     review_revision_request: ReviewRevisionRequest | None = None
+    last_revision_command: ReviewRevisionRequest | None = None
     claim: WorkItemClaim | None = None
     publication_retry: PublicationRetryState | None = None
     execution_failure: WorkItemExecutionFailure | None = None

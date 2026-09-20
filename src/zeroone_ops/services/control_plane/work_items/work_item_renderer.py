@@ -102,6 +102,29 @@ class WorkItemRenderer:
                     "",
                     "## Review Feedback Action",
                     "",
+                ]
+            )
+            failure = work_item.execution_failure
+            revision = work_item.last_revision_command
+            review = work_item.projected_review
+            if (
+                failure is not None
+                and revision is not None
+                and review is not None
+                and revision.reviewed_sha == review.reviewed_sha
+                and failure.occurred_at.tzinfo is not None
+                and revision.occurred_at.tzinfo is not None
+                and failure.occurred_at >= revision.occurred_at
+            ):
+                lines.extend(
+                    [
+                        "**Last revision failed.** Check **Last Execution**, address the cause, "
+                        "then post a new `/zeroone remediation requeue` command here.",
+                        "",
+                    ]
+                )
+            lines.extend(
+                [
                     "An authorized operator may request one bounded revision of the linked "
                     "change request.",
                     "Requeue for remediation: `/zeroone remediation requeue`",

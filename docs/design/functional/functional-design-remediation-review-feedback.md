@@ -68,10 +68,12 @@ A review projection is accepted only when its reviewed SHA remains the current
 linked PR/MR head and is not older than the persisted projection. An older or
 otherwise stale review cannot overwrite newer feedback or a queued revision.
 
-A newer review projection supersedes any queued revision request. If a review
-arrives while the item is `review_revision_queued`, the item returns to
-`review_feedback_required` with the newer reviewed SHA and evidence. The prior
-operator command cannot revise against stale feedback.
+A newer review projection cancels any queued revision request. Actionable
+findings return the item to `review_feedback_required`; a clean review returns
+it to `in_progress` without another edit. Manual-only review preserves prior
+actionable evidence and its original SHA, returning queued work to
+`review_feedback_required`. It never authorizes old evidence against a new SHA.
+The prior operator command remains consumed after cancellation or execution.
 
 ## Operator Flow
 
@@ -87,6 +89,10 @@ The command requests a revision; it does not immediately generate code. The
 normal remediation workflow later claims `review_revision_queued` work and is
 the only component allowed to edit code, validate, commit, push, or update the
 change request.
+
+Claimed revisions are not selectable again. Only lifecycle recovery releases
+abandoned claims, and each subsequent revision requires a fresh operator
+command. A durable last-command receipt survives execution and newer reviews.
 
 The same command remains state-aware. On `blocked` work it uses the existing
 recovery flow; on `review_feedback_required` work it queues a same-branch

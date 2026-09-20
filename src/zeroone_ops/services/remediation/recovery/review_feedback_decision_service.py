@@ -69,18 +69,29 @@ class ReviewFeedbackDecisionService:
                 work_item,
                 "Review-feedback request timestamp must include a timezone.",
             )
+        previous = work_item.last_revision_command or work_item.review_revision_request
+        if previous is not None and (
+            request.request_reference == previous.request_reference
+            or previous.occurred_at.tzinfo is None
+            or request.occurred_at <= previous.occurred_at
+        ):
+            return self._reject(
+                work_item, "Review-feedback command was already consumed or is stale."
+            )
+        command = ReviewRevisionRequest(
+            actor=request.actor,
+            request_reference=request.request_reference,
+            occurred_at=request.occurred_at,
+            reviewed_sha=projected_review.reviewed_sha,
+        )
         return ReviewFeedbackDecision(
             accepted=True,
             message="A bounded revision of the linked change request was queued.",
             work_item=work_item.model_copy(
                 update={
                     "status": "review_revision_queued",
-                    "review_revision_request": ReviewRevisionRequest(
-                        actor=request.actor,
-                        request_reference=request.request_reference,
-                        occurred_at=request.occurred_at,
-                        reviewed_sha=projected_review.reviewed_sha,
-                    ),
+                    "review_revision_request": command,
+                    "last_revision_command": command,
                 }
             ),
         )

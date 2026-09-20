@@ -1,6 +1,8 @@
 from collections.abc import Callable
 from pathlib import Path
 
+import pytest
+
 from zeroone_ops.models.dashboard import (
     DashboardDocument,
     DashboardItem,
@@ -1972,8 +1974,9 @@ def test_review_github_reuses_same_sha_note_when_username_lookup_is_unresolved(
     assert "Earlier classification: findings_present." in summary.message
 
 
+@pytest.mark.parametrize("has_artifact", [True, False])
 def test_review_same_sha_live_run_repairs_pending_projection_with_url_only_reference(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path, monkeypatch, has_artifact: bool
 ) -> None:
     class FakeProjectionService:
         def __init__(self) -> None:
@@ -2014,6 +2017,20 @@ def test_review_same_sha_live_run_repairs_pending_projection_with_url_only_refer
         sonarqube_project_key=None,
     )
     state = AppState(repository=RepositoryState(base_branch="main"))
+    repair_artifact = PublishableReviewArtifact(
+        classification="findings_present",
+        summary="One finding.",
+        findings=[
+            PublishableReviewFinding(
+                severity="medium",
+                title="Error lost",
+                file_path="src/service.py",
+                evidence="Returns success",
+                explanation="Error is hidden",
+                suggested_follow_up="Preserve the error",
+            )
+        ],
+    )
     state.reviews["23:abc123"] = ChangeRequestReviewState(
         change_request_number=23,
         head_sha="abc123",
@@ -2025,6 +2042,7 @@ def test_review_same_sha_live_run_repairs_pending_projection_with_url_only_refer
         note_url="https://github.com/octo-org/octo-repo/pull/23#issuecomment-1",
         projection_retry_pending=True,
         projection_retry_warning="Review projection warning: transient failure",
+        projection_artifact=repair_artifact if has_artifact else None,
     )
     state_store.save(state)
 
@@ -2075,9 +2093,15 @@ def test_review_same_sha_live_run_repairs_pending_projection_with_url_only_refer
 
     assert summary.status.value == "reviewed"
     assert "No new changes after the last review." in summary.message
+    if not has_artifact:
+        assert "persisted structured findings are unavailable" in summary.message
+        assert projection_service.calls == []
+        assert state_store.load().reviews["23:abc123"].projection_retry_pending is True
+        return
     assert "Repaired pending review projection." in summary.message
     assert len(projection_service.calls) == 1
     assert projection_service.calls[0]["review_note_id"] is None
+    assert projection_service.calls[0]["artifact"] == repair_artifact
     assert (
         projection_service.calls[0]["review_note_url"]
         == "https://github.com/octo-org/octo-repo/pull/23#issuecomment-1"

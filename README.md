@@ -100,6 +100,8 @@ operator follow-up.
 For actionable findings on a remediation PR/MR, the review comment links to
 the authoritative work-item issue. Request a same-branch revision there with
 `/zeroone remediation requeue`, not on the PR/MR. See the [runbook](docs/runbook.md).
+Each accepted command authorizes one attempt; failed revisions require a fresh
+operator command rather than automatically retrying on the next scheduled run.
 
 `dashboard sonar`, `dashboard remediate`, and `dashboard reconcile` remain
 available as legacy GitLab aliases. Prefer `findings sync`, `remediation run`,

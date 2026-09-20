@@ -68,6 +68,10 @@ class WorkItemChangeRequestReconciliationService:
                     "status": "completed",
                     "linked_change_request": linked_change_request,
                     "claim": None,
+                    "review_revision_request": None,
+                    "last_revision_command": (
+                        work_item.last_revision_command or work_item.review_revision_request
+                    ),
                 }
             )
             return WorkItemChangeRequestReconciliationResult(

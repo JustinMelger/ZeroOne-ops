@@ -56,9 +56,9 @@ request head and is not older than the persisted projection before writing. A
 stale result is logged and ignored so it cannot overwrite a newer feedback
 packet or queued-revision marker.
 
-A newer review artifact supersedes a queued revision marker and restores
-`review_feedback_required`. This prevents an earlier command reference and
-reviewed SHA from authorizing a revision after a newer review is available.
+A newer review artifact supersedes a queued revision marker: actionable or
+retained manual feedback restores `review_feedback_required`, while clean
+reviews return to `in_progress`. The consumed command receipt remains durable.
 
 Add a provider-neutral review-feedback decision service alongside recovery
 decisions. It accepts an authorized `requeue` request only for
@@ -125,6 +125,29 @@ Publication rechecks the exact remote head before a normal push; this is a
 read-before-write guard, not an atomic provider claim.
 
 ## Lifecycle And Rendering
+
+State transitions retain `last_revision_command` separately from the temporary
+`review_revision_request`. Reuse the same typed receipt for both; the durable
+receipt rejects repeated references and commands at or before its timestamp.
+Provider polling/event handlers also use it for duplicate suppression. Existing
+queued records preserve their marker as the receipt when the marker is cleared.
+
+Intake excludes queued records with a claim. Lifecycle checks provider terminal
+state before stale-claim recovery: closed requests become `blocked`, merged
+requests become `completed`, and only still-open abandoned revisions return to
+`review_feedback_required`. Each transition clears the queued marker and claim
+but retains the consumed command.
+
+Review persistence keeps the finalized `projection_artifact` alongside review
+continuity state. Same-SHA repair replays that artifact without model analysis or
+Markdown parsing. Historical actionable reviews without the artifact retain a
+projection warning requiring a new review; repair must not downgrade them to
+manual-only evidence and report success.
+
+New findings replace feedback and cancel the queue. A clean review cancels the
+queue and returns feedback states to `in_progress`. Manual-only review cancels
+the queue but preserves prior actionable feedback and its SHA; it does not
+turn old feedback into evidence for a new revision.
 
 Update shared lifecycle reconciliation so an open linked change request retains
 `review_feedback_required` and `review_revision_queued`. It may still refresh

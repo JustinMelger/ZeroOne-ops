@@ -146,17 +146,27 @@ class WorkItemLifecycleService:
             "review_revision_queued",
         }:
             return None, "unchanged"
-        if self._is_stale_revision_claim(work_item=work_item, now=now):
+        reconciled, action = self._reconcile_linked_change_request(work_item=work_item)
+        if self._is_stale_revision_claim(work_item=reconciled, now=now):
             LOGGER.info(
                 "recovered stale queued %s remediation revision claim",
                 self.provider_name,
                 extra={"work_item_id": work_item.work_item_id},
             )
             return (
-                work_item.model_copy(update={"status": "review_feedback_required", "claim": None}),
+                reconciled.model_copy(
+                    update={
+                        "status": "review_feedback_required",
+                        "claim": None,
+                        "review_revision_request": None,
+                        "last_revision_command": (
+                            work_item.last_revision_command or work_item.review_revision_request
+                        ),
+                    }
+                ),
                 "recovered_stale_claim",
             )
-        return self._reconcile_linked_change_request(work_item=work_item)
+        return reconciled, action
 
     def _reconcile_linked_change_request(
         self, *, work_item: WorkItemState
@@ -192,7 +202,16 @@ class WorkItemLifecycleService:
         if change_request_state.state == "closed":
             if work_item.status == "blocked":
                 return work_item, "unchanged"
-            return self._blocked_with_link(work_item), "blocked"
+            return work_item.model_copy(
+                update={
+                    "status": "blocked",
+                    "claim": None,
+                    "review_revision_request": None,
+                    "last_revision_command": (
+                        work_item.last_revision_command or work_item.review_revision_request
+                    ),
+                }
+            ), "blocked"
         if change_request_state.state not in {"opened", "merged"}:
             LOGGER.warning(
                 "%s work-item lifecycle received unsupported change-request state",
@@ -244,7 +263,14 @@ class WorkItemLifecycleService:
         """Block uncertain reconciliation while retaining linked change-request traceability."""
         if work_item.status == "review_revision_queued":
             return work_item.model_copy(
-                update={"status": "review_feedback_required", "claim": None}
+                update={
+                    "status": "review_feedback_required",
+                    "claim": None,
+                    "review_revision_request": None,
+                    "last_revision_command": (
+                        work_item.last_revision_command or work_item.review_revision_request
+                    ),
+                }
             )
         return work_item.model_copy(update={"status": "blocked", "claim": None})
 

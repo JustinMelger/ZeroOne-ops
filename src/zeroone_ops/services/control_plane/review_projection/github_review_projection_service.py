@@ -26,6 +26,7 @@ class GitHubReviewProjectionResult:
 
     action: str
     work_item: WorkItemState | None = None
+    warning: str | None = None
 
 
 class GitHubReviewProjectionService:
@@ -87,7 +88,9 @@ class GitHubReviewProjectionService:
                 else review_note_url
             ),
         )
-        return GitHubReviewProjectionResult(action=outcome.action, work_item=outcome.work_item)
+        return GitHubReviewProjectionResult(
+            action=outcome.action, work_item=outcome.work_item, warning=outcome.warning
+        )
 
 
 def _find_linked_work_item(

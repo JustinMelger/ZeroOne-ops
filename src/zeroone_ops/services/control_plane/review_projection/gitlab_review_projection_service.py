@@ -26,6 +26,7 @@ class GitLabReviewProjectionResult:
 
     action: str
     work_item: WorkItemState | None = None
+    warning: str | None = None
 
 
 class GitLabReviewProjectionService:
@@ -85,7 +86,9 @@ class GitLabReviewProjectionService:
                 f"gitlab-note-{review_note_id}" if review_note_id is not None else review_note_url
             ),
         )
-        return GitLabReviewProjectionResult(action=outcome.action, work_item=outcome.work_item)
+        return GitLabReviewProjectionResult(
+            action=outcome.action, work_item=outcome.work_item, warning=outcome.warning
+        )
 
 
 def _find_linked_work_item(
