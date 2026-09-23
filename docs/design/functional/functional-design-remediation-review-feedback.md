@@ -10,6 +10,12 @@ The review result is evidence about a proposed remediation change. It is not a
 new source finding and must not be routed through finding sync or treated as a
 fresh unlinked remediation candidate.
 
+A requeue comment must be posted after the current feedback requires action.
+Comments posted before that review, or during a revision that later fails,
+cannot authorize a new attempt. Failure and stale-claim recovery require a
+fresh operator command; refreshing an unchanged projection does not invalidate
+an otherwise current command.
+
 ## Goals
 
 - make actionable remediation-review feedback visible and stateful;

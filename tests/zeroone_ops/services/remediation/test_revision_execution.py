@@ -430,5 +430,10 @@ def test_queued_revision_provider_parity(tmp_path, monkeypatch, platform, outcom
     assert store.work_item.last_revision_command.request_reference == "comment-1"
     if outcome != "success":
         assert store.work_item.execution_failure is not None
+        assert store.work_item.review_action_required_at is not None
+        assert (
+            store.work_item.review_action_required_at
+            >= store.work_item.execution_failure.occurred_at
+        )
     else:
         assert git(root, "rev-parse", "origin/remediation") != sha

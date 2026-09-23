@@ -107,8 +107,11 @@ def setup_projection(platform):
         web_url="https://example.com/pr/1",
         head_sha="sha",
     )
+    service.coordinator.decision_service.clock = lambda: NOW - timedelta(seconds=1)
 
-    def project(review, note_id):
+    def project(review, note_id, *, at=None):
+        if at is not None:
+            service.coordinator.decision_service.clock = lambda: at
         return service.project_review(
             repository_id="repo",
             context=context,
@@ -174,7 +177,7 @@ def test_command_cannot_replay_after_queue_marker_clears(platform):
             return service.process(
                 repository_id="repo",
                 issue_number=12,
-                comment_id=7,
+                comment_id=note.id,
                 policy_eligible=True,
                 persist=True,
             )
@@ -193,6 +196,10 @@ def test_command_cannot_replay_after_queue_marker_clears(platform):
                 persist=True,
             )
 
+    # A historical command rejected before feedback must not become authorization.
+    note.created_at = (NOW - timedelta(days=1)).isoformat()
+    assert process().accepted_command_count == 0
+    note.created_at = NOW.isoformat()
     first = process()
     assert first.accepted_command_count == 1
     failed = first.work_item.model_copy(
@@ -200,11 +207,18 @@ def test_command_cannot_replay_after_queue_marker_clears(platform):
             "status": "review_feedback_required",
             "review_revision_request": None,
             "claim": None,
+            "review_action_required_at": NOW + timedelta(minutes=2),
         }
     )
     # Exercise the machine-state round trip, not just in-memory suppression.
     store.upsert_work_item(work_item=WorkItemState.model_validate_json(failed.model_dump_json()))
     assert process().accepted_command_count == 0
+    # An additional command sent during execution is not a retry decision.
+    note.id = 8
+    note.created_at = (NOW + timedelta(minutes=1)).isoformat()
+    assert process().accepted_command_count == 0
+    note.created_at = (NOW + timedelta(minutes=3)).isoformat()
+    assert process().accepted_command_count == 1
     project(artifact(), 3)
     assert process().accepted_command_count == 0
 
@@ -247,8 +261,27 @@ def test_claim_exclusion_and_lifecycle_ownership(provider_state, stale):
             lifecycle.reconcile(now=NOW + timedelta(days=2))
             updated = store.list_open_work_items()[0].work_item
         assert updated.status == "review_feedback_required"
+        assert updated.review_action_required_at == NOW + timedelta(days=2)
     else:
         assert updated.status == ("blocked" if provider_state == "closed" else "completed")
     assert updated.claim is None
     assert updated.review_revision_request is None
     assert updated.last_revision_command == queued.review_revision_request
+
+
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+def test_projection_boundary_persists_without_advancing_on_repair(platform):
+    store, _, project = setup_projection(platform)
+    current = store.list_open_work_items()[0].work_item
+    assert current.review_action_required_at == NOW - timedelta(seconds=1)
+    legacy = current.model_copy(update={"review_action_required_at": None})
+    store.upsert_work_item(work_item=legacy)
+    repaired = project(artifact(), 1)
+    assert repaired.action == "updated"
+    assert repaired.work_item.review_action_required_at is not None
+    assert project(artifact(), 1).action == "unchanged"
+    assert store.list_open_work_items()[0].work_item == repaired.work_item
+    newer = project(artifact(), 2, at=NOW + timedelta(minutes=5))
+    assert newer.work_item.review_action_required_at == NOW + timedelta(minutes=5)
+    assert project(artifact(), 2, at=NOW + timedelta(minutes=6)).action == "unchanged"
+    assert store.list_open_work_items()[0].work_item == newer.work_item

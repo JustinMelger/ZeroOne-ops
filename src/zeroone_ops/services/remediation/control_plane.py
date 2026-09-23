@@ -11,6 +11,7 @@ from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.finding import RemediationContext
 from zeroone_ops.models.remediation import RemediationExecutionTarget, RemediationWorkItem
+from zeroone_ops.models.state import utc_now
 from zeroone_ops.models.work_item import (
     ChangeRequestRef,
     PublicationRetryState,
@@ -485,6 +486,13 @@ class WorkItemRemediationControlPlane:
                 else existing_work_item.review_revision_request
             ),
             claim=None,
+            review_action_required_at=(
+                utc_now()
+                if status == "review_feedback_required"
+                else None
+                if existing_work_item is None
+                else existing_work_item.review_action_required_at
+            ),
             last_revision_command=(
                 None
                 if existing_work_item is None

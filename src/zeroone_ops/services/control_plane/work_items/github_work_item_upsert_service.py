@@ -207,6 +207,8 @@ class GitHubWorkItemUpsertService:
             update["recovery_events"] = parsed.recovery_events
         if "last_revision_command" not in work_item.model_fields_set:
             update["last_revision_command"] = parsed.last_revision_command
+        if "review_action_required_at" not in work_item.model_fields_set:
+            update["review_action_required_at"] = parsed.review_action_required_at
         if (
             "resolution" not in work_item.model_fields_set
             and work_item.resolution is None

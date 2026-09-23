@@ -179,6 +179,10 @@ instructions.
 Each accepted revision command is consumed once, including when execution
 fails. Send a new command after inspecting the failure; rerunning a polling job
 or redelivering the original comment does not authorize another attempt.
+The command must also be newer than the current feedback-action boundary.
+Comments posted before the review or during an attempt cannot authorize a
+later revision or retry its failure. Historical feedback without this boundary
+requires a review-projection refresh followed by a new requeue comment.
 Claimed revisions cannot be selected again before stale-claim recovery. A new
 clean review cancels queued revision work; a manual-only review preserves any
 prior actionable feedback and requires a fresh operator decision.

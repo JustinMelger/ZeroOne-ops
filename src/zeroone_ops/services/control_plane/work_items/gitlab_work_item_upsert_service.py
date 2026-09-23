@@ -157,6 +157,7 @@ class GitLabWorkItemUpsertService:
             "linked_change_request",
             "projected_review",
             "last_revision_command",
+            "review_action_required_at",
             "publication_retry",
             "execution_failure",
             "policy_deferral",

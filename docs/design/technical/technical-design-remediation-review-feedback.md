@@ -135,6 +135,16 @@ read-before-write guard, not an atomic provider claim.
 State transitions retain `last_revision_command` separately from the temporary
 `review_revision_request`. Reuse the same typed receipt for both; the durable
 receipt rejects repeated references and commands at or before its timestamp.
+
+`review_action_required_at` records when the current feedback requires a fresh
+operator decision. New actionable projections, revision failures, and stale
+queued-claim recovery establish a new boundary. Requeue requires a timezone-aware
+comment/note timestamp strictly after that boundary, in addition to receipt
+checks. Commands previously rejected in another state or posted during an
+attempt cannot authorize later feedback or retry its failure. Idempotent
+projection refreshes do not advance the boundary. Historical records without
+one reject requeue until a projection refresh initializes it; the operator
+must then post a new command. This is not an atomic provider transition.
 Provider polling/event handlers also use it for duplicate suppression. Existing
 queued records preserve their marker as the receipt when the marker is cleared.
 

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 
 from zeroone_ops.models.review import PublishableReviewArtifact
+from zeroone_ops.models.state import utc_now
 from zeroone_ops.models.work_item import (
     ProjectedReviewFeedback,
     ProjectedReviewFinding,
@@ -25,6 +28,10 @@ class ReviewFeedbackProjectionDecision:
 class ReviewFeedbackProjectionDecisionService:
     """Decide review-feedback transitions without provider dependencies."""
 
+    def __init__(self, *, clock: Callable[[], datetime] = utc_now) -> None:
+        """Supply the clock used when feedback requires a new operator decision."""
+        self.clock = clock
+
     def decide(
         self,
         *,
@@ -41,6 +48,14 @@ class ReviewFeedbackProjectionDecisionService:
             and existing.reviewed_sha == reviewed_sha
             and existing.review_note_reference == review_note_reference
         ):
+            if (
+                work_item.status == "review_feedback_required"
+                and work_item.review_action_required_at is None
+            ):
+                return ReviewFeedbackProjectionDecision(
+                    "updated",
+                    work_item.model_copy(update={"review_action_required_at": self.clock()}),
+                )
             return ReviewFeedbackProjectionDecision("unchanged", work_item)
 
         feedback = build_projected_review_feedback(artifact)
@@ -73,6 +88,8 @@ class ReviewFeedbackProjectionDecisionService:
                     "status": "review_feedback_required",
                 }
             )
+            if retained != work_item or work_item.review_action_required_at is None:
+                retained = retained.model_copy(update={"review_action_required_at": self.clock()})
             return ReviewFeedbackProjectionDecision(
                 "unchanged" if retained == work_item else "updated", retained, warning
             )
@@ -90,6 +107,7 @@ class ReviewFeedbackProjectionDecisionService:
             update.update(
                 {
                     "status": "review_feedback_required",
+                    "review_action_required_at": self.clock(),
                     **cancelled_revision,
                 }
             )

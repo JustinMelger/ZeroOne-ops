@@ -146,7 +146,7 @@ class WorkItemLifecycleService:
             "review_revision_queued",
         }:
             return None, "unchanged"
-        reconciled, action = self._reconcile_linked_change_request(work_item=work_item)
+        reconciled, action = self._reconcile_linked_change_request(work_item=work_item, now=now)
         if self._is_stale_revision_claim(work_item=reconciled, now=now):
             LOGGER.info(
                 "recovered stale queued %s remediation revision claim",
@@ -157,6 +157,7 @@ class WorkItemLifecycleService:
                 reconciled.model_copy(
                     update={
                         "status": "review_feedback_required",
+                        "review_action_required_at": now,
                         "claim": None,
                         "review_revision_request": None,
                         "last_revision_command": (
@@ -169,7 +170,7 @@ class WorkItemLifecycleService:
         return reconciled, action
 
     def _reconcile_linked_change_request(
-        self, *, work_item: WorkItemState
+        self, *, work_item: WorkItemState, now: datetime
     ) -> tuple[WorkItemState, str]:
         """Resolve one linked change request, retaining links when state is uncertain."""
         linked_change_request = work_item.linked_change_request
@@ -187,7 +188,7 @@ class WorkItemLifecycleService:
                 },
                 exc_info=True,
             )
-            return self._blocked_with_link(work_item), "blocked"
+            return self._blocked_with_link(work_item, now=now), "blocked"
         if change_request_state.iid != linked_change_request.number:
             LOGGER.warning(
                 "%s work-item lifecycle received mismatched change-request metadata",
@@ -198,7 +199,7 @@ class WorkItemLifecycleService:
                     "received_change_request_number": change_request_state.iid,
                 },
             )
-            return self._blocked_with_link(work_item), "blocked"
+            return self._blocked_with_link(work_item, now=now), "blocked"
         if change_request_state.state == "closed":
             if work_item.status == "blocked":
                 return work_item, "unchanged"
@@ -222,7 +223,7 @@ class WorkItemLifecycleService:
                     "change_request_state": change_request_state.state,
                 },
             )
-            return self._blocked_with_link(work_item), "blocked"
+            return self._blocked_with_link(work_item, now=now), "blocked"
         reconciliation = self.reconciliation_service.reconcile(
             work_item=work_item,
             change_request_state=change_request_state,
@@ -259,12 +260,13 @@ class WorkItemLifecycleService:
         return now.astimezone(UTC) - claimed_at.astimezone(UTC) >= _STALE_CLAIM_AGE
 
     @staticmethod
-    def _blocked_with_link(work_item: WorkItemState) -> WorkItemState:
+    def _blocked_with_link(work_item: WorkItemState, *, now: datetime) -> WorkItemState:
         """Block uncertain reconciliation while retaining linked change-request traceability."""
         if work_item.status == "review_revision_queued":
             return work_item.model_copy(
                 update={
                     "status": "review_feedback_required",
+                    "review_action_required_at": now,
                     "claim": None,
                     "review_revision_request": None,
                     "last_revision_command": (

@@ -29,6 +29,7 @@ def _work_item() -> WorkItemState:
         work_item_id="work-1",
         kind="remediation",
         status="review_feedback_required",
+        review_action_required_at=datetime(2026, 9, 14, tzinfo=UTC),
         source=WorkItemSourceRef(source="ruff-sarif", source_item_key="F401:src/api.py:42"),
         summary="Unused import.",
         file_path="src/api.py",
@@ -128,3 +129,36 @@ def test_command_router_rejects_feedback_dismissal_without_recovery_transition()
 
     assert decision.accepted is False
     assert decision.work_item == work_item
+
+
+@pytest.mark.parametrize("offset, accepted", [(-1, False), (0, False), (1, True)])
+def test_requeue_must_follow_current_feedback_boundary(offset, accepted):
+    work_item = _work_item()
+    boundary = work_item.review_action_required_at
+    assert boundary is not None
+    decision = ReviewFeedbackDecisionService().decide(
+        work_item=work_item,
+        request=ReviewFeedbackRequest(
+            actor="operator",
+            request_reference="previously-rejected-command",
+            occurred_at=boundary + timedelta(seconds=offset),
+            expected_state_fingerprint=RecoveryDecisionService.state_fingerprint(work_item),
+        ),
+    )
+    assert decision.accepted is accepted
+
+
+@pytest.mark.parametrize("boundary", [None, datetime(2026, 9, 14)])
+def test_unknown_feedback_boundary_fails_closed(boundary):
+    work_item = _work_item().model_copy(update={"review_action_required_at": boundary})
+    decision = ReviewFeedbackDecisionService().decide(
+        work_item=work_item,
+        request=ReviewFeedbackRequest(
+            actor="operator",
+            request_reference="note-1",
+            occurred_at=datetime(2026, 9, 15, tzinfo=UTC),
+            expected_state_fingerprint=RecoveryDecisionService.state_fingerprint(work_item),
+        ),
+    )
+    assert not decision.accepted
+    assert "boundary is unavailable" in decision.message

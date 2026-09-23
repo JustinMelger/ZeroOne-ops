@@ -69,6 +69,17 @@ class ReviewFeedbackDecisionService:
                 work_item,
                 "Review-feedback request timestamp must include a timezone.",
             )
+        boundary = work_item.review_action_required_at
+        if boundary is None or boundary.tzinfo is None:
+            return self._reject(
+                work_item,
+                "Review-feedback action boundary is unavailable; refresh the review projection "
+                "before posting a new requeue command.",
+            )
+        if request.occurred_at <= boundary:
+            return self._reject(
+                work_item, "Post a new requeue command after the current feedback requires action."
+            )
         previous = work_item.last_revision_command or work_item.review_revision_request
         if previous is not None and (
             request.request_reference == previous.request_reference
