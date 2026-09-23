@@ -32,6 +32,7 @@ from zeroone_ops.services.control_plane.policy.gitlab_policy_note_authorization_
 from zeroone_ops.services.control_plane.policy.gitlab_policy_processing_runner import (
     GitLabPolicyProcessingRunner,
 )
+from zeroone_ops.services.control_plane.policy.policy_view_builder import PolicyViewBuilder
 from zeroone_ops.services.control_plane.work_items.github_work_item_recovery_runner import (
     GitHubWorkItemRecoveryRunner,
 )
@@ -63,7 +64,7 @@ from zeroone_ops.settings import (
 def build_dashboard_policy_view_builder(
     *, repo_root: Path, config: AppConfig, state: AppState
 ) -> DashboardPolicyViewBuilder:
-    """Build the shared policy view used by provider-local control planes."""
+    """Build the legacy dashboard inventory and policy view."""
     return DashboardPolicyViewBuilder(repo_root=repo_root, config=config, state=state)
 
 
@@ -73,8 +74,8 @@ def build_github_policy_issue_service(
     """Build lazy GitHub policy access for a control-plane workflow."""
     return GitHubPolicyIssueService(
         GitHubPolicyClient(load_github_connection_config()),
-        policy_view_builder=build_dashboard_policy_view_builder(
-            repo_root=repo_root, config=config, state=state
+        policy_view_builder=PolicyViewBuilder(
+            bootstrap_severities=config.remediation.bootstrap_severities
         ),
     )
 
@@ -97,8 +98,8 @@ def build_gitlab_policy_issue_service(
     """Build lazy GitLab issue-mode policy access for a workflow."""
     return GitLabPolicyIssueService(
         GitLabPolicyClient(load_gitlab_connection_config()),
-        policy_view_builder=build_dashboard_policy_view_builder(
-            repo_root=repo_root, config=config, state=state
+        policy_view_builder=PolicyViewBuilder(
+            bootstrap_severities=config.remediation.bootstrap_severities
         ),
     )
 

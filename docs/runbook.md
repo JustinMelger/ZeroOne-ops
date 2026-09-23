@@ -4,6 +4,15 @@ This runbook describes how to operate the current ZeroOne Ops workflows in
 GitLab CI and GitHub Actions. Provider-specific setup details call out the
 relevant platform where their control planes differ.
 
+Legacy GitLab dashboard mode remains available. The
+[retirement audit](design/technical/technical-audit-legacy-dashboard-retirement.md)
+records the elapsed compatibility window and shared-code prerequisites; it does
+not authorize removal or require an operator migration in this release.
+
+Issue-mode policy now uses shared, provider-neutral bootstrap and presentation
+code. This internal extraction does not change policy bodies, commands, configured
+severity defaults, or legacy dashboard support.
+
 Naming note:
 
 - product brand: `ZeroOne Ops`

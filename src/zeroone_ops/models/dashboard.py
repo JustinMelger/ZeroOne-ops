@@ -8,9 +8,12 @@ from typing import Literal, cast
 from pydantic import AliasChoices, BaseModel, Field
 
 from zeroone_ops.models.policy import (
+    PolicyIssueClassExclusionEntry,
     PolicyIssueClassStateEntry,
+    PolicySeverityEntry,
     PolicySeverityStateEntry,
     PolicyState,
+    PolicyView,
 )
 from zeroone_ops.models.work_item import (
     PublicationRetryState,
@@ -97,25 +100,14 @@ def normalize_dashboard_section_key(section_key: str) -> str:
     return section_key
 
 
-class DashboardSeverityPolicyEntry(BaseModel):
-    """Represent one rendered remediation severity-policy entry."""
-
-    severity: Literal["low", "medium", "high"]
-    enabled: bool
-    reason: str | None = None
+DashboardSeverityPolicyEntry = PolicySeverityEntry
 
 
 DashboardSeverityPolicyStateEntry = PolicySeverityStateEntry
 DashboardIssueClassPolicyStateEntry = PolicyIssueClassStateEntry
 
 
-class DashboardIssueClassExclusionEntry(BaseModel):
-    """Represent one rendered excluded issue-class entry."""
-
-    source: str
-    issue_key: str
-    matching_items_count: int = 0
-    reason: str
+DashboardIssueClassExclusionEntry = PolicyIssueClassExclusionEntry
 
 
 class DashboardIssueClassInventoryEntry(BaseModel):
@@ -130,11 +122,9 @@ class DashboardIssueClassInventoryEntry(BaseModel):
     reason: str | None = None
 
 
-class DashboardPolicyView(BaseModel):
+class DashboardPolicyView(PolicyView):
     """Represent the rendered operator-policy view for the dashboard."""
 
-    severity_policy: list[DashboardSeverityPolicyEntry] = Field(default_factory=list)
-    excluded_issue_classes: list[DashboardIssueClassExclusionEntry] = Field(default_factory=list)
     issue_class_inventory: list[DashboardIssueClassInventoryEntry] = Field(default_factory=list)
 
 

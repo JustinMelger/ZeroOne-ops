@@ -28,6 +28,12 @@ historical records that explain how ZeroOne Ops reached its present architecture
 Use the [roadmap](../roadmap.md) to identify the active implementation topic,
 then follow the relevant current contract.
 
+## Retirement Audits
+
+- [Legacy dashboard dependency and retirement audit](technical/technical-audit-legacy-dashboard-retirement.md)
+  records shared dependencies, release-window evidence, and removal prerequisites.
+  Audit completion is not approval to retire runtime support.
+
 ## Historical Records
 
 Historical designs preserve rationale, rollout decisions, and compatibility

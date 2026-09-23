@@ -469,6 +469,8 @@ Use these docs for the deeper operational details:
 - [docs/runbook.md](docs/runbook.md) for CI setup, credentials, rollout order,
   and smoke-test recipes
 - [docs/roadmap.md](docs/roadmap.md) for what is shipped, current, and parked
+- [Legacy dashboard retirement audit](docs/design/technical/technical-audit-legacy-dashboard-retirement.md)
+  for support-window evidence and cleanup prerequisites; retirement is not yet approved
 - [docs/design/functional/functional-design.md](docs/design/functional/functional-design.md)
   and [docs/design/technical/technical-design.md](docs/design/technical/technical-design.md)
   for the broader functional and technical design surfaces across review,

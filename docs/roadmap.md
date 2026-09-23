@@ -14,6 +14,13 @@ history, not here.
 
 ## Implemented
 
+- shared policy presentation and bootstrap extracted from legacy dashboard
+  dependencies; GitHub/GitLab issue policy uses neutral models and a pure builder,
+  while dashboard runtime and compatibility remain supported
+
+- completed the [legacy dashboard dependency and retirement audit](design/technical/technical-audit-legacy-dashboard-retirement.md);
+  runtime retirement remains a separate approval and implementation step
+
 - GitLab and GitHub staged change-request review with continuity, concise
   developer-facing notes, and bounded inline comments
 - provider-neutral normalized finding ingestion with SonarQube and SARIF/Ruff
@@ -147,7 +154,9 @@ retry from a fresh checkout; automatic local-branch recovery remains post-v1.
 - multi-file remediation and automated test-repair workflows
 - broader dashboard/history presentation improvements after operator usage
   establishes the need
-- retire GitLab dashboard mode after two maintenance-only minor releases
+- [ ] retire GitLab dashboard mode in an approved breaking release after shared
+  policy extraction and operator notice; the elapsed support window and removal
+  prerequisites are recorded in the [retirement audit](design/technical/technical-audit-legacy-dashboard-retirement.md)
 - add read-only `config validate` and advisory `config migrate`
   tooling for deprecated aliases, missing provider selection, and unavailable
   configured fixture or SARIF paths; v1 continues to use load-time errors,
