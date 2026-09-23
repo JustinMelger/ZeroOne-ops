@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from zeroone_ops.services.control_plane.overview.github_operational_summary_parser import (
     GitHubOperationalSummaryParser,
 )
@@ -8,22 +10,29 @@ from zeroone_ops.services.control_plane.overview.github_operational_summary_rend
     GitHubOperationalSummaryRenderer,
     GitHubOperationalSummaryView,
 )
+from zeroone_ops.services.control_plane.overview.gitlab_operational_summary_renderer import (
+    GitLabOperationalSummaryRenderer,
+)
 
 
-def test_parser_reads_persisted_finding_sync_observation() -> None:
+@pytest.mark.parametrize(
+    "renderer", [GitHubOperationalSummaryRenderer(), GitLabOperationalSummaryRenderer()]
+)
+@pytest.mark.parametrize("reason", ["severity_disabled", "dismissed"])
+def test_parser_reads_persisted_finding_sync_observation(renderer, reason: str) -> None:
     observation = GitHubFindingSyncObservation(
         observed_at=datetime(2026, 8, 4, 10, 30, tzinfo=UTC),
         total_findings=5,
         promoted_findings=2,
         backlog_only_findings=3,
         severity_counts={"high": 2, "medium": 3},
-        backlog_reason_counts={"severity_disabled": 3},
+        backlog_reason_counts={reason: 3},
         policy_deferred_count=1,
         policy_reactivated_count=2,
         no_longer_detected_count=3,
         projection_warning_count=4,
     )
-    body = GitHubOperationalSummaryRenderer().render(
+    body = renderer.render(
         GitHubOperationalSummaryView(
             policy_issue_url=None,
             work_item_counts={},
@@ -36,6 +45,7 @@ def test_parser_reads_persisted_finding_sync_observation() -> None:
     parsed = GitHubOperationalSummaryParser().parse_latest_finding_sync(body)
 
     assert parsed == observation
+    assert reason in body
 
 
 def test_parser_ignores_malformed_derived_state() -> None:

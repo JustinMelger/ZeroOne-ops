@@ -351,6 +351,18 @@ blocking rollout issues.
 
 ## Expected Pipeline Behavior
 
+SonarQube intake reads the complete paginated inventory before applying policy,
+source priorities, and promotion capacity. Page size is a transport setting, not
+a finding limit. If collection fails (including a server pagination limit),
+CI logs a bounded warning and discards that source's partial results. Other
+available sources still sync. Existing SonarQube work stays unchanged and active
+items still consume capacity; absence is never inferred from a failed scan.
+Check SonarQube availability or query limits and rerun finding sync.
+
+Pagination is not an atomic scanner snapshot. A scan changing during collection
+may require a later rerun; inconsistent page metadata or duplicate keys cause the
+source to be marked unavailable rather than interpreted as complete.
+
 In normal `ci` mode, one run should do the following:
 
 1. collect configured finding sources, such as SonarQube and SARIF artifacts

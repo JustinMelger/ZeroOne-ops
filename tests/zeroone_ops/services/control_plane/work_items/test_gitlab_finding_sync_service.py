@@ -179,6 +179,29 @@ def test_dismissal_leaves_capacity_for_next_finding_and_dry_run() -> None:
         assert len(work_items.work_items) == (2 if persist else 1)
 
 
+def test_unavailable_sonar_keeps_active_slots_and_allows_remaining_sarif_capacity() -> None:
+    work_items = FakeGitLabWorkItemService()
+    service = GitLabFindingSyncService(work_item_service=work_items)  # type: ignore[arg-type]
+    kwargs = {
+        "project_id": "123",
+        "policy_state": _policy_state(medium_enabled=True),
+        "max_active_work_items": 2,
+    }
+    service.sync(findings=[_finding(source_id="sonarqube", finding_id="sonar")], **kwargs)
+    identity, before = next(iter(work_items.work_items.items()))
+    result = service.sync(
+        findings=[_finding(finding_id="a"), _finding(finding_id="b")],
+        managed_source_ids={"ruff"},
+        **kwargs,
+    )
+    assert result.promoted_count == 1
+    assert result.no_longer_detected_count == 0
+    assert result.backlog_reason_counts == {"promotion_capacity_exhausted": 1}
+    assert work_items.work_items[identity] == before
+    assert len(work_items.work_items) == 2
+    assert not work_items.closed_issue_iids
+
+
 def _finding(
     *,
     finding_id: str = "ruff:E712:service",

@@ -14,6 +14,9 @@ history, not here.
 
 ## Implemented
 
+- complete paginated SonarQube intake with per-source failure isolation:
+  incomplete inventories never resolve existing work as missing
+
 - dismissal-aware promotion capacity: indexed closed and open dismissals are
   suppressed before source/severity ranking on GitHub and GitLab
 

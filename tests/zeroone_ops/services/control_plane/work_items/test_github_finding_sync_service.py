@@ -140,6 +140,31 @@ def test_closed_dismissal_leaves_capacity_for_next_finding_and_dry_run() -> None
         assert sum("zeroone-status:dismissed" in (q or []) for q in client.closed_queries) == 1
 
 
+def test_unavailable_sonar_keeps_active_slots_and_allows_remaining_sarif_capacity() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    kwargs = {
+        "repository_id": "octo-org/octo-repo",
+        "policy_state": _policy_state(medium_enabled=True),
+        "max_active_work_items": 2,
+    }
+    service.sync(findings=[_finding(source_id="sonarqube", finding_id="sonar")], **kwargs)
+    before = client.issues[0]
+    result = service.sync(
+        findings=[_finding(finding_id="a"), _finding(finding_id="b")],
+        managed_source_ids={"ruff"},
+        **kwargs,
+    )
+    assert result.promoted_count == 1
+    assert result.no_longer_detected_count == 0
+    assert result.backlog_reason_counts == {"promotion_capacity_exhausted": 1}
+    assert len(client.issues) == 2
+    assert client.issues[0] == before
+    assert not client.closed_issues
+
+
 def _finding(
     *,
     finding_id: str = "ruff:E712:service",
