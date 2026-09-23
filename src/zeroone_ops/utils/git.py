@@ -8,6 +8,23 @@ _MAX_BRANCH_IDENTITY_FRAGMENT_LENGTH = 72
 _MAX_BRANCH_PATH_FRAGMENT_LENGTH = 32
 
 
+def is_literal_branch_argument(value: str) -> bool:
+    """Reject refspecs, patterns, and revision shorthand before Git ref validation."""
+    return (
+        bool(value)
+        and not value.startswith(("-", "+", "^"))
+        and ".." not in value
+        and "@{" not in value
+        and not any(
+            character in ":*?[\\"
+            or character.isspace()
+            or ord(character) < 32
+            or ord(character) == 127
+            for character in value
+        )
+    )
+
+
 def sanitize_branch_fragment(value: str) -> str:
     """Convert text into a safe branch name fragment.
 

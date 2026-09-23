@@ -142,6 +142,60 @@ authorized operator comments `/zeroone remediation requeue` or
 queues state. The normal remediation job remains the sole owner of patch
 generation, validation, branch creation, and change-request publication.
 
+For a conflicted remediation PR/MR, v1 supports manual recovery:
+
+1. Close the PR/MR without merging; deleting its branch alone is not enough.
+2. Run or wait for `zeroone-ops work-items sync-status` to mark the linked
+   work item `blocked`.
+3. Post a new `/zeroone remediation requeue` comment on the work-item issue.
+4. If current policy permits, recovery queues a fresh attempt; the next
+   remediation run creates a new branch and PR/MR. Recovery history retains
+   the previous request link.
+
+An open but conflicted request is not automatically blocked. Conflict detection
+and automated branch repair are not part of v1.
+
+When the review of an open remediation pull or merge request reports actionable
+findings, its authoritative work-item issue moves to
+`review_feedback_required`. The issue renders bounded review evidence and the
+same `/zeroone remediation requeue` command. That command queues one revision
+of the existing branch only after ZeroOne Ops verifies the reviewed head is
+still current; it never creates a second pull or merge request. Commands on
+the pull or merge request itself are not authoritative.
+
+Actionable review comments link back to the uniquely linked work-item issue
+with requeue instructions. Revision execution reads source and guidance only
+after checking out the reviewed branch. Preparation, context, validation, or
+publication failures return the item to `review_feedback_required`, preserving
+its request link and feedback and recording the failure in `Last Execution`.
+When failure evidence matches the latest revision command and reviewed SHA,
+the issue also displays **Last revision failed** above the requeue guidance.
+This display-only notice disappears when another revision is queued or succeeds.
+A revision dry run checks eligibility without checkout or model analysis.
+Live revision checkout and push reject refspec syntax and invalid Git branch
+names before remote access; provider branch metadata is not treated as Git
+instructions.
+
+Each accepted revision command is consumed once, including when execution
+fails. Send a new command after inspecting the failure; rerunning a polling job
+or redelivering the original comment does not authorize another attempt.
+The command must also be newer than the current feedback-action boundary.
+Comments posted before the review or during an attempt cannot authorize a
+later revision or retry its failure. Historical feedback without this boundary
+requires a review-projection refresh followed by a new requeue comment.
+Claimed revisions cannot be selected again before stale-claim recovery. A new
+clean review cancels queued revision work; a manual-only review preserves any
+prior actionable feedback and requires a fresh operator decision.
+
+If a revision push fails in a reused workspace, its local commit may remain
+ahead of the reviewed remote branch. Use a fresh checkout for the next
+authorized attempt; v1 does not reset or discard existing local commits. If
+the remote head changed, obtain a current review before requeueing.
+
+Same-SHA projection repair reuses persisted structured review evidence. Older
+records without that evidence remain pending with a warning requiring a new
+review, rather than silently losing the findings.
+
 When bot analysis dismisses a work item as unsuitable for automatic remediation,
 the work item stays terminal and records the decision in `Last Execution` with
 its run reference. Dismissed work is not offered a requeue command.

@@ -14,6 +14,7 @@ from zeroone_ops.models.review import (
     ChangeRequestReviewContext,
     PriorReviewContext,
     PriorReviewPass,
+    PublishableReviewArtifact,
     RemediationReviewContext,
     ReviewClassification,
     ReviewComment,
@@ -31,11 +32,12 @@ from zeroone_ops.models.state import (
     RunRecord,
 )
 from zeroone_ops.models.work_item import WorkItemState
-from zeroone_ops.providers.github_client import GitHubClientError
+from zeroone_ops.providers.github_client import GitHubClient, GitHubClientError
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
+from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPlatformProtocol,
     ReviewPlatformClientError,
@@ -233,7 +235,7 @@ class ReviewRunner:
         if prior_review_context is not None:
             context = context.model_copy(update={"prior_review_context": prior_review_context})
         if not active_dry_run:
-            context = self._with_verified_semantic_safety(
+            context = self._with_verified_remediation_context(
                 repository_id=repository_id,
                 context=context,
             )
@@ -513,16 +515,28 @@ class ReviewRunner:
         if self.config.platform == "github":
             github_config = load_github_connection_config()
             return GitHubReviewProjectionService(
-                GitHubWorkItemService(GitHubWorkItemClient(github_config))
+                GitHubWorkItemService(GitHubWorkItemClient(github_config)),
+                change_request_state_lookup=lambda change_request_number: GitHubClient(
+                    github_config
+                ).get_change_request_state(
+                    repository_id=github_config.repository,
+                    change_request_number=change_request_number,
+                ),
             )
         if self._gitlab_issue_mode_is_active():
             gitlab_config = load_gitlab_connection_config()
             return GitLabReviewProjectionService(
-                GitLabWorkItemService(GitLabWorkItemClient(gitlab_config))
+                GitLabWorkItemService(GitLabWorkItemClient(gitlab_config)),
+                change_request_state_lookup=lambda change_request_number: GitLabReviewClient(
+                    gitlab_config
+                ).get_change_request_state(
+                    project_id=gitlab_config.project_id,
+                    change_request_number=change_request_number,
+                ),
             )
         return None
 
-    def _with_verified_semantic_safety(
+    def _with_verified_remediation_context(
         self,
         *,
         repository_id: str,
@@ -531,6 +545,7 @@ class ReviewRunner:
         """Attach persisted remediation evidence only through a verified work-item link."""
         try:
             work_item: WorkItemState | None
+            work_item_url: str | None = None
             if self.config.platform == "github":
                 github_result = GitHubWorkItemService(
                     GitHubWorkItemClient(load_github_connection_config())
@@ -539,6 +554,7 @@ class ReviewRunner:
                     change_request_number=context.change_request_number,
                 )
                 work_item = None if github_result is None else github_result.work_item
+                work_item_url = None if github_result is None else github_result.issue.web_url
             elif self._gitlab_issue_mode_is_active():
                 gitlab_result = GitLabWorkItemService(
                     GitLabWorkItemClient(load_gitlab_connection_config())
@@ -547,18 +563,30 @@ class ReviewRunner:
                     change_request_number=context.change_request_number,
                 )
                 work_item = None if gitlab_result is None else gitlab_result.work_item
+                work_item_url = None if gitlab_result is None else gitlab_result.issue.web_url
             else:
                 return context
         except (GitHubClientError, GitLabClientError, SettingsError, httpx.HTTPError):
-            LOGGER.warning("review semantic-safety lookup failed", exc_info=True)
+            LOGGER.warning("review work-item context lookup failed", exc_info=True)
             return context
-        if work_item is None or work_item.semantic_safety is None:
+        if (
+            work_item is None
+            or work_item.linked_change_request is None
+            or work_item.linked_change_request.web_url != context.web_url
+        ):
             return context
         remediation_context = context.remediation_context or RemediationReviewContext()
         return context.model_copy(
             update={
                 "remediation_context": remediation_context.model_copy(
-                    update={"semantic_safety": work_item.semantic_safety.assessment}
+                    update={
+                        "verified_work_item_url": work_item_url,
+                        "semantic_safety": (
+                            None
+                            if work_item.semantic_safety is None
+                            else work_item.semantic_safety.assessment
+                        ),
+                    }
                 )
             }
         )
@@ -582,6 +610,7 @@ class ReviewRunner:
             classification=review_state.status,
             note_id=review_state.note_id,
             note_url=review_state.note_url,
+            artifact=review_state.projection_artifact,
         )
         self.review_state_service.update_projection_retry_state(
             change_request_number=change_request.change_request_number,
@@ -603,6 +632,7 @@ class ReviewRunner:
         classification: str | None,
         note_id: int | None,
         note_url: str | None,
+        artifact: PublishableReviewArtifact | None = None,
     ) -> str | None:
         """Retry projection only for one previously published same-SHA review."""
         if classification not in _AUTHORITATIVE_REVIEW_CLASSIFICATIONS:
@@ -611,6 +641,11 @@ class ReviewRunner:
             )
         if note_id is None and note_url is None:
             return "Review projection warning: persisted review note reference was unavailable."
+        if artifact is None and classification == "findings_present":
+            return (
+                "Review projection warning: persisted structured findings are unavailable; "
+                "a new review is required."
+            )
         context_result = ReviewContextBuilder(
             repo_root=self.repo_root,
             config=self.config,
@@ -625,7 +660,11 @@ class ReviewRunner:
             projection_result = projection_service.project_review(
                 repository_id=repository_id,
                 context=context,
-                classification=cast(ReviewClassification, classification),
+                artifact=artifact
+                or PublishableReviewArtifact(
+                    classification=cast(ReviewClassification, classification),
+                    summary="Previously published review projection repair.",
+                ),
                 reviewed_sha=context.head_sha,
                 review_note_id=note_id,
                 review_note_url=note_url,
@@ -649,6 +688,9 @@ class ReviewRunner:
                 "projection_action": projection_result.action,
             },
         )
+        warning = getattr(projection_result, "warning", None)
+        if isinstance(warning, str):
+            return f"Review projection warning: {warning}"
         return None
 
     def _gitlab_issue_mode_is_active(self) -> bool:

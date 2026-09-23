@@ -1,9 +1,12 @@
 from typing import cast
 
+import pytest
+
 from zeroone_ops.models.review import (
     PriorReviewInlineComment,
     PublishableReviewArtifact,
     PublishableReviewFinding,
+    RemediationReviewContext,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
 from zeroone_ops.services.review.publish.review_publisher import ReviewPublisher
@@ -18,6 +21,59 @@ from .support import (
     build_multiline_context,
     extract_machine_safe_payload,
 )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://github.com/org/repo/issues/12",
+        "https://gitlab.example.com/group/project/-/issues/12",
+    ],
+)
+def test_actionable_review_routes_operator_to_verified_work_item(url):
+    context = build_context().model_copy(
+        update={
+            "remediation_context": RemediationReviewContext(verified_work_item_url=url),
+        }
+    )
+    body = ReviewPublisher(FakeGitLabReviewClient()).render_artifact(
+        context=context, artifact=build_artifact()
+    )
+    assert f"[work-item issue]({url})" in body
+    assert "`/zeroone remediation requeue`" in body
+    assert "not on this change request" in body
+
+
+@pytest.mark.parametrize(
+    "classification", ["manual_review_only", "no_findings", "findings_present"]
+)
+def test_non_actionable_review_does_not_advertise_requeue(classification):
+    context = build_context().model_copy(
+        update={
+            "remediation_context": RemediationReviewContext(
+                verified_work_item_url="https://example.com/issues/12"
+            ),
+        }
+    )
+    artifact = build_artifact().model_copy(
+        update={"classification": classification, "findings": []}
+    )
+    body = ReviewPublisher(FakeGitLabReviewClient()).render_artifact(
+        context=context, artifact=artifact
+    )
+    assert "/zeroone remediation requeue" not in body
+
+
+def test_description_only_link_does_not_advertise_requeue():
+    context = build_context().model_copy(
+        update={
+            "description": "Tracking work item: https://example.com/issues/12",
+        }
+    )
+    body = ReviewPublisher(FakeGitLabReviewClient()).render_artifact(
+        context=context, artifact=build_artifact()
+    )
+    assert "/zeroone remediation requeue" not in body
 
 
 def test_render_artifact_formats_findings_present() -> None:

@@ -36,6 +36,19 @@ class WorkItemChangeRequestReconciliationService:
             web_url=change_request_state.web_url,
         )
         if change_request_state.state == "opened":
+            if work_item.status in {"review_feedback_required", "review_revision_queued"}:
+                reconciled = work_item.model_copy(
+                    update={"linked_change_request": linked_change_request}
+                )
+                action = "unchanged" if reconciled == work_item else "updated"
+                return WorkItemChangeRequestReconciliationResult(
+                    action=action,
+                    work_item=reconciled,
+                    message=(
+                        f"Change request {change_request_state.iid} remains open with "
+                        "operator-owned review feedback."
+                    ),
+                )
             reconciled = work_item.model_copy(
                 update={
                     "status": "in_progress",
@@ -55,6 +68,10 @@ class WorkItemChangeRequestReconciliationService:
                     "status": "completed",
                     "linked_change_request": linked_change_request,
                     "claim": None,
+                    "review_revision_request": None,
+                    "last_revision_command": (
+                        work_item.last_revision_command or work_item.review_revision_request
+                    ),
                 }
             )
             return WorkItemChangeRequestReconciliationResult(

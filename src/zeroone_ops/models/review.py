@@ -122,6 +122,7 @@ class RemediationReviewContext(BaseModel):
     validation_summary: str | None = None
     notes: str | None = None
     semantic_safety: SemanticSafetyAssessment | None = None
+    verified_work_item_url: str | None = None
 
 
 class PriorReviewFinding(BaseModel):

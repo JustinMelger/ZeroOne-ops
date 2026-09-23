@@ -32,6 +32,8 @@ def test_builder_projects_open_state_active_prs_and_bounded_outcomes() -> None:
         "in_progress": 1,
         "blocked": 1,
         "capacity_deferred": 0,
+        "review_feedback_required": 0,
+        "review_revision_queued": 0,
     }
     assert [entry.status for entry in view.active_change_requests] == ["in_progress"]
     assert view.active_change_requests[0].web_url == (
@@ -103,6 +105,8 @@ def test_builder_excludes_closed_issue_with_nonterminal_embedded_state() -> None
         "in_progress": 0,
         "blocked": 0,
         "capacity_deferred": 0,
+        "review_feedback_required": 0,
+        "review_revision_queued": 0,
     }
     assert view.active_change_requests == []
 

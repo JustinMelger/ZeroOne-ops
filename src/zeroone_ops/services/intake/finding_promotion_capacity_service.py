@@ -7,13 +7,12 @@ from dataclasses import dataclass
 
 from zeroone_ops.models.finding import NormalizedFinding
 from zeroone_ops.models.policy import PolicyState
-from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.models.work_item import WorkItemState, is_active_remediation_status
 from zeroone_ops.services.intake.finding_workflow_policy_service import (
     FindingPromotionDecision,
     FindingWorkflowPolicyService,
 )
 
-_ACTIVE_STATUSES = {"approved", "in_progress"}
 _PROTECTED_STATUSES = {"blocked", "dismissed"}
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 DEFAULT_SOURCE_PRIORITY = 100
@@ -64,14 +63,14 @@ class FindingPromotionCapacityService:
             for work_item in open_work_items
             if work_item.kind == "remediation"
             and work_item.source.repository_scope == repository_scope
-            and work_item.status in _ACTIVE_STATUSES
+            and is_active_remediation_status(work_item.status)
         }
         active_work_item_count = sum(
             1
             for work_item in open_work_items
             if work_item.kind == "remediation"
             and work_item.source.repository_scope == repository_scope
-            and work_item.status in _ACTIVE_STATUSES
+            and is_active_remediation_status(work_item.status)
         )
         protected_keys = {
             (work_item.source.source, work_item.source.source_item_key)

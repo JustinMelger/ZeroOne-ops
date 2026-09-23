@@ -41,6 +41,14 @@ def control_plane_work_item_to_execution_target(
     """Adapt one authoritative work item into the shared execution target shape."""
     if work_item.file_path is None:
         raise ValueError("Work item is missing a target file path.")
+    review_feedback = None
+    revision_branch = None
+    reviewed_sha = None
+    if work_item.status == "review_revision_queued" and work_item.projected_review is not None:
+        feedback = work_item.projected_review.feedback
+        if feedback is not None:
+            review_feedback = feedback
+        reviewed_sha = work_item.projected_review.reviewed_sha
     return RemediationExecutionTarget(
         item_id=work_item.work_item_id,
         source_type=work_item.source.source,
@@ -58,4 +66,7 @@ def control_plane_work_item_to_execution_target(
         expected_change=work_item.remediation_context.expected_change,
         constraints=work_item.remediation_context.constraints,
         acceptance_criteria=work_item.remediation_context.acceptance_criteria,
+        review_feedback=review_feedback,
+        revision_branch=revision_branch,
+        reviewed_sha=reviewed_sha,
     )

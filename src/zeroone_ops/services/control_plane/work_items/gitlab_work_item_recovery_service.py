@@ -22,7 +22,12 @@ from zeroone_ops.services.control_plane.work_items.work_item_recovery_command_pa
 )
 from zeroone_ops.services.remediation.recovery.recovery_decision_service import (
     RecoveryDecisionService,
-    RecoveryRequest,
+)
+from zeroone_ops.services.remediation.recovery.review_feedback_decision_service import (
+    ReviewFeedbackDecisionService,
+)
+from zeroone_ops.services.remediation.recovery.work_item_command_decision_service import (
+    WorkItemCommandDecisionService,
 )
 
 
@@ -67,6 +72,11 @@ class GitLabWorkItemRecoveryService:
         self.note_authorization_service = note_authorization_service
         self.work_item_service = work_item_service
         self.decision_service = decision_service or RecoveryDecisionService()
+        self.review_feedback_decision_service = ReviewFeedbackDecisionService()
+        self.command_decision_service = WorkItemCommandDecisionService(
+            recovery_decision_service=self.decision_service,
+            review_feedback_decision_service=self.review_feedback_decision_service,
+        )
         self.command_parser = WorkItemRecoveryCommandParser()
 
     def process(
@@ -90,6 +100,10 @@ class GitLabWorkItemRecoveryService:
         processed_references = {
             event.request_reference for event in current.work_item.recovery_events
         }
+        if current.work_item.review_revision_request is not None:
+            processed_references.add(current.work_item.review_revision_request.request_reference)
+        if current.work_item.last_revision_command is not None:
+            processed_references.add(current.work_item.last_revision_command.request_reference)
         matched = accepted = rejected = 0
         for note in sorted(authorized_notes, key=_note_sort_key):
             command = self.command_parser.parse(note.body)
@@ -108,17 +122,12 @@ class GitLabWorkItemRecoveryService:
             ):
                 rejected += 1
                 continue
-            decision = self.decision_service.decide(
+            decision = self.command_decision_service.decide(
                 work_item=current.work_item,
-                request=RecoveryRequest(
-                    action=command.action,
-                    actor=note.author_username,
-                    request_reference=reference,
-                    expected_state_fingerprint=self.decision_service.state_fingerprint(
-                        current.work_item
-                    ),
-                    occurred_at=occurred_at,
-                ),
+                action=command.action,
+                actor=note.author_username,
+                request_reference=reference,
+                occurred_at=occurred_at,
                 policy_eligible=policy_eligible,
             )
             if not decision.accepted:

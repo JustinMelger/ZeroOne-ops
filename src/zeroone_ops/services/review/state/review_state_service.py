@@ -125,6 +125,7 @@ class ReviewStateService:
                 note_url=note_url,
                 projection_retry_pending=projection_retry_pending,
                 projection_retry_warning=projection_retry_warning,
+                projection_artifact=artifact,
             )
             self._trim_prior_reviews_for_change_request(change_request.change_request_number)
         self.state_store.save(self.state)

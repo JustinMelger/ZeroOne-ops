@@ -27,7 +27,15 @@ class OperationalSummaryBuilder:
         """Return one derived summary view from open and closed work-item records."""
         counts = {
             status: 0
-            for status in ("candidate", "approved", "in_progress", "blocked", "capacity_deferred")
+            for status in (
+                "candidate",
+                "approved",
+                "in_progress",
+                "blocked",
+                "capacity_deferred",
+                "review_feedback_required",
+                "review_revision_queued",
+            )
         }
         active_change_requests: list[OperationalSummaryEntry] = []
         recent_outcomes: list[OperationalSummaryEntry] = []
@@ -44,7 +52,8 @@ class OperationalSummaryBuilder:
             )
             if (
                 work_item.is_open
-                and work_item.status == "in_progress"
+                and work_item.status
+                in {"in_progress", "review_feedback_required", "review_revision_queued"}
                 and work_item.linked_change_request_url is not None
             ):
                 active_change_requests.append(

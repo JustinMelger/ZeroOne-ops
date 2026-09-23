@@ -96,6 +96,49 @@ class WorkItemRenderer:
                     f"- URL: {work_item.linked_change_request.web_url}",
                 ]
             )
+        if work_item.status == "review_feedback_required":
+            lines.extend(
+                [
+                    "",
+                    "## Review Feedback Action",
+                    "",
+                ]
+            )
+            failure = work_item.execution_failure
+            revision = work_item.last_revision_command
+            review = work_item.projected_review
+            if (
+                failure is not None
+                and revision is not None
+                and review is not None
+                and revision.reviewed_sha == review.reviewed_sha
+                and failure.occurred_at.tzinfo is not None
+                and revision.occurred_at.tzinfo is not None
+                and failure.occurred_at >= revision.occurred_at
+            ):
+                lines.extend(
+                    [
+                        "**Last revision failed.** Check **Last Execution**, address the cause, "
+                        "then post a new `/zeroone remediation requeue` command here.",
+                        "",
+                    ]
+                )
+            lines.extend(
+                [
+                    "An authorized operator may request one bounded revision of the linked "
+                    "change request.",
+                    "Requeue for remediation: `/zeroone remediation requeue`",
+                ]
+            )
+        elif work_item.status == "review_revision_queued":
+            lines.extend(
+                [
+                    "",
+                    "## Review Feedback Action",
+                    "",
+                    "A bounded revision of the linked change request is queued for remediation.",
+                ]
+            )
         lines.extend(["", "## Review Projection", ""])
         if work_item.projected_review is None:
             lines.append(self._vocabulary.no_projected_review)
@@ -115,6 +158,28 @@ class WorkItemRenderer:
                     ),
                 ]
             )
+            if work_item.projected_review.feedback is not None:
+                feedback = work_item.projected_review.feedback
+                lines.extend(
+                    [
+                        f"- Feedback summary: {_escape_feedback_text(feedback.summary)}",
+                        f"- Actionable findings: `{feedback.finding_count}`",
+                    ]
+                )
+                for finding in feedback.findings:
+                    location = finding.file_path
+                    if finding.line_start is not None:
+                        location = f"{location}:{finding.line_start}"
+                    lines.extend(
+                        [
+                            f"  - `{_escape_inline_code(location)}`: "
+                            f"{_escape_feedback_text(finding.title)}",
+                            f"    - Evidence: {_escape_feedback_text(finding.evidence)}",
+                            f"    - Impact: {_escape_feedback_text(finding.explanation)}",
+                            "    - Follow-up: "
+                            f"{_escape_feedback_text(finding.suggested_follow_up)}",
+                        ]
+                    )
         if work_item.execution_failure is not None:
             failure = work_item.execution_failure
             lines.extend(
@@ -217,6 +282,23 @@ class WorkItemRenderer:
 def _looks_like_template(value: str) -> bool:
     """Return whether source text still contains an unresolved placeholder."""
     return "{" in value and "}" in value
+
+
+def _escape_feedback_text(value: str) -> str:
+    """Render one externally derived review field as plain single-line Markdown text."""
+    return (
+        " ".join(value.splitlines())
+        .replace("\\", "\\\\")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+
+
+def _escape_inline_code(value: str) -> str:
+    """Render one bounded value safely inside Markdown inline code."""
+    return " ".join(value.splitlines()).replace("`", "'")
 
 
 def _truncate_title(value: str, *, maximum_length: int) -> str:

@@ -31,8 +31,9 @@ class ReviewProjectionService(Protocol):
         *,
         repository_id: str,
         context: ChangeRequestReviewContext,
-        classification: ReviewClassification,
         reviewed_sha: str,
+        artifact: PublishableReviewArtifact | None = None,
+        classification: ReviewClassification | None = None,
         review_note_id: int | None = None,
         review_note_url: str | None = None,
     ) -> object:
@@ -194,12 +195,16 @@ class ReviewFinalizationService:
                     projection_result = review_projection_service.project_review(
                         repository_id=repository_id,
                         context=context,
-                        classification=finalized_review_result.classification,
+                        artifact=finalized_artifact,
                         reviewed_sha=context.head_sha,
                         review_note_id=note_id,
                         review_note_url=note_url,
                     )
                     projection_action = getattr(projection_result, "action", None)
+                    decision_warning = getattr(projection_result, "warning", None)
+                    if isinstance(decision_warning, str):
+                        projection_warning = f"Review projection warning: {decision_warning}"
+                        LOGGER.warning(projection_warning)
                     if projection_action in {"updated", "unchanged"}:
                         LOGGER.info(
                             "review projection mirrored",

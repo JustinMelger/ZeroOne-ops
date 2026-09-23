@@ -109,6 +109,37 @@ def test_reconcile_marks_open_pull_request_in_progress_and_clears_claim() -> Non
     assert fake_work_item_service.upserted_work_items[0].claim is None
 
 
+def test_reconcile_preserves_open_review_feedback_state() -> None:
+    now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
+    work_item = _linked_work_item(status="review_feedback_required")
+    service, fake_work_item_service = _service(work_item, _state(state="opened"))
+
+    result = service.reconcile(
+        repository_id="octo-org/octo-repo",
+        now=now,
+    )
+
+    assert result.unchanged_count == 1
+    assert fake_work_item_service.upserted_work_items == []
+
+
+def test_reconcile_recovers_stale_queued_revision_claim_to_feedback_required() -> None:
+    now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
+    work_item = _linked_work_item(status="review_revision_queued").model_copy(
+        update={"claim": WorkItemClaim(claimed_at=now - timedelta(hours=24), run_id="run-1")}
+    )
+    service, fake_work_item_service = _service(work_item, _state(state="opened"))
+
+    result = service.reconcile(
+        repository_id="octo-org/octo-repo",
+        now=now,
+    )
+
+    assert result.recovered_stale_claim_count == 1
+    assert fake_work_item_service.upserted_work_items[0].status == "review_feedback_required"
+    assert fake_work_item_service.upserted_work_items[0].claim is None
+
+
 def test_reconcile_blocks_closed_pull_request_and_retains_link() -> None:
     now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
     work_item = _linked_work_item()

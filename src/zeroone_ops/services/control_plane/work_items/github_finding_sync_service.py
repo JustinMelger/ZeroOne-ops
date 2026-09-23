@@ -18,6 +18,7 @@ from zeroone_ops.models.work_item import (
     WorkItemPolicyDeferral,
     WorkItemSourceRef,
     WorkItemState,
+    is_protected_remediation_status,
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
     GitHubWorkItemLookupResult,
@@ -646,7 +647,7 @@ class GitHubFindingSyncService:
             return proposed
         status = (
             existing_work_item.status
-            if existing_work_item.status in {"blocked", "dismissed", "in_progress"}
+            if is_protected_remediation_status(existing_work_item.status)
             else "approved"
         )
         return existing_work_item.model_copy(
@@ -809,7 +810,7 @@ class GitHubFindingSyncService:
                 work_item=work_item.model_copy(update={"status": "candidate"}),
             )
             return "demoted" if result.action == "updated" else None
-        if work_item.status in {"in_progress", "blocked"} or work_item.linked_change_request:
+        if is_protected_remediation_status(work_item.status) or work_item.linked_change_request:
             return "retained"
         return None
 
