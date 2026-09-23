@@ -51,6 +51,7 @@ class GitHubWorkItemUpsertService:
         *,
         repository_id: str,
         work_item: WorkItemState,
+        dismissed_inventory: list[GitHubWorkItemLookupResult] | None = None,
     ) -> GitHubWorkItemUpsertResult:
         """Create or update the authoritative open issue for one work item."""
         title = self.renderer.render_title(work_item)
@@ -62,10 +63,17 @@ class GitHubWorkItemUpsertService:
             source=work_item.source,
         )
         if existing is None:
-            dismissed_matches = self.lookup_service.list_closed_dismissed_work_items_by_source(
-                repository_id=repository_id,
-                kind=work_item.kind,
-                source=work_item.source,
+            dismissed_matches = (
+                self.lookup_service.list_closed_dismissed_work_items_by_source(
+                    repository_id=repository_id, kind=work_item.kind, source=work_item.source
+                )
+                if dismissed_inventory is None
+                else [
+                    result
+                    for result in dismissed_inventory
+                    if result.work_item.identity_key == work_item.identity_key
+                    and result.work_item.status == "dismissed"
+                ]
             )
             if len(dismissed_matches) > 1:
                 raise ValueError("Cannot upsert an ambiguously matched dismissed work item.")

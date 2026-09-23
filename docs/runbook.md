@@ -1,5 +1,10 @@
 ## ZeroOne Ops Operator Runbook
 
+Issue-mode finding sync excludes open and indexed closed dismissed findings before
+allocating capacity. The aggregate backlog reason `dismissed` explains suppression;
+these findings do not count as promoted or unchanged work. Dry runs use the same
+inventory without writes.
+
 This runbook describes how to operate the current ZeroOne Ops workflows in
 GitLab CI and GitHub Actions. Provider-specific setup details call out the
 relevant platform where their control planes differ.

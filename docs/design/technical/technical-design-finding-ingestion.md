@@ -1,5 +1,15 @@
 # ZeroOne Ops Finding Ingestion Technical Design
 
+## Dismissal-Aware Capacity
+
+Issue-mode sync loads indexed closed dismissals once, alongside open and deferred
+records. Parsed machine state determines dismissal. The shared planner suppresses
+matching kind, repository, source, and finding identities before capacity ranking,
+including open dismissals. Aggregate backlog observations use `dismissed`.
+Upserts retain defensive checks and can reuse this inventory; standalone upserts
+load their own matches. This snapshot is not an atomic reservation: concurrent
+dismissal may require the next sync to restore capacity utilization.
+
 ## 1. Scope
 
 This document defines the technical design direction for moving ZeroOne Ops

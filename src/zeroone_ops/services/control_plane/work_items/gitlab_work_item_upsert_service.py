@@ -51,6 +51,7 @@ class GitLabWorkItemUpsertService:
         *,
         project_id: str,
         work_item: WorkItemState,
+        dismissed_inventory: list[GitLabWorkItemLookupResult] | None = None,
     ) -> GitLabWorkItemUpsertResult:
         """Create or update the authoritative open issue for one work item."""
         matches = self.lookup_service.list_open_work_items_by_source(
@@ -68,10 +69,17 @@ class GitLabWorkItemUpsertService:
                 existing=existing,
                 work_item=rendered_work_item,
             )
-        dismissed_matches = self.lookup_service.list_closed_dismissed_work_items_by_source(
-            project_id=project_id,
-            kind=work_item.kind,
-            source=work_item.source,
+        dismissed_matches = (
+            self.lookup_service.list_closed_dismissed_work_items_by_source(
+                project_id=project_id, kind=work_item.kind, source=work_item.source
+            )
+            if dismissed_inventory is None
+            else [
+                result
+                for result in dismissed_inventory
+                if result.work_item.identity_key == work_item.identity_key
+                and result.work_item.status == "dismissed"
+            ]
         )
         if len(dismissed_matches) > 1:
             raise ValueError("Cannot upsert an ambiguously matched dismissed work item.")

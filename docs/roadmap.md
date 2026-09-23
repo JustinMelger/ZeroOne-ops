@@ -14,6 +14,9 @@ history, not here.
 
 ## Implemented
 
+- dismissal-aware promotion capacity: indexed closed and open dismissals are
+  suppressed before source/severity ranking on GitHub and GitLab
+
 - GitLab and GitHub staged change-request review with continuity, concise
   developer-facing notes, and bounded inline comments
 - provider-neutral normalized finding ingestion with SonarQube and SARIF/Ruff

@@ -30,6 +30,7 @@ class FakeGitLabWorkItemService:
         *,
         project_id: str,
         work_item: WorkItemState,
+        dismissed_inventory: list[GitLabWorkItemLookupResult] | None = None,
     ) -> GitLabWorkItemUpsertResult:
         del project_id
         existing = self.work_items.get(work_item.identity_key)
@@ -124,6 +125,15 @@ class FakeGitLabWorkItemService:
             and work_item.status == "capacity_deferred"
         ]
 
+    def list_closed_dismissed_work_items(
+        self, *, project_id: str
+    ) -> list[GitLabWorkItemLookupResult]:
+        return [
+            _lookup(work_item)
+            for work_item in self.work_items.values()
+            if work_item.source.repository_scope == project_id and work_item.status == "dismissed"
+        ]
+
     def close_work_item_issue(self, *, project_id: str, issue_iid: int) -> None:
         del project_id
         self.closed_issue_iids.append(issue_iid)
@@ -145,6 +155,28 @@ def _issue(work_item: WorkItemState) -> GitLabIssueInfo:
 
 def _lookup(work_item: WorkItemState) -> GitLabWorkItemLookupResult:
     return GitLabWorkItemLookupResult(issue=_issue(work_item), work_item=work_item)
+
+
+def test_dismissal_leaves_capacity_for_next_finding_and_dry_run() -> None:
+    work_items = FakeGitLabWorkItemService()
+    service = GitLabFindingSyncService(work_item_service=work_items)  # type: ignore[arg-type]
+    kwargs = {
+        "project_id": "123",
+        "policy_state": _policy_state(medium_enabled=True),
+        "max_active_work_items": 1,
+    }
+    service.sync(findings=[_finding(finding_id="a")], **kwargs)
+    identity, state = next(iter(work_items.work_items.items()))
+    work_items.work_items[identity] = state.model_copy(update={"status": "dismissed"})
+    for persist in [False, True, True]:
+        result = service.sync(
+            findings=[_finding(finding_id="a"), _finding(finding_id="b")],
+            persist=persist,
+            **kwargs,
+        )
+        assert result.promoted_count == 1
+        assert result.backlog_reason_counts == {"dismissed": 1}
+        assert len(work_items.work_items) == (2 if persist else 1)
 
 
 def _finding(
