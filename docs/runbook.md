@@ -351,6 +351,12 @@ blocking rollout issues.
 
 ## Expected Pipeline Behavior
 
+Finding sync excludes indexed dismissed work before allocating promotion capacity.
+Before creating a new issue, it rechecks closed dismissals when the planning
+inventory had no match. A dismissal detected at this point suppresses creation and
+is reported as dismissed backlog; the next sync can fill the unused slot. This
+read-before-create safeguard is not an atomic provider reservation.
+
 SonarQube intake reads the complete paginated inventory before applying policy,
 source priorities, and promotion capacity. Page size is a transport setting, not
 a finding limit. If collection fails (including a server pagination limit),

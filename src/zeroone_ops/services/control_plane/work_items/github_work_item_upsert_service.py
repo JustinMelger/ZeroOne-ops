@@ -75,6 +75,11 @@ class GitHubWorkItemUpsertService:
                     and result.work_item.status == "dismissed"
                 ]
             )
+            if dismissed_inventory is not None and not dismissed_matches:
+                # A planning snapshot cannot authorize creation after a later dismissal.
+                dismissed_matches = self.lookup_service.list_closed_dismissed_work_items_by_source(
+                    repository_id=repository_id, kind=work_item.kind, source=work_item.source
+                )
             if len(dismissed_matches) > 1:
                 raise ValueError("Cannot upsert an ambiguously matched dismissed work item.")
             if dismissed_matches:

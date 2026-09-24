@@ -137,7 +137,9 @@ def test_closed_dismissal_leaves_capacity_for_next_finding_and_dry_run() -> None
         assert result.promoted_count == 1
         assert result.backlog_reason_counts == {"dismissed": 1}
         assert len(client.issues) == (1 if persist else 0)
-        assert sum("zeroone-status:dismissed" in (q or []) for q in client.closed_queries) == 1
+        assert sum("zeroone-status:dismissed" in (q or []) for q in client.closed_queries) == (
+            1 + result.created_count
+        )
 
 
 def test_unavailable_sonar_keeps_active_slots_and_allows_remaining_sarif_capacity() -> None:

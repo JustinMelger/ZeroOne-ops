@@ -6,9 +6,13 @@ Issue-mode sync loads indexed closed dismissals once, alongside open and deferre
 records. Parsed machine state determines dismissal. The shared planner suppresses
 matching kind, repository, source, and finding identities before capacity ranking,
 including open dismissals. Aggregate backlog observations use `dismissed`.
-Upserts retain defensive checks and can reuse this inventory; standalone upserts
-load their own matches. This snapshot is not an atomic reservation: concurrent
-dismissal may require the next sync to restore capacity utilization.
+Upserts may suppress creation from a matching dismissal in this inventory. A
+snapshot without a match is not authority to create: immediately before creation,
+upserts recheck indexed closed dismissals and verify their machine state.
+Standalone upserts perform the same live lookup. A newly observed dismissal is
+reported as dismissed backlog without same-run capacity backfill. The final
+read/create sequence is not atomic; concurrent changes can still require a later
+sync, and unused capacity is reconsidered on the next sync.
 
 ## Complete SonarQube Collection
 
