@@ -17,6 +17,7 @@ FindingPromotionReason = Literal[
     "severity_disabled",
     "issue_class_excluded",
     "promotion_capacity_exhausted",
+    "dismissed",
 ]
 
 

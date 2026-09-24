@@ -16,7 +16,7 @@ from zeroone_ops.models.finding import (
     FindingCollectionResult,
     NormalizedFinding,
 )
-from zeroone_ops.providers.sonar_client import SonarClient
+from zeroone_ops.providers.sonar_client import SonarClient, SonarClientError
 from zeroone_ops.services.intake.finding_workflow_policy_service import (
     FindingWorkflowPolicyService,
 )
@@ -150,7 +150,18 @@ class IssueIntakeService:
         except SettingsError:
             LOGGER.info("skipped SonarQube fetch", extra={"run_id": run_id})
             return None
-        return SonarFindingSource(sonar_client).collect_open_findings().collection
+        try:
+            return SonarFindingSource(sonar_client).collect_open_findings().collection
+        except SonarClientError:
+            warning = "SonarQube inventory unavailable; partial findings discarded."
+            LOGGER.warning(warning, extra={"run_id": run_id, "source_id": "sonarqube"})
+            return FindingCollectionResult(
+                metadata=FindingCollectionMetadata(
+                    source_id="sonarqube",
+                    warnings=[warning],
+                    statistics={"unavailable_sources": 1},
+                )
+            )
 
     def _merge_collections(
         self,

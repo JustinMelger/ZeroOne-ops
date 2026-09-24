@@ -23,6 +23,7 @@ class FakeGitHubWorkItemClient:
     def __init__(self) -> None:
         self.issues: list[GitHubIssueInfo] = []
         self.closed_issues: list[GitHubIssueInfo] = []
+        self.closed_queries: list[list[str] | None] = []
 
     def list_open_issues(
         self,
@@ -39,7 +40,8 @@ class FakeGitHubWorkItemClient:
         repository_id: str,
         labels: list[str] | None = None,
     ) -> list[GitHubIssueInfo]:
-        del repository_id, labels
+        del repository_id
+        self.closed_queries.append(labels)
         return list(self.closed_issues)
 
     def create_issue(
@@ -100,6 +102,69 @@ class FakeGitHubWorkItemClient:
             for existing in self.closed_issues
         ]
         return issue
+
+
+def test_closed_dismissal_leaves_capacity_for_next_finding_and_dry_run() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    kwargs = {
+        "repository_id": "octo-org/octo-repo",
+        "policy_state": _policy_state(medium_enabled=True),
+        "max_active_work_items": 1,
+    }
+    service.sync(findings=[_finding(finding_id="a")], **kwargs)
+    issue = client.issues.pop()
+    state = GitHubWorkItemParser().parse_work_item_state(issue.body)
+    assert state is not None
+    client.closed_issues.append(
+        issue.model_copy(
+            update={
+                "body": GitHubWorkItemRenderer().render_body(
+                    state.model_copy(update={"status": "dismissed"})
+                )
+            }
+        )
+    )
+    for persist in [False, True, True]:
+        client.closed_queries.clear()
+        result = service.sync(
+            findings=[_finding(finding_id="a"), _finding(finding_id="b")],
+            persist=persist,
+            **kwargs,
+        )
+        assert result.promoted_count == 1
+        assert result.backlog_reason_counts == {"dismissed": 1}
+        assert len(client.issues) == (1 if persist else 0)
+        assert sum("zeroone-status:dismissed" in (q or []) for q in client.closed_queries) == (
+            1 + result.created_count
+        )
+
+
+def test_unavailable_sonar_keeps_active_slots_and_allows_remaining_sarif_capacity() -> None:
+    client = FakeGitHubWorkItemClient()
+    service = GitHubFindingSyncService(
+        work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
+    )
+    kwargs = {
+        "repository_id": "octo-org/octo-repo",
+        "policy_state": _policy_state(medium_enabled=True),
+        "max_active_work_items": 2,
+    }
+    service.sync(findings=[_finding(source_id="sonarqube", finding_id="sonar")], **kwargs)
+    before = client.issues[0]
+    result = service.sync(
+        findings=[_finding(finding_id="a"), _finding(finding_id="b")],
+        managed_source_ids={"ruff"},
+        **kwargs,
+    )
+    assert result.promoted_count == 1
+    assert result.no_longer_detected_count == 0
+    assert result.backlog_reason_counts == {"promotion_capacity_exhausted": 1}
+    assert len(client.issues) == 2
+    assert client.issues[0] == before
+    assert not client.closed_issues
 
 
 def _finding(
@@ -614,7 +679,7 @@ def test_sync_preserves_blocked_work_item_when_active_finding_remains_promoted()
     assert parsed.status == "blocked"
 
 
-def test_sync_preserves_dismissed_work_item_when_active_finding_remains_promoted() -> None:
+def test_sync_preserves_dismissed_work_item_without_promoting_it() -> None:
     client = FakeGitHubWorkItemClient()
     service = GitHubFindingSyncService(
         work_item_service=GitHubWorkItemService(client),  # type: ignore[arg-type]
@@ -645,7 +710,8 @@ def test_sync_preserves_dismissed_work_item_when_active_finding_remains_promoted
 
     parsed = parser.parse_work_item_state(client.issues[0].body)
 
-    assert result.promoted_count == 1
+    assert result.promoted_count == 0
+    assert result.backlog_reason_counts == {"dismissed": 1}
     assert parsed is not None
     assert parsed.status == "dismissed"
 

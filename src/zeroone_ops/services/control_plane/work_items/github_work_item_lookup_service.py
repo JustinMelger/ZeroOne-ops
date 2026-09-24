@@ -141,6 +141,23 @@ class GitHubWorkItemLookupService:
             is_open=False,
         )
 
+    def list_closed_dismissed_work_items(
+        self, *, repository_id: str
+    ) -> list[GitHubWorkItemLookupResult]:
+        """Return repository-scoped authoritative dismissal tombstones."""
+        return [
+            result
+            for result in self._parse_work_items(
+                self.client.list_closed_issues(
+                    repository_id=repository_id, labels=dismissed_work_item_query_labels()
+                ),
+                is_open=False,
+            )
+            if result.work_item.status == "dismissed"
+            and result.work_item.kind == "remediation"
+            and result.work_item.source.repository_scope == repository_id
+        ]
+
     def list_closed_dismissed_work_items_by_source(
         self,
         *,

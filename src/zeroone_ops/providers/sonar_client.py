@@ -6,14 +6,18 @@ This module will provide SonarQube REST integration for issue retrieval.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
+from pydantic import ValidationError
 
 from zeroone_ops.models.config import SonarQubeConnectionConfig
 from zeroone_ops.models.sonar import SonarImpact, SonarIssue
+
+LOGGER = logging.getLogger(__name__)
 
 
 class SonarClientError(RuntimeError):
@@ -47,24 +51,55 @@ class SonarClient:
         )
 
     def search_open_issues(self) -> list[SonarIssue]:
-        """Fetch open issues from SonarQube.
-
-        Returns:
-            Open SonarQube issues for the configured project.
-        """
-        response = self._http_client.get(
-            "/api/issues/search",
-            params={
-                "projects": self.config.project_key,
-                "statuses": "OPEN,REOPENED,CONFIRMED",
-                "ps": self.config.page_size,
-            },
-        )
-        payload = _parse_json_response(response)
-        issues = payload.get("issues")
-        if not isinstance(issues, list):
-            raise SonarClientError("Unexpected SonarQube response: missing issues list.")
-        return [_normalize_issue(item) for item in issues]
+        """Fetch a complete inventory, rejecting partial or inconsistent pagination."""
+        collected: list[SonarIssue] = []
+        seen_keys: set[str] = set()
+        total: int | None = None
+        page = 1
+        if self.config.page_size < 1:
+            raise SonarClientError("SonarQube page size must be positive.")
+        while True:
+            try:
+                response = self._http_client.get(
+                    "/api/issues/search",
+                    params={
+                        "projects": self.config.project_key,
+                        "statuses": "OPEN,REOPENED,CONFIRMED",
+                        "ps": self.config.page_size,
+                        "p": page,
+                    },
+                )
+                payload = _parse_json_response(response)
+                page_total = _pagination_total(payload, page=page, page_size=self.config.page_size)
+                if total is not None and page_total != total:
+                    raise SonarClientError("SonarQube pagination total changed.")
+                total = page_total
+                issues = payload.get("issues")
+                expected = min(self.config.page_size, total - len(collected))
+                if not isinstance(issues, list) or len(issues) != expected:
+                    raise SonarClientError("SonarQube returned an incomplete issue page.")
+                for issue in issues:
+                    if not isinstance(issue, dict):
+                        raise SonarClientError("SonarQube returned a malformed issue.")
+                    normalized = _normalize_issue(issue)
+                    if normalized.key in seen_keys:
+                        raise SonarClientError("SonarQube returned repeated issue keys.")
+                    seen_keys.add(normalized.key)
+                    collected.append(normalized)
+            except (httpx.HTTPError, SonarClientError, ValidationError) as error:
+                LOGGER.warning(
+                    "SonarQube collection failed page=%d collected=%d error_type=%s",
+                    page,
+                    len(collected),
+                    type(error).__name__,
+                )
+                raise SonarClientError(
+                    f"SonarQube inventory unavailable at page {page}; partial results discarded."
+                ) from error
+            if len(collected) == total:
+                LOGGER.info("SonarQube collection complete pages=%d findings=%d", page, total)
+                return collected
+            page += 1
 
     def get_issue(self, issue_key: str) -> SonarIssue:
         """Fetch a specific SonarQube issue.
@@ -81,6 +116,24 @@ class SonarClient:
         if not isinstance(issue, dict):
             raise SonarClientError("Unexpected SonarQube response: missing issue object.")
         return _normalize_issue(issue)
+
+
+def _pagination_total(payload: dict[str, Any], *, page: int, page_size: int) -> int:
+    """Validate response progression without accepting coerced pagination values."""
+    paging = payload.get("paging")
+    if not isinstance(paging, dict):
+        raise SonarClientError("SonarQube response is missing pagination metadata.")
+    index, size, total = (paging.get(key) for key in ("pageIndex", "pageSize", "total"))
+    if (
+        type(index) is not int
+        or type(size) is not int
+        or type(total) is not int
+        or index != page
+        or size != page_size
+        or total < 0
+    ):
+        raise SonarClientError("SonarQube returned inconsistent pagination metadata.")
+    return total
 
 
 def load_issues_fixture(path: Path) -> list[SonarIssue]:

@@ -1,5 +1,10 @@
 ## ZeroOne Ops Operator Runbook
 
+Issue-mode finding sync excludes open and indexed closed dismissed findings before
+allocating capacity. The aggregate backlog reason `dismissed` explains suppression;
+these findings do not count as promoted or unchanged work. Dry runs use the same
+inventory without writes.
+
 This runbook describes how to operate the current ZeroOne Ops workflows in
 GitLab CI and GitHub Actions. Provider-specific setup details call out the
 relevant platform where their control planes differ.
@@ -345,6 +350,24 @@ A stable release is ready when the checklist is complete and there are no known
 blocking rollout issues.
 
 ## Expected Pipeline Behavior
+
+Finding sync excludes indexed dismissed work before allocating promotion capacity.
+Before creating a new issue, it rechecks closed dismissals when the planning
+inventory had no match. A dismissal detected at this point suppresses creation and
+is reported as dismissed backlog; the next sync can fill the unused slot. This
+read-before-create safeguard is not an atomic provider reservation.
+
+SonarQube intake reads the complete paginated inventory before applying policy,
+source priorities, and promotion capacity. Page size is a transport setting, not
+a finding limit. If collection fails (including a server pagination limit),
+CI logs a bounded warning and discards that source's partial results. Other
+available sources still sync. Existing SonarQube work stays unchanged and active
+items still consume capacity; absence is never inferred from a failed scan.
+Check SonarQube availability or query limits and rerun finding sync.
+
+Pagination is not an atomic scanner snapshot. A scan changing during collection
+may require a later rerun; inconsistent page metadata or duplicate keys cause the
+source to be marked unavailable rather than interpreted as complete.
 
 In normal `ci` mode, one run should do the following:
 
