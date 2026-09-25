@@ -16,7 +16,9 @@ ZeroOne Ops helps teams:
 
 - review GitLab merge requests and GitHub pull requests with staged,
   continuity-aware analysis
-- normalize SonarQube and SARIF/Ruff findings into governed remediation work
+- normalize SonarQube and SARIF/Ruff findings into governed remediation work;
+  collect all SonarQube pages before promotion, preserve existing work when a
+  source is unavailable, and exclude dismissed identities before capacity ranking
 - generate bounded fixes, validate them, and publish provider-native change
   requests
 - control policy, inspect automation state, and reconcile completed or blocked

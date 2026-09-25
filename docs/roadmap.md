@@ -20,6 +20,11 @@ history, not here.
 
 - completed the [legacy dashboard dependency and retirement audit](design/technical/technical-audit-legacy-dashboard-retirement.md);
   runtime retirement remains a separate approval and implementation step
+- complete paginated SonarQube intake with per-source failure isolation:
+  incomplete inventories never resolve existing work as missing
+
+- dismissal-aware promotion capacity: indexed closed and open dismissals are
+  suppressed before source/severity ranking on GitHub and GitLab
 
 - GitLab and GitHub staged change-request review with continuity, concise
   developer-facing notes, and bounded inline comments
