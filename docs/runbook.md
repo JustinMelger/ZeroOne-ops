@@ -355,6 +355,42 @@ blocking rollout issues.
 
 ## Expected Pipeline Behavior
 
+### Finding Dogfood
+
+The repository's Finding Dogfood workflow checks out the default branch and only
+runs there. Daily and ordinary manual runs scan `src/` with MyPy, Ruff using the
+repository configuration, and the existing pinned Semgrep `--config auto` scan.
+No findings is a healthy result; this workflow does not deliberately generate
+maintenance work when CI is already clean.
+
+For feature testing, manually enable `include_test_findings`. The workflow also
+scans `tests/` and publishes `artifacts/mypy-tests.sarif` as `mypy-tests-sarif`,
+mapped to medium priority. A temporary configuration in `RUNNER_TEMP` copies the
+root configuration and adds only this artifact. Ordinary runs use the root
+configuration unchanged. Test findings create real issues, share the configured
+five active-work slots, and can be selected by scheduled remediation. The new
+source uses the default priority tier of 100. Subsequent daily runs do not collect
+that source, so they do not resolve its work merely because the source is omitted.
+
+The first source-only scan changes the old `mypy-sarif` inventory: eligible
+unlinked test findings previously published under that ID may close as
+`no_longer_detected`. Linked, in-progress, blocked, and dismissed work remains
+protected. The optional test source does not migrate or reuse those old identities.
+
+MyPy and Ruff exit codes 0 and 1 are accepted; other scanner failures, failed MyPy
+conversion, or missing/empty SARIF files stop the workflow before finding sync.
+Semgrep must exit successfully. Scanner exit status is logged immediately and
+available SARIF/MyPy JSON artifacts are uploaded even on failure. This workflow
+skips the entire sync after a producer failure; application-level partial-source
+handling remains unchanged.
+
+For rollout, first run the default source-only workflow and inspect the source
+counts, reconciliation results, and summary. Only then enable a manual test run
+if real test-related work items are wanted. Explicit/custom Semgrep rule curation
+remains a separate follow-up.
+
+### Normal Operations
+
 In normal `ci` mode, one run should do the following:
 
 1. collect configured finding sources, such as SonarQube and SARIF artifacts

@@ -138,6 +138,13 @@ uv run pre-commit run --all-files
 
 ### Mypy JSON To SARIF
 
+This repository's [Finding Dogfood workflow](.github/workflows/finding-dogfood.yml)
+scans `src/` daily with MyPy, repository-configured Ruff, and Semgrep. Empty runs
+are expected when CI already prevents those defects. Manual default-branch runs
+can additionally publish test-suite MyPy findings using `include_test_findings`;
+these are real work items under a separate source namespace, not a dry run.
+See the [dogfood operating notes](docs/runbook.md#finding-dogfood) before enabling it.
+
 ZeroOne Ops consumes SARIF rather than requiring a Mypy-specific integration.
 The [Mypy-to-SARIF example converter](examples/mypy_to_sarif.py) turns Mypy's
 JSON output into a configured SARIF artifact:
