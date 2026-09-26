@@ -1,12 +1,11 @@
 from zeroone_ops.models.config import GitLabConnectionConfig
-from zeroone_ops.models.dashboard import (
-    DashboardItem,
-    DashboardPolicyState,
-    DashboardPolicyView,
-    DashboardSeverityPolicyEntry,
-    DashboardSeverityPolicyStateEntry,
-)
 from zeroone_ops.models.gitlab import GitLabIssueInfo, GitLabIssueNote
+from zeroone_ops.models.policy import (
+    PolicySeverityEntry,
+    PolicySeverityStateEntry,
+    PolicyState,
+    PolicyView,
+)
 from zeroone_ops.providers.gitlab_policy_client import GitLabPolicyClient
 from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_service import (
     GitLabPolicyIssueProcessResult,
@@ -17,29 +16,27 @@ from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_service impor
 class FakePolicyViewBuilder:
     def resolve_policy_state(
         self,
-        policy_state: DashboardPolicyState | None,
-    ) -> DashboardPolicyState:
+        policy_state: PolicyState | None,
+    ) -> PolicyState:
         if policy_state is not None and policy_state.severity_policy:
             return policy_state
-        return DashboardPolicyState(
+        return PolicyState(
             severity_policy=[
-                DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
-                DashboardSeverityPolicyStateEntry(severity="medium", enabled=True),
-                DashboardSeverityPolicyStateEntry(severity="high", enabled=False),
+                PolicySeverityStateEntry(severity="low", enabled=True),
+                PolicySeverityStateEntry(severity="medium", enabled=True),
+                PolicySeverityStateEntry(severity="high", enabled=False),
             ]
         )
 
     def build(
         self,
-        items: list[DashboardItem],
         *,
-        policy_state: DashboardPolicyState | None = None,
-    ) -> DashboardPolicyView:
-        del items
+        policy_state: PolicyState | None = None,
+    ) -> PolicyView:
         state = self.resolve_policy_state(policy_state)
-        return DashboardPolicyView(
+        return PolicyView(
             severity_policy=[
-                DashboardSeverityPolicyEntry(
+                PolicySeverityEntry(
                     severity=entry.severity,
                     enabled=entry.enabled,
                     reason=entry.reason,

@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
 
-from zeroone_ops.models.dashboard import DashboardItem, DashboardPolicyState, DashboardPolicyView
 from zeroone_ops.models.github import GitHubIssueComment, GitHubIssueInfo
-from zeroone_ops.models.policy import PolicyActionParseResult, PolicyCommentSource
+from zeroone_ops.models.policy import PolicyActionParseResult, PolicyCommentSource, PolicyState
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.services.control_plane.github_comment_authorization_service import (
     GitHubCommentAuthorizationService,
@@ -26,6 +24,7 @@ from zeroone_ops.services.control_plane.policy.policy_processing_service import 
     PolicyProcessingResult,
     PolicyProcessingService,
 )
+from zeroone_ops.services.control_plane.policy.policy_view_builder import PolicyViewBuilder
 
 
 @dataclass(frozen=True)
@@ -43,27 +42,7 @@ class GitHubPolicyIssueProcessResult:
     issue_missing: bool = False
     comments: list[GitHubIssueComment] | None = None
     parsed_results: list[PolicyActionParseResult] | None = None
-    initial_policy_state: DashboardPolicyState | None = None
-
-
-class GitHubPolicyViewBuilderProtocol(Protocol):
-    """Build GitHub policy state and compact read-only views."""
-
-    def resolve_policy_state(
-        self,
-        policy_state: DashboardPolicyState | None,
-    ) -> DashboardPolicyState:
-        """Resolve canonical policy state, seeding defaults when needed."""
-        ...
-
-    def build(
-        self,
-        items: list[DashboardItem],
-        *,
-        policy_state: DashboardPolicyState | None = None,
-    ) -> DashboardPolicyView:
-        """Build one read-only policy view."""
-        ...
+    initial_policy_state: PolicyState | None = None
 
 
 class GitHubPolicyIssueService:
@@ -77,7 +56,7 @@ class GitHubPolicyIssueService:
         renderer: PolicyIssueRenderer | None = None,
         title: str = "ZeroOne Ops Policy",
         labels: list[str] | None = None,
-        policy_view_builder: GitHubPolicyViewBuilderProtocol,
+        policy_view_builder: PolicyViewBuilder,
         policy_action_service: PolicyActionService | None = None,
         policy_processing_service: PolicyProcessingService | None = None,
         required_repository_permission: str = "admin",
@@ -108,7 +87,7 @@ class GitHubPolicyIssueService:
         issue = self.issue_store.find_open_issue(repository_id=repository_id)
         if issue is None:
             policy_state = self.policy_view_builder.resolve_policy_state(None)
-            policy_view = self.policy_view_builder.build([], policy_state=policy_state)
+            policy_view = self.policy_view_builder.build(policy_state=policy_state)
             return self.issue_store.create_issue(
                 repository_id=repository_id,
                 body=self.renderer.render(policy_state=policy_state, policy_view=policy_view),
@@ -128,7 +107,7 @@ class GitHubPolicyIssueService:
         *,
         repository_id: str,
         persist: bool,
-    ) -> DashboardPolicyState:
+    ) -> PolicyState:
         """Load the current persisted policy state for another control-plane workflow."""
         issue = self.issue_store.find_open_issue(repository_id=repository_id)
         if issue is None:
@@ -237,8 +216,8 @@ class GitHubPolicyIssueService:
             sources=[_policy_source_from_comment(comment) for comment in comments],
         )
 
-    def _render_body(self, *, policy_state: DashboardPolicyState) -> str:
-        policy_view = self.policy_view_builder.build([], policy_state=policy_state)
+    def _render_body(self, *, policy_state: PolicyState) -> str:
+        policy_view = self.policy_view_builder.build(policy_state=policy_state)
         return self.renderer.render(policy_state=policy_state, policy_view=policy_view)
 
 
