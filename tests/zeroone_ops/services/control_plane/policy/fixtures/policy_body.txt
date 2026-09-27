@@ -1,0 +1,61 @@
+Machine-managed repository policy for ZeroOne Ops.
+
+Use issue comments with the exact `/zeroone policy` prefix to change policy.
+Direct edits to this issue body are display-only and not authoritative.
+
+## Severity Policy
+
+| Severity | Status | Reason |
+|---|---|---|
+| `low` | disabled | - |
+| `medium` | disabled | - |
+| `high` | enabled | chosen |
+
+## Excluded Issue Classes
+
+| Issue Class | Matching Items | Reason |
+|---|---|---|
+| `ruff / E1` | 0 | operator |
+
+## Command Reference
+
+| Action | Command |
+|---|---|
+| Enable a severity | `/zeroone policy severity enable high` |
+| Disable a severity | `/zeroone policy severity disable high` |
+| Exclude an issue class | `/zeroone policy issue-class exclude sonarqube / python:S3776` |
+| Remove an issue-class exclusion | `/zeroone policy issue-class include sonarqube / python:S3776` |
+| Exclude a Ruff rule | `/zeroone policy issue-class exclude ruff-sarif / C416` |
+| Remove a Ruff-rule exclusion | `/zeroone policy issue-class include ruff-sarif / C416` |
+
+## Notes
+
+- Accepted commands are replayed in deterministic order.
+- Only issue comments are authoritative for policy changes in this slice.
+- Malformed or unauthorized commands are visible in logs, not replied to automatically.
+
+## Machine State
+
+<details>
+<summary><code>zeroone-policy-state</code> machine state</summary>
+
+```json
+{
+  "issue_class_exclusions": [
+    {
+      "issue_key": "E1",
+      "reason": "operator",
+      "source": "ruff"
+    }
+  ],
+  "severity_policy": [
+    {
+      "enabled": true,
+      "reason": "chosen",
+      "severity": "high"
+    }
+  ]
+}
+```
+
+</details>

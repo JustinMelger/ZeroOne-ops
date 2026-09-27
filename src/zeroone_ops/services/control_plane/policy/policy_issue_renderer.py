@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 
-from zeroone_ops.models.dashboard import (
-    DashboardIssueClassExclusionEntry,
-    DashboardPolicyState,
-    DashboardPolicyView,
-    DashboardSeverityPolicyEntry,
+from zeroone_ops.models.policy import (
+    PolicyIssueClassExclusionEntry,
+    PolicySeverityEntry,
+    PolicyState,
+    PolicyView,
 )
 
 
@@ -18,8 +18,8 @@ class PolicyIssueRenderer:
     def render(
         self,
         *,
-        policy_state: DashboardPolicyState,
-        policy_view: DashboardPolicyView,
+        policy_state: PolicyState,
+        policy_view: PolicyView,
     ) -> str:
         """Render one provider-neutral policy issue body."""
         lines = [
@@ -42,7 +42,7 @@ class PolicyIssueRenderer:
         lines.extend(self._render_policy_state_block(policy_state))
         return "\n".join(lines).rstrip() + "\n"
 
-    def _render_policy_state_block(self, policy_state: DashboardPolicyState) -> list[str]:
+    def _render_policy_state_block(self, policy_state: PolicyState) -> list[str]:
         payload = policy_state.model_dump(mode="json", exclude_none=True, by_alias=True)
         return [
             "<details>",
@@ -57,7 +57,7 @@ class PolicyIssueRenderer:
 
     def _render_severity_policy_table(
         self,
-        rows: list[DashboardSeverityPolicyEntry],
+        rows: list[PolicySeverityEntry],
     ) -> list[str]:
         lines = [
             "| Severity | Status | Reason |",
@@ -70,7 +70,7 @@ class PolicyIssueRenderer:
 
     def _render_excluded_issue_classes_table(
         self,
-        rows: list[DashboardIssueClassExclusionEntry],
+        rows: list[PolicyIssueClassExclusionEntry],
     ) -> list[str]:
         if not rows:
             return ["No excluded issue classes."]

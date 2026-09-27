@@ -14,14 +14,12 @@ from zeroone_ops.models.dashboard import (
     DashboardItem,
     DashboardPolicyState,
     DashboardPolicyView,
-    DashboardSeverityPolicyEntry,
-    DashboardSeverityPolicyStateEntry,
 )
 from zeroone_ops.models.state import AppState
+from zeroone_ops.services.control_plane.policy.policy_view_builder import PolicyViewBuilder
 from zeroone_ops.services.dashboard.dashboard_item_selector import DashboardItemSelector
 
 _SEVERITY_ORDER: tuple[Literal["low", "medium", "high"], ...] = ("low", "medium", "high")
-_DEFAULT_ENABLED_SEVERITIES: frozenset[str] = frozenset({"low", "medium"})
 _TOP_ACTIVE_GROUP_LIMIT = 5
 _SAFETY_SKIP_REASONS = frozenset(
     {
@@ -48,44 +46,16 @@ class DashboardPolicyViewBuilder:
         self.config = config
         self.state = state
         self.selector = DashboardItemSelector(repo_root=repo_root)
+        self.policy_view_builder = PolicyViewBuilder(
+            bootstrap_severities=config.remediation.bootstrap_severities
+        )
 
     def resolve_policy_state(
         self,
         policy_state: DashboardPolicyState | None,
     ) -> DashboardPolicyState:
         """Return the canonical policy state with config-seeded severity defaults."""
-        state = (
-            policy_state.model_copy(deep=True)
-            if policy_state is not None
-            else DashboardPolicyState()
-        )
-        if state.severity_policy:
-            seeded_state = state
-        else:
-            enabled = self._seed_enabled_severities()
-            seeded_state = state.model_copy(
-                update={
-                    "severity_policy": [
-                        DashboardSeverityPolicyStateEntry(
-                            severity=severity,
-                            enabled=severity in enabled,
-                            reason=(
-                                None
-                                if severity in enabled
-                                else "Disabled by current config baseline."
-                            ),
-                            updated_by="config_seed",
-                        )
-                        for severity in _SEVERITY_ORDER
-                    ]
-                }
-            )
-        return seeded_state
-
-    def _seed_enabled_severities(self) -> set[str]:
-        """Return the bootstrap enabled severities for a dashboard policy seed."""
-        configured = {severity.lower() for severity in self.config.remediation.bootstrap_severities}
-        return configured or set(_DEFAULT_ENABLED_SEVERITIES)
+        return self.policy_view_builder.resolve_policy_state(policy_state)
 
     def build(
         self,
@@ -95,11 +65,12 @@ class DashboardPolicyViewBuilder:
     ) -> DashboardPolicyView:
         """Return the rendered read-only policy view for current dashboard items."""
         resolved_policy_state = self.resolve_policy_state(policy_state)
+        compact_view = self.policy_view_builder.build(policy_state=resolved_policy_state)
         return DashboardPolicyView(
-            severity_policy=self._build_severity_policy(resolved_policy_state),
+            severity_policy=compact_view.severity_policy,
             excluded_issue_classes=self._build_excluded_issue_classes(
                 items,
-                policy_state=resolved_policy_state,
+                rows=compact_view.excluded_issue_classes,
             ),
             issue_class_inventory=self._build_issue_class_inventory(
                 items,
@@ -107,51 +78,25 @@ class DashboardPolicyViewBuilder:
             ),
         )
 
-    def _build_severity_policy(
-        self,
-        policy_state: DashboardPolicyState,
-    ) -> list[DashboardSeverityPolicyEntry]:
-        entries_by_severity = {entry.severity: entry for entry in policy_state.severity_policy}
-        return [
-            DashboardSeverityPolicyEntry(
-                severity=severity,
-                enabled=(
-                    entries_by_severity[severity].enabled
-                    if severity in entries_by_severity
-                    else False
-                ),
-                reason=(
-                    entries_by_severity[severity].reason
-                    if severity in entries_by_severity
-                    else None
-                ),
-            )
-            for severity in _SEVERITY_ORDER
-        ]
-
     def _build_excluded_issue_classes(
         self,
         items: list[DashboardItem],
         *,
-        policy_state: DashboardPolicyState,
+        rows: list[DashboardIssueClassExclusionEntry],
     ) -> list[DashboardIssueClassExclusionEntry]:
-        grouped: list[DashboardIssueClassExclusionEntry] = []
-        for exclusion in policy_state.issue_class_exclusions:
-            matching_count = sum(
-                1
-                for item in items
-                if item.source == exclusion.source
-                and self._issue_key_for_item(item) == exclusion.issue_key
+        return [
+            row.model_copy(
+                update={
+                    "matching_items_count": sum(
+                        1
+                        for item in items
+                        if item.source == row.source
+                        and self._issue_key_for_item(item) == row.issue_key
+                    )
+                }
             )
-            grouped.append(
-                DashboardIssueClassExclusionEntry(
-                    source=exclusion.source,
-                    issue_key=exclusion.issue_key,
-                    matching_items_count=matching_count,
-                    reason=exclusion.reason,
-                )
-            )
-        return grouped
+            for row in rows
+        ]
 
     def _build_issue_class_inventory(
         self,

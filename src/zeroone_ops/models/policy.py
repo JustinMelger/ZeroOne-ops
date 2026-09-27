@@ -10,6 +10,30 @@ from pydantic import AliasChoices, BaseModel, Field
 PolicySeverity = Literal["low", "medium", "high"]
 
 
+class PolicySeverityEntry(BaseModel):
+    """Represent one rendered policy severity row."""
+
+    severity: PolicySeverity
+    enabled: bool
+    reason: str | None = None
+
+
+class PolicyIssueClassExclusionEntry(BaseModel):
+    """Represent one rendered issue-class exclusion row."""
+
+    source: str
+    issue_key: str
+    matching_items_count: int = 0
+    reason: str
+
+
+class PolicyView(BaseModel):
+    """Represent compact, read-only policy issue presentation."""
+
+    severity_policy: list[PolicySeverityEntry] = Field(default_factory=list)
+    excluded_issue_classes: list[PolicyIssueClassExclusionEntry] = Field(default_factory=list)
+
+
 class PolicyCommentSource(BaseModel):
     """Represent one provider comment that may contain a policy command."""
 

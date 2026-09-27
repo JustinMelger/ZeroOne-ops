@@ -11,3 +11,15 @@ layers =
     zeroone_ops.providers
     zeroone_ops.models
     zeroone_ops.utils
+
+[importlinter:contract:issue_policy_without_dashboard]
+name = Keep issue policy independent of legacy dashboard
+type = forbidden
+source_modules =
+    zeroone_ops.services.control_plane.policy
+forbidden_modules =
+    zeroone_ops.models.dashboard
+    zeroone_ops.services.dashboard
+# Shared run-state composition retains its legacy helper until runtime retirement.
+ignore_imports =
+    zeroone_ops.services.shared.run_state_service -> zeroone_ops.services.dashboard.dashboard_run_state_service

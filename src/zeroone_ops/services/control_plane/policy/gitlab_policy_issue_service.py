@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
 
-from zeroone_ops.models.dashboard import DashboardItem, DashboardPolicyState, DashboardPolicyView
 from zeroone_ops.models.gitlab import GitLabIssueInfo, GitLabIssueNote
-from zeroone_ops.models.policy import PolicyActionParseResult, PolicyCommentSource
+from zeroone_ops.models.policy import PolicyActionParseResult, PolicyCommentSource, PolicyState
 from zeroone_ops.providers.gitlab_policy_client import GitLabPolicyClient
 from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_parser import (
     GitLabPolicyIssueParser,
@@ -26,6 +24,7 @@ from zeroone_ops.services.control_plane.policy.policy_processing_service import 
     PolicyProcessingResult,
     PolicyProcessingService,
 )
+from zeroone_ops.services.control_plane.policy.policy_view_builder import PolicyViewBuilder
 
 
 @dataclass(frozen=True)
@@ -43,25 +42,7 @@ class GitLabPolicyIssueProcessResult:
     issue_missing: bool = False
     notes: list[GitLabIssueNote] | None = None
     parsed_results: list[PolicyActionParseResult] | None = None
-    initial_policy_state: DashboardPolicyState | None = None
-
-
-class GitLabPolicyViewBuilderProtocol(Protocol):
-    """Build canonical policy state and its compact read-only view."""
-
-    def resolve_policy_state(
-        self,
-        policy_state: DashboardPolicyState | None,
-    ) -> DashboardPolicyState:
-        """Resolve canonical policy state, seeding defaults when required."""
-
-    def build(
-        self,
-        items: list[DashboardItem],
-        *,
-        policy_state: DashboardPolicyState | None = None,
-    ) -> DashboardPolicyView:
-        """Build one read-only policy view."""
+    initial_policy_state: PolicyState | None = None
 
 
 class GitLabPolicyIssueService:
@@ -71,7 +52,7 @@ class GitLabPolicyIssueService:
         self,
         client: GitLabPolicyClient,
         *,
-        policy_view_builder: GitLabPolicyViewBuilderProtocol,
+        policy_view_builder: PolicyViewBuilder,
         parser: GitLabPolicyIssueParser | None = None,
         renderer: PolicyIssueRenderer | None = None,
         title: str = "ZeroOne Ops Policy",
@@ -118,7 +99,7 @@ class GitLabPolicyIssueService:
             )
         return issue
 
-    def load_policy_state(self, *, project_id: str, persist: bool) -> DashboardPolicyState:
+    def load_policy_state(self, *, project_id: str, persist: bool) -> PolicyState:
         """Return policy state for shared finding and remediation workflows."""
         issue = self.issue_store.find_open_issue(project_id=project_id)
         if issue is None:
@@ -221,9 +202,9 @@ class GitLabPolicyIssueService:
             sources=[_policy_source_from_note(note) for note in notes],
         )
 
-    def _render_body(self, policy_state: DashboardPolicyState) -> str:
+    def _render_body(self, policy_state: PolicyState) -> str:
         """Render one compact policy issue body from canonical state."""
-        policy_view = self.policy_view_builder.build([], policy_state=policy_state)
+        policy_view = self.policy_view_builder.build(policy_state=policy_state)
         return self.renderer.render(policy_state=policy_state, policy_view=policy_view)
 
 
