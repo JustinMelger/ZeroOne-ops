@@ -1620,7 +1620,7 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
 
 def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessible(
     tmp_path: Path,
-    monkeypatch,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
