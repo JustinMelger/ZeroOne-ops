@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import NoReturn
 
 from pytest import MonkeyPatch
 
@@ -1679,7 +1680,9 @@ def test_dashboard_reconcile_ci_fails_when_merge_request_metadata_is_inaccessibl
         )(),
     )
 
-    def failing_get_change_request_state(*, project_id: str, change_request_number: int):  # noqa: ANN202
+    def failing_get_change_request_state(
+        *, project_id: str, change_request_number: int
+    ) -> NoReturn:  # noqa: ANN202
         del project_id, change_request_number
         raise GitLabClientError("GitLab returned 404")
 
