@@ -1570,7 +1570,7 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
         )()
 
     def fake_mark_done(
-        self,
+        self: object,
         *,
         project_id: str,
         dashboard_item_id: str,
@@ -1579,7 +1579,7 @@ def test_dashboard_reconcile_ci_marks_closed_inactive_sonar_item_done(
         retry_count: int | None = None,
         retry_eligible: bool | None = None,
         retry_block_reason: str | None = None,
-    ):  # noqa: ANN202
+    ) -> object:  # noqa: ANN202
         del (
             self,
             project_id,
