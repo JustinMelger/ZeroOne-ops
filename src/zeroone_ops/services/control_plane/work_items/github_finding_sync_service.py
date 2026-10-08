@@ -11,6 +11,7 @@ from typing import Literal
 from uuid import uuid4
 
 from zeroone_ops.models.finding import NormalizedFinding
+from zeroone_ops.models.finding_sync import FindingSyncResult
 from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.models.work_item import (
     WorkItemCapacityDeferral,
@@ -38,28 +39,7 @@ from zeroone_ops.services.intake.finding_workflow_policy_service import (
 
 LOGGER = logging.getLogger(__name__)
 
-
-@dataclass(frozen=True)
-class GitHubFindingSyncResult:
-    """Summarize one GitHub finding publication pass."""
-
-    promoted_count: int
-    backlog_only_count: int
-    created_count: int
-    updated_count: int
-    unchanged_count: int
-    demoted_to_candidate_count: int
-    retained_protected_count: int
-    stale_demoted_to_candidate_count: int
-    stale_retained_protected_count: int
-    normalized_severity_counts: dict[str, int]
-    enabled_severities: tuple[str, ...]
-    backlog_reason_counts: dict[str, int]
-    policy_deferred_count: int = 0
-    capacity_deferred_count: int = 0
-    policy_reactivated_count: int = 0
-    no_longer_detected_count: int = 0
-    projection_warning_count: int = 0
+GitHubFindingSyncResult = FindingSyncResult
 
 
 class GitHubFindingSyncService:
@@ -95,7 +75,7 @@ class GitHubFindingSyncService:
         source_priorities: Mapping[str, int] | None = None,
         persist: bool = True,
         run_id: str = "finding-sync",
-    ) -> GitHubFindingSyncResult:
+    ) -> FindingSyncResult:
         """Upsert only findings promoted by the shared workflow policy."""
         promoted_count = 0
         backlog_only_count = 0
@@ -400,7 +380,7 @@ class GitHubFindingSyncService:
                         if result.action == "updated":
                             no_longer_detected_count += 1
                             updated_count += 1
-        return GitHubFindingSyncResult(
+        return FindingSyncResult(
             promoted_count=promoted_count,
             backlog_only_count=backlog_only_count,
             created_count=created_count,

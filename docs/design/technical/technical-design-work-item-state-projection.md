@@ -34,6 +34,37 @@ the owner of renderer use, label projection, identity checks, create/update,
 close, and the new reopen operation. No generic provider protocol or service
 locator is introduced.
 
+## Authoritative State Merge
+
+Both provider upsert services delegate parsed state merging to the pure
+`merge_authoritative_work_item_state(existing, incoming)` function. Provider
+wrappers retain native issue parsing, lookup, rendering, and transport. If the
+wrapper cannot parse existing state, it retains its incoming-state fallback.
+Direct `update_existing_work_item` operations continue to project the supplied
+state without this omission-preserving merge.
+
+The merge keeps the existing work-item ID and preserves only the established
+fields when omitted from the incoming model: linked change request, projected
+review, publication retry, execution failure, policy/capacity deferral,
+resolution, last revision command, review-action timestamp, attempt number, and
+recovery history. Explicit values, including `None` and empty lists, take
+precedence. Status and all other fields follow the incoming state; claim, queued
+revision request, and semantic-safety evidence are not added to the preservation
+contract by this extraction. Neither input is mutated.
+
+GitHub retains its existing supplied-field metadata for omitted, empty
+`last_revision_command` and `review_action_required_at`; GitLab keeps these
+fields omitted. This adjustment remains in the GitHub wrapper. Unchanged
+detection also stays provider-local: GitHub compares title and body, while
+GitLab additionally compares labels. Dismissal rechecks, identity ambiguity
+handling, and provider write ordering retain their existing behavior.
+
+Finding-sync outcomes use a shared frozen `FindingSyncResult` dataclass in the
+model layer, with the existing fields, ordering, and defaults. The old
+`GitHubFindingSyncResult` and `GitLabFindingSyncResult` imports remain aliases.
+This result reports decisions and counters; it does not own reconciliation or
+provider projection.
+
 ## Policy Reconciliation Flow
 
 1. Finding sync loads all open authoritative work items once.
