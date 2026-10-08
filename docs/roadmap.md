@@ -14,6 +14,9 @@ history, not here.
 
 ## Implemented
 
+- shared GitHub/GitLab remediation intake coordination over normalized records,
+  preserving selection, claims, dry runs, and provider-native result contracts
+
 - provider-neutral authoritative work-item state merging and finding-sync result,
   with provider compatibility imports and existing omission/clearing semantics
   preserved
@@ -123,8 +126,6 @@ history, not here.
 
 ### Control-Plane Cleanup
 
-- [ ] extract shared remediation intake orchestration while retaining
-  provider-local listing, claims, and request lookup
 - [ ] extract shared finding-sync orchestration with normalized provider adapters
   and unchanged reconciliation, warning, and dry-run contracts
 - [ ] reassess recovery-command duplication after these extractions, preserving

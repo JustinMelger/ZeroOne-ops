@@ -77,18 +77,39 @@ review feedback is never cleared or routed through `start_fresh`.
 
 Add provider-local revision preparation behind a small provider-neutral
 contract returning the current change-request state and source branch. Before
-claiming or executing queued work, each adapter must verify:
+executing queued work, the shared runner uses that lookup to verify:
 
 - the linked request is open;
 - its number and URL match the persisted link;
 - its head SHA equals `projected_review.reviewed_sha`; and
 - its source branch is non-empty and safe for Git operations.
 
-The GitHub/GitLab remediation intake services select queued revision work
-separately from unlinked approved work. They use the existing re-read guard
-before mutating a claim and pass an explicit revision execution target to the
-shared runner. V1 does not claim provider-bound compare-and-set behavior;
-stronger atomic claims remain deferred to the corresponding roadmap work.
+The GitHub/GitLab remediation intake wrappers load open work once and normalize
+it into frozen records containing canonical state, issue number/IID, issue URL,
+and optional creation time. A shared `RemediationIntakeCoordinator` applies the
+existing eligibility and ranking functions: queued revisions first, then
+severity, creation time (missing last), and issue number. The wrappers retain
+provider transport, native issue objects, and existing public result messages.
+
+Live intake constructs one claim and persists it through a provider-local upsert
+callback. Approved work becomes `in_progress`; queued work retains
+`review_revision_queued`. The execution target uses the state and URL returned
+by persistence, including typed review feedback. Dry runs use the original
+selection without invoking the clock or writing. Empty selection counts the
+entire inspected inventory. Listing, persistence, and target-conversion failures
+propagate without alternate selection or retries.
+
+Claimed queued revisions remain excluded by existing eligibility. Otherwise
+eligible approved records are not excluded solely because they carry a claim;
+this extraction preserves that existing rule. Source priorities remain a
+promotion concern and are not added to intake ranking. The coordinator adds no
+provider reads or atomicity guarantees.
+
+The shared runner verifies the linked revision after intake and before branch
+checkout, repository context construction, or model calls, then prepares the
+explicit revision execution target. V1 does not claim provider-bound
+compare-and-set behavior; stronger atomic claims remain deferred to the
+corresponding roadmap work.
 Revision claims persist existing claim metadata so stale-claim recovery can
 return an abandoned revision to `review_feedback_required`, never `approved`.
 

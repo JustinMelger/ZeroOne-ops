@@ -8,20 +8,14 @@ from datetime import datetime
 
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.remediation import RemediationExecutionTarget
+from zeroone_ops.models.remediation_intake import RemediationIntakeRecord
 from zeroone_ops.models.state import utc_now
-from zeroone_ops.models.work_item import WorkItemClaim, WorkItemState
-from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
-    GitHubWorkItemLookupResult,
-)
+from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
 )
-from zeroone_ops.services.control_plane.work_items.remediation_work_item_selection_service import (
-    is_remediation_execution_eligible,
-    remediation_execution_selection_key,
-)
-from zeroone_ops.services.remediation.remediation_execution_adapter import (
-    control_plane_work_item_to_execution_target,
+from zeroone_ops.services.control_plane.work_items.remediation_intake_coordinator import (
+    RemediationIntakeCoordinator,
 )
 
 
@@ -58,70 +52,44 @@ class GitHubRemediationIntakeService:
     ) -> GitHubRemediationIntakeResult:
         """Select the next eligible item and claim it when persistence is enabled."""
         work_items = self.work_item_service.list_open_work_items(repository_id=repository_id)
-        candidates = [
-            candidate
-            for result in work_items
-            if (candidate := self._candidate_from(result)) is not None
-        ]
-        if not candidates:
-            return GitHubRemediationIntakeResult(
-                selected_target=None,
-                claimed_work_item=None,
-                issue=None,
-                item_count=len(work_items),
-                message="No eligible approved GitHub remediation work items were found.",
-            )
+        issues = {result.issue.number: result.issue for result in work_items}
 
-        selected = min(candidates, key=self._selection_key)
-        if not persist:
-            return GitHubRemediationIntakeResult(
-                selected_target=control_plane_work_item_to_execution_target(
-                    selected.work_item,
-                    work_item_url=selected.issue.web_url,
-                ),
-                claimed_work_item=selected.work_item,
-                issue=selected.issue,
-                item_count=len(work_items),
-                message="",
+        def persist_claim(work_item: WorkItemState) -> RemediationIntakeRecord:
+            claimed = self.work_item_service.upsert_work_item(
+                repository_id=repository_id, work_item=work_item
             )
-        claimed = self.work_item_service.upsert_work_item(
-            repository_id=repository_id,
-            work_item=selected.work_item.model_copy(
-                update={
-                    "status": (
-                        "review_revision_queued"
-                        if selected.work_item.status == "review_revision_queued"
-                        else "in_progress"
-                    ),
-                    "claim": WorkItemClaim(claimed_at=self.clock(), run_id=run_id),
-                }
-            ),
+            issues[claimed.issue.number] = claimed.issue
+            return self._record_from(work_item=claimed.work_item, issue=claimed.issue)
+
+        outcome = RemediationIntakeCoordinator(clock=self.clock).select_and_claim(
+            records=[
+                self._record_from(work_item=result.work_item, issue=result.issue)
+                for result in work_items
+            ],
+            persist_work_item=persist_claim,
+            persist=persist,
+            run_id=run_id,
         )
+        selected = outcome.selected_record
         return GitHubRemediationIntakeResult(
-            selected_target=control_plane_work_item_to_execution_target(
-                claimed.work_item,
-                work_item_url=claimed.issue.web_url,
+            selected_target=outcome.selected_target,
+            claimed_work_item=selected.work_item if selected is not None else None,
+            issue=issues[selected.issue_number] if selected is not None else None,
+            item_count=outcome.item_count,
+            message=(
+                ""
+                if selected is not None
+                else "No eligible approved GitHub remediation work items were found."
             ),
-            claimed_work_item=claimed.work_item,
-            issue=claimed.issue,
-            item_count=len(work_items),
-            message="",
         )
 
-    def _candidate_from(
-        self,
-        result: GitHubWorkItemLookupResult,
-    ) -> GitHubWorkItemLookupResult | None:
-        """Return one execution-ready approved remediation record when eligible."""
-        return result if is_remediation_execution_eligible(result.work_item) else None
-
-    def _selection_key(
-        self,
-        result: GitHubWorkItemLookupResult,
-    ) -> tuple[int, int, datetime, int]:
-        """Return the stable priority order for eligible GitHub work items."""
-        return remediation_execution_selection_key(
-            result.work_item,
-            created_at=result.issue.created_at,
-            provider_issue_number=result.issue.number,
+    def _record_from(
+        self, *, work_item: WorkItemState, issue: GitHubIssueInfo
+    ) -> RemediationIntakeRecord:
+        """Normalize parsed state and GitHub issue metadata for shared intake."""
+        return RemediationIntakeRecord(
+            work_item=work_item,
+            issue_number=issue.number,
+            issue_url=issue.web_url,
+            created_at=issue.created_at,
         )
