@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from zeroone_ops.models.finding import NormalizedFinding
 from zeroone_ops.models.policy import PolicyState
-from zeroone_ops.models.work_item import WorkItemState, is_active_remediation_status
+from zeroone_ops.models.work_item import WorkItemKind, WorkItemState, is_active_remediation_status
 from zeroone_ops.services.intake.finding_workflow_policy_service import (
     FindingPromotionDecision,
     FindingWorkflowPolicyService,
@@ -49,6 +49,7 @@ class FindingPromotionCapacityService:
         repository_scope: str,
         max_active_work_items: int,
         source_priorities: Mapping[str, int] | None = None,
+        dismissed_identities: set[tuple[str, str, str | None, WorkItemKind]] | None = None,
     ) -> FindingPromotionCapacityPlan:
         """Return policy and capacity decisions for one complete finding inventory."""
         decisions = {
@@ -58,6 +59,22 @@ class FindingPromotionCapacityService:
             )
             for finding in findings
         }
+        suppressed = set(dismissed_identities or ())
+        suppressed.update(
+            work_item.identity_key
+            for work_item in open_work_items
+            if work_item.status == "dismissed"
+        )
+        for finding in findings:
+            if (
+                finding.source_id,
+                finding.finding_id,
+                repository_scope,
+                "remediation",
+            ) in suppressed:
+                decisions[(finding.source_id, finding.finding_id)] = FindingPromotionDecision(
+                    disposition="backlog_only", reason="dismissed"
+                )
         active_keys = {
             (work_item.source.source, work_item.source.source_item_key)
             for work_item in open_work_items

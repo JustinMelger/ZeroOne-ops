@@ -105,7 +105,10 @@ def test_upsert_creates_then_preserves_existing_merge_request_link() -> None:
     assert client.updated_issue is not None
 
 
-def test_upsert_returns_dismissed_tombstone_without_creating_a_new_issue() -> None:
+@pytest.mark.parametrize("stale_snapshot", [False, True])
+def test_upsert_returns_dismissed_tombstone_without_creating_a_new_issue(
+    stale_snapshot: bool,
+) -> None:
     dismissed = build_work_item(status="dismissed")
     client = FakeGitLabWorkItemClient()
     client.closed_issues = [
@@ -124,7 +127,11 @@ def test_upsert_returns_dismissed_tombstone_without_creating_a_new_issue() -> No
         lookup_service=GitLabWorkItemLookupService(client),  # type: ignore[arg-type]
     )
 
-    result = service.upsert_work_item(project_id="group/project", work_item=build_work_item())
+    result = service.upsert_work_item(
+        project_id="group/project",
+        work_item=build_work_item(),
+        dismissed_inventory=[] if stale_snapshot else None,
+    )
 
     assert result.action == "suppressed"
     assert result.work_item.status == "dismissed"

@@ -50,11 +50,13 @@ class GitHubWorkItemService:
         *,
         repository_id: str,
         work_item: WorkItemState,
+        dismissed_inventory: list[GitHubWorkItemLookupResult] | None = None,
     ) -> GitHubWorkItemUpsertResult:
         """Create or update the authoritative open issue for one work item."""
         return self.upsert_service.upsert_work_item(
             repository_id=repository_id,
             work_item=work_item,
+            dismissed_inventory=dismissed_inventory,
         )
 
     def find_open_work_item_by_source(
@@ -139,6 +141,12 @@ class GitHubWorkItemService:
         return self.lookup_service.list_closed_policy_deferred_work_items(
             repository_id=repository_id
         )
+
+    def list_closed_dismissed_work_items(
+        self, *, repository_id: str
+    ) -> list[GitHubWorkItemLookupResult]:
+        """Return authoritative closed dismissal inventory for promotion planning."""
+        return self.lookup_service.list_closed_dismissed_work_items(repository_id=repository_id)
 
     def list_closed_capacity_deferred_work_items(
         self, *, repository_id: str

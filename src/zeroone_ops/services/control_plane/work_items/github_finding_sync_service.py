@@ -122,6 +122,9 @@ class GitHubFindingSyncService:
                 repository_id=repository_id
             )
         )
+        dismissed_work_items = self.work_item_service.list_closed_dismissed_work_items(
+            repository_id=repository_id
+        )
         deferred_work_items = [*deferred_work_items, *capacity_deferred_work_items]
         existing_by_identity: dict[
             tuple[str, str, str | None, WorkItemKind], GitHubWorkItemLookupResult
@@ -164,6 +167,7 @@ class GitHubFindingSyncService:
             repository_scope=repository_id,
             max_active_work_items=max_active_work_items,
             source_priorities=source_priorities,
+            dismissed_identities={result.work_item.identity_key for result in dismissed_work_items},
         )
         for finding in findings:
             normalized_severity_counts[finding.severity] += 1
@@ -186,6 +190,10 @@ class GitHubFindingSyncService:
                 )
                 backlog_only_count += 1
                 backlog_reason_counts["work_item_identity_ambiguous"] += 1
+                continue
+            if decision.reason == "dismissed":
+                backlog_only_count += 1
+                backlog_reason_counts["dismissed"] += 1
                 continue
             existing_or_deferred = existing or deferred
             policy_decision = self.workflow_policy_service.decide_promotion(
@@ -327,9 +335,14 @@ class GitHubFindingSyncService:
                 else self.work_item_service.upsert_work_item(
                     repository_id=repository_id,
                     work_item=work_item,
+                    dismissed_inventory=dismissed_work_items,
                 )
             )
-            if result.action == "created":
+            if result.action == "suppressed":
+                promoted_count -= 1
+                backlog_only_count += 1
+                backlog_reason_counts["dismissed"] += 1
+            elif result.action == "created":
                 created_count += 1
             elif result.action == "updated":
                 updated_count += 1

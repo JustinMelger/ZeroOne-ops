@@ -5,6 +5,20 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.59.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.58.0...zeroone-ops-v0.59.0) (2026-09-30)
+
+
+### Features
+
+* **remediation:** review feedback workflow ([#397](https://github.com/JustinMelger/ZeroOne-ops/issues/397)) ([2272daa](https://github.com/JustinMelger/ZeroOne-ops/commit/2272daa2ac2bf57f160aa6a3cf5b16c6fb848a97))
+
+
+### Bug Fixes
+
+* **deps:** update dependency mako to &gt;=1.4.3 ([#439](https://github.com/JustinMelger/ZeroOne-ops/issues/439)) ([3f9e91f](https://github.com/JustinMelger/ZeroOne-ops/commit/3f9e91fbacd0c50f32f2ddce643bc85577af28ee))
+* **deps:** update python dependencies ([#433](https://github.com/JustinMelger/ZeroOne-ops/issues/433)) ([4cc5d6d](https://github.com/JustinMelger/ZeroOne-ops/commit/4cc5d6d04091b23da3309a741b2a5bd9f0b16342))
+* issue intake count ([#425](https://github.com/JustinMelger/ZeroOne-ops/issues/425)) ([b51f395](https://github.com/JustinMelger/ZeroOne-ops/commit/b51f395a22735ef10a4eaf4d137097bdccaaffee))
+
 ## [0.58.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.57.0...zeroone-ops-v0.58.0) (2026-09-14)
 
 

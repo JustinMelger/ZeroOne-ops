@@ -1,6 +1,14 @@
 from pathlib import Path
 
+import httpx
+
+from zeroone_ops.models.config import SonarQubeConnectionConfig
+from zeroone_ops.models.policy import PolicySeverityStateEntry, PolicyState
 from zeroone_ops.models.sonar import SonarIssue
+from zeroone_ops.providers.sonar_client import SonarClient
+from zeroone_ops.services.intake.finding_promotion_capacity_service import (
+    FindingPromotionCapacityService,
+)
 from zeroone_ops.services.intake.sonar_finding_source import (
     SonarFindingSource,
     sonar_issue_to_normalized_finding,
@@ -82,3 +90,51 @@ def test_collect_fixture_findings_sets_artifact_reference(tmp_path: Path) -> Non
     assert result.collection.metadata.artifact_reference == str(fixture)
     assert result.collection.metadata.managed_source_ids == ["sonarqube"]
     assert result.collection.findings[0].finding_id == "AX123"
+
+
+def test_promotion_can_select_an_eligible_finding_beyond_page_one() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        page = int(request.url.params["p"])
+        return httpx.Response(
+            200,
+            json={
+                "paging": {"pageIndex": page, "pageSize": 1, "total": 2},
+                "issues": [
+                    {
+                        "key": str(page),
+                        "rule": "python:S1125",
+                        "type": "CODE_SMELL",
+                        "severity": "MINOR" if page == 1 else "CRITICAL",
+                        "status": "OPEN",
+                        "message": "Simplify comparison.",
+                        "component": "sample-project:src/service.py",
+                        "project": "sample-project",
+                    }
+                ],
+            },
+        )
+
+    client = SonarClient(
+        SonarQubeConnectionConfig(
+            url="https://sonarqube.example.com",
+            token="token",
+            project_key="sample-project",
+            page_size=1,
+        ),
+        http_client=httpx.Client(
+            base_url="https://sonarqube.example.com", transport=httpx.MockTransport(handler)
+        ),
+    )
+    collection = SonarFindingSource(client).collect_open_findings().collection
+    plan = FindingPromotionCapacityService().plan(
+        findings=collection.findings,
+        policy_state=PolicyState(
+            severity_policy=[PolicySeverityStateEntry(severity="high", enabled=True)]
+        ),
+        open_work_items=[],
+        repository_scope="org/repo",
+        max_active_work_items=1,
+    )
+    assert collection.metadata.managed_source_ids == ["sonarqube"]
+    assert plan.decision_for(collection.findings[0]).reason == "severity_disabled"
+    assert plan.decision_for(collection.findings[1]).disposition == "promote"

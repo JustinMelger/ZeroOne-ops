@@ -38,10 +38,16 @@ class GitLabWorkItemService:
         )
 
     def upsert_work_item(
-        self, *, project_id: str, work_item: WorkItemState
+        self,
+        *,
+        project_id: str,
+        work_item: WorkItemState,
+        dismissed_inventory: list[GitLabWorkItemLookupResult] | None = None,
     ) -> GitLabWorkItemUpsertResult:
         """Create or update one authoritative open GitLab work-item issue."""
-        return self.upsert_service.upsert_work_item(project_id=project_id, work_item=work_item)
+        return self.upsert_service.upsert_work_item(
+            project_id=project_id, work_item=work_item, dismissed_inventory=dismissed_inventory
+        )
 
     def find_open_work_item_by_source(
         self, *, project_id: str, kind: WorkItemKind, source: WorkItemSourceRef
@@ -103,6 +109,12 @@ class GitLabWorkItemService:
     ) -> list[GitLabWorkItemLookupResult]:
         """Return closed work items deferred by the current policy."""
         return self.lookup_service.list_closed_policy_deferred_work_items(project_id=project_id)
+
+    def list_closed_dismissed_work_items(
+        self, *, project_id: str
+    ) -> list[GitLabWorkItemLookupResult]:
+        """Return authoritative closed dismissal inventory for promotion planning."""
+        return self.lookup_service.list_closed_dismissed_work_items(project_id=project_id)
 
     def list_closed_capacity_deferred_work_items(
         self, *, project_id: str

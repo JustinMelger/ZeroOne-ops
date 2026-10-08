@@ -1,3 +1,5 @@
+import pytest
+
 from zeroone_ops.models.dashboard import (
     DashboardPolicyState,
     DashboardSeverityPolicyStateEntry,
@@ -198,3 +200,40 @@ def test_plan_counts_duplicate_active_records_against_capacity() -> None:
 
     assert plan.active_work_item_count == 2
     assert plan.decision_for(new_finding).reason == "promotion_capacity_exhausted"
+
+
+@pytest.mark.parametrize("closed", [False, True])
+def test_dismissal_is_excluded_before_capacity_selection(closed: bool) -> None:
+    dismissed = _work_item(finding_id="a", status="dismissed")
+    first = _finding(finding_id="a")
+    second = _finding(finding_id="b", severity="medium")
+    plan = FindingPromotionCapacityService().plan(
+        findings=[first, second],
+        policy_state=_policy_state(),
+        open_work_items=[] if closed else [dismissed],
+        dismissed_identities={dismissed.identity_key} if closed else set(),
+        repository_scope="octo-org/octo-repo",
+        max_active_work_items=1,
+    )
+    assert plan.decision_for(first).reason == "dismissed"
+    assert plan.decision_for(second).disposition == "promote"
+
+
+@pytest.mark.parametrize(
+    "identity",
+    [
+        ("ruff", "a", "other/repo", "remediation"),
+        ("other-source", "a", "octo-org/octo-repo", "remediation"),
+    ],
+)
+def test_dismissal_does_not_cross_identity_boundaries(identity: tuple) -> None:
+    finding = _finding(finding_id="a")
+    plan = FindingPromotionCapacityService().plan(
+        findings=[finding],
+        policy_state=_policy_state(),
+        open_work_items=[],
+        dismissed_identities={identity},
+        repository_scope="octo-org/octo-repo",
+        max_active_work_items=1,
+    )
+    assert plan.decision_for(finding).disposition == "promote"

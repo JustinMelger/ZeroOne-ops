@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.work_item import (
     ChangeRequestRef,
@@ -41,7 +43,8 @@ def test_upsert_creates_when_identity_is_missing() -> None:
     assert client.created_issue.title == "ZeroOne Ops: Remediate Sonar issue AX123 in api.py"
 
 
-def test_upsert_suppresses_a_matching_closed_dismissed_work_item() -> None:
+@pytest.mark.parametrize("stale_snapshot", [False, True])
+def test_upsert_suppresses_a_matching_closed_dismissed_work_item(stale_snapshot: bool) -> None:
     dismissed = build_work_item(status="dismissed")
     renderer = GitHubWorkItemRenderer()
     client = FakeGitHubWorkItemClient()
@@ -62,6 +65,7 @@ def test_upsert_suppresses_a_matching_closed_dismissed_work_item() -> None:
     result = service.upsert_work_item(
         repository_id="octo-org/octo-repo",
         work_item=build_work_item(),
+        dismissed_inventory=[] if stale_snapshot else None,
     )
 
     assert result.action == "suppressed"

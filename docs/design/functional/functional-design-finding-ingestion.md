@@ -1,5 +1,17 @@
 # ZeroOne Ops Finding Ingestion Functional Design
 
+## Reliable Promotion Inventory
+
+Dismissed identities remain suppressed before capacity selection, whether their
+provider issues are open or closed. Suppression is repository- and source-scoped,
+and appears as the aggregate backlog reason `dismissed`, not as promoted work.
+
+Live SonarQube intake collects every page before promotion. If any page fails or
+the inventory is inconsistent, discard that source's partial results and warn;
+continue available sources. An unavailable source never proves that an existing
+finding has disappeared and does not release its active-work capacity. Pagination
+is not an atomic scanner snapshot.
+
 ## 1. Scope
 
 This document defines the product-facing design for moving ZeroOne Ops from a

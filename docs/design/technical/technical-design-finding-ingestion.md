@@ -1,5 +1,39 @@
 # ZeroOne Ops Finding Ingestion Technical Design
 
+## Dismissal-Aware Capacity
+
+Issue-mode sync loads indexed closed dismissals once, alongside open and deferred
+records. Parsed machine state determines dismissal. The shared planner suppresses
+matching kind, repository, source, and finding identities before capacity ranking,
+including open dismissals. Aggregate backlog observations use `dismissed`.
+Upserts may suppress creation from a matching dismissal in this inventory. A
+snapshot without a match is not authority to create: immediately before creation,
+upserts recheck indexed closed dismissals and verify their machine state.
+Standalone upserts perform the same live lookup. A newly observed dismissal is
+reported as dismissed backlog without same-run capacity backfill. The final
+read/create sequence is not atomic; concurrent changes can still require a later
+sync, and unused capacity is reconsidered on the next sync.
+
+## Complete SonarQube Collection
+
+The SonarQube provider fetches successive issue-search pages using the configured
+transport page size. It verifies page progression, page size, stable totals,
+expected page lengths, and unique issue keys before returning the inventory.
+Promotion capacity never limits collection. Missing or inconsistent pagination,
+transport failures, malformed responses, and server result limits fail the whole
+source collection through `SonarClientError`; no partial inventory is returned.
+
+Intake catches that failure, records a bounded unavailable-source warning, and
+continues other sources. The unavailable SonarQube collection contains no findings
+and grants no managed-inventory ownership. Existing SonarQube work is consequently
+not inferred missing, and active work continues consuming capacity. Fixture
+collection remains unchanged.
+
+Pagination is not an atomic scanner snapshot. Stable totals and unique keys detect
+some concurrent scan changes, not all; a later sync reconciles subsequent results.
+Logging includes page/finding counts and error type, never raw responses or
+credentials.
+
 ## 1. Scope
 
 This document defines the technical design direction for moving ZeroOne Ops

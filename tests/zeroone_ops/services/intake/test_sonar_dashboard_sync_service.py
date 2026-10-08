@@ -1,7 +1,8 @@
+import json
 import logging
 from pathlib import Path
 
-from pytest import LogCaptureFixture
+from pytest import LogCaptureFixture, MonkeyPatch
 
 from zeroone_ops.models.config import (
     AnalysisConfig,
@@ -22,6 +23,7 @@ from zeroone_ops.models.finding import (
     NormalizedFinding,
 )
 from zeroone_ops.models.sonar import SonarIssue
+from zeroone_ops.providers.sonar_client import SonarClientError
 from zeroone_ops.services.intake.finding_dashboard_sync_service import (
     FindingDashboardSyncService,
 )
@@ -32,6 +34,70 @@ from zeroone_ops.services.intake.sonar_finding_source import sonar_issue_to_norm
 class FakeDashboardDocument:
     def __init__(self, issue_url: str) -> None:
         self.issue_url = issue_url
+
+
+def test_unavailable_sonar_discards_source_and_continues_sarif(
+    tmp_path: Path, monkeypatch: MonkeyPatch, caplog: LogCaptureFixture
+) -> None:
+    monkeypatch.setenv("SONARQUBE_URL", "https://sonarqube.example.com")
+    monkeypatch.setenv("SONARQUBE_TOKEN", "secret")
+    monkeypatch.setenv("SONARQUBE_PROJECT_KEY", "sample-project")
+
+    def fail_collection(self: object) -> list[SonarIssue]:
+        raise SonarClientError("secret response content")
+
+    monkeypatch.setattr(
+        "zeroone_ops.providers.sonar_client.SonarClient.search_open_issues", fail_collection
+    )
+    (tmp_path / "service.py").write_text("flag = True\n", encoding="utf-8")
+    artifact = tmp_path / "ruff.sarif"
+    artifact.write_text(
+        json.dumps(
+            {
+                "runs": [
+                    {
+                        "tool": {"driver": {"name": "Ruff"}},
+                        "results": [
+                            {
+                                "ruleId": "E712",
+                                "level": "warning",
+                                "message": {"text": "Simplify comparison."},
+                                "locations": [
+                                    {
+                                        "physicalLocation": {
+                                            "artifactLocation": {"uri": "service.py"},
+                                            "region": {"startLine": 1},
+                                        }
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    config = AppConfig(
+        base_branch="main",
+        gitlab=GitLabConfig(target_branch="main"),
+        sarif=SarifConfig(artifacts=[SarifArtifactConfig(path=artifact, source_id="ruff-sarif")]),
+    )
+    collection = (
+        IssueIntakeService(tmp_path, config)
+        .collect_dashboard_sync_issues(dry_run=False, run_id="failed-sonar")
+        .finding_collection
+    )
+
+    assert len(collection.findings) == 1
+    assert collection.findings[0].source_id == "ruff-sarif"
+    assert collection.metadata.managed_source_ids == ["ruff-sarif"]
+    assert collection.metadata.input_collections[0].source_id == "sonarqube"
+    assert collection.metadata.input_collections[0].managed_source_ids == []
+    assert collection.metadata.statistics["unavailable_sources"] == 1
+    assert len(collection.metadata.warnings) == 1
+    assert "SonarQube inventory unavailable" in caplog.text
+    assert "secret" not in caplog.text
 
 
 class FakeDashboardService:
