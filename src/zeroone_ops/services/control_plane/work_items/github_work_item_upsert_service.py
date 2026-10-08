@@ -18,6 +18,9 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_parser impor
 from zeroone_ops.services.control_plane.work_items.github_work_item_renderer import (
     GitHubWorkItemRenderer,
 )
+from zeroone_ops.services.control_plane.work_items.work_item_state_merge import (
+    merge_authoritative_work_item_state,
+)
 
 
 @dataclass(frozen=True)
@@ -177,55 +180,11 @@ class GitHubWorkItemUpsertService:
         parsed = self.parser.parse_work_item_state(existing_issue.body)
         if parsed is None:
             return work_item
-        update: dict[str, object] = {"work_item_id": parsed.work_item_id}
-        if (
-            "linked_change_request" not in work_item.model_fields_set
-            and work_item.linked_change_request is None
-            and parsed.linked_change_request is not None
-        ):
-            update["linked_change_request"] = parsed.linked_change_request
-        if (
-            "projected_review" not in work_item.model_fields_set
-            and work_item.projected_review is None
-            and parsed.projected_review is not None
-        ):
-            update["projected_review"] = parsed.projected_review
-        if (
-            "publication_retry" not in work_item.model_fields_set
-            and work_item.publication_retry is None
-            and parsed.publication_retry is not None
-        ):
-            update["publication_retry"] = parsed.publication_retry
-        if (
-            "execution_failure" not in work_item.model_fields_set
-            and work_item.execution_failure is None
-            and parsed.execution_failure is not None
-        ):
-            update["execution_failure"] = parsed.execution_failure
-        if (
-            "policy_deferral" not in work_item.model_fields_set
-            and work_item.policy_deferral is None
-            and parsed.policy_deferral is not None
-        ):
-            update["policy_deferral"] = parsed.policy_deferral
-        if (
-            "capacity_deferral" not in work_item.model_fields_set
-            and work_item.capacity_deferral is None
-            and parsed.capacity_deferral is not None
-        ):
-            update["capacity_deferral"] = parsed.capacity_deferral
-        if "attempt_number" not in work_item.model_fields_set:
-            update["attempt_number"] = parsed.attempt_number
-        if "recovery_events" not in work_item.model_fields_set:
-            update["recovery_events"] = parsed.recovery_events
-        if "last_revision_command" not in work_item.model_fields_set:
-            update["last_revision_command"] = parsed.last_revision_command
-        if "review_action_required_at" not in work_item.model_fields_set:
-            update["review_action_required_at"] = parsed.review_action_required_at
-        if (
-            "resolution" not in work_item.model_fields_set
-            and work_item.resolution is None
-            and parsed.resolution is not None
-        ):
-            update["resolution"] = parsed.resolution
-        return work_item.model_copy(update=update)
+        merged = merge_authoritative_work_item_state(parsed, work_item)
+        # Retain GitHub's supplied-field metadata for empty revision history.
+        empty_revision_fields = {
+            field_name: None
+            for field_name in ("last_revision_command", "review_action_required_at")
+            if field_name not in work_item.model_fields_set and getattr(parsed, field_name) is None
+        }
+        return merged.model_copy(update=empty_revision_fields)

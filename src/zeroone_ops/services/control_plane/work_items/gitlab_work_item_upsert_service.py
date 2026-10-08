@@ -18,6 +18,9 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_parser impor
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_renderer import (
     GitLabWorkItemRenderer,
 )
+from zeroone_ops.services.control_plane.work_items.work_item_state_merge import (
+    merge_authoritative_work_item_state,
+)
 
 
 @dataclass(frozen=True)
@@ -165,23 +168,4 @@ class GitLabWorkItemUpsertService:
         parsed = self.parser.parse_work_item_state(existing.issue.description)
         if parsed is None:
             return work_item
-        update: dict[str, object] = {"work_item_id": parsed.work_item_id}
-        for field_name in (
-            "linked_change_request",
-            "projected_review",
-            "last_revision_command",
-            "review_action_required_at",
-            "publication_retry",
-            "execution_failure",
-            "policy_deferral",
-            "capacity_deferral",
-            "resolution",
-        ):
-            existing_value = getattr(parsed, field_name)
-            if field_name not in work_item.model_fields_set and existing_value is not None:
-                update[field_name] = existing_value
-        if "attempt_number" not in work_item.model_fields_set:
-            update["attempt_number"] = parsed.attempt_number
-        if "recovery_events" not in work_item.model_fields_set:
-            update["recovery_events"] = parsed.recovery_events
-        return work_item.model_copy(update=update)
+        return merge_authoritative_work_item_state(parsed, work_item)

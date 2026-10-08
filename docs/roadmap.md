@@ -14,6 +14,10 @@ history, not here.
 
 ## Implemented
 
+- provider-neutral authoritative work-item state merging and finding-sync result,
+  with provider compatibility imports and existing omission/clearing semantics
+  preserved
+
 - source-focused daily finding dogfood with explicit manual test MyPy publication
   under a separate namespace and scanner-failure gating before finding sync
 
@@ -116,6 +120,15 @@ history, not here.
 - live-validated same-SHA review-projection repair after a recoverable warning
 
 ## Current Focus
+
+### Control-Plane Cleanup
+
+- [ ] extract shared remediation intake orchestration while retaining
+  provider-local listing, claims, and request lookup
+- [ ] extract shared finding-sync orchestration with normalized provider adapters
+  and unchanged reconciliation, warning, and dry-run contracts
+- [ ] reassess recovery-command duplication after these extractions, preserving
+  provider-local discovery and authorization
 
 ### V1 Release Readiness
 
