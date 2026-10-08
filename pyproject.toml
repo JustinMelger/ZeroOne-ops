@@ -5,14 +5,14 @@ description = "Governed OpenAI-assisted pipeline agents for GitLab and GitHub."
 readme = "README.md"
 requires-python = "==3.13.*"
 dependencies = [
-  "gitpython>=3.1.62",
+  "gitpython>=3.2.0",
   "httpx>=0.28.1",
   "mako>=1.4.3",
   "markdown-it-py>=4.2.0",
   "mlflow-tracing>=3.16.1",
   "openai>=2.52.0",
   "pydantic>=2.13.5",
-  "python-dotenv>=1.2.3",
+  "python-dotenv>=1.2.4",
   "typer>=0.27.2",
   "urllib3==2.8.0",
 ]
