@@ -14,6 +14,9 @@ history, not here.
 
 ## Implemented
 
+- source-focused daily finding dogfood with explicit manual test MyPy publication
+  under a separate namespace and scanner-failure gating before finding sync
+
 - shared policy presentation and bootstrap extracted from legacy dashboard
   dependencies; GitHub/GitLab issue policy uses neutral models and a pure builder,
   while dashboard runtime and compatibility remain supported

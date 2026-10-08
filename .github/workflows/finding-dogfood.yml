@@ -2,6 +2,11 @@ name: Finding Dogfood
 
 on:
   workflow_dispatch:
+    inputs:
+      include_test_findings:
+        description: "Publish test MyPy findings as real work items sharing remediation capacity"
+        type: boolean
+        default: false
   schedule:
     # Feed the daily lifecycle and remediation runs with current findings.
     - cron: "0 7 * * *"
@@ -13,6 +18,7 @@ concurrency:
 
 jobs:
   finding-sarif:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -22,10 +28,13 @@ jobs:
       ZEROONE_OPS_CONFIG: .zeroone-ops.json
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GITHUB_REPOSITORY: ${{ github.repository }}
+      INCLUDE_TEST_FINDINGS: ${{ github.event_name == 'workflow_dispatch' && inputs.include_test_findings || false }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.2.0
@@ -40,56 +49,77 @@ jobs:
       - name: Sync dependencies
         run: uv sync --all-groups
 
-      - name: Emit MyPy SARIF artifact for tests
+      - name: Prepare optional test configuration
+        if: github.event_name == 'workflow_dispatch' && inputs.include_test_findings
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          config = json.loads(Path(os.environ["ZEROONE_OPS_CONFIG"]).read_text())
+          config["sarif"]["artifacts"].append({
+              "path": "artifacts/mypy-tests.sarif",
+              "source_id": "mypy-tests-sarif",
+              "severity_mapping": {"default": "medium"},
+          })
+          destination = Path(os.environ["RUNNER_TEMP"]) / "zeroone-dogfood.json"
+          destination.write_text(json.dumps(config), encoding="utf-8")
+          with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as environment:
+              environment.write(f"ZEROONE_OPS_CONFIG={destination}\n")
+          PY
+
+      - name: Emit MyPy SARIF artifacts
         run: |
           mkdir -p artifacts
-          set +e
-          uv run mypy --output json tests > artifacts/mypy.json
-          result=$?
-          uv run python examples/mypy_to_sarif.py artifacts/mypy.json artifacts/mypy.sarif
-          echo "mypy_exit_code=$result" >> "$GITHUB_OUTPUT"
-          exit 0
+          targets=(src)
+          if [ "$INCLUDE_TEST_FINDINGS" = "true" ]; then targets+=(tests); fi
+          for target in "${targets[@]}"; do
+            artifact=mypy
+            if [ "$target" = "tests" ]; then artifact=mypy-tests; fi
+            result=0
+            uv run mypy --output json "$target" > "artifacts/$artifact.json" || result=$?
+            echo "MyPy ($target) exited with status $result."
+            if [ "$result" -ne 0 ] && [ "$result" -ne 1 ]; then exit "$result"; fi
+            uv run python examples/mypy_to_sarif.py "artifacts/$artifact.json" "artifacts/$artifact.sarif"
+            test -s "artifacts/$artifact.sarif"
+          done
         id: emit_mypy_sarif
 
-      - name: Emit focused Ruff SARIF artifact
+      - name: Emit Ruff SARIF artifact for source code
         run: |
-          set +e
-          uv run ruff check \
-            src/zeroone_ops/services/review/pipeline/review_candidate_generation_service.py \
-            src/zeroone_ops/services/review/publish/review_publisher.py \
-            --isolated \
-            --select SIM103,SIM114 \
+          result=0
+          uv run ruff check src \
             --output-format sarif \
-            --output-file artifacts/ruff.sarif
-          result=$?
-          echo "ruff_exit_code=$result" >> "$GITHUB_OUTPUT"
-          exit 0
+            --output-file artifacts/ruff.sarif || result=$?
+          echo "Ruff exited with status $result."
+          if [ "$result" -ne 0 ] && [ "$result" -ne 1 ]; then exit "$result"; fi
+          test -s artifacts/ruff.sarif
         id: emit_ruff_sarif
 
       - name: Emit Semgrep SARIF artifact for source code
         run: |
-          set +e
+          result=0
           uvx --from semgrep==1.173.0 semgrep scan \
             --config auto \
             --sarif \
             --output artifacts/semgrep.sarif \
-            src
-          result=$?
-          echo "semgrep_exit_code=$result" >> "$GITHUB_OUTPUT"
-          exit 0
+            src || result=$?
+          echo "Semgrep exited with status $result."
+          if [ "$result" -ne 0 ]; then exit "$result"; fi
+          test -s artifacts/semgrep.sarif
         id: emit_semgrep_sarif
 
       - name: Upload finding SARIF artifacts
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: finding-sarif
-          path: artifacts/*.sarif
+          path: |
+            artifacts/*.sarif
+            artifacts/mypy*.json
+          if-no-files-found: warn
 
       - name: Publish promoted GitHub findings
+        if: success()
         run: uv run zeroone-ops findings sync
-
-      - name: Report finding source signals
-        run: |
-          echo "MyPy JSON generation completed with exit code ${{ steps.emit_mypy_sarif.outputs.mypy_exit_code }}."
-          echo "Ruff SARIF generation completed with exit code ${{ steps.emit_ruff_sarif.outputs.ruff_exit_code }}."
-          echo "Semgrep SARIF generation completed with exit code ${{ steps.emit_semgrep_sarif.outputs.semgrep_exit_code }}."
