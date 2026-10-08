@@ -65,6 +65,46 @@ model layer, with the existing fields, ordering, and defaults. The old
 This result reports decisions and counters; it does not own reconciliation or
 provider projection.
 
+## Shared Finding-Sync Composition
+
+Both issue-mode sync services delegate to `FindingSyncCoordinator`. The
+coordinator consumes frozen `FindingSyncRecord` snapshots and a
+`FindingSyncInventory` through a narrow `FindingSyncStorage` protocol. It owns
+identity indexing and ambiguity handling, policy/capacity decision sequencing,
+state construction, guarded projection ordering, stale reconciliation, and
+aggregate `FindingSyncResult` counters. The protocol is specific to finding
+sync, not a generic control-plane provider abstraction.
+
+Provider-local adapters retain transport, repository/project argument mapping,
+native lookup snapshots, and actual persistence responses. Each normalized
+record retains its exact native snapshot, even after a later authoritative
+re-read of the same issue. Upsert still delegates the native dismissal inventory
+to the provider facade, preserving its final dismissal recheck and unchanged
+detection behavior. The coordinator receives the provider's logger and display
+label so warning wording and logger ownership remain compatible.
+
+The execution sequence remains: load open, closed policy-deferred, closed
+capacity-deferred, and closed dismissed inventories once; calculate projected
+capacity; process reported findings; then reconcile missing managed-source
+records. Capacity planning accounts for safe stale transitions before those
+writes occur. An open defer/completion transition re-reads authoritative state,
+updates machine state, then closes; reactivation reopens before the active
+state update. These operations are not atomic.
+
+Dry runs retain the same inventory reads and selection, with no writes or
+transition-counter simulation beyond existing behavior. Existing exception
+boundaries are preserved: initial inventory reads, guarded re-reads, ordinary
+promotion writes, and legacy demotion writes propagate failures; the existing
+defer/reactivation/completion projection blocks log caught failures and retain
+their current aggregate counts. In particular, an open capacity-deferral
+projection failure logs a warning without incrementing
+`projection_warning_count`; this extraction does not change that reporting
+limitation or add automatic closure retries.
+
+The coordinator does not execute remediation, interpret review commands, or
+reconcile linked PR/MR terminal outcomes. Legacy GitLab dashboard routing and
+intake remain outside this composition.
+
 ## Policy Reconciliation Flow
 
 1. Finding sync loads all open authoritative work items once.
