@@ -5,6 +5,13 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [0.59.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.59.0...zeroone-ops-v0.59.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* **deps:** update python dependencies ([#442](https://github.com/JustinMelger/ZeroOne-ops/issues/442)) ([1830152](https://github.com/JustinMelger/ZeroOne-ops/commit/183015274394f8d814efa6a84a59b2b1712f199c))
+
 ## [0.59.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.58.0...zeroone-ops-v0.59.0) (2026-09-30)
 
 
