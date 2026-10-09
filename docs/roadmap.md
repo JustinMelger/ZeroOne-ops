@@ -14,6 +14,10 @@ history, not here.
 
 ## Implemented
 
+- shared GitHub/GitLab post-authorization recovery command processing,
+  preserving provider-local discovery, authorization, replay semantics,
+  authoritative persistence sequencing, and dry-run simulation
+
 - shared GitHub/GitLab finding-sync orchestration with normalized storage
   adapters, preserving reconciliation order, warning behavior, and dry runs
 
@@ -126,11 +130,6 @@ history, not here.
 - live-validated same-SHA review-projection repair after a recoverable warning
 
 ## Current Focus
-
-### Control-Plane Cleanup
-
-- [ ] reassess recovery-command duplication after these extractions, preserving
-  provider-local discovery and authorization
 
 ### V1 Release Readiness
 

@@ -73,11 +73,43 @@ when its bounded current-workspace analysis proves no patch is needed. It must
 otherwise return the existing manual or blocked outcome rather than infer that
 the source finding disappeared.
 
-The recovery command adapter owns only authorization, command parsing, and the
-authoritative transition back to `approved`. It must not compose execution or
-publication dependencies. The normal remediation runner is the single owner of
-claiming approved work, selecting the recorded publication-retry path or fresh
-execution path, and projecting the final outcome.
+Issue-mode recovery adapters own discovery, authorization, normalization, and
+provider-local persistence. Shared command decisions own the authoritative
+transitions, including blocked-work recovery and review-feedback requeue. They
+must not compose execution or publication dependencies. The normal remediation
+runner is the single owner of claiming approved work, selecting the recorded
+publication-retry path or fresh execution path, and projecting the final outcome.
+
+### Shared Issue-Mode Command Processing
+
+`WorkItemRecoveryCoordinator` consumes frozen `AuthorizedWorkItemCommandEvent`
+records and returns a `WorkItemRecoveryOutcome`. GitHub filters comments to the
+requested triggering event before authorization; GitLab authorizes the notes
+supplied by its existing polling path. Neither discovery nor authorization moves
+into the coordinator. Public provider results retain their native issue objects
+and inventory/authorization counters.
+
+The coordinator sorts timezone-aware timestamps, then numeric event IDs, parses
+commands with the existing parser, and delegates transitions to
+`WorkItemCommandDecisionService`. Invalid or naive timestamps sort last and are
+rejected; an event at or before the latest accepted recovery event is stale.
+Recorded recovery references, queued revision requests, and durable revision
+receipts suppress replay. A matched replay remains matched without becoming
+accepted or rejected solely because it was replayed.
+
+Every accepted live command is persisted through a typed provider callback
+before processing the next event. The callback calls
+`update_existing_work_item` directly and retains the actual returned native
+issue and machine state. Subsequent decisions use that returned state. Dry runs
+advance only simulated state without writes or mutation of the supplied state.
+Persistence failures propagate and stop the remaining events. No extra reads,
+retries, upserts, or atomicity guarantees are introduced; legacy dashboard
+recovery remains separate.
+
+The extraction preserves the existing invalid-timestamp sorting sentinel,
+`datetime.max.astimezone()`. Its local-timezone conversion can overflow on some
+hosts; this discovered defect requires a separate behavior-fix decision, rather
+than being silently changed by the extraction.
 
 ## 5. Publication Retry
 
@@ -109,15 +141,17 @@ change requests for the current attempt only.
 
 ### 7.1 GitHub
 
-Add provider-local recovery comment intake under
-`services/control_plane/work_items/`. It should:
+Provider-local recovery comment intake under
+`services/control_plane/work_items/` performs these steps:
 
-1. list comments for the authoritative work-item issue;
-2. authorize authors through the existing admin permission service;
-3. parse the GitHub command form;
-4. load the work-item machine state;
-5. invoke the shared decision service;
-6. upsert the state and refresh the optional operational summary.
+1. locate the authoritative open work item by issue number;
+2. list its comments and select only the requested triggering comment;
+3. authorize that comment through the existing permission service;
+4. normalize the authorized event and delegate shared command processing; and
+5. directly update the existing issue for each accepted live transition.
+
+The recovery workflow retains best-effort operational-summary refresh after
+successful non-dry-run recovery; the command coordinator does not publish it.
 
 The workflow trigger remains an `issue_comment` event filtered to work-item
 issues. The dedicated policy issue continues to process only policy commands.
@@ -131,6 +165,14 @@ suppression rather than reopening or duplicating the issue. Completed items do
 not use this suppression behavior.
 
 ### 7.2 GitLab
+
+Issue-mode recovery receives an authoritative work-item lookup, lists issue
+notes, and authorizes them through `GitLabPolicyNoteAuthorizationService`.
+It normalizes every authorized note and delegates shared command processing,
+retaining direct issue updates and actual returned native metadata locally.
+Scheduled polling and optional summary publication remain workflow-owned.
+
+Legacy dashboard compatibility remains separate:
 
 Add a dashboard recovery-note adapter beside dashboard policy processing. It
 should:

@@ -69,6 +69,17 @@ The command router delegates the same requeue spelling to this service only for
 `review_feedback_required`; it retains existing blocked-work recovery routing
 for `blocked` items and rejects every other status.
 
+Both issue-mode adapters delegate already-authorized normalized events to
+`WorkItemRecoveryCoordinator`. It shares timestamp/event-ID ordering, parsing,
+stale checks, recovery/queued/historical receipt suppression, transition
+sequencing, and counters. The router and existing decision services retain
+eligibility and state ownership. Each accepted live transition uses a direct
+provider update; the returned authoritative state informs the next decision.
+Dry runs simulate these transitions without persistence. GitHub's triggering
+comment selection and GitLab's scheduled note discovery, authorization, and
+native issue metadata remain provider-local. This extraction adds no reads,
+retries, or concurrency guarantees.
+
 Existing blocked-work recovery remains separate. It continues to own
 publication retry, fresh attempts, and dismissal. A linked open PR/MR with
 review feedback is never cleared or routed through `start_fresh`.
