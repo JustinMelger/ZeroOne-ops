@@ -59,15 +59,6 @@ SCOPE = "octo-org/octo-repo"
 EVENT_TIME = datetime(2026, 9, 1, 12, tzinfo=UTC)
 
 
-@pytest.fixture
-def invalid_timestamp_sentinel(monkeypatch):
-    """Control only the existing invalid-timestamp sentinel conversion."""
-    timestamps = Mock(wraps=datetime)
-    timestamps.max.astimezone.return_value = datetime.max.replace(tzinfo=UTC)
-    monkeypatch.setattr(work_item_recovery_coordinator, "datetime", timestamps)
-    return timestamps
-
-
 def _reference(provider, number=21):
     return f"github-comment-{number}" if provider == "github" else f"gitlab-note-{number}"
 
@@ -192,7 +183,7 @@ def _review_state():
         "review_requeue",
     ],
 )
-def test_provider_command_characterization(provider, persist, case, invalid_timestamp_sentinel):
+def test_provider_command_characterization(provider, persist, case):
     state = build_work_item(status="blocked")
     event = _event(provider)
     eligible = case != "policy_disabled"
@@ -468,7 +459,7 @@ def test_coordinator_orders_offset_timestamps_then_event_ids(persist):
     assert persistence.call_count == int(persist)
 
 
-def test_coordinator_invalid_timestamps_sort_last_and_are_rejected(invalid_timestamp_sentinel):
+def test_coordinator_invalid_timestamps_sort_last_and_are_rejected():
     persistence = Mock()
     result = _coordinator().process(
         work_item=build_work_item(status="blocked"),
@@ -485,17 +476,56 @@ def test_coordinator_invalid_timestamps_sort_last_and_are_rejected(invalid_times
     persistence.assert_not_called()
 
 
-def test_coordinator_preserves_existing_timestamp_sentinel_failure(invalid_timestamp_sentinel):
-    invalid_timestamp_sentinel.max.astimezone.side_effect = ValueError("year 10000 is out of range")
+@pytest.mark.parametrize("timestamp", [None, "invalid", "2026-09-01T12:00:00"])
+@pytest.mark.parametrize("persist", [False, True])
+def test_coordinator_invalid_timestamp_is_rejected_without_sorting_failure(timestamp, persist):
+    state = build_work_item(status="blocked")
     persistence = Mock()
-    with pytest.raises(ValueError, match="year 10000"):
-        _coordinator().process(
-            work_item=build_work_item(status="blocked"),
-            events=[_normalized_event(timestamp="invalid")],
-            policy_eligible=True,
-            persist=True,
-            persist_work_item=persistence,
-        )
+    result = _coordinator().process(
+        work_item=state,
+        events=[
+            AuthorizedWorkItemCommandEvent(
+                provider_event_id=21,
+                request_reference="event-21",
+                body="/zeroone remediation requeue",
+                actor="operator",
+                created_at=timestamp,
+            )
+        ],
+        policy_eligible=True,
+        persist=persist,
+        persist_work_item=persistence,
+    )
+    assert result.work_item is state
+    assert result.matched_command_count == result.rejected_command_count == 1
+    assert result.accepted_command_count == 0
+    persistence.assert_not_called()
+
+
+def test_coordinator_invalid_events_follow_extreme_valid_dates_in_event_id_order():
+    coordinator = _coordinator()
+    parser = Mock(wraps=coordinator.command_parser)
+    coordinator.command_parser = parser
+    persistence = Mock()
+    events = [
+        _normalized_event(number=23, body="invalid-23", timestamp="invalid"),
+        _normalized_event(number=21, body="last-valid", timestamp="9999-12-31T23:59:59-12:00"),
+        _normalized_event(number=20, body="first-valid", timestamp="0001-01-01T00:00:00+14:00"),
+        _normalized_event(number=22, body="invalid-22", timestamp="invalid"),
+    ]
+    coordinator.process(
+        work_item=build_work_item(status="blocked"),
+        events=events,
+        policy_eligible=True,
+        persist=True,
+        persist_work_item=persistence,
+    )
+    assert [call.args[0] for call in parser.parse.call_args_list] == [
+        "first-valid",
+        "last-valid",
+        "invalid-22",
+        "invalid-23",
+    ]
     persistence.assert_not_called()
 
 

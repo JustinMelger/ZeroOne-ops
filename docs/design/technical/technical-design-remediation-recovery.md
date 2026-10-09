@@ -106,10 +106,10 @@ Persistence failures propagate and stop the remaining events. No extra reads,
 retries, upserts, or atomicity guarantees are introduced; legacy dashboard
 recovery remains separate.
 
-The extraction preserves the existing invalid-timestamp sorting sentinel,
-`datetime.max.astimezone()`. Its local-timezone conversion can overflow on some
-hosts; this discovered defect requires a separate behavior-fix decision, rather
-than being silently changed by the extraction.
+Sorting uses an explicit validity discriminator before timestamp and event ID.
+Invalid, missing, and naive timestamps always follow valid timestamps and sort
+among themselves by event ID. No host-timezone conversion or maximum-date
+sentinel is used, so malformed timestamps cannot abort the batch during sorting.
 
 ## 5. Publication Retry
 

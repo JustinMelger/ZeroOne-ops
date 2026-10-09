@@ -1,7 +1,7 @@
 """Process already-authorized work-item events independently of providers."""
 
 from collections.abc import Callable, Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 
 from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.models.work_item_recovery import (
@@ -96,10 +96,14 @@ class WorkItemRecoveryCoordinator:
         )
 
 
-def _event_sort_key(event: AuthorizedWorkItemCommandEvent) -> tuple[datetime, int]:
-    """Retain the existing invalid-last timestamp and numeric event-ID ordering."""
+def _event_sort_key(event: AuthorizedWorkItemCommandEvent) -> tuple[bool, datetime, int]:
+    """Sort invalid timestamps last without converting through the host timezone."""
     timestamp = _parse_event_timestamp(event.created_at)
-    return (timestamp or datetime.max.astimezone(), event.provider_event_id)
+    return (
+        timestamp is None,
+        timestamp if timestamp is not None else datetime.min.replace(tzinfo=UTC),
+        event.provider_event_id,
+    )
 
 
 def _parse_event_timestamp(value: str | None) -> datetime | None:
