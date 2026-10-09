@@ -14,6 +14,9 @@ history, not here.
 
 ## Implemented
 
+- shared GitHub/GitLab finding-sync orchestration with normalized storage
+  adapters, preserving reconciliation order, warning behavior, and dry runs
+
 - shared GitHub/GitLab remediation intake coordination over normalized records,
   preserving selection, claims, dry runs, and provider-native result contracts
 
@@ -126,8 +129,6 @@ history, not here.
 
 ### Control-Plane Cleanup
 
-- [ ] extract shared finding-sync orchestration with normalized provider adapters
-  and unchanged reconciliation, warning, and dry-run contracts
 - [ ] reassess recovery-command duplication after these extractions, preserving
   provider-local discovery and authorization
 
