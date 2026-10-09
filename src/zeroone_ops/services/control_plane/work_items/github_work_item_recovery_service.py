@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Protocol
 
 from zeroone_ops.models.github import GitHubIssueComment, GitHubIssueInfo
 from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.models.work_item_recovery import AuthorizedWorkItemCommandEvent
 from zeroone_ops.services.control_plane.github_comment_authorization_service import (
     GitHubCommentAuthorizationService,
 )
@@ -19,6 +19,9 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_service impo
 )
 from zeroone_ops.services.control_plane.work_items.work_item_recovery_command_parser import (
     WorkItemRecoveryCommandParser,
+)
+from zeroone_ops.services.control_plane.work_items.work_item_recovery_coordinator import (
+    WorkItemRecoveryCoordinator,
 )
 from zeroone_ops.services.remediation.recovery.recovery_decision_service import (
     RecoveryDecisionService,
@@ -150,90 +153,40 @@ class GitHubWorkItemRecoveryService:
     ) -> GitHubWorkItemRecoveryProcessResult:
         """Apply ordered new commands without replaying recorded recovery events."""
         current = existing
-        matched_count = 0
-        accepted_count = 0
-        rejected_count = 0
-        processed_references = {
-            event.request_reference for event in current.work_item.recovery_events
-        }
-        if current.work_item.review_revision_request is not None:
-            processed_references.add(current.work_item.review_revision_request.request_reference)
-        if current.work_item.last_revision_command is not None:
-            processed_references.add(current.work_item.last_revision_command.request_reference)
-        for comment in sorted(comments, key=_comment_sort_key):
-            command = self.command_parser.parse(comment.body)
-            if not command.matched_prefix:
-                continue
-            matched_count += 1
-            reference = f"github-comment-{comment.id}"
-            if command.action is None or reference in processed_references:
-                rejected_count += command.action is None
-                continue
-            occurred_at = _parse_comment_timestamp(comment.created_at)
-            if occurred_at is None or _is_older_than_latest_event(current.work_item, occurred_at):
-                rejected_count += 1
-                continue
-            if comment.author_username is None:
-                rejected_count += 1
-                continue
-            decision = self.command_decision_service.decide(
-                work_item=current.work_item,
-                action=command.action,
-                actor=comment.author_username,
-                request_reference=reference,
-                occurred_at=occurred_at,
-                policy_eligible=policy_eligible,
+
+        def persist_transition(work_item: WorkItemState) -> WorkItemState:
+            nonlocal current
+            upsert = self.work_item_service.update_existing_work_item(
+                repository_id=repository_id, existing=current, work_item=work_item
             )
-            if not decision.accepted:
-                rejected_count += 1
-                continue
-            if persist:
-                upsert = self.work_item_service.update_existing_work_item(
-                    repository_id=repository_id,
-                    existing=current,
-                    work_item=decision.work_item,
+            current = GitHubWorkItemLookupResult(issue=upsert.issue, work_item=upsert.work_item)
+            return current.work_item
+
+        outcome = WorkItemRecoveryCoordinator(
+            command_parser=self.command_parser,
+            command_decision_service=self.command_decision_service,
+        ).process(
+            work_item=existing.work_item,
+            events=[
+                AuthorizedWorkItemCommandEvent(
+                    provider_event_id=comment.id,
+                    request_reference=f"github-comment-{comment.id}",
+                    body=comment.body,
+                    actor=comment.author_username,
+                    created_at=comment.created_at,
                 )
-                current = GitHubWorkItemLookupResult(
-                    issue=upsert.issue,
-                    work_item=upsert.work_item,
-                )
-            else:
-                current = GitHubWorkItemLookupResult(
-                    issue=current.issue,
-                    work_item=decision.work_item,
-                )
-            processed_references.add(reference)
-            accepted_count += 1
+                for comment in comments
+            ],
+            policy_eligible=policy_eligible,
+            persist=persist,
+            persist_work_item=persist_transition,
+        )
         return GitHubWorkItemRecoveryProcessResult(
             issue=current.issue,
-            work_item=current.work_item,
+            work_item=outcome.work_item,
             comment_count=comment_count,
             authorized_comment_count=authorized_comment_count,
-            matched_command_count=matched_count,
-            accepted_command_count=accepted_count,
-            rejected_command_count=rejected_count,
+            matched_command_count=outcome.matched_command_count,
+            accepted_command_count=outcome.accepted_command_count,
+            rejected_command_count=outcome.rejected_command_count,
         )
-
-
-def _comment_sort_key(comment: GitHubIssueComment) -> tuple[datetime, int]:
-    """Sort parseable timestamps before invalid ones while retaining stable comment order."""
-    timestamp = _parse_comment_timestamp(comment.created_at)
-    return (timestamp or datetime.max.astimezone(), comment.id)
-
-
-def _parse_comment_timestamp(value: str | None) -> datetime | None:
-    """Parse one GitHub comment timestamp only when it has an explicit timezone."""
-    if value is None:
-        return None
-    try:
-        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return timestamp if timestamp.tzinfo is not None else None
-
-
-def _is_older_than_latest_event(work_item: WorkItemState, occurred_at: datetime) -> bool:
-    """Reject comments that predate the last accepted recovery transition."""
-    if not work_item.recovery_events:
-        return False
-    return occurred_at <= work_item.recovery_events[-1].occurred_at
