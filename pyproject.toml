@@ -9,11 +9,11 @@ dependencies = [
   "httpx>=0.28.1",
   "mako>=1.4.3",
   "markdown-it-py>=4.2.0",
-  "mlflow-tracing>=3.16.1",
+  "mlflow-tracing>=3.17.0",
   "openai>=2.52.0",
-  "pydantic>=2.13.5",
+  "pydantic>=2.14.0",
   "python-dotenv>=1.2.4",
-  "typer>=0.27.2",
+  "typer>=0.27.3",
   "urllib3==2.8.0",
 ]
 
@@ -52,13 +52,13 @@ dev = [
   "bandit>=1.9.4",
   "import-linter>=2.15",
   "pre-commit>=4.6.2",
-  "mypy>=2.3.1",
+  "mypy>=2.4.0",
   "pip==26.2.1",
   "pip-audit>=2.10.1",
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
   "pyyaml>=6.0.3",
-  "ruff>=0.16.9",
+  "ruff>=0.16.10",
 ]
 
 [tool.ruff]
