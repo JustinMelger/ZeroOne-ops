@@ -2,6 +2,7 @@ import pytest
 
 from zeroone_ops.models.analysis import (
     SemanticSafetyAssessment,
+    ValidationCommandResult,
     ValidationComparison,
     ValidationResult,
 )
@@ -268,8 +269,53 @@ def test_publish_service_builds_deterministic_description() -> None:
             "- File: `src/service.py`",
             "- Line: `1`",
             "- Message: Fixture issue",
+            "",
+            "",
+            "## Validation",
+            "- Status: Validation evidence unavailable",
         ]
     )
+
+
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+@pytest.mark.parametrize("feedback_enabled", [False, True])
+def test_publish_retains_validation_results_independently_of_feedback_mode(
+    platform, feedback_enabled
+):
+    config = build_config()
+    config.platform = platform
+    config.remediation.target_branch = "main"
+    config.remediation.validation_feedback_enabled = feedback_enabled
+    publisher = StubChangeRequestPublisher()
+    service = PublishService(
+        config=config,
+        branch_manager=StubBranchManager(),
+        change_request_publisher=publisher,
+        remediation_control_plane=StubRemediationControlPlane(),
+    )
+    result = service.publish(
+        selected_issue=build_issue(),
+        change_request_title="title",
+        change_request_description="summary",
+        validation_result=ValidationResult(
+            passed=True,
+            summary="All validation commands passed.",
+            results=[
+                ValidationCommandResult(
+                    command="uv run pytest",
+                    exit_code=0,
+                    stdout="private output",
+                    stderr="",
+                    duration_ms=3,
+                )
+            ],
+        ),
+    )
+    assert result.error_message is None
+    assert publisher.request is not None
+    assert "- Status: Validation passed" in publisher.request.description
+    assert "- Commands: `uv run pytest`" in publisher.request.description
+    assert "private output" not in publisher.request.description
 
 
 def test_publish_service_description_prefers_remediation_category() -> None:
@@ -368,7 +414,8 @@ def test_publish_service_describes_normalized_sources_with_or_without_tracking_w
     assert "## Remediation Target" in description
     assert f"- Source: `{source_label}`" in description
     assert f"- Source ID: `{source_type}`" in description
-    assert "## Validation" not in description
+    assert "## Validation" in description
+    assert "- Status: Validation evidence unavailable" in description
     if work_item_url is None:
         assert f"- Item reference: `{source_ref}`" in description
     else:

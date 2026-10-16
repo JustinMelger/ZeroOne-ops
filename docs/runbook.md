@@ -463,8 +463,15 @@ The merge request should contain:
   - file
   - line
   - issue message
-  - validation summary
-  - validation outcome when validation feedback is enabled
+  - validation outcome and executed commands, independently of feedback mode
+
+The `Validation` section distinguishes `Validation passed`, `Validation baseline
+preserved`, and `No validation commands configured`. Missing retained evidence
+is shown as `Validation evidence unavailable`, including publication-only
+retries that lack the original result. Publication success alone never implies
+validation passed. No raw command output is included. Same-request revisions
+do not currently refresh this section; check the revision's workflow logs for
+its validation result.
 
 ## Recommended GitLab CI Setup
 

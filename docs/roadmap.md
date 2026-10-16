@@ -14,6 +14,10 @@ history, not here.
 
 ## Implemented
 
+- validation evidence in new remediation PR/MR descriptions independently of
+  feedback mode, distinguishing passed checks, preserved baseline, no commands,
+  and unavailable evidence without exposing raw output
+
 - shared GitHub/GitLab post-authorization recovery command processing,
   preserving provider-local discovery, authorization, replay semantics,
   authoritative persistence sequencing, and dry-run simulation
