@@ -29,7 +29,7 @@ def _gitlab_issue_config(*, state_path: Path) -> AppConfig:
             "platform": "gitlab",
             "base_branch": "main",
             "remediation": {"target_branch": "main"},
-            "gitlab": {"target_branch": "main", "control_plane_mode": "issues"},
+            "gitlab": {"control_plane_mode": "issues"},
             "state": {"path": state_path},
         }
     )

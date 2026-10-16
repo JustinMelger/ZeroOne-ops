@@ -57,16 +57,6 @@ class PolicySeverityStateEntry(BaseModel):
         serialization_alias="note_id",
     )
 
-    @property
-    def note_id(self) -> int | None:
-        """Return the legacy note ID alias."""
-        return self.comment_id
-
-    @note_id.setter
-    def note_id(self, value: int | None) -> None:
-        """Store the legacy note ID alias."""
-        self.comment_id = value
-
 
 class PolicyIssueClassStateEntry(BaseModel):
     """Represent one canonical issue-class policy entry."""
@@ -81,16 +71,6 @@ class PolicyIssueClassStateEntry(BaseModel):
         validation_alias=AliasChoices("comment_id", "note_id"),
         serialization_alias="note_id",
     )
-
-    @property
-    def note_id(self) -> int | None:
-        """Return the legacy note ID alias."""
-        return self.comment_id
-
-    @note_id.setter
-    def note_id(self, value: int | None) -> None:
-        """Store the legacy note ID alias."""
-        self.comment_id = value
 
 
 class PolicyState(BaseModel):
@@ -120,16 +100,6 @@ class PolicyAction(BaseModel):
     source: str | None = None
     issue_key: str | None = None
 
-    @property
-    def note_id(self) -> int | None:
-        """Return the legacy note ID alias."""
-        return self.comment_id
-
-    @note_id.setter
-    def note_id(self, value: int | None) -> None:
-        """Store the legacy note ID alias."""
-        self.comment_id = value
-
 
 class PolicyActionParseResult(BaseModel):
     """Describe one policy-command parse outcome."""
@@ -143,13 +113,3 @@ class PolicyActionParseResult(BaseModel):
         default=None,
         validation_alias=AliasChoices("comment_id", "note_id"),
     )
-
-    @property
-    def note_id(self) -> int | None:
-        """Return the legacy note ID alias."""
-        return self.comment_id
-
-    @note_id.setter
-    def note_id(self, value: int | None) -> None:
-        """Store the legacy note ID alias."""
-        self.comment_id = value

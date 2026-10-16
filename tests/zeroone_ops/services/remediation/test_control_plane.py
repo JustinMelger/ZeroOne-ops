@@ -38,13 +38,14 @@ def test_build_remediation_control_plane_returns_noop_for_gitlab() -> None:
         AppConfig(
             execution_mode="ci",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                target_branch="main",
+                validation_commands=[],
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
             ),
-            gitlab=GitLabConfig(target_branch="main", labels=["zeroone-ops"]),
+            gitlab=GitLabConfig(labels=["zeroone-ops"]),
         )
     )
 
@@ -59,9 +60,9 @@ def test_build_remediation_control_plane_returns_github_adapter_with_override() 
             execution_mode="ci",
             platform="github",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                validation_commands=[],
                 target_branch="main",
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
@@ -84,16 +85,15 @@ def test_build_remediation_control_plane_returns_gitlab_adapter_in_issue_mode() 
         AppConfig(
             execution_mode="ci",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                validation_commands=[],
                 target_branch="main",
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
             ),
             gitlab=GitLabConfig(
                 control_plane_mode="issues",
-                target_branch="main",
                 labels=["zeroone-ops"],
             ),
         ),
@@ -112,16 +112,15 @@ def test_gitlab_runner_reuses_one_control_plane_for_execution_and_publication(
     config = AppConfig(
         execution_mode="ci",
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
+            validation_commands=[],
             target_branch="main",
             bootstrap_severities=["MAJOR"],
             analysis=AnalysisConfig(),
         ),
         gitlab=GitLabConfig(
             control_plane_mode="issues",
-            target_branch="main",
             labels=["zeroone-ops"],
         ),
     )

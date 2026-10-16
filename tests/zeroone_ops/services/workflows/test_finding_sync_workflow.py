@@ -19,8 +19,8 @@ def _config(*, platform: str, issue_mode: bool = False) -> AppConfig:
         "state": {"path": ".zeroone-ops-state.json"},
     }
     if platform == "gitlab":
+        config["remediation"] = {"target_branch": "main"}
         config["gitlab"] = {
-            "target_branch": "main",
             "control_plane_mode": "issues",
         }
     return AppConfig.model_validate(config)

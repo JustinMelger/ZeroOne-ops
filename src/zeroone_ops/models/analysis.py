@@ -224,16 +224,6 @@ class PatchProposal(BaseModel):
     )
     remediation_intent: RemediationIntent = "chore"
 
-    @property
-    def mr_title(self) -> str:
-        """Return the legacy merge-request title alias."""
-        return self.change_request_title
-
-    @property
-    def mr_description(self) -> str:
-        """Return the legacy merge-request description alias."""
-        return self.change_request_description
-
 
 class TextEdit(BaseModel):
     """Represent one exact text replacement in a repository file.
@@ -272,16 +262,6 @@ class StructuredEditProposal(BaseModel):
         validation_alias=AliasChoices("change_request_description", "mr_description")
     )
     remediation_intent: RemediationIntent = "chore"
-
-    @property
-    def mr_title(self) -> str:
-        """Return the legacy merge-request title alias."""
-        return self.change_request_title
-
-    @property
-    def mr_description(self) -> str:
-        """Return the legacy merge-request description alias."""
-        return self.change_request_description
 
 
 class ValidationCommandResult(BaseModel):

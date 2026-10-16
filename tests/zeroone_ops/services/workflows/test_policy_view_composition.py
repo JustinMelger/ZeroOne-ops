@@ -31,7 +31,7 @@ def test_issue_policy_uses_only_neutral_builder_and_selected_credentials(
     monkeypatch.setattr(builders, "GitLabPolicyClient", lambda config: object())
     config = AppConfig(
         base_branch="main",
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
         remediation=RemediationConfig(target_branch="main", bootstrap_severities=["high"]),
     )
     service = getattr(builders, f"build_{provider}_policy_issue_service")(

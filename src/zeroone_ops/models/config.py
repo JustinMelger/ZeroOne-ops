@@ -10,7 +10,6 @@ from pathlib import Path, PurePosixPath
 from typing import Annotated, ClassVar, Literal
 
 from pydantic import (
-    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -72,11 +71,9 @@ class ReviewConfig(RepositoryConfigModel):
     max_followed_helper_lines_per_review: int = 240
     max_findings_per_review: int = 3
     max_prior_review_passes: int = 2
-    max_review_feedback_retries: int = 1
     inline_comments_enabled: bool = False
     supported_paths: list[str] = Field(default_factory=list)
     ignored_paths: list[str] = Field(default_factory=list)
-    skip_draft_merge_requests: bool = True
 
 
 class GitLabConfig(RepositoryConfigModel):
@@ -89,7 +86,6 @@ class GitLabConfig(RepositoryConfigModel):
             created remediation merge requests to.
     """
 
-    target_branch: str | None = None
     control_plane_mode: Literal["issues"] = "issues"
     labels: list[str] = Field(default_factory=list)
     merge_request_assignee_username: str | None = None
@@ -222,20 +218,12 @@ class RemediationConfig(RepositoryConfigModel):
     target_branch: str | None = None
     validation_setup_commands: list[str] = Field(default_factory=list)
     validation_commands: list[str] = Field(default_factory=list)
-    bootstrap_severities: list[str] = Field(
-        default_factory=list,
-        validation_alias=AliasChoices("bootstrap_severities", "supported_severities"),
-    )
+    bootstrap_severities: list[str] = Field(default_factory=list)
     max_retry_count: int = 1
     max_active_work_items: int = Field(default=10, ge=1)
     source_priorities: SourcePriorityMapping = Field(default_factory=dict)
     validation_feedback_enabled: bool = False
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
-
-    @property
-    def supported_severities(self) -> list[str]:
-        """Return the legacy severity seed name for compatibility."""
-        return self.bootstrap_severities
 
 
 class SonarQubeConfig(RepositoryConfigModel):
@@ -343,12 +331,11 @@ class AppConfig(RepositoryConfigModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _migrate_legacy_fields(cls, value: object) -> object:
-        """Lift legacy flat config keys into nested workflow/source blocks."""
+    def _reject_removed_flat_fields(cls, value: object) -> object:
+        """Reject previously removed flat fields before strict validation."""
         if not isinstance(value, dict):
             return value
-        data = dict(value)
-        removed_keys = sorted(key for key in cls._REMOVED_FLAT_CONFIG_KEYS if key in data)
+        removed_keys = sorted(key for key in cls._REMOVED_FLAT_CONFIG_KEYS if key in value)
         if removed_keys:
             keys = ", ".join(removed_keys)
             raise ValueError(
@@ -356,47 +343,13 @@ class AppConfig(RepositoryConfigModel):
                 f"{keys}. Use nested remediation/sonarqube config instead."
             )
 
-        remediation = dict(data.get("remediation", {}))
-        for field in ("validation_setup_commands", "validation_commands"):
-            if field in data:
-                remediation.setdefault(field, data.pop(field))
-        raw_gitlab = data.get("gitlab")
-        gitlab = raw_gitlab if isinstance(raw_gitlab, dict) else {}
-        if (
-            "target_branch" not in remediation
-            and isinstance(gitlab.get("target_branch"), str)
-            and gitlab["target_branch"]
-        ):
-            remediation["target_branch"] = gitlab["target_branch"]
-        if remediation:
-            data["remediation"] = remediation
-
-        sonarqube = dict(data.get("sonarqube", {}))
-        if sonarqube:
-            data["sonarqube"] = sonarqube
-
-        sarif = dict(data.get("sarif", {}))
-        if sarif:
-            data["sarif"] = sarif
-
-        review = dict(data.get("review", {}))
-        legacy_review_platform = review.pop("platform", None)
-        if "platform" not in data and legacy_review_platform is not None:
-            data["platform"] = legacy_review_platform
-        if review:
-            data["review"] = review
-        elif "review" in data:
-            data.pop("review")
-
-        return data
+        return value
 
     @model_validator(mode="after")
     def _validate_provider_requirements(self) -> AppConfig:
         """Validate provider-specific configuration requirements."""
         if self.platform == "gitlab" and self.gitlab is None:
             raise ValueError("platform=gitlab requires a top-level gitlab configuration block.")
-        if self.remediation.target_branch is None and self.gitlab is not None:
-            self.remediation.target_branch = self.gitlab.target_branch
         if self.platform == "gitlab" and self.remediation.target_branch is None:
             raise ValueError("platform=gitlab requires remediation.target_branch to be configured.")
         if (

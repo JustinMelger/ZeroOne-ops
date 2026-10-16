@@ -1,8 +1,11 @@
+import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 from pytest import LogCaptureFixture
 
+from zeroone_ops.models.config import AppConfig, ReviewConfig
 from zeroone_ops.settings import (
     SettingsError,
     load_config,
@@ -429,116 +432,6 @@ def test_settings_require_gitlab_block_for_gitlab_platform(
         raise AssertionError("Expected SettingsError for missing gitlab block in gitlab mode")
 
 
-def test_settings_migrate_legacy_review_platform_to_top_level_platform(
-    tmp_path: Path,
-    monkeypatch,
-    caplog: LogCaptureFixture,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    (tmp_path / ".zeroone-ops.json").write_text(
-        """
-        {
-          "base_branch": "main",
-          "review": {
-            "platform": "github"
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    config = load_config()
-
-    assert config.platform == "github"
-    assert config.gitlab is None
-    assert "Deprecated config field `review.platform`" in caplog.text
-    assert "Use `platform`" in caplog.text
-
-
-def test_settings_ignore_legacy_review_platform_when_top_level_platform_exists(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    (tmp_path / ".zeroone-ops.json").write_text(
-        """
-        {
-          "base_branch": "main",
-          "platform": "github",
-          "review": {
-            "platform": "gitlab"
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    config = load_config()
-
-    assert config.platform == "github"
-    assert config.gitlab is None
-
-
-def test_settings_migrate_legacy_gitlab_target_branch_to_remediation_target_branch(
-    tmp_path: Path,
-    monkeypatch,
-    caplog: LogCaptureFixture,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    (tmp_path / ".zeroone-ops.json").write_text(
-        """
-        {
-          "base_branch": "main",
-          "gitlab": {
-            "target_branch": "main",
-            "labels": []
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    config = load_config()
-
-    assert config.remediation.target_branch == "main"
-    assert "Deprecated config field `gitlab.target_branch`" in caplog.text
-    assert "Use `remediation.target_branch`" in caplog.text
-
-
-def test_settings_migrate_top_level_validation_commands_to_remediation(
-    tmp_path: Path,
-    monkeypatch,
-    caplog: LogCaptureFixture,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    (tmp_path / ".zeroone-ops.json").write_text(
-        """
-        {
-          "base_branch": "main",
-          "validation_setup_commands": ["setup-validation"],
-          "validation_commands": ["run-validation"],
-          "remediation": {
-            "target_branch": "main"
-          },
-          "gitlab": {
-            "labels": []
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    config = load_config()
-
-    assert config.remediation.validation_setup_commands == ["setup-validation"]
-    assert config.remediation.validation_commands == ["run-validation"]
-    assert "Deprecated top-level remediation config fields" in caplog.text
-
-
 def test_settings_allow_null_gitlab_block_for_github_platform(
     tmp_path: Path,
     monkeypatch,
@@ -560,6 +453,98 @@ def test_settings_allow_null_gitlab_block_for_github_platform(
 
     assert config.platform == "github"
     assert config.gitlab is None
+
+
+@pytest.mark.parametrize(
+    ("retired", "replacement", "old_value"),
+    [
+        ("review.platform", "platform", "github"),
+        ("gitlab.target_branch", "remediation.target_branch", "retired-secret"),
+        ("remediation.supported_severities", "remediation.bootstrap_severities", ["low"]),
+        ("validation_setup_commands", "remediation.validation_setup_commands", ["retired-secret"]),
+        ("validation_commands", "remediation.validation_commands", ["retired-secret"]),
+    ],
+)
+@pytest.mark.parametrize("with_replacement", [False, True])
+@pytest.mark.parametrize("value_kind", ["configured", "null", "empty_string", "empty_list"])
+def test_settings_reject_retired_aliases(
+    tmp_path: Path,
+    monkeypatch,
+    caplog: LogCaptureFixture,
+    retired: str,
+    replacement: str,
+    old_value: object,
+    with_replacement: bool,
+    value_kind: str,
+) -> None:
+    payload = {
+        "platform": "gitlab",
+        "base_branch": "main",
+        "gitlab": {},
+        "review": {},
+        "remediation": {
+            "target_branch": "main",
+            "bootstrap_severities": ["medium"],
+            "validation_setup_commands": ["setup"],
+            "validation_commands": ["check"],
+        },
+    }
+    if not with_replacement:
+        replacement_parts = replacement.split(".")
+        container = payload if len(replacement_parts) == 1 else payload[replacement_parts[0]]
+        container.pop(replacement_parts[-1])
+    value = {
+        "configured": old_value,
+        "null": None,
+        "empty_string": "",
+        "empty_list": [],
+    }[value_kind]
+    retired_parts = retired.split(".")
+    container = payload if len(retired_parts) == 1 else payload[retired_parts[0]]
+    container[retired_parts[-1]] = value
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(SettingsError) as error:
+        load_config()
+    with pytest.raises(ValidationError) as model_error:
+        AppConfig.model_validate(payload)
+
+    assert any(
+        detail["loc"] == tuple(retired_parts) and detail["type"] == "extra_forbidden"
+        for detail in model_error.value.errors()
+    )
+    assert f"{retired}: removed in v1; use {replacement} instead" in str(error.value)
+    assert "docs/migration-v1.md" in str(error.value)
+    assert "retired-secret" not in str(error.value)
+    assert "compatibility alias" not in caplog.text
+
+
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+def test_canonical_configuration_loads_without_aliases(
+    tmp_path: Path, monkeypatch, platform
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    payload = {
+        "platform": platform,
+        "base_branch": "main",
+        platform: {},
+        "remediation": {
+            "target_branch": "main",
+            "bootstrap_severities": ["medium"],
+            "validation_setup_commands": ["setup"],
+            "validation_commands": ["check"],
+        },
+    }
+    (tmp_path / ".zeroone-ops.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    config = load_config()
+
+    assert config.platform == platform
+    assert config.remediation.target_branch == "main"
+    assert config.remediation.bootstrap_severities == ["medium"]
+    assert config.remediation.validation_setup_commands == ["setup"]
+    assert config.remediation.validation_commands == ["check"]
 
 
 def test_settings_require_remediation_target_branch_for_gitlab_platform(
@@ -635,8 +620,7 @@ def test_settings_warn_for_deprecated_review_tuning_config(
             "helper_follow_depth": 1,
             "max_followed_helpers_per_function": 2,
             "max_followed_helper_lines": 80,
-            "max_followed_helper_lines_per_review": 160,
-            "skip_draft_merge_requests": false
+            "max_followed_helper_lines_per_review": 160
           },
           "gitlab": {
             "labels": []
@@ -654,14 +638,60 @@ def test_settings_warn_for_deprecated_review_tuning_config(
     assert config.review.max_followed_helpers_per_function == 2
     assert config.review.max_followed_helper_lines == 80
     assert config.review.max_followed_helper_lines_per_review == 160
-    assert config.review.skip_draft_merge_requests is False
+    assert "skip_draft_merge_requests" not in config.review.model_dump()
     assert config.review.max_context_lines_before == 400
     assert config.review.max_context_lines_after == 400
     assert config.review.inline_comments_enabled is False
     assert "Deprecated review tuning fields are still supported" in caplog.text
     assert "review.enable_helper_following" in caplog.text
     assert "review.max_followed_helper_lines_per_review" in caplog.text
-    assert "review.skip_draft_merge_requests" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "retired_settings",
+    [
+        {"max_review_feedback_retries": 0},
+        {"skip_draft_merge_requests": False},
+        {"max_review_feedback_retries": 2, "skip_draft_merge_requests": True},
+    ],
+)
+def test_retired_review_settings_fail_with_removal_guidance(
+    tmp_path: Path, monkeypatch, caplog: LogCaptureFixture, retired_settings: dict[str, object]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    payload = {
+        "base_branch": "main",
+        "platform": "github",
+        "review": {**retired_settings, "max_changed_files": 5},
+    }
+    (tmp_path / ".zeroone-ops.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(SettingsError) as error:
+        load_config()
+
+    for field in retired_settings:
+        assert f"review.{field}: removed in v1 because it had no effect" in str(error.value)
+    assert "remove this field" in str(error.value)
+    assert "docs/migration-v1.md" in str(error.value)
+    assert "is ignored" not in caplog.text
+
+
+def test_retired_review_settings_do_not_mutate_input() -> None:
+    payload = {"skip_draft_merge_requests": False, "max_review_feedback_retries": 2}
+
+    with pytest.raises(ValidationError):
+        ReviewConfig.model_validate(payload)
+
+    assert payload == {"skip_draft_merge_requests": False, "max_review_feedback_retries": 2}
+
+
+def test_review_config_defaults_exclude_retired_settings() -> None:
+    config = ReviewConfig()
+
+    assert "max_review_feedback_retries" not in config.model_dump()
+    assert "skip_draft_merge_requests" not in config.model_dump()
+    assert "max_review_feedback_retries" not in ReviewConfig.model_json_schema()["properties"]
+    assert "skip_draft_merge_requests" not in ReviewConfig.model_json_schema()["properties"]
 
 
 def test_settings_load_inline_comments_review_flag(tmp_path: Path, monkeypatch) -> None:
@@ -1055,36 +1085,6 @@ def test_settings_reports_unknown_fields_without_config_values(
 
     assert str(error.value) == "Invalid configuration: review.unknown_review: unknown field"
     assert "secret-value" not in str(error.value)
-
-
-def test_settings_keep_legacy_nested_supported_severities_compatible(
-    tmp_path: Path,
-    monkeypatch,
-    caplog: LogCaptureFixture,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    (tmp_path / ".zeroone-ops.json").write_text(
-        """
-        {
-          "base_branch": "main",
-          "remediation": {
-            "target_branch": "main",
-            "supported_severities": ["LOW"]
-          },
-          "gitlab": {
-            "labels": []
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    config = load_config()
-
-    assert config.remediation.bootstrap_severities == ["LOW"]
-    assert "Deprecated config field `remediation.supported_severities`" in caplog.text
-    assert "Use `remediation.bootstrap_severities`" in caplog.text
 
 
 def test_settings_load_runner_state_metadata_overrides(tmp_path: Path, monkeypatch) -> None:

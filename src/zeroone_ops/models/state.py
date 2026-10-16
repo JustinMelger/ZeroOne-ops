@@ -202,16 +202,6 @@ class RunRecord(BaseModel):
     failure: FailureDetails | None = None
     review_diagnostics: ReviewRunDiagnostics | None = None
 
-    @property
-    def mr_url(self) -> str | None:
-        """Return the legacy merge-request URL alias."""
-        return self.change_request_url
-
-    @mr_url.setter
-    def mr_url(self, value: str | None) -> None:
-        """Persist the legacy merge-request URL alias."""
-        self.change_request_url = value
-
 
 class IssueState(BaseModel):
     """Represent the latest known lifecycle state for an issue.
@@ -238,16 +228,6 @@ class IssueState(BaseModel):
     last_error: str | None = None
     failure: FailureDetails | None = None
     updated_at: datetime = Field(default_factory=utc_now)
-
-    @property
-    def mr_url(self) -> str | None:
-        """Return the legacy merge-request URL alias."""
-        return self.change_request_url
-
-    @mr_url.setter
-    def mr_url(self, value: str | None) -> None:
-        """Persist the legacy merge-request URL alias."""
-        self.change_request_url = value
 
 
 class PriorReviewFindingState(BaseModel):

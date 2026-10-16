@@ -377,10 +377,12 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
         """
         {
           "base_branch": "main",
-          "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -465,9 +467,10 @@ def test_review_github_non_dry_run_publishes_summary_comment(
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
-          "review": {
-            "platform": "github"
+          "review": {},
+          "platform": "github",
+          "remediation": {
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -596,9 +599,10 @@ def test_review_github_stops_when_live_head_sha_differs_from_triggered_revision(
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
-          "review": {
-            "platform": "github"
+          "review": {},
+          "platform": "github",
+          "remediation": {
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -645,10 +649,12 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -809,10 +815,12 @@ def test_review_non_dry_run_downgrades_structurally_invalid_artifact_to_manual_r
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -982,10 +990,12 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -1187,10 +1197,12 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -1305,10 +1317,12 @@ def test_review_skips_unchanged_sha_revision_integration(tmp_path: Path, monkeyp
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -1367,10 +1381,12 @@ def test_review_skips_unchanged_sha_revision_via_gitlab_note_fallback(
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -1440,10 +1456,12 @@ def test_review_skips_unchanged_sha_when_local_state_is_manual_review_only(
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -1502,10 +1520,12 @@ def test_review_skips_unchanged_sha_when_gitlab_note_is_manual_review_only(
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -1575,10 +1595,12 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
           "gitlab": {
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -1688,9 +1710,10 @@ def test_review_github_reuses_same_sha_note_when_username_lookup_is_unresolved(
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
-          "review": {
-            "platform": "github"
+          "review": {},
+          "platform": "github",
+          "remediation": {
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -1773,9 +1796,10 @@ def test_review_same_sha_live_run_repairs_pending_projection_with_url_only_refer
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
-          "review": {
-            "platform": "github"
+          "review": {},
+          "platform": "github",
+          "remediation": {
+            "validation_commands": []
           }
         }
         """.strip(),

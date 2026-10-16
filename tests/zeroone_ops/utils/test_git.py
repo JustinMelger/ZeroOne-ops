@@ -1,5 +1,4 @@
 from zeroone_ops.utils.git import (
-    build_remediation_branch_lookup_names,
     build_remediation_branch_name,
 )
 
@@ -93,24 +92,3 @@ def test_build_remediation_branch_name_rejects_invalid_attempt_number() -> None:
         assert str(error) == "Remediation attempt number must be at least one."
     else:  # pragma: no cover - assertion for an unexpected accepted input
         raise AssertionError("Expected an invalid remediation attempt number to be rejected.")
-
-
-def test_build_remediation_branch_lookup_names_includes_legacy_sonar_branch() -> None:
-    assert build_remediation_branch_lookup_names(
-        branch_prefix="zeroone-ops",
-        source="sonarqube",
-        source_reference="AX-123",
-        file_path="src/service.py",
-    ) == (
-        "zeroone-ops/sonarqube-0f1141ab4d989706/ax-123-0fcad5aa5945363d/service",
-        "zeroone-ops/ax-123/service",
-    )
-
-
-def test_build_remediation_branch_lookup_names_uses_only_canonical_non_sonar_branch() -> None:
-    assert build_remediation_branch_lookup_names(
-        branch_prefix="zeroone-ops",
-        source="ruff-sarif",
-        source_reference="AX-123",
-        file_path="src/service.py",
-    ) == ("zeroone-ops/ruff-sarif-9fb4ba99a4827142/ax-123-0fcad5aa5945363d/service",)

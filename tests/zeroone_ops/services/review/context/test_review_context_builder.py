@@ -38,9 +38,10 @@ def build_config(
 ) -> AppConfig:
     return AppConfig(
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
+            target_branch="main",
+            validation_commands=[],
             bootstrap_severities=["LOW"],
             analysis=AnalysisConfig(),
         ),
@@ -59,7 +60,7 @@ def build_config(
             ignored_paths=ignored_paths or [],
         ),
         repository_guidance_paths=repository_guidance_paths,
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
     )
 
 
