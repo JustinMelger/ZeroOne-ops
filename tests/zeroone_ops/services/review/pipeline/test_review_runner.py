@@ -7,6 +7,7 @@ from zeroone_ops.models.config import (
     AppConfig,
     GitHubConfig,
     GitLabConfig,
+    RemediationConfig,
 )
 from zeroone_ops.models.review import ChangeRequestReviewContext
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, WorkItemState
@@ -58,10 +59,11 @@ def test_verified_notice_link_does_not_require_semantic_safety(
     runner = ReviewRunner(
         repo_root=tmp_path,
         config=AppConfig(
+            remediation=RemediationConfig(target_branch="main"),
             platform=platform,
             base_branch="main",
             github=GitHubConfig(),
-            gitlab=GitLabConfig(target_branch="main"),
+            gitlab=GitLabConfig(),
         ),
         review_client=object(),
         review_state_service=object(),

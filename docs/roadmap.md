@@ -14,6 +14,14 @@ history, not here.
 
 ## Implemented
 
+- v1 configuration alias retirement: canonical platform and remediation fields
+  only, with strict field-specific replacement errors and manual migration
+  guidance
+
+- removed unused legacy branch/severity helpers and Python compatibility
+  accessors; no-op review settings now fail strict validation with v1 removal
+  guidance, preserving historical serialized-field compatibility
+
 - v1 dashboard runtime and command retirement: GitHub/GitLab issue mode only,
   neutral `policy run`, explicit local-history cleanup safeguards, and preserved
   review continuity; [migration guide](migration-v1.md)

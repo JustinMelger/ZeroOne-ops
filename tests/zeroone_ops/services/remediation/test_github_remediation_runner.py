@@ -224,9 +224,10 @@ def _config(state_path: Path) -> AppConfig:
         platform="github",
         execution_mode="ci",
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
-        remediation=RemediationConfig(target_branch="main", analysis=AnalysisConfig()),
+        remediation=RemediationConfig(
+            validation_commands=[], target_branch="main", analysis=AnalysisConfig()
+        ),
         github=GitHubConfig(labels=[]),
         state=StateConfig(path=state_path),
     )

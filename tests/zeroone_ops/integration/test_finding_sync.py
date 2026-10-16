@@ -338,10 +338,21 @@ def test_sync_findings_dry_run_collects_sarif_without_gitlab_configuration(
         {
           "platform": "github",
           "base_branch": "main",
-          "remediation": {"target_branch": "main"},
-          "sarif": {"artifacts": [{"path": "artifacts/ruff.sarif", "source_id": "ruff-sarif"}]},
-          "validation_commands": [],
-          "github": {"labels": []}
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
+          },
+          "sarif": {
+            "artifacts": [
+              {
+                "path": "artifacts/ruff.sarif",
+                "source_id": "ruff-sarif"
+              }
+            ]
+          },
+          "github": {
+            "labels": []
+          }
         }
         """.strip(),
         encoding="utf-8",
@@ -386,9 +397,13 @@ def test_github_remediation_refreshes_operational_summary_after_execution(
           "execution_mode": "ci",
           "platform": "github",
           "base_branch": "main",
-          "remediation": {"target_branch": "main"},
-          "validation_commands": [],
-          "github": {"labels": []}
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
+          },
+          "github": {
+            "labels": []
+          }
         }
         """.strip(),
         encoding="utf-8",
@@ -456,10 +471,21 @@ def test_sync_findings_dry_run_reconciles_empty_managed_sarif_source(
         {
           "platform": "github",
           "base_branch": "main",
-          "remediation": {"target_branch": "main"},
-          "sarif": {"artifacts": [{"path": "artifacts/ruff.sarif", "source_id": "ruff-sarif"}]},
-          "validation_commands": [],
-          "github": {"labels": []}
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
+          },
+          "sarif": {
+            "artifacts": [
+              {
+                "path": "artifacts/ruff.sarif",
+                "source_id": "ruff-sarif"
+              }
+            ]
+          },
+          "github": {
+            "labels": []
+          }
         }
         """.strip(),
         encoding="utf-8",
@@ -500,9 +526,13 @@ def test_work_item_status_dry_run_does_not_load_finding_inventory(
         {
           "platform": "github",
           "base_branch": "main",
-          "remediation": {"target_branch": "main"},
-          "validation_commands": [],
-          "github": {"labels": []}
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
+          },
+          "github": {
+            "labels": []
+          }
         }
         """.strip(),
         encoding="utf-8",
@@ -549,11 +579,12 @@ def test_work_item_status_routes_gitlab_issue_mode_to_lifecycle_service(
         {
           "execution_mode": "ci",
           "base_branch": "main",
-          "remediation": {"target_branch": "main"},
-          "validation_commands": [],
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
+          },
           "gitlab": {
             "control_plane_mode": "issues",
-            "target_branch": "main",
             "labels": []
           }
         }
@@ -603,9 +634,14 @@ def test_recover_work_item_routes_gitlab_issue_mode_to_polling_runner(
         {
           "execution_mode": "ci",
           "base_branch": "main",
-          "remediation": {"target_branch": "main"},
-          "validation_commands": [],
-          "gitlab": {"control_plane_mode": "issues", "target_branch": "main", "labels": []}
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
+          },
+          "gitlab": {
+            "control_plane_mode": "issues",
+            "labels": []
+          }
         }
         """.strip(),
         encoding="utf-8",
@@ -656,9 +692,13 @@ def test_work_item_status_refreshes_operational_summary_after_live_reconciliatio
           "execution_mode": "ci",
           "platform": "github",
           "base_branch": "main",
-          "remediation": {"target_branch": "main"},
-          "validation_commands": [],
-          "github": {"labels": []}
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
+          },
+          "github": {
+            "labels": []
+          }
         }
         """.strip(),
         encoding="utf-8",

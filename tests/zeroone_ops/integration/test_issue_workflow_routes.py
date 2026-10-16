@@ -41,9 +41,9 @@ def test_policy_dry_run_returns_github_policy_processing_summary(
         {
           "platform": "github",
           "base_branch": "main",
-          "validation_commands": [],
           "remediation": {
-            "target_branch": "main"
+            "target_branch": "main",
+            "validation_commands": []
           },
           "github": {
             "labels": []
@@ -92,11 +92,13 @@ def test_policy_dry_run_uses_gitlab_issue_mode_when_configured(
         """
         {
           "base_branch": "main",
-          "validation_commands": [],
           "gitlab": {
             "control_plane_mode": "issues",
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main",
+            "validation_commands": []
           }
         }
         """.strip(),
@@ -144,8 +146,10 @@ def test_sync_findings_supports_gitlab_issue_mode_with_empty_inventory(
           "base_branch": "main",
           "gitlab": {
             "control_plane_mode": "issues",
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main"
           }
         }
         """.strip(),
@@ -173,8 +177,10 @@ def test_sync_findings_uses_gitlab_work_items_in_issue_mode(
           "base_branch": "main",
           "gitlab": {
             "control_plane_mode": "issues",
-            "target_branch": "main",
             "labels": []
+          },
+          "remediation": {
+            "target_branch": "main"
           }
         }
         """.strip(),
@@ -270,9 +276,9 @@ def test_run_remediation_routes_github_to_provider_local_runner(
           "platform": "github",
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
           "remediation": {
-            "target_branch": "main"
+            "target_branch": "main",
+            "validation_commands": []
           },
           "github": {
             "labels": []
@@ -331,13 +337,12 @@ def test_run_remediation_routes_gitlab_issue_mode_to_provider_local_runner(
         {
           "base_branch": "main",
           "execution_mode": "ci",
-          "validation_commands": [],
           "remediation": {
-            "target_branch": "main"
+            "target_branch": "main",
+            "validation_commands": []
           },
           "gitlab": {
             "control_plane_mode": "issues",
-            "target_branch": "main",
             "labels": []
           }
         }

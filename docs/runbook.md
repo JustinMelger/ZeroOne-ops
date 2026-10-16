@@ -109,9 +109,11 @@ single-file patch. It may retry once only for a newly introduced diagnostic in
 that same file; known baseline failures are retained as evidence rather than
 sent to the model.
 
-Only the remaining nested migration aliases still work during migration. The
-old flat top-level config keys no longer load, and new repository rollouts
-should use the nested shape and `bootstrap_severities`.
+V1 rejects retired configuration aliases, even when their canonical replacements
+are also supplied. Use top-level `platform`, `remediation.target_branch`,
+`remediation.bootstrap_severities`, and remediation-owned validation commands.
+The [migration guide](migration-v1.md) lists the removed keys and replacements.
+Deprecated but functional context/helper tuning settings still emit warnings.
 
 The bot currently excludes rename-style issues by design. Rename changes need
 symbol-reference safety checks that are not part of v1 yet.
@@ -515,8 +517,12 @@ For a lower-cost review setup:
   empty, the review workflow considers all non-ignored changed paths in scope
 - set `review.ignored_paths` for generated or otherwise low-value areas
 - keep `review.max_findings_per_review` low so only the highest-signal findings are published
-- keep `review.skip_draft_merge_requests` enabled
-- set `review.publish_no_findings_note` to `false` if you want less MR noise and lower cost
+
+The retired `review.skip_draft_merge_requests` and
+`review.max_review_feedback_retries` settings fail validation in v1. Remove them
+before upgrading; see the [migration guide](migration-v1.md). Control draft-review execution
+through provider CI rules instead. `review.publish_no_findings_note` is not a
+supported setting.
 
 Recommended first rollout order:
 

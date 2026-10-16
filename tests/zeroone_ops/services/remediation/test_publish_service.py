@@ -35,13 +35,14 @@ def build_config() -> AppConfig:
     return AppConfig(
         execution_mode="ci",
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
+            target_branch="main",
+            validation_commands=[],
             bootstrap_severities=["MAJOR"],
             analysis=AnalysisConfig(),
         ),
-        gitlab=GitLabConfig(target_branch="main", labels=["zeroone-ops"]),
+        gitlab=GitLabConfig(labels=["zeroone-ops"]),
     )
 
 
@@ -443,14 +444,14 @@ def test_publish_service_assigns_created_merge_request_by_configured_username() 
         config=AppConfig(
             execution_mode="ci",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                target_branch="main",
+                validation_commands=[],
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
             ),
             gitlab=GitLabConfig(
-                target_branch="main",
                 labels=["zeroone-ops"],
                 merge_request_assignee_username="justin",
             ),
@@ -485,14 +486,14 @@ def test_publish_service_assigns_reused_merge_request_by_configured_username() -
         config=AppConfig(
             execution_mode="ci",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                target_branch="main",
+                validation_commands=[],
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
             ),
             gitlab=GitLabConfig(
-                target_branch="main",
                 labels=["zeroone-ops"],
                 merge_request_assignee_username="justin",
             ),
@@ -528,9 +529,9 @@ def test_publish_service_uses_github_publication_options() -> None:
             execution_mode="ci",
             platform="github",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                validation_commands=[],
                 target_branch="main",
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
@@ -574,9 +575,9 @@ def test_publish_service_allows_github_publish_without_github_block() -> None:
             execution_mode="ci",
             platform="github",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                validation_commands=[],
                 target_branch="main",
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
@@ -615,9 +616,9 @@ def test_publish_service_upserts_github_work_item_before_and_after_publish() -> 
             execution_mode="ci",
             platform="github",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                validation_commands=[],
                 target_branch="main",
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
@@ -658,9 +659,9 @@ def test_publish_service_marks_github_work_item_blocked_when_publish_fails() -> 
             execution_mode="ci",
             platform="github",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                validation_commands=[],
                 target_branch="main",
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
@@ -713,9 +714,9 @@ def test_publish_service_keeps_success_when_post_publish_work_item_sync_fails() 
             execution_mode="ci",
             platform="github",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                validation_commands=[],
                 target_branch="main",
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
@@ -759,9 +760,9 @@ def test_publish_service_keeps_success_when_pre_publish_work_item_sync_fails() -
             execution_mode="ci",
             platform="github",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                validation_commands=[],
                 target_branch="main",
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
@@ -826,9 +827,9 @@ def test_publish_service_builds_default_control_plane_lazily(
             execution_mode="ci",
             platform="github",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                validation_commands=[],
                 target_branch="main",
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
@@ -862,9 +863,9 @@ def test_publish_service_preserves_original_publish_error_when_blocked_cleanup_f
             execution_mode="ci",
             platform="github",
             base_branch="main",
-            validation_commands=[],
             approval=ApprovalConfig(),
             remediation=RemediationConfig(
+                validation_commands=[],
                 target_branch="main",
                 bootstrap_severities=["MAJOR"],
                 analysis=AnalysisConfig(),
