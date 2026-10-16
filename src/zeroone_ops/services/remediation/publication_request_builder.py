@@ -8,6 +8,7 @@ from zeroone_ops.models.analysis import (
     RemediationIntent,
     SemanticSafetyAssessment,
     ValidationComparison,
+    ValidationResult,
 )
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget, remediation_profile_for
@@ -32,6 +33,7 @@ class RemediationPublicationRequestBuilder:
         change_summary: str,
         remediation_intent: RemediationIntent = "chore",
         validation_comparison: ValidationComparison | None = None,
+        validation_result: ValidationResult | None = None,
         semantic_safety: SemanticSafetyAssessment | None = None,
     ) -> ChangeRequestPublishRequest:
         """Build the complete provider-neutral request for one source branch."""
@@ -49,6 +51,7 @@ class RemediationPublicationRequestBuilder:
                 selected_issue=selected_issue,
                 change_summary=change_summary,
                 validation_comparison=validation_comparison,
+                validation_result=validation_result,
                 semantic_safety=semantic_safety,
             ),
             labels=labels,
@@ -83,6 +86,7 @@ class RemediationPublicationRequestBuilder:
         selected_issue: RemediationExecutionTarget,
         change_summary: str,
         validation_comparison: ValidationComparison | None = None,
+        validation_result: ValidationResult | None = None,
         semantic_safety: SemanticSafetyAssessment | None = None,
     ) -> str:
         """Build a deterministic change-request description."""
@@ -114,20 +118,28 @@ class RemediationPublicationRequestBuilder:
             f"- Message: {selected_issue.message}",
             "",
         ]
-        if validation_comparison is not None:
-            commands = [result.command for result in validation_comparison.post_edit.results]
-            status = (
-                "Validation passed"
-                if validation_comparison.outcome == "passed"
-                else "Validation baseline preserved"
-            )
-            lines.extend(
-                [
-                    "",
-                    "## Validation",
-                    f"- Status: {status}",
-                    "- Commands: " + ", ".join(f"`{command}`" for command in commands),
-                ]
+        result = (
+            validation_comparison.post_edit
+            if validation_comparison is not None
+            else validation_result
+        )
+        if (
+            validation_comparison is not None
+            and validation_comparison.outcome == "baseline_preserved"
+        ):
+            status = "Validation baseline preserved"
+        elif result is None:
+            status = "Validation evidence unavailable"
+        elif not result.passed or any(command.exit_code != 0 for command in result.results):
+            status = "Validation failed"
+        elif not result.results:
+            status = "No validation commands configured"
+        else:
+            status = "Validation passed"
+        lines.extend(["", "## Validation", f"- Status: {status}"])
+        if result is not None and result.results:
+            lines.append(
+                "- Commands: " + ", ".join(f"`{command.command}`" for command in result.results)
             )
         if semantic_safety is not None:
             lines.extend(render_semantic_safety_lines(semantic_safety))

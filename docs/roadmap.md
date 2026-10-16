@@ -22,6 +22,9 @@ history, not here.
   accessors; no-op review settings now fail strict validation with v1 removal
   guidance, preserving historical serialized-field compatibility
 
+- validation evidence in new remediation PR/MR descriptions independently of
+  feedback mode, distinguishing passed checks, preserved baseline, no commands,
+  and unavailable evidence without exposing raw output
 - v1 dashboard runtime and command retirement: GitHub/GitLab issue mode only,
   neutral `policy run`, explicit local-history cleanup safeguards, and preserved
   review continuity; [migration guide](migration-v1.md)

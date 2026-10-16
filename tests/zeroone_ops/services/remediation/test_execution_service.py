@@ -1,6 +1,7 @@
+from dataclasses import replace
 from pathlib import Path
 
-from zeroone_ops.models.analysis import PatchProposal, ValidationResult
+from zeroone_ops.models.analysis import PatchProposal, ValidationCommandResult, ValidationResult
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import (
     AnalysisConfig,
@@ -294,7 +295,27 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
 
     monkeypatch.setattr(service.branch_manager, "ensure_ready", fake_noop)
     monkeypatch.setattr(service.branch_manager, "create_branch", fake_create_branch)
-    monkeypatch.setattr(service.analysis_service, "analyze_issue", fake_analysis_result)
+
+    def analyzed_with_validation(**kwargs):
+        result = fake_analysis_result(**kwargs)
+        return replace(
+            result,
+            validation_result=ValidationResult(
+                passed=True,
+                results=[
+                    ValidationCommandResult(
+                        command="uv run pytest",
+                        exit_code=0,
+                        stdout="private output",
+                        stderr="",
+                        duration_ms=3,
+                    )
+                ],
+                summary="All validation commands passed.",
+            ),
+        )
+
+    monkeypatch.setattr(service.analysis_service, "analyze_issue", analyzed_with_validation)
 
     def fake_commit(
         commit_message: str,
@@ -356,6 +377,11 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
             "- File: `src/service.py`",
             "- Line: `1`",
             "- Message: Fixture issue",
+            "",
+            "",
+            "## Validation",
+            "- Status: Validation passed",
+            "- Commands: `uv run pytest`",
         ]
     )
 

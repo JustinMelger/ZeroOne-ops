@@ -114,6 +114,16 @@ Publication receives deterministic final validation text:
 - preserved baseline: a concise notice that failures existed before the change
   and were not made worse within the edited scope.
 
+New publication descriptions include `## Validation` independently of feedback
+mode. Shared execution passes its actual `ValidationResult` through publication;
+when comparison evidence exists, its post-edit result takes precedence. Empty
+successful results report `No validation commands configured`, never a clean
+validation pass. Missing retained results report `Validation evidence
+unavailable`, including publication-only retries without the original evidence.
+Only command names and status are rendered, not captured output or summaries.
+This presentation does not change publication eligibility, persist new evidence,
+or refresh descriptions after same-request revisions.
+
 No provider publisher or control-plane adapter may parse raw validator output.
 `WorkItemExecutionFailure` remains the compact persisted record for blocked
 attempts; add only an outcome qualifier and existing command/exit details needed

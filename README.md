@@ -361,6 +361,13 @@ validation commands before and after a remediation patch, preserving known
 baseline failures and allowing one correction attempt only for a new diagnostic
 in the same editable file.
 
+New remediation PR/MR descriptions show a `Validation` section independently of
+feedback mode: validation passed with executed commands, baseline preserved, or
+no validation commands configured. If execution evidence was not retained, such
+as during a publication-only retry, the section says validation evidence is
+unavailable rather than inferring a pass. Raw command output is never included.
+Same-request revisions currently do not refresh the description's evidence.
+
 `repository_guidance_paths` optionally defines the exact repository files used
 as bounded guidance for both review and remediation. When omitted, ZeroOne Ops
 uses its built-in guidance discovery; when configured, the list replaces those
