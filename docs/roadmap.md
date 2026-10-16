@@ -14,6 +14,9 @@ history, not here.
 
 ## Implemented
 
+- hosted Renovate maintenance with weekly ecosystem grouping, bounded PR
+  creation, and operator approval for major upgrades
+
 - validation evidence in new remediation PR/MR descriptions independently of
   feedback mode, distinguishing passed checks, preserved baseline, no commands,
   and unavailable evidence without exposing raw output
