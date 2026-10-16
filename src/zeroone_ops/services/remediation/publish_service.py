@@ -9,6 +9,7 @@ from zeroone_ops.models.analysis import (
     RemediationIntent,
     SemanticSafetyAssessment,
     ValidationComparison,
+    ValidationResult,
 )
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
@@ -93,6 +94,7 @@ class PublishService:
         change_request_description: str | None = None,
         remediation_intent: RemediationIntent = "chore",
         validation_comparison: ValidationComparison | None = None,
+        validation_result: ValidationResult | None = None,
         semantic_safety: SemanticSafetyAssessment | None = None,
         commit_sha: str | None = None,
     ) -> PublishResult:
@@ -118,6 +120,7 @@ class PublishService:
                 change_summary=change_request_description,
                 remediation_intent=remediation_intent,
                 validation_comparison=validation_comparison,
+                validation_result=validation_result,
                 semantic_safety=semantic_safety,
             )
             control_plane_work_item = self._mark_control_plane_publish_started_best_effort(
@@ -189,12 +192,14 @@ class PublishService:
         selected_issue: RemediationExecutionTarget,
         change_summary: str,
         validation_comparison: ValidationComparison | None = None,
+        validation_result: ValidationResult | None = None,
     ) -> str:
         """Build a deterministic change-request description."""
         return self.publication_request_builder.build_description(
             selected_issue=selected_issue,
             change_summary=change_summary,
             validation_comparison=validation_comparison,
+            validation_result=validation_result,
         )
 
     def _remediation_control_plane_instance(self) -> RemediationControlPlane:

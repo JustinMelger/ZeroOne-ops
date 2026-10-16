@@ -14,6 +14,7 @@ from zeroone_ops.models.analysis import (
     RemediationIntent,
     SemanticSafetyAssessment,
     ValidationComparison,
+    ValidationResult,
 )
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
@@ -422,6 +423,7 @@ class ExecutionService:
             change_request_description=patch.change_request_description,
             remediation_intent=patch.remediation_intent,
             validation_comparison=analysis_result.validation_comparison,
+            validation_result=analysis_result.validation_result,
             semantic_safety=(
                 None
                 if analysis_result.semantic_safety is None
@@ -493,6 +495,7 @@ class ExecutionService:
         change_request_description: str,
         remediation_intent: RemediationIntent,
         validation_comparison: ValidationComparison | None,
+        validation_result: ValidationResult | None,
         semantic_safety: SemanticSafetyAssessment | None,
         commit_sha: str,
     ) -> PublishResult:
@@ -503,6 +506,7 @@ class ExecutionService:
             change_request_description=change_request_description,
             remediation_intent=remediation_intent,
             validation_comparison=validation_comparison,
+            validation_result=validation_result,
             semantic_safety=semantic_safety,
             commit_sha=commit_sha,
         )
