@@ -11,6 +11,10 @@ from pathlib import Path
 from zeroone_ops.models.state import AppState, IssueState, RepositoryState, RunRecord, utc_now
 
 
+class LegacyDashboardStateError(RuntimeError):
+    """Require an explicit operator backup and cleanup of retired dashboard state."""
+
+
 class StateStore:
     """Load and save repository-local execution state.
 
@@ -54,6 +58,7 @@ class StateStore:
         if not self.path.exists():
             return AppState(repository=self.default_repository)
         raw_payload = json.loads(self.path.read_text(encoding="utf-8"))
+        _reject_legacy_dashboard_history(raw_payload, self.path)
         return AppState.model_validate(_normalize_legacy_state_payload(raw_payload))
 
     def save(self, state: AppState) -> None:
@@ -95,6 +100,31 @@ class StateStore:
         """
         state.issues[issue_key] = issue_state
         return state
+
+
+def _reject_legacy_dashboard_history(payload: object, path: Path) -> None:
+    """Refuse to silently discard meaningful retired state or associated runs."""
+    if not isinstance(payload, dict):
+        return
+    fields = []
+    if payload.get("dashboard_items") not in (None, {}):
+        fields.append("dashboard_items")
+    if payload.get("active_dashboard_item_id") is not None:
+        fields.append("active_dashboard_item_id")
+    if payload.get("remediation_exclusions") not in (None, []):
+        fields.append("remediation_exclusions")
+    runs = payload.get("runs")
+    if isinstance(runs, list) and any(
+        isinstance(run, dict) and run.get("dashboard_item_id") is not None for run in runs
+    ):
+        fields.append("runs[].dashboard_item_id")
+    if fields:
+        raise LegacyDashboardStateError(
+            f"Legacy dashboard history in state file {path}: {', '.join(fields)}. "
+            "Back up this file, remove dashboard_items, active_dashboard_item_id and "
+            "remediation_exclusions, and delete runs with a non-null dashboard_item_id. "
+            "Preserve other runs, issues and reviews. See docs/migration-v1.md."
+        )
 
 
 def _normalize_legacy_state_payload(payload: object) -> object:

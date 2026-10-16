@@ -35,7 +35,6 @@ from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.providers.github_client import GitHubClient, GitHubClientError
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_client import GitLabClientError
-from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.providers.review.platform import (
@@ -54,8 +53,6 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_service impo
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
 )
-from zeroone_ops.services.dashboard.dashboard_policy_view_builder import DashboardPolicyViewBuilder
-from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 from zeroone_ops.services.review.context.review_context_builder import (
     ReviewContextBuilder,
 )
@@ -83,9 +80,6 @@ from zeroone_ops.services.review.pipeline.review_candidate_generation_service im
 from zeroone_ops.services.review.pipeline.review_reconciliation_service import (
     ReviewReconciliationResult,
     ReviewReconciliationService,
-)
-from zeroone_ops.services.review.publish.review_dashboard_updater import (
-    ReviewDashboardUpdater,
 )
 from zeroone_ops.services.review.publish.review_finalization_service import (
     ReviewFinalizationService,
@@ -115,7 +109,6 @@ class ReviewRunner:
         repo_root: Path,
         config: AppConfig,
         review_client: ChangeRequestReviewPlatformProtocol,
-        dashboard_client: GitLabDashboardClient | None,
         review_state_service: ReviewStateService,
         prior_context_service: ChangeRequestPriorCommentLoader | None = None,
         prior_note_parser: ChangeRequestPriorCommentParser | None = None,
@@ -124,7 +117,6 @@ class ReviewRunner:
         self.repo_root = repo_root
         self.config = config
         self.review_client = review_client
-        self.dashboard_client = dashboard_client
         self.review_state_service = review_state_service
         self.prior_context_service = prior_context_service
         self.prior_note_parser = prior_note_parser or ChangeRequestPriorCommentParser()
@@ -412,7 +404,6 @@ class ReviewRunner:
 
         finalization_result = ReviewFinalizationService(
             review_publisher=ReviewPublisher(self.review_client),
-            dashboard_updater=self._build_dashboard_updater(),
             review_projection_factory=self._build_review_projection_service,
         ).finalize(
             run_id=run_id,
@@ -440,7 +431,6 @@ class ReviewRunner:
         note_id = finalization_result.note_id
         note_url = finalization_result.note_url
         publish_warning = finalization_result.publish_warning
-        dashboard_warning = finalization_result.dashboard_warning
         projection_warning = finalization_result.projection_warning
 
         inline_comment_decisions = finalization_result.inline_comment_decisions
@@ -476,36 +466,18 @@ class ReviewRunner:
             status=summary.status,
             message=(
                 f"[{self.config.execution_mode}] {summary.message}"
-                if publish_warning is None
-                and dashboard_warning is None
-                and projection_warning is None
+                if publish_warning is None and projection_warning is None
                 else " ".join(
                     part
                     for part in (
                         f"[{self.config.execution_mode}] {summary.message}",
                         publish_warning,
-                        dashboard_warning,
                         projection_warning,
                     )
                     if part
                 )
             ),
             state_path=summary.state_path,
-        )
-
-    def _build_dashboard_updater(self) -> ReviewDashboardUpdater | None:
-        """Return the legacy dashboard mirror only while dashboard mode owns state."""
-        if self.dashboard_client is None or self._gitlab_issue_mode_is_active():
-            return None
-        return ReviewDashboardUpdater(
-            DashboardService(
-                self.dashboard_client,
-                policy_view_builder=DashboardPolicyViewBuilder(
-                    repo_root=self.repo_root,
-                    config=self.config,
-                    state=self.review_state_service.state,
-                ),
-            )
         )
 
     def _build_review_projection_service(
@@ -523,7 +495,7 @@ class ReviewRunner:
                     change_request_number=change_request_number,
                 ),
             )
-        if self._gitlab_issue_mode_is_active():
+        if self.config.platform == "gitlab":
             gitlab_config = load_gitlab_connection_config()
             return GitLabReviewProjectionService(
                 GitLabWorkItemService(GitLabWorkItemClient(gitlab_config)),
@@ -555,7 +527,7 @@ class ReviewRunner:
                 )
                 work_item = None if github_result is None else github_result.work_item
                 work_item_url = None if github_result is None else github_result.issue.web_url
-            elif self._gitlab_issue_mode_is_active():
+            elif self.config.platform == "gitlab":
                 gitlab_result = GitLabWorkItemService(
                     GitLabWorkItemClient(load_gitlab_connection_config())
                 ).find_open_work_item_by_change_request(
@@ -692,16 +664,6 @@ class ReviewRunner:
         if isinstance(warning, str):
             return f"Review projection warning: {warning}"
         return None
-
-    def _gitlab_issue_mode_is_active(self) -> bool:
-        """Return whether GitLab issue mode owns review projection state."""
-        return (
-            self.config.platform == "gitlab"
-            and self.config.require_gitlab_config(
-                reason="GitLab review projection"
-            ).control_plane_mode
-            == "issues"
-        )
 
     def _resolve_prior_comment_author_username(
         self,

@@ -1,5 +1,9 @@
 # ZeroOne Ops Remediation Exclusions Technical Design
 
+> **Status: Retired in v1.** This is a historical design, not supported runtime.
+> Use the [design index](../README.md) and [v1 migration guide](../../migration-v1.md)
+> for current issue-mode behavior. Remote dashboards remain readable history.
+
 This document is kept as design history and domain-model context.
 The active operator-facing exclusion workflow now lives in the dashboard-backed
 operator policy surface rather than in a separate state-backed CLI path.

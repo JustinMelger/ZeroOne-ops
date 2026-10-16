@@ -14,6 +14,10 @@ history, not here.
 
 ## Implemented
 
+- v1 dashboard runtime and command retirement: GitHub/GitLab issue mode only,
+  neutral `policy run`, explicit local-history cleanup safeguards, and preserved
+  review continuity; [migration guide](migration-v1.md)
+
 - shared GitHub/GitLab post-authorization recovery command processing,
   preserving provider-local discovery, authorization, replay semantics,
   authoritative persistence sequencing, and dry-run simulation
@@ -31,12 +35,11 @@ history, not here.
 - source-focused daily finding dogfood with explicit manual test MyPy publication
   under a separate namespace and scanner-failure gating before finding sync
 
-- shared policy presentation and bootstrap extracted from legacy dashboard
-  dependencies; GitHub/GitLab issue policy uses neutral models and a pure builder,
-  while dashboard runtime and compatibility remain supported
+- shared policy presentation and bootstrap extracted into neutral models and a
+  pure builder for GitHub/GitLab issue policy
 
-- completed the [legacy dashboard dependency and retirement audit](design/technical/technical-audit-legacy-dashboard-retirement.md);
-  runtime retirement remains a separate approval and implementation step
+- completed the [legacy dashboard dependency and retirement audit](design/technical/technical-audit-legacy-dashboard-retirement.md)
+  and implemented its v1 runtime-removal follow-up
 - complete paginated SonarQube intake with per-source failure isolation:
   incomplete inventories never resolve existing work as missing
 
@@ -50,8 +53,6 @@ history, not here.
 - bounded per-artifact SARIF severity mappings with raw levels retained as
   source evidence; MyPy dogfood maps its broad error output to medium priority,
   while unmapped artifacts retain generic SARIF mapping
-- GitLab dashboard control plane with Maintainer/Owner-authorized policy
-  commands, remediation, review projection, and lifecycle reconciliation
 - GitHub and GitLab issue control planes: policy issue, authoritative work-item
   issues, recovery commands, lifecycle reconciliation, and derived operational
   summaries
@@ -133,6 +134,10 @@ history, not here.
 
 ### V1 Release Readiness
 
+- [x] retire legacy GitLab dashboard runtime and commands with migration guidance
+- [ ] confirm remaining GitLab installations have completed issue-mode cutover
+  and local-state cleanup before tagging v1
+
 - [ ] document the derived-image toolchain contract for validation: retain the
   thin non-root base image with Git, curl, and CA certificates; document how
   operators extend it for language-specific tools without changing the
@@ -174,11 +179,6 @@ retry from a fresh checkout; automatic local-branch recovery remains post-v1.
 - richer developer feedback consumption for review notes and broader review
   evaluator growth
 - multi-file remediation and automated test-repair workflows
-- broader dashboard/history presentation improvements after operator usage
-  establishes the need
-- [ ] retire GitLab dashboard mode in an approved breaking release after shared
-  policy extraction and operator notice; the elapsed support window and removal
-  prerequisites are recorded in the [retirement audit](design/technical/technical-audit-legacy-dashboard-retirement.md)
 - add read-only `config validate` and advisory `config migrate`
   tooling for deprecated aliases, missing provider selection, and unavailable
   configured fixture or SARIF paths; v1 continues to use load-time errors,

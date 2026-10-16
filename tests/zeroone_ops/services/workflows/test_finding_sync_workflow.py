@@ -21,7 +21,7 @@ def _config(*, platform: str, issue_mode: bool = False) -> AppConfig:
     if platform == "gitlab":
         config["gitlab"] = {
             "target_branch": "main",
-            "control_plane_mode": "issues" if issue_mode else "dashboard",
+            "control_plane_mode": "issues",
         }
     return AppConfig.model_validate(config)
 
@@ -37,13 +37,8 @@ def _workflow(*, config: AppConfig) -> FindingSyncWorkflow:
         dry_run=False,
         build_run_id=lambda: "run-1",
         build_context=build_workflow_run_context,
-        is_gitlab_issue_mode=lambda candidate: (
-            candidate.platform == "gitlab"
-            and candidate.require_gitlab_config(reason="test").control_plane_mode == "issues"
-        ),
         load_github_config=unexpected_provider_load,  # type: ignore[arg-type]
         load_gitlab_config=unexpected_provider_load,  # type: ignore[arg-type]
-        build_dashboard_policy_view=unexpected_provider_load,  # type: ignore[arg-type]
         build_github_policy_issue_service=unexpected_provider_load,  # type: ignore[arg-type]
         build_gitlab_policy_issue_service=unexpected_provider_load,  # type: ignore[arg-type]
         publish_github_summary=unexpected_provider_load,  # type: ignore[arg-type]
@@ -52,18 +47,12 @@ def _workflow(*, config: AppConfig) -> FindingSyncWorkflow:
 
 
 def test_run_selects_explicit_provider_route(monkeypatch) -> None:
-    """GitHub and both GitLab modes retain visibly separate workflow routes."""
+    """GitHub and GitLab issue mode retain provider-local workflow routes."""
     expected = {
         "github": RunSummary(
             run_id="github",
             status=RunStatus.SYNCED,
             message="github",
-            state_path=Path(".zeroone-ops-state.json"),
-        ),
-        "gitlab-dashboard": RunSummary(
-            run_id="gitlab-dashboard",
-            status=RunStatus.SYNCED,
-            message="gitlab-dashboard",
             state_path=Path(".zeroone-ops-state.json"),
         ),
         "gitlab-issues": RunSummary(
@@ -75,7 +64,6 @@ def test_run_selects_explicit_provider_route(monkeypatch) -> None:
     }
     cases = (
         ("github", _config(platform="github"), "_run_github_issue_mode"),
-        ("gitlab-dashboard", _config(platform="gitlab"), "_run_legacy_gitlab_dashboard"),
         ("gitlab-issues", _config(platform="gitlab", issue_mode=True), "_run_gitlab_issue_mode"),
     )
 
@@ -96,10 +84,10 @@ def test_github_empty_collection_does_not_load_provider_configuration(
     collection = SyncIssueCollectionResult(
         finding_collection=FindingCollectionResult(
             findings=[],
-            metadata=FindingCollectionMetadata(source_id="dashboard_sync"),
+            metadata=FindingCollectionMetadata(source_id="finding_sync"),
         ),
         issue_count=0,
-        message="No configured finding sources collected dashboard-syncable findings.",
+        message="No configured finding sources collected syncable findings.",
     )
     monkeypatch.setattr(workflow, "_collect", lambda context: collection)
 

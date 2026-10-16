@@ -276,10 +276,10 @@ The implementation should keep these boundaries explicit:
 - identity vs wording
   - canonical finding identity owns reuse and deduplication
   - note text and inline comment text must not become the real matching key
-- review surface vs dashboard surface
-  - merge request notes and inline comments remain the review conversation
-  - dashboard mirroring stays compact and should not replay full inline comment
-    content
+- review surface vs work-item surface
+  - change-request notes and inline comments remain the review conversation
+  - work-item projection uses the finalized artifact and retains bounded evidence;
+    it never becomes a separate review authority
 
 ### 6.2 Trusted Location Evidence
 
@@ -645,8 +645,9 @@ Likely mapping direction:
   plus final transport, even if the first implementation keeps those pieces
   close together,
 - publisher stays downstream of validated artifacts,
-- review dashboard mirroring remains downstream of the final published review
-  result rather than becoming a separate review authority.
+- verified work-item projection remains downstream of the final published review
+  artifact rather than becoming a separate review authority; dashboard mirroring
+  is retired in v1.
 
 Recommended migration approach:
 
@@ -669,7 +670,7 @@ Recommended evolution:
 4. build the publish-shaped artifact,
 5. run validation,
 6. publish the validated artifact,
-7. persist state and dashboard mirror outcomes as today.
+7. persist review state and verified work-item projection outcomes.
 
 The runner should report clearly whether:
 

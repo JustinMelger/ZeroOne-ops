@@ -9,7 +9,6 @@ from typing import Protocol
 from zeroone_ops.models.config import AppConfig, GitHubConnectionConfig, GitLabConnectionConfig
 from zeroone_ops.models.state import AppState, RunStatus, utc_now
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
-from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 from zeroone_ops.services.control_plane.overview.github_operational_summary_service import (
     GitHubOperationalSummaryPublishResult,
@@ -38,13 +37,6 @@ from zeroone_ops.services.control_plane.work_items.gitlab_finding_sync_service i
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
 )
-from zeroone_ops.services.dashboard.dashboard_policy_view_builder import (
-    DashboardPolicyViewBuilder,
-)
-from zeroone_ops.services.dashboard.dashboard_service import DashboardService
-from zeroone_ops.services.intake.finding_dashboard_sync_service import (
-    FindingDashboardSyncService,
-)
 from zeroone_ops.services.intake.issue_intake import IssueIntakeService, SyncIssueCollectionResult
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.workflows.operational_summary import (
@@ -68,19 +60,6 @@ class WorkflowRunContextBuilder(Protocol):
         dry_run: bool,
     ) -> WorkflowRunContext:
         """Build the context for one workflow invocation."""
-
-
-class DashboardPolicyViewBuilderFactory(Protocol):
-    """Build a dashboard policy view only for legacy GitLab sync."""
-
-    def __call__(
-        self,
-        *,
-        repo_root: Path,
-        config: AppConfig,
-        state: AppState,
-    ) -> DashboardPolicyViewBuilder:
-        """Build the legacy dashboard policy view."""
 
 
 class GitHubPolicyIssueServiceBuilder(Protocol):
@@ -205,10 +184,8 @@ class FindingSyncWorkflow:
         dry_run: bool,
         build_run_id: Callable[[], str],
         build_context: WorkflowRunContextBuilder,
-        is_gitlab_issue_mode: Callable[[AppConfig], bool],
         load_github_config: Callable[[], GitHubConnectionConfig],
         load_gitlab_config: Callable[[], GitLabConnectionConfig],
-        build_dashboard_policy_view: DashboardPolicyViewBuilderFactory,
         build_github_policy_issue_service: GitHubPolicyIssueServiceBuilder,
         build_gitlab_policy_issue_service: GitLabPolicyIssueServiceBuilder,
         publish_github_summary: GitHubSummaryPublisher,
@@ -219,10 +196,8 @@ class FindingSyncWorkflow:
         self.dry_run = dry_run
         self.build_run_id = build_run_id
         self.build_context = build_context
-        self.is_gitlab_issue_mode = is_gitlab_issue_mode
         self.load_github_config = load_github_config
         self.load_gitlab_config = load_gitlab_config
-        self.build_dashboard_policy_view = build_dashboard_policy_view
         self.build_github_policy_issue_service = build_github_policy_issue_service
         self.build_gitlab_policy_issue_service = build_gitlab_policy_issue_service
         self.publish_github_summary = publish_github_summary
@@ -231,61 +206,8 @@ class FindingSyncWorkflow:
     def run(self) -> RunSummary:
         """Run the explicit provider and control-plane route for this sync."""
         if self.config.platform == "gitlab":
-            if self.is_gitlab_issue_mode(self.config):
-                return self._run_gitlab_issue_mode()
-            return self._run_legacy_gitlab_dashboard()
+            return self._run_gitlab_issue_mode()
         return self._run_github_issue_mode()
-
-    def _run_legacy_gitlab_dashboard(self) -> RunSummary:
-        """Project findings into the legacy GitLab dashboard without policy state."""
-        gitlab_config = self.load_gitlab_config()
-        context = self._build_context()
-        collection = self._collect(context)
-        managed_source_ids = set(collection.finding_collection.metadata.managed_source_ids) or {
-            finding.source_id for finding in collection.finding_collection.findings
-        }
-        if not collection.finding_collection.findings and not managed_source_ids:
-            return RunSummary(
-                run_id=context.run_id,
-                status=_collection_message_status(collection.message),
-                message=f"[{self.config.execution_mode}] {collection.message}",
-                state_path=context.state_store.path,
-            )
-        if context.active_dry_run:
-            return RunSummary(
-                run_id=context.run_id,
-                status=_collection_message_status("synced"),
-                message=(
-                    f"[{self.config.execution_mode}] Dry-run found "
-                    f"{len(collection.finding_collection.findings)} "
-                    "findings for dashboard sync."
-                ),
-                state_path=context.state_store.path,
-            )
-
-        sync_result = FindingDashboardSyncService(
-            DashboardService(
-                GitLabDashboardClient(gitlab_config),
-                policy_view_builder=self.build_dashboard_policy_view(
-                    repo_root=context.repo_root,
-                    config=self.config,
-                    state=context.state,
-                ),
-            )
-        ).sync(
-            project_id=gitlab_config.project_id,
-            findings=collection.finding_collection.findings,
-            managed_source_ids=managed_source_ids,
-        )
-        return RunSummary(
-            run_id=context.run_id,
-            status=_collection_message_status("synced"),
-            message=(
-                f"[{self.config.execution_mode}] Synced {sync_result.synced_count} "
-                f"findings to the dashboard. Dashboard: {sync_result.dashboard_issue_url}"
-            ),
-            state_path=context.state_store.path,
-        )
 
     def _run_github_issue_mode(self) -> RunSummary:
         """Project policy-promoted normalized findings into GitHub work items."""
@@ -352,8 +274,8 @@ class FindingSyncWorkflow:
 
     def _run_gitlab_issue_mode(self) -> RunSummary:
         """Project policy-promoted normalized findings into GitLab work items."""
-        gitlab_config = self.load_gitlab_config()
         context = self._build_context()
+        gitlab_config = self.load_gitlab_config()
         collection = self._collect(context)
         metadata = collection.finding_collection.metadata
         if not collection.finding_collection.findings and not metadata.managed_source_ids:
@@ -420,7 +342,7 @@ class FindingSyncWorkflow:
         return IssueIntakeService(
             repo_root=context.repo_root,
             config=self.config,
-        ).collect_dashboard_sync_issues(
+        ).collect_findings_for_sync(
             dry_run=context.active_dry_run,
             run_id=context.run_id,
         )

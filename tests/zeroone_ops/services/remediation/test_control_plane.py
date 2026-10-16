@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
@@ -48,33 +46,6 @@ def test_build_remediation_control_plane_returns_noop_for_gitlab() -> None:
             ),
             gitlab=GitLabConfig(target_branch="main", labels=["zeroone-ops"]),
         )
-    )
-
-    assert isinstance(control_plane, NoOpRemediationControlPlane)
-
-
-def test_build_remediation_control_plane_returns_noop_for_gitlab_dashboard_mode() -> None:
-    work_item_service = GitLabWorkItemService(DummyGitLabWorkItemClient())  # type: ignore[arg-type]
-
-    control_plane = build_remediation_control_plane(
-        AppConfig(
-            execution_mode="ci",
-            base_branch="main",
-            validation_commands=[],
-            approval=ApprovalConfig(),
-            remediation=RemediationConfig(
-                target_branch="main",
-                bootstrap_severities=["MAJOR"],
-                analysis=AnalysisConfig(),
-            ),
-            gitlab=GitLabConfig(
-                control_plane_mode="dashboard",
-                target_branch="main",
-                labels=["zeroone-ops"],
-            ),
-        ),
-        gitlab_work_item_service=work_item_service,
-        gitlab_project_id="group/project",
     )
 
     assert isinstance(control_plane, NoOpRemediationControlPlane)
@@ -168,35 +139,3 @@ def test_gitlab_runner_reuses_one_control_plane_for_execution_and_publication(
         runner.execution_service.publish_service._remediation_control_plane_override
         is runner.remediation_control_plane
     )
-
-
-def test_gitlab_runner_rejects_dashboard_mode(tmp_path: Path) -> None:
-    config = AppConfig(
-        execution_mode="ci",
-        base_branch="main",
-        validation_commands=[],
-        approval=ApprovalConfig(),
-        remediation=RemediationConfig(
-            target_branch="main",
-            bootstrap_severities=["MAJOR"],
-            analysis=AnalysisConfig(),
-        ),
-        gitlab=GitLabConfig(
-            control_plane_mode="dashboard",
-            target_branch="main",
-            labels=["zeroone-ops"],
-        ),
-    )
-    work_item_service = GitLabWorkItemService(DummyGitLabWorkItemClient())  # type: ignore[arg-type]
-
-    with pytest.raises(
-        ValueError,
-        match="GitLab work-item remediation requires gitlab.control_plane_mode='issues'",
-    ):
-        GitLabRemediationRunner(
-            repo_root=tmp_path,
-            config=config,
-            project_id="group/project",
-            work_item_service=work_item_service,
-            run_state_service=object(),  # type: ignore[arg-type]
-        )

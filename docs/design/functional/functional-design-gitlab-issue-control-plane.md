@@ -14,7 +14,7 @@ use GitLab issues, labels, merge requests, and project-member authorization.
 
 ## Problem
 
-The current GitLab dashboard is both the authoritative state store and the
+Before issue mode, the GitLab dashboard was both the authoritative state store and the
 operator overview. As a repository accumulates findings and lifecycle updates:
 
 - its rendered body becomes difficult to scan;
@@ -76,8 +76,7 @@ Blocked work items show their recovery commands directly on the issue:
 ```
 
 The affected issue identifies the item, so the GitLab command form matches
-GitHub. The legacy dashboard command form remains only while dashboard mode is
-active.
+GitHub. The legacy dashboard command form is removed in v1.
 
 Completed and dismissed remediation issues are closed after their terminal
 machine state is persisted. Dismissed issues remain searchable tombstones so a
@@ -124,11 +123,11 @@ authoritative state in the same mode.
 
 ## Cutover And Rollout
 
-GitLab uses issue mode by default. The explicit GitLab control-plane modes are:
-
-- `issues`: policy issue plus authoritative work-item issues, with an optional
-  derived summary; and
-- `dashboard`: explicitly selected legacy compatibility behavior.
+GitLab issue mode is the only supported control plane in v1. The optional
+`gitlab.control_plane_mode` setting accepts only `issues`; `dashboard` fails with
+migration guidance. All dashboard CLI aliases are removed in favor of neutral
+commands, including `zeroone-ops policy run`. Follow the
+[v1 migration guide](../../migration-v1.md) before upgrading an old installation.
 
 New issue-mode rollouts begin with empty GitLab issue control-plane records.
 Existing dashboard repositories use an explicit switch-and-sync cutover:
@@ -163,18 +162,12 @@ must never become a broad historical dashboard migration.
 
 ## Dashboard Support Window
 
-Dashboard mode remains fully supported through Phase 8 implementation and live
-validation in at least two GitLab repositories. Once issue mode has completed
-that rollout:
-
-1. New GitLab examples default to issue mode.
-2. Dashboard mode becomes maintenance-only: compatibility, migration support,
-   and correctness fixes continue, but no new workflow features are added.
-3. Dashboard mode remains available for two minor releases.
-4. It is removed in the next planned breaking release after that window.
-
-The dashboard remains readable after cutover as historical context, but it is
-not an active control plane in issue mode.
+The historical two-minor-release compatibility window has elapsed, as recorded
+in the [retirement audit](../technical/technical-audit-legacy-dashboard-retirement.md).
+V1 removes dashboard runtime. Remote dashboards remain readable history and are
+never modified by the application. Operators explicitly back up and remove local
+dashboard history and dashboard-associated runs before upgrading; issue-mode
+state and review continuity are preserved. Cutover confirmation is a release gate.
 
 ## Behavioral Parity
 
@@ -193,7 +186,7 @@ Provider differences remain intentional:
 - GitLab uses project Maintainer/Owner authorization, not GitHub admin roles;
 - GitLab issue and merge-request URLs, labels, and API semantics remain local;
 - GitLab can keep the operational summary disabled initially; and
-- existing dashboard mode remains available during the cutover window.
+- retired dashboard configuration is rejected before provider operations.
 
 ## Success Criteria
 

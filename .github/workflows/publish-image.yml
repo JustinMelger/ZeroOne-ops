@@ -101,7 +101,7 @@ jobs:
         run: |
           docker run --rm zeroone-ops:smoke --help
           docker run --rm zeroone-ops:smoke review --help
-          docker run --rm zeroone-ops:smoke dashboard --help
+          docker run --rm zeroone-ops:smoke policy --help
 
       - name: Build and push Docker image
         id: push

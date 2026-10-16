@@ -46,7 +46,7 @@ class GitLabPolicyProcessingRunner:
                 record=record,
                 error_message=message,
                 failure=FailureDetails(
-                    stage=FailureStage.DASHBOARD_UPDATE,
+                    stage=FailureStage.CONTROL_PLANE_UPDATE,
                     message=message,
                 ),
             )

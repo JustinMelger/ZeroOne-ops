@@ -102,8 +102,8 @@ projection failure logs a warning without incrementing
 limitation or add automatic closure retries.
 
 The coordinator does not execute remediation, interpret review commands, or
-reconcile linked PR/MR terminal outcomes. Legacy GitLab dashboard routing and
-intake remain outside this composition.
+reconcile linked PR/MR terminal outcomes. Dashboard runtime is retired in v1;
+only issue-mode provider adapters participate in this composition.
 
 ## Policy Reconciliation Flow
 
@@ -239,7 +239,7 @@ the same provider-local projection operation to repair a mismatch.
 - Policy-deferred transitions are allowed only from unlinked `candidate` and
   `approved` work. `in_progress`, `blocked`, dismissed, and linked work remain
   lifecycle- or operator-owned and are retained unchanged.
-- Legacy GitLab dashboard mode remains out of scope.
+- Legacy GitLab dashboard runtime is removed in v1.
 - Lifecycle retains change-request reconciliation ownership. It may repair
   projection mismatches but does not evaluate finding policy.
 - A later remediation review-feedback state may reuse the shared status-to-

@@ -13,7 +13,7 @@ flowchart TD
     A[MR Intake] --> A1{Authoritative same-SHA review exists?}
     A1 -->|yes| A2[App-owned reuse response]
     A2 --> A3[Persist run record only]
-    A3 --> U[Operator-visible dashboard state]
+    A3 --> U[Operator-visible review and work-item state]
     A1 -->|no| B[Review Context Builder]
 
     B --> C[Candidate Generation Stage]
@@ -54,12 +54,12 @@ flowchart TD
     O -->|rejected| Q[Manual review only fallback]
 
     P --> R[Persist Review State]
-    P --> S[Dashboard Mirror]
+    P --> S[Verified Work-Item Projection]
     Q --> R
     Q --> S
 
     R --> T[Future prior-review context]
-    S --> U[Operator-visible dashboard state]
+    S --> U[Operator-visible review and work-item state]
 ```
 
 ## Notes
@@ -67,7 +67,7 @@ flowchart TD
 - `candidate generation`, `precision / reconciliation`, and `overlap reconciliation`
   are the current LLM-assisted stages.
 - candidate annotations, `normalization`, `artifact building`, `validation`,
-  `state persistence`, and `dashboard mirroring` are app-owned.
+  `state persistence`, and `work-item projection` are app-owned.
 - Same-SHA reuse is an app-owned operational early exit, not a new review pass.
 - The precision stage owns final review meaning.
 - The validator owns publish safety, not review truth.

@@ -7,7 +7,8 @@ from zeroone_ops.models.config import (
     GitLabConfig,
     RemediationConfig,
 )
-from zeroone_ops.models.remediation import RemediationWorkItem
+from zeroone_ops.models.remediation import RemediationExecutionTarget
+from zeroone_ops.models.work_item import ProjectedReviewFeedback, ProjectedReviewFinding
 from zeroone_ops.services.remediation.remediation_context_builder import (
     RemediationContextBuilder,
 )
@@ -35,9 +36,9 @@ def build_work_item(
     *,
     file_path: str = "src/service.py",
     line: int | None = 2,
-) -> RemediationWorkItem:
-    return RemediationWorkItem(
-        dashboard_item_id="sonar:1",
+) -> RemediationExecutionTarget:
+    return RemediationExecutionTarget(
+        item_id="sonar:1",
         source_type="sonarqube",
         source_ref="AX123",
         title="python:S1125 in src/service.py",
@@ -70,7 +71,7 @@ def test_build_returns_none_when_work_item_file_is_missing(tmp_path: Path) -> No
     assert context is None
 
 
-def test_build_attaches_prior_review_feedback_for_retry_eligible_item(tmp_path: Path) -> None:
+def test_build_attaches_typed_projected_review_feedback(tmp_path: Path) -> None:
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text("a = 1\nb = 2\nc = 3\n", encoding="utf-8")
     builder = RemediationContextBuilder(tmp_path, build_config())
@@ -78,16 +79,20 @@ def test_build_attaches_prior_review_feedback_for_retry_eligible_item(tmp_path: 
     context = builder.build(
         build_work_item().model_copy(
             update={
-                "source_payload": {
-                    "retry_eligible": True,
-                    "review_status": "findings_present",
-                    "review_findings_count": 2,
-                    "review_feedback_summary": "Ordering changed in a shared path.",
-                    "review_confidence": 0.82,
-                    "review_confidence_reason": "The diff directly changes output ordering.",
-                    "reviewed_head_sha": "abc123",
-                    "retry_count": 1,
-                }
+                "reviewed_sha": "abc123",
+                "review_feedback": ProjectedReviewFeedback(
+                    finding_count=1,
+                    summary="Ordering changed in a shared path.",
+                    findings=[
+                        ProjectedReviewFinding(
+                            title="Preserve ordering",
+                            file_path="src/service.py",
+                            evidence="Return order changed",
+                            explanation="Changes the API response.",
+                            suggested_follow_up="Preserve the existing ordering.",
+                        )
+                    ],
+                ),
             }
         )
     )
@@ -95,12 +100,13 @@ def test_build_attaches_prior_review_feedback_for_retry_eligible_item(tmp_path: 
     assert context is not None
     assert context.prior_review_feedback is not None
     assert context.prior_review_feedback.review_status == "findings_present"
-    assert context.prior_review_feedback.review_findings_count == 2
+    assert context.prior_review_feedback.review_findings_count == 1
     assert (
         context.prior_review_feedback.review_feedback_summary
         == "Ordering changed in a shared path."
     )
-    assert context.prior_review_feedback.retry_count == 1
+    assert context.prior_review_feedback.reviewed_head_sha == "abc123"
+    assert len(context.prior_review_feedback.findings) == 1
 
 
 def test_build_attaches_repository_guidance_when_available(tmp_path: Path) -> None:

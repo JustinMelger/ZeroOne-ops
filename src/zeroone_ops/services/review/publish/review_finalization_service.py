@@ -15,9 +15,6 @@ from zeroone_ops.models.review import (
     ReviewResult,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
-from zeroone_ops.services.review.publish.review_dashboard_updater import (
-    ReviewDashboardUpdater,
-)
 from zeroone_ops.services.review.publish.review_publisher import ReviewPublishResult
 
 LOGGER = logging.getLogger(__name__)
@@ -57,7 +54,7 @@ class ReviewArtifactPublisher(Protocol):
 
 @dataclass(frozen=True)
 class ReviewFinalizationResult:
-    """Capture the final publish/dashboard side effects for one review run."""
+    """Capture the final publish/projection side effects for one review run."""
 
     artifact: PublishableReviewArtifact
     review_result: ReviewResult
@@ -65,24 +62,21 @@ class ReviewFinalizationResult:
     note_url: str | None
     inline_comment_decisions: list[ReviewInlineCommentDecision]
     publish_warning: str | None = None
-    dashboard_warning: str | None = None
     projection_warning: str | None = None
     error_message: str | None = None
 
 
 class ReviewFinalizationService:
-    """Run bounded publish and dashboard side effects for one review artifact."""
+    """Run bounded publish and work-item projection side effects for one review artifact."""
 
     def __init__(
         self,
         *,
         review_publisher: ReviewArtifactPublisher,
-        dashboard_updater: ReviewDashboardUpdater | None,
         review_projection_factory: Callable[[], ReviewProjectionService | None] | None = None,
     ) -> None:
         """Initialize the finalization service."""
         self.review_publisher = review_publisher
-        self.dashboard_updater = dashboard_updater
         self.review_projection_factory = review_projection_factory
 
     def finalize(
@@ -159,34 +153,6 @@ class ReviewFinalizationService:
                     },
                 )
 
-        dashboard_warning = None
-        if self.dashboard_updater is not None:
-            dashboard_update = self.dashboard_updater.update(
-                project_id=repository_id,
-                merge_request=change_request,
-                review_result=finalized_review_result,
-            )
-            dashboard_warning = dashboard_update.error_message
-            if dashboard_warning is None:
-                LOGGER.info(
-                    "review dashboard mirrored",
-                    extra={
-                        "run_id": run_id,
-                        "change_request_number": context.change_request_number,
-                        "head_sha": context.head_sha,
-                        "dashboard_issue_url": dashboard_update.dashboard_issue_url,
-                    },
-                )
-            else:
-                LOGGER.warning(
-                    "review dashboard mirror warning",
-                    extra={
-                        "run_id": run_id,
-                        "change_request_number": context.change_request_number,
-                        "head_sha": context.head_sha,
-                    },
-                )
-
         projection_warning = None
         if self.review_projection_factory is not None:
             try:
@@ -250,6 +216,5 @@ class ReviewFinalizationService:
             inline_comment_decisions=publish_result.inline_comment_decisions
             or inline_comment_decisions,
             publish_warning=publish_warning,
-            dashboard_warning=dashboard_warning,
             projection_warning=projection_warning,
         )

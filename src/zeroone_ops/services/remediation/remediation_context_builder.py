@@ -10,11 +10,9 @@ from zeroone_ops.models.analysis import (
     PriorReviewFeedbackFinding,
 )
 from zeroone_ops.models.config import AppConfig
-from zeroone_ops.models.remediation import RemediationExecutionTarget, RemediationWorkItem
+from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.services.shared.context_builder import build_issue_context
 from zeroone_ops.services.shared.repository_guidance import load_repository_guidance
-
-RemediationContextTarget = RemediationWorkItem | RemediationExecutionTarget
 
 
 class RemediationContextBuilder:
@@ -25,7 +23,7 @@ class RemediationContextBuilder:
         self.repo_root = repo_root
         self.config = config
 
-    def build(self, work_item: RemediationContextTarget) -> IssueContext | None:
+    def build(self, work_item: RemediationExecutionTarget) -> IssueContext | None:
         """Build source context for one remediation work item."""
         context = build_issue_context(
             repo_root=self.repo_root,
@@ -50,48 +48,19 @@ class RemediationContextBuilder:
         return context.model_copy(update={"prior_review_feedback": prior_review_feedback})
 
 
-def _build_prior_review_feedback(work_item: RemediationContextTarget) -> PriorReviewFeedback | None:
-    """Return bounded prior review feedback for retry-eligible work items."""
-    if isinstance(work_item, RemediationExecutionTarget) and work_item.review_feedback:
-        feedback = work_item.review_feedback
-        return PriorReviewFeedback(
-            review_status="findings_present",
-            review_findings_count=feedback.finding_count,
-            review_feedback_summary=feedback.summary,
-            reviewed_head_sha=work_item.reviewed_sha,
-            findings=[
-                PriorReviewFeedbackFinding(**finding.model_dump()) for finding in feedback.findings
-            ],
-        )
-    payload = work_item.source_payload
-    if payload.get("retry_eligible") is not True:
-        return None
-    review_status = payload.get("review_status")
-    if not isinstance(review_status, str) or not review_status:
+def _build_prior_review_feedback(
+    work_item: RemediationExecutionTarget,
+) -> PriorReviewFeedback | None:
+    """Return typed projected feedback for a verified same-request revision."""
+    feedback = work_item.review_feedback
+    if feedback is None:
         return None
     return PriorReviewFeedback(
-        review_status=review_status,
-        review_findings_count=_as_int(payload.get("review_findings_count")),
-        review_feedback_summary=_as_str(payload.get("review_feedback_summary")),
-        review_confidence=_as_float(payload.get("review_confidence")),
-        review_confidence_reason=_as_str(payload.get("review_confidence_reason")),
-        reviewed_head_sha=_as_str(payload.get("reviewed_head_sha")),
-        retry_count=_as_int(payload.get("retry_count")),
+        review_status="findings_present",
+        review_findings_count=feedback.finding_count,
+        review_feedback_summary=feedback.summary,
+        reviewed_head_sha=work_item.reviewed_sha,
+        findings=[
+            PriorReviewFeedbackFinding(**finding.model_dump()) for finding in feedback.findings
+        ],
     )
-
-
-def _as_str(value: object) -> str | None:
-    """Normalize one optional string field from source payload."""
-    return value if isinstance(value, str) and value else None
-
-
-def _as_int(value: object) -> int | None:
-    """Normalize one optional integer field from source payload."""
-    return value if isinstance(value, int) else None
-
-
-def _as_float(value: object) -> float | None:
-    """Normalize one optional float field from source payload."""
-    if isinstance(value, (int, float)):
-        return float(value)
-    return None

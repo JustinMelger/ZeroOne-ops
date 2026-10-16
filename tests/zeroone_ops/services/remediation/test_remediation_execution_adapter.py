@@ -1,36 +1,8 @@
 from zeroone_ops.models.finding import RemediationContext
-from zeroone_ops.models.remediation import RemediationWorkItem
 from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
 from zeroone_ops.services.remediation.remediation_execution_adapter import (
     control_plane_work_item_to_execution_target,
-    remediation_work_item_to_execution_target,
 )
-
-
-def test_work_item_target_adapter_preserves_shared_fields() -> None:
-    work_item = RemediationWorkItem(
-        dashboard_item_id="ruff:E712:service",
-        source_type="ruff-sarif",
-        source_ref="ruff:E712:service",
-        title="Avoid equality comparisons to True",
-        status="approved",
-        message="Replace boolean equality with direct truthiness.",
-        file_path="src/service.py",
-        line=42,
-        rule_id="E712",
-        severity="low",
-        issue_type="lint_fix",
-        component="sample-project:src/service.py",
-        project="sample-project",
-    )
-    target = remediation_work_item_to_execution_target(work_item)
-
-    assert target.item_id == "ruff:E712:service"
-    assert target.source_type == "ruff-sarif"
-    assert target.file_path == "src/service.py"
-    assert target.issue_type == "lint_fix"
-    assert target.component == "sample-project:src/service.py"
-    assert target.project == "sample-project"
 
 
 def test_control_plane_work_item_adapter_uses_authoritative_identity() -> None:

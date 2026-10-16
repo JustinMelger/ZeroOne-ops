@@ -42,8 +42,9 @@ Extend the shared work-item model with:
 - `recovery_events: list[RecoveryEvent] = []`
 - `resolution: WorkItemResolution | None = None`
 
-For GitLab, add equivalent fields to the dashboard item model and persisted
-machine payload. For GitHub, add them to the work-item issue machine state.
+Both providers persist the same canonical work-item issue machine state. Legacy
+dashboard runtime and its state models are retired in v1; see the
+[migration guide](../../migration-v1.md).
 
 An event is append-only and capped at ten entries during rendering/upsert. The
 active `linked_change_request`, `publication_retry`, and `execution_failure`
@@ -103,8 +104,7 @@ before processing the next event. The callback calls
 issue and machine state. Subsequent decisions use that returned state. Dry runs
 advance only simulated state without writes or mutation of the supplied state.
 Persistence failures propagate and stop the remaining events. No extra reads,
-retries, upserts, or atomicity guarantees are introduced; legacy dashboard
-recovery remains separate.
+retries, upserts, or atomicity guarantees are introduced.
 
 Sorting uses an explicit validity discriminator before timestamp and event ID.
 Invalid, missing, and naive timestamps always follow valid timestamps and sort
@@ -172,25 +172,12 @@ It normalizes every authorized note and delegates shared command processing,
 retaining direct issue updates and actual returned native metadata locally.
 Scheduled polling and optional summary publication remain workflow-owned.
 
-Legacy dashboard compatibility remains separate:
-
-Add a dashboard recovery-note adapter beside dashboard policy processing. It
-should:
-
-1. load dashboard notes;
-2. authorize authors through `GitLabPolicyNoteAuthorizationService`;
-3. parse an item-targeted command;
-4. load the dashboard item; and
-5. invoke the shared decision service before persisting the dashboard.
-
-Recovery processing is separate from severity and issue-class policy replay.
-It may share comment transport and authorization, but must not extend the
-policy state model. Dashboard policy commands remain dashboard-scoped; an
-item-targeted recovery command is the only remediation command accepted there.
+Recovery processing remains separate from severity and issue-class policy replay.
+It shares provider note transport and authorization, not policy state ownership.
 
 ## 8. Rendering
 
-GitLab rows and GitHub work-item issues should show only the latest recovery
+GitLab and GitHub work-item issues should show only the latest recovery
 summary in the human-facing view:
 
 - latest action;
@@ -224,7 +211,7 @@ operator views scannable while retaining durable provenance.
 ### Phase 7c: Provider Command Surfaces
 
 - add GitHub work-item comment processing and admin authorization tests;
-- add GitLab dashboard-note processing and Maintainer/Owner authorization tests;
+- add GitLab work-item note processing and Maintainer/Owner authorization tests;
 - expose provider-native workflow triggers and command references.
 - ensure source sync preserves GitLab dismissed states and recognizes GitHub
   dismissed tombstones by stable source identity.

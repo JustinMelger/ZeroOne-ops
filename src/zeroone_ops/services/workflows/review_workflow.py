@@ -6,7 +6,6 @@ from collections.abc import Callable
 from typing import Protocol
 
 from zeroone_ops.models.config import AppConfig
-from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
 from zeroone_ops.services.observability.workflow_trace_service import (
     WorkflowTraceContext,
@@ -39,7 +38,6 @@ class ReviewPlatformRuntimeBuilder(Protocol):
         str,
         int | None,
         str | None,
-        GitLabDashboardClient | None,
     ]:
         """Build the provider-local review runtime."""
 
@@ -81,13 +79,11 @@ class ReviewWorkflow:
             repository_id,
             current_change_request_number,
             triggered_head_sha,
-            dashboard_client,
         ) = self.build_platform_runtime(self.config)
         runner = ReviewRunner(
             repo_root=context.repo_root,
             config=self.config,
             review_client=review_client,
-            dashboard_client=dashboard_client,
             review_state_service=review_state_service,
         )
         if context.active_dry_run:

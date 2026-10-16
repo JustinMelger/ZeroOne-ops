@@ -66,7 +66,7 @@ class GitLabWorkItemRecoveryRunner:
             return self.run_state_service.fail_run(
                 record=record,
                 error_message=message,
-                failure=FailureDetails(stage=FailureStage.DASHBOARD_UPDATE, message=message),
+                failure=FailureDetails(stage=FailureStage.CONTROL_PLANE_UPDATE, message=message),
             )
         counts = _RecoveryCounts()
         for existing in self.work_item_service.list_open_work_items(project_id=project_id):

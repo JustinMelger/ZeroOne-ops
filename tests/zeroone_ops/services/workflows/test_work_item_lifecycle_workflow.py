@@ -42,10 +42,8 @@ def test_github_local_lifecycle_fails_before_loading_provider_configuration(
         dry_run=False,
         build_run_id=lambda: "run-1",
         build_context=build_workflow_run_context,
-        is_gitlab_issue_mode=lambda _: False,
         load_github_config=unexpected_github_load,
         load_gitlab_config=unexpected_gitlab_load,
-        build_dashboard_policy_view=unexpected_dependency,  # type: ignore[arg-type]
         publish_github_summary=unexpected_dependency,  # type: ignore[arg-type]
         publish_gitlab_summary=unexpected_dependency,  # type: ignore[arg-type]
     ).run_status_sync()

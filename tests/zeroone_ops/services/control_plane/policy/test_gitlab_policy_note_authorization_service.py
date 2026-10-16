@@ -1,4 +1,4 @@
-"""Tests for GitLab dashboard policy-note authorization."""
+"""Tests for GitLab issue policy-note authorization."""
 
 from zeroone_ops.models.gitlab import GitLabIssueNote
 from zeroone_ops.providers.gitlab_client import GitLabClientError
@@ -7,7 +7,7 @@ from zeroone_ops.services.control_plane.policy.gitlab_policy_note_authorization_
 )
 
 
-class FakeGitLabDashboardClient:
+class FakeGitLabMembershipClient:
     def __init__(self, access_levels: dict[int, int | Exception]) -> None:
         self.access_levels = access_levels
         self.requested_user_ids: list[int] = []
@@ -31,7 +31,7 @@ def build_note(*, note_id: int, author_id: int | None) -> GitLabIssueNote:
 
 
 def test_authorized_notes_accepts_maintainers_and_owners() -> None:
-    client = FakeGitLabDashboardClient({1: 40, 2: 50})
+    client = FakeGitLabMembershipClient({1: 40, 2: 50})
     service = GitLabPolicyNoteAuthorizationService(client)  # type: ignore[arg-type]
 
     notes = service.authorized_notes(
@@ -43,7 +43,7 @@ def test_authorized_notes_accepts_maintainers_and_owners() -> None:
 
 
 def test_authorized_notes_ignores_developer_missing_identity_and_lookup_failures() -> None:
-    client = FakeGitLabDashboardClient({1: 30, 2: GitLabClientError("unavailable")})
+    client = FakeGitLabMembershipClient({1: 30, 2: GitLabClientError("unavailable")})
     service = GitLabPolicyNoteAuthorizationService(client)  # type: ignore[arg-type]
 
     notes = service.authorized_notes(
@@ -59,7 +59,7 @@ def test_authorized_notes_ignores_developer_missing_identity_and_lookup_failures
 
 
 def test_authorized_notes_caches_one_membership_lookup_per_author() -> None:
-    client = FakeGitLabDashboardClient({1: 40})
+    client = FakeGitLabMembershipClient({1: 40})
     service = GitLabPolicyNoteAuthorizationService(client)  # type: ignore[arg-type]
 
     notes = service.authorized_notes(

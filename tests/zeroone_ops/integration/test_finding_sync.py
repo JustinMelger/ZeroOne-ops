@@ -3,9 +3,9 @@ from pathlib import Path
 import httpx
 
 from zeroone_ops.models.config import GitHubConnectionConfig, GitLabConnectionConfig
-from zeroone_ops.models.dashboard import DashboardPolicyState, DashboardSeverityPolicyStateEntry
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.gitlab import GitLabIssueInfo
+from zeroone_ops.models.policy import PolicySeverityStateEntry, PolicyState
 from zeroone_ops.models.state import RunStatus
 from zeroone_ops.runner import (
     recover_work_item,
@@ -42,12 +42,12 @@ def _unset_sonarqube_environment(monkeypatch) -> None:
         monkeypatch.delenv(name, raising=False)
 
 
-def _policy_state() -> DashboardPolicyState:
-    return DashboardPolicyState(
+def _policy_state() -> PolicyState:
+    return PolicyState(
         severity_policy=[
-            DashboardSeverityPolicyStateEntry(severity="low", enabled=False),
-            DashboardSeverityPolicyStateEntry(severity="medium", enabled=True),
-            DashboardSeverityPolicyStateEntry(severity="high", enabled=True),
+            PolicySeverityStateEntry(severity="low", enabled=False),
+            PolicySeverityStateEntry(severity="medium", enabled=True),
+            PolicySeverityStateEntry(severity="high", enabled=True),
         ]
     )
 
@@ -483,7 +483,7 @@ def test_sync_findings_dry_run_reconciles_empty_managed_sarif_source(
     assert summary.status.value == "synced"
     assert not (tmp_path / ".zeroone-ops-state.json").exists()
     assert "Dry-run identified 0 findings eligible under the configured policy" in summary.message
-    assert "No dashboard-syncable findings found." not in summary.message
+    assert "No syncable findings found." not in summary.message
 
 
 def test_work_item_status_dry_run_does_not_load_finding_inventory(

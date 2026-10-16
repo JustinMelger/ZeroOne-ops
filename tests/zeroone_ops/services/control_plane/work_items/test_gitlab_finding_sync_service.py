@@ -1,9 +1,9 @@
-from zeroone_ops.models.dashboard import (
-    DashboardPolicyState,
-    DashboardSeverityPolicyStateEntry,
-)
 from zeroone_ops.models.finding import NormalizedFinding, RemediationContext
 from zeroone_ops.models.gitlab import GitLabIssueInfo
+from zeroone_ops.models.policy import (
+    PolicySeverityStateEntry,
+    PolicyState,
+)
 from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
 from zeroone_ops.services.control_plane.work_items.gitlab_finding_sync_service import (
     GitLabFindingSyncService,
@@ -227,12 +227,12 @@ def _policy_state(
     *,
     medium_enabled: bool,
     high_enabled: bool = True,
-) -> DashboardPolicyState:
-    return DashboardPolicyState(
+) -> PolicyState:
+    return PolicyState(
         severity_policy=[
-            DashboardSeverityPolicyStateEntry(severity="low", enabled=False),
-            DashboardSeverityPolicyStateEntry(severity="medium", enabled=medium_enabled),
-            DashboardSeverityPolicyStateEntry(severity="high", enabled=high_enabled),
+            PolicySeverityStateEntry(severity="low", enabled=False),
+            PolicySeverityStateEntry(severity="medium", enabled=medium_enabled),
+            PolicySeverityStateEntry(severity="high", enabled=high_enabled),
         ]
     )
 

@@ -1,6 +1,26 @@
 # Legacy Dashboard Dependency and Retirement Audit
 
-## Status and Scope
+## V1 Retirement: Implemented
+
+The approved v1 retirement removes dashboard runtime, its CLI group and runner
+aliases, review mirrors, and legacy remediation/state bridges. GitHub and GitLab
+issue mode remain supported. `policy run` replaces `dashboard policy`; the
+optional GitLab mode setting accepts only `issues`. See the
+[migration guide](../../migration-v1.md) for the current operator contract.
+
+Unlike the original audit's conservative retention proposal, the approved v1
+decision drops meaningful local dashboard history and associated run records
+only after explicit operator backup and cleanup. State loading rejects such
+files without writes or provider operations. Empty/null legacy defaults remain
+loadable; issue-mode runs, reviews, projection repair, and old issue-mode failure
+stages remain decodable. Remote dashboard records are never modified.
+
+The dependency table, support-window evidence, and ordered follow-ups below are
+historical audit context, not assertions of current dependencies or supported
+runtime. Operator cutover confirmation and live rollout checks remain release
+gates; implementation does not claim those gates have completed.
+
+## Status and Scope (Original Audit)
 
 Completed documentation-only audit of repository revision `2272daa` on
 2026-09-23. This is a retirement map, not authorization to remove support.
@@ -182,4 +202,5 @@ Runtime checks are intentionally not rerun for this documentation-only audit.
 
 Ownership remains unchanged: finding sync owns inventory/policy projection,
 remediation owns execution, lifecycle owns linked-request terminal state, and
-labels remain indexes. Retirement stays open pending explicit approval.
+labels remain indexes. Runtime retirement is implemented for v1; operator
+cutover confirmation remains pending before the release tag.

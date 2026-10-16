@@ -12,7 +12,7 @@ from zeroone_ops.services.shared.run_summary_builder import RunSummary
 
 def test_gitlab_issue_control_plane_refreshes_summary_once(monkeypatch: MonkeyPatch) -> None:
     """The combined GitLab job defers component projections until completion."""
-    config = SimpleNamespace(dry_run=False)
+    config = SimpleNamespace(dry_run=False, platform="gitlab")
     synced_summary = RunSummary(
         run_id="run-1",
         status=RunStatus.SYNCED,
@@ -29,9 +29,8 @@ def test_gitlab_issue_control_plane_refreshes_summary_once(monkeypatch: MonkeyPa
     publication_calls: list[object] = []
 
     monkeypatch.setattr("zeroone_ops.runner.load_config", lambda: config)
-    monkeypatch.setattr("zeroone_ops.runner._gitlab_issue_mode_is_active", lambda _: True)
     monkeypatch.setattr(
-        "zeroone_ops.runner.dashboard_policy",
+        "zeroone_ops.runner.run_policy",
         lambda *, dry_run, publish_operational_summary: (
             component_calls.append(("policy", publish_operational_summary)) or synced_summary
         ),
@@ -67,7 +66,7 @@ def test_gitlab_issue_control_plane_refreshes_summary_once(monkeypatch: MonkeyPa
 
 def test_gitlab_issue_control_plane_continues_after_no_op_policy(monkeypatch: MonkeyPatch) -> None:
     """A normal policy scan without commands must not skip remediation."""
-    config = SimpleNamespace(dry_run=False)
+    config = SimpleNamespace(dry_run=False, platform="gitlab")
     no_policy_command = RunSummary(
         run_id="run-1",
         status=RunStatus.NO_ISSUE,
@@ -89,9 +88,8 @@ def test_gitlab_issue_control_plane_continues_after_no_op_policy(monkeypatch: Mo
     component_calls: list[str] = []
 
     monkeypatch.setattr("zeroone_ops.runner.load_config", lambda: config)
-    monkeypatch.setattr("zeroone_ops.runner._gitlab_issue_mode_is_active", lambda _: True)
     monkeypatch.setattr(
-        "zeroone_ops.runner.dashboard_policy",
+        "zeroone_ops.runner.run_policy",
         lambda *, dry_run, publish_operational_summary: (
             component_calls.append("policy") or no_policy_command
         ),
