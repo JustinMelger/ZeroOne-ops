@@ -9,14 +9,10 @@ This runbook describes how to operate the current ZeroOne Ops workflows in
 GitLab CI and GitHub Actions. Provider-specific setup details call out the
 relevant platform where their control planes differ.
 
-Legacy GitLab dashboard mode remains available. The
-[retirement audit](design/technical/technical-audit-legacy-dashboard-retirement.md)
-records the elapsed compatibility window and shared-code prerequisites; it does
-not authorize removal or require an operator migration in this release.
-
-Issue-mode policy now uses shared, provider-neutral bootstrap and presentation
-code. This internal extraction does not change policy bodies, commands, configured
-severity defaults, or legacy dashboard support.
+V1 supports GitHub and GitLab issue mode only. Legacy dashboard runtime and
+commands are removed. Existing installations must follow the
+[v1 migration guide](migration-v1.md), including backup and explicit cleanup of
+meaningful local dashboard history. Remote dashboard issues are not modified.
 
 Naming note:
 
@@ -24,7 +20,8 @@ Naming note:
 - technical release and image slug: `zeroone-ops`
 - operator-facing commands, config examples, and container paths now use the `zeroone-ops` names
 
-Legacy compatibility aliases still work under the hood, but operator-facing setup now uses the `ZeroOne Ops` names throughout.
+The old dashboard command aliases no longer exist. Use `zeroone-ops policy run`
+for policy processing and the neutral findings, remediation, and work-items commands.
 
 ## Purpose
 
@@ -43,9 +40,9 @@ work through provider-native records:
 
 | Operator need | GitLab | GitHub |
 |---|---|---|
-| Change automation policy | Comment on the policy issue in issue mode; dashboard issue in legacy mode | Comment on the policy issue |
-| Recover a blocked item | Comment on the work-item issue in issue mode, then run the control-plane job; dashboard issue in legacy mode | Comment on the work-item issue; the recovery workflow runs on that comment |
-| Inspect an active remediation | Work-item issue and merge-request link in issue mode; dashboard workflow row in legacy mode | Work-item issue and operational-summary link |
+| Change automation policy | Comment on the policy issue | Comment on the policy issue |
+| Recover a blocked item | Comment on the work-item issue, then run the control-plane job | Comment on the work-item issue; the recovery workflow runs on that comment |
+| Inspect an active remediation | Work-item issue and merge-request link | Work-item issue and operational-summary link |
 
 Both provider templates compose the same jobs: finding sync, remediation,
 lifecycle reconciliation, policy processing, and recovery processing. Normal
@@ -104,7 +101,7 @@ Authority note:
 - if neither config severity nor control-plane severity policy exists yet, the
   bootstrap default is `low` and `medium` enabled with `high` disabled
 - GitLab operators change ongoing policy through strict `/zeroone policy ...`
-  dashboard comments; GitHub repository admins use the dedicated policy issue
+  comments on the dedicated policy issue; GitHub repository admins do the same
 
 Validation feedback is opt-in through `remediation.validation_feedback_enabled`.
 When enabled, remediation captures validation evidence before applying a
@@ -141,17 +138,13 @@ The control plane includes scheduled lifecycle reconciliation:
 
 Policy processing is separate from finding sync and remediation:
 
-- GitLab dashboard mode replays dashboard-note commands, while issue mode
-  replays comments from the dedicated policy issue, into canonical policy state
+- GitLab replays authorized notes from the dedicated policy issue into canonical policy state
 - GitHub replays comments from the dedicated policy issue
 - malformed or unauthorized commands are visible in logs and do not mutate
   authoritative state
 
-Blocked remediation recovery is separate as well. In GitLab dashboard mode, a
-Maintainer or Owner comments on the dashboard issue with
-`/zeroone remediation <item-id> requeue` or
-`/zeroone remediation <item-id> dismiss`. In GitLab issue mode and on GitHub, an
-authorized operator comments `/zeroone remediation requeue` or
+Blocked remediation recovery is separate as well. Authorized GitLab Maintainers
+and Owners or GitHub repository admins comment `/zeroone remediation requeue` or
 `/zeroone remediation dismiss` on the affected work-item issue. Recovery only
 queues state. The normal remediation job remains the sole owner of patch
 generation, validation, branch creation, and change-request publication.
@@ -219,36 +212,15 @@ The provider-native control plane renders an operator policy surface:
 - current severity policy and excluded issue classes are shown for visibility
 - GitLab and GitHub operational summaries are derived views, not authoritative
   mutation surfaces
-- GitLab dashboard-mode compatibility rewrites recognized legacy dashboard
-  bodies before the corresponding legacy workflow continues
 
 ## Required CI Variables
 
-Define these variables in the target GitLab project or group according to the
-workflow you want to run:
+Define these variables in the target GitLab project or group:
 
-- `zeroone_ops_dashboard`
-  - `SONARQUBE_URL`
-  - `SONARQUBE_TOKEN`
-  - `SONARQUBE_PROJECT_KEY`
-  - `GITLAB_URL`
-  - `GITLAB_TOKEN`
-- `zeroone_ops_dashboard_remediate`
-  - `GITLAB_URL`
-  - `GITLAB_TOKEN`
-  - `OPENAI_API_KEY`
-  - `OPENAI_MODEL`
-- `zeroone_ops_dashboard_policy`
-  - `GITLAB_URL`
-  - `GITLAB_TOKEN`
-- `zeroone_ops_dashboard_reconcile`
-  - `GITLAB_URL`
-  - `GITLAB_TOKEN`
-- `zeroone_ops_review`
-  - `GITLAB_URL`
-  - `GITLAB_TOKEN`
-  - `OPENAI_API_KEY`
-  - `OPENAI_MODEL`
+- `GITLAB_URL` and `GITLAB_TOKEN` for issue, policy, recovery, lifecycle, and MR operations.
+- `OPENAI_API_KEY` and optionally `OPENAI_MODEL` for remediation and review.
+- `SONARQUBE_URL`, `SONARQUBE_TOKEN`, and `SONARQUBE_PROJECT_KEY` only when SonarQube intake is enabled.
+- Scanner-specific credentials only in the producer jobs that require them.
 
 Optional variables:
 
@@ -301,7 +273,7 @@ operator changes outside these exact outputs clean before running remediation.
 - push branches to the target repository
 - create merge requests
 - read open merge requests for duplicate detection
-- read and update the dashboard issue used by dashboard-backed workflows
+- read and update the policy issue, authoritative work-item issues, and derived summary
 
 In practice, this means the token should have:
 
@@ -350,7 +322,7 @@ Use this lightweight checklist before cutting a stable release tag.
 6. confirm the publish-image workflow smoke test passes for the container:
    - `--help`
    - `review --help`
-   - `dashboard --help`
+   - `policy --help`
 7. confirm README, runbook, and example CI docs still match the current release
    and image naming
 8. record any known rollout caveats before cutting the stable tag
@@ -625,9 +597,8 @@ This is expected when:
 
 The note should be a single summary comment, not multiple inline comments.
 
-If dashboard mirroring is enabled later, the review note is still the primary
-output surface. A dashboard update failure after note publication should not
-turn the whole review run into a failed review.
+Issue-mode review projection remains best effort after note publication. Its
+persisted repair evidence allows later retries without republishing the review.
 
 ### Run Failed
 
@@ -755,9 +726,8 @@ When a run fails:
 3. rerun the pipeline manually or wait for the next scheduled run
 
 For a blocked work item, post its displayed recovery command after the current
-failure was recorded. In GitLab dashboard mode, use the dashboard command form
-that includes the item ID; in GitLab issue mode and on GitHub, comment directly
-on the affected work-item issue. Older commands are ignored so a prior operator
+failure was recorded. On both providers, comment directly on the affected
+work-item issue. Older commands are ignored so a prior operator
 decision cannot affect a later failure.
 
 When an issue already has an open merge request:
@@ -1033,150 +1003,6 @@ Required workflow permissions:
 - `contents: write` to push the remediation branch
 - `issues: write` to claim and project the authoritative work item
 - `pull-requests: write` to create or reuse the remediation pull request
-
-## Legacy GitLab Dashboard Smoke Checks
-
-> **Deprecated:** These checks document dashboard-mode compatibility only. New
-> GitLab installations must use issue mode and the control-plane workflow above.
-
-Use this quick check after the remediation workflow is already healthy.
-
-For dashboard-backed remediation itself, keep the first rollout boundary simple:
-use `zeroone-ops dashboard remediate --dry-run` for local inspection and use
-live `zeroone-ops dashboard remediate` only from CI jobs.
-
-### Preconditions
-
-Make sure the target repository has:
-
-- the `zeroone_ops_dashboard` job from the example pipeline
-- the same SonarQube and GitLab CI variables used by remediation
-- at least one eligible SonarQube finding that should appear in the dashboard
-
-### Steps
-
-1. trigger `zeroone_ops_dashboard` manually on the default branch
-2. watch the logs for the eligible issue count and dashboard sync summary
-3. open the dashboard issue in GitLab
-4. confirm the synced Sonar item appears once in the expected section
-5. rerun the dashboard job once and confirm the same item is updated instead of duplicated
-
-### Expected Healthy Outcome
-
-- one persistent dashboard issue exists or is reused
-- eligible Sonar items appear in structured sections
-- an immediate rerun updates existing dashboard items instead of duplicating them
-- stale untouched `open` Sonar items disappear or move out of the open section when they no longer exist upstream
-- Sonar-derived items already in remediation-owned states such as `in_progress` or `mr_opened` remain visible instead of being cleared by sync
-
-### Dashboard Policy Smoke Check
-
-Use this quick check after dashboard discovery is already healthy.
-
-For live policy mutation, keep the first rollout boundary simple: use
-`zeroone-ops dashboard policy --dry-run` for local inspection and use live
-`zeroone-ops dashboard policy` only from CI jobs.
-
-### Preconditions
-
-Make sure the target repository has:
-
-- the `zeroone_ops_dashboard` job already behaving as expected
-- the `zeroone_ops_dashboard_policy` job from the example pipeline
-- the GitLab CI variables required for dashboard issue reads and writes:
-  - `GITLAB_URL`
-  - `GITLAB_TOKEN`
-  - `GITLAB_PROJECT_ID` or `CI_PROJECT_ID`
-
-### Steps
-
-1. run `zeroone-ops dashboard policy --dry-run` locally
-2. confirm the output reports the dashboard note counts and whether a policy
-   change would be applied
-3. add one strict dashboard note such as `/zeroone policy severity disable high`
-4. trigger `zeroone_ops_dashboard_policy` manually on the default branch
-5. open the dashboard issue in GitLab
-6. confirm the severity or exclusion state reflects the note command
-7. rerun the policy job once and confirm the dashboard stays stable rather than
-   drifting on repeated replay
-
-### Expected Healthy Outcome
-
-- strict prefixed commands are replayed into canonical dashboard policy state
-- malformed prefixed commands are rejected safely with no unintended mutation
-- repeated policy runs are stable because the dashboard state is derived from
-  the dashboard body plus note replay
-- remediation pickup now sees the updated canonical policy on its next run
-
-### Dashboard Remediation Smoke Test Recipe
-
-Use this recipe before enabling scheduled dashboard-backed remediation in a
-repository.
-
-### Preconditions
-
-Make sure the target repository has:
-
-- the `zeroone_ops_dashboard` discovery job already behaving as expected
-- one supported Sonar-derived dashboard item in `open`
-- required GitLab and OpenAI CI variables set:
-  - `GITLAB_URL`
-  - `GITLAB_TOKEN`
-  - `GITLAB_PROJECT_ID` or `CI_PROJECT_ID`
-  - `OPENAI_API_KEY`
-  - `OPENAI_MODEL`
-
-### Recommended First Candidate
-
-Start with one dashboard item that:
-
-- was produced by Sonar dashboard sync
-- maps to the current narrow single-file code-smell remediation path
-- points to a file that exists on the default branch
-- is easy for a human to inspect afterward
-
-### Steps
-
-1. run `zeroone-ops dashboard remediate --dry-run` locally
-2. confirm the output reports one selected dashboard item and no lifecycle mutation
-3. trigger one live dashboard remediation CI job manually on the default branch
-4. watch the logs for:
-   - stale `in_progress` recovery, if applicable
-   - selected dashboard item ID
-   - transition to `in_progress`
-   - remediation analysis and validation
-   - merge request creation or reuse
-   - transition to `mr_opened`
-5. open the dashboard issue in GitLab
-6. confirm the selected item:
-   - moved out of `open`
-   - appears in the merge-request section with branch, MR URL, and commit traceability
-7. open the merge request
-8. verify the merge request description and diff quality still match the documented remediation expectations:
-   - one-file diff
-   - issue traceability
-   - validation summary
-   - bot-rendered diff note
-9. rerun the dashboard remediation job once immediately
-10. confirm the same item is not selected again while the merge request is still open
-
-### Expected Healthy Outcome
-
-- one supported dashboard item is reopened first if it was stale `in_progress`
-- one live run moves the item through `in_progress` and `mr_opened`
-- the dashboard item keeps visible traceability fields for run, branch, commit, and merge request
-- an immediate rerun skips the open merge request cleanly instead of creating duplicate work
-- the resulting merge request remains traceable and easy for humans to review
-
-### Failure Signals That Should Block Rollout
-
-Do not move to scheduled dashboard remediation yet if you see:
-
-- dashboard items being selected without first passing through `open`
-- stale `in_progress` items that are never reopened
-- dashboard remediation succeeding locally but leaving the dashboard lifecycle stale
-- Sonar dashboard sync clearing items that are already `in_progress` or `mr_opened`
-- merge requests with poor traceability or unexpectedly weak diff quality
 
 ## Pre-Release Checklist
 

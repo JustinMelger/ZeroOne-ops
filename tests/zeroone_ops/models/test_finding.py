@@ -74,7 +74,7 @@ def test_finding_collection_result_keeps_input_collection_provenance() -> None:
     result = FindingCollectionResult(
         findings=[],
         metadata=FindingCollectionMetadata(
-            source_id="dashboard_sync",
+            source_id="finding_sync",
             managed_source_ids=["sonarqube", "ruff-sarif"],
             input_collections=[
                 FindingCollectionMetadata(

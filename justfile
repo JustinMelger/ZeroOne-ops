@@ -28,7 +28,7 @@ check:
     just test
 
 run:
-    uv run zeroone-ops dashboard remediate
+    uv run zeroone-ops remediation run
 
 run-dry:
-    uv run zeroone-ops dashboard remediate --dry-run
+    uv run zeroone-ops remediation run --dry-run

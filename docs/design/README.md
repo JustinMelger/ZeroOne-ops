@@ -32,13 +32,15 @@ then follow the relevant current contract.
 
 - [Legacy dashboard dependency and retirement audit](technical/technical-audit-legacy-dashboard-retirement.md)
   records shared dependencies, release-window evidence, and removal prerequisites.
-  Audit completion is not approval to retire runtime support.
+  Runtime retirement is implemented for v1; see the [migration guide](../migration-v1.md).
+  Operator cutover confirmation remains required before tagging the release.
 
 ## Historical Records
 
 Historical designs preserve rationale, rollout decisions, and compatibility
 context. They do not define new product behavior unless a change explicitly
-targets the legacy behavior they describe.
+changes an explicitly retained compatibility decoder. Dashboard runtime is
+retired; these records must not be used as active installation instructions.
 
 - foundational SonarQube and GitLab-first designs
 - GitLab dashboard storage, remediation, policy, and feedback designs

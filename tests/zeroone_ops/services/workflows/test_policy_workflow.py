@@ -73,7 +73,6 @@ def test_github_policy_loads_only_github_provider_configuration(
             repository="octo-org/octo-repo",
         ),
         load_gitlab_config=unexpected_gitlab_load,
-        build_dashboard_policy_view=unexpected_dependency,  # type: ignore[arg-type]
         build_github_policy_runner=lambda **kwargs: StubPolicyRunner(),  # type: ignore[arg-type]
         build_gitlab_policy_runner=unexpected_dependency,  # type: ignore[arg-type]
         publish_gitlab_summary=unexpected_dependency,  # type: ignore[arg-type]
@@ -122,7 +121,6 @@ def test_gitlab_issue_policy_can_suppress_summary_for_combined_control_plane(
             token="token",
             project_id="group/project",
         ),
-        build_dashboard_policy_view=unexpected_dependency,  # type: ignore[arg-type]
         build_github_policy_runner=unexpected_dependency,  # type: ignore[arg-type]
         build_gitlab_policy_runner=lambda **kwargs: StubPolicyRunner(),  # type: ignore[arg-type]
         publish_gitlab_summary=unexpected_dependency,  # type: ignore[arg-type]

@@ -48,7 +48,6 @@ def test_finalize_projects_review_after_successful_publish() -> None:
                 artifact=build_artifact(),
             )
         ),
-        dashboard_updater=None,
         review_projection_factory=lambda: projection_service,
     )
 
@@ -87,7 +86,6 @@ def test_finalize_projects_review_when_published_note_has_no_web_url() -> None:
                 artifact=build_artifact(),
             )
         ),
-        dashboard_updater=None,
         review_projection_factory=lambda: projection_service,
     )
 
@@ -115,7 +113,6 @@ def test_finalize_ignores_no_matching_work_item_projection() -> None:
                 artifact=build_artifact(),
             )
         ),
-        dashboard_updater=None,
         review_projection_factory=lambda: FakeReviewProjectionService(
             action="no_matching_work_item"
         ),
@@ -153,7 +150,6 @@ def test_finalize_retries_missing_work_item_link_for_remediation_review() -> Non
                 artifact=build_artifact(),
             )
         ),
-        dashboard_updater=None,
         review_projection_factory=lambda: FakeReviewProjectionService(action="no_linked_work_item"),
     )
 
@@ -183,7 +179,6 @@ def test_finalize_downgrades_projection_failures_to_warning() -> None:
                 artifact=build_artifact(),
             )
         ),
-        dashboard_updater=None,
         review_projection_factory=lambda: FakeReviewProjectionService(
             error=RuntimeError("projection boom")
         ),
@@ -213,7 +208,6 @@ def test_finalize_skips_projection_during_dry_run() -> None:
                 artifact=build_artifact(),
             )
         ),
-        dashboard_updater=None,
         review_projection_factory=lambda: projection_service,
     )
 

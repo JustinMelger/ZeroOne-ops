@@ -6,7 +6,7 @@ Define one operator-controlled recovery flow for remediation work that becomes
 blocked after a failed execution, failed publication, or closed-unmerged change
 request.
 
-Recovery must work with GitLab dashboard items and GitHub work-item issues
+Recovery works with GitLab and GitHub authoritative work-item issues
 without making either provider's storage model the shared product contract.
 
 ## 2. Goals
@@ -68,30 +68,23 @@ as stale rather than applied to newer state.
 Recovery actions use provider-native comments and the existing authorization
 boundary:
 
-- GitLab: a Maintainer or Owner comments on the dashboard issue and identifies
-  the dashboard item.
+- GitLab: a Maintainer or Owner comments on the authoritative work-item issue;
+  the issue itself identifies the item.
 - GitHub: a repository admin comments on the authoritative work-item issue;
   the issue itself identifies the item.
 
 Command scope is intentionally separate:
 
-- repository-wide policy commands are accepted only on the policy overview
-  surface: the dedicated GitHub policy issue or the current GitLab dashboard
-  issue;
-- recovery commands are accepted only on the affected remediation work item:
-  the GitHub work-item issue, or the GitLab dashboard item identified in a
-  dashboard note.
+- repository-wide policy commands are accepted only on the dedicated policy
+  issue on either provider;
+- recovery commands are accepted only on the affected remediation work-item issue.
 
 An otherwise valid command on the wrong surface is not applied.
 
 Recommended v1 commands:
 
 ```text
-# GitLab dashboard issue
-/zeroone remediation <item-id> dismiss
-/zeroone remediation <item-id> requeue
-
-# GitHub work-item issue
+# GitLab or GitHub authoritative work-item issue
 /zeroone remediation dismiss
 /zeroone remediation requeue
 ```
@@ -119,8 +112,8 @@ Requeue for remediation: /zeroone remediation requeue
 Stop automation: /zeroone remediation dismiss
 ```
 
-GitLab renders the equivalent commands with the dashboard item ID. These
-instructions appear only for blocked remediation items.
+Both providers render the same commands without an item ID. These instructions
+appear only for blocked remediation items.
 
 ## 7. State And Traceability
 
@@ -142,10 +135,10 @@ Retain the most recent ten events in provider-managed state.
 
 | Shared concept | GitLab | GitHub |
 |---|---|---|
-| Authoritative work state | Dashboard item | Work-item issue |
-| Recovery command surface | Dashboard issue note | Work-item issue comment |
+| Authoritative work state | Work-item issue | Work-item issue |
+| Recovery command surface | Work-item issue note | Work-item issue comment |
 | Authorization | Maintainer or Owner | Repository admin |
-| Rendered recovery state | Dashboard row and machine state | Issue body and machine state |
+| Rendered recovery state | Issue body and machine state | Issue body and machine state |
 | Fresh-attempt branch | New bounded attempt suffix | New bounded attempt suffix |
 
 The GitHub operational summary remains read-only and links to work items. It is

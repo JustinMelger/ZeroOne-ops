@@ -24,17 +24,17 @@ This is not a redesign of:
 
 - review output,
 - remediation execution,
-- dashboard control-plane storage,
+- provider-native issue control-plane storage,
 - GitHub or GitLab operator policy surfaces.
 
 It is a design for how findings enter the product.
 
 ## 2. Problem
 
-Today the active product experience is still closely associated with one source:
+The original rollout was closely associated with one source:
 
 - SonarQube findings are discovered,
-- SonarQube-derived items are synced into the dashboard,
+- SonarQube-derived items were synced into the now-retired dashboard,
 - remediation then works from that inventory.
 
 That works for the current rollout, but it creates a product limitation:
@@ -121,8 +121,8 @@ not the source that reported the finding.
 The first supported shared category is `static_analysis_fix`. Both SonarQube
 code-smell findings and SARIF lint findings normalize to that category.
 
-Existing dashboard records using the prior `code_smell_fix` or `lint_fix` names
-remain eligible as compatibility aliases, but new normalized findings must use
+Historical category names `code_smell_fix` and `lint_fix` remain compatibility
+aliases at the normalized remediation boundary, but new findings must use
 `static_analysis_fix`. Source-local metadata remains available for traceability
 and prompt shaping, not as an eligibility gate.
 

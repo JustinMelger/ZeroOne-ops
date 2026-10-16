@@ -226,16 +226,13 @@ class ExecutionService:
         selected_issue: RemediationExecutionTarget,
         context: IssueContext,
         dry_run: bool,
-        branch_name: str | None = None,
         attempt_number: int = 1,
     ) -> ExecutionResult:
         """Run the execution flow for one execution target with prebuilt context."""
+        branch_name: str | None = None
         if not dry_run:
             try:
                 self.branch_manager.ensure_ready()
-                if branch_name is not None:
-                    # Legacy dashboard callers retain their existing branch identity.
-                    self.branch_manager.create_branch(branch_name)
             except BranchManagerError as error:
                 return ExecutionResult(
                     analysis_result=AnalysisResult(summary="Execution stopped before analysis."),
@@ -263,20 +260,12 @@ class ExecutionService:
                 )
             return None
 
-        if branch_name is not None:
-            # Keep the deprecated dashboard execution contract unchanged.
-            analysis_result = self.analysis_service.analyze_issue_with_context(
-                selected_issue=selected_issue,
-                context=context,
-                dry_run=dry_run,
-            )
-        else:
-            analysis_result = self.analysis_service.analyze_issue_with_context(
-                selected_issue=selected_issue,
-                context=context,
-                dry_run=dry_run,
-                pre_patch_handler=None if dry_run else prepare_branch,
-            )
+        analysis_result = self.analysis_service.analyze_issue_with_context(
+            selected_issue=selected_issue,
+            context=context,
+            dry_run=dry_run,
+            pre_patch_handler=None if dry_run else prepare_branch,
+        )
         return self._continue_execution(
             selected_issue=selected_issue,
             analysis_result=analysis_result,

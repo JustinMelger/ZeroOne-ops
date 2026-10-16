@@ -124,7 +124,7 @@ def test_github_operations_template_defines_event_driven_issue_mode_workflows() 
 
     assert "issue_comment" in policy["if"]
     assert "zeroone-policy" in policy["if"]
-    assert policy["steps"][-1]["run"] == "zeroone-ops dashboard policy"
+    assert policy["steps"][-1]["run"] == "zeroone-ops policy run"
 
     assert "issue_comment" in recovery["if"]
     assert "zeroone-work-item" in recovery["if"]

@@ -1,6 +1,6 @@
 """Issue intake service.
 
-This module fetches SonarQube issues for dashboard inventory sync.
+This module collects normalized SonarQube and SARIF findings for issue-mode sync.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class SyncIssueCollectionResult:
-    """Capture normalized findings collected for dashboard inventory sync."""
+    """Capture normalized findings collected for finding sync."""
 
     finding_collection: FindingCollectionResult
     issue_count: int
@@ -37,7 +37,7 @@ class SyncIssueCollectionResult:
 
 
 class IssueIntakeService:
-    """Fetch normalized findings for dashboard inventory sync.
+    """Fetch normalized findings for finding sync.
 
     Args:
         repo_root: Repository root path.
@@ -59,19 +59,19 @@ class IssueIntakeService:
         self.config = config
         self.workflow_policy_service = FindingWorkflowPolicyService()
 
-    def collect_dashboard_sync_issues(
+    def collect_findings_for_sync(
         self,
         *,
         dry_run: bool,
         run_id: str,
     ) -> SyncIssueCollectionResult:
-        """Fetch dashboard-syncable normalized findings without remediation filtering."""
+        """Fetch syncable normalized findings without remediation filtering."""
         source_collections = self._source_collections(dry_run=dry_run, run_id=run_id)
         if not source_collections:
             return SyncIssueCollectionResult(
                 finding_collection=_empty_finding_collection(),
                 issue_count=0,
-                message="No configured finding sources collected dashboard-syncable findings.",
+                message="No configured finding sources collected syncable findings.",
             )
         finding_collection = self._merge_collections(source_collections)
         finding_collection = self._existing_findings(finding_collection)
@@ -79,7 +79,7 @@ class IssueIntakeService:
             return SyncIssueCollectionResult(
                 finding_collection=finding_collection,
                 issue_count=int(finding_collection.metadata.statistics.get("collected", 0)),
-                message="No dashboard-syncable findings found.",
+                message="No syncable findings found.",
             )
         return SyncIssueCollectionResult(
             finding_collection=finding_collection,
@@ -93,7 +93,7 @@ class IssueIntakeService:
         dry_run: bool,
         run_id: str,
     ) -> list[FindingCollectionResult]:
-        """Return raw finding collections from configured dashboard sources."""
+        """Return raw finding collections from configured finding sources."""
         collections: list[FindingCollectionResult] = []
         if dry_run and self.config.sonarqube.mock_issues_path is not None:
             fixture_collection = (
@@ -181,7 +181,7 @@ class IssueIntakeService:
         return FindingCollectionResult(
             findings=findings,
             metadata=FindingCollectionMetadata(
-                source_id="dashboard_sync",
+                source_id="finding_sync",
                 managed_source_ids=sorted(managed_source_ids),
                 input_collections=[collection.metadata for collection in source_collections],
                 warnings=warnings,
@@ -196,7 +196,7 @@ class IssueIntakeService:
         """Filter normalized findings to files that exist in the local repository.
 
         Args:
-            finding_collection: Normalized findings collected for dashboard sync.
+            finding_collection: Normalized findings collected for finding sync.
 
         Returns:
             Only normalized findings whose repository-relative target files exist locally.
@@ -245,7 +245,7 @@ def _empty_finding_collection() -> FindingCollectionResult:
     return FindingCollectionResult(
         findings=[],
         metadata=FindingCollectionMetadata(
-            source_id="dashboard_sync",
+            source_id="finding_sync",
             statistics={"collected": 0},
         ),
     )

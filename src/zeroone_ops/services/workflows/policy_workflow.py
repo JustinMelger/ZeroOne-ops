@@ -9,7 +9,6 @@ from typing import Protocol
 
 from zeroone_ops.models.config import AppConfig, GitHubConnectionConfig, GitLabConnectionConfig
 from zeroone_ops.models.state import AppState, RunRecord, RunStatus
-from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 from zeroone_ops.services.control_plane.overview.gitlab_operational_summary_service import (
     GitLabOperationalSummaryPublishResult,
@@ -26,13 +25,6 @@ from zeroone_ops.services.control_plane.policy.gitlab_policy_processing_runner i
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
 )
-from zeroone_ops.services.dashboard.dashboard_policy_processing_runner import (
-    DashboardPolicyProcessingRunner,
-)
-from zeroone_ops.services.dashboard.dashboard_policy_view_builder import (
-    DashboardPolicyViewBuilder,
-)
-from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 from zeroone_ops.services.shared.run_state_service import RunStateService, RunSummary
 from zeroone_ops.services.workflows.operational_summary import (
     format_operational_summary_publication,
@@ -45,15 +37,6 @@ class WorkflowRunContextBuilder(Protocol):
 
     def __call__(self, *, config: AppConfig, run_id: str, dry_run: bool) -> WorkflowRunContext:
         """Build the context for one workflow invocation."""
-
-
-class DashboardPolicyViewBuilderFactory(Protocol):
-    """Build a legacy GitLab dashboard policy view on demand."""
-
-    def __call__(
-        self, *, repo_root: Path, config: AppConfig, state: AppState
-    ) -> DashboardPolicyViewBuilder:
-        """Build the dashboard policy view."""
 
 
 class GitHubPolicyProcessingRunnerBuilder(Protocol):
@@ -110,7 +93,6 @@ class PolicyWorkflow:
         build_context: WorkflowRunContextBuilder,
         load_github_config: Callable[[], GitHubConnectionConfig],
         load_gitlab_config: Callable[[], GitLabConnectionConfig],
-        build_dashboard_policy_view: DashboardPolicyViewBuilderFactory,
         build_github_policy_runner: GitHubPolicyProcessingRunnerBuilder,
         build_gitlab_policy_runner: GitLabPolicyProcessingRunnerBuilder,
         publish_gitlab_summary: GitLabSummaryPublisher,
@@ -123,7 +105,6 @@ class PolicyWorkflow:
         self.build_context = build_context
         self.load_github_config = load_github_config
         self.load_gitlab_config = load_gitlab_config
-        self.build_dashboard_policy_view = build_dashboard_policy_view
         self.build_github_policy_runner = build_github_policy_runner
         self.build_gitlab_policy_runner = build_gitlab_policy_runner
         self.publish_gitlab_summary = publish_gitlab_summary
@@ -136,14 +117,7 @@ class PolicyWorkflow:
             return self._run_github(context=context, record=record)
 
         gitlab_config = self.load_gitlab_config()
-        gitlab_settings = self.config.require_gitlab_config(reason="GitLab policy processing")
-        if gitlab_settings.control_plane_mode == "issues":
-            return self._run_gitlab_issue_mode(
-                context=context,
-                record=record,
-                gitlab_config=gitlab_config,
-            )
-        return self._run_legacy_gitlab_dashboard(
+        return self._run_gitlab_issue_mode(
             context=context,
             record=record,
             gitlab_config=gitlab_config,
@@ -197,31 +171,6 @@ class PolicyWorkflow:
         return replace(
             summary,
             message=summary.message + format_operational_summary_publication(publication),
-        )
-
-    def _run_legacy_gitlab_dashboard(
-        self,
-        *,
-        context: WorkflowRunContext,
-        record: RunRecord,
-        gitlab_config: GitLabConnectionConfig,
-    ) -> RunSummary:
-        """Run the explicit legacy GitLab dashboard policy route."""
-        return DashboardPolicyProcessingRunner(
-            dashboard_service=DashboardService(
-                GitLabDashboardClient(gitlab_config),
-                policy_view_builder=self.build_dashboard_policy_view(
-                    repo_root=context.repo_root,
-                    config=self.config,
-                    state=context.state,
-                ),
-            ),
-            run_state_service=context.run_state_service,
-        ).run(
-            project_id=gitlab_config.project_id,
-            record=record,
-            active_dry_run=context.active_dry_run,
-            execution_mode=self.config.execution_mode,
         )
 
     def _build_context(self) -> WorkflowRunContext:

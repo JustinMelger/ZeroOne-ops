@@ -90,9 +90,20 @@ class GitLabConfig(RepositoryConfigModel):
     """
 
     target_branch: str | None = None
-    control_plane_mode: Literal["dashboard", "issues"] = "issues"
+    control_plane_mode: Literal["issues"] = "issues"
     labels: list[str] = Field(default_factory=list)
     merge_request_assignee_username: str | None = None
+
+    @field_validator("control_plane_mode", mode="before")
+    @classmethod
+    def reject_retired_dashboard_mode(cls, value: object) -> object:
+        """Reject retired storage without silently switching policy authority."""
+        if value == "dashboard":
+            raise ValueError(
+                "GitLab dashboard mode was removed in v1. Use issue mode after "
+                "completing the migration in docs/migration-v1.md."
+            )
+        return value
 
 
 class GitHubConfig(RepositoryConfigModel):

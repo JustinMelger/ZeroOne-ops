@@ -10,7 +10,7 @@ from uuid import uuid4
 from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.finding import RemediationContext
-from zeroone_ops.models.remediation import RemediationExecutionTarget, RemediationWorkItem
+from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.state import utc_now
 from zeroone_ops.models.work_item import (
     ChangeRequestRef,
@@ -30,10 +30,6 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_service impo
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
 )
-from zeroone_ops.services.control_plane.work_items.remediation_work_item_promotion_service import (
-    RemediationWorkItemPromotionContext,
-    RemediationWorkItemPromotionService,
-)
 from zeroone_ops.settings import load_github_connection_config
 
 LOGGER = logging.getLogger(__name__)
@@ -41,14 +37,6 @@ LOGGER = logging.getLogger(__name__)
 
 class RemediationControlPlane(Protocol):
     """Project remediation publish lifecycle into the provider-local control plane."""
-
-    def materialize_promoted_work_item(
-        self,
-        *,
-        work_item: RemediationWorkItem,
-        promotion_context: RemediationWorkItemPromotionContext,
-    ) -> WorkItemState | None:
-        """Create or update authoritative work-item state when promotion requires it."""
 
     def mark_publish_started(
         self,
@@ -118,16 +106,6 @@ class RemediationControlPlane(Protocol):
 
 class NoOpRemediationControlPlane:
     """Provider-local control plane that performs no state projection."""
-
-    def materialize_promoted_work_item(
-        self,
-        *,
-        work_item: RemediationWorkItem,
-        promotion_context: RemediationWorkItemPromotionContext,
-    ) -> WorkItemState | None:
-        """Ignore promotion materialization when no control plane is active."""
-        del work_item, promotion_context
-        return None
 
     def mark_publish_started(
         self,
@@ -211,31 +189,10 @@ class WorkItemRemediationControlPlane:
         *,
         scope_id: str,
         upsert_work_item: Callable[[WorkItemState], WorkItemState],
-        promotion_service: RemediationWorkItemPromotionService | None = None,
     ) -> None:
         """Initialize shared remediation projection over one authoritative work-item store."""
         self.scope_id = scope_id
         self.upsert_work_item = upsert_work_item
-        self.promotion_service = promotion_service or RemediationWorkItemPromotionService()
-
-    def materialize_promoted_work_item(
-        self,
-        *,
-        work_item: RemediationWorkItem,
-        promotion_context: RemediationWorkItemPromotionContext,
-    ) -> WorkItemState | None:
-        """Create or update authoritative work-item state when promoted."""
-        decision = self.promotion_service.decide(
-            work_item=work_item,
-            context=promotion_context,
-        )
-        if decision.disposition != "promote":
-            return None
-        promoted_work_item = self._build_candidate_work_item(
-            work_item=work_item,
-            status="approved",
-        )
-        return self.upsert_work_item(promoted_work_item)
 
     def mark_publish_started(
         self,
@@ -404,36 +361,6 @@ class WorkItemRemediationControlPlane:
         )
         return self.upsert_work_item(work_item)
 
-    def _build_candidate_work_item(
-        self,
-        *,
-        work_item: RemediationWorkItem,
-        status: WorkItemStatus,
-    ) -> WorkItemState:
-        """Build canonical work-item state from a normalized remediation candidate."""
-        return WorkItemState(
-            work_item_id=f"work-{uuid4().hex}",
-            kind="remediation",
-            status=status,
-            source=WorkItemSourceRef(
-                source=work_item.source_type,
-                source_item_key=work_item.source_ref,
-                repository_scope=self.scope_id,
-            ),
-            summary=work_item.title,
-            severity=work_item.severity,
-            file_path=work_item.file_path,
-            line=work_item.line,
-            remediation_context=RemediationContext(
-                category=work_item.remediation_category,
-                diagnostic_code=work_item.rule_id,
-                validation_commands=work_item.validation_commands,
-                expected_change=work_item.expected_change,
-                constraints=work_item.constraints,
-                acceptance_criteria=work_item.acceptance_criteria,
-            ),
-        )
-
     def _build_work_item(
         self,
         *,
@@ -531,7 +458,6 @@ class GitHubRemediationControlPlane(WorkItemRemediationControlPlane):
         *,
         work_item_service: GitHubWorkItemService,
         repository_id: str,
-        promotion_service: RemediationWorkItemPromotionService | None = None,
     ) -> None:
         """Initialize GitHub-specific remediation projection."""
         self.work_item_service = work_item_service
@@ -544,7 +470,6 @@ class GitHubRemediationControlPlane(WorkItemRemediationControlPlane):
                     work_item=work_item,
                 ).work_item
             ),
-            promotion_service=promotion_service,
         )
 
 
@@ -556,7 +481,6 @@ class GitLabRemediationControlPlane(WorkItemRemediationControlPlane):
         *,
         work_item_service: GitLabWorkItemService,
         project_id: str,
-        promotion_service: RemediationWorkItemPromotionService | None = None,
     ) -> None:
         """Initialize GitLab-specific remediation projection."""
         self.work_item_service = work_item_service
@@ -569,7 +493,6 @@ class GitLabRemediationControlPlane(WorkItemRemediationControlPlane):
                     work_item=work_item,
                 ).work_item
             ),
-            promotion_service=promotion_service,
         )
 
 
@@ -595,14 +518,8 @@ def build_remediation_control_plane(
             work_item_service=work_item_service,
             repository_id=repository_id,
         )
-    gitlab_config = config.require_gitlab_config(
-        reason="GitLab work-item remediation control plane"
-    )
-    if (
-        gitlab_config.control_plane_mode != "issues"
-        or gitlab_work_item_service is None
-        or gitlab_project_id is None
-    ):
+    config.require_gitlab_config(reason="GitLab work-item remediation control plane")
+    if gitlab_work_item_service is None or gitlab_project_id is None:
         return NoOpRemediationControlPlane()
     return GitLabRemediationControlPlane(
         work_item_service=gitlab_work_item_service,

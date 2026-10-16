@@ -64,7 +64,6 @@ def test_review_forwards_github_runtime_and_dry_run(tmp_path: Path, monkeypatch)
             "octo-org/octo-repo",
             42,
             "head-sha",
-            None,
         ),
     )
 
@@ -82,12 +81,13 @@ def test_review_forwards_github_runtime_and_dry_run(tmp_path: Path, monkeypatch)
     }
 
 
-def test_review_forwards_gitlab_runtime_with_dashboard_client(tmp_path: Path, monkeypatch) -> None:
-    """GitLab review preserves merge-request and dashboard runtime inputs."""
+def test_review_forwards_gitlab_runtime_without_dashboard_dependencies(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """GitLab review preserves merge-request context without dashboard dependencies."""
     monkeypatch.chdir(tmp_path)
     captured: dict[str, object] = {}
     review_client = object()
-    dashboard_client = object()
 
     class StubReviewRunner:
         def __init__(self, **kwargs: object) -> None:
@@ -116,7 +116,6 @@ def test_review_forwards_gitlab_runtime_with_dashboard_client(tmp_path: Path, mo
             "group/project",
             17,
             None,
-            dashboard_client,
         ),
     )
 
@@ -126,7 +125,6 @@ def test_review_forwards_gitlab_runtime_with_dashboard_client(tmp_path: Path, mo
         "repo_root": tmp_path,
         "config": workflow.config,
         "review_client": review_client,
-        "dashboard_client": dashboard_client,
         "review_state_service": captured["init"]["review_state_service"],
     }
     assert captured["run"] == {

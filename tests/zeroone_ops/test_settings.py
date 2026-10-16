@@ -199,7 +199,7 @@ def test_settings_accept_gitlab_issue_control_plane_mode(tmp_path: Path, monkeyp
     assert config.require_gitlab_config(reason="test").control_plane_mode == "issues"
 
 
-def test_settings_accept_legacy_gitlab_dashboard_control_plane_mode(
+def test_settings_reject_retired_gitlab_dashboard_control_plane_mode(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -220,9 +220,8 @@ def test_settings_accept_legacy_gitlab_dashboard_control_plane_mode(
         encoding="utf-8",
     )
 
-    config = load_config()
-
-    assert config.require_gitlab_config(reason="test").control_plane_mode == "dashboard"
+    with pytest.raises(SettingsError, match="dashboard mode was removed in v1"):
+        load_config()
 
 
 def test_gitlab_settings_fall_back_to_ci_project_id(tmp_path: Path, monkeypatch) -> None:

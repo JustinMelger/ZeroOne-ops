@@ -1,48 +1,18 @@
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
 from zeroone_ops.models.config import (
-    AnalysisConfig,
     AppConfig,
-    ApprovalConfig,
     GitHubConfig,
     GitLabConfig,
-    RemediationConfig,
 )
 from zeroone_ops.models.review import ChangeRequestReviewContext
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemSourceRef, WorkItemState
 from zeroone_ops.services.review.pipeline import review_runner
 from zeroone_ops.services.review.pipeline.review_runner import ReviewRunner
 from zeroone_ops.settings import SettingsError
-
-
-def test_gitlab_issue_mode_skips_legacy_dashboard_review_mirror(tmp_path: Path) -> None:
-    runner = ReviewRunner(
-        repo_root=tmp_path,
-        config=AppConfig(
-            execution_mode="ci",
-            base_branch="main",
-            validation_commands=[],
-            approval=ApprovalConfig(),
-            remediation=RemediationConfig(
-                target_branch="main",
-                analysis=AnalysisConfig(),
-            ),
-            gitlab=GitLabConfig(
-                control_plane_mode="issues",
-                target_branch="main",
-                labels=[],
-            ),
-        ),
-        review_client=object(),  # type: ignore[arg-type]
-        dashboard_client=object(),  # type: ignore[arg-type]
-        review_state_service=object(),  # type: ignore[arg-type]
-    )
-
-    assert runner._build_dashboard_updater() is None
 
 
 @pytest.mark.parametrize("platform", ["github", "gitlab"])
@@ -94,7 +64,6 @@ def test_verified_notice_link_does_not_require_semantic_safety(
             gitlab=GitLabConfig(target_branch="main"),
         ),
         review_client=object(),
-        dashboard_client=None,
         review_state_service=object(),
     )
     updated = runner._with_verified_remediation_context(repository_id="org/repo", context=context)

@@ -40,7 +40,7 @@ class GitHubWorkItemRecoveryRunner:
                 record=record,
                 error_message="GitHub recovery live execution is only supported in CI mode.",
                 failure=FailureDetails(
-                    stage=FailureStage.DASHBOARD_UPDATE,
+                    stage=FailureStage.CONTROL_PLANE_UPDATE,
                     message="GitHub recovery live execution is only supported in CI mode.",
                 ),
             )

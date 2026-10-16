@@ -1,7 +1,9 @@
 # ZeroOne Ops Dashboard Operator Policy Technical Design
 
-> **Status: Historical.** GitLab dashboard mode is deprecated compatibility
-> behavior. For current issue-mode contracts, see the [design index](../README.md).
+> **Status: Retired in v1.** This is a historical design, not supported runtime.
+> Use the [design index](../README.md) and [v1 migration guide](../../migration-v1.md)
+> for current issue-mode behavior. Remote dashboards remain readable history.
+
 
 ## 1. Scope
 

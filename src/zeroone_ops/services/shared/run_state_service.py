@@ -17,9 +17,6 @@ from zeroone_ops.models.state import (
     RunStatus,
     utc_now,
 )
-from zeroone_ops.services.dashboard.dashboard_run_state_service import (
-    DashboardRunStateService,
-)
 from zeroone_ops.services.shared.run_summary_builder import (
     RunSummary,
     RunSummaryBuilder,
@@ -54,11 +51,6 @@ class RunStateService:
         self.summary_builder = RunSummaryBuilder(
             execution_mode=config.execution_mode,
             state_path=config.state.path,
-        )
-        self.dashboard = DashboardRunStateService(
-            state_store=state_store,
-            state=state,
-            summary_builder=self.summary_builder,
         )
 
     def start_run(self, run_id: str) -> RunRecord:
@@ -307,7 +299,6 @@ class RunStateService:
         message: str,
         issue_key: str | None = None,
         work_item_id: str | None = None,
-        dashboard_item_id: str | None = None,
         branch_name: str | None = None,
         commit_sha: str | None = None,
         change_request_url: str | None = None,
@@ -320,7 +311,6 @@ class RunStateService:
             message=message,
             issue_key=issue_key,
             work_item_id=work_item_id,
-            dashboard_item_id=dashboard_item_id,
             branch_name=branch_name,
             commit_sha=commit_sha,
             change_request_url=change_request_url,

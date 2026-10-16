@@ -1,14 +1,12 @@
-"""Work-item lifecycle and legacy dashboard reconciliation composition."""
+"""Work-item lifecycle reconciliation composition."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from pathlib import Path
 from typing import Protocol
 
 from zeroone_ops.models.config import AppConfig, GitHubConnectionConfig, GitLabConnectionConfig
 from zeroone_ops.models.state import (
-    AppState,
     FailureDetails,
     FailureStage,
     RunRecord,
@@ -17,7 +15,6 @@ from zeroone_ops.models.state import (
 )
 from zeroone_ops.providers.github_client import GitHubClient
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
-from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.services.control_plane.overview.github_operational_summary_service import (
@@ -43,13 +40,6 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_lifecycle_se
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
 )
-from zeroone_ops.services.dashboard.dashboard_policy_view_builder import (
-    DashboardPolicyViewBuilder,
-)
-from zeroone_ops.services.dashboard.dashboard_reconciliation_runner import (
-    DashboardReconciliationRunner,
-)
-from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.workflows.operational_summary import (
     format_operational_summary_publication,
@@ -62,15 +52,6 @@ class WorkflowRunContextBuilder(Protocol):
 
     def __call__(self, *, config: AppConfig, run_id: str, dry_run: bool) -> WorkflowRunContext:
         """Build the context for one workflow invocation."""
-
-
-class DashboardPolicyViewBuilderFactory(Protocol):
-    """Build legacy GitLab dashboard policy views on demand."""
-
-    def __call__(
-        self, *, repo_root: Path, config: AppConfig, state: AppState
-    ) -> DashboardPolicyViewBuilder:
-        """Build the dashboard policy view."""
 
 
 class GitHubSummaryPublisher(Protocol):
@@ -109,10 +90,8 @@ class WorkItemLifecycleWorkflow:
         dry_run: bool,
         build_run_id: Callable[[], str],
         build_context: WorkflowRunContextBuilder,
-        is_gitlab_issue_mode: Callable[[AppConfig], bool],
         load_github_config: Callable[[], GitHubConnectionConfig],
         load_gitlab_config: Callable[[], GitLabConnectionConfig],
-        build_dashboard_policy_view: DashboardPolicyViewBuilderFactory,
         publish_github_summary: GitHubSummaryPublisher,
         publish_gitlab_summary: GitLabSummaryPublisher,
     ) -> None:
@@ -121,10 +100,8 @@ class WorkItemLifecycleWorkflow:
         self.dry_run = dry_run
         self.build_run_id = build_run_id
         self.build_context = build_context
-        self.is_gitlab_issue_mode = is_gitlab_issue_mode
         self.load_github_config = load_github_config
         self.load_gitlab_config = load_gitlab_config
-        self.build_dashboard_policy_view = build_dashboard_policy_view
         self.publish_github_summary = publish_github_summary
         self.publish_gitlab_summary = publish_gitlab_summary
 
@@ -132,34 +109,7 @@ class WorkItemLifecycleWorkflow:
         """Reconcile lifecycle state for the active platform."""
         if self.config.platform == "github":
             return self._run_github_lifecycle()
-        if self.is_gitlab_issue_mode(self.config):
-            return self._run_gitlab_issue_lifecycle()
-        return self.run_legacy_dashboard_reconciliation()
-
-    def run_legacy_dashboard_reconciliation(self) -> RunSummary:
-        """Run the explicit legacy GitLab dashboard reconciliation path."""
-        context = self._build_context()
-        record = context.run_state_service.start_run(context.run_id)
-        gitlab_config = self.load_gitlab_config()
-        return DashboardReconciliationRunner(
-            config=self.config,
-            dashboard_service=DashboardService(
-                GitLabDashboardClient(gitlab_config),
-                policy_view_builder=self.build_dashboard_policy_view(
-                    repo_root=context.repo_root,
-                    config=self.config,
-                    state=context.state,
-                ),
-            ),
-            review_client=GitLabReviewClient(gitlab_config),
-            run_state_service=context.run_state_service,
-        ).run(
-            project_id=gitlab_config.project_id,
-            record=record,
-            run_id=context.run_id,
-            active_dry_run=context.active_dry_run,
-            execution_mode=self.config.execution_mode,
-        )
+        return self._run_gitlab_issue_lifecycle()
 
     def _run_github_lifecycle(self) -> RunSummary:
         """Converge GitHub work-item state from pull-request state."""

@@ -25,8 +25,8 @@ Current workflow behavior and future direction are documented in:
 - [docs/design/functional/functional-design-pr-review-staged-pipeline.md](docs/design/functional/functional-design-pr-review-staged-pipeline.md)
 
 Older dashboard and GitLab-first design documents preserve implementation
-history. Do not treat them as current product direction unless a compatibility
-change explicitly targets legacy dashboard mode.
+history. Dashboard runtime is retired in v1; use the migration guide for old
+installations, not historical designs as current implementation instructions.
 
 Operational feedback and longer-horizon research/planning now live in Notion.
 Keep the repo focused on current roadmap, implementation contracts, and design
@@ -60,9 +60,9 @@ maintainable as new workflows are added.
 - Treat repository configuration that invokes setup or validation commands as
   executable CI policy. Do not weaken its trusted-default-branch or
   least-privilege execution boundary without an explicit design change.
-- GitLab dashboard mode is deprecated compatibility behavior. Keep new
-  control-plane behavior in GitHub/GitLab issue mode unless a design explicitly
-  requires dashboard support.
+- GitLab dashboard runtime is retired. Keep control-plane behavior in
+  GitHub/GitLab issue mode and never reintroduce legacy dashboard execution.
+  State-file migration safeguards are documented in `docs/migration-v1.md`.
 
 ## Layering Summary
 
@@ -104,7 +104,7 @@ before considering the work complete.
 Check that:
 
 - workflow ownership still matches the current design docs
-- remediation, review, reconciliation, and dashboard state did not silently
+- remediation, review, and reconciliation state did not silently
   take over each other's responsibilities
 - operator-facing surfaces and machine-facing state are still clearly separated
 - any real boundary change is reflected in the relevant design and runbook docs
