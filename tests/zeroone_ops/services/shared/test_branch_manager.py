@@ -303,16 +303,6 @@ def test_dirty_workspace_message_is_bounded_and_markdown_safe() -> None:
     assert "unsafe\\_\\[name\\]\\\\path\\n.txt" in unsafe_message
 
 
-def test_build_branch_name_is_predictable() -> None:
-    branch_name = BranchManager(Path.cwd()).build_branch_name(
-        branch_prefix="zeroone-ops",
-        issue_key="AX-123",
-        file_path="src/service.py",
-    )
-
-    assert branch_name == "zeroone-ops/ax-123/service"
-
-
 def test_create_branch_and_commit_changes(tmp_path: Path) -> None:
     _init_git_repo(tmp_path)
     tracked = tmp_path / "sample.txt"

@@ -23,14 +23,15 @@ from zeroone_ops.services.review.continuity.review_overlap_analysis_service impo
 def build_config() -> AppConfig:
     return AppConfig(
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
+            target_branch="main",
+            validation_commands=[],
             bootstrap_severities=["LOW"],
             analysis=AnalysisConfig(),
         ),
         review=ReviewConfig(),
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
     )
 
 

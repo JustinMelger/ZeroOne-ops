@@ -14,9 +14,10 @@ from zeroone_ops.services.shared.context_builder import ContextBuilder
 def build_config(max_file_bytes: int = 200_000) -> AppConfig:
     return AppConfig(
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
+            target_branch="main",
+            validation_commands=[],
             bootstrap_severities=["MAJOR"],
             analysis=AnalysisConfig(
                 context_lines_before=1,
@@ -24,7 +25,7 @@ def build_config(max_file_bytes: int = 200_000) -> AppConfig:
                 max_file_bytes=max_file_bytes,
             ),
         ),
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
     )
 
 

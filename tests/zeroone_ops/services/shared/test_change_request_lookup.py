@@ -58,9 +58,9 @@ def build_gitlab_config() -> AppConfig:
         execution_mode="ci",
         platform="gitlab",
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
+            validation_commands=[],
             target_branch="main",
             bootstrap_severities=["LOW"],
             analysis=AnalysisConfig(),
@@ -74,9 +74,9 @@ def build_github_config() -> AppConfig:
         execution_mode="ci",
         platform="github",
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
+            validation_commands=[],
             target_branch="main",
             bootstrap_severities=["LOW"],
             analysis=AnalysisConfig(),

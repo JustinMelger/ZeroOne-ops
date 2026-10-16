@@ -20,7 +20,7 @@ def _config(*, platform: str, state_path: Path) -> AppConfig:
     if platform == "github":
         config["github"] = {"labels": []}
     else:
-        config["gitlab"] = {"target_branch": "main", "labels": []}
+        config["gitlab"] = {"labels": []}
     return AppConfig.model_validate(config)
 
 

@@ -4,6 +4,10 @@
 > For current configuration behavior, use the config reference and the
 > [design index](../README.md).
 
+> **V1 update:** configuration aliases described below are retired, not active
+> compatibility paths. See the [v1 migration guide](../../migration-v1.md) for
+> the removed keys, canonical replacements, and strict validation behavior.
+
 ## 1. Scope
 
 This document defines the near-term configuration direction before remediation
@@ -249,8 +253,6 @@ Why:
     "max_context_lines_after": 400,
     "supported_paths": ["src/", "app/"],
     "ignored_paths": ["src/generated/"],
-    "skip_draft_merge_requests": true,
-    "max_review_feedback_retries": 1,
     "inline_comments_enabled": false
   },
   "remediation": {

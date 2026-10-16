@@ -200,10 +200,58 @@ def test_main_renders_settings_error_without_traceback(
     )
 
 
-def test_module_entrypoint_reports_invalid_config_without_traceback(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("extra_config", "problem"),
+    [
+        ({"unknown_option": True}, "unknown_option: unknown field"),
+        *[
+            (
+                config,
+                f"{field}: removed in v1; use {replacement} instead. See docs/migration-v1.md",
+            )
+            for config, field, replacement in (
+                ({"review": {"platform": "retired-secret"}}, "review.platform", "platform"),
+                (
+                    {"gitlab": {"target_branch": "retired-secret"}},
+                    "gitlab.target_branch",
+                    "remediation.target_branch",
+                ),
+                (
+                    {"remediation": {"supported_severities": ["retired-secret"]}},
+                    "remediation.supported_severities",
+                    "remediation.bootstrap_severities",
+                ),
+                (
+                    {"validation_setup_commands": ["retired-secret"]},
+                    "validation_setup_commands",
+                    "remediation.validation_setup_commands",
+                ),
+                (
+                    {"validation_commands": ["retired-secret"]},
+                    "validation_commands",
+                    "remediation.validation_commands",
+                ),
+            )
+        ],
+        *[
+            (
+                {"review": {field: value}},
+                f"review.{field}: removed in v1 because it had no effect; "
+                "remove this field. See docs/migration-v1.md",
+            )
+            for field, value in (
+                ("max_review_feedback_retries", 1),
+                ("skip_draft_merge_requests", True),
+            )
+        ],
+    ],
+)
+def test_module_entrypoint_reports_invalid_config_without_traceback(
+    tmp_path: Path, extra_config: dict[str, object], problem: str
+) -> None:
     """The installed process entrypoint exits cleanly for strict config failures."""
     (tmp_path / ".zeroone-ops.json").write_text(
-        '{"platform": "github", "base_branch": "main", "unknown_option": true}',
+        json.dumps({"platform": "github", "base_branch": "main", **extra_config}),
         encoding="utf-8",
     )
 
@@ -217,7 +265,6 @@ def test_module_entrypoint_reports_invalid_config_without_traceback(tmp_path: Pa
 
     assert completed.returncode == 2
     assert completed.stdout == ""
-    assert completed.stderr == (
-        "Configuration error: Invalid configuration: unknown_option: unknown field\n"
-    )
+    assert completed.stderr == f"Configuration error: Invalid configuration: {problem}\n"
     assert "Traceback" not in completed.stderr
+    assert "retired-secret" not in completed.stderr

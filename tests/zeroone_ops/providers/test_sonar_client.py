@@ -105,7 +105,6 @@ def test_search_open_issues_accepts_mqr_only_severity_payload() -> None:
     issues = client.search_open_issues()
 
     assert issues[0].severity == "UNKNOWN"
-    assert issues[0].matches_supported_severities(["LOW"]) is True
 
 
 def test_get_issue_raises_on_http_error() -> None:

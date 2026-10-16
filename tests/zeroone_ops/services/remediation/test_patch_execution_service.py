@@ -43,6 +43,7 @@ def build_config(
         base_branch="main",
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
+            target_branch="main",
             bootstrap_severities=["LOW"],
             validation_setup_commands=validation_setup_commands or [],
             validation_commands=validation_commands or [],
@@ -50,7 +51,7 @@ def build_config(
             validation_feedback_enabled=validation_feedback_enabled,
             analysis=AnalysisConfig(),
         ),
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
     )
 
 

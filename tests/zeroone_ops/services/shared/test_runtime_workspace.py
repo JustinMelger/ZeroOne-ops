@@ -1,6 +1,12 @@
 from pathlib import Path
 
-from zeroone_ops.models.config import AppConfig, GitLabConfig, SarifArtifactConfig, SarifConfig
+from zeroone_ops.models.config import (
+    AppConfig,
+    GitLabConfig,
+    RemediationConfig,
+    SarifArtifactConfig,
+    SarifConfig,
+)
 from zeroone_ops.services.shared.runtime_workspace import (
     RuntimeWorkspacePolicy,
     parse_porcelain_status,
@@ -9,8 +15,9 @@ from zeroone_ops.services.shared.runtime_workspace import (
 
 def _build_config(*, state_path: Path, artifact_path: Path, solution_path: Path) -> AppConfig:
     return AppConfig(
+        remediation=RemediationConfig(target_branch="main"),
         base_branch="main",
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
         state={"path": state_path},
         sarif=SarifConfig(
             artifacts=[SarifArtifactConfig(path=artifact_path, source_id="ruff-sarif")]

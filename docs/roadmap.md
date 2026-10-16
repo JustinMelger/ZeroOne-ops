@@ -14,6 +14,14 @@ history, not here.
 
 ## Implemented
 
+- v1 configuration alias retirement: canonical platform and remediation fields
+  only, with strict field-specific replacement errors and manual migration
+  guidance
+
+- removed unused legacy branch/severity helpers and Python compatibility
+  accessors; no-op review settings now fail strict validation with v1 removal
+  guidance, preserving historical serialized-field compatibility
+
 - validation evidence in new remediation PR/MR descriptions independently of
   feedback mode, distinguishing passed checks, preserved baseline, no commands,
   and unavailable evidence without exposing raw output

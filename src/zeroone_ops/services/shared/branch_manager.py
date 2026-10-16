@@ -15,7 +15,7 @@ from zeroone_ops.services.shared.runtime_workspace import (
     log_ignored_runtime_outputs,
     parse_porcelain_status,
 )
-from zeroone_ops.utils.git import build_issue_branch_name, is_literal_branch_argument
+from zeroone_ops.utils.git import is_literal_branch_argument
 
 
 class BranchManagerError(RuntimeError):
@@ -65,23 +65,6 @@ class BranchManager:
             log_ignored_runtime_outputs(ignored_runtime_outputs)
             if blocking_changes:
                 raise BranchManagerError(_format_dirty_workspace_message(blocking_changes))
-
-    def build_branch_name(self, *, branch_prefix: str, issue_key: str, file_path: str) -> str:
-        """Build a predictable branch name for an issue.
-
-        Args:
-            branch_prefix: Configured branch prefix.
-            issue_key: SonarQube issue key.
-            file_path: Issue file path.
-
-        Returns:
-            Predictable branch name safe for git.
-        """
-        return build_issue_branch_name(
-            branch_prefix=branch_prefix,
-            issue_key=issue_key,
-            file_path=file_path,
-        )
 
     def create_branch(self, branch_name: str) -> None:
         """Create a work branch.

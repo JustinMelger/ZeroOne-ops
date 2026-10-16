@@ -27,13 +27,14 @@ def build_config(*, execution_mode: str = "local") -> AppConfig:
     return AppConfig(
         execution_mode=execution_mode,
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
+            target_branch="main",
+            validation_commands=[],
             bootstrap_severities=["MAJOR"],
             analysis=AnalysisConfig(),
         ),
-        gitlab=GitLabConfig(target_branch="main", labels=["zeroone-ops"]),
+        gitlab=GitLabConfig(labels=["zeroone-ops"]),
     )
 
 

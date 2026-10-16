@@ -72,33 +72,6 @@ class SonarIssue(BaseModel):
         """Return the raw source severity label for traceability."""
         return self.severity.upper()
 
-    def matches_supported_severities(self, supported_severities: list[str]) -> bool:
-        """Return whether the issue matches configured severity filters.
-
-        This supports both newer MQR-style quality severities, such as
-        maintainability `LOW`, and legacy severities like `MINOR`.
-
-        Args:
-            supported_severities: Configured severity filters.
-
-        Returns:
-            ``True`` when the issue should be considered eligible by severity.
-        """
-        normalized = {value.upper() for value in supported_severities}
-        if not normalized:
-            return True
-        maintainability_severities = {
-            impact.severity.upper()
-            for impact in self.impacts
-            if impact.software_quality.upper() == "MAINTAINABILITY"
-        }
-        if maintainability_severities and maintainability_severities & normalized:
-            return True
-        raw_severity = self.severity.upper()
-        if raw_severity in normalized:
-            return True
-        return _legacy_to_modern_severity(self.severity) in normalized
-
 
 def _normalize_automation_severity(severity: str) -> NormalizedSeverity:
     """Map raw SonarQube severities into automation severity bands."""

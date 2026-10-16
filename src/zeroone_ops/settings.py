@@ -81,38 +81,7 @@ def _load_json_file(path: Path) -> dict[str, Any]:
 
 
 def _warn_deprecated_config_fields(data: dict[str, Any]) -> None:
-    """Log migration guidance for still-supported compatibility fields."""
-    deprecated_fields = (
-        ("review", "platform", "platform"),
-        ("gitlab", "target_branch", "remediation.target_branch"),
-        ("remediation", "supported_severities", "remediation.bootstrap_severities"),
-    )
-    for section, field, replacement in deprecated_fields:
-        section_data = data.get(section)
-        if isinstance(section_data, dict) and field in section_data:
-            LOGGER.warning(
-                "Deprecated config field `%s.%s` is a compatibility alias. "
-                "Use `%s` for new configuration; it will be removed in a future major release.",
-                section,
-                field,
-                replacement,
-            )
-
-    deprecated_top_level_remediation_fields = (
-        "validation_setup_commands",
-        "validation_commands",
-    )
-    configured_top_level_remediation_fields = [
-        field for field in deprecated_top_level_remediation_fields if field in data
-    ]
-    if configured_top_level_remediation_fields:
-        LOGGER.warning(
-            "Deprecated top-level remediation config fields are still supported: %s. "
-            "Use remediation.validation_setup_commands and remediation.validation_commands "
-            "instead; the top-level fields will be removed in a future major release.",
-            ", ".join(configured_top_level_remediation_fields),
-        )
-
+    """Log migration guidance for deprecated but functional tuning fields."""
     remediation_data = data.get("remediation")
     if isinstance(remediation_data, dict):
         deprecated_analysis_fields = (
@@ -147,8 +116,6 @@ def _warn_deprecated_config_fields(data: dict[str, Any]) -> None:
         "max_followed_helpers_per_function",
         "max_followed_helper_lines",
         "max_followed_helper_lines_per_review",
-        "max_review_feedback_retries",
-        "skip_draft_merge_requests",
     )
     configured_fields = [
         f"review.{field}" for field in deprecated_review_fields if field in review_data
@@ -223,11 +190,32 @@ def load_config() -> AppConfig:
 
 def _format_config_validation_error(error: ValidationError) -> str:
     """Render validation failures without echoing configured values or a traceback."""
+    replacements = {
+        "review.platform": "platform",
+        "gitlab.target_branch": "remediation.target_branch",
+        "remediation.supported_severities": "remediation.bootstrap_severities",
+        "validation_setup_commands": "remediation.validation_setup_commands",
+        "validation_commands": "remediation.validation_commands",
+    }
     problems: list[str] = []
     for detail in error.errors(include_input=False):
         location = ".".join(str(part) for part in detail["loc"])
         if detail["type"] == "extra_forbidden":
-            problems.append(f"{location}: unknown field")
+            if location in replacements:
+                problems.append(
+                    f"{location}: removed in v1; use {replacements[location]} instead. "
+                    "See docs/migration-v1.md"
+                )
+            elif location in {
+                "review.max_review_feedback_retries",
+                "review.skip_draft_merge_requests",
+            }:
+                problems.append(
+                    f"{location}: removed in v1 because it had no effect; "
+                    "remove this field. See docs/migration-v1.md"
+                )
+            else:
+                problems.append(f"{location}: unknown field")
         else:
             problems.append(f"{location}: {detail['msg']}")
     return f"Invalid configuration: {'; '.join(problems)}"

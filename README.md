@@ -319,11 +319,15 @@ severity-first behavior when the mapping is omitted. For example:
 }
 ```
 
-The supported compatibility fields `review.platform`, `gitlab.target_branch`,
-`remediation.supported_severities`, `validation_setup_commands`, and
-`validation_commands` emit non-blocking CI warnings with their replacement
-fields. They have no fixed removal version and should not be used in new
-configuration.
+V1 rejects the retired aliases `review.platform`, `gitlab.target_branch`,
+`remediation.supported_severities`, and top-level `validation_setup_commands`
+and `validation_commands`. Use `platform`, `remediation.target_branch`,
+`remediation.bootstrap_severities`, and remediation-owned validation commands.
+Errors name the replacement field; see the [v1 migration guide](docs/migration-v1.md).
+
+The unused `review.max_review_feedback_retries` and
+`review.skip_draft_merge_requests` keys were removed in v1 and now fail validation.
+Remove them before upgrading; see the [v1 migration guide](docs/migration-v1.md).
 
 To test the real OpenAI path instead of local fixtures:
 

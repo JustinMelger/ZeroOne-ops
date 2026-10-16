@@ -68,8 +68,9 @@ def test_unavailable_sonar_discards_source_and_continues_sarif(
         encoding="utf-8",
     )
     config = AppConfig(
+        remediation=RemediationConfig(target_branch="main"),
         base_branch="main",
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
         sarif=SarifConfig(artifacts=[SarifArtifactConfig(path=artifact, source_id="ruff-sarif")]),
     )
     collection = (
@@ -95,11 +96,15 @@ def test_intake_bridge_can_expose_normalized_sonar_findings_without_switching_do
     repo_root = tmp_path
     config = AppConfig(
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
-        remediation=RemediationConfig(bootstrap_severities=["LOW"], analysis=AnalysisConfig()),
+        remediation=RemediationConfig(
+            target_branch="main",
+            validation_commands=[],
+            bootstrap_severities=["LOW"],
+            analysis=AnalysisConfig(),
+        ),
         review=ReviewConfig(),
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
         sonarqube=SonarQubeConfig(),
         state=StateConfig(path=repo_root / ".zeroone-ops-state.json"),
     )
@@ -132,11 +137,15 @@ def test_intake_bridge_can_expose_normalized_sonar_findings_without_switching_do
 def test_intake_merge_preserves_unmanaged_source_collection(tmp_path: Path) -> None:
     config = AppConfig(
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
-        remediation=RemediationConfig(bootstrap_severities=["LOW"], analysis=AnalysisConfig()),
+        remediation=RemediationConfig(
+            target_branch="main",
+            validation_commands=[],
+            bootstrap_severities=["LOW"],
+            analysis=AnalysisConfig(),
+        ),
         review=ReviewConfig(),
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
         sonarqube=SonarQubeConfig(),
         state=StateConfig(path=tmp_path / ".zeroone-ops-state.json"),
     )
@@ -159,11 +168,14 @@ def test_intake_merge_preserves_unmanaged_source_collection(tmp_path: Path) -> N
 def test_intake_skips_unavailable_sarif_artifact_without_claiming_source_ownership(
     tmp_path: Path,
     caplog: LogCaptureFixture,
+    monkeypatch: MonkeyPatch,
 ) -> None:
+    monkeypatch.delenv("SONARQUBE_URL", raising=False)
+    monkeypatch.delenv("SONAR_HOST_URL", raising=False)
     config = AppConfig(
         base_branch="main",
         remediation=RemediationConfig(target_branch="main"),
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
         sarif=SarifConfig(
             artifacts=[
                 SarifArtifactConfig(
@@ -225,7 +237,7 @@ def test_intake_logs_normalized_finding_count_per_sarif_source(
     config = AppConfig(
         base_branch="main",
         remediation=RemediationConfig(target_branch="main"),
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
         sarif=SarifConfig(
             artifacts=[
                 SarifArtifactConfig(path=artifact_path, source_id="ruff-sarif"),
@@ -248,11 +260,15 @@ def test_intake_bridge_rejects_findings_that_escape_repo_root(tmp_path: Path) ->
     repo_root = tmp_path
     config = AppConfig(
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
-        remediation=RemediationConfig(bootstrap_severities=["LOW"], analysis=AnalysisConfig()),
+        remediation=RemediationConfig(
+            target_branch="main",
+            validation_commands=[],
+            bootstrap_severities=["LOW"],
+            analysis=AnalysisConfig(),
+        ),
         review=ReviewConfig(),
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
         sonarqube=SonarQubeConfig(),
         state=StateConfig(path=repo_root / ".zeroone-ops-state.json"),
     )
@@ -286,11 +302,15 @@ def test_intake_bridge_keeps_input_collection_provenance_for_mixed_sources(
     repo_root = tmp_path
     config = AppConfig(
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
-        remediation=RemediationConfig(bootstrap_severities=["LOW"], analysis=AnalysisConfig()),
+        remediation=RemediationConfig(
+            target_branch="main",
+            validation_commands=[],
+            bootstrap_severities=["LOW"],
+            analysis=AnalysisConfig(),
+        ),
         review=ReviewConfig(),
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
         sonarqube=SonarQubeConfig(),
         state=StateConfig(path=repo_root / ".zeroone-ops-state.json"),
     )
@@ -398,11 +418,15 @@ def test_intake_bridge_does_not_mark_locally_filtered_sources_as_fully_managed(
     repo_root = tmp_path
     config = AppConfig(
         base_branch="main",
-        validation_commands=[],
         approval=ApprovalConfig(),
-        remediation=RemediationConfig(bootstrap_severities=["LOW"], analysis=AnalysisConfig()),
+        remediation=RemediationConfig(
+            target_branch="main",
+            validation_commands=[],
+            bootstrap_severities=["LOW"],
+            analysis=AnalysisConfig(),
+        ),
         review=ReviewConfig(),
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
         sonarqube=SonarQubeConfig(),
         state=StateConfig(path=repo_root / ".zeroone-ops-state.json"),
     )

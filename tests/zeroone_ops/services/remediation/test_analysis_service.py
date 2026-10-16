@@ -37,6 +37,7 @@ def build_config(
         base_branch="main",
         approval=ApprovalConfig(),
         remediation=RemediationConfig(
+            target_branch="main",
             bootstrap_severities=["MAJOR"],
             max_retry_count=max_retry_count,
             validation_commands=validation_commands or [],
@@ -46,7 +47,7 @@ def build_config(
                 max_file_bytes=200_000,
             ),
         ),
-        gitlab=GitLabConfig(target_branch="main"),
+        gitlab=GitLabConfig(),
         mock_llm_analysis_path=mock_llm_analysis_path,
         mock_llm_edit_path=mock_llm_edit_path,
         apply_patch_in_dry_run=apply_patch_in_dry_run,

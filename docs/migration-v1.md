@@ -22,8 +22,33 @@ by one derived-summary refresh. Lifecycle reconciliation remains separate.
 
 `gitlab.control_plane_mode` may be omitted or set to `"issues"`. An explicit
 `"dashboard"` value fails configuration loading with migration guidance rather
-than silently selecting a new authority. Other documented configuration aliases
-are unaffected by this retirement.
+than silently selecting a new authority.
+
+## Configuration Alias Removal
+
+Replace these retired keys before upgrading:
+
+| Removed key | Canonical replacement |
+| --- | --- |
+| `review.platform` | `platform` |
+| `gitlab.target_branch` | `remediation.target_branch` |
+| `remediation.supported_severities` | `remediation.bootstrap_severities` |
+| root `validation_setup_commands` | `remediation.validation_setup_commands` |
+| root `validation_commands` | `remediation.validation_commands` |
+
+The old key must be removed, not merely accompanied by its replacement. Null
+and empty values are rejected too. The CLI exits with status `2` and field-specific
+replacement guidance, without printing configured values or making provider calls.
+Move the values manually; there is no automatic migration or file rewriting.
+Canonical defaults and provider requirements remain unchanged. Deprecated but
+functional context/helper tuning fields retain their existing warning behavior.
+
+V1 also removes two review settings that never affected execution:
+`review.max_review_feedback_retries` and `review.skip_draft_merge_requests`.
+Remove both keys from existing configuration. They now fail strict validation
+with field-specific removal guidance rather than being silently ignored.
+There is no replacement retry setting. Control whether draft requests trigger
+review through provider CI rules.
 
 ## Operator Cutover
 
