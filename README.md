@@ -482,6 +482,13 @@ CI mode:
 - creates or reuses a provider-specific merge request or pull request
 - never blocks for terminal approval
 
+## Dependency Maintenance
+
+The hosted Renovate GitHub App uses `renovate.json` for weekly Monday-morning
+updates. Non-major updates are grouped by ecosystem, with two open PRs maximum;
+major upgrades require Dependency Dashboard approval. See the
+[runbook](docs/runbook.md) for the schedule and security-update exceptions.
+
 ## Docs
 
 Use these docs for the deeper operational details:
