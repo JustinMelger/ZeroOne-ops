@@ -9,8 +9,8 @@ and verified review-context handoff.
 
 Implement a provider-neutral gate between LLM analysis and structured-edit
 generation. It is mandatory in the shared remediation execution path, so GitHub
-and GitLab issue mode receive identical behavior. Deprecated dashboard callers
-inherit the safe execution stop but receive no new dashboard-specific UX.
+and GitLab issue mode receive identical behavior. Dashboard runtime is retired
+in v1; semantic-safety execution remains entirely provider-neutral.
 
 The gate is not a second LLM call and does not inspect provider APIs, source
 transport payloads, or raw validation output.

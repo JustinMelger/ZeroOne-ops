@@ -21,11 +21,6 @@ def test_issue_policy_uses_only_neutral_builder_and_selected_credentials(
         calls.append(provider)
         return object()
 
-    monkeypatch.setattr(builders, "DashboardPolicyViewBuilder", unexpected)
-    monkeypatch.setattr(
-        "zeroone_ops.services.dashboard.dashboard_policy_view_builder.DashboardItemSelector",
-        unexpected,
-    )
     for name in ("github", "gitlab"):
         monkeypatch.setattr(
             builders,

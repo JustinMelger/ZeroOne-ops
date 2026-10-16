@@ -16,6 +16,9 @@ This folder is organized around two needs:
 
 ## Active Reference
 
+- [migration-v1.md](migration-v1.md)
+  - dashboard retirement, neutral commands, and explicit local-state cleanup
+
 - [review-bot-judgment-strategy.md](review-bot-judgment-strategy.md)
   - current framing for review quality and judgment calibration
 - [review-flow-mermaid.md](review-flow-mermaid.md)
@@ -32,7 +35,10 @@ This folder is organized around two needs:
 - [design/technical/](design/technical/)
   - technical-design docs and implementation-oriented architecture notes
 
-Recommended entry points:
+Current contracts are listed in [design/README.md](design/README.md).
+Dashboard-specific links below are retired historical records, not installation instructions.
+
+Additional design references:
 
 - [design/functional/functional-design-pr-review.md](design/functional/functional-design-pr-review.md)
 - [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)

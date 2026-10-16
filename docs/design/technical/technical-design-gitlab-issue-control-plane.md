@@ -59,17 +59,15 @@ services/control_plane/
     gitlab_operational_summary_*  # deferred until the work-item flow is proven
 ```
 
-Do not add GitLab issue-mode behavior under `services/dashboard/`. That package
-remains the legacy dashboard implementation until the cutover window ends.
+GitLab issue-mode behavior lives under `services/control_plane/`. The legacy
+`services/dashboard/` package and dashboard provider client are removed in v1.
 
 ## GitLab Transport Requirements
 
-`GitLabDashboardClient` already supports issue creation, exact open-issue
-lookup, body updates, notes, and membership lookup. Preserve that client for
-dashboard mode. Add dedicated issue-control-plane transport rather than
-silently broadening dashboard semantics.
+Dedicated issue-control-plane transport owns issue creation, lookup, updates,
+notes, and membership checks. No legacy dashboard client remains.
 
-The new client needs:
+The issue client supports:
 
 - paginated open and closed issue listing by labels;
 - issue creation and full update of title, description, and labels;
@@ -77,8 +75,7 @@ The new client needs:
 - issue-note listing and membership access lookup; and
 - safe project-path encoding and consistent `GitLabClientError` translation.
 
-Extend `GitLabIssueInfo` with labels, open/closed state, and timestamps. Keep
-the existing dashboard consumer compatible while those fields are introduced.
+`GitLabIssueInfo` supplies labels, open/closed state, and timestamps.
 
 ## Persistence Contract
 
@@ -111,9 +108,8 @@ The GitLab policy issue mirrors the GitHub provider-local policy pattern:
 - replay authorized comments with `PolicyProcessingService`; and
 - render the compact policy body and command reference.
 
-The current dashboard policy view builder can remain the source for shared
-severity and issue-class presentation initially. Rename it only if reuse proves
-it is not dashboard-specific.
+The neutral `PolicyViewBuilder` owns shared severity and issue-class presentation;
+issue policy does not depend on dashboard models, selectors, or filesystem state.
 
 ## Work-Item Flow
 
@@ -171,44 +167,39 @@ closed work-item issues.
 GitLab schedules are configured outside YAML. The initial schedule runs every
 30 minutes with `RUN_ZEROONE_OPS=true`; the same variable exposes
 a manual default-branch job for operator follow-up. The CI job itself does not
-interpret `gitlab.control_plane_mode`: each invoked command selects exactly one
-authority from that configuration, preventing dual writes.
+select a storage mode: issue mode is the only supported authority.
 
 ## Cutover Implementation
 
-Use `issues` as the default for `gitlab.control_plane_mode`. `dashboard`
-remains an explicit legacy compatibility mode for repositories that have not
-completed their cutover.
+V1 accepts only `gitlab.control_plane_mode: "issues"`, including when omitted.
+A retired `dashboard` value fails settings validation with migration guidance.
+`policy run` replaces `dashboard policy`; the whole dashboard command group and
+legacy runner entrypoints are removed.
 
-Cutover is operator-controlled:
+Workflow composition no longer accepts dashboard factories, mode callbacks, or
+a dashboard client in the review runtime tuple. Review finalization publishes
+the artifact and projects onto authoritative work items; no dashboard mirror or
+mirror-warning field remains. Shared finding collection uses
+`collect_findings_for_sync()` and aggregate namespace `finding_sync`, without
+changing individual source namespaces or finding identities.
 
-1. set the desired `remediation.bootstrap_severities` in configuration;
-2. set `gitlab.control_plane_mode` to `issues`; and
-3. run normal finding sync, which creates the policy issue from bootstrap
-   configuration and materializes current promoted findings.
+The state loader rejects meaningful dashboard inventories, exclusions, an active
+dashboard ID, and runs with non-null dashboard IDs before ordinary validation.
+The CLI reports a bounded state migration error with exit status 2 and no stack
+trace. Operators back up and manually remove that data, deleting associated runs
+while preserving all other runs, issues, reviews, and pending projection repair.
+Empty/null obsolete defaults still load and disappear on normal save.
+Historical issue-mode `dashboard_update` failures decode as
+`control_plane_update`; new failures use the neutral stage.
 
-No dashboard work-item records are copied during the default cutover. During
-bounded live testing, the operator's explicit config switch accepts that active
-claims, linked merge requests, blocked or dismissed work, recovery history, and
-other dashboard lifecycle state are reset rather than transferred. Rollout
-communication must make that consequence clear. A later active-state transfer
-is a separate, explicit design if broader rollout experience shows it is
-necessary.
-
-After the switch, label the dashboard issue `zeroone-legacy-dashboard` and
-close it. Closing is a provider-local presentation action only: the issue stays
-readable, and no new control-plane workflow reads or writes it.
-
-Dashboard policy state and comment history are not transferred. Operators use
-the new GitLab policy issue to apply post-cutover overrides through the normal
-command path. A future narrow protected-state transfer may attach legacy
-dashboard provenance only to the work-item issue created from that specific
-dashboard item; it must not copy or link unrelated dashboard discussion.
-
-No dual-write path is permitted. The regular runners select exactly one
-authority based on `gitlab.control_plane_mode`.
+No automatic state transfer, provider cleanup, or remote dashboard mutation is
+performed. The [v1 migration guide](../../migration-v1.md) specifies the operator
+cutover, including reapplying desired policy and reviewing active linked work.
 
 ## Delivery Slices
+
+The following phases preserve the original rollout plan as history. Dashboard
+compatibility references describe the pre-v1 rollout, not supported v1 runtime.
 
 ### Phase 8a: Neutral Seams And GitLab Issue Transport
 

@@ -9,7 +9,6 @@ from typing import Protocol
 
 from zeroone_ops.models.config import AppConfig, GitHubConnectionConfig, GitLabConnectionConfig
 from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RunStatus
-from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 from zeroone_ops.services.control_plane.overview.github_operational_summary_service import (
     GitHubOperationalSummaryPublishResult,
@@ -44,14 +43,6 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_recovery_ser
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
 )
-from zeroone_ops.services.dashboard.dashboard_policy_view_builder import (
-    DashboardPolicyViewBuilder,
-)
-from zeroone_ops.services.dashboard.dashboard_recovery_runner import (
-    DashboardRecoveryRunner,
-)
-from zeroone_ops.services.dashboard.dashboard_recovery_service import DashboardRecoveryService
-from zeroone_ops.services.dashboard.dashboard_service import DashboardService
 from zeroone_ops.services.intake.finding_workflow_policy_service import (
     FindingWorkflowPolicyService,
 )
@@ -67,15 +58,6 @@ class WorkflowRunContextBuilder(Protocol):
 
     def __call__(self, *, config: AppConfig, run_id: str, dry_run: bool) -> WorkflowRunContext:
         """Build the context for one workflow invocation."""
-
-
-class DashboardPolicyViewBuilderFactory(Protocol):
-    """Build legacy GitLab dashboard policy views on demand."""
-
-    def __call__(
-        self, *, repo_root: Path, config: AppConfig, state: AppState
-    ) -> DashboardPolicyViewBuilder:
-        """Build the dashboard policy view."""
 
 
 class GitHubPolicyIssueServiceBuilder(Protocol):
@@ -142,12 +124,10 @@ class RecoveryWorkflow:
         publish_operational_summary: bool,
         build_run_id: Callable[[], str],
         build_context: WorkflowRunContextBuilder,
-        is_gitlab_issue_mode: Callable[[AppConfig], bool],
         load_github_config: Callable[[], GitHubConnectionConfig],
         load_gitlab_config: Callable[[], GitLabConnectionConfig],
         load_github_issue_number: Callable[[], int | None],
         load_github_comment_id: Callable[[], int | None],
-        build_dashboard_policy_view: DashboardPolicyViewBuilderFactory,
         build_github_policy_issue_service: GitHubPolicyIssueServiceBuilder,
         build_gitlab_policy_issue_service: GitLabPolicyIssueServiceBuilder,
         build_github_recovery_runner: GitHubRecoveryRunnerBuilder,
@@ -160,12 +140,10 @@ class RecoveryWorkflow:
         self.publish_operational_summary = publish_operational_summary
         self.build_run_id = build_run_id
         self.build_context = build_context
-        self.is_gitlab_issue_mode = is_gitlab_issue_mode
         self.load_github_config = load_github_config
         self.load_gitlab_config = load_gitlab_config
         self.load_github_issue_number = load_github_issue_number
         self.load_github_comment_id = load_github_comment_id
-        self.build_dashboard_policy_view = build_dashboard_policy_view
         self.build_github_policy_issue_service = build_github_policy_issue_service
         self.build_gitlab_policy_issue_service = build_gitlab_policy_issue_service
         self.build_github_recovery_runner = build_github_recovery_runner
@@ -176,9 +154,7 @@ class RecoveryWorkflow:
         """Run recovery through the selected provider and control-plane route."""
         if self.config.platform == "github":
             return self._run_github_recovery()
-        if self.is_gitlab_issue_mode(self.config):
-            return self._run_gitlab_issue_recovery()
-        return self._run_legacy_gitlab_dashboard_recovery()
+        return self._run_gitlab_issue_recovery()
 
     def _run_github_recovery(self) -> RunSummary:
         """Process the current GitHub issue-comment recovery command."""
@@ -191,7 +167,7 @@ class RecoveryWorkflow:
             return context.run_state_service.fail_run(
                 record=record,
                 error_message=message,
-                failure=FailureDetails(stage=FailureStage.DASHBOARD_UPDATE, message=message),
+                failure=FailureDetails(stage=FailureStage.CONTROL_PLANE_UPDATE, message=message),
             )
 
         github_config = self.load_github_config()
@@ -288,30 +264,6 @@ class RecoveryWorkflow:
         return replace(
             summary,
             message=summary.message + format_operational_summary_publication(publication),
-        )
-
-    def _run_legacy_gitlab_dashboard_recovery(self) -> RunSummary:
-        """Run the explicit legacy GitLab dashboard recovery path."""
-        context = self._build_context()
-        record = context.run_state_service.start_run(context.run_id)
-        gitlab_config = self.load_gitlab_config()
-        return DashboardRecoveryRunner(
-            recovery_service=DashboardRecoveryService(
-                dashboard_service=DashboardService(
-                    GitLabDashboardClient(gitlab_config),
-                    policy_view_builder=self.build_dashboard_policy_view(
-                        repo_root=context.repo_root,
-                        config=self.config,
-                        state=context.state,
-                    ),
-                )
-            ),
-            run_state_service=context.run_state_service,
-        ).run(
-            project_id=gitlab_config.project_id,
-            record=record,
-            active_dry_run=context.active_dry_run,
-            execution_mode=self.config.execution_mode,
         )
 
     def _build_context(self) -> WorkflowRunContext:

@@ -52,15 +52,15 @@ This design is specifically about finding ingestion. It is not a redesign of:
 
 - review transport,
 - remediation execution,
-- dashboard rendering,
+- work-item rendering,
 - GitHub or GitLab control-plane storage.
 
 ## 2. Problem
 
-Today the intake side of the product is still source-shaped:
+The original intake baseline was source-shaped (historical context):
 
 - the active production path is SonarQube-first,
-- remediation models and dashboard sync still carry Sonar-oriented assumptions,
+- remediation models and legacy dashboard sync carried Sonar-oriented assumptions,
 - adding another source risks turning into another source-specific workflow
   branch instead of a shared ingestion model.
 
@@ -77,7 +77,7 @@ That creates three problems:
 ## 3. Design Goals
 
 - Introduce one provider-neutral internal finding contract.
-- Separate finding source ingestion from dashboard, control-plane, and
+- Separate finding source ingestion from control-plane and
   remediation logic.
 - Keep repository platform and finding source as separate axes.
 - Allow file-based, API-based, and CI-artifact-based finding sources.
@@ -114,12 +114,12 @@ The control plane should not need to know whether a finding came from GitHub,
 GitLab, Jenkins, SonarQube, Ruff, or a local artifact. It should only consume
 normalized findings.
 
-### 5.2 Normalization Happens Before Policy And Dashboard Logic
+### 5.2 Normalization Happens Before Policy And Work-Item Logic
 
 Provider-local or source-local parsing must end before:
 
 - policy evaluation,
-- dashboard item projection,
+- work-item projection,
 - remediation selection,
 - control-plane materialization.
 
@@ -151,7 +151,7 @@ External source / artifact
   -> source-local transport
   -> source-local adapter
   -> NormalizedFinding
-  -> shared policy / dashboard / remediation / control-plane
+  -> shared policy / work items / remediation / control-plane
 ```
 
 At the code level, the stable abstraction should be `FindingSource` or
@@ -168,7 +168,7 @@ Reason:
 
 ### 7.1 Normalized Finding Domain
 
-The internal model should be remediation- and dashboard-oriented, not
+The internal model should be remediation- and work-item-oriented, not
 Sonar-shaped and not SARIF-shaped.
 
 Suggested model split:
@@ -299,8 +299,8 @@ Friday, July 24, 2026:
 - SARIF runs with rejected, malformed, or locally unusable results must not be
   treated as authoritative for stale reconciliation
 - full and partial SARIF fingerprint identities must be scoped by stable
-  finding context so two distinct results cannot collapse into one dashboard
-  item identity
+  finding context so two distinct results cannot collapse into one work-item
+  identity
 
 These are now part of the expected SARIF ingestion boundary rather than follow-
 up refinements.
@@ -311,9 +311,8 @@ The downstream workflow should consume normalized findings only.
 
 That means:
 
-- dashboard sync projects normalized findings into dashboard items
-- remediation selection consumes normalized findings or normalized dashboard
-  items derived from them
+- finding sync projects eligible normalized findings into authoritative work-item issues
+- remediation selection consumes normalized execution targets derived from those issues
 - control-plane work-item promotion stays source-agnostic
 - review projection remains independent of the original finding source
 
@@ -328,22 +327,22 @@ except at the ingestion boundary.
 ### 9.1 Shared Remediation Eligibility
 
 Remediation selection must use the shared `remediation_context.category` after
-dashboard projection, not `source_id` or source-local metadata.
+work-item projection, not `source_id` or source-local metadata.
 
 The initial supported category is `static_analysis_fix`:
 
 - SonarQube code-smell findings normalize to `static_analysis_fix`
 - SARIF lint findings normalize to `static_analysis_fix`
-- persisted dashboard items using `code_smell_fix` or `lint_fix` are normalized
-  as legacy compatibility aliases at the remediation boundary
+- historical category names `code_smell_fix` and `lint_fix` remain compatibility
+  aliases at the normalized remediation boundary
 - existing SARIF fallback identities retain their `lint_fix` identity component
   so the category migration does not duplicate already-synced work items
 
-This preserves existing dashboard work while ensuring all new supported static
+This preserves source identity while ensuring all new supported static
 analysis findings use one source-neutral eligibility contract.
 
 Issue-class exclusions and active change-request recovery follow the same
-boundary: they use the shared dashboard `rule`, `source_reference`, and file
+boundary: they use canonical rule, source-reference, and file
 fields for every eligible source. Source identity remains part of exclusion
 identity and source-local presentation, but does not disable those safeguards.
 

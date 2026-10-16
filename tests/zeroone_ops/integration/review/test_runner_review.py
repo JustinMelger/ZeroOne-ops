@@ -3,12 +3,6 @@ from pathlib import Path
 
 import pytest
 
-from zeroone_ops.models.dashboard import (
-    DashboardDocument,
-    DashboardItem,
-    DashboardSection,
-    empty_sections,
-)
 from zeroone_ops.models.gitlab import MergeRequestNote
 from zeroone_ops.models.review import (
     CandidateReviewFinding,
@@ -77,17 +71,6 @@ class _CandidateStageResult:
         self.message = message
 
 
-class _DashboardUpdateResult:
-    def __init__(
-        self,
-        *,
-        dashboard_issue_url: str | None,
-        error_message: str | None,
-    ) -> None:
-        self.dashboard_issue_url = dashboard_issue_url
-        self.error_message = error_message
-
-
 class _PriorNoteSelectionResult:
     def __init__(
         self,
@@ -120,22 +103,6 @@ class _ParseNoteResult:
 class _ProjectionResult:
     def __init__(self, *, action: str) -> None:
         self.action = action
-
-
-def build_dashboard_document(*, items: list[DashboardItem]) -> DashboardDocument:
-    sections = empty_sections()
-    sections[0] = DashboardSection(
-        key="open_candidates",
-        title="Open Candidates",
-        items=items,
-    )
-    return DashboardDocument(
-        issue_id=10,
-        issue_iid=11,
-        issue_url="https://gitlab.example.com/group/project/-/issues/11",
-        title="AI Code Ops Work Queue",
-        sections=sections,
-    )
 
 
 class _IntegrationPrecisionClient:
@@ -266,26 +233,6 @@ def _stub_candidate_stage(
         )
 
     return _analyze
-
-
-def _stub_dashboard_update(
-    *,
-    dashboard_issue_url: str | None,
-    error_message: str | None,
-) -> Callable[[object, str, ChangeRequestReviewCandidate, ReviewResult], _DashboardUpdateResult]:
-    def _update(
-        self: object,
-        project_id: str,
-        merge_request: ChangeRequestReviewCandidate,
-        review_result: ReviewResult,
-    ) -> _DashboardUpdateResult:
-        del self, project_id, merge_request, review_result
-        return _DashboardUpdateResult(
-            dashboard_issue_url=dashboard_issue_url,
-            error_message=error_message,
-        )
-
-    return _update
 
 
 def _stub_get_change_request(
@@ -816,13 +763,6 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
         publish_artifact_stub,
     )
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
-        _stub_dashboard_update(
-            dashboard_issue_url="https://gitlab.example.com/group/project/-/issues/11",
-            error_message=None,
-        ),
-    )
 
     summary = review(dry_run=False)
 
@@ -850,154 +790,6 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         "src/service.py: Missing test coverage"
     ]
     assert diagnostics.final_classification == "findings_present"
-
-
-def test_review_non_dry_run_succeeds_when_dashboard_mirror_fails(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    _install_review_precision_fake(monkeypatch)
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
-    monkeypatch.setenv("GITLAB_URL", "https://gitlab.example.com")
-    monkeypatch.setenv("GITLAB_TOKEN", "token")
-    monkeypatch.setenv("GITLAB_PROJECT_ID", "123")
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
-    (tmp_path / ".zeroone-ops.json").write_text(
-        """
-        {
-          "base_branch": "main",
-          "execution_mode": "ci",
-          "validation_commands": [],
-          "gitlab": {
-            "control_plane_mode": "dashboard",
-            "target_branch": "main",
-            "labels": []
-          }
-        }
-        """.strip(),
-        encoding="utf-8",
-    )
-
-    merge_request = ChangeRequestReviewCandidate(
-        change_request_number=17,
-        title="feat: review flow",
-        description="summary",
-        source_branch="feature/review",
-        target_branch="main",
-        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
-        head_sha="abc123",
-        changes=[],
-    )
-    review_context = ChangeRequestReviewContext(
-        change_request_number=17,
-        title="feat: review flow",
-        description="summary",
-        source_branch="feature/review",
-        target_branch="main",
-        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
-        head_sha="abc123",
-        changed_files=[
-            ReviewFileContext(
-                file_path="src/service.py",
-                diff="@@ -1,1 +1,1 @@",
-                start_line=1,
-                end_line=1,
-                content="   1: value = 1",
-                full_file_included=True,
-                truncated=False,
-            )
-        ],
-    )
-
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.intake.change_request_intake.ChangeRequestIntakeService.select_change_request",
-        _stub_select_change_request(merge_request),
-    )
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.context.review_context_builder.ReviewContextBuilder.build",
-        _stub_build_context(review_context),
-    )
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",
-        _stub_candidate_stage(
-            candidate_result=None,
-            raw_review_result=ReviewResult(
-                classification="no_findings",
-                summary="No findings.",
-                findings=[],
-            ),
-            message="Candidate review generated 0 candidates and accepted 0 findings.",
-        ),
-    )
-
-    def publish_artifact_stub(  # noqa: ANN001, ANN202
-        self,
-        repository_id,
-        change_request_number,
-        context,
-        artifact,
-        inline_comment_decisions=None,
-    ):
-        del self, repository_id, change_request_number, context, inline_comment_decisions
-        return ReviewPublishResult(
-            note=type("Note", (), {"id": 55, "web_url": None})(),
-            body="summary",
-            artifact=artifact,
-        )
-
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
-        publish_artifact_stub,
-    )
-    observed: dict[str, object] = {}
-
-    def capture_dashboard_update(  # noqa: ANN001, ANN202
-        self,
-        project_id,
-        merge_request,
-        review_result,
-    ):
-        del self, project_id, merge_request
-        observed["dashboard_review_result"] = review_result
-        return type(
-            "DashboardResult",
-            (),
-            {
-                "dashboard_issue_url": None,
-                "error_message": "Dashboard mirror failed: boom",
-            },
-        )()
-
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
-        capture_dashboard_update,
-    )
-
-    summary = review(dry_run=False)
-
-    assert summary.status.value == "reviewed"
-    assert "Dashboard mirror failed: boom" in summary.message
-    dashboard_review_result = observed["dashboard_review_result"]
-    assert isinstance(dashboard_review_result, ReviewResult)
-    assert dashboard_review_result.summary == "No actionable findings in this review pass."
-    state = StateStore(
-        tmp_path / ".zeroone-ops-state.json",
-        base_branch="main",
-        gitlab_project_id="123",
-        sonarqube_project_key=None,
-    ).load()
-    assert state.reviews["17:abc123"].summary == "No actionable findings in this review pass."
-    assert state.runs[-1].review_diagnostics is not None
-    diagnostics = state.runs[-1].review_diagnostics
-    assert diagnostics.reviewed_head_sha == "abc123"
-    assert diagnostics.candidate_findings == []
-    assert diagnostics.forwarded_candidate_ids == []
-    assert diagnostics.precision_accepted_candidate_ids == []
-    assert diagnostics.inline_comment_decisions == []
-    assert diagnostics.final_published_finding_summaries == []
-    assert diagnostics.final_classification == "no_findings"
 
 
 def test_review_non_dry_run_downgrades_structurally_invalid_artifact_to_manual_review_only(
@@ -1157,13 +949,6 @@ def test_review_non_dry_run_downgrades_structurally_invalid_artifact_to_manual_r
     monkeypatch.setattr(
         "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
         capture_publish,
-    )
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
-        _stub_dashboard_update(
-            dashboard_issue_url=None,
-            error_message=None,
-        ),
     )
 
     summary = review(dry_run=False)
@@ -1377,13 +1162,6 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
         capture_publish,
     )
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
-        _stub_dashboard_update(
-            dashboard_issue_url=None,
-            error_message=None,
-        ),
-    )
 
     summary = review(dry_run=False)
 
@@ -1502,13 +1280,6 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     monkeypatch.setattr(
         "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
         capture_publish,
-    )
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.publish.review_dashboard_updater.ReviewDashboardUpdater.update",
-        _stub_dashboard_update(
-            dashboard_issue_url=None,
-            error_message=None,
-        ),
     )
 
     summary = review(dry_run=False)

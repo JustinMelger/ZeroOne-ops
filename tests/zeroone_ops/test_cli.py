@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,98 @@ from zeroone_ops.services.shared.run_summary_builder import RunSummary
 from zeroone_ops.settings import SettingsError
 
 _RUNNER = CliRunner()
+
+
+@pytest.mark.parametrize("command", ["sonar", "remediate", "reconcile", "policy"])
+def test_dashboard_commands_are_removed(command: str) -> None:
+    result = _RUNNER.invoke(app, ["dashboard", command, "--dry-run"])
+    assert result.exit_code == 2
+    assert "No such command" in result.output
+
+
+def test_policy_run_delegates_to_neutral_runner(monkeypatch: MonkeyPatch) -> None:
+    summary = RunSummary(
+        run_id="run-1",
+        status=RunStatus.SYNCED,
+        message="Policy processed.",
+        state_path=Path("state.json"),
+    )
+    monkeypatch.setattr("zeroone_ops.cli.run_policy", lambda *, dry_run: summary)
+    result = _RUNNER.invoke(app, ["policy", "run", "--dry-run"])
+    assert result.exit_code == 0
+    assert "Policy processed." in result.output
+
+
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["review"],
+        ["findings", "sync"],
+        ["policy", "run"],
+        ["remediation", "run"],
+        ["work-items", "recover"],
+        ["work-items", "sync-status"],
+    ],
+)
+def test_cli_rejects_dashboard_history_before_provider_access(
+    tmp_path, monkeypatch, platform, command
+):
+    config_path = tmp_path / ".zeroone-ops.json"
+    state_path = tmp_path / "state.json"
+    config = {
+        "platform": platform,
+        "base_branch": "main",
+        "remediation": {"target_branch": "main"},
+        "state": {"path": str(state_path)},
+    }
+    if platform == "gitlab":
+        config["gitlab"] = {"control_plane_mode": "issues"}
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    content = json.dumps({"dashboard_items": {"private-identifier": {"secret": "private-content"}}})
+    state_path.write_text(content, encoding="utf-8")
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(config_path))
+    monkeypatch.setenv("ZEROONE_OPS_STATE_PATH", str(state_path))
+    result = subprocess.run(
+        [sys.executable, "-m", "zeroone_ops.cli", *command, "--dry-run"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "State migration required:" in result.stderr
+    assert "docs/migration-v1.md" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert "private-identifier" not in result.stderr
+    assert "private-content" not in result.stderr
+    assert state_path.read_text(encoding="utf-8") == content
+
+
+def test_cli_rejects_retired_mode_with_configuration_guidance(tmp_path, monkeypatch):
+    config_path = tmp_path / ".zeroone-ops.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "base_branch": "main",
+                "platform": "gitlab",
+                "gitlab": {"control_plane_mode": "dashboard"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(config_path))
+    result = subprocess.run(
+        [sys.executable, "-m", "zeroone_ops.cli", "policy", "run", "--dry-run"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "gitlab.control_plane_mode" in result.stderr
+    assert "docs/migration-v1.md" in result.stderr
+    assert "Traceback" not in result.stderr
 
 
 def test_remediation_run_prints_neutral_work_item_summary(monkeypatch: MonkeyPatch) -> None:
@@ -51,29 +144,6 @@ def test_control_plane_run_prints_combined_workflow_summary(monkeypatch: MonkeyP
     assert "No remediation work item is eligible." in result.output
 
 
-def test_dashboard_remediate_remains_an_alias_for_neutral_remediation(
-    monkeypatch: MonkeyPatch,
-) -> None:
-    """The legacy GitLab command keeps using the canonical runner entrypoint."""
-    summary = RunSummary(
-        run_id="run-1",
-        status=RunStatus.NO_ISSUE,
-        message="[ci] No dashboard item is eligible.",
-        state_path=Path(".zeroone-ops-state.json"),
-        work_item_id="sonarqube:AX123",
-        dashboard_item_id="sonarqube:AX123",
-    )
-    monkeypatch.setattr("zeroone_ops.cli.run_remediation", lambda *, dry_run: summary)
-
-    result = _RUNNER.invoke(app, ["dashboard", "remediate", "--dry-run"])
-
-    assert result.exit_code == 0
-    assert "Deprecated command `zeroone-ops dashboard remediate`" in result.output
-    assert "Use `zeroone-ops remediation run`" in result.output
-    assert "work_item_id=sonarqube:AX123" in result.output
-    assert "dashboard_item_id=sonarqube:AX123" in result.output
-
-
 def test_work_items_sync_status_prints_lifecycle_summary(monkeypatch: MonkeyPatch) -> None:
     """The provider-neutral lifecycle command uses the shared CLI summary format."""
     summary = RunSummary(
@@ -108,54 +178,6 @@ def test_work_items_recover_prints_recovery_summary(monkeypatch: MonkeyPatch) ->
     assert result.exit_code == 0
     assert "status=synced" in result.output
     assert "work_item_id=work-item-1" in result.output
-
-
-def test_dashboard_sonar_warns_about_the_canonical_findings_command(
-    monkeypatch: MonkeyPatch,
-) -> None:
-    """The legacy findings command gives operators a direct migration path."""
-    summary = RunSummary(
-        run_id="run-1",
-        status=RunStatus.SYNCED,
-        message="[ci] Synced findings.",
-        state_path=Path(".zeroone-ops-state.json"),
-    )
-    monkeypatch.setattr("zeroone_ops.cli.sync_findings", lambda *, dry_run: summary)
-
-    result = _RUNNER.invoke(app, ["dashboard", "sonar", "--dry-run"])
-
-    assert result.exit_code == 0
-    assert "Deprecated command `zeroone-ops dashboard sonar`" in result.output
-    assert "Use `zeroone-ops findings sync`" in result.output
-
-
-def test_dashboard_help_marks_legacy_aliases_as_deprecated() -> None:
-    result = _RUNNER.invoke(app, ["dashboard", "--help"])
-
-    assert result.exit_code == 0
-    assert "sonar" in result.output
-    assert "remediate" in result.output
-    assert "reconcile" in result.output
-    assert "deprecated" in result.output.lower()
-
-
-def test_dashboard_reconcile_warns_about_the_canonical_lifecycle_command(
-    monkeypatch: MonkeyPatch,
-) -> None:
-    """The legacy lifecycle command gives operators a direct migration path."""
-    summary = RunSummary(
-        run_id="run-1",
-        status=RunStatus.RECONCILED,
-        message="[ci] Reconciled GitLab remediation work items.",
-        state_path=Path(".zeroone-ops-state.json"),
-    )
-    monkeypatch.setattr("zeroone_ops.cli.dashboard_reconcile", lambda *, dry_run: summary)
-
-    result = _RUNNER.invoke(app, ["dashboard", "reconcile", "--dry-run"])
-
-    assert result.exit_code == 0
-    assert "Deprecated command `zeroone-ops dashboard reconcile`" in result.output
-    assert "Use `zeroone-ops work-items sync-status`" in result.output
 
 
 def test_main_renders_settings_error_without_traceback(

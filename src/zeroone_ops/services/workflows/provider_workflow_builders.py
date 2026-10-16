@@ -8,7 +8,6 @@ from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.state import AppState
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
-from zeroone_ops.providers.gitlab_dashboard_client import GitLabDashboardClient
 from zeroone_ops.providers.gitlab_policy_client import GitLabPolicyClient
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 from zeroone_ops.providers.review.github import GitHubReviewClient
@@ -48,9 +47,6 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_recovery_ser
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
 )
-from zeroone_ops.services.dashboard.dashboard_policy_view_builder import (
-    DashboardPolicyViewBuilder,
-)
 from zeroone_ops.services.shared.run_state_service import RunStateService
 from zeroone_ops.settings import (
     load_current_change_request_number,
@@ -59,13 +55,6 @@ from zeroone_ops.settings import (
     load_github_connection_config,
     load_gitlab_connection_config,
 )
-
-
-def build_dashboard_policy_view_builder(
-    *, repo_root: Path, config: AppConfig, state: AppState
-) -> DashboardPolicyViewBuilder:
-    """Build the legacy dashboard inventory and policy view."""
-    return DashboardPolicyViewBuilder(repo_root=repo_root, config=config, state=state)
 
 
 def build_github_policy_issue_service(
@@ -152,7 +141,6 @@ def build_review_platform_runtime(
     str,
     int | None,
     str | None,
-    GitLabDashboardClient | None,
 ]:
     """Build review dependencies for the configured provider only."""
     if config.platform == "github":
@@ -162,7 +150,6 @@ def build_review_platform_runtime(
             github_config.repository,
             load_current_github_pull_request_number(),
             load_current_github_pull_request_head_sha(),
-            None,
         )
 
     gitlab_config = load_gitlab_connection_config()
@@ -171,5 +158,4 @@ def build_review_platform_runtime(
         gitlab_config.project_id,
         load_current_change_request_number(),
         None,
-        GitLabDashboardClient(gitlab_config),
     )

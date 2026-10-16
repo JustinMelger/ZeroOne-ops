@@ -81,7 +81,6 @@ def test_github_no_issue_does_not_load_gitlab_or_publish_summary(
         publish_operational_summary=True,
         build_run_id=lambda: "run-1",
         build_context=build_workflow_run_context,
-        is_gitlab_issue_mode=_is_gitlab_issue_mode,
         load_github_config=lambda: GitHubConnectionConfig(
             api_url="https://api.github.example.com",
             server_url="https://github.example.com",
@@ -89,7 +88,6 @@ def test_github_no_issue_does_not_load_gitlab_or_publish_summary(
             repository="octo-org/octo-repo",
         ),
         load_gitlab_config=unexpected_gitlab_load,
-        build_dashboard_policy_view=unexpected_summary,  # type: ignore[arg-type]
         publish_github_summary=unexpected_summary,  # type: ignore[arg-type]
         publish_gitlab_summary=unexpected_summary,  # type: ignore[arg-type]
     )
@@ -133,7 +131,6 @@ def test_github_dry_run_does_not_create_workflow_trace(tmp_path: Path, monkeypat
         publish_operational_summary=True,
         build_run_id=lambda: "run-1",
         build_context=build_workflow_run_context,
-        is_gitlab_issue_mode=_is_gitlab_issue_mode,
         load_github_config=lambda: GitHubConnectionConfig(
             api_url="https://api.github.example.com",
             server_url="https://github.example.com",
@@ -141,9 +138,6 @@ def test_github_dry_run_does_not_create_workflow_trace(tmp_path: Path, monkeypat
             repository="octo-org/octo-repo",
         ),
         load_gitlab_config=lambda: (_ for _ in ()).throw(AssertionError("Unexpected GitLab load.")),
-        build_dashboard_policy_view=lambda **kwargs: (_ for _ in ()).throw(
-            AssertionError("Unexpected dashboard construction.")
-        ),
         publish_github_summary=lambda **kwargs: (_ for _ in ()).throw(
             AssertionError("Dry-run remediation must not publish a summary.")
         ),
@@ -193,14 +187,12 @@ def test_gitlab_issue_mode_can_suppress_summary_for_combined_control_plane(
         publish_operational_summary=False,
         build_run_id=lambda: "run-1",
         build_context=build_workflow_run_context,
-        is_gitlab_issue_mode=_is_gitlab_issue_mode,
         load_github_config=unexpected_github_load,
         load_gitlab_config=lambda: GitLabConnectionConfig(
             url="https://gitlab.example.com",
             token="token",
             project_id="group/project",
         ),
-        build_dashboard_policy_view=unexpected_summary,  # type: ignore[arg-type]
         publish_github_summary=unexpected_summary,  # type: ignore[arg-type]
         publish_gitlab_summary=unexpected_summary,  # type: ignore[arg-type]
     )

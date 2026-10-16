@@ -1,19 +1,121 @@
+import json
 from pathlib import Path
+
+import pytest
 
 from zeroone_ops.models.state import (
     AppState,
     ChangeRequestReviewState,
-    DashboardItemState,
     FailureDetails,
     FailureStage,
     IssueState,
     PriorReviewFindingState,
-    RemediationExclusionState,
     RepositoryState,
     RunRecord,
     RunStatus,
 )
-from zeroone_ops.services.shared.state_store import StateStore
+from zeroone_ops.services.shared.state_store import LegacyDashboardStateError, StateStore
+
+
+def _store(path: Path) -> StateStore:
+    return StateStore(path, base_branch="main", gitlab_project_id=None, sonarqube_project_key=None)
+
+
+@pytest.mark.parametrize(
+    "legacy",
+    [
+        {"dashboard_items": {"secret-id": {"content": "private evidence"}}},
+        {"active_dashboard_item_id": "private evidence"},
+        {"remediation_exclusions": [{"reason": "private evidence"}]},
+        {"runs": [{"dashboard_item_id": "private evidence"}]},
+    ],
+)
+def test_legacy_dashboard_history_requires_manual_cleanup_without_writes(tmp_path, legacy):
+    path = tmp_path / "state.json"
+    payload = {"repository": {"base_branch": "main"}, **legacy}
+    content = json.dumps(payload)
+    path.write_text(content, encoding="utf-8")
+    with pytest.raises(LegacyDashboardStateError) as error:
+        _store(path).load()
+    assert str(path) in str(error.value)
+    assert "Back up" in str(error.value)
+    assert "docs/migration-v1.md" in str(error.value)
+    assert "private evidence" not in str(error.value)
+    assert "secret-id" not in str(error.value)
+    assert path.read_text(encoding="utf-8") == content
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_empty_dashboard_defaults_are_accepted_and_not_serialized(tmp_path):
+    path = tmp_path / "state.json"
+    payload = {
+        "repository": {"base_branch": "main"},
+        "dashboard_items": {},
+        "active_dashboard_item_id": None,
+        "remediation_exclusions": [],
+        "runs": [
+            {
+                "run_id": "issue-run",
+                "dashboard_item_id": None,
+                "work_item_id": "work-1",
+                "status": "failed",
+                "started_at": "2026-10-01T12:00:00Z",
+                "updated_at": "2026-10-01T12:00:00Z",
+                "failure": {"stage": "dashboard_update", "message": "Issue update failed"},
+            }
+        ],
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    store = _store(path)
+    state = store.load()
+    assert state.runs[0].failure.stage == FailureStage.CONTROL_PLANE_UPDATE
+    store.save(state)
+    serialized = json.loads(path.read_text(encoding="utf-8"))
+    assert (
+        not {"dashboard_items", "active_dashboard_item_id", "remediation_exclusions"}
+        & serialized.keys()
+    )
+    assert "dashboard_item_id" not in serialized["runs"][0]
+    assert serialized["runs"][0]["work_item_id"] == "work-1"
+    assert serialized["runs"][0]["failure"]["stage"] == "control_plane_update"
+
+
+def test_manual_cleanup_preserves_unrelated_runs_issues_and_review_continuity(tmp_path):
+    path = tmp_path / "state.json"
+    store = _store(path)
+    clean = store.load()
+    clean.reviews["17:abc123"] = ChangeRequestReviewState(
+        change_request_number=17,
+        head_sha="abc123",
+        status="no_findings",
+        last_run_id="review-1",
+        findings_count=0,
+        note_url="https://example/mr/17#note_1",
+        projection_retry_pending=True,
+    )
+    clean.issues["issue-1"] = IssueState(status="failed", last_run_id="issue-run", attempt_count=1)
+    clean.runs.append(
+        RunRecord(
+            run_id="issue-run",
+            work_item_id="work-1",
+            status=RunStatus.SYNCED,
+            started_at="2026-10-01T12:00:00Z",
+            updated_at="2026-10-01T12:00:00Z",
+        )
+    )
+    payload = clean.model_dump(mode="json")
+    payload["dashboard_items"] = {"old-id": {"status": "in_progress"}}
+    payload["runs"].append({"dashboard_item_id": "old-id"})
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(LegacyDashboardStateError):
+        store.load()
+    del payload["dashboard_items"]
+    payload["runs"] = [run for run in payload["runs"] if run.get("dashboard_item_id") is None]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    restored = store.load()
+    assert restored == clean
+    store.save(restored)
+    assert store.load().reviews["17:abc123"].projection_retry_pending is True
 
 
 def test_state_store_round_trip(tmp_path: Path) -> None:
@@ -29,7 +131,6 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
     assert isinstance(initial, AppState)
 
     initial.active_issue_key = "ABC"
-    initial.active_dashboard_item_id = "sonar:1"
     initial.runs.append(
         RunRecord(
             run_id="run-1",
@@ -57,21 +158,6 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
             exit_code=1,
         ),
     )
-    initial.dashboard_items["sonar:1"] = DashboardItemState(
-        status="in_progress",
-        last_run_id="run-3",
-        branch_name="zeroone-ops/sonar-1",
-    )
-    initial.remediation_exclusions.append(
-        RemediationExclusionState(
-            source="sonarqube",
-            issue_key="python:S3776",
-            scope="src/routers/",
-            reason="Usually requires broader refactor than the current safe fix boundary.",
-            updated_at="2026-04-24T10:00:00Z",
-            updated_by="operator",
-        )
-    )
     initial.reviews["17:abc123"] = ChangeRequestReviewState(
         change_request_number=17,
         head_sha="abc123",
@@ -96,7 +182,6 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
 
     loaded = store.load()
     assert loaded.active_issue_key == "ABC"
-    assert loaded.active_dashboard_item_id == "sonar:1"
     assert loaded.repository == RepositoryState(
         base_branch="main",
         gitlab_project_id="123",
@@ -114,18 +199,6 @@ def test_state_store_round_trip(tmp_path: Path) -> None:
         failed_command="pytest",
         exit_code=1,
     )
-    assert loaded.dashboard_items["sonar:1"].status == "in_progress"
-    assert loaded.dashboard_items["sonar:1"].last_run_id == "run-3"
-    assert loaded.dashboard_items["sonar:1"].branch_name == "zeroone-ops/sonar-1"
-    assert len(loaded.remediation_exclusions) == 1
-    assert loaded.remediation_exclusions[0].source == "sonarqube"
-    assert loaded.remediation_exclusions[0].issue_key == "python:S3776"
-    assert loaded.remediation_exclusions[0].scope == "src/routers/"
-    assert (
-        loaded.remediation_exclusions[0].reason
-        == "Usually requires broader refactor than the current safe fix boundary."
-    )
-    assert loaded.remediation_exclusions[0].updated_by == "operator"
     assert loaded.reviews["17:abc123"].change_request_number == 17
     assert loaded.reviews["17:abc123"].head_sha == "abc123"
     assert loaded.reviews["17:abc123"].status == "findings_present"

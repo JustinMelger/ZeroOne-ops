@@ -44,11 +44,7 @@ class GitLabRemediationRunner(WorkItemRemediationRunner):
         publication_retry_service: PublicationRetryService | None = None,
     ) -> None:
         """Initialize GitLab-specific work-item remediation composition."""
-        gitlab_config = config.require_gitlab_config(reason="GitLab work-item remediation")
-        if gitlab_config.control_plane_mode != "issues":
-            raise ValueError(
-                "GitLab work-item remediation requires gitlab.control_plane_mode='issues'."
-            )
+        config.require_gitlab_config(reason="GitLab work-item remediation")
         self.project_id = project_id
         self.work_item_service = work_item_service
         control_plane = remediation_control_plane or build_remediation_control_plane(

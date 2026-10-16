@@ -1,10 +1,10 @@
 import pytest
 
-from zeroone_ops.models.dashboard import (
-    DashboardPolicyState,
-    DashboardSeverityPolicyStateEntry,
-)
 from zeroone_ops.models.finding import NormalizedFinding, RemediationContext
+from zeroone_ops.models.policy import (
+    PolicySeverityStateEntry,
+    PolicyState,
+)
 from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
 from zeroone_ops.services.intake.finding_promotion_capacity_service import (
     FindingPromotionCapacityService,
@@ -44,12 +44,12 @@ def _work_item(*, finding_id: str, status: str) -> WorkItemState:
     )
 
 
-def _policy_state() -> DashboardPolicyState:
-    return DashboardPolicyState(
+def _policy_state() -> PolicyState:
+    return PolicyState(
         severity_policy=[
-            DashboardSeverityPolicyStateEntry(severity="low", enabled=True),
-            DashboardSeverityPolicyStateEntry(severity="medium", enabled=True),
-            DashboardSeverityPolicyStateEntry(severity="high", enabled=True),
+            PolicySeverityStateEntry(severity="low", enabled=True),
+            PolicySeverityStateEntry(severity="medium", enabled=True),
+            PolicySeverityStateEntry(severity="high", enabled=True),
         ]
     )
 

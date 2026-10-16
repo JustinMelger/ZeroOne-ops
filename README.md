@@ -48,7 +48,7 @@ flowchart TD
 
 ## Quick Start
 
-Then choose one provider setup:
+Choose one provider setup:
 
 - **GitLab:** copy [examples/.zeroone-ops.json](examples/.zeroone-ops.json)
   to `.zeroone-ops.json`, include
@@ -75,7 +75,7 @@ commands are:
 
 ```bash
 uv run zeroone-ops findings sync --dry-run
-uv run zeroone-ops dashboard policy --dry-run
+uv run zeroone-ops policy run --dry-run
 uv run zeroone-ops remediation run --dry-run
 uv run zeroone-ops work-items sync-status --dry-run
 uv run zeroone-ops work-items recover --dry-run
@@ -89,10 +89,10 @@ the installed workflows or pipelines rather than running the CLI directly.
 
 | Operator need | GitLab | GitHub |
 |---|---|---|
-| Change automation policy | Comment on the policy issue in issue mode; dashboard issue in legacy mode | Comment on the policy issue |
-| Inspect a remediation item | Authoritative work-item issue in issue mode; dashboard workflow row in legacy mode | Authoritative work-item issue |
-| Recover a blocked item | Comment on the work-item issue in issue mode, then run the control-plane job; dashboard issue in legacy mode | Comment on the work-item issue; the workflow runs on that comment |
-| Inspect an active change request | Follow the work-item issue in issue mode; dashboard link in legacy mode | Follow the work-item or operational-summary link |
+| Change automation policy | Comment on the policy issue | Comment on the policy issue |
+| Inspect a remediation item | Authoritative work-item issue | Authoritative work-item issue |
+| Recover a blocked item | Comment on the work-item issue, then run the control-plane job | Comment on the work-item issue; the workflow runs on that comment |
+| Inspect an active change request | Follow the work-item issue | Follow the work-item or operational-summary link |
 
 Each provider installation has the same conceptual jobs: finding sync,
 remediation, lifecycle reconciliation, policy processing, and recovery
@@ -105,10 +105,11 @@ the authoritative work-item issue. Request a same-branch revision there with
 Each accepted command authorizes one attempt; failed revisions require a fresh
 operator command rather than automatically retrying on the next scheduled run.
 
-`dashboard sonar`, `dashboard remediate`, and `dashboard reconcile` remain
-available as legacy GitLab aliases. Prefer `findings sync`, `remediation run`,
-and `work-items sync-status` for new automation. Each legacy alias emits a
-non-blocking CI warning with its replacement and no fixed removal version.
+V1 supports GitHub and GitLab issue mode only. The legacy `dashboard` command
+group and runtime have been removed. Use `policy run`, `findings sync`,
+`remediation run`, and `work-items sync-status`. Existing dashboard installations
+must follow the [v1 migration guide](docs/migration-v1.md), including explicit
+local-state cleanup; remote dashboards remain untouched as readable history.
 
 Useful quality commands:
 
@@ -211,7 +212,7 @@ Severity control note:
   issue policy commands
 - GitHub work-item issues remain authoritative, while the operational summary
   is a read-only derived overview
-- use `zeroone-ops dashboard policy` to process policy commands
+- use `zeroone-ops policy run` to process policy commands
 
 ### Remediation And Lifecycle
 
@@ -478,9 +479,11 @@ Use these docs for the deeper operational details:
 - [docs/runbook.md](docs/runbook.md) for CI setup, credentials, rollout order,
   and smoke-test recipes
 - [docs/roadmap.md](docs/roadmap.md) for what is shipped, current, and parked
+- [V1 migration guide](docs/migration-v1.md) for retired dashboard commands,
+  issue-mode cutover, and safe local-state cleanup
 - [Legacy dashboard retirement audit](docs/design/technical/technical-audit-legacy-dashboard-retirement.md)
-  for support-window evidence and cleanup prerequisites; retirement is not yet approved
+  for the dependency inventory and compatibility-window history
 - [docs/design/functional/functional-design.md](docs/design/functional/functional-design.md)
   and [docs/design/technical/technical-design.md](docs/design/technical/technical-design.md)
   for the broader functional and technical design surfaces across review,
-  remediation, dashboard, and operator workflows
+  remediation, and operator workflows

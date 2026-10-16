@@ -171,7 +171,7 @@ These are targets, not mandatory abstractions today. Add them when the current l
 
 ## 14. Workflow Boundary Discipline
 
-For multi-stage workflows such as dashboard policy processing, remediation, and pull request review:
+For multi-stage workflows such as issue policy processing, remediation, and pull request review:
 
 - Every operator-facing decision must have one authoritative write path.
 - Display surfaces may mirror authority, but must not become implicit control planes.
@@ -192,7 +192,7 @@ For phased refactors:
 
 For shared final outputs:
 
-- When a workflow produces a final publish-shaped artifact, downstream state, dashboard, and transport should derive from the same final artifact or the same final decision object.
+- When a workflow produces a final publish-shaped artifact, downstream state, issue projection, and transport should derive from the same final artifact or the same final decision object.
 - Avoid separate summary-building paths for published output versus mirrored or persisted output.
 
 For implementation review:
