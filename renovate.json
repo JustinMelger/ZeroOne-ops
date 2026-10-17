@@ -20,6 +20,13 @@
   "automerge": false,
   "packageRules": [
     {
+      "matchDatasources": [
+        "pypi"
+      ],
+      "minimumReleaseAge": "7 days",
+      "internalChecksFilter": "strict"
+    },
+    {
       "matchManagers": [
         "pep621",
         "uv"
@@ -39,7 +46,6 @@
         "minor",
         "pin"
       ],
-      "minimumReleaseAge": "7 days",
       "groupName": "python dependencies",
       "matchPackageNames": [
         "!python"

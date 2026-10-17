@@ -486,7 +486,8 @@ CI mode:
 
 The hosted Renovate GitHub App uses `renovate.json` for weekly Monday-morning
 updates. Non-major updates are grouped by ecosystem, with two open PRs maximum;
-major upgrades require Dependency Dashboard approval. See the
+major upgrades require Dependency Dashboard approval. All normal PyPI updates,
+including majors, observe the seven-day uv cooldown. See the
 [runbook](docs/runbook.md) for the schedule and security-update exceptions.
 
 ## Docs
