@@ -498,6 +498,8 @@ Use these docs for the deeper operational details:
 - [docs/runbook.md](docs/runbook.md) for CI setup, credentials, rollout order,
   and smoke-test recipes
 - [docs/roadmap.md](docs/roadmap.md) for what is shipped, current, and parked
+- [Proposed remediation batching](docs/design/functional/functional-design-remediation-batching.md)
+  for the file/rule batching contract under review; not implemented behavior
 - [V1 migration guide](docs/migration-v1.md) for retired dashboard commands,
   issue-mode cutover, and safe local-state cleanup
 - [Legacy dashboard retirement audit](docs/design/technical/technical-audit-legacy-dashboard-retirement.md)

@@ -5,6 +5,11 @@
 Parked design. This contract records the intended boundary only; it does not
 change current finding sync, work-item promotion, or remediation behavior.
 
+The [promotion-time batching proposal](functional-design-remediation-batching.md)
+is a separate functional contract. It assembles bounded file/rule batches at
+promotion while ingestion stays finding-based; implementing this parked group
+inventory or a separate analyzer is not a prerequisite.
+
 ## Goal
 
 ZeroOne Ops should retain every normalized finding and its source provenance
@@ -51,7 +56,7 @@ product behavior until a later remediation-unit contract is implemented.
 
 ## Future Remediation Units
 
-The later flow is intentionally layered:
+One possible later flow is intentionally layered:
 
 ```text
 source adapters

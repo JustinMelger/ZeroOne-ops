@@ -146,6 +146,30 @@ history, not here.
 
 ## Current Focus
 
+### Remediation Batching
+
+- [ ] review the [proposed functional contract](design/functional/functional-design-remediation-batching.md)
+  for default-ten promotion-time file/rule batches in new work items only,
+  preserving existing issues and one-file execution with no partial publication
+- [ ] review the [proposed technical contract](design/technical/technical-design-remediation-batching.md)
+  for frozen member state, shared planning, complete execution coverage, and
+  the existing scan-before-sync pipeline contract without new freshness gates
+- [ ] slice 1 - models and planning: optional batch state/configuration, frozen
+  membership, identity, ownership, grouping, ranking, and capacity tests;
+  preserve existing single-finding behavior
+- [ ] slice 2 - finding sync and projection: member observations, policy/capacity
+  deferral, absence reconciliation, safe creation, and GitHub/GitLab parity
+- [ ] slice 3 - execution and recovery: complete context and analysis coverage,
+  one-file edits, validation, retry/revision evidence, and recovery precedence
+- [ ] slice 4 - operator UX and rollout: issue rendering, summaries, integration
+  verification, and live GitHub/GitLab validation before the batching candidate
+
+Use a separate reviewable branch per slice and create its detailed implementation
+plan when picked up. Keep batch creation disabled until the end-to-end path is
+ready; the designs above own the detailed contracts. Batching is not implemented.
+Validate the current `main` release candidate first, then a batching candidate;
+publish stable v1 only after both validation rounds and any required fixes pass.
+
 ### V1 Release Readiness
 
 - [x] retire legacy GitLab dashboard runtime and commands with migration guidance
@@ -204,9 +228,9 @@ retry from a fresh checkout; automatic local-branch recovery remains post-v1.
   the executable-CI-policy trust model has been live-reviewed
 - make MLflow tracing an optional package extra after tracing rollout feedback
   confirms the supported installation profile
-- deterministic file-level finding inventories and a later remediation-unit
-  boundary; preserve individual findings and provenance without treating a file
-  group as one automatic remediation
+- optional derived file-level finding inventories and later goal-based work;
+  preserve individual findings and provenance. The parked file-grouping designs
+  are background, not prerequisites for the promotion-time batching proposal
 - provider-bound conditional work-item transitions and atomic claims, so
   concurrent finding sync, remediation, recovery, and lifecycle jobs do not
   rely on CI scheduling or resource groups for correctness
@@ -220,6 +244,8 @@ retry from a fresh checkout; automatic local-branch recovery remains post-v1.
 - [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
 - [design/functional/functional-design-finding-file-grouping.md](design/functional/functional-design-finding-file-grouping.md)
 - [design/technical/technical-design-finding-file-grouping.md](design/technical/technical-design-finding-file-grouping.md)
+- [design/functional/functional-design-remediation-batching.md](design/functional/functional-design-remediation-batching.md)
+- [design/technical/technical-design-remediation-batching.md](design/technical/technical-design-remediation-batching.md)
 - [design/functional/functional-design-work-item-state-projection.md](design/functional/functional-design-work-item-state-projection.md)
 - [design/technical/technical-design-work-item-state-projection.md](design/technical/technical-design-work-item-state-projection.md)
 - [design/functional/functional-design-remediation-recovery.md](design/functional/functional-design-remediation-recovery.md)
