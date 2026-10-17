@@ -288,13 +288,22 @@ remote for authenticated pushes, avoid enabling shell tracing around that step.
 
 `OPENAI_API_KEY` must be valid for the configured `OPENAI_MODEL`.
 
-For GitHub-hosted release and dependency workflows:
+For GitHub-hosted release workflows:
 
 - `RELEASE_PLEASE_TOKEN` must be available to the release workflow when using
   release-please automation
-- `RENOVATE_TOKEN` must be available to the Renovate workflow
 - prefer repository or organization secrets rather than hard-coded workflow
   values
+
+Dependency maintenance uses the hosted Renovate GitHub App and `renovate.json`,
+not a scheduled GitHub Actions workflow. Enable the app for this repository;
+`RENOVATE_TOKEN` is no longer required here. Normal updates run during Monday's
+06:00-12:00 Europe/Amsterdam window, with at most two open PRs and one new PR
+per hour. Python, GitHub Actions, and container non-major updates are grouped
+separately with a seven-day release-age delay. Major upgrades require approval
+in the Dependency Dashboard; automerge is disabled. Vulnerability-alert PRs
+retain Renovate's default schedule/rate-limit exemptions. Existing ordinary
+branches also wait for the maintenance window before updates.
 
 For pull request review, `GITLAB_TOKEN` must also be able to:
 

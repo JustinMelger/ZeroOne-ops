@@ -7,12 +7,17 @@
     "dependencies"
   ],
   "timezone": "Europe/Amsterdam",
+  "schedule": [
+    "* 6-11 * * 1"
+  ],
+  "updateNotScheduled": false,
   "rangeStrategy": "bump",
   "dependencyDashboard": true,
   "prCreation": "immediate",
-  "prHourlyLimit": 0,
-  "prConcurrentLimit": 5,
-  "separateMajorMinor": false,
+  "prHourlyLimit": 1,
+  "prConcurrentLimit": 2,
+  "separateMajorMinor": true,
+  "automerge": false,
   "packageRules": [
     {
       "matchManagers": [
@@ -31,7 +36,8 @@
       ],
       "matchUpdateTypes": [
         "patch",
-        "minor"
+        "minor",
+        "pin"
       ],
       "minimumReleaseAge": "7 days",
       "groupName": "python dependencies",
@@ -41,22 +47,38 @@
     },
     {
       "matchManagers": [
-        "pep621",
-        "uv"
+        "github-actions"
       ],
-      "matchDepTypes": [
-        "devDependencies"
+      "matchUpdateTypes": [
+        "patch",
+        "minor",
+        "pin",
+        "digest",
+        "pinDigest"
       ],
       "minimumReleaseAge": "7 days",
-      "groupName": "python dev dependencies",
-      "matchPackageNames": [
-        "!python"
-      ]
+      "groupName": "github actions"
+    },
+    {
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchUpdateTypes": [
+        "patch",
+        "minor",
+        "pin",
+        "digest",
+        "pinDigest"
+      ],
+      "minimumReleaseAge": "7 days",
+      "groupName": "container images"
     },
     {
       "matchUpdateTypes": [
         "major"
       ],
+      "groupName": null,
+      "dependencyDashboardApproval": true,
       "labels": [
         "dependencies",
         "major-update"
