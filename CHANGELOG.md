@@ -5,6 +5,36 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [1.0.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.59.0...zeroone-ops-v1.0.0) (2026-10-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* retire legacy configuration aliases and dead code ([#453](https://github.com/JustinMelger/ZeroOne-ops/issues/453))
+* retire legacy GitLab dashboard support for v1 ([#452](https://github.com/JustinMelger/ZeroOne-ops/issues/452))
+
+### Features
+
+* retire legacy GitLab dashboard support for v1 ([#452](https://github.com/JustinMelger/ZeroOne-ops/issues/452)) ([e8827a5](https://github.com/JustinMelger/ZeroOne-ops/commit/e8827a5c7e114959d096ef9ec48412278a5ac9ef))
+
+
+### Bug Fixes
+
+* **deps:** update dependency openai to v3 ([#357](https://github.com/JustinMelger/ZeroOne-ops/issues/357)) ([b3c201e](https://github.com/JustinMelger/ZeroOne-ops/commit/b3c201e2d15feeef2e1919c49df664d5080a7e8a))
+* **deps:** update python dependencies ([#442](https://github.com/JustinMelger/ZeroOne-ops/issues/442)) ([1830152](https://github.com/JustinMelger/ZeroOne-ops/commit/183015274394f8d814efa6a84a59b2b1712f199c))
+* **deps:** update python dependencies ([#448](https://github.com/JustinMelger/ZeroOne-ops/issues/448)) ([e3bf9cb](https://github.com/JustinMelger/ZeroOne-ops/commit/e3bf9cbd93ef5c0b09e827ad027042a6a7ed4969))
+* **remediation:** show validation evidence regardless of feedback mode ([#451](https://github.com/JustinMelger/ZeroOne-ops/issues/451)) ([8496e6c](https://github.com/JustinMelger/ZeroOne-ops/commit/8496e6c77f1f09cf69defbcece95097ff5cf2611))
+
+
+### Documentation
+
+* design promotion-time remediation batching ([#455](https://github.com/JustinMelger/ZeroOne-ops/issues/455)) ([31a7e84](https://github.com/JustinMelger/ZeroOne-ops/commit/31a7e84ee4da262ce21fabef74f592a1f4039c41))
+
+
+### Code Refactoring
+
+* retire legacy configuration aliases and dead code ([#453](https://github.com/JustinMelger/ZeroOne-ops/issues/453)) ([b362f21](https://github.com/JustinMelger/ZeroOne-ops/commit/b362f21fd39d826a6d80581167ed661d5155005e))
+
 ## [0.59.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.58.0...zeroone-ops-v0.59.0) (2026-09-30)
 
 
