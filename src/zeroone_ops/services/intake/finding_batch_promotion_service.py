@@ -173,8 +173,9 @@ class FindingBatchPromotionService:
                 originals = {member.finding_id: member for member in work_item.batch.members}
                 members = [
                     findings.get((work_item.batch.group.source_id, observation.finding_id))
-                    or observation.last_confirmed_finding
-                    or originals[observation.finding_id]
+                    or (
+                        observation.last_confirmed_finding or originals[observation.finding_id]
+                    ).to_finding()
                     for observation in work_item.batch.observations
                     if observation.last_confirmed_presence == "detected"
                 ]

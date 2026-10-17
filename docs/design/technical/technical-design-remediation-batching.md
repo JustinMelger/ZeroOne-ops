@@ -32,6 +32,13 @@ stored observations for policy evaluation and severity ranking, without mutating
 either input. Ownership conflict detection checks durable work-item/source
 identities independently of member overlap or grouping keys.
 
+Batch-owned evidence uses immutable `BatchFindingSnapshot` models, including
+frozen remediation requirements and recursively immutable provenance. The JSON
+shape remains the normalized finding shape; shared `NormalizedFinding` models
+remain mutable. Existing policy interfaces receive isolated mutable copies via
+`to_finding()`. Observation refresh constructs and validates replacement evidence
+and batch state instead of mutating stored snapshots in place.
+
 Extend `FindingSyncCoordinator`, its workflow-specific `FindingSyncStorage`
 adapters, and the shared execution path. Do not add provider-specific batching
 loops. Current identity, capacity, execution adapters, and context contracts
@@ -85,13 +92,13 @@ class BatchMemberObservation(BaseModel):
     sync_run_id: str
     observed_at: datetime
     last_confirmed_sync_run_id: str | None = None
-    last_confirmed_finding: NormalizedFinding | None = None
+    last_confirmed_finding: BatchFindingSnapshot | None = None
 
 
 class WorkItemBatch(BaseModel):
     schema_version: Literal[1] = 1
     group: FindingBatchGroup
-    members: tuple[NormalizedFinding, ...]
+    members: tuple[BatchFindingSnapshot, ...]
     observations: tuple[BatchMemberObservation, ...]
 
 

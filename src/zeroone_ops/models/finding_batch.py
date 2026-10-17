@@ -9,7 +9,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from zeroone_ops.models.finding import NormalizedFinding
+from zeroone_ops.models.finding_batch_snapshot import BatchFindingSnapshot
 
 
 class FindingBatchGroup(BaseModel):
@@ -53,7 +53,7 @@ class FindingBatchGroup(BaseModel):
 class BatchMemberObservation(BaseModel):
     """Keep confirmed presence separate from the latest scan's freshness."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, revalidate_instances="always")
 
     finding_id: str = Field(min_length=1)
     last_confirmed_presence: Literal["detected", "absent"]
@@ -61,12 +61,7 @@ class BatchMemberObservation(BaseModel):
     sync_run_id: str = Field(min_length=1)
     observed_at: datetime
     last_confirmed_sync_run_id: str | None = None
-    last_confirmed_finding: NormalizedFinding | None = None
-
-    @field_validator("last_confirmed_finding")
-    @classmethod
-    def _copy_evidence(cls, value: NormalizedFinding | None) -> NormalizedFinding | None:
-        return value.model_copy(deep=True) if value is not None else None
+    last_confirmed_finding: BatchFindingSnapshot | None = None
 
 
 class WorkItemBatch(BaseModel):
@@ -76,13 +71,8 @@ class WorkItemBatch(BaseModel):
 
     schema_version: Literal[1] = 1
     group: FindingBatchGroup
-    members: tuple[NormalizedFinding, ...] = Field(min_length=1)
+    members: tuple[BatchFindingSnapshot, ...] = Field(min_length=1)
     observations: tuple[BatchMemberObservation, ...]
-
-    @field_validator("members")
-    @classmethod
-    def _copy_members(cls, members: tuple[NormalizedFinding, ...]) -> tuple[NormalizedFinding, ...]:
-        return tuple(member.model_copy(deep=True) for member in members)
 
     @field_validator("observations")
     @classmethod
@@ -113,7 +103,7 @@ class WorkItemBatch(BaseModel):
                 self._validate_scope(evidence)
         return self
 
-    def _validate_scope(self, finding: NormalizedFinding) -> None:
+    def _validate_scope(self, finding: BatchFindingSnapshot) -> None:
         if (
             finding.source_id != self.group.source_id
             or finding.repository_path != self.group.file_path
