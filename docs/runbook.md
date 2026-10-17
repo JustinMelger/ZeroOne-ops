@@ -1031,6 +1031,14 @@ Required workflow permissions:
 
 ## Pre-Release Checklist
 
+Promotion-time file/rule batching is a
+[proposed functional design](design/functional/functional-design-remediation-batching.md),
+not an available feature or an additional release gate. Current work items
+remain single-finding; do not configure the proposed ten-member default.
+The proposal creates new batches only and never migrates existing issues.
+Any future operator deletion of old unstarted, unlinked issues would be optional
+and lose their history; it would not guarantee that the next sync promotes a batch.
+
 Before calling the target repository setup stable, confirm:
 
 - the pipeline collects every configured finding source successfully

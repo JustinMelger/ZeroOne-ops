@@ -9,8 +9,6 @@ historical records that explain how ZeroOne Ops reached its present architecture
 
 - [Finding ingestion functional design](functional/functional-design-finding-ingestion.md)
   and [technical design](technical/technical-design-finding-ingestion.md)
-- [Finding file grouping functional design](functional/functional-design-finding-file-grouping.md)
-  and [technical design](technical/technical-design-finding-file-grouping.md)
 - [Work-item state projection functional design](functional/functional-design-work-item-state-projection.md)
   and [technical design](technical/technical-design-work-item-state-projection.md)
 - [GitLab issue control-plane functional design](functional/functional-design-gitlab-issue-control-plane.md)
@@ -27,6 +25,19 @@ historical records that explain how ZeroOne Ops reached its present architecture
 
 Use the [roadmap](../roadmap.md) to identify the active implementation topic,
 then follow the relevant current contract.
+
+## Proposed And Parked Designs
+
+- [Promotion-time file/rule batching functional design](functional/functional-design-remediation-batching.md)
+  and [technical design](technical/technical-design-remediation-batching.md)
+  are proposed for review, not implemented. They cover bounded batches,
+  new work items only, and one-file execution on both providers. Existing
+  single-finding issues are not migrated or consolidated.
+  Implementation planning and release placement follow design review.
+- [Finding file grouping functional design](functional/functional-design-finding-file-grouping.md)
+  and [technical design](technical/technical-design-finding-file-grouping.md)
+  remain parked background for derived inventories. They are not prerequisites
+  for promotion-time batching.
 
 ## Retirement Audits
 

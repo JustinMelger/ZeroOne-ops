@@ -4,6 +4,11 @@
 
 Parked design. No production integration is planned by this document alone.
 
+This derived-inventory design is background, not a prerequisite for the separate
+[promotion-time batching proposal](../functional/functional-design-remediation-batching.md).
+That proposal leaves source ingestion unchanged and assembles bounded batches
+at promotion; it does not require the grouping service below.
+
 ## Boundary
 
 File grouping belongs immediately after source-local intake has produced
