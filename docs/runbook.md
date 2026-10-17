@@ -300,10 +300,20 @@ not a scheduled GitHub Actions workflow. Enable the app for this repository;
 `RENOVATE_TOKEN` is no longer required here. Normal updates run during Monday's
 06:00-12:00 Europe/Amsterdam window, with at most two open PRs and one new PR
 per hour. Python, GitHub Actions, and container non-major updates are grouped
-separately with a seven-day release-age delay. Major upgrades require approval
-in the Dependency Dashboard; automerge is disabled. Vulnerability-alert PRs
+separately with a seven-day release-age delay. The PyPI cooldown applies to all
+normal update types, including majors, matching `tool.uv.exclude-newer`.
+Major approval does not bypass that cooldown: pending versions are filtered
+before selection. Major upgrades also require approval in the Dependency
+Dashboard; automerge is disabled. Vulnerability-alert PRs
 retain Renovate's default schedule/rate-limit exemptions. Existing ordinary
 branches also wait for the maintenance window before updates.
+
+After correcting a cooldown rule, merge it into the default branch before
+asking Renovate to rebase or recreate an affected dependency PR. A manifest
+requiring a version younger than the uv cutoff cannot resolve to an older
+version; keep the constraint and lockfile consistent rather than disabling the
+cutoff. An urgent security fix may need a separately reviewed temporary uv
+exception because Renovate's security exemptions do not disable uv's policy.
 
 For pull request review, `GITLAB_TOKEN` must also be able to:
 

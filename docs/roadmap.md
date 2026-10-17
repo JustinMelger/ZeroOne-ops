@@ -14,6 +14,9 @@ history, not here.
 
 ## Implemented
 
+- consistent seven-day Renovate/uv cooldown for all normal PyPI updates,
+  including operator-approved major upgrades
+
 - v1 configuration alias retirement: canonical platform and remediation fields
   only, with strict field-specific replacement errors and manual migration
   guidance
