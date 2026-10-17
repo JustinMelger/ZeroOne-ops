@@ -2,12 +2,42 @@
 
 ## Status And Ownership
 
-**Proposed for review; not implemented.** This document specifies the
+**Slice 1 foundation implemented; workflow integration remains proposed.**
+This document specifies the
 [functional batching contract](../functional/functional-design-remediation-batching.md).
-Interfaces below are proposed additions, not current runtime guarantees.
+The foundation is described below; remaining interfaces are proposals, not live
+workflow guarantees.
 Implementation and release placement require separate approval. The
 [file-grouping design](technical-design-finding-file-grouping.md) is optional
 background, not an ingestion prerequisite.
+
+### Slice 1 Foundation
+
+The optional batch models, strict `max_findings_per_work_item` configuration,
+explicit UUID identity factory, pure ownership predicates, and standalone
+`FindingBatchPromotionService` are implemented as a dormant foundation.
+The existing live `FindingPromotionCapacityService` and all sync, intake,
+execution, and renderer callers remain unchanged. No batch issues are created.
+The overall workflow described below remains proposed until later slices land.
+
+The planner accepts normalized `FindingSyncRecord` snapshots, returns ID-less
+`FindingBatchPromotionUnit` proposals and existing selections, per-finding
+decision reasons, bounded conflict references, and an active-work count. Models
+live in the model layer; category normalization and policy/ownership decisions
+remain services. It does not refresh observations, infer absence, allocate IDs,
+read clocks, log, or access providers. Existing same-group single-finding
+candidates retain separate eligibility/capacity; they are never consolidated.
+For reported members, supplied current finding evidence takes precedence over
+stored observations for policy evaluation and severity ranking, without mutating
+either input. Ownership conflict detection checks durable work-item/source
+identities independently of member overlap or grouping keys.
+
+Batch-owned evidence uses immutable `BatchFindingSnapshot` models, including
+frozen remediation requirements and recursively immutable provenance. The JSON
+shape remains the normalized finding shape; shared `NormalizedFinding` models
+remain mutable. Existing policy interfaces receive isolated mutable copies via
+`to_finding()`. Observation refresh constructs and validates replacement evidence
+and batch state instead of mutating stored snapshots in place.
 
 Extend `FindingSyncCoordinator`, its workflow-specific `FindingSyncStorage`
 adapters, and the shared execution path. Do not add provider-specific batching
@@ -62,13 +92,13 @@ class BatchMemberObservation(BaseModel):
     sync_run_id: str
     observed_at: datetime
     last_confirmed_sync_run_id: str | None = None
-    last_confirmed_finding: NormalizedFinding | None = None
+    last_confirmed_finding: BatchFindingSnapshot | None = None
 
 
 class WorkItemBatch(BaseModel):
     schema_version: Literal[1] = 1
     group: FindingBatchGroup
-    members: tuple[NormalizedFinding, ...]
+    members: tuple[BatchFindingSnapshot, ...]
     observations: tuple[BatchMemberObservation, ...]
 
 

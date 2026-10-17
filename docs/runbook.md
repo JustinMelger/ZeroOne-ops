@@ -819,6 +819,13 @@ In GitHub and GitLab issue control-plane modes,
 and in-progress remediation work items across all finding sources. Findings
 that exceed the limit remain backlog-only until a later sync finds capacity.
 
+`remediation.max_findings_per_work_item` is accepted as a strict positive integer
+with default `10` by the dormant batching foundation. It currently affects only
+the standalone planner, not live finding sync, intake, or execution. A value of
+`1` produces singleton proposals; no configured value enables batch creation at
+this stage. Keep deployed configurations unchanged until the remaining
+[batching slices](roadmap.md#remediation-batching) are implemented and validated.
+
 `remediation.source_priorities` optionally orders policy-eligible sources
 before severity when capacity is constrained. Lower non-negative values are
 higher priority; omitted sources use the neutral default `100`, preserving the
