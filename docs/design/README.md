@@ -34,6 +34,8 @@ then follow the relevant current contract.
   new work items only, and one-file execution on both providers. Existing
   single-finding issues are not migrated or consolidated.
   Implementation planning and release placement follow design review.
+  Slice 1 provides dormant models and pure planning only; batch creation and
+  execution are not enabled.
 - [Finding file grouping functional design](functional/functional-design-finding-file-grouping.md)
   and [technical design](technical/technical-design-finding-file-grouping.md)
   remain parked background for derived inventories. They are not prerequisites

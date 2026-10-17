@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from zeroone_ops.models.analysis import RemediationIntent, SemanticSafetyAssessment
 from zeroone_ops.models.finding import RemediationContext
+from zeroone_ops.models.finding_batch import WorkItemBatch
 from zeroone_ops.models.review import ReviewClassification
 
 WorkItemKind = Literal["remediation"]
@@ -222,6 +224,37 @@ class WorkItemState(BaseModel):
     recovery_events: list[RecoveryEvent] = Field(default_factory=list)
     resolution: WorkItemResolution | None = None
     created_by_system: Literal["zeroone_ops"] = "zeroone_ops"
+    batch: WorkItemBatch | None = None
+
+    @field_validator("batch")
+    @classmethod
+    def _copy_batch(cls, batch: WorkItemBatch | None) -> WorkItemBatch | None:
+        return batch.model_copy(deep=True) if batch is not None else None
+
+    @model_validator(mode="after")
+    def _validate_batch_scope(self) -> Self:
+        if self.batch is None:
+            return self
+        group = self.batch.group
+        identifier = self.work_item_id.removeprefix("work-")
+        try:
+            batch_uuid = UUID(identifier)
+        except ValueError as error:
+            raise ValueError("Batch work-item IDs must contain a UUID4 hex value.") from error
+        if (
+            batch_uuid.version != 4
+            or self.work_item_id != f"work-{batch_uuid.hex}"
+            or self.source.source_item_key != f"batch-v1:{batch_uuid.hex}"
+        ):
+            raise ValueError("Batch work-item and source keys must share the UUID4 hex identity.")
+        if (
+            self.source.source != group.source_id
+            or self.source.repository_scope != group.repository_scope
+            or self.file_path != group.file_path
+            or self.remediation_context.diagnostic_code != group.rule_id
+        ):
+            raise ValueError("Batch scope must match the top-level work-item scope.")
+        return self
 
     @property
     def identity_key(self) -> tuple[str, str, str | None, WorkItemKind]:

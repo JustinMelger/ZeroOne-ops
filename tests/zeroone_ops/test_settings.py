@@ -846,8 +846,46 @@ def test_settings_default_remediation_active_work_item_capacity_is_ten(
     config = load_config()
 
     assert config.remediation.max_active_work_items == 10
+    assert config.remediation.max_findings_per_work_item == 10
     assert config.remediation.source_priorities == {}
     assert config.remediation.validation_feedback_enabled is False
+
+
+@pytest.mark.parametrize("platform", ["gitlab", "github"])
+@pytest.mark.parametrize("limit", [1, 10, 23])
+def test_settings_load_dormant_batch_limit(tmp_path: Path, monkeypatch, platform, limit) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(
+        json.dumps(
+            {
+                "platform": platform,
+                "base_branch": "main",
+                "remediation": {"target_branch": "main", "max_findings_per_work_item": limit},
+                platform: {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    config = load_config()
+    assert config.remediation.max_findings_per_work_item == limit
+    assert config.remediation.max_active_work_items == 10
+    assert config.platform == platform
+
+
+@pytest.mark.parametrize("limit", [0, -1, True, False, "10", 1.5])
+def test_settings_reject_invalid_batch_limit(tmp_path: Path, monkeypatch, limit) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".zeroone-ops.json").write_text(
+        json.dumps(
+            {
+                "base_branch": "main",
+                "remediation": {"target_branch": "main", "max_findings_per_work_item": limit},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(SettingsError, match="remediation.max_findings_per_work_item"):
+        load_config()
 
 
 @pytest.mark.parametrize("capacity", [0, -1])
