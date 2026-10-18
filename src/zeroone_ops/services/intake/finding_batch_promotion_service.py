@@ -72,7 +72,10 @@ class FindingBatchPromotionService:
             else:
                 reasons[identity] = reason
         proposals = self._new_proposals(eligible_new, repository_scope, max_findings_per_work_item)
-        candidates = [*proposals, *self._existing_candidates(ownership, inventory, policy_state)]
+        candidates = [
+            *proposals,
+            *self._existing_candidates(ownership, inventory, policy_state, reasons),
+        ]
         priorities = source_priorities or {}
         candidates.sort(key=lambda unit: _unit_order(unit, priorities))
         available = max(max_active_work_items - ownership.active_work_item_count, 0)
@@ -154,6 +157,7 @@ class FindingBatchPromotionService:
         ownership: FindingBatchOwnershipIndex,
         findings: Mapping[tuple[str, str], NormalizedFinding],
         policy: PolicyState,
+        reasons: dict[FindingBatchMemberIdentity, FindingBatchDecisionReason],
     ) -> list[FindingBatchPromotionUnit]:
         candidates: list[FindingBatchPromotionUnit] = []
         for record in ownership.records:
@@ -170,6 +174,23 @@ class FindingBatchPromotionService:
                 current = findings.get((work_item.source.source, work_item.source.source_item_key))
                 members = [current] if current is not None else []
             else:
+                current_members = [
+                    current
+                    for member in work_item.batch.members
+                    if (current := findings.get((member.source_id, member.finding_id))) is not None
+                ]
+                if any(
+                    finding_batch_group(
+                        repository_scope=work_item.batch.group.repository_scope, finding=member
+                    )
+                    != work_item.batch.group
+                    for member in current_members
+                ):
+                    for member in current_members:
+                        identity = _identity(work_item.batch.group.repository_scope, member)
+                        if reasons.get(identity) == "owned":
+                            reasons[identity] = "batch_scope_mismatch"
+                    continue
                 originals = {member.finding_id: member for member in work_item.batch.members}
                 members = [
                     findings.get((work_item.batch.group.source_id, observation.finding_id))

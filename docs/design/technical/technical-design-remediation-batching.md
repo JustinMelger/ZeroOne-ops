@@ -32,6 +32,13 @@ stored observations for policy evaluation and severity ranking, without mutating
 either input. Ownership conflict detection checks durable work-item/source
 identities independently of member overlap or grouping keys.
 
+Refreshed evidence for a frozen member must still match the batch's source,
+file, and rule scope. A mismatch withholds the entire existing selection without
+releasing ownership or silently dropping the mismatched member. Eligible reported
+members receive `batch_scope_mismatch`; individual policy and dismissal reasons
+remain authoritative. Evidence under a different source ID is a separate identity,
+not a refresh of the original member.
+
 Batch-owned evidence uses immutable `BatchFindingSnapshot` models, including
 frozen remediation requirements and recursively immutable provenance. The JSON
 shape remains the normalized finding shape; shared `NormalizedFinding` models

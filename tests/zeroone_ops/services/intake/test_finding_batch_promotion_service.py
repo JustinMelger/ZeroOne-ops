@@ -373,6 +373,62 @@ def test_current_finding_metadata_controls_policy_and_severity_ranking():
     assert first.work_item.batch.observations[0].last_confirmed_finding.severity == "high"
 
 
+@pytest.mark.parametrize("status", ["candidate", "policy_deferred", "capacity_deferred"])
+@pytest.mark.parametrize("change", [{"path": "src/moved.py"}, {"rule": "F821"}, {"rule": None}])
+def test_refreshed_scope_mismatch_withholds_whole_batch_without_releasing_ownership(status, change):
+    record = _record(
+        members=(_finding("a"), _finding("b")), status=status, is_open=status == "candidate"
+    )
+    current = [_finding("a"), _finding("b", **change), _finding("overflow")]
+    before = record.work_item.model_dump_json()
+    plan = _plan(
+        [*current, _finding("unrelated", path="src/unrelated.py")],
+        [record],
+        max_active_work_items=1,
+    )
+    assert not plan.selected_existing
+    assert [member.finding_id for member in plan.selected_new[0].members] == ["unrelated"]
+    assert _reasons(plan) == {
+        "a": "batch_scope_mismatch",
+        "b": "batch_scope_mismatch",
+        "overflow": "group_reserved",
+        "unrelated": "selected",
+    }
+    assert record.work_item.model_dump_json() == before
+
+
+def test_scope_mismatch_does_not_override_individual_policy_rejection():
+    record = _record(members=(_finding("a"), _finding("b")))
+    plan = _plan(
+        [_finding("a"), _finding("b", path="src/moved.py", severity="high")],
+        [record],
+        policy_state=_policy("medium"),
+    )
+    assert not plan.selected_existing
+    assert not plan.selected_new
+    assert _reasons(plan) == {"a": "batch_scope_mismatch", "b": "severity_disabled"}
+
+
+def test_refreshed_source_namespace_does_not_replace_frozen_member():
+    record = _record()
+    plan = _plan([_finding(source="semgrep-sarif")], [record])
+    assert plan.selected_existing[0].members[0].source_id == "ruff-sarif"
+    assert plan.selected_new[0].members[0].source_id == "semgrep-sarif"
+
+
+def test_refreshed_scope_is_checked_even_for_previously_absent_member():
+    record = _record(members=(_finding("a"), _finding("b")))
+    observations = list(record.work_item.batch.observations)
+    observations[1] = observations[1].model_copy(update={"last_confirmed_presence": "absent"})
+    record.work_item.batch = record.work_item.batch.model_copy(
+        update={"observations": tuple(observations)}
+    )
+    plan = _plan([_finding("a"), _finding("b", path="src/moved.py")], [record])
+    assert not plan.selected_existing
+    assert not plan.selected_new
+    assert set(_reasons(plan).values()) == {"batch_scope_mismatch"}
+
+
 def test_safe_manual_closure_releases_batch_but_not_historical_single_ownership():
     closed = _record(status="approved", is_open=False)
     assert is_safe_unstarted_batch(closed.work_item)
