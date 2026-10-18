@@ -39,6 +39,13 @@ members receive `batch_scope_mismatch`; individual policy and dismissal reasons
 remain authoritative. Evidence under a different source ID is a separate identity,
 not a refresh of the original member.
 
+After individual policy and dismissal filtering, existing multi-member executable
+scopes must meet the same normalized category and requirement compatibility
+contract as new batches. Incompatibility withholds the whole existing selection
+with `batch_requirements_mismatch`, preserving membership and ownership. Absent,
+policy-excluded, and dismissed members do not participate in this comparison.
+Provider issue visibility for these planning decisions remains a slice 2 concern.
+
 Batch-owned evidence uses immutable `BatchFindingSnapshot` models, including
 frozen remediation requirements and recursively immutable provenance. The JSON
 shape remains the normalized finding shape; shared `NormalizedFinding` models

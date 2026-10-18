@@ -19,6 +19,7 @@ type FindingBatchDecisionReason = Literal[
     "promotion_capacity_exhausted",
     "ownership_conflict",
     "batch_scope_mismatch",
+    "batch_requirements_mismatch",
 ]
 
 

@@ -2,9 +2,10 @@
 
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 from zeroone_ops.models.finding import NormalizedFinding
-from zeroone_ops.models.finding_batch import FindingBatchGroup
+from zeroone_ops.models.finding_batch import FindingBatchGroup, WorkItemBatch
 from zeroone_ops.models.finding_batch_promotion import (
     FindingBatchDecisionReason,
     FindingBatchFindingDecision,
@@ -32,6 +33,12 @@ from zeroone_ops.services.intake.finding_workflow_policy_service import FindingW
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
+@dataclass(frozen=True)
+class _BatchMemberResolution:
+    members: tuple[NormalizedFinding, ...] = ()
+    scope_mismatch_identities: tuple[FindingBatchMemberIdentity, ...] = ()
+
+
 class FindingBatchPromotionService:
     """Select provider-neutral promotion units without IDs, clocks, or writes."""
 
@@ -53,15 +60,18 @@ class FindingBatchPromotionService:
         """Return a dormant plan from supplied authority, never inferring absence."""
         if max_active_work_items < 1 or max_findings_per_work_item < 1:
             raise ValueError("Promotion capacity and batch size must be positive.")
+
         inventory: dict[tuple[str, str], NormalizedFinding] = {}
         for finding in findings:
             key = finding.source_id, finding.finding_id
             previous = inventory.setdefault(key, finding)
             if previous != finding:
                 raise ValueError("Conflicting normalized findings share an identity.")
+
         ownership = build_finding_batch_ownership(
             records=records, repository_scope=repository_scope
         )
+
         reasons: dict[FindingBatchMemberIdentity, FindingBatchDecisionReason] = {}
         eligible_new: list[NormalizedFinding] = []
         for finding in inventory.values():
@@ -71,6 +81,7 @@ class FindingBatchPromotionService:
                 eligible_new.append(finding)
             else:
                 reasons[identity] = reason
+
         proposals = self._new_proposals(eligible_new, repository_scope, max_findings_per_work_item)
         candidates = [
             *proposals,
@@ -78,6 +89,7 @@ class FindingBatchPromotionService:
         ]
         priorities = source_priorities or {}
         candidates.sort(key=lambda unit: _unit_order(unit, priorities))
+
         available = max(max_active_work_items - ownership.active_work_item_count, 0)
         selected_new: list[FindingBatchPromotionUnit] = []
         selected_existing: list[FindingBatchPromotionUnit] = []
@@ -88,6 +100,7 @@ class FindingBatchPromotionService:
                 or unit.group is None
                 or unit.group not in selected_groups
             )
+
             if selected:
                 available -= 1
                 if unit.group is not None:
@@ -96,6 +109,7 @@ class FindingBatchPromotionService:
                     selected_new.append(unit)
                 else:
                     selected_existing.append(unit)
+
             for member in unit.members:
                 identity = _identity(repository_scope, member)
                 if (member.source_id, member.finding_id) in inventory:
@@ -105,8 +119,10 @@ class FindingBatchPromotionService:
                         reasons[identity] = "group_reserved"
                     else:
                         reasons[identity] = "promotion_capacity_exhausted"
+
         for finding in eligible_new:
             reasons.setdefault(_identity(repository_scope, finding), "batch_overflow")
+
         return FindingBatchPromotionPlan(
             selected_new=tuple(_copy_unit(unit) for unit in selected_new),
             selected_existing=tuple(_copy_unit(unit) for unit in selected_existing),
@@ -170,36 +186,20 @@ class FindingBatchPromotionService:
                 or work_item.linked_change_request is not None
             ):
                 continue
+
             if work_item.batch is None:
                 current = findings.get((work_item.source.source, work_item.source.source_item_key))
                 members = [current] if current is not None else []
             else:
-                current_members = [
-                    current
-                    for member in work_item.batch.members
-                    if (current := findings.get((member.source_id, member.finding_id))) is not None
-                ]
-                if any(
-                    finding_batch_group(
-                        repository_scope=work_item.batch.group.repository_scope, finding=member
-                    )
-                    != work_item.batch.group
-                    for member in current_members
-                ):
-                    for member in current_members:
-                        identity = _identity(work_item.batch.group.repository_scope, member)
+                resolution = _resolve_existing_batch_members(work_item.batch, findings)
+                if resolution.scope_mismatch_identities:
+                    for identity in resolution.scope_mismatch_identities:
                         if reasons.get(identity) == "owned":
                             reasons[identity] = "batch_scope_mismatch"
                     continue
-                originals = {member.finding_id: member for member in work_item.batch.members}
-                members = [
-                    findings.get((work_item.batch.group.source_id, observation.finding_id))
-                    or (
-                        observation.last_confirmed_finding or originals[observation.finding_id]
-                    ).to_finding()
-                    for observation in work_item.batch.observations
-                    if observation.last_confirmed_presence == "detected"
-                ]
+
+                members = list(resolution.members)
+
             members = [
                 member
                 for member in members
@@ -210,6 +210,18 @@ class FindingBatchPromotionService:
                 ).disposition
                 == "promote"
             ]
+
+            if (
+                work_item.batch is not None
+                and len(members) > 1
+                and not _have_compatible_batch_requirements(members)
+            ):
+                for member in members:
+                    identity = _identity(work_item.batch.group.repository_scope, member)
+                    if reasons.get(identity) == "owned":
+                        reasons[identity] = "batch_requirements_mismatch"
+                continue
+
             if members:
                 candidates.append(
                     FindingBatchPromotionUnit(
@@ -232,17 +244,10 @@ class FindingBatchPromotionService:
                 proposals.append(FindingBatchPromotionUnit(group=None, members=(finding,)))
             else:
                 groups[group].append(finding)
+
         for group, members in groups.items():
             ordered = sorted(members, key=_member_order)
-            signatures = {_requirements(member) for member in ordered}
-            if (
-                limit == 1
-                or len(signatures) > 1
-                or any(
-                    not is_remediation_eligible_category(member.remediation_context.category)
-                    for member in ordered
-                )
-            ):
+            if limit == 1 or not _have_compatible_batch_requirements(ordered):
                 proposals.extend(
                     FindingBatchPromotionUnit(group=group, members=(member,)) for member in ordered
                 )
@@ -250,7 +255,42 @@ class FindingBatchPromotionService:
                 proposals.append(
                     FindingBatchPromotionUnit(group=group, members=tuple(ordered[:limit]))
                 )
+
         return proposals
+
+
+def _resolve_existing_batch_members(
+    batch: WorkItemBatch, findings: Mapping[tuple[str, str], NormalizedFinding]
+) -> _BatchMemberResolution:
+    """Resolve detected evidence or report a whole-batch scope mismatch without mutation."""
+    current_members = [
+        current
+        for member in batch.members
+        if (current := findings.get((member.source_id, member.finding_id))) is not None
+    ]
+
+    if any(
+        finding_batch_group(repository_scope=batch.group.repository_scope, finding=member)
+        != batch.group
+        for member in current_members
+    ):
+        return _BatchMemberResolution(
+            scope_mismatch_identities=tuple(
+                _identity(batch.group.repository_scope, member) for member in current_members
+            )
+        )
+
+    originals = {member.finding_id: member for member in batch.members}
+    return _BatchMemberResolution(
+        members=tuple(
+            findings.get((batch.group.source_id, observation.finding_id))
+            or (
+                observation.last_confirmed_finding or originals[observation.finding_id]
+            ).to_finding()
+            for observation in batch.observations
+            if observation.last_confirmed_presence == "detected"
+        )
+    )
 
 
 def _identity(scope: str, finding: NormalizedFinding) -> FindingBatchMemberIdentity:
@@ -269,6 +309,13 @@ def _requirements(finding: NormalizedFinding) -> tuple[object, ...]:
         context.constraints,
         tuple(context.validation_commands),
         tuple(sorted(set(context.acceptance_criteria))),
+    )
+
+
+def _have_compatible_batch_requirements(members: Sequence[NormalizedFinding]) -> bool:
+    """Apply the same conservative requirement contract to new and existing batches."""
+    return len({_requirements(member) for member in members}) <= 1 and all(
+        is_remediation_eligible_category(member.remediation_context.category) for member in members
     )
 
 

@@ -120,10 +120,12 @@ def build_finding_batch_ownership(
     batch_issues: set[int] = set()
     active: set[int] = set()
     conflicts: set[tuple[int, ...]] = set()
+
     for record in records:
         work_item = record.work_item
         if work_item.source.repository_scope != repository_scope:
             continue
+
         number = record.issue_number
         previous = unique.setdefault(number, record)
         if previous != record:
@@ -133,6 +135,7 @@ def build_finding_batch_ownership(
             suppressed.update(identities)
         if not retains_finding_batch_ownership(record):
             continue
+
         work_item_ids[work_item.work_item_id].add(number)
         source_identities[work_item.identity_key].add(number)
         if is_active_remediation_status(work_item.status):
@@ -144,6 +147,7 @@ def build_finding_batch_ownership(
         group = work_item_batch_group(work_item)
         if group is not None:
             groups[group].add(number)
+
     conflicts.update(tuple(sorted(numbers)) for numbers in owners.values() if len(numbers) > 1)
     conflicts.update(
         tuple(sorted(numbers)) for numbers in work_item_ids.values() if len(numbers) > 1
@@ -156,7 +160,9 @@ def build_finding_batch_ownership(
         for numbers in groups.values()
         if len(numbers) > 1 and numbers & batch_issues
     )
+
     conflict_issues = frozenset(number for numbers in conflicts for number in numbers)
+
     return FindingBatchOwnershipIndex(
         records=tuple(unique[number] for number in sorted(unique)),
         owned=frozenset(owners),

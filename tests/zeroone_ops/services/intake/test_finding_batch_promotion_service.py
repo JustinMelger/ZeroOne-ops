@@ -373,6 +373,96 @@ def test_current_finding_metadata_controls_policy_and_severity_ranking():
     assert first.work_item.batch.observations[0].last_confirmed_finding.severity == "high"
 
 
+def test_conflicting_refreshed_requirements_withhold_existing_batch():
+    record = _record(
+        members=(_finding("a"), _finding("b")), status="capacity_deferred", is_open=False
+    )
+    before = record.work_item.model_dump_json()
+    plan = _plan(
+        [
+            _finding("a", constraints="Do not alter public API"),
+            _finding("b", constraints="Rename the public API"),
+            _finding("overflow"),
+            _finding("unrelated", path="src/unrelated.py", severity="low"),
+        ],
+        [record],
+        max_active_work_items=1,
+    )
+    assert not plan.selected_existing
+    assert [member.finding_id for member in plan.selected_new[0].members] == ["unrelated"]
+    assert _reasons(plan) == {
+        "a": "batch_requirements_mismatch",
+        "b": "batch_requirements_mismatch",
+        "overflow": "group_reserved",
+        "unrelated": "selected",
+    }
+    assert record.work_item.model_dump_json() == before
+
+
+@pytest.mark.parametrize("status", ["candidate", "policy_deferred", "capacity_deferred"])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"constraints": "Keep comments"},
+        {"expected_change": "Remove imports only"},
+        {"acceptance_criteria": ["Preserve exports"]},
+        {"validation_commands": ["second", "first"]},
+        {"category": "unsupported"},
+    ],
+)
+def test_existing_batch_requirement_compatibility_uses_all_fields(status, change):
+    record = _record(
+        members=(_finding("a"), _finding("b")), status=status, is_open=status == "candidate"
+    )
+    first = _finding("a", validation_commands=["first", "second"])
+    second = _finding("b", validation_commands=["first", "second"])
+    for field, value in change.items():
+        setattr(second.remediation_context, field, value)
+
+    plan = _plan([first, second], [record])
+
+    assert not plan.selected_existing
+    assert not plan.selected_new
+    assert set(_reasons(plan).values()) == {"batch_requirements_mismatch"}
+
+
+def test_existing_batch_accepts_normalized_equivalent_requirements():
+    record = _record(members=(_finding("a"), _finding("b")))
+    first = _finding("a", acceptance_criteria=["one", "two", "one"])
+    second = _finding("b", acceptance_criteria=["two", "one"])
+    second.remediation_context.category = "lint_fix"
+
+    plan = _plan([first, second], [record])
+
+    assert len(plan.selected_existing) == 1
+    assert [member.finding_id for member in plan.selected_existing[0].members] == ["a", "b"]
+    assert set(_reasons(plan).values()) == {"selected"}
+
+
+def test_policy_excluded_member_requirements_do_not_withhold_executable_subset():
+    record = _record(members=(_finding("a"), _finding("b")))
+    plan = _plan(
+        [_finding("a"), _finding("b", severity="high", constraints="Different")],
+        [record],
+        policy_state=_policy("medium"),
+    )
+
+    assert [member.finding_id for member in plan.selected_existing[0].members] == ["a"]
+    assert _reasons(plan) == {"a": "selected", "b": "severity_disabled"}
+
+
+def test_existing_batch_checks_fallback_requirements_when_no_current_finding_is_available():
+    record = _record(members=(_finding("a"), _finding("b")), freshness="unknown")
+    before = record.work_item.model_dump_json()
+
+    plan = _plan([_finding("a", constraints="Changed")], [record])
+
+    assert not plan.selected_existing
+    assert not plan.selected_new
+    assert _reasons(plan) == {"a": "batch_requirements_mismatch"}
+    assert record.work_item.model_dump_json() == before
+
+
 @pytest.mark.parametrize("status", ["candidate", "policy_deferred", "capacity_deferred"])
 @pytest.mark.parametrize("change", [{"path": "src/moved.py"}, {"rule": "F821"}, {"rule": None}])
 def test_refreshed_scope_mismatch_withholds_whole_batch_without_releasing_ownership(status, change):

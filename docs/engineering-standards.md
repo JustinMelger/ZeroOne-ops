@@ -66,6 +66,15 @@ Do not use classes for:
 - Methods should stay small enough to scan quickly.
 - If a method needs many branches, extract a collaborator or split the operation.
 - Avoid boolean-flag-driven behavior when separate methods or strategies are clearer.
+- Separate logical phases inside functions with one blank line; keep related
+  statements together rather than spacing every statement apart.
+- Use a blank line after guard clauses before starting a distinct logical phase.
+- Extract a focused function when a phase owns a meaningful decision or
+  transformation, not merely to satisfy an arbitrary line-count target.
+- Prefer explicit returned decisions over helpers that indirectly mutate several
+  caller-owned collections.
+- Ruff owns mechanical formatting; passing formatting checks does not replace
+  review of logical grouping and readability.
 
 Preferred examples:
 
@@ -139,6 +148,11 @@ Coverage priorities:
 ## 10. Docstrings and Comments
 
 - Use Google-style docstrings for public modules, classes, and functions.
+- Private-helper docstrings are discretionary for self-explanatory code, but
+  required for non-obvious contracts or surprising behavior, including fallback
+  rules, side effects, safety boundaries, and the meaning of returned decisions.
+- Keep private-helper docstrings to one sentence when sufficient; describe the
+  contract rather than restating the implementation.
 - Comments should explain intent or a non-obvious constraint.
 - Do not add comments that restate the code.
 - Keep docstrings aligned with real behavior; update them when behavior changes.
