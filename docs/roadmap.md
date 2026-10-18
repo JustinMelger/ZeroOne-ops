@@ -148,13 +148,13 @@ history, not here.
 
 ### Remediation Batching
 
-- [ ] review the [proposed functional contract](design/functional/functional-design-remediation-batching.md)
+- [x] review the [proposed functional contract](design/functional/functional-design-remediation-batching.md)
   for default-ten promotion-time file/rule batches in new work items only,
   preserving existing issues and one-file execution with no partial publication
-- [ ] review the [proposed technical contract](design/technical/technical-design-remediation-batching.md)
+- [x] review the [proposed technical contract](design/technical/technical-design-remediation-batching.md)
   for frozen member state, shared planning, complete execution coverage, and
   the existing scan-before-sync pipeline contract without new freshness gates
-- [ ] slice 1 - models and planning: optional batch state/configuration, frozen
+- [x] slice 1 - models and planning: optional batch state/configuration, frozen
   membership, identity, ownership, grouping, ranking, and capacity tests;
   preserve existing single-finding behavior
 - [ ] slice 2 - finding sync and projection: member observations, policy/capacity
@@ -166,7 +166,8 @@ history, not here.
 
 Use a separate reviewable branch per slice and create its detailed implementation
 plan when picked up. Keep batch creation disabled until the end-to-end path is
-ready; the designs above own the detailed contracts. Batching is not implemented.
+ready; the designs above own the detailed contracts. Slice 1 is a dormant
+foundation; end-to-end batching is not implemented or enabled.
 Validate the current `main` release candidate first, then a batching candidate;
 publish stable v1 only after both validation rounds and any required fixes pass.
 

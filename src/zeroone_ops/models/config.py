@@ -221,6 +221,7 @@ class RemediationConfig(RepositoryConfigModel):
     bootstrap_severities: list[str] = Field(default_factory=list)
     max_retry_count: int = 1
     max_active_work_items: int = Field(default=10, ge=1)
+    max_findings_per_work_item: int = Field(default=10, ge=1, strict=True)
     source_priorities: SourcePriorityMapping = Field(default_factory=dict)
     validation_feedback_enabled: bool = False
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
