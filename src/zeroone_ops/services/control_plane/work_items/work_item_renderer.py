@@ -77,6 +77,25 @@ class WorkItemRenderer:
         )
         if work_item.resolution is not None:
             lines.append(f"- Resolution: {work_item_resolution_display_name(work_item.resolution)}")
+        if work_item.batch is not None and work_item.batch.selection_failure is not None:
+            selection_failure = work_item.batch.selection_failure
+            reason = {
+                "batch_scope_mismatch": "Refreshed member evidence no longer matches batch scope.",
+                "batch_requirements_mismatch": "Executable member requirements are incompatible.",
+            }[selection_failure.reason]
+            lines.extend(["", "## Selection", "", reason, "", "Affected members:"])
+            lines.extend(
+                f"- `{_escape_inline_code(member)}`" for member in selection_failure.member_ids
+            )
+            if selection_failure.omitted_member_count:
+                lines.append(f"- ... and {selection_failure.omitted_member_count} more members.")
+            lines.extend(
+                [
+                    "",
+                    "Correct the cause, then request `/zeroone remediation requeue` on this issue.",
+                    "Observation updates do not automatically unblock this batch.",
+                ]
+            )
         lines.extend(["", "## Location", ""])
         if work_item.file_path is not None:
             lines.append(f"- File: `{work_item.file_path}`")

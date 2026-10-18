@@ -107,3 +107,44 @@ def test_adapter_reopen_result_reflects_known_projection_without_extra_reads(pro
         "reopen_work_item_issue",
         "update_existing_work_item",
     ]
+
+
+@pytest.mark.parametrize("provider", ["github", "gitlab"])
+@pytest.mark.parametrize("initially_open", [True, False])
+def test_failed_native_transition_does_not_change_projected_state(provider, initially_open):
+    _, boundary, _ = _boundary(
+        provider,
+        status="approved" if initially_open else "policy_deferred",
+        closed=not initially_open,
+    )
+    storage = _storage(provider, boundary)
+    inventory = storage.load_inventory(repository_scope=SCOPE)
+    records = inventory.open_work_items if initially_open else inventory.policy_deferred_work_items
+    record = records[0]
+    operation = storage.close_work_item_issue if initially_open else storage.reopen_work_item_issue
+    native = boundary.close_work_item_issue if initially_open else boundary.reopen_work_item_issue
+    native.side_effect = RuntimeError("Provider transition failed")
+
+    with pytest.raises(RuntimeError, match="Provider transition failed"):
+        operation(repository_scope=SCOPE, issue_number=record.issue_number)
+
+    result = storage.update_existing_work_item(
+        repository_scope=SCOPE, existing=record, work_item=record.work_item
+    )
+    assert result.record.is_open is initially_open
+    assert record.is_open is initially_open
+
+
+@pytest.mark.parametrize("provider", ["github", "gitlab"])
+def test_adapter_close_result_reflects_successful_transition(provider):
+    _, boundary, _ = _boundary(provider, status="approved")
+    storage = _storage(provider, boundary)
+    record = storage.load_inventory(repository_scope=SCOPE).open_work_items[0]
+
+    storage.close_work_item_issue(repository_scope=SCOPE, issue_number=record.issue_number)
+    result = storage.update_existing_work_item(
+        repository_scope=SCOPE, existing=record, work_item=record.work_item
+    )
+
+    assert not result.record.is_open
+    assert record.is_open

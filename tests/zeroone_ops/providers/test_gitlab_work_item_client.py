@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 
 from zeroone_ops.models.config import GitLabConnectionConfig
+from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 
 
@@ -26,6 +28,37 @@ def issue_payload(*, iid: int, state: str = "opened") -> dict[str, object]:
         "created_at": "2026-08-07T10:00:00.000Z",
         "updated_at": "2026-08-07T11:00:00.000Z",
     }
+
+
+@pytest.mark.parametrize("state", ["opened", "closed"])
+def test_get_issue_reads_exact_native_state(state: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path.endswith("/issues/11")
+        assert b"group%2Fproject" in request.url.raw_path
+        return httpx.Response(200, json=issue_payload(iid=11, state=state))
+
+    client = GitLabWorkItemClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+    issue, is_open = client.get_issue(project_id="group/project", issue_iid=11)
+    assert issue.iid == 11
+    assert is_open == (state == "opened")
+
+
+def test_get_issue_rejects_missing_native_state() -> None:
+    client = GitLabWorkItemClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(lambda _: httpx.Response(200, json={})),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+    with pytest.raises(GitLabClientError, match="issue state"):
+        client.get_issue(project_id="group/project", issue_iid=11)
 
 
 def test_list_open_issues_paginates_and_normalizes_issue_metadata() -> None:

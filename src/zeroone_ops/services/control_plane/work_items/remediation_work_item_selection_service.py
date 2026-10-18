@@ -12,6 +12,9 @@ _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 def is_remediation_execution_eligible(work_item: WorkItemState) -> bool:
     """Return whether one open work item is eligible for execution selection."""
+    # Batch execution coverage is not implemented until batching slice 3.
+    if work_item.batch is not None:
+        return False
     if work_item.kind != "remediation" or work_item.status not in {
         "approved",
         "review_revision_queued",

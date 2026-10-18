@@ -81,6 +81,15 @@ class GitLabWorkItemClient:
                 raise GitLabClientError("Unexpected GitLab issue pagination.") from error
         return issues
 
+    def get_issue(self, *, project_id: str, issue_iid: int) -> tuple[GitLabIssueInfo, bool]:
+        """Read one exact issue together with its provider-native open/closed state."""
+        payload = _parse_json_response(
+            self._http_client.get(self._issue_path(project_id, issue_iid))
+        )
+        if not isinstance(payload, dict) or payload.get("state") not in {"opened", "closed"}:
+            raise GitLabClientError("Unexpected GitLab work-item issue state.")
+        return normalize_issue(payload), payload["state"] == "opened"
+
     def create_issue(
         self,
         *,

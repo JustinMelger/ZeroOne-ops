@@ -2,7 +2,7 @@
 
 ## Status And Ownership
 
-**Slice 1 foundation implemented; workflow integration remains proposed.**
+**Slices 1 and 2 are internal foundations; production workflow integration remains proposed.**
 This document specifies the
 [functional batching contract](../functional/functional-design-remediation-batching.md).
 The foundation is described below; remaining interfaces are proposals, not live
@@ -16,8 +16,8 @@ background, not an ingestion prerequisite.
 The optional batch models, strict `max_findings_per_work_item` configuration,
 explicit UUID identity factory, pure ownership predicates, and standalone
 `FindingBatchPromotionService` are implemented as a dormant foundation.
-The existing live `FindingPromotionCapacityService` and all sync, intake,
-execution, and renderer callers remain unchanged. No batch issues are created.
+The existing live `FindingPromotionCapacityService` and single-finding workflow
+behavior remain unchanged. Production workflows create no batch issues.
 The overall workflow described below remains proposed until later slices land.
 
 The planner accepts normalized `FindingSyncRecord` snapshots, returns ID-less
@@ -44,7 +44,69 @@ scopes must meet the same normalized category and requirement compatibility
 contract as new batches. Incompatibility withholds the whole existing selection
 with `batch_requirements_mismatch`, preserving membership and ownership. Absent,
 policy-excluded, and dismissed members do not participate in this comparison.
-Provider issue visibility for these planning decisions remains a slice 2 concern.
+The internal slice 2 coordinator persists bounded selection evidence and projects
+otherwise selectable mismatched work as blocked. Full batch UX remains slice 4.
+
+### Slice 2 Internal Sync And Projection
+
+`BatchFindingSyncCoordinator` is transitional internal composition. It consumes
+the existing planner through a batch-specific extension of normalized storage;
+neither provider's production finding-sync service invokes it. Connect this path
+only when slice 3 implements complete execution coverage, replacing transitional
+composition rather than retaining permanent parallel finding-sync workflows.
+No configuration flag or CLI command activates it. Shared intake explicitly
+rejects batch records until that execution contract is ready.
+
+The coordinator sequences focused components rather than owning their internals:
+`FindingBatchReconciliationService` makes pure observation, eligibility, and
+capacity decisions; `BatchFindingCreationService` owns creation authorization and
+uncertain-write rediscovery; `BatchFindingSyncProjection` owns guarded provider
+projection; and `BatchFindingSyncReport` owns aggregate reporting. Internal typed
+run context and creation/projection outcomes live in the model layer, not the
+persisted state schema. Helpers return evidence and bounded warnings without
+mutating caller counters or logging; the coordinator owns workflow logging.
+
+GitHub/GitLab storage adapters own strict indexed discovery, exact native-state
+reads, identity rediscovery, and issue transport. Their existing live inventory
+methods are unchanged. Batch discovery adds only closed nonterminal status
+indexes, not general closed history; malformed indexed authority fails closed.
+Both adapters compose `FindingSyncRecordStore` for exact native-snapshot retention
+and successful open/closed projection tracking. Native issue conversion and API
+argument differences remain provider-local; the store performs no provider reads
+or workflow decisions.
+`FindingSyncProjection` shares update-before-close operations with current sync,
+and implements reopen-before-active-update and persist-blocked-before-reopen
+ordering without making policy decisions.
+
+Observation refresh reconstructs validated immutable state. Complete managed
+inventories may establish absence; unavailable inventories retain last confirmed
+presence and mark freshness unknown. Out-of-scope evidence is not stored as a
+valid snapshot. Blocked/linked/claimed/review-feedback work receives observation
+updates without changing its execution-owned state. Safely manually closed
+unstarted batches remain untouched history and are rechecked before replacement.
+Observation-only updates preserve native issue closure for protected approved
+work. Activation reopens an issue only on a transition into approved, not because
+an already-approved record received refreshed evidence. Linked request terminal
+outcomes remain lifecycle-owned.
+
+Optional `WorkItemBatch.selection_failure` holds a mismatch reason, run/time,
+at most ten unique original member IDs, and an omitted count, never raw constraints
+or execution output. Safe selectable failures become blocked, clear deferral
+evidence, and render a bounded shared **Selection** section. They remain blocked
+until explicit recovery; unsupported execution/requeue reassessment is slice 3.
+
+Immediately before each create, refresh ownership and exact dismissal inventory
+and re-plan the proposed unit without shrinking it. Allocate identity only after
+authorization. An uncertain create is never retried in that run: rediscover its
+assigned ID in both native states and verify ownership before reusing a unique
+authoritative result. Missing/ambiguous outcomes stop creation with a bounded
+warning. These reads do not provide atomic uniqueness.
+
+Result transitions count work items; selected-member, unknown-freshness, and
+backlog counts use findings. Dry runs read the same authority and simulate
+transitions without allocating identities or persistence timestamps. New result
+counters default to zero for existing callers. Authoritative state merge retains
+omitted batch state but honors explicit replacement or clearing.
 
 Batch-owned evidence uses immutable `BatchFindingSnapshot` models, including
 frozen remediation requirements and recursively immutable provenance. The JSON

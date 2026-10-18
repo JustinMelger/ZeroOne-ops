@@ -32,6 +32,9 @@ OPTIONAL_FIELDS = (
     "policy_reactivated_count",
     "no_longer_detected_count",
     "projection_warning_count",
+    "selected_member_count",
+    "unknown_freshness_member_count",
+    "selection_blocked_count",
 )
 
 
@@ -78,9 +81,12 @@ def test_result_preserves_explicit_optional_counters() -> None:
         policy_reactivated_count=3,
         no_longer_detected_count=4,
         projection_warning_count=5,
+        selected_member_count=6,
+        unknown_freshness_member_count=7,
+        selection_blocked_count=8,
     )
 
-    assert [asdict(result)[name] for name in OPTIONAL_FIELDS] == [1, 2, 3, 4, 5]
+    assert [asdict(result)[name] for name in OPTIONAL_FIELDS] == [1, 2, 3, 4, 5, 6, 7, 8]
 
 
 def test_result_still_requires_existing_mandatory_arguments() -> None:

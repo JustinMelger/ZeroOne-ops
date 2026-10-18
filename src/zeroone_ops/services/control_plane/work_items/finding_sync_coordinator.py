@@ -21,6 +21,9 @@ from zeroone_ops.models.work_item import (
     WorkItemState,
     is_protected_remediation_status,
 )
+from zeroone_ops.services.control_plane.work_items.finding_sync_projection import (
+    FindingSyncProjection,
+)
 from zeroone_ops.services.control_plane.work_items.finding_sync_storage import FindingSyncStorage
 from zeroone_ops.services.intake.finding_policy_reconciliation_service import (
     FindingPolicyReconciliationService,
@@ -775,15 +778,7 @@ class FindingSyncCoordinator:
             }
         )
         try:
-            self.storage.update_existing_work_item(
-                repository_scope=repository_scope,
-                existing=existing,
-                work_item=completed,
-            )
-            self.storage.close_work_item_issue(
-                repository_scope=repository_scope,
-                issue_number=existing.issue_number,
-            )
+            FindingSyncProjection(self.storage).close(repository_scope, existing, completed)
         except Exception:
             self.logger.warning(
                 "%s stale work-item completion projection failed",
