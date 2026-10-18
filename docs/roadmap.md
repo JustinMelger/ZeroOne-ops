@@ -148,10 +148,10 @@ history, not here.
 
 ### Remediation Batching
 
-- [ ] review the [proposed functional contract](design/functional/functional-design-remediation-batching.md)
+- [x] review the [proposed functional contract](design/functional/functional-design-remediation-batching.md)
   for default-ten promotion-time file/rule batches in new work items only,
   preserving existing issues and one-file execution with no partial publication
-- [ ] review the [proposed technical contract](design/technical/technical-design-remediation-batching.md)
+- [x] review the [proposed technical contract](design/technical/technical-design-remediation-batching.md)
   for frozen member state, shared planning, complete execution coverage, and
   the existing scan-before-sync pipeline contract without new freshness gates
 - [x] slice 1 - models and planning: optional batch state/configuration, frozen
