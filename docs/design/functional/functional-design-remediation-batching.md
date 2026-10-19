@@ -201,6 +201,17 @@ edge case, not the primary operator workflow or a new partial-success mechanism.
 | Inventory is incomplete, unavailable, or unmanaged | Do not infer absence or claim a fresh count; preserve authority and identify unavailable evidence. |
 | New compatible findings appear after promotion | Keep them outside the frozen batch for later promotion. |
 
+If refreshed evidence contradicts the frozen source/file/rule scope or remaining
+executable members have incompatible requirements, finding sync blocks otherwise
+safe unstarted existing work with bounded selection evidence. Persist the blocked
+state before reopening a deferred issue so the operator can see the cause. This
+is a selection problem, not an execution failure. Observation changes never
+automatically unblock it; explicit operator recovery is required. Findings with
+no durable issue remain backlog-only and do not get notification issues.
+
+The slice 2 implementation of this projection is internal only; production batch
+creation and recovery remain unavailable until the later execution slice.
+
 If policy later permits an original member again before execution, that member
 may rejoin the executable scope without changing frozen membership. Re-enabling
 work still respects capacity and protection rules. Linked or started work

@@ -157,7 +157,7 @@ history, not here.
 - [x] slice 1 - models and planning: optional batch state/configuration, frozen
   membership, identity, ownership, grouping, ranking, and capacity tests;
   preserve existing single-finding behavior
-- [ ] slice 2 - finding sync and projection: member observations, policy/capacity
+- [x] slice 2 - finding sync and projection: member observations, policy/capacity
   deferral, absence reconciliation, safe creation, and GitHub/GitLab parity
 - [ ] slice 3 - execution and recovery: complete context and analysis coverage,
   one-file edits, validation, retry/revision evidence, and recovery precedence
@@ -166,8 +166,9 @@ history, not here.
 
 Use a separate reviewable branch per slice and create its detailed implementation
 plan when picked up. Keep batch creation disabled until the end-to-end path is
-ready; the designs above own the detailed contracts. Slice 1 is a dormant
-foundation; end-to-end batching is not implemented or enabled.
+ready; the designs above own the detailed contracts. Slices 1 and 2 are internal
+foundations; production sync remains single-finding, and batch intake/execution
+is disabled until slice 3. End-to-end batching is not enabled.
 Validate the current `main` release candidate first, then a batching candidate;
 publish stable v1 only after both validation rounds and any required fixes pass.
 

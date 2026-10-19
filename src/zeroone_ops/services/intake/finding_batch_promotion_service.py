@@ -24,6 +24,7 @@ from zeroone_ops.services.intake.finding_batch_ownership import (
     FindingBatchOwnershipIndex,
     build_finding_batch_ownership,
     finding_batch_group,
+    is_safe_unstarted_batch,
     retains_finding_batch_ownership,
     work_item_batch_group,
 )
@@ -184,6 +185,12 @@ class FindingBatchPromotionService:
                 or work_item.status not in {"candidate", "policy_deferred", "capacity_deferred"}
                 or work_item.claim is not None
                 or work_item.linked_change_request is not None
+                or (
+                    work_item.batch is not None
+                    and not is_safe_unstarted_batch(
+                        work_item.model_copy(update={"status": "candidate"})
+                    )
+                )
             ):
                 continue
 
@@ -214,7 +221,7 @@ class FindingBatchPromotionService:
             if (
                 work_item.batch is not None
                 and len(members) > 1
-                and not _have_compatible_batch_requirements(members)
+                and not batch_requirements_compatible(members)
             ):
                 for member in members:
                     identity = _identity(work_item.batch.group.repository_scope, member)
@@ -247,7 +254,7 @@ class FindingBatchPromotionService:
 
         for group, members in groups.items():
             ordered = sorted(members, key=_member_order)
-            if limit == 1 or not _have_compatible_batch_requirements(ordered):
+            if limit == 1 or not batch_requirements_compatible(ordered):
                 proposals.extend(
                     FindingBatchPromotionUnit(group=group, members=(member,)) for member in ordered
                 )
@@ -312,7 +319,7 @@ def _requirements(finding: NormalizedFinding) -> tuple[object, ...]:
     )
 
 
-def _have_compatible_batch_requirements(members: Sequence[NormalizedFinding]) -> bool:
+def batch_requirements_compatible(members: Sequence[NormalizedFinding]) -> bool:
     """Apply the same conservative requirement contract to new and existing batches."""
     return len({_requirements(member) for member in members}) <= 1 and all(
         is_remediation_eligible_category(member.remediation_context.category) for member in members

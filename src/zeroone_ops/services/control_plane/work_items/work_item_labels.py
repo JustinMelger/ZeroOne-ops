@@ -19,11 +19,19 @@ def work_item_source_label(source_id: str) -> str:
 
 def render_work_item_labels(work_item: WorkItemState) -> list[str]:
     """Return the complete label projection for one authoritative work item."""
-    return [
+    labels = [
         AUTHORITATIVE_WORK_ITEM_LABEL,
         work_item_status_label(work_item.status),
         work_item_source_label(work_item.source.source),
     ]
+    if work_item.batch is not None:
+        labels.append(batch_identity_label(work_item.work_item_id))
+    return labels
+
+
+def batch_identity_label(work_item_id: str) -> str:
+    """Index an assigned batch identity across native issue states."""
+    return f"zeroone-batch:{work_item_id.removeprefix('work-')}"
 
 
 def work_item_source_query_labels(source_id: str) -> list[str]:

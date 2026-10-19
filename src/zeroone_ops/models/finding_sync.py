@@ -24,6 +24,7 @@ class FindingSyncInventory:
     policy_deferred_work_items: tuple[FindingSyncRecord, ...]
     capacity_deferred_work_items: tuple[FindingSyncRecord, ...]
     dismissed_work_items: tuple[FindingSyncRecord, ...]
+    closed_nonterminal_batches: tuple[FindingSyncRecord, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -55,3 +56,6 @@ class FindingSyncResult:
     policy_reactivated_count: int = 0
     no_longer_detected_count: int = 0
     projection_warning_count: int = 0
+    selected_member_count: int = 0
+    unknown_freshness_member_count: int = 0
+    selection_blocked_count: int = 0

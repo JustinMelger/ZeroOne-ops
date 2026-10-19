@@ -64,6 +64,18 @@ class BatchMemberObservation(BaseModel):
     last_confirmed_finding: BatchFindingSnapshot | None = None
 
 
+class BatchSelectionFailure(BaseModel):
+    """Explain a blocked selection without recording diagnostics or execution output."""
+
+    model_config = ConfigDict(frozen=True)
+
+    reason: Literal["batch_scope_mismatch", "batch_requirements_mismatch"]
+    run_id: str = Field(min_length=1, max_length=300)
+    occurred_at: datetime
+    member_ids: tuple[str, ...] = Field(min_length=1, max_length=10)
+    omitted_member_count: int = Field(default=0, ge=0)
+
+
 class WorkItemBatch(BaseModel):
     """Preserve complete original members and their latest observations."""
 
@@ -73,6 +85,7 @@ class WorkItemBatch(BaseModel):
     group: FindingBatchGroup
     members: tuple[BatchFindingSnapshot, ...] = Field(min_length=1)
     observations: tuple[BatchMemberObservation, ...]
+    selection_failure: BatchSelectionFailure | None = None
 
     @field_validator("observations")
     @classmethod
@@ -95,6 +108,11 @@ class WorkItemBatch(BaseModel):
             raise ValueError("Batch observations must match the member identities exactly.")
         for member in self.members:
             self._validate_scope(member)
+        if self.selection_failure is not None and (
+            len(set(self.selection_failure.member_ids)) != len(self.selection_failure.member_ids)
+            or not set(self.selection_failure.member_ids).issubset(member_ids)
+        ):
+            raise ValueError("Selection failure references must be unique original members.")
         for observation in self.observations:
             evidence = observation.last_confirmed_finding
             if evidence is not None:

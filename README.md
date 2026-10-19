@@ -303,9 +303,10 @@ limit. Deferred findings remain visible through aggregate backlog counts.
 
 `remediation.max_findings_per_work_item` is a **dormant batching foundation**
 setting: strict positive integer, default `10`, with `1` disabling multi-member
-proposals in the standalone planner. Live finding sync and remediation do not
-consume it yet; configuring it does not create batches or change current
-single-finding work. See the [batching roadmap](docs/roadmap.md#remediation-batching).
+proposals in the standalone planner and internal batch-sync path. Live finding
+sync and remediation do not consume it yet; configuring it does not create batches
+or change current single-finding work. See the
+[batching roadmap](docs/roadmap.md#remediation-batching).
 
 `remediation.source_priorities` optionally ranks policy-eligible work before
 severity when capacity is limited. Lower non-negative values have higher

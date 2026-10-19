@@ -93,6 +93,16 @@ class GitHubWorkItemClient:
             page += 1
         return issues
 
+    def get_issue(self, *, repository_id: str, issue_number: int) -> tuple[GitHubIssueInfo, bool]:
+        """Read one exact issue together with its provider-native open/closed state."""
+        payload = _parse_dict_response(
+            self._http_client.get(_repository_path(repository_id, f"issues/{issue_number}")),
+            error_message="Unexpected GitHub work-item issue payload.",
+        )
+        if payload.get("state") not in {"open", "closed"} or payload.get("pull_request"):
+            raise GitHubClientError("Unexpected GitHub work-item issue state.")
+        return _normalize_issue_info(payload), payload["state"] == "open"
+
     def create_issue(
         self,
         *,

@@ -821,10 +821,29 @@ that exceed the limit remain backlog-only until a later sync finds capacity.
 
 `remediation.max_findings_per_work_item` is accepted as a strict positive integer
 with default `10` by the dormant batching foundation. It currently affects only
-the standalone planner, not live finding sync, intake, or execution. A value of
+the standalone planner and internal batch-sync coordinator, not live finding sync,
+intake, or execution. A value of
 `1` produces singleton proposals; no configured value enables batch creation at
 this stage. Keep deployed configurations unchanged until the remaining
 [batching slices](roadmap.md#remediation-batching) are implemented and validated.
+
+The internal slice 2 coordinator is tested against both provider storage adapters
+but is not wired into runners or the CLI. It refreshes frozen-member observations,
+reconciles policy/capacity deferral and complete-inventory absence, and guards
+batch creation with ownership/dismissal rechecks. Batch records are explicitly
+excluded from remediation intake until slice 3 supplies full-member execution
+coverage. There is no configuration flag that enables this path.
+Observation refresh does not reopen manually closed protected approved batches;
+their ownership is retained, and lifecycle still handles linked PR/MR outcomes.
+
+Within this internal path, incompatible executable requirements or refreshed
+evidence outside the frozen file/rule scope block existing safe unstarted work.
+A compact **Selection** section identifies the cause and bounded member references;
+it is not a failed execution record. Closed deferred issues are made visible again
+only after the blocked state is persisted. Observation changes do not automatically
+unblock work; fresh operator-authorized reassessment belongs to slice 3 recovery.
+Ordinary capacity/policy deferrals remain closed. Unpromoted findings do not get
+notification issues, and full batch issue/summary UX remains slice 4.
 
 `remediation.source_priorities` optionally orders policy-eligible sources
 before severity when capacity is constrained. Lower non-negative values are

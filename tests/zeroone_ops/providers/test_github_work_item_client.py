@@ -17,6 +17,45 @@ def build_config() -> GitHubConnectionConfig:
     )
 
 
+@pytest.mark.parametrize("state", ["open", "closed"])
+def test_get_issue_reads_exact_native_state(state: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/repos/octo-org/octo-repo/issues/11"
+        return httpx.Response(
+            200,
+            json={
+                "id": 2,
+                "number": 11,
+                "html_url": "https://github/x/11",
+                "title": "Work item",
+                "body": "body",
+                "state": state,
+            },
+        )
+
+    client = GitHubWorkItemClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler), base_url="https://api.github.example.com"
+        ),
+    )
+    issue, is_open = client.get_issue(repository_id="octo-org/octo-repo", issue_number=11)
+    assert issue.number == 11
+    assert is_open == (state == "open")
+
+
+def test_get_issue_rejects_missing_native_state() -> None:
+    client = GitHubWorkItemClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(lambda _: httpx.Response(200, json={})),
+            base_url="https://api.github.example.com",
+        ),
+    )
+    with pytest.raises(GitHubClientError, match="issue state"):
+        client.get_issue(repository_id="octo-org/octo-repo", issue_number=11)
+
+
 def test_list_open_issues_ignores_pull_requests_and_normalizes_issues() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/repos/octo-org/octo-repo/issues"

@@ -3,6 +3,7 @@
 from zeroone_ops.models.work_item import WorkItemState
 
 _PRESERVED_OPTIONAL_FIELDS = (
+    "batch",
     "linked_change_request",
     "projected_review",
     "publication_retry",

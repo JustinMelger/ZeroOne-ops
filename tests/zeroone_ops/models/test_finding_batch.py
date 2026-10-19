@@ -323,3 +323,29 @@ def test_snapshot_provenance_requires_json_compatible_values(attributes):
         BatchFindingSnapshot.model_validate(
             _finding(source_metadata=FindingSourceMetadata(attributes=attributes))
         )
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"reason": "arbitrary"},
+        {"member_ids": []},
+        {"member_ids": ["not-a-member"]},
+        {"member_ids": ["a", "a"]},
+        {"member_ids": ["a"] * 11},
+        {"omitted_member_count": -1},
+    ],
+)
+def test_selection_failure_evidence_rejects_invalid_or_unbounded_references(changes):
+    batch = _batch()
+    failure = (
+        dict(
+            reason="batch_scope_mismatch",
+            member_ids=["a"],
+            run_id="run",
+            occurred_at=datetime(2026, 10, 18, tzinfo=UTC),
+        )
+        | changes
+    )
+    with pytest.raises(ValidationError):
+        WorkItemBatch.model_validate(batch.model_dump() | {"selection_failure": failure})
