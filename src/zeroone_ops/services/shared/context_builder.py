@@ -57,6 +57,8 @@ def build_issue_context(
     issue_key: str,
     file_path: str,
     issue_line: int | None,
+    required_locations: tuple[tuple[int | None, int | None], ...] | None = None,
+    allow_historical_locations: bool = False,
 ) -> IssueContext | None:
     """Build code context for a repository-relative target file."""
     target = repo_root / file_path
@@ -67,6 +69,20 @@ def build_issue_context(
     raw_content = target.read_text(encoding="utf-8")
     lines = raw_content.splitlines()
     line_count = len(lines)
+    if required_locations is not None:
+        for start, end in required_locations:
+            if start is not None and (start < 1 or start > line_count):
+                if (
+                    not allow_historical_locations
+                    or file_size_bytes > config.remediation.analysis.max_file_bytes
+                ):
+                    return None
+            if end is not None and (start is None or end < start or end > line_count):
+                if (
+                    not allow_historical_locations
+                    or file_size_bytes > config.remediation.analysis.max_file_bytes
+                ):
+                    return None
     clamped_issue_line = _clamp_issue_line(issue_line, line_count)
 
     if file_size_bytes <= config.remediation.analysis.max_file_bytes:
@@ -85,6 +101,31 @@ def build_issue_context(
         snippet_lines = lines[start_line - 1 : end_line]
         full_file_included = False
         truncated = True
+
+        if required_locations is not None:
+            if any(start is None for start, _ in required_locations):
+                return None
+            starts = [start for start, _ in required_locations if start is not None]
+            ends = [end or start for start, end in required_locations if start is not None]
+            required_start, required_end = min(starts), max(ends)
+            budget = (
+                config.remediation.analysis.context_lines_before
+                + config.remediation.analysis.context_lines_after
+                + 1
+            )
+            if required_end - required_start + 1 > budget:
+                return None
+            start_line = max(1, required_start - config.remediation.analysis.context_lines_before)
+            end_line = min(line_count, start_line + budget - 1)
+            if end_line < required_end:
+                end_line = required_end
+                start_line = max(1, end_line - budget + 1)
+            snippet_lines = lines[start_line - 1 : end_line]
+            if (
+                len("\n".join(snippet_lines).encode("utf-8"))
+                > config.remediation.analysis.max_file_bytes
+            ):
+                return None
 
     return IssueContext(
         issue_key=issue_key,

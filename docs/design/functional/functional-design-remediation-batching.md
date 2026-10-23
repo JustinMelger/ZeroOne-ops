@@ -2,12 +2,15 @@
 
 ## Status
 
-**Proposed for review; not implemented.** Current work items still represent
-individual findings. The ten-member default and new-batch behavior below
-are proposed product behavior, not available configuration or rollout claims.
-The proposed [technical contract](../technical/technical-design-remediation-batching.md)
+**Reviewed contract; internal implementation only, not enabled in production.**
+Current production work items still represent individual findings. Slices 1 through
+3 supply internal planning, projection, execution, and recovery. The ten-member
+default does not activate batching; production integration and operator rollout
+remain slice 4.
+The [technical contract](../technical/technical-design-remediation-batching.md)
 specifies schema, persistence sequencing, and implementation boundaries for
-review. Neither document authorizes implementation or release placement.
+the internal implementation and remaining rollout. Neither document claims
+production activation or release readiness.
 
 The [file-grouping design](functional-design-finding-file-grouping.md) is
 background, not a prerequisite. This proposal assembles executable batches at
@@ -209,8 +212,8 @@ is a selection problem, not an execution failure. Observation changes never
 automatically unblock it; explicit operator recovery is required. Findings with
 no durable issue remain backlog-only and do not get notification issues.
 
-The slice 2 implementation of this projection is internal only; production batch
-creation and recovery remain unavailable until the later execution slice.
+The projection and slice 3 execution/recovery implementation remain internal;
+production batch creation and intake stay disabled until slice 4.
 
 If policy later permits an original member again before execution, that member
 may rejoin the executable scope without changing frozen membership. Re-enabling

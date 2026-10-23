@@ -25,12 +25,21 @@ class RemediationContextBuilder:
 
     def build(self, work_item: RemediationExecutionTarget) -> IssueContext | None:
         """Build source context for one remediation work item."""
+        if work_item.batch is not None and work_item.batch_attempt is None:
+            return None
+        attempt = work_item.batch_attempt
         context = build_issue_context(
             repo_root=self.repo_root,
             config=self.config,
             issue_key=work_item.source_ref,
             file_path=work_item.file_path,
             issue_line=work_item.line,
+            required_locations=(
+                tuple((member.line_start, member.line_end) for member in attempt.members)
+                if attempt is not None
+                else None
+            ),
+            allow_historical_locations=work_item.revision_branch is not None,
         )
         if context is None:
             return None
@@ -39,7 +48,9 @@ class RemediationContextBuilder:
                 "repository_guidance": load_repository_guidance(
                     self.repo_root,
                     configured_paths=self.config.repository_guidance_paths,
-                )
+                ),
+                "batch_attempt": attempt,
+                "batch": work_item.batch,
             }
         )
         prior_review_feedback = _build_prior_review_feedback(work_item)

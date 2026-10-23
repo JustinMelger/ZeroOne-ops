@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from zeroone_ops.models.remediation import RemediationCompletionRequest, RemediationCompletionResult
 from zeroone_ops.models.work_item import WorkItemKind, WorkItemSourceRef, WorkItemState
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
@@ -17,6 +18,13 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_renderer imp
 from zeroone_ops.services.control_plane.work_items.github_work_item_upsert_service import (
     GitHubWorkItemUpsertResult,
     GitHubWorkItemUpsertService,
+)
+from zeroone_ops.services.control_plane.work_items.work_item_completion_service import (
+    complete_absent_batch,
+)
+from zeroone_ops.services.control_plane.work_items.work_item_state_merge import (
+    WorkItemStateMerge,
+    merge_authoritative_work_item_state,
 )
 
 
@@ -51,12 +59,38 @@ class GitHubWorkItemService:
         repository_id: str,
         work_item: WorkItemState,
         dismissed_inventory: list[GitHubWorkItemLookupResult] | None = None,
+        state_merge: WorkItemStateMerge = merge_authoritative_work_item_state,
     ) -> GitHubWorkItemUpsertResult:
         """Create or update the authoritative open issue for one work item."""
         return self.upsert_service.upsert_work_item(
             repository_id=repository_id,
             work_item=work_item,
             dismissed_inventory=dismissed_inventory,
+            state_merge=state_merge,
+        )
+
+    def complete_absent_batch(
+        self, *, repository_id: str, request: RemediationCompletionRequest
+    ) -> RemediationCompletionResult:
+        """Revalidate and update an existing batch without permitting issue creation."""
+        existing = self.find_open_work_item_by_source(
+            repository_id=repository_id,
+            kind=request.work_item.kind,
+            source=request.work_item.source,
+        )
+        if existing is None:
+            return RemediationCompletionResult(
+                False, "Authoritative open batch issue is unavailable."
+            )
+
+        return complete_absent_batch(
+            existing=existing.work_item,
+            request=request,
+            persist_work_item=lambda work_item: (
+                self.update_existing_work_item(
+                    repository_id=repository_id, existing=existing, work_item=work_item
+                ).work_item
+            ),
         )
 
     def find_open_work_item_by_source(

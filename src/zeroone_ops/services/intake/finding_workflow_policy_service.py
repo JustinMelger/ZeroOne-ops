@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from zeroone_ops.models.finding import NormalizedFinding
+from zeroone_ops.models.finding_batch_snapshot import BatchFindingSnapshot
 from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.models.work_item import WorkItemState
 
@@ -84,6 +85,11 @@ class FindingWorkflowPolicyService:
         policy_state: PolicyState,
     ) -> bool:
         """Return whether the current policy permits a fresh remediation attempt."""
+        if work_item.batch is not None:
+            return bool(self.eligible_batch_members(work_item, policy_state)) or all(
+                o.last_confirmed_presence == "absent" and o.freshness == "current"
+                for o in work_item.batch.observations
+            )
         enabled_severities = {
             entry.severity for entry in policy_state.severity_policy if entry.enabled
         }
@@ -94,3 +100,24 @@ class FindingWorkflowPolicyService:
             exclusion.source == work_item.source.source and exclusion.issue_key == diagnostic_code
             for exclusion in policy_state.issue_class_exclusions
         )
+
+    def eligible_batch_members(
+        self, work_item: WorkItemState, policy_state: PolicyState
+    ) -> tuple[BatchFindingSnapshot, ...]:
+        """Apply individual policy to last-confirmed detected evidence, never restore absence."""
+        if work_item.batch is None:
+            return ()
+        originals = {member.finding_id: member for member in work_item.batch.members}
+        members = []
+        for observation in work_item.batch.observations:
+            if observation.last_confirmed_presence != "detected":
+                continue
+            evidence = observation.last_confirmed_finding or originals[observation.finding_id]
+            if (
+                self.decide_promotion(
+                    finding=evidence.to_finding(), policy_state=policy_state
+                ).disposition
+                == "promote"
+            ):
+                members.append(evidence)
+        return tuple(members)

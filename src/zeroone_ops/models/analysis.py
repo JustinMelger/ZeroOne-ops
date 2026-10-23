@@ -11,6 +11,9 @@ from typing import Literal
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator
 
+from zeroone_ops.models.batch_execution import BatchAnalysisCoverage, BatchAttemptEvidence
+from zeroone_ops.models.finding_batch import WorkItemBatch
+
 type ValidationOutcome = Literal[
     "passed",
     "baseline_preserved",
@@ -89,6 +92,12 @@ class IssueAnalysis(BaseModel):
     proposed_strategy: str
     remediation_intent: RemediationIntent = "chore"
     semantic_safety: SemanticSafetyAssessment
+
+
+class BatchIssueAnalysis(IssueAnalysis):
+    """Extend analysis accounting only for the internal batch execution path."""
+
+    batch_coverage: BatchAnalysisCoverage | None = None
 
 
 class CodeContextSnippet(BaseModel):
@@ -198,6 +207,9 @@ class IssueContext(BaseModel):
     validation_feedback: ValidationFeedback | None = None
     remediation_intent: RemediationIntent | None = None
     semantic_safety: SemanticSafetyAssessment | None = None
+    batch_attempt: BatchAttemptEvidence | None = None
+    batch_coverage: BatchAnalysisCoverage | None = None
+    batch: WorkItemBatch | None = None
 
 
 class PatchProposal(BaseModel):

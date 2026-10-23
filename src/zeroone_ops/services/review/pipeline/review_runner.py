@@ -553,6 +553,7 @@ class ReviewRunner:
                 "remediation_context": remediation_context.model_copy(
                     update={
                         "verified_work_item_url": work_item_url,
+                        "batch_attempt": work_item.batch_attempt,
                         "semantic_safety": (
                             None
                             if work_item.semantic_safety is None

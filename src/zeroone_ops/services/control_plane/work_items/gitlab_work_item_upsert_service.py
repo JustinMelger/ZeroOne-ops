@@ -19,6 +19,7 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_renderer imp
     GitLabWorkItemRenderer,
 )
 from zeroone_ops.services.control_plane.work_items.work_item_state_merge import (
+    WorkItemStateMerge,
     merge_authoritative_work_item_state,
 )
 
@@ -55,6 +56,7 @@ class GitLabWorkItemUpsertService:
         project_id: str,
         work_item: WorkItemState,
         dismissed_inventory: list[GitLabWorkItemLookupResult] | None = None,
+        state_merge: WorkItemStateMerge = merge_authoritative_work_item_state,
     ) -> GitLabWorkItemUpsertResult:
         """Create or update the authoritative open issue for one work item."""
         matches = self.lookup_service.list_open_work_items_by_source(
@@ -66,7 +68,9 @@ class GitLabWorkItemUpsertService:
             raise ValueError("Cannot upsert an ambiguously matched authoritative work item.")
         if matches:
             existing = matches[0]
-            rendered_work_item = self._merge_existing_authoritative_state(existing, work_item)
+            rendered_work_item = self._merge_existing_authoritative_state(
+                existing, work_item, state_merge
+            )
             return self.update_existing_work_item(
                 project_id=project_id,
                 existing=existing,
@@ -163,9 +167,10 @@ class GitLabWorkItemUpsertService:
         self,
         existing: GitLabWorkItemLookupResult,
         work_item: WorkItemState,
+        state_merge: WorkItemStateMerge,
     ) -> WorkItemState:
         """Preserve existing authoritative fields when the new item omits them."""
         parsed = self.parser.parse_work_item_state(existing.issue.description)
         if parsed is None:
             return work_item
-        return merge_authoritative_work_item_state(parsed, work_item)
+        return state_merge(parsed, work_item)

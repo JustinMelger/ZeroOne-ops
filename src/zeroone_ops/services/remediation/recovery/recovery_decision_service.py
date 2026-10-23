@@ -76,7 +76,11 @@ class RecoveryDecisionService:
                 plan="retry_publication",
                 message="Recorded branch publication was queued for verification.",
             )
-        if not policy_eligible:
+        all_absent = work_item.batch is not None and all(
+            observation.last_confirmed_presence == "absent" and observation.freshness == "current"
+            for observation in work_item.batch.observations
+        )
+        if not policy_eligible and not all_absent:
             return self._reject(
                 work_item,
                 "Recovery cannot start a fresh attempt because current policy does not allow it.",
@@ -135,6 +139,7 @@ class RecoveryDecisionService:
                     "publication_retry": None,
                     "execution_failure": None,
                     "resolution": None,
+                    "batch_attempt": None,
                 }
             )
         return RecoveryDecision(

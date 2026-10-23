@@ -49,6 +49,7 @@ class PublishResult:
     change_request_action: str | None = None
     published_change_request: ChangeRequestInfo | None = None
     error_message: str | None = None
+    publication_retry: PublicationRetryState | None = None
 
 
 class PublishService:
@@ -136,25 +137,28 @@ class PublishService:
                 semantic_safety=work_item_semantic_safety,
             )
         except (BranchManagerError, GitLabClientError, GitHubClientError, RuntimeError) as error:
+            publication_retry = (
+                PublicationRetryState(
+                    branch_name=pushed_branch,
+                    commit_sha=commit_sha,
+                    reason="change_request_publish_failed",
+                    remediation_intent=remediation_intent,
+                    semantic_safety=semantic_safety,
+                    batch_attempt=selected_issue.batch_attempt,
+                )
+                if pushed_branch is not None and commit_sha is not None
+                else None
+            )
             self._mark_control_plane_blocked_best_effort(
                 selected_issue=selected_issue,
                 existing_work_item=control_plane_work_item,
                 original_error=error,
-                publication_retry=(
-                    PublicationRetryState(
-                        branch_name=pushed_branch,
-                        commit_sha=commit_sha,
-                        reason="change_request_publish_failed",
-                        remediation_intent=remediation_intent,
-                        semantic_safety=semantic_safety,
-                    )
-                    if pushed_branch is not None and commit_sha is not None
-                    else None
-                ),
+                publication_retry=publication_retry,
             )
             return PublishResult(
                 branch_name=pushed_branch,
                 error_message=f"Publish failed: {error}",
+                publication_retry=publication_retry,
             )
         return PublishResult(
             branch_name=pushed_branch,

@@ -8,15 +8,20 @@ from pathlib import Path
 from typing import Protocol
 
 from zeroone_ops.models.analysis import ValidationOutcome
+from zeroone_ops.models.batch_execution import BatchAnalysisRejection
 from zeroone_ops.models.change_request import ChangeRequestInfo, ChangeRequestState
 from zeroone_ops.models.config import AppConfig
-from zeroone_ops.models.remediation import RemediationExecutionTarget
+from zeroone_ops.models.policy import PolicyState
+from zeroone_ops.models.remediation import RemediationCompletionResult, RemediationExecutionTarget
 from zeroone_ops.models.state import FailureDetails, FailureStage, RunRecord, RunStatus, utc_now
 from zeroone_ops.models.work_item import (
     PublicationRetryState,
     WorkItemExecutionFailure,
     WorkItemSemanticSafety,
     WorkItemState,
+)
+from zeroone_ops.services.remediation.batch_execution_scope_service import (
+    BatchExecutionScopeService,
 )
 from zeroone_ops.services.remediation.change_request_publisher import (
     build_remediation_change_request_publisher,
@@ -81,6 +86,7 @@ class WorkItemRemediationRunner:
         publication_retry_service: PublicationRetryService | None = None,
         execution_url_builder: Callable[[], str | None] | None = None,
         change_request_state_lookup: Callable[[int], ChangeRequestState] | None = None,
+        batch_policy: PolicyState | None = None,
     ) -> None:
         """Initialize shared remediation execution over one work-item control plane."""
         self.repo_root = repo_root
@@ -96,6 +102,7 @@ class WorkItemRemediationRunner:
         self.publication_retry_service = publication_retry_service
         self.execution_url_builder = execution_url_builder or (lambda: None)
         self.change_request_state_lookup = change_request_state_lookup
+        self.batch_policy = batch_policy
 
     def run(self, *, record: RunRecord, active_dry_run: bool) -> RunSummary:
         """Select, execute, and project one provider work item."""
@@ -157,7 +164,23 @@ class WorkItemRemediationRunner:
                 selected_issue=selected_target, dry_run=active_dry_run
             )
         else:
-            context = RemediationContextBuilder(self.repo_root, self.config).build(selected_target)
+            if selected_target.batch is not None:
+                stopped = self._finish_nonexecuting_batch(
+                    record=record,
+                    selected_target=selected_target,
+                    claimed_work_item=claimed_work_item,
+                    active_dry_run=active_dry_run,
+                )
+                if stopped is not None:
+                    return stopped
+            try:
+                context = RemediationContextBuilder(self.repo_root, self.config).build(
+                    selected_target
+                )
+            except (OSError, UnicodeError):
+                if selected_target.batch is None:
+                    raise
+                context = None
             if context is None:
                 message = (
                     f"Context unavailable for remediation work item {selected_target.item_id}."
@@ -183,15 +206,23 @@ class WorkItemRemediationRunner:
                 dry_run=active_dry_run,
                 attempt_number=claimed_work_item.attempt_number,
             )
+        if execution_result.analysis_result.batch_attempt is not None:
+            selected_target = selected_target.model_copy(
+                update={"batch_attempt": execution_result.analysis_result.batch_attempt}
+            )
         validation_outcome = _validation_outcome(execution_result)
         if execution_result.failure is not None:
             self._mark_blocked_best_effort(
+                publication_retry=execution_result.publication_retry
+                if selected_target.batch is not None
+                else None,
                 selected_target=selected_target,
                 claimed_work_item=claimed_work_item,
                 active_dry_run=active_dry_run,
                 failure=execution_result.failure,
                 run_id=record.run_id,
                 semantic_safety=_semantic_safety_record(execution_result),
+                batch_rejection=execution_result.analysis_result.batch_rejection,
             )
             return self.run_state_service.finish_work_item(
                 record=record,
@@ -204,7 +235,7 @@ class WorkItemRemediationRunner:
             )
 
         if execution_result.final_status == RunStatus.REJECTED:
-            if selected_target.revision_branch is not None:
+            if selected_target.revision_branch is not None or selected_target.batch is not None:
                 self._mark_blocked_best_effort(
                     selected_target=selected_target,
                     claimed_work_item=claimed_work_item,
@@ -301,6 +332,76 @@ class WorkItemRemediationRunner:
             validation_outcome=validation_outcome,
         )
 
+    def _finish_nonexecuting_batch(
+        self,
+        *,
+        record: RunRecord,
+        selected_target: RemediationExecutionTarget,
+        claimed_work_item: WorkItemState,
+        active_dry_run: bool,
+    ) -> RunSummary | None:
+        """Finish absence/failure before context; None authorizes the already-claimed scope."""
+        decision = BatchExecutionScopeService().resolve(
+            claimed_work_item, self.batch_policy or PolicyState(), run_id=record.run_id
+        )
+        if decision.disposition == "all_absent":
+            if active_dry_run:
+                return self.run_state_service.finish_work_item(
+                    record=record,
+                    work_item_id=selected_target.item_id,
+                    status=RunStatus.SELECTED,
+                    message="Dry run: completion requires a live authoritative absence check.",
+                )
+            completion = self._complete_absent_batch_best_effort(
+                selected_target=selected_target, claimed_work_item=claimed_work_item
+            )
+            return self.run_state_service.finish_work_item(
+                record=record,
+                work_item_id=selected_target.item_id,
+                status=RunStatus.SELECTED if completion.completed else RunStatus.FAILED,
+                message=completion.message,
+                failure=None
+                if completion.completed
+                else FailureDetails(
+                    stage=FailureStage.CONTROL_PLANE_UPDATE, message=completion.message
+                ),
+            )
+        if (
+            decision.disposition == "execute"
+            and self.batch_policy is not None
+            and selected_target.batch_attempt == decision.attempt
+        ):
+            return None
+
+        message = decision.reason or "Claimed batch scope no longer matches authoritative policy."
+        failure = FailureDetails(stage=FailureStage.ISSUE_INTAKE, message=message)
+        self._mark_blocked_best_effort(
+            selected_target=selected_target,
+            claimed_work_item=claimed_work_item,
+            active_dry_run=active_dry_run,
+            failure=failure,
+            run_id=record.run_id,
+        )
+        return self.run_state_service.finish_work_item(
+            record=record,
+            work_item_id=selected_target.item_id,
+            status=RunStatus.FAILED,
+            message=message,
+            failure=failure,
+        )
+
+    def _complete_absent_batch_best_effort(
+        self, *, selected_target: RemediationExecutionTarget, claimed_work_item: WorkItemState
+    ) -> RemediationCompletionResult:
+        """Report unconfirmed completion without overwriting newer authoritative work."""
+        try:
+            return self.remediation_control_plane.complete_absent_batch(
+                selected_issue=selected_target, existing_work_item=claimed_work_item
+            )
+        except Exception:
+            LOGGER.warning("work-item batch absence completion failed", exc_info=True)
+            return RemediationCompletionResult(False, "Batch completion could not be confirmed.")
+
     def _mark_blocked_best_effort(
         self,
         *,
@@ -310,11 +411,24 @@ class WorkItemRemediationRunner:
         failure: FailureDetails | None = None,
         run_id: str | None = None,
         semantic_safety: WorkItemSemanticSafety | None = None,
+        publication_retry: PublicationRetryState | None = None,
+        batch_rejection: BatchAnalysisRejection | None = None,
     ) -> None:
         """Project an execution failure without replacing the primary outcome."""
         if active_dry_run:
             return
         try:
+            if publication_retry is not None:
+                self.remediation_control_plane.mark_execution_blocked(
+                    selected_issue=selected_target,
+                    existing_work_item=claimed_work_item,
+                    execution_failure=self._build_execution_failure(failure=failure, run_id=run_id)
+                    if failure is not None and run_id is not None
+                    else None,
+                    semantic_safety=semantic_safety,
+                    publication_retry=publication_retry,
+                )
+                return
             marker = (
                 self.remediation_control_plane.mark_review_feedback_required
                 if claimed_work_item.status == "review_revision_queued"
@@ -326,7 +440,9 @@ class WorkItemRemediationRunner:
                 execution_failure=(
                     None
                     if failure is None or run_id is None
-                    else self._build_execution_failure(failure=failure, run_id=run_id)
+                    else self._build_execution_failure(
+                        failure=failure, run_id=run_id, batch_rejection=batch_rejection
+                    )
                 ),
                 semantic_safety=semantic_safety,
             )
@@ -367,6 +483,27 @@ class WorkItemRemediationRunner:
         publication_retry = claimed_work_item.publication_retry
         if publication_retry is None:  # pragma: no cover - guarded by caller
             raise ValueError("Publication retry requires recorded retry state.")
+        if selected_target.batch is not None:
+            decision = BatchExecutionScopeService().resolve(claimed_work_item, PolicyState())
+            if decision.disposition != "execute":
+                if not active_dry_run:
+                    self._mark_publish_retry_blocked_best_effort(
+                        selected_target=selected_target,
+                        claimed_work_item=claimed_work_item,
+                        publication_retry=publication_retry,
+                    )
+                failure = FailureDetails(
+                    stage=FailureStage.PUBLISH,
+                    message=decision.reason or "Recorded batch scope is unavailable.",
+                )
+                return self.run_state_service.finish_work_item(
+                    record=record,
+                    work_item_id=selected_target.item_id,
+                    status=RunStatus.FAILED,
+                    message=failure.message,
+                    failure=failure,
+                )
+            selected_target = selected_target.model_copy(update={"batch_attempt": decision.attempt})
         if active_dry_run:
             return self.run_state_service.finish_work_item(
                 record=record,
@@ -513,6 +650,13 @@ class WorkItemRemediationRunner:
         """Verify a queued revision still targets the reviewed open change request."""
         if claimed_work_item.status != "review_revision_queued":
             return selected_target, None
+        if claimed_work_item.batch is not None:
+            scope = BatchExecutionScopeService().resolve(claimed_work_item, PolicyState())
+            if scope.disposition != "execute":
+                return selected_target, FailureDetails(
+                    stage=FailureStage.ISSUE_INTAKE,
+                    message=scope.reason or "Recorded batch revision scope is missing.",
+                )
         linked = claimed_work_item.linked_change_request
         projected = claimed_work_item.projected_review
         if linked is None or projected is None or projected.feedback is None:
@@ -561,12 +705,14 @@ class WorkItemRemediationRunner:
         *,
         failure: FailureDetails,
         run_id: str,
+        batch_rejection: BatchAnalysisRejection | None = None,
     ) -> WorkItemExecutionFailure:
         """Build durable operator context for one failed remediation run."""
         summary = failure.message
         if failure.stage == FailureStage.VALIDATION_SETUP:
             summary = f"{summary} {_VALIDATION_SETUP_GUIDANCE}"
         return WorkItemExecutionFailure(
+            batch_rejection=batch_rejection,
             stage=failure.stage.value,
             summary=summary,
             retry_count=failure.retry_count,

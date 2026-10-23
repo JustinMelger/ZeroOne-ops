@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 from pathlib import Path
 
 from zeroone_ops.models.analysis import (
@@ -118,6 +119,25 @@ class RemediationPublicationRequestBuilder:
             f"- Message: {selected_issue.message}",
             "",
         ]
+        if selected_issue.batch is not None:
+            attempt = selected_issue.batch_attempt
+            if attempt is None or attempt.coverage is None or attempt.coverage.unaddressable:
+                raise ValueError("Batch publication requires accepted attempt coverage.")
+            lines.extend(
+                [
+                    "## Batch Targets",
+                    "",
+                    f"- Targeted members: {len(attempt.members)} of "
+                    f"{len(selected_issue.batch.members)} original findings.",
+                    "- Targeted by this change; not scanner-verified as resolved.",
+                    *[
+                        f"- Member: {_literal_member_reference(member.finding_id)}; "
+                        f"line: {member.line_start or 'unknown'}"
+                        for member in attempt.members
+                    ],
+                    "",
+                ]
+            )
         result = (
             validation_comparison.post_edit
             if validation_comparison is not None
@@ -164,3 +184,15 @@ class RemediationPublicationRequestBuilder:
                 workflow_github_config.pull_request_assignee_username,
             )
         return ([], None)
+
+
+def _literal_member_reference(value: str) -> str:
+    """Keep scanner-controlled IDs on one literal Markdown line."""
+    return (
+        html.escape(value.replace("\r", " ").replace("\n", " "))
+        .replace("`", "&#96;")
+        .replace("[", "&#91;")
+        .replace("]", "&#93;")
+        .replace("*", "&#42;")
+        .replace("_", "&#95;")
+    )

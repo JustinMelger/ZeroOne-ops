@@ -14,6 +14,11 @@ def control_plane_work_item_to_execution_target(
     """Adapt one authoritative work item into the shared execution target shape."""
     if work_item.file_path is None:
         raise ValueError("Work item is missing a target file path.")
+    requirements = (
+        work_item.batch_attempt.members[0].remediation_context
+        if work_item.batch is not None and work_item.batch_attempt is not None
+        else work_item.remediation_context
+    )
     review_feedback = None
     revision_branch = None
     reviewed_sha = None
@@ -32,14 +37,16 @@ def control_plane_work_item_to_execution_target(
         message=work_item.detail or work_item.summary,
         file_path=work_item.file_path,
         line=work_item.line,
-        rule_id=work_item.remediation_context.diagnostic_code,
+        rule_id=requirements.diagnostic_code,
         severity=work_item.severity,
-        remediation_category=work_item.remediation_context.category,
-        validation_commands=work_item.remediation_context.validation_commands,
-        expected_change=work_item.remediation_context.expected_change,
-        constraints=work_item.remediation_context.constraints,
-        acceptance_criteria=work_item.remediation_context.acceptance_criteria,
+        remediation_category=requirements.category,
+        validation_commands=list(requirements.validation_commands),
+        expected_change=requirements.expected_change,
+        constraints=requirements.constraints,
+        acceptance_criteria=list(requirements.acceptance_criteria),
         review_feedback=review_feedback,
         revision_branch=revision_branch,
         reviewed_sha=reviewed_sha,
+        batch=work_item.batch,
+        batch_attempt=work_item.batch_attempt,
     )

@@ -17,11 +17,13 @@ class LLMFixtureError(RuntimeError):
     """Raised when an LLM fixture file is missing or invalid."""
 
 
-def load_analysis_fixture(path: Path) -> IssueAnalysis:
+def load_analysis_fixture(
+    path: Path, *, analysis_type: type[IssueAnalysis] = IssueAnalysis
+) -> IssueAnalysis:
     """Load an issue analysis result from a JSON fixture."""
     payload = _load_fixture_payload(path, fixture_kind="analysis")
     try:
-        return IssueAnalysis.model_validate(payload)
+        return analysis_type.model_validate(payload)
     except Exception as error:
         raise LLMFixtureError("Invalid LLM analysis fixture structure.") from error
 
