@@ -2,11 +2,11 @@
 
 ## Status And Ownership
 
-**Slices 1 through 3 are internal foundations; production activation remains slice 4.**
+**Slice 4 activates shared batch sync and execution; live rollout remains an unchecked release gate.**
 This document specifies the
 [functional batching contract](../functional/functional-design-remediation-batching.md).
-The foundation is described below; remaining interfaces are proposals, not live
-workflow guarantees.
+Implemented contracts and their ownership are described below. Live provider
+validation and release-candidate acceptance are separate from automated completion.
 Production activation and release placement remain separate decisions. The
 [file-grouping design](technical-design-finding-file-grouping.md) is optional
 background, not an ingestion prerequisite.
@@ -15,10 +15,8 @@ background, not an ingestion prerequisite.
 
 The optional batch models, strict `max_findings_per_work_item` configuration,
 explicit UUID identity factory, pure ownership predicates, and standalone
-`FindingBatchPromotionService` are implemented as a dormant foundation.
-The existing live `FindingPromotionCapacityService` and single-finding workflow
-behavior remain unchanged. Production workflows create no batch issues.
-The overall workflow described below remains proposed until later slices land.
+`FindingBatchPromotionService` are implemented. The shared batch-capable coordinator now serves production
+finding sync; historical single-finding work stays independent.
 
 The planner accepts normalized `FindingSyncRecord` snapshots, returns ID-less
 `FindingBatchPromotionUnit` proposals and existing selections, per-finding
@@ -44,20 +42,18 @@ scopes must meet the same normalized category and requirement compatibility
 contract as new batches. Incompatibility withholds the whole existing selection
 with `batch_requirements_mismatch`, preserving membership and ownership. Absent,
 policy-excluded, and dismissed members do not participate in this comparison.
-The internal slice 2 coordinator persists bounded selection evidence and projects
-otherwise selectable mismatched work as blocked. Full batch UX remains slice 4.
+The shared coordinator persists bounded selection evidence and projects
+otherwise selectable mismatched work as blocked, with a shared operator view.
 
-### Slice 2 Internal Sync And Projection
+### Shared Sync And Projection
 
-`BatchFindingSyncCoordinator` is transitional internal composition. It consumes
-the existing planner through a batch-specific extension of normalized storage;
-neither provider's production finding-sync service invokes it. Connect this path
-only in slice 4 after complete execution coverage and operator UX are verified, replacing transitional
-composition rather than retaining permanent parallel finding-sync workflows.
-No configuration flag or CLI command activates it. Shared intake explicitly
-rejects batch records until that rollout is ready. Internal slice 3 tests inject
-batch-capable eligibility and authoritative policy into the same intake coordinator;
-there is no operator enablement flag.
+`FindingSyncCoordinator` is the single production composition for both providers;
+the transitional internal coordinator and old single-only orchestration are removed.
+Public provider service names and result aliases remain stable. Configuration
+passes the batch-size limit directly. Shared intake admits typed batches and
+loads authoritative policy read-only once when fresh selection needs it; failure
+withholds fresh batches without inventing policy. Recorded publication retries
+and revisions retain their original scope and do not require a fresh policy load.
 
 The coordinator sequences focused components rather than owning their internals:
 `FindingBatchReconciliationService` makes pure observation, eligibility, and
@@ -67,6 +63,20 @@ projection; and `BatchFindingSyncReport` owns aggregate reporting. Internal type
 run context and creation/projection outcomes live in the model layer, not the
 persisted state schema. Helpers return evidence and bounded warnings without
 mutating caller counters or logging; the coordinator owns workflow logging.
+
+Capacity-releasing transitions are projected before selection. The coordinator
+replans from confirmed persistence outcomes, retaining the original active
+reservation when a release fails or is uncertain, including updates that succeed
+before closure fails. It does not retry those records in the same sync. Successful
+projections carry the returned authoritative state; dry runs simulate successful
+releases without writes. This sequencing protects sequential failure accounting,
+not concurrent capacity reservations or atomic uniqueness.
+
+Reporting excludes findings owned by capacity-active work from backlog, even if
+current policy excludes that protected work. Existing active work is not a new
+promotion. Deferred, suppressed, conflicting, overflow, and failed selections
+retain finding-unit backlog reasons; inventory totals still come from normalized
+findings, independently of promotions and backlog.
 
 GitHub/GitLab storage adapters own strict indexed discovery, exact native-state
 reads, identity rediscovery, and issue transport. Their existing live inventory
@@ -95,20 +105,20 @@ Optional `WorkItemBatch.selection_failure` holds a mismatch reason, run/time,
 at most ten unique original member IDs, and an omitted count, never raw constraints
 or execution output. Safe selectable failures become blocked, clear deferral
 evidence, and render a bounded shared **Selection** section. They remain blocked
-until explicit recovery; internal execution/requeue reassessment is supplied by slice 3.
+until explicit recovery; execution/requeue performs fresh scope reassessment.
 
-### Slice 3 Internal Execution And Recovery
+### Execution And Recovery
 
 Production single-finding prompts and the `IssueAnalysis` response schema remain
-unchanged. Internal typed batch targets select dedicated analysis/edit templates
-and the separate `BatchIssueAnalysis` schema; no configuration enables them.
+unchanged. Typed batch targets select dedicated analysis/edit templates
+and the separate `BatchIssueAnalysis` schema.
 Only analysis requests produce member accounting. Edit requests consume accepted
 accounting and permit independent minimal same-rule corrections within the one
 original file; they do not request analysis fields in the edit response.
-Batch review-prompt guidance is deferred to slice 4, even though the typed review
-context can already retain verified attempt evidence. Slice 4 must explicitly
-review and live-validate production batch prompt/schema activation and reviewer
-handoff rather than silently changing all production requests in slice 3.
+Batch review prompts now receive bounded member/attempt evidence exclusively
+through uniquely verified work-item linkage. Description text never establishes
+authority. The packet is untrusted and instructs review to compare claims with
+the diff; ordinary single-finding prompts and schemas stay unchanged.
 
 `BatchExecutionScopeService` resolves original detected members through shared
 per-member policy and requirement checks. It retains detected-but-stale evidence,
@@ -178,7 +188,7 @@ until atomic provider transitions are introduced.
 
 Minimal request descriptions enumerate targeted identities and
 retain validation/safety evidence without claiming scanner-verified fixes.
-Production sync and provider intake remain unchanged; slice 4 owns activation,
+Production sync and intake use this shared execution path; slice 4 adds
 full issue/summary UX, provider body-size safeguards, and live validation.
 
 Immediately before each create, refresh ownership and exact dismissal inventory
@@ -230,7 +240,7 @@ composition, individual ingestion, and one-file patch safety remain intact.
 
 ## Configuration And State Contracts
 
-Propose `remediation.max_findings_per_work_item: int = 10`, strictly positive,
+Use `remediation.max_findings_per_work_item: int = 10`, strictly positive,
 rejecting booleans and non-integer coercion. No new numeric ceiling is introduced;
 execution budgets remain hard limits. `1` uses single-finding handling for new
 work. Configuration changes never resize existing batches.
@@ -678,3 +688,27 @@ Implementation must run Ruff, formatting, architecture checks, mypy, Bandit,
 and the full suite, followed by workflow boundary review. This documentation-only
 slice requires local links, fenced blocks, and whitespace validation. Publishing
 the design does not complete an implementation or release-gate checkbox.
+
+## Slice 4 Operator Projection And Payload Budget
+
+A pure shared batch view separates frozen original membership, last-confirmed
+presence, freshness, explicit policy evaluation, planned scope and recorded attempt
+scope. Renderers perform no lookups or state transitions. With no explicit policy,
+policy-dependent counts are not evaluated. Task-first issues use a stable neutral
+title bounded to 120 characters, a maximum ten-row member overview and 300-character
+message excerpts. Display omissions never truncate machine authority.
+
+A shared application guard checks complete batch issue bodies and PR/MR descriptions
+against 60,000 UTF-8 bytes before transport. New oversized proposals return
+`projection_size_exceeded`; uncertain-create rediscovery is not used for a known
+no-write size failure. Existing oversized updates preserve authority and report
+failure. Reopen/claim/publication must not bypass this guard. Dry runs render a
+non-persisted size preview without allocating UUIDs or reading a persistence clock.
+
+Reporting distinguishes selected finding members and backlog findings from promoted
+work items, capacity consumers and transition counts. Inventory totals derive from
+normalized severity counts. Persisted summary observations accept old observations
+and add optional batch counters. No deferred-member list is published.
+
+Live GitHub/GitLab batch execution, review/requeue and merge reconciliation remain
+operator acceptance gates; automated implementation is not live validation.

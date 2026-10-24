@@ -118,6 +118,18 @@ class FindingSyncResult(Protocol):
     """Expose shared provider-local finding-sync result fields."""
 
     @property
+    def selected_member_count(self) -> int:
+        """Return selected finding members, independently of work-item count."""
+
+    @property
+    def unknown_freshness_member_count(self) -> int:
+        """Return owned members lacking fresh inventory evidence."""
+
+    @property
+    def selection_blocked_count(self) -> int:
+        """Return work items blocked during scope selection."""
+
+    @property
     def promoted_count(self) -> int:
         """Return the promoted finding count."""
 
@@ -244,6 +256,7 @@ class FindingSyncWorkflow:
             policy_state=policy_state,
             managed_source_ids=set(collection.finding_collection.metadata.managed_source_ids),
             max_active_work_items=self.config.remediation.max_active_work_items,
+            max_findings_per_work_item=self.config.remediation.max_findings_per_work_item,
             source_priorities=self.config.remediation.source_priorities,
             persist=not context.active_dry_run,
             run_id=context.run_id,
@@ -301,6 +314,7 @@ class FindingSyncWorkflow:
             policy_state=policy_state,
             managed_source_ids=set(metadata.managed_source_ids),
             max_active_work_items=self.config.remediation.max_active_work_items,
+            max_findings_per_work_item=self.config.remediation.max_findings_per_work_item,
             source_priorities=self.config.remediation.source_priorities,
             persist=not context.active_dry_run,
             run_id=context.run_id,
@@ -362,14 +376,15 @@ class FindingSyncWorkflow:
         backlog_only_count = sync_result.backlog_only_count
         publication_message = (
             (
-                f"Dry-run identified {promoted_count} findings eligible under "
+                f"Dry-run identified {promoted_count} work items eligible under "
                 "the configured policy; "
                 f"{backlog_only_count} findings are policy-backlog-only.\n"
                 "Dry-run loaded authoritative work-item indexes but made no changes."
             )
             if active_dry_run
             else (
-                f"Published {promoted_count} promoted findings as {provider} work items; "
+                f"Published {promoted_count} {provider} work items "
+                f"({sync_result.selected_member_count} selected finding members); "
                 f"{backlog_only_count} findings remain backlog-only."
             )
         )

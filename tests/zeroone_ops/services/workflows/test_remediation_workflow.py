@@ -1,6 +1,9 @@
 """Tests for remediation workflow routing and summary behavior."""
 
 from pathlib import Path
+from unittest.mock import Mock
+
+import pytest
 
 from zeroone_ops.models.config import AppConfig, GitHubConnectionConfig, GitLabConnectionConfig
 from zeroone_ops.models.state import RunStatus
@@ -200,3 +203,58 @@ def test_gitlab_issue_mode_can_suppress_summary_for_combined_control_plane(
     summary = workflow.run()
 
     assert summary.status == RunStatus.FAILED
+
+
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+def test_batch_policy_loader_is_read_only_and_lazy(tmp_path, monkeypatch, platform):
+    monkeypatch.chdir(tmp_path)
+    policy_service = Mock()
+    builder = Mock(return_value=policy_service)
+    prefix = "zeroone_ops.services.workflows.remediation_workflow."
+    monkeypatch.setattr(prefix + f"build_{platform}_policy_issue_service", builder)
+
+    class SelectingRunner:
+        def __init__(self, *, load_batch_policy, **kwargs):
+            builder.assert_not_called()
+            self.load_policy = load_batch_policy
+
+        def run(self, **kwargs):
+            assert self.load_policy() is policy_service.load_policy_state.return_value
+            return RunSummary(
+                run_id="run-1",
+                status=RunStatus.NO_ISSUE,
+                message="No work",
+                state_path=tmp_path / ".zeroone-ops-state.json",
+            )
+
+    monkeypatch.setattr(
+        prefix + ("GitHub" if platform == "github" else "GitLab") + "RemediationRunner",
+        SelectingRunner,
+    )
+    config = (_github_config if platform == "github" else _gitlab_issue_config)(
+        state_path=tmp_path / ".zeroone-ops-state.json"
+    )
+    workflow = RemediationWorkflow(
+        config=config,
+        dry_run=True,
+        publish_operational_summary=False,
+        build_run_id=lambda: "run-1",
+        build_context=build_workflow_run_context,
+        load_github_config=lambda: GitHubConnectionConfig(
+            token="token",
+            repository="team/repo",
+            api_url="https://api.github.example",
+            server_url="https://github.example",
+        ),
+        load_gitlab_config=lambda: GitLabConnectionConfig(
+            url="https://gitlab.example", token="token", project_id="team/repo"
+        ),
+        publish_github_summary=Mock(),
+        publish_gitlab_summary=Mock(),
+    )
+    assert workflow.run().status == RunStatus.NO_ISSUE
+    builder.assert_called_once()
+    policy_service.load_policy_state.assert_called_once_with(
+        **{"repository_id" if platform == "github" else "project_id": "team/repo"},
+        persist=False,
+    )

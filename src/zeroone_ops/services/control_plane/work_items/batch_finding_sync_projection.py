@@ -11,6 +11,7 @@ from zeroone_ops.services.control_plane.work_items.batch_finding_sync_storage im
 from zeroone_ops.services.control_plane.work_items.finding_sync_projection import (
     FindingSyncProjection,
 )
+from zeroone_ops.services.shared.projection_payload import ProjectionSizeExceeded
 
 _CLOSED_STATUSES = {"completed", "dismissed", "policy_deferred", "capacity_deferred"}
 
@@ -51,6 +52,7 @@ class BatchFindingSyncProjection:
                     previous_status,
                     warnings=("Batch projection retained concurrently changed authority",),
                 )
+            self.storage.validate_work_item_projection(desired)
             if not persist:
                 return BatchProjectionOutcome(
                     previous_status, record=replace(current, work_item=desired)
@@ -68,6 +70,13 @@ class BatchFindingSyncProjection:
                 )
             return BatchProjectionOutcome(
                 previous_status, record=result.record, write_action=result.action
+            )
+        except ProjectionSizeExceeded:
+            return BatchProjectionOutcome(
+                previous_status,
+                warnings=(
+                    "Batch projection withheld: projection_size_exceeded; authority retained.",
+                ),
             )
         except Exception:
             return BatchProjectionOutcome(

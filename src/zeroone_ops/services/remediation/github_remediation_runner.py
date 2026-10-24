@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
+from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.providers.github_client import GitHubClient
 from zeroone_ops.services.control_plane.work_items.github_remediation_intake_service import (
     GitHubRemediationIntakeResult,
@@ -43,10 +45,12 @@ class GitHubRemediationRunner(WorkItemRemediationRunner):
         execution_service: ExecutionService | None = None,
         remediation_control_plane: RemediationControlPlane | None = None,
         publication_retry_service: PublicationRetryService | None = None,
+        load_batch_policy: Callable[[], PolicyState] | None = None,
     ) -> None:
         """Initialize GitHub-specific work-item remediation composition."""
         self.repository_id = repository_id
         self.work_item_service = work_item_service
+        self.load_batch_policy = load_batch_policy
         super().__init__(
             repo_root=repo_root,
             config=config,
@@ -77,13 +81,16 @@ class GitHubRemediationRunner(WorkItemRemediationRunner):
         run_id: str,
     ) -> GitHubRemediationIntakeResult:
         """Select and claim one eligible GitHub work item."""
-        return GitHubRemediationIntakeService(
-            work_item_service=self.work_item_service
+        result = GitHubRemediationIntakeService(
+            work_item_service=self.work_item_service,
+            load_batch_policy=self.load_batch_policy,
         ).select_and_claim(
             repository_id=self.repository_id,
             persist=persist,
             run_id=run_id,
         )
+        self.batch_policy = result.batch_policy
+        return result
 
 
 def _github_actions_run_url() -> str | None:

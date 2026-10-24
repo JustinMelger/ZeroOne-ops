@@ -164,6 +164,8 @@ live repo adoption:
 
 Recommended first fields:
 
+- `max_findings_per_work_item`: strict positive integer, default `10`; `1` prevents
+  new multi-member proposals without resizing existing batches.
 - `bootstrap_severities`
 - `target_branch`
 - `max_retry_count`

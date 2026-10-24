@@ -25,7 +25,7 @@ class BatchExecutionScopeService:
     """Select original members only; retries and revisions never acquire new scope."""
 
     def resolve(
-        self, work_item: WorkItemState, policy: PolicyState, *, run_id: str | None = None
+        self, work_item: WorkItemState, policy: PolicyState | None, *, run_id: str | None = None
     ) -> BatchExecutionScopeDecision:
         """Choose recorded publication/revision scope before fresh observation assessment."""
         batch = work_item.batch
@@ -46,6 +46,11 @@ class BatchExecutionScopeService:
                     "blocked", reason="Recorded batch coverage is incomplete."
                 )
             return BatchExecutionScopeDecision("execute", attempt)
+
+        if policy is None:
+            return BatchExecutionScopeDecision(
+                "blocked", reason="Authoritative batch policy is unavailable."
+            )
 
         observations = batch.observations
         if all(o.last_confirmed_presence == "absent" for o in observations):

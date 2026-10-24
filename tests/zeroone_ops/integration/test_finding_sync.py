@@ -374,7 +374,7 @@ def test_sync_findings_dry_run_collects_sarif_without_gitlab_configuration(
     summary = sync_findings(dry_run=True)
 
     assert summary.status.value == "synced"
-    assert "Dry-run identified 1 findings eligible under the configured policy" in summary.message
+    assert "Dry-run identified 1 work items eligible under the configured policy" in summary.message
     assert "0 findings are policy-backlog-only" in summary.message
     assert "loaded authoritative work-item indexes but made no changes" in summary.message
     assert not (tmp_path / ".zeroone-ops-state.json").exists()
@@ -508,7 +508,7 @@ def test_sync_findings_dry_run_reconciles_empty_managed_sarif_source(
 
     assert summary.status.value == "synced"
     assert not (tmp_path / ".zeroone-ops-state.json").exists()
-    assert "Dry-run identified 0 findings eligible under the configured policy" in summary.message
+    assert "Dry-run identified 0 work items eligible under the configured policy" in summary.message
     assert "No syncable findings found." not in summary.message
 
 

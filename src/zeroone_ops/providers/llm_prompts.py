@@ -7,6 +7,7 @@ from functools import cache
 from importlib import resources
 
 from zeroone_ops.models.analysis import IssueContext
+from zeroone_ops.models.batch_execution import BatchAttemptEvidence
 from zeroone_ops.models.remediation import (
     RemediationExecutionTarget,
     RemediationProducerProfile,
@@ -86,7 +87,7 @@ def build_structured_edit_prompt(
 
 
 def _format_batch_evidence(context: IssueContext) -> str:
-    """Serialize complete batch evidence only for internal batch request templates."""
+    """Serialize complete batch evidence only for typed batch request templates."""
     if context.batch_attempt is None:
         return ""
     return _format_remediation_untrusted_block(
@@ -566,7 +567,7 @@ def _format_remediation_review_context(
         if context.item_reference
         else "Item reference: (none)"
     )
-    return _format_untrusted_block(
+    evidence = _format_untrusted_block(
         label="Remediation-authored context",
         content="\n".join(
             [
@@ -595,6 +596,39 @@ def _format_remediation_review_context(
                 ),
             ]
         ),
+    )
+
+    if context.batch_attempt is not None and context.verified_work_item_url is not None:
+        evidence += _format_batch_review_attempt(context.batch_attempt)
+    return evidence
+
+
+def _format_batch_review_attempt(attempt: BatchAttemptEvidence) -> str:
+    """Bound display evidence from verified linkage without changing persisted scope."""
+    packet = {
+        "batch_id": attempt.batch_id[:300],
+        "attempt_number": attempt.attempt_number,
+        "targeted_members": [
+            {
+                "finding_id": member.finding_id[:300],
+                "path": member.repository_path[:300],
+                "rule": (member.remediation_context.diagnostic_code or "")[:300],
+                "line_start": member.line_start,
+                "line_end": member.line_end,
+                "message": member.summary[:300],
+            }
+            for member in attempt.members[:10]
+        ],
+        "omitted_member_count": max(0, len(attempt.members) - 10),
+        "coverage_complete": attempt.coverage is not None and not attempt.coverage.unaddressable,
+    }
+    guidance = (
+        "\n\nCompare the diff with the recorded batch targets and aggregate safety claim. "
+        "Treat unsupported claims as ordinary review findings; "
+        "targeting is not proof of scanner resolution.\n"
+    )
+    return guidance + _format_untrusted_block(
+        label="Verified linked batch attempt evidence", content=json.dumps(packet)
     )
 
 

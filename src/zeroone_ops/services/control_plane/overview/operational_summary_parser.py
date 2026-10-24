@@ -72,7 +72,23 @@ def _parse_observation(value: object) -> FindingSyncObservation | None:
         or projection_warning_count is None
     ):
         return None
-    if total_findings != promoted_findings + backlog_only_findings:
+    batch_counts = {
+        key: _parse_optional_count(value, key)
+        for key in (
+            "selected_member_count",
+            "unknown_freshness_member_count",
+            "selection_blocked_count",
+        )
+    }
+    promoted_work_items = value.get("promoted_work_items", promoted_findings)
+    if not _is_nonnegative_count(promoted_work_items) or any(
+        v is None for v in batch_counts.values()
+    ):
+        return None
+    if (
+        "promoted_work_items" not in value
+        and total_findings != promoted_findings + backlog_only_findings
+    ):
         return None
     return FindingSyncObservation(
         observed_at=observed_at,
@@ -86,6 +102,10 @@ def _parse_observation(value: object) -> FindingSyncObservation | None:
         policy_reactivated_count=policy_reactivated_count,
         no_longer_detected_count=no_longer_detected_count,
         projection_warning_count=projection_warning_count,
+        promoted_work_items=promoted_work_items if "promoted_work_items" in value else None,
+        selected_member_count=batch_counts["selected_member_count"] or 0,
+        unknown_freshness_member_count=batch_counts["unknown_freshness_member_count"] or 0,
+        selection_blocked_count=batch_counts["selection_blocked_count"] or 0,
     )
 
 

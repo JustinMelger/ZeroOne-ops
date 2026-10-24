@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
+from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.services.control_plane.work_items.gitlab_remediation_intake_service import (
     GitLabRemediationIntakeResult,
@@ -42,11 +44,13 @@ class GitLabRemediationRunner(WorkItemRemediationRunner):
         execution_service: ExecutionService | None = None,
         remediation_control_plane: RemediationControlPlane | None = None,
         publication_retry_service: PublicationRetryService | None = None,
+        load_batch_policy: Callable[[], PolicyState] | None = None,
     ) -> None:
         """Initialize GitLab-specific work-item remediation composition."""
         config.require_gitlab_config(reason="GitLab work-item remediation")
         self.project_id = project_id
         self.work_item_service = work_item_service
+        self.load_batch_policy = load_batch_policy
         control_plane = remediation_control_plane or build_remediation_control_plane(
             config,
             gitlab_work_item_service=work_item_service,
@@ -79,10 +83,13 @@ class GitLabRemediationRunner(WorkItemRemediationRunner):
         run_id: str,
     ) -> GitLabRemediationIntakeResult:
         """Select and claim one eligible GitLab work item."""
-        return GitLabRemediationIntakeService(
-            work_item_service=self.work_item_service
+        result = GitLabRemediationIntakeService(
+            work_item_service=self.work_item_service,
+            load_batch_policy=self.load_batch_policy,
         ).select_and_claim(
             project_id=self.project_id,
             persist=persist,
             run_id=run_id,
         )
+        self.batch_policy = result.batch_policy
+        return result

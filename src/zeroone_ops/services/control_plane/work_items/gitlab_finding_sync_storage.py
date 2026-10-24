@@ -7,6 +7,7 @@ from zeroone_ops.models.finding_sync import (
     FindingSyncRecord,
     FindingSyncWriteResult,
 )
+from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.models.work_item import WorkItemKind, WorkItemSourceRef, WorkItemState
 from zeroone_ops.services.control_plane.work_items.batch_finding_sync_storage import (
     load_batch_inventory,
@@ -29,9 +30,12 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_upsert_servi
 class GitLabFindingSyncStorage:
     """Translate normalized sync operations without deciding workflow policy."""
 
-    def __init__(self, work_item_service: GitLabWorkItemService) -> None:
+    def __init__(
+        self, work_item_service: GitLabWorkItemService, *, policy_state: PolicyState | None = None
+    ) -> None:
         """Retain transport and native snapshots without performing I/O."""
         self.work_item_service = work_item_service
+        self.policy_state = policy_state
         self._records = FindingSyncRecordStore[GitLabWorkItemLookupResult]()
 
     def load_inventory(self, *, repository_scope: str) -> FindingSyncInventory:
@@ -97,6 +101,7 @@ class GitLabFindingSyncStorage:
             project_id=repository_scope,
             existing=self._records.native_record(existing),
             work_item=work_item,
+            policy_state=self.policy_state,
         )
         return self._write_result(result, is_open=self._records.projected_is_open(existing))
 
@@ -142,6 +147,12 @@ class GitLabFindingSyncStorage:
             GitLabWorkItemLookupResult(issue=issue, work_item=state, is_open=is_open)
         )
 
+    def validate_work_item_projection(self, work_item: WorkItemState) -> None:
+        """Reject oversized complete bodies before issuing a provider request."""
+        self.work_item_service.upsert_service.renderer.render_body(
+            work_item, policy=self.policy_state
+        )
+
     def create_work_item(
         self, *, repository_scope: str, work_item: WorkItemState
     ) -> FindingSyncWriteResult:
@@ -150,7 +161,7 @@ class GitLabFindingSyncStorage:
         issue = upsert.client.create_issue(
             project_id=repository_scope,
             title=upsert.renderer.render_title(work_item),
-            description=upsert.renderer.render_body(work_item),
+            description=upsert.renderer.render_body(work_item, policy=self.policy_state),
             labels=upsert.renderer.render_labels(work_item),
         )
         return FindingSyncWriteResult(

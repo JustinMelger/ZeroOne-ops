@@ -23,9 +23,6 @@ class RemediationIntakePreparationService:
         if batch is None:
             return RemediationIntakePreparation(work_item)
 
-        if policy is None:
-            raise ValueError("Internal batch intake requires authoritative policy.")
-
         decision = BatchExecutionScopeService().resolve(work_item, policy, run_id=run_id)
         if decision.disposition == "blocked":
             if work_item.status == "review_revision_queued":

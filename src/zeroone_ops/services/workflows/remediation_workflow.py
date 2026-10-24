@@ -43,6 +43,10 @@ from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.workflows.operational_summary import (
     format_operational_summary_publication,
 )
+from zeroone_ops.services.workflows.provider_workflow_builders import (
+    build_github_policy_issue_service,
+    build_gitlab_policy_issue_service,
+)
 from zeroone_ops.services.workflows.workflow_run_context import WorkflowRunContext
 from zeroone_ops.settings import load_mlflow_tracing_config
 
@@ -129,6 +133,9 @@ class RemediationWorkflow:
             repo_root=context.repo_root,
             config=self.config,
             repository_id=github_config.repository,
+            load_batch_policy=lambda: build_github_policy_issue_service(
+                repo_root=context.repo_root, config=self.config, state=context.state
+            ).load_policy_state(repository_id=github_config.repository, persist=False),
             work_item_service=work_item_service,
             run_state_service=context.run_state_service,
         )
@@ -159,6 +166,9 @@ class RemediationWorkflow:
             repo_root=context.repo_root,
             config=self.config,
             project_id=gitlab_config.project_id,
+            load_batch_policy=lambda: build_gitlab_policy_issue_service(
+                repo_root=context.repo_root, config=self.config, state=context.state
+            ).load_policy_state(project_id=gitlab_config.project_id, persist=False),
             work_item_service=work_item_service,
             run_state_service=context.run_state_service,
         )

@@ -1,15 +1,13 @@
 """Characterize finding-sync orchestration through both provider boundaries."""
 
-from dataclasses import asdict
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
 
-from zeroone_ops.models.finding import NormalizedFinding, RemediationContext
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.gitlab import GitLabIssueInfo
-from zeroone_ops.models.policy import PolicySeverityStateEntry, PolicyState
-from zeroone_ops.models.work_item import ChangeRequestRef
+from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemClaim
 from zeroone_ops.services.control_plane.work_items.github_finding_sync_service import (
     GitHubFindingSyncService,
 )
@@ -35,6 +33,17 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_upsert_servi
     GitLabWorkItemUpsertResult,
 )
 
+from .test_batch_finding_sync_coordinator import (
+    SCOPE as NATIVE_SCOPE,
+)
+from .test_batch_finding_sync_coordinator import (
+    batch_state,
+    finding,
+    policy,
+    seed,
+    stored,
+)
+from .test_batch_finding_sync_coordinator import harness as harness
 from .test_support import build_work_item
 
 SCOPE = "octo-org/octo-repo"
@@ -81,201 +90,62 @@ def _boundary(provider, *, status=None, closed=False):
     return service, boundary, scope
 
 
-def _finding():
-    return NormalizedFinding(
-        finding_id="AX123",
-        source_id="sonarqube",
-        title="Fix error",
-        summary="Fix error in api.py",
-        severity="high",
-        repository_path="src/api.py",
-        line_start=42,
-        remediation_context=RemediationContext(category="static_analysis_fix"),
+def public_sync(harness, findings=(), **changes):
+    client, boundary, _ = harness
+    service_type = (
+        GitHubFindingSyncService if client.provider == "github" else GitLabFindingSyncService
     )
-
-
-def _sync(service, scope, *, enabled=True, findings=None, persist=True, managed=True, cap=10):
-    return service.sync(
-        **scope,
-        findings=[_finding()] if findings is None else findings,
-        policy_state=PolicyState(
-            severity_policy=[PolicySeverityStateEntry(severity="high", enabled=enabled)]
+    return service_type(work_item_service=boundary).sync(
+        **{"repository_id" if client.provider == "github" else "project_id": NATIVE_SCOPE},
+        **(
+            dict(findings=list(findings), policy_state=policy(), managed_source_ids={"ruff-sarif"})
+            | changes
         ),
-        managed_source_ids={"sonarqube"} if managed else None,
-        max_active_work_items=cap,
-        persist=persist,
-        run_id="sync-123",
     )
 
 
-@pytest.mark.parametrize("provider", ["github", "gitlab"])
-@pytest.mark.parametrize("persist", [False, True])
+def single_state(status="approved", **changes):
+    state = batch_state(status=status).model_copy(
+        update={
+            "batch": None,
+            "work_item_id": "historical-single",
+        }
+    )
+    return state.model_copy(
+        update={
+            "source": state.source.model_copy(update={"source_item_key": "a"}),
+            **changes,
+        }
+    )
+
+
 @pytest.mark.parametrize(
-    "scenario", ["new", "defer", "reopen", "missing", "missing_closed", "full"]
+    "status", ["candidate", "approved", "policy_deferred", "capacity_deferred"]
 )
-def test_provider_characterization_transition_order_and_counts(provider, persist, scenario):
-    status = {
-        "new": None,
-        "defer": "approved",
-        "reopen": "policy_deferred",
-        "missing": "candidate",
-        "missing_closed": "capacity_deferred",
-        "full": "candidate",
-    }[scenario]
-    service, boundary, scope = _boundary(
-        provider, status=status, closed=scenario in {"reopen", "missing_closed"}
+@pytest.mark.parametrize("persist", [False, True])
+@pytest.mark.parametrize("reported", [False, True])
+def test_historical_single_policy_and_absence_projection(harness, status, persist, reported):
+    original = single_state(status)
+    seed(harness, original, is_open=status in {"candidate", "approved"})
+    result = public_sync(
+        harness, [finding()] if reported else [], policy_state=policy("low"), persist=persist
     )
-    if scenario == "full":
-        active = boundary.list_open_work_items.return_value[0]
-        boundary.list_open_work_items.return_value.append(
-            type(active)(
-                issue=active.issue.model_copy(
-                    update={"number" if provider == "github" else "iid": 12}
-                ),
-                work_item=build_work_item(status="in_progress").model_copy(
-                    update={
-                        "source": active.work_item.source.model_copy(
-                            update={"source_item_key": "active"}
-                        )
-                    }
-                ),
-            )
-        )
-    result = _sync(
-        service,
-        scope,
-        enabled=scenario != "defer",
-        findings=[] if scenario.startswith("missing") else None,
-        persist=persist,
-        managed=scenario != "full",
-        cap=1 if scenario == "full" else 10,
-    )
-    calls = [call[0] for call in boundary.mock_calls]
-    expected = {
-        "new": ["upsert_work_item"],
-        "defer": [
-            "find_open_work_item_by_source",
-            "update_existing_work_item",
-            "close_work_item_issue",
-        ],
-        "reopen": ["reopen_work_item_issue", "update_existing_work_item"],
-        "missing": [
-            "find_open_work_item_by_source",
-            "update_existing_work_item",
-            "close_work_item_issue",
-        ],
-        "missing_closed": ["update_existing_work_item"],
-        "full": [
-            "find_open_work_item_by_source",
-            "update_existing_work_item",
-            "close_work_item_issue",
-        ],
-    }[scenario]
-    assert calls == INVENTORY_CALLS + (expected if persist else [])
-    assert result.promoted_count == int(scenario in {"new", "reopen"})
-    assert result.backlog_only_count == int(scenario in {"defer", "full"})
-    assert result.created_count == int(persist and scenario == "new")
-    assert result.updated_count == int(persist and scenario != "new")
-    assert result.policy_deferred_count == int(persist and scenario == "defer")
-    assert result.capacity_deferred_count == int(persist and scenario == "full")
-    assert result.policy_reactivated_count == int(persist and scenario == "reopen")
-    assert result.no_longer_detected_count == int(persist and scenario.startswith("missing"))
-    assert result.projection_warning_count == 0
-    assert result.normalized_severity_counts == (
-        {} if scenario.startswith("missing") else {"high": 1}
-    )
-
-
-@pytest.mark.parametrize("provider", ["github", "gitlab"])
-@pytest.mark.parametrize("operation", ["lookup", "update", "close", "reopen", "upsert", "list"])
-def test_provider_characterization_failure_boundaries(provider, operation, caplog):
-    status = "policy_deferred" if operation == "reopen" else "approved"
-    if operation in {"upsert", "list"}:
-        status = None
-    service, boundary, scope = _boundary(provider, status=status, closed=operation == "reopen")
-    name = {
-        "lookup": "find_open_work_item_by_source",
-        "update": "update_existing_work_item",
-        "close": "close_work_item_issue",
-        "reopen": "reopen_work_item_issue",
-        "upsert": "upsert_work_item",
-        "list": "list_open_work_items",
-    }[operation]
-    getattr(boundary, name).side_effect = RuntimeError("provider failed")
-    if operation in {"lookup", "upsert", "list"}:
-        with pytest.raises(RuntimeError, match="provider failed"):
-            _sync(service, scope, enabled=operation in {"upsert", "list"})
+    actual = stored(harness)
+    assert actual.batch is None
+    if not persist:
+        assert actual == original
+        assert all(action == "get" for action, _ in harness[0].calls)
     else:
-        result = _sync(service, scope, enabled=operation == "reopen")
-        assert result.projection_warning_count == 1
-        assert result.updated_count == 0
-        label = "GitHub" if provider == "github" else "GitLab"
-        suffix = "reactivation projection failed" if operation == "reopen" else "projection failed"
-        assert f"{label} policy-deferred {suffix}" in caplog.text
-    if operation == "update":
-        boundary.close_work_item_issue.assert_not_called()
-    if operation == "reopen":
-        boundary.update_existing_work_item.assert_not_called()
+        assert actual.status == ("policy_deferred" if reported else "completed")
+        assert actual.resolution == (None if reported else "no_longer_detected")
+        assert not harness[0].open[1]
+        assert actual.work_item_id == original.work_item_id
+        actions = [action for action, _ in harness[0].calls]
+        if status in {"candidate", "approved"}:
+            assert actions.index("update") < actions.index("close")
+    assert result.created_count == 0
 
 
-def test_provider_characterization_full_result_parity():
-    results = []
-    for provider in ["github", "gitlab"]:
-        service, _, scope = _boundary(provider, status="approved")
-        results.append(asdict(_sync(service, scope, enabled=False)))
-    assert results[0] == results[1]
-
-
-@pytest.mark.parametrize("provider", ["github", "gitlab"])
-def test_deferred_inventory_growth_does_not_rescan_current_findings(provider):
-    class CountingFindings(list):
-        def __init__(self, findings):
-            super().__init__(findings)
-            self.iteration_count = 0
-
-        def __iter__(self):
-            self.iteration_count += 1
-            return super().__iter__()
-
-    iteration_counts = []
-    for deferred_count in [1, 25]:
-        service, boundary, scope = _boundary(provider, status="policy_deferred", closed=True)
-        original = boundary.list_closed_policy_deferred_work_items.return_value[0]
-        deferred = [original]
-        for index in range(1, deferred_count):
-            deferred.append(
-                type(original)(
-                    issue=original.issue.model_copy(
-                        update={
-                            "number" if provider == "github" else "iid": 11 + index,
-                        }
-                    ),
-                    work_item=original.work_item.model_copy(
-                        update={
-                            "source": original.work_item.source.model_copy(
-                                update={
-                                    "source_item_key": f"missing-{index}",
-                                }
-                            ),
-                        }
-                    ),
-                    is_open=False,
-                )
-            )
-        boundary.list_closed_policy_deferred_work_items.return_value = deferred
-        findings = CountingFindings([_finding()])
-
-        result = _sync(service, scope, findings=findings, enabled=False)
-
-        assert result.no_longer_detected_count == deferred_count - 1
-        assert result.backlog_reason_counts == {"severity_disabled": 1}
-        assert boundary.update_existing_work_item.call_count == deferred_count - 1
-        boundary.close_work_item_issue.assert_not_called()
-        iteration_counts.append(findings.iteration_count)
-    assert iteration_counts[0] == iteration_counts[1]
-
-
-@pytest.mark.parametrize("provider", ["github", "gitlab"])
 @pytest.mark.parametrize(
     "status",
     [
@@ -287,137 +157,99 @@ def test_deferred_inventory_growth_does_not_rescan_current_findings(provider):
     ],
 )
 @pytest.mark.parametrize("reported", [False, True])
-def test_provider_protected_work_retains_execution_evidence(provider, status, reported):
-    service, boundary, scope = _boundary(provider, status=status)
-    lookup = boundary.list_open_work_items.return_value[0]
-    original = lookup.work_item.model_dump()
-
-    result = _sync(service, scope, enabled=False, findings=None if reported else [])
-
-    boundary.update_existing_work_item.assert_not_called()
-    boundary.upsert_work_item.assert_not_called()
-    boundary.close_work_item_issue.assert_not_called()
-    assert lookup.work_item.model_dump() == original
-    if status == "dismissed" and reported:
-        assert result.backlog_reason_counts == {"dismissed": 1}
-    elif reported:
-        assert result.retained_protected_count == 1
-    else:
-        assert result.stale_retained_protected_count == 1
+def test_historical_protected_work_is_never_rewritten(harness, status, reported):
+    original = single_state(
+        status, linked_change_request=ChangeRequestRef(number=9, web_url="https://example/9")
+    )
+    seed(harness, original)
+    result = public_sync(harness, [finding()] if reported else [], policy_state=policy("low"))
+    assert stored(harness) == original
+    assert result.created_count == result.no_longer_detected_count == 0
+    assert all(
+        action in ({"get", "close"} if status == "dismissed" else {"get"})
+        for action, _ in harness[0].calls
+    )
 
 
-@pytest.mark.parametrize("provider", ["github", "gitlab"])
 @pytest.mark.parametrize(
     "status", ["candidate", "approved", "policy_deferred", "capacity_deferred"]
 )
-def test_provider_missing_unmanaged_inventory_does_not_change_existing_work(provider, status):
-    service, boundary, scope = _boundary(
-        provider, status=status, closed=status.endswith("deferred")
+def test_missing_unmanaged_single_inventory_is_not_absence(harness, status):
+    original = single_state(status)
+    seed(harness, original, is_open=status in {"candidate", "approved"})
+    public_sync(harness, managed_source_ids=set())
+    assert stored(harness) == original
+
+
+@pytest.mark.parametrize("change", ["linked", "in_progress", "claim"])
+def test_single_transition_reread_retains_concurrent_authority(harness, change):
+    original = single_state()
+    seed(harness, original)
+    changed = original.model_copy(
+        update={"linked_change_request": ChangeRequestRef(number=9, web_url="https://example/9")}
+        if change == "linked"
+        else {"status": "in_progress"}
+        if change == "in_progress"
+        else {"claim": WorkItemClaim(claimed_at=datetime(2026, 1, 1, tzinfo=UTC), run_id="other")}
     )
-    result = _sync(service, scope, findings=[], managed=False)
-    assert [call[0] for call in boundary.mock_calls] == INVENTORY_CALLS
-    assert result.no_longer_detected_count == 0
 
-
-@pytest.mark.parametrize("provider", ["github", "gitlab"])
-@pytest.mark.parametrize("changed", ["linked", "in_progress", "missing"])
-def test_provider_reread_protects_changed_authoritative_work(provider, changed):
-    service, boundary, scope = _boundary(provider, status="approved")
-    initial = boundary.list_open_work_items.return_value[0]
-    if changed == "missing":
-        boundary.find_open_work_item_by_source.return_value = None
-    else:
-        state = initial.work_item.model_copy(
-            update=(
-                {"status": "in_progress"}
-                if changed == "in_progress"
-                else {
-                    "linked_change_request": ChangeRequestRef(
-                        number=7, web_url="https://example/pr/7"
-                    )
-                }
-            )
-        )
-        boundary.find_open_work_item_by_source.return_value = type(initial)(
-            issue=initial.issue, work_item=state
-        )
-    result = _sync(service, scope, enabled=False)
-    assert result.retained_protected_count == 1
-    boundary.update_existing_work_item.assert_not_called()
-    boundary.close_work_item_issue.assert_not_called()
-
-
-@pytest.mark.parametrize("provider", ["github", "gitlab"])
-def test_provider_late_dismissal_is_backlog_not_publication(provider):
-    service, boundary, scope = _boundary(provider)
-    original_write = boundary.upsert_work_item.side_effect
-
-    def suppress(**kwargs):
-        result = original_write(**kwargs)
-        return type(result)(
-            issue=result.issue,
-            action="suppressed",
-            work_item=result.work_item.model_copy(update={"status": "dismissed"}),
+    def concurrent_change(number):
+        renderer = harness[1].upsert_service.renderer
+        body_field = "body" if harness[0].provider == "github" else "description"
+        harness[0].issues[number] = (
+            harness[0].issues[number].model_copy(update={body_field: renderer.render_body(changed)})
         )
 
-    boundary.upsert_work_item.side_effect = suppress
-    result = _sync(service, scope)
-    assert result.promoted_count == 0
-    assert result.backlog_only_count == 1
-    assert result.backlog_reason_counts == {"dismissed": 1}
-    assert result.created_count == result.updated_count == result.unchanged_count == 0
-
-
-@pytest.mark.parametrize("provider", ["github", "gitlab"])
-def test_provider_ambiguous_snapshot_does_not_write(provider):
-    service, boundary, scope = _boundary(provider, status="candidate")
-    initial = boundary.list_open_work_items.return_value[0]
-    boundary.list_open_work_items.return_value.append(initial)
-    result = _sync(service, scope)
-    assert result.backlog_reason_counts == {"work_item_identity_ambiguous": 1}
-    assert result.promoted_count == 0
-    assert [call[0] for call in boundary.mock_calls] == INVENTORY_CALLS
-
-
-@pytest.mark.parametrize("provider", ["github", "gitlab"])
-@pytest.mark.parametrize("closed", [False, True])
-def test_provider_stale_completion_failure_warns_without_widening_boundary(
-    provider, closed, caplog
-):
-    service, boundary, scope = _boundary(
-        provider, status="capacity_deferred" if closed else "candidate", closed=closed
-    )
-    boundary.update_existing_work_item.side_effect = RuntimeError("provider failed")
-    result = _sync(service, scope, findings=[])
+    harness[0].on_get = concurrent_change
+    result = public_sync(harness)
+    assert stored(harness) == changed
     assert result.projection_warning_count == 1
-    assert result.no_longer_detected_count == result.updated_count == 0
-    boundary.close_work_item_issue.assert_not_called()
-    assert "completion projection failed" in caplog.text
+    assert not any(action in {"update", "close"} for action, _ in harness[0].calls)
 
 
-@pytest.mark.parametrize("provider", ["github", "gitlab"])
-def test_provider_failed_capacity_closure_preserves_existing_warning_count(provider, caplog):
-    service, boundary, scope = _boundary(provider, status="candidate")
-    active = boundary.list_open_work_items.return_value[0]
-    boundary.list_open_work_items.return_value.append(
-        type(active)(
-            issue=active.issue.model_copy(update={"number" if provider == "github" else "iid": 12}),
-            work_item=build_work_item(status="in_progress").model_copy(
-                update={
-                    "source": active.work_item.source.model_copy(
-                        update={"source_item_key": "active"}
-                    )
-                }
-            ),
-        )
+@pytest.mark.parametrize("failure", ["get", "update", "close", "reopen"])
+def test_projection_failures_warn_without_creating_duplicate_work(harness, failure):
+    state = single_state("policy_deferred" if failure == "reopen" else "approved")
+    seed(harness, state, is_open=failure != "reopen")
+    harness[0].fail = failure
+    result = public_sync(harness, [finding()] if failure == "reopen" else [])
+    assert result.projection_warning_count == 1
+    assert harness[0].create_attempts == 0
+
+
+def test_required_inventory_failure_propagates(harness):
+    harness[0].fail = "list"
+    with pytest.raises(RuntimeError, match="unavailable"):
+        public_sync(harness, [finding()])
+    assert harness[0].create_attempts == 0
+
+
+def test_existing_singles_remain_separate_from_new_batch(harness):
+    original = single_state("candidate")
+    seed(harness, original)
+    result = public_sync(harness, [finding(), finding("b"), finding("c")])
+    assert stored(harness).batch is None
+    assert stored(harness).work_item_id == original.work_item_id
+    assert result.created_count == 0  # Same-group ownership prevents a parallel batch.
+    assert stored(harness).status == "approved"
+
+
+def test_candidate_capacity_deferral_reopens_after_capacity_frees(harness):
+    candidate = single_state("candidate")
+    seed(harness, candidate)
+    active = single_state("in_progress").model_copy(
+        update={
+            "work_item_id": "active-single",
+            "source": candidate.source.model_copy(update={"source_item_key": "active"}),
+        }
     )
-    boundary.close_work_item_issue.side_effect = RuntimeError("provider failed")
-    result = _sync(service, scope, managed=False, cap=1)
-    # Existing capacity projection logs the failure without incrementing this counter.
-    assert result.projection_warning_count == 0
-    assert result.capacity_deferred_count == result.updated_count == 0
-    assert "capacity-deferred projection failed" in caplog.text
-    assert (
-        boundary.update_existing_work_item.call_args.kwargs["work_item"].status
-        == "capacity_deferred"
-    )
+    seed(harness, active)
+    public_sync(harness, [finding()], max_active_work_items=1)
+    assert stored(harness).status == "capacity_deferred"
+    assert not harness[0].open[1]
+    del harness[0].issues[2]
+    del harness[0].open[2]
+    result = public_sync(harness, [finding()], max_active_work_items=1)
+    assert stored(harness).status == "approved"
+    assert harness[0].open[1]
+    assert result.policy_reactivated_count == 1

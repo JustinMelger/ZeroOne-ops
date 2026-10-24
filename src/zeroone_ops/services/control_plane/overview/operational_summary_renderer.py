@@ -101,10 +101,18 @@ class OperationalSummaryRenderer:
         """Render the latest persisted finding-sync observation when available."""
         if observation is None:
             return ["Finding-sync details are unavailable until the next successful sync."]
+        promoted_work_items = (
+            observation.promoted_work_items
+            if observation.promoted_work_items is not None
+            else observation.promoted_findings
+        )
         return [
             f"- Observed: `{observation.observed_at.isoformat()}`",
             f"- Findings: `{observation.total_findings}`",
-            f"- Promoted: `{observation.promoted_findings}`",
+            f"- Promoted finding members: `{observation.promoted_findings}`",
+            f"- Promoted work items: `{promoted_work_items}`",
+            f"- Unknown-freshness members: `{observation.unknown_freshness_member_count}`",
+            f"- Selection-blocked work items: `{observation.selection_blocked_count}`",
             f"- Backlog only: `{observation.backlog_only_findings}`",
             f"- Severities: {_render_counts(observation.severity_counts)}",
             f"- Backlog reasons: {_render_counts(observation.backlog_reason_counts)}",
@@ -161,6 +169,14 @@ def _finding_sync_payload(observation: FindingSyncObservation) -> dict[str, obje
         "policy_reactivated_count": observation.policy_reactivated_count,
         "no_longer_detected_count": observation.no_longer_detected_count,
         "projection_warning_count": observation.projection_warning_count,
+        **(
+            {"promoted_work_items": observation.promoted_work_items}
+            if observation.promoted_work_items is not None
+            else {}
+        ),
+        "selected_member_count": observation.selected_member_count,
+        "unknown_freshness_member_count": observation.unknown_freshness_member_count,
+        "selection_blocked_count": observation.selection_blocked_count,
     }
 
 

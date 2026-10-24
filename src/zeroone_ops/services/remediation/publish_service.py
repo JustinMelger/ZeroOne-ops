@@ -36,6 +36,7 @@ from zeroone_ops.services.shared.branch_manager import (
     BranchManager,
     BranchManagerError,
 )
+from zeroone_ops.services.shared.projection_payload import validate_batch_payload
 
 LOGGER = logging.getLogger(__name__)
 
@@ -106,6 +107,11 @@ class PublishService:
             return PublishResult(
                 error_message="Publish failed: change request description is required."
             )
+        if selected_issue.batch is not None:
+            try:
+                validate_batch_payload(change_request_description)
+            except RuntimeError as error:
+                return PublishResult(error_message=f"Publish failed: {error}")
         control_plane_work_item = None
         pushed_branch: str | None = None
         work_item_semantic_safety = (

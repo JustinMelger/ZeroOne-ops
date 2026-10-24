@@ -130,6 +130,18 @@ class FindingSyncObservationResult(Protocol):
     """Expose successful finding-sync fields persisted by the overview."""
 
     @property
+    def selected_member_count(self) -> int:
+        """Return selected finding members, independently of work-item count."""
+
+    @property
+    def unknown_freshness_member_count(self) -> int:
+        """Return owned members lacking fresh inventory evidence."""
+
+    @property
+    def selection_blocked_count(self) -> int:
+        """Return work items blocked during scope selection."""
+
+    @property
     def promoted_count(self) -> int:
         """Return the number of findings promoted into durable coordination."""
 
@@ -172,8 +184,12 @@ def build_finding_sync_observation(
     """Build the bounded derived observation from one successful finding sync."""
     return FindingSyncObservation(
         observed_at=utc_now(),
-        total_findings=sync_result.promoted_count + sync_result.backlog_only_count,
-        promoted_findings=sync_result.promoted_count,
+        total_findings=sum(sync_result.normalized_severity_counts.values()),
+        promoted_findings=sync_result.selected_member_count,
+        promoted_work_items=sync_result.promoted_count,
+        selected_member_count=sync_result.selected_member_count,
+        unknown_freshness_member_count=sync_result.unknown_freshness_member_count,
+        selection_blocked_count=sync_result.selection_blocked_count,
         backlog_only_findings=sync_result.backlog_only_count,
         severity_counts=sync_result.normalized_severity_counts,
         backlog_reason_counts=sync_result.backlog_reason_counts,

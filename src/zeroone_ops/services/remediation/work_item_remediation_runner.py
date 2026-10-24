@@ -35,12 +35,14 @@ from zeroone_ops.services.remediation.publication_request_builder import (
     RemediationPublicationRequestBuilder,
 )
 from zeroone_ops.services.remediation.recovery.publication_retry_service import (
+    PublicationRetryResult,
     PublicationRetryService,
 )
 from zeroone_ops.services.remediation.remediation_context_builder import (
     RemediationContextBuilder,
 )
 from zeroone_ops.services.shared.branch_revision_lookup import build_branch_revision_lookup
+from zeroone_ops.services.shared.projection_payload import ProjectionSizeExceeded
 from zeroone_ops.services.shared.run_state_service import RunStateService, RunSummary
 from zeroone_ops.utils.git import is_literal_branch_argument
 
@@ -117,10 +119,18 @@ class WorkItemRemediationRunner:
                 failure=FailureDetails(stage=FailureStage.ISSUE_INTAKE, message=message),
             )
 
-        intake_result = self._select_and_claim(
-            persist=not active_dry_run,
-            run_id=record.run_id,
-        )
+        try:
+            intake_result = self._select_and_claim(
+                persist=not active_dry_run,
+                run_id=record.run_id,
+            )
+        except ProjectionSizeExceeded as error:
+            message = f"Batch claim withheld: {error}"
+            return self.run_state_service.fail_run(
+                record=record,
+                error_message=message,
+                failure=FailureDetails(stage=FailureStage.CONTROL_PLANE_UPDATE, message=message),
+            )
         selected_target = intake_result.selected_target
         claimed_work_item = intake_result.claimed_work_item
         if selected_target is None or claimed_work_item is None:
@@ -342,7 +352,7 @@ class WorkItemRemediationRunner:
     ) -> RunSummary | None:
         """Finish absence/failure before context; None authorizes the already-claimed scope."""
         decision = BatchExecutionScopeService().resolve(
-            claimed_work_item, self.batch_policy or PolicyState(), run_id=record.run_id
+            claimed_work_item, self.batch_policy, run_id=record.run_id
         )
         if decision.disposition == "all_absent":
             if active_dry_run:
@@ -368,7 +378,11 @@ class WorkItemRemediationRunner:
             )
         if (
             decision.disposition == "execute"
-            and self.batch_policy is not None
+            and (
+                self.batch_policy is not None
+                or claimed_work_item.publication_retry is not None
+                or claimed_work_item.status == "review_revision_queued"
+            )
             and selected_target.batch_attempt == decision.attempt
         ):
             return None
@@ -484,7 +498,7 @@ class WorkItemRemediationRunner:
         if publication_retry is None:  # pragma: no cover - guarded by caller
             raise ValueError("Publication retry requires recorded retry state.")
         if selected_target.batch is not None:
-            decision = BatchExecutionScopeService().resolve(claimed_work_item, PolicyState())
+            decision = BatchExecutionScopeService().resolve(claimed_work_item, None)
             if decision.disposition != "execute":
                 if not active_dry_run:
                     self._mark_publish_retry_blocked_best_effort(
@@ -517,16 +531,21 @@ class WorkItemRemediationRunner:
             branch_revision_lookup=build_branch_revision_lookup(self.config),
             change_request_publisher=build_remediation_change_request_publisher(self.config),
         )
-        result = retry_service.retry(
-            publication_retry=publication_retry,
-            request=RemediationPublicationRequestBuilder(self.config).build(
-                selected_issue=selected_target,
-                source_branch=publication_retry.branch_name,
-                change_summary="Retrying publication for the existing remediation branch.",
-                remediation_intent=publication_retry.remediation_intent,
-                semantic_safety=publication_retry.semantic_safety,
-            ),
-        )
+        try:
+            result = retry_service.retry(
+                publication_retry=publication_retry,
+                request=RemediationPublicationRequestBuilder(self.config).build(
+                    selected_issue=selected_target,
+                    source_branch=publication_retry.branch_name,
+                    change_summary="Retrying publication for the existing remediation branch.",
+                    remediation_intent=publication_retry.remediation_intent,
+                    semantic_safety=publication_retry.semantic_safety,
+                ),
+            )
+        except ProjectionSizeExceeded:
+            result = PublicationRetryResult(
+                error_message="Recorded batch publication exceeds the application payload budget."
+            )
         if not result.succeeded or result.change_request is None:
             message = result.error_message or "Recorded branch publication retry failed."
             failure = FailureDetails(stage=FailureStage.PUBLISH, message=message)
@@ -651,7 +670,7 @@ class WorkItemRemediationRunner:
         if claimed_work_item.status != "review_revision_queued":
             return selected_target, None
         if claimed_work_item.batch is not None:
-            scope = BatchExecutionScopeService().resolve(claimed_work_item, PolicyState())
+            scope = BatchExecutionScopeService().resolve(claimed_work_item, None)
             if scope.disposition != "execute":
                 return selected_target, FailureDetails(
                     stage=FailureStage.ISSUE_INTAKE,

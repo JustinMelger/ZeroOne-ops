@@ -6,8 +6,12 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.models.remediation import remediation_source_display_name
 from zeroone_ops.models.work_item import WorkItemState, work_item_resolution_display_name
+from zeroone_ops.services.control_plane.work_items.batch_work_item_view import (
+    render_batch_task_lines,
+)
 from zeroone_ops.services.control_plane.work_items.work_item_labels import (
     AUTHORITATIVE_WORK_ITEM_LABEL,
     render_work_item_labels,
@@ -18,6 +22,7 @@ from zeroone_ops.services.remediation.batch_analysis_rejection_presentation impo
 from zeroone_ops.services.remediation.semantic_safety_presentation import (
     render_semantic_safety_lines,
 )
+from zeroone_ops.services.shared.projection_payload import validate_batch_payload
 
 
 @dataclass(frozen=True)
@@ -42,6 +47,15 @@ class WorkItemRenderer:
 
     def render_title(self, work_item: WorkItemState) -> str:
         """Render one compact provider work-item title."""
+        if work_item.batch is not None:
+            group = work_item.batch.group
+            title = (
+                f"ZeroOne Ops: {group.rule_id} - {len(work_item.batch.members)} findings "
+                f"in {Path(group.file_path).name}"
+            )
+            return _truncate_title(
+                " ".join(title.splitlines()), maximum_length=self._MAX_TITLE_LENGTH
+            )
         diagnostic_code = work_item.remediation_context.diagnostic_code
         if diagnostic_code is not None and work_item.file_path is not None:
             title = f"ZeroOne Ops: {diagnostic_code} in {Path(work_item.file_path).name}"
@@ -55,7 +69,7 @@ class WorkItemRenderer:
             maximum_length=self._MAX_TITLE_LENGTH,
         )
 
-    def render_body(self, work_item: WorkItemState) -> str:
+    def render_body(self, work_item: WorkItemState, *, policy: PolicyState | None = None) -> str:
         """Render one deterministic provider work-item issue body."""
         finding_description = self._finding_description(work_item)
         lines = [
@@ -68,18 +82,23 @@ class WorkItemRenderer:
         ]
         if work_item.detail is not None and work_item.detail != finding_description:
             lines.extend(["", work_item.detail])
-        lines.extend(
-            [
-                "",
-                "## Status",
-                "",
-                f"- Status: `{work_item.status}`",
-                f"- Severity: `{work_item.severity or 'unknown'}`",
-                f"- Source: {remediation_source_display_name(work_item.source.source)}",
-            ]
-        )
-        if work_item.resolution is not None:
-            lines.append(f"- Resolution: {work_item_resolution_display_name(work_item.resolution)}")
+        if work_item.batch is not None:
+            lines = render_batch_task_lines(work_item, policy)
+        if work_item.batch is None:
+            lines.extend(
+                [
+                    "",
+                    "## Status",
+                    "",
+                    f"- Status: `{work_item.status}`",
+                    f"- Severity: `{work_item.severity or 'unknown'}`",
+                    f"- Source: {remediation_source_display_name(work_item.source.source)}",
+                ]
+            )
+            if work_item.resolution is not None:
+                lines.append(
+                    f"- Resolution: {work_item_resolution_display_name(work_item.resolution)}"
+                )
         if work_item.batch is not None and work_item.batch.selection_failure is not None:
             selection_failure = work_item.batch.selection_failure
             reason = {
@@ -95,19 +114,24 @@ class WorkItemRenderer:
             lines.extend(
                 [
                     "",
-                    "Correct the cause, then request `/zeroone remediation requeue` on this issue.",
+                    (
+                        "Correct the cause, then post `/zeroone remediation requeue` here."
+                        if work_item.status == "blocked"
+                        else "Historical selection evidence; follow the current status guidance."
+                    ),
                     "Observation updates do not automatically unblock this batch.",
                 ]
             )
-        lines.extend(["", "## Location", ""])
-        if work_item.file_path is not None:
-            lines.append(f"- File: `{work_item.file_path}`")
-        if work_item.line is not None:
-            lines.append(f"- Line: `{work_item.line}`")
-        if work_item.remediation_context.diagnostic_code is not None:
-            lines.append(f"- Rule: `{work_item.remediation_context.diagnostic_code}`")
-        if work_item.file_path is None and work_item.line is None:
-            lines.append("No repository location is available.")
+        if work_item.batch is None:
+            lines.extend(["", "## Location", ""])
+            if work_item.file_path is not None:
+                lines.append(f"- File: `{work_item.file_path}`")
+            if work_item.line is not None:
+                lines.append(f"- Line: `{work_item.line}`")
+            if work_item.remediation_context.diagnostic_code is not None:
+                lines.append(f"- Rule: `{work_item.remediation_context.diagnostic_code}`")
+            if work_item.file_path is None and work_item.line is None:
+                lines.append("No repository location is available.")
         lines.extend(["", f"## {self._vocabulary.change_request_heading}", ""])
         if work_item.linked_change_request is None:
             lines.append(self._vocabulary.no_change_request)
@@ -257,7 +281,8 @@ class WorkItemRenderer:
             lines.extend(self._render_recovery_instructions(work_item))
         lines.extend(["", "## Machine State", ""])
         lines.extend(self._render_state_block(work_item))
-        return "\n".join(lines).rstrip() + "\n"
+        body = "\n".join(lines).rstrip() + "\n"
+        return validate_batch_payload(body) if work_item.batch is not None else body
 
     def render_labels(self, work_item: WorkItemState) -> list[str]:
         """Render the provider label projection for one work item."""

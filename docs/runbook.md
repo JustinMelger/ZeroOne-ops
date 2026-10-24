@@ -815,43 +815,58 @@ Everything else in the JSON config is optional and falls back to application
 defaults unless your repository needs custom behavior.
 
 In GitHub and GitLab issue control-plane modes,
-`remediation.max_active_work_items` defaults to `10` and bounds open approved
-and in-progress remediation work items across all finding sources. Findings
-that exceed the limit remain backlog-only until a later sync finds capacity.
+`remediation.max_active_work_items` defaults to `10` and bounds open approved,
+in-progress, and review-feedback/revision work items across all finding sources.
+Findings that exceed the limit remain backlog-only until a later sync finds capacity.
+Active owned findings are not backlog and are not counted as new promotions on
+repeat syncs. A failed or uncertain capacity-releasing transition retains its
+reservation for that run; the sync warns and later runs can reconcile it.
 
-`remediation.max_findings_per_work_item` is accepted as a strict positive integer
-with default `10` by the dormant batching foundation. It currently affects only
-the standalone planner and internal batch-sync coordinator, not live finding sync,
-intake, or execution. A value of
-`1` produces singleton proposals; no configured value enables batch creation at
-this stage. Keep deployed configurations unchanged until the remaining
-[batching slices](roadmap.md#remediation-batching) are implemented and validated.
+New work uses promotion-time file/rule batching on both GitHub and GitLab.
+`remediation.max_findings_per_work_item` defaults to `10` and accepts only strict
+positive integers. A value of `1` prevents multi-member proposals. Existing
+single-finding issues and frozen batch memberships remain unchanged.
 
-The internal slice 2 coordinator is tested against both provider storage adapters
-but is not wired into runners or the CLI. It refreshes frozen-member observations,
-reconciles policy/capacity deferral and complete-inventory absence, and guards
-batch creation with ownership/dismissal rechecks. Batch records are explicitly
-excluded from production remediation intake until slice 4 rollout. Slice 3 supplies
-internal full-member execution, analysis accounting, and recovery; there is no
-configuration flag that enables this path.
-Single-finding analysis and edit prompts retain their existing contracts. The
-internal batch path has separate prompts and an extended analysis response model;
-production activation and batch reviewer guidance belong to slice 4.
-Observation refresh does not reopen manually closed protected approved batches;
-their ownership is retained, and lifecycle still handles linked PR/MR outcomes.
+Generate current target-branch reports before finding sync. The shared coordinator
+refreshes member observations, applies policy/capacity decisions, and rechecks
+ownership/dismissal before creation. Source priorities rank batches before
+severity; one active batch consumes one work-item slot. Excess members stay in
+aggregate backlog. Incomplete sources cannot establish absence. There is no
+new enablement flag, migration, splitting command, or atomic reservation.
 
-Within this internal path, incompatible executable requirements or refreshed
-evidence outside the frozen file/rule scope block existing safe unstarted work.
-A compact **Selection** section identifies the cause and bounded member references;
-it is not a failed execution record. Closed deferred issues are made visible again
-only after the blocked state is persisted. Observation changes do not automatically
-unblock work; internal fresh operator-authorized reassessment belongs to remediation recovery.
-Ordinary capacity/policy deferrals remain closed. Unpromoted findings do not get
-notification issues, and full batch issue/summary UX remains slice 4.
+Fresh batch intake reads policy once, without creating or updating the policy
+issue, and carries that snapshot through claim and execution. A failed lookup
+withholds fresh batches, not independent single-finding work or recorded retry
+and revision scope. Complete context and analysis accounting are mandatory:
+no representative-only or partial batch change is published.
 
-Internal batch execution targets the complete remaining policy-eligible scope,
-not an arbitrary representative finding. Insufficient context, incomplete analysis
-accounting, or unsafe/manual work blocks the complete batch before editing.
+Batch issues show original, detected, absent, unknown-freshness, policy-excluded,
+planned-targeted and recorded-attempt counts. Policy-dependent counts are marked
+**not evaluated** when no explicit policy is supplied. Display tables show at
+most ten members with 300-character message excerpts; collapsed machine state
+retains all evidence. Targeted, absent, and merged are different facts.
+
+A safely unstarted batch manually closed by an operator releases ownership;
+reported members may create new work. Dismiss it instead to suppress exact
+members. Closing protected/started work does not release ownership. Linked
+request terminal states remain lifecycle-owned. Selection failures remain
+blocked until an authorized operator corrects the cause and posts a new
+`/zeroone remediation requeue` on the work-item issue. Observation refresh
+never unblocks work automatically.
+
+The complete serialized batch issue body and PR/MR description must fit a
+60,000 UTF-8 byte **application** budget, not a claimed provider-native limit.
+Oversized new proposals remain backlog-only with `projection_size_exceeded`;
+existing updates retain previous authority and emit a bounded warning/failure.
+Claim failure prevents execution and publication payload failure prevents push
+or request publication. Evidence is never cut to fit; reduce the new-batch
+limit or resolve the cause before retrying. There is no automatic splitting.
+
+Batch analysis/edit prompts and schemas activate only for typed batch targets.
+Review receives bounded attempt evidence only from unique verified work-item
+linkage and evaluates the diff against it as untrusted claims, never proof.
+Single-finding prompts and schemas retain their contracts.
+
 For rejected batch analysis, **Last Execution** shows bounded affected-member
 references and reasons, plus an omitted count when needed. Correct the stated
 cause before explicitly requeueing. These are rejection diagnostics, not accepted

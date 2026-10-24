@@ -3,12 +3,16 @@
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import replace
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import PurePosixPath
 from uuid import uuid4
 
 from zeroone_ops.models.finding import NormalizedFinding
-from zeroone_ops.models.finding_batch import BatchMemberObservation, WorkItemBatch
+from zeroone_ops.models.finding_batch import (
+    BatchMemberObservation,
+    FindingBatchIdentity,
+    WorkItemBatch,
+)
 from zeroone_ops.models.finding_batch_promotion import (
     FindingBatchPromotionPlan,
     FindingBatchPromotionUnit,
@@ -27,6 +31,7 @@ from zeroone_ops.services.control_plane.work_items.batch_finding_sync_storage im
 from zeroone_ops.services.intake.finding_batch_identity import create_finding_batch_identity
 from zeroone_ops.services.intake.finding_batch_ownership import build_finding_batch_ownership
 from zeroone_ops.services.intake.finding_batch_promotion_service import FindingBatchPromotionService
+from zeroone_ops.services.shared.projection_payload import ProjectionSizeExceeded
 
 _UNCERTAIN_CREATE = "Batch create outcome is uncertain; no create retry will be attempted"
 _OWNERSHIP_UNAVAILABLE = "Batch creation withheld because ownership could not be established"
@@ -62,12 +67,25 @@ class BatchFindingCreationService:
                     warnings=("Batch creation withheld after ownership recheck",),
                 )
             if not context.persist:
+                preview = _new_work_item(
+                    unit,
+                    context.repository_scope,
+                    context.run_id,
+                    datetime(2000, 1, 1, microsecond=999999, tzinfo=UTC),
+                    identity=FindingBatchIdentity(
+                        work_item_id="work-00000000000040008000000000000000",
+                        source_item_key="batch-v1:00000000000040008000000000000000",
+                    ),
+                )
+                self.storage.validate_work_item_projection(preview)
                 return BatchCreationOutcome(selected_member_count=len(unit.members))
 
             if context.now is None:
                 raise ValueError("Live batch creation requires an observation timestamp.")
             work_item = _new_work_item(unit, context.repository_scope, context.run_id, context.now)
             return self._create_once(work_item, context, len(unit.members))
+        except ProjectionSizeExceeded:
+            return _oversized_outcome(len(unit.members))
         except Exception:
             # Failed authority reads cannot authorize creation, even if earlier reads succeeded.
             return BatchCreationOutcome(
@@ -127,6 +145,8 @@ class BatchFindingCreationService:
                 )
             ):
                 raise ValueError("Create response changed assigned identity.")
+        except ProjectionSizeExceeded:
+            return _oversized_outcome(proposed_member_count)
         except Exception:
             return self._rediscover(work_item, context, proposed_member_count)
 
@@ -191,14 +211,19 @@ def _highest_severity_member(members: Sequence[NormalizedFinding]) -> Normalized
 
 
 def _new_work_item(
-    unit: FindingBatchPromotionUnit, scope: str, run_id: str, now: datetime
+    unit: FindingBatchPromotionUnit,
+    scope: str,
+    run_id: str,
+    now: datetime,
+    *,
+    identity: FindingBatchIdentity | None = None,
 ) -> WorkItemState:
     """Freeze all selected evidence and allocate one durable identity only after authorization."""
     first = unit.members[0]
     batch = None
     source_key = first.finding_id
     if unit.group is not None:
-        identity = create_finding_batch_identity()
+        identity = identity or create_finding_batch_identity()
         identifier, source_key = identity.work_item_id, identity.source_item_key
         batch = WorkItemBatch(
             group=unit.group,
@@ -217,7 +242,7 @@ def _new_work_item(
             ),
         )
     else:
-        identifier = f"work-{uuid4().hex}"
+        identifier = identity.work_item_id if identity is not None else f"work-{uuid4().hex}"
     return WorkItemState(
         work_item_id=identifier,
         kind="remediation",
@@ -237,4 +262,11 @@ def _new_work_item(
         line=first.line_start,
         remediation_context=first.remediation_context.model_copy(deep=True),
         batch=batch,
+    )
+
+
+def _oversized_outcome(member_count: int) -> BatchCreationOutcome:
+    return BatchCreationOutcome(
+        backlog_reason_counts={"projection_size_exceeded": member_count},
+        warnings=("Batch creation withheld: projection_size_exceeded (60,000 UTF-8 bytes).",),
     )
