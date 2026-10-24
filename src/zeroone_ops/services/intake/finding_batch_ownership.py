@@ -32,6 +32,7 @@ def is_safe_unstarted_batch(work_item: WorkItemState) -> bool:
                 work_item.review_revision_request,
                 work_item.last_revision_command,
                 work_item.review_action_required_at,
+                work_item.batch_attempt,
             )
         )
     )

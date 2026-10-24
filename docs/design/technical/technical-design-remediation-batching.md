@@ -2,12 +2,12 @@
 
 ## Status And Ownership
 
-**Slices 1 and 2 are internal foundations; production workflow integration remains proposed.**
+**Slices 1 through 3 are internal foundations; production activation remains slice 4.**
 This document specifies the
 [functional batching contract](../functional/functional-design-remediation-batching.md).
 The foundation is described below; remaining interfaces are proposals, not live
 workflow guarantees.
-Implementation and release placement require separate approval. The
+Production activation and release placement remain separate decisions. The
 [file-grouping design](technical-design-finding-file-grouping.md) is optional
 background, not an ingestion prerequisite.
 
@@ -52,10 +52,12 @@ otherwise selectable mismatched work as blocked. Full batch UX remains slice 4.
 `BatchFindingSyncCoordinator` is transitional internal composition. It consumes
 the existing planner through a batch-specific extension of normalized storage;
 neither provider's production finding-sync service invokes it. Connect this path
-only when slice 3 implements complete execution coverage, replacing transitional
+only in slice 4 after complete execution coverage and operator UX are verified, replacing transitional
 composition rather than retaining permanent parallel finding-sync workflows.
 No configuration flag or CLI command activates it. Shared intake explicitly
-rejects batch records until that execution contract is ready.
+rejects batch records until that rollout is ready. Internal slice 3 tests inject
+batch-capable eligibility and authoritative policy into the same intake coordinator;
+there is no operator enablement flag.
 
 The coordinator sequences focused components rather than owning their internals:
 `FindingBatchReconciliationService` makes pure observation, eligibility, and
@@ -93,7 +95,91 @@ Optional `WorkItemBatch.selection_failure` holds a mismatch reason, run/time,
 at most ten unique original member IDs, and an omitted count, never raw constraints
 or execution output. Safe selectable failures become blocked, clear deferral
 evidence, and render a bounded shared **Selection** section. They remain blocked
-until explicit recovery; unsupported execution/requeue reassessment is slice 3.
+until explicit recovery; internal execution/requeue reassessment is supplied by slice 3.
+
+### Slice 3 Internal Execution And Recovery
+
+Production single-finding prompts and the `IssueAnalysis` response schema remain
+unchanged. Internal typed batch targets select dedicated analysis/edit templates
+and the separate `BatchIssueAnalysis` schema; no configuration enables them.
+Only analysis requests produce member accounting. Edit requests consume accepted
+accounting and permit independent minimal same-rule corrections within the one
+original file; they do not request analysis fields in the edit response.
+Batch review-prompt guidance is deferred to slice 4, even though the typed review
+context can already retain verified attempt evidence. Slice 4 must explicitly
+review and live-validate production batch prompt/schema activation and reviewer
+handoff rather than silently changing all production requests in slice 3.
+
+`BatchExecutionScopeService` resolves original detected members through shared
+per-member policy and requirement checks. It retains detected-but-stale evidence,
+excludes confirmed absence, and never expands frozen membership. Intake persists
+`BatchAttemptEvidence` with the claim, including immutable member snapshots and
+observation-run references. Optional analysis coverage must exactly partition
+targeted identities; unaddressable/manual members and semantic-safety rejection
+block the entire batch rather than dismissing its other members.
+
+Rejected analysis preserves a separate optional `batch_rejection` packet on
+`WorkItemExecutionFailure`, not on accepted coverage. It identifies missing or
+invalid accounting, unaddressable members, or manual classification. Retain at
+most ten affected member display references (300 characters each), bounded
+reasons (600 characters each), and an omitted count. References truncated for
+display are never used for identity, policy, or execution decisions. Both issue
+providers render this packet under **Last Execution** with escaped text. Fresh
+recovery clears the current failure through existing transitions; history may
+retain the prior rejection. No partial edit or publication is authorized.
+
+Batch context uses one enclosing excerpt or the full file. Missing locations
+require full-file context; invalid locations or spans outside the existing file
+byte/line budget stop before model calls. Large-file excerpts retain the existing
+`context_lines_before + context_lines_after + 1` line budget and `max_file_bytes`
+byte ceiling. Required members are never silently truncated or clamped.
+For same-request revisions, published member locations are historical: if those
+lines were removed by the initial fix, full-file context is allowed within the
+existing byte limit. The member mandate is retained; no location is silently
+rewritten, and no large-file historical-location fallback bypasses the bounds.
+
+Validation retries retain accounting and semantic-safety evidence. Publication
+results carry recorded retry state into execution failure projection so a later
+blocked-state write cannot erase it. Publication retry and review revisions use
+the committed attempt, not new observations. Only authorized fresh recovery can
+complete current all-absent work without an edit. Review obtains attempt evidence
+through unique persisted linkage, never description parsing.
+
+Absence-driven execution completion uses a narrow existing-issue update rather
+than a create-capable upsert. The provider's single authoritative lookup supplies
+the latest state to the shared completion guard. All members must still be
+confirmed absent with current freshness; identity, membership, attempt, status,
+claim, and absence of linked/retry/revision work must still permit completion.
+No additional provider read is introduced. Missing or closed authority is not
+recreated. Refusal performs no write; a failed projection is unconfirmed and
+triggers no follow-up overwrite of authority. Both return an explicit non-completed
+result; the runner records a failed control-plane
+update rather than claiming absence completion. It does not overwrite newer work
+with a blocked-state projection. Existing lifecycle/status handling of claims
+remains unchanged. Dry runs report a preview requiring live revalidation, never
+durable completion. The race after this read remains outside the v1 guarantee.
+
+Shared state reconstruction and omission-preserving merges retain batch and
+attempt evidence. Internal intake indexes the supplied complete open inventory
+before ranking: conflicting batch group/member owners are withheld without a
+claim, while unrelated work remains selectable. This includes reopened old batches;
+the check adds no provider reads and is not an atomic reservation.
+
+`RemediationIntakePreparationService` owns scope preparation and returns a typed
+blocking decision; the coordinator owns clocks, claims, and persistence. Invalid
+queued revisions keep their revision route so failure returns to review feedback.
+At the provider's authoritative upsert read, execution uses
+`merge_remediation_work_item_state`: the persisted `batch` (frozen membership,
+observations, and selection evidence) remains sync-owned, while `batch_attempt`
+is execution-owned. Attempt evidence is revalidated against persisted membership.
+Finding-sync writes retain the normal explicit replacement merge; this is not a
+global rule preventing observation updates. The read-before-write race remains
+until atomic provider transitions are introduced.
+
+Minimal request descriptions enumerate targeted identities and
+retain validation/safety evidence without claiming scanner-verified fixes.
+Production sync and provider intake remain unchanged; slice 4 owns activation,
+full issue/summary UX, provider body-size safeguards, and live validation.
 
 Immediately before each create, refresh ownership and exact dismissal inventory
 and re-plan the proposed unit without shrinking it. Allocate identity only after
@@ -580,10 +666,13 @@ Delivery remains sequential and reviewable:
 2. Extend provider indexes/storage, sync observations, and projection under the
    existing scan-before-sync contract. Keep batch publication unavailable until
    execution support is complete.
-3. Integrate context coverage, analysis, one-file execution, evidence persistence,
-   recovery/retries, review, and rendering. Only then enable new batch creation.
-4. Complete GitHub/GitLab parity, existing-single regressions, and live rollout
-   validation. Document scan-before-sync requirements and stale-report limitations.
+3. Integrate internal context coverage, analysis, one-file execution, evidence
+   persistence, recovery/retries, typed review context, and minimal publication evidence.
+   Keep production batch creation and intake disabled.
+4. Complete operator UX, rollout safeguards, GitHub/GitLab parity, existing-single
+   regressions, production prompt/schema activation, batch review guidance, and
+   live validation. Document scan-before-sync
+   requirements and stale-report limitations.
 
 Implementation must run Ruff, formatting, architecture checks, mypy, Bandit,
 and the full suite, followed by workflow boundary review. This documentation-only

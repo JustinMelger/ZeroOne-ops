@@ -33,9 +33,9 @@ then follow the relevant current contract.
   describe a reviewed contract whose end-to-end workflow is not enabled. They cover bounded batches,
   new work items only, and one-file execution on both providers. Existing
   single-finding issues are not migrated or consolidated.
-  Slices 1 and 2 provide dormant models/planning and internal sync/projection
-  with provider-parity tests. Production batch creation and execution remain
-  disabled until the execution slice and later rollout validation.
+  Slices 1 through 3 provide dormant models/planning, internal sync/projection,
+  and complete execution/recovery with provider-parity tests. Production batch
+  creation and intake remain disabled until slice 4 UX and rollout validation.
 - [Finding file grouping functional design](functional/functional-design-finding-file-grouping.md)
   and [technical design](technical/technical-design-finding-file-grouping.md)
   remain parked background for derived inventories. They are not prerequisites

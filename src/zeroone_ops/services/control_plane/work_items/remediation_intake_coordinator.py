@@ -3,8 +3,15 @@
 from collections.abc import Callable, Sequence
 from datetime import datetime
 
+from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.models.remediation_intake import RemediationIntakeOutcome, RemediationIntakeRecord
-from zeroone_ops.models.work_item import WorkItemClaim, WorkItemState
+from zeroone_ops.models.work_item import WorkItemClaim, WorkItemExecutionFailure, WorkItemState
+from zeroone_ops.services.control_plane.work_items.remediation_intake_ownership import (
+    conflicting_intake_batches,
+)
+from zeroone_ops.services.control_plane.work_items.remediation_intake_preparation_service import (
+    RemediationIntakePreparationService,
+)
 from zeroone_ops.services.control_plane.work_items.remediation_work_item_selection_service import (
     is_remediation_execution_eligible,
     remediation_execution_selection_key,
@@ -17,9 +24,17 @@ from zeroone_ops.services.remediation.remediation_execution_adapter import (
 class RemediationIntakeCoordinator:
     """Select and optionally claim one item using provider-local persistence."""
 
-    def __init__(self, *, clock: Callable[[], datetime]) -> None:
+    def __init__(
+        self,
+        *,
+        clock: Callable[[], datetime],
+        eligibility: Callable[[WorkItemState], bool] = is_remediation_execution_eligible,
+        batch_policy: PolicyState | None = None,
+    ) -> None:
         """Retain the clock without reading time or accessing providers."""
         self.clock = clock
+        self.eligibility = eligibility
+        self.batch_policy = batch_policy
 
     def select_and_claim(
         self,
@@ -40,13 +55,18 @@ class RemediationIntakeCoordinator:
         Returns:
             The selected record and execution target, or an empty selection.
         """
+        conflicts = conflicting_intake_batches(records)
         candidates = [
-            record for record in records if is_remediation_execution_eligible(record.work_item)
+            record
+            for record in records
+            if self.eligibility(record.work_item)
+            and (record.work_item.source.repository_scope, record.issue_number) not in conflicts
         ]
         if not candidates:
             return RemediationIntakeOutcome(
                 selected_record=None, selected_target=None, item_count=len(records)
             )
+
         selected = min(
             candidates,
             key=lambda record: remediation_execution_selection_key(
@@ -55,18 +75,39 @@ class RemediationIntakeCoordinator:
                 provider_issue_number=record.issue_number,
             ),
         )
+        preparation = RemediationIntakePreparationService().prepare(
+            selected.work_item, policy=self.batch_policy, run_id=run_id
+        )
+        work_item = preparation.work_item
         if persist:
-            claimed = selected.work_item.model_copy(
-                update={
-                    "status": (
-                        "review_revision_queued"
-                        if selected.work_item.status == "review_revision_queued"
-                        else "in_progress"
-                    ),
-                    "claim": WorkItemClaim(claimed_at=self.clock(), run_id=run_id),
-                }
+            timestamp = self.clock()
+            if preparation.blocking_reason is not None:
+                work_item = work_item.model_copy(
+                    update={
+                        "execution_failure": WorkItemExecutionFailure(
+                            stage="issue_intake",
+                            summary=preparation.blocking_reason,
+                            retry_count=0,
+                            run_id=run_id or "remediation",
+                            occurred_at=timestamp,
+                        )
+                    }
+                )
+            else:
+                work_item = work_item.model_copy(
+                    update={
+                        "status": "review_revision_queued"
+                        if work_item.status == "review_revision_queued"
+                        else "in_progress",
+                        "claim": WorkItemClaim(claimed_at=timestamp, run_id=run_id),
+                    }
+                )
+            selected = persist_work_item(work_item)
+        elif work_item is not selected.work_item:
+            selected = RemediationIntakeRecord(
+                work_item, selected.issue_number, selected.issue_url, selected.created_at
             )
-            selected = persist_work_item(claimed)
+
         return RemediationIntakeOutcome(
             selected_record=selected,
             selected_target=control_plane_work_item_to_execution_target(

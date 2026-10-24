@@ -7,13 +7,36 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from zeroone_ops.models.work_item import ChangeRequestRef, ProjectedReviewFeedback
+from zeroone_ops.models.batch_execution import BatchAttemptEvidence
+from zeroone_ops.models.finding_batch import WorkItemBatch
+from zeroone_ops.models.work_item import (
+    ChangeRequestRef,
+    ProjectedReviewFeedback,
+    WorkItemClaim,
+    WorkItemState,
+)
 
 STATIC_ANALYSIS_FIX_CATEGORY = "static_analysis_fix"
 _LEGACY_REMEDIATION_CATEGORY_ALIASES = {
     "code_smell_fix": STATIC_ANALYSIS_FIX_CATEGORY,
     "lint_fix": STATIC_ANALYSIS_FIX_CATEGORY,
 }
+
+
+@dataclass(frozen=True)
+class RemediationCompletionRequest:
+    """Describe an absence-driven completion and the execution claim it may release."""
+
+    work_item: WorkItemState
+    expected_claim: WorkItemClaim | None
+
+
+@dataclass(frozen=True)
+class RemediationCompletionResult:
+    """Report confirmed completion separately from a retained or unavailable authority."""
+
+    completed: bool
+    message: str
 
 
 def normalize_remediation_category(category: str | None) -> str | None:
@@ -55,6 +78,8 @@ class RemediationExecutionTarget(BaseModel):
     revision_branch: str | None = None
     reviewed_sha: str | None = None
     revision_change_request: ChangeRequestRef | None = None
+    batch: WorkItemBatch | None = None
+    batch_attempt: BatchAttemptEvidence | None = None
 
 
 @dataclass(frozen=True)

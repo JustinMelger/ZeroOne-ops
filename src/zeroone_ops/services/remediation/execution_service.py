@@ -20,7 +20,7 @@ from zeroone_ops.models.change_request import ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.state import FailureDetails, FailureStage, RunStatus
-from zeroone_ops.models.work_item import ChangeRequestRef
+from zeroone_ops.models.work_item import ChangeRequestRef, PublicationRetryState
 from zeroone_ops.services.remediation.analysis_service import (
     AnalysisResult,
     AnalysisService,
@@ -59,6 +59,7 @@ class ExecutionResult:
     publish_attempted: bool = False
     final_status: RunStatus | None = None
     terminal_rejection_stage: FailureStage | None = None
+    publication_retry: PublicationRetryState | None = None
 
 
 class ExecutionService:
@@ -284,6 +285,10 @@ class ExecutionService:
         revision_change_request: ChangeRequestRef | None,
     ) -> ExecutionResult:
         """Continue execution after analysis has completed."""
+        if analysis_result.batch_attempt is not None:
+            selected_issue = selected_issue.model_copy(
+                update={"batch_attempt": analysis_result.batch_attempt}
+            )
         if analysis_result.failure is not None:
             return ExecutionResult(
                 analysis_result=analysis_result,
@@ -433,6 +438,7 @@ class ExecutionService:
         )
         if publish_result.error_message is not None:
             return ExecutionResult(
+                publication_retry=publish_result.publication_retry,
                 analysis_result=analysis_result,
                 status_message=publish_result.error_message,
                 failure=FailureDetails(

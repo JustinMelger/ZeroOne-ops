@@ -305,7 +305,10 @@ limit. Deferred findings remain visible through aggregate backlog counts.
 setting: strict positive integer, default `10`, with `1` disabling multi-member
 proposals in the standalone planner and internal batch-sync path. Live finding
 sync and remediation do not consume it yet; configuring it does not create batches
-or change current single-finding work. See the
+or change current single-finding work. Internal execution/recovery supports complete
+batch coverage and recorded retry scope. Batch prompts and response schemas are
+isolated from single-finding requests; production activation and batch review
+guidance remain slice 4. See the
 [batching roadmap](docs/roadmap.md#remediation-batching).
 
 `remediation.source_priorities` optionally ranks policy-eligible work before

@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from zeroone_ops.models.analysis import RepositoryGuidanceContext, SemanticSafetyAssessment
+from zeroone_ops.models.batch_execution import BatchAttemptEvidence
 
 ReviewClassification = Literal["no_findings", "findings_present", "manual_review_only"]
 ReviewFindingSeverity = Literal["high", "medium", "low"]
@@ -123,6 +124,7 @@ class RemediationReviewContext(BaseModel):
     notes: str | None = None
     semantic_safety: SemanticSafetyAssessment | None = None
     verified_work_item_url: str | None = None
+    batch_attempt: BatchAttemptEvidence | None = None
 
 
 class PriorReviewFinding(BaseModel):

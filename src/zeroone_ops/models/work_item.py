@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from zeroone_ops.models.analysis import RemediationIntent, SemanticSafetyAssessment
+from zeroone_ops.models.batch_execution import BatchAnalysisRejection, BatchAttemptEvidence
 from zeroone_ops.models.finding import RemediationContext
 from zeroone_ops.models.finding_batch import WorkItemBatch
 from zeroone_ops.models.review import ReviewClassification
@@ -138,6 +139,7 @@ class PublicationRetryState(BaseModel):
     reason: Literal["change_request_publish_failed"]
     remediation_intent: RemediationIntent = "chore"
     semantic_safety: SemanticSafetyAssessment | None = None
+    batch_attempt: BatchAttemptEvidence | None = None
 
 
 class WorkItemExecutionFailure(BaseModel):
@@ -153,6 +155,7 @@ class WorkItemExecutionFailure(BaseModel):
     execution_url: str | None = None
     validation_outcome: str | None = None
     status: Literal["blocked", "dismissed"] = "blocked"
+    batch_rejection: BatchAnalysisRejection | None = None
 
 
 class WorkItemSemanticSafety(BaseModel):
@@ -225,6 +228,7 @@ class WorkItemState(BaseModel):
     resolution: WorkItemResolution | None = None
     created_by_system: Literal["zeroone_ops"] = "zeroone_ops"
     batch: WorkItemBatch | None = None
+    batch_attempt: BatchAttemptEvidence | None = None
 
     @field_validator("batch")
     @classmethod
@@ -233,6 +237,26 @@ class WorkItemState(BaseModel):
 
     @model_validator(mode="after")
     def _validate_batch_scope(self) -> Self:
+        for attempt in (
+            self.batch_attempt,
+            self.publication_retry.batch_attempt if self.publication_retry else None,
+        ):
+            if attempt is None:
+                continue
+            if self.batch is None or attempt.batch_id != self.work_item_id:
+                raise ValueError("Batch attempts require matching batch authority.")
+            if attempt.attempt_number != self.attempt_number:
+                raise ValueError("Batch attempts must match the work item's attempt number.")
+            originals = {member.finding_id for member in self.batch.members}
+            if any(member.finding_id not in originals for member in attempt.members):
+                raise ValueError("Attempt members must belong to frozen membership.")
+            for member in attempt.members:
+                if (
+                    member.source_id != self.batch.group.source_id
+                    or member.repository_path != self.batch.group.file_path
+                    or member.remediation_context.diagnostic_code != self.batch.group.rule_id
+                ):
+                    raise ValueError("Attempt member scope must match frozen batch scope.")
         if self.batch is None:
             return self
         group = self.batch.group

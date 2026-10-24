@@ -831,8 +831,12 @@ The internal slice 2 coordinator is tested against both provider storage adapter
 but is not wired into runners or the CLI. It refreshes frozen-member observations,
 reconciles policy/capacity deferral and complete-inventory absence, and guards
 batch creation with ownership/dismissal rechecks. Batch records are explicitly
-excluded from remediation intake until slice 3 supplies full-member execution
-coverage. There is no configuration flag that enables this path.
+excluded from production remediation intake until slice 4 rollout. Slice 3 supplies
+internal full-member execution, analysis accounting, and recovery; there is no
+configuration flag that enables this path.
+Single-finding analysis and edit prompts retain their existing contracts. The
+internal batch path has separate prompts and an extended analysis response model;
+production activation and batch reviewer guidance belong to slice 4.
 Observation refresh does not reopen manually closed protected approved batches;
 their ownership is retained, and lifecycle still handles linked PR/MR outcomes.
 
@@ -841,9 +845,35 @@ evidence outside the frozen file/rule scope block existing safe unstarted work.
 A compact **Selection** section identifies the cause and bounded member references;
 it is not a failed execution record. Closed deferred issues are made visible again
 only after the blocked state is persisted. Observation changes do not automatically
-unblock work; fresh operator-authorized reassessment belongs to slice 3 recovery.
+unblock work; internal fresh operator-authorized reassessment belongs to remediation recovery.
 Ordinary capacity/policy deferrals remain closed. Unpromoted findings do not get
 notification issues, and full batch issue/summary UX remains slice 4.
+
+Internal batch execution targets the complete remaining policy-eligible scope,
+not an arbitrary representative finding. Insufficient context, incomplete analysis
+accounting, or unsafe/manual work blocks the complete batch before editing.
+For rejected batch analysis, **Last Execution** shows bounded affected-member
+references and reasons, plus an omitted count when needed. Correct the stated
+cause before explicitly requeueing. These are rejection diagnostics, not accepted
+analysis coverage; no partial edit is generated. Long references are visibly
+truncated for display. Existing recovery clears the current failure display.
+Recorded publication retries and same-request revisions retain their original
+targeted scope even after later scans show absence. Fresh operator-authorized
+recovery alone can complete current all-absent work as `no_longer_detected`.
+Before recording that completion, remediation rechecks the existing issue's
+latest observations and execution ownership. If they changed or the write fails,
+the run reports that completion was not applied or could not be confirmed.
+Changed authority is retained without an overwrite; a failed provider write may
+have an uncertain outcome and is not reported as successful completion. A missing/closed issue
+is never recreated by this completion path. A dry run only previews the decision.
+Batch request descriptions distinguish targeted members from verified resolution;
+validation and semantic-safety evidence remain separate.
+
+Internal intake withholds conflicting batch owners, including an old batch
+reopened after replacement, and logs bounded issue references. It does not claim
+either conflicting batch; unrelated work can still proceed. Execution projection
+preserves sync's latest membership, observations, and selection evidence, while
+retaining the frozen attempt targeted by analysis, retries, and revisions.
 
 `remediation.source_priorities` optionally orders policy-eligible sources
 before severity when capacity is constrained. Lower non-negative values are

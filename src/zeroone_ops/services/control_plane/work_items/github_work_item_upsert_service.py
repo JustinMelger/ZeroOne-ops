@@ -19,6 +19,7 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_renderer imp
     GitHubWorkItemRenderer,
 )
 from zeroone_ops.services.control_plane.work_items.work_item_state_merge import (
+    WorkItemStateMerge,
     merge_authoritative_work_item_state,
 )
 
@@ -55,6 +56,7 @@ class GitHubWorkItemUpsertService:
         repository_id: str,
         work_item: WorkItemState,
         dismissed_inventory: list[GitHubWorkItemLookupResult] | None = None,
+        state_merge: WorkItemStateMerge = merge_authoritative_work_item_state,
     ) -> GitHubWorkItemUpsertResult:
         """Create or update the authoritative open issue for one work item."""
         title = self.renderer.render_title(work_item)
@@ -105,6 +107,7 @@ class GitHubWorkItemUpsertService:
         rendered_work_item = self._merge_existing_authoritative_state(
             existing_issue=existing.issue,
             work_item=work_item,
+            state_merge=state_merge,
         )
         title = self.renderer.render_title(rendered_work_item)
         body = self.renderer.render_body(rendered_work_item)
@@ -175,12 +178,13 @@ class GitHubWorkItemUpsertService:
         *,
         existing_issue: GitHubIssueInfo,
         work_item: WorkItemState,
+        state_merge: WorkItemStateMerge,
     ) -> WorkItemState:
         """Return a work item that preserves authoritative existing state when needed."""
         parsed = self.parser.parse_work_item_state(existing_issue.body)
         if parsed is None:
             return work_item
-        merged = merge_authoritative_work_item_state(parsed, work_item)
+        merged = state_merge(parsed, work_item)
         # Retain GitHub's supplied-field metadata for empty revision history.
         empty_revision_fields = {
             field_name: None

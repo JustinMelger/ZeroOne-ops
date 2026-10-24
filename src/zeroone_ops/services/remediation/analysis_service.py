@@ -17,6 +17,7 @@ from zeroone_ops.models.analysis import (
     ValidationComparison,
     ValidationResult,
 )
+from zeroone_ops.models.batch_execution import BatchAnalysisRejection, BatchAttemptEvidence
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.state import FailureDetails, FailureStage
@@ -24,6 +25,11 @@ from zeroone_ops.providers.llm_client import (
     FixtureLLMClient,
     LLMClientError,
     OpenAILLMClient,
+)
+from zeroone_ops.services.remediation.batch_execution_checks import (
+    BatchAnalysisRejected,
+    accept_batch_analysis,
+    has_complete_batch_context,
 )
 from zeroone_ops.services.remediation.edit_renderer import (
     EditRenderer,
@@ -75,6 +81,8 @@ class AnalysisResult:
     workspace_snapshot: WorkspaceSnapshot | None = None
     semantic_safety: SemanticSafetyDecision | None = None
     terminal_rejection_stage: FailureStage | None = None
+    batch_attempt: BatchAttemptEvidence | None = None
+    batch_rejection: BatchAnalysisRejection | None = None
 
 
 class AnalysisService:
@@ -137,8 +145,20 @@ class AnalysisService:
         Returns:
             Structured analysis result for the selected issue.
         """
-        context = self.context_builder.build(selected_issue)
+        try:
+            context = self.context_builder.build(selected_issue)
+        except (OSError, UnicodeError):
+            if selected_issue.batch is None:
+                raise
+            context = None
         if context is None:
+            if selected_issue.batch is not None:
+                message = "Complete batch context is unavailable; no model call or edit is allowed."
+                return AnalysisResult(
+                    summary=message,
+                    validation_passed=False,
+                    failure=FailureDetails(stage=FailureStage.ISSUE_INTAKE, message=message),
+                )
             return AnalysisResult(summary="Context unavailable for the selected issue.")
         return self.analyze_issue_with_context(
             selected_issue=selected_issue,
@@ -156,8 +176,24 @@ class AnalysisService:
         pre_patch_handler: Callable[[PatchProposal], FailureDetails | None] | None = None,
     ) -> AnalysisResult:
         """Analyze a selected execution target with prebuilt source context."""
+        if selected_issue.batch is not None and not has_complete_batch_context(
+            selected_issue, context
+        ):
+            message = "Complete batch context coverage is required before analysis."
+            return AnalysisResult(
+                summary=message,
+                validation_passed=False,
+                failure=FailureDetails(stage=FailureStage.ISSUE_INTAKE, message=message),
+            )
         llm_client = self._build_llm_client()
         if llm_client is None:
+            if selected_issue.batch is not None:
+                message = "Batch analysis requires a configured model backend."
+                return AnalysisResult(
+                    summary=message,
+                    validation_passed=False,
+                    failure=FailureDetails(stage=FailureStage.ANALYSIS, message=message),
+                )
             return AnalysisResult(
                 summary=(
                     "LLM backend not configured. Context ready from lines "
@@ -181,6 +217,21 @@ class AnalysisService:
                     message=message,
                 ),
             )
+        accepted_attempt = selected_issue.batch_attempt
+        if selected_issue.batch is not None:
+            try:
+                accepted_attempt = accept_batch_analysis(accepted_attempt, analysis)
+            except BatchAnalysisRejected as error:
+                message = "Batch analysis coverage is incomplete or unaddressable."
+                return AnalysisResult(
+                    summary=message,
+                    validation_passed=False,
+                    batch_rejection=error.rejection,
+                    failure=FailureDetails(
+                        stage=FailureStage.ANALYSIS,
+                        message="Batch analysis coverage rejected; no partial edit is allowed.",
+                    ),
+                )
         semantic_safety = self.semantic_safety_gate_service.decide(analysis)
         artifact_service.write_analysis(issue_key=selected_issue.source_ref, analysis=analysis)
         summary = (
@@ -193,6 +244,17 @@ class AnalysisService:
         if not semantic_safety.accepted:
             artifact_service.write_manual_rejection(issue_key=selected_issue.source_ref)
             reason = semantic_safety.reason or "Semantic-safety assessment was rejected."
+            if selected_issue.batch is not None:
+                return AnalysisResult(
+                    summary=f"Batch semantic-safety assessment rejected: {reason}",
+                    validation_passed=False,
+                    semantic_safety=semantic_safety,
+                    batch_attempt=accepted_attempt,
+                    failure=FailureDetails(
+                        stage=FailureStage.SEMANTIC_SAFETY,
+                        message="Batch semantic-safety assessment rejected; no edit is allowed.",
+                    ),
+                )
             return AnalysisResult(
                 summary=f"{summary}. Patch generation skipped: {reason}",
                 validation_passed=False,
@@ -207,6 +269,8 @@ class AnalysisService:
                     update={
                         "remediation_intent": analysis.remediation_intent,
                         "semantic_safety": semantic_safety.assessment,
+                        "batch_attempt": accepted_attempt,
+                        "batch_coverage": accepted_attempt.coverage if accepted_attempt else None,
                     }
                 ),
                 artifact_service=artifact_service,
@@ -237,7 +301,7 @@ class AnalysisService:
         )
         should_apply_patch = not dry_run or self.config.apply_patch_in_dry_run
         if not should_apply_patch:
-            return AnalysisResult(summary=summary, patch=patch)
+            return AnalysisResult(summary=summary, patch=patch, batch_attempt=accepted_attempt)
         if pre_patch_handler is not None:
             preparation_failure = pre_patch_handler(patch)
             if preparation_failure is not None:
@@ -262,6 +326,8 @@ class AnalysisService:
                     update={
                         "remediation_intent": analysis.remediation_intent,
                         "semantic_safety": semantic_safety.assessment,
+                        "batch_attempt": accepted_attempt,
+                        "batch_coverage": accepted_attempt.coverage if accepted_attempt else None,
                     }
                 ),
                 remediation_intent=analysis.remediation_intent,
@@ -277,6 +343,7 @@ class AnalysisService:
             failure=execution_result.failure,
             workspace_snapshot=execution_result.workspace_snapshot,
             semantic_safety=semantic_safety,
+            batch_attempt=accepted_attempt,
         )
 
     def _build_llm_client(self) -> FixtureLLMClient | OpenAILLMClient | None:
@@ -335,9 +402,11 @@ class AnalysisService:
             raise EditRenderError(
                 "V1 automation only supports structured edits that touch exactly one file."
             )
-        if selected_issue.revision_branch is not None and target_files != {
-            selected_issue.file_path
-        }:
-            raise EditRenderError("Review revisions may edit only the original remediation file.")
+        if (
+            selected_issue.revision_branch is not None or selected_issue.batch is not None
+        ) and target_files != {selected_issue.file_path}:
+            raise EditRenderError(
+                "Batch and review revisions may edit only the original remediation file."
+            )
         patch = self.edit_renderer.render(structured_edit)
         return patch.model_copy(update={"remediation_intent": remediation_intent})

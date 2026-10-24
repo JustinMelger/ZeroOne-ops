@@ -13,6 +13,7 @@ from pathlib import Path
 from openai import OpenAI
 
 from zeroone_ops.models.analysis import (
+    BatchIssueAnalysis,
     IssueAnalysis,
     IssueContext,
     StructuredEditProposal,
@@ -186,7 +187,7 @@ class OpenAILLMClient(LLMClient):
                     },
                     {"role": "user", "content": input_text},
                 ],
-                text_format=IssueAnalysis,
+                text_format=BatchIssueAnalysis if issue.batch is not None else IssueAnalysis,
             )
         except Exception as error:
             raise LLMClientError("OpenAI issue analysis request failed.") from error
@@ -407,8 +408,12 @@ class FixtureLLMClient(LLMClient):
         Returns:
             Structured issue analysis from the fixture.
         """
-        del issue, context
+        del context
         try:
+            if issue.batch is not None:
+                return load_analysis_fixture(
+                    self.analysis_fixture_path, analysis_type=BatchIssueAnalysis
+                )
             return load_analysis_fixture(self.analysis_fixture_path)
         except LLMFixtureError as error:
             raise LLMClientError(str(error)) from error

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from functools import cache
 from importlib import resources
 
@@ -32,7 +33,9 @@ class LLMPromptError(RuntimeError):
 _PROMPT_TEMPLATE_NAMES = frozenset(
     {
         "analyze_issue.txt",
+        "analyze_batch.txt",
         "generate_structured_edit.txt",
+        "generate_batch_structured_edit.txt",
         "review_candidate_change_request.txt",
         "review_precision_reconciliation.txt",
         "review_overlap_reconciliation.txt",
@@ -44,9 +47,10 @@ def build_analysis_prompt(issue: RemediationExecutionTarget, context: IssueConte
     """Build the analysis prompt for one remediation target."""
     profile = remediation_profile_for(issue)
     return render_prompt_template(
-        "analyze_issue.txt",
+        "analyze_batch.txt" if issue.batch is not None else "analyze_issue.txt",
         target_display_name=profile.target_display_name,
         target_evidence=_format_remediation_target_evidence(issue, context, profile),
+        batch_evidence=_format_batch_evidence(context) if issue.batch is not None else "",
         repository_guidance=_format_issue_repository_guidance(context),
         prior_review_feedback=_format_prior_review_feedback(context),
         code_snippet=_format_remediation_untrusted_block(
@@ -63,9 +67,12 @@ def build_structured_edit_prompt(
     """Build the structured-edit prompt for one remediation target."""
     profile = remediation_profile_for(issue)
     return render_prompt_template(
-        "generate_structured_edit.txt",
+        "generate_batch_structured_edit.txt"
+        if issue.batch is not None
+        else "generate_structured_edit.txt",
         target_display_name=profile.target_display_name,
         target_evidence=_format_remediation_target_evidence(issue, context, profile),
+        batch_evidence=_format_batch_evidence(context) if issue.batch is not None else "",
         repository_guidance=_format_issue_repository_guidance(context),
         prior_review_feedback=_format_prior_review_feedback(context),
         validation_feedback=_format_validation_feedback(context),
@@ -74,6 +81,26 @@ def build_structured_edit_prompt(
         code_snippet=_format_remediation_untrusted_block(
             label="Source code snippet",
             content=context.snippet.content,
+        ),
+    )
+
+
+def _format_batch_evidence(context: IssueContext) -> str:
+    """Serialize complete batch evidence only for internal batch request templates."""
+    if context.batch_attempt is None:
+        return ""
+    return _format_remediation_untrusted_block(
+        label="Batch attempt evidence",
+        content=json.dumps(
+            context.batch_attempt.model_dump(mode="json")
+            | {
+                "observations": [o.model_dump(mode="json") for o in context.batch.observations]
+                if context.batch is not None
+                else [],
+                "accepted_coverage": context.batch_coverage.model_dump(mode="json")
+                if context.batch_coverage
+                else None,
+            }
         ),
     )
 

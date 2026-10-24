@@ -24,3 +24,11 @@ class RemediationIntakeOutcome:
     selected_record: RemediationIntakeRecord | None
     selected_target: RemediationExecutionTarget | None
     item_count: int
+
+
+@dataclass(frozen=True)
+class RemediationIntakePreparation:
+    """Separate prepared execution state from an intake-blocking decision."""
+
+    work_item: WorkItemState
+    blocking_reason: str | None = None
