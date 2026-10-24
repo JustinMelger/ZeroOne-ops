@@ -213,6 +213,10 @@ def test_semantic_rejection_blocks_batch_without_edit_generation(tmp_path, monke
     )
     result = service.analyze_issue(selected_issue=batch_target(), dry_run=False)
     assert result.failure.stage.value == "semantic_safety"
+    assert result.failure.message == (
+        "Batch change rationale could not be prepared; no edit was generated."
+    )
+    assert "Batch change rationale could not be prepared" in result.summary
     assert result.terminal_rejection_stage is None
     client.generate_structured_edit.assert_not_called()
 

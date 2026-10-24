@@ -36,6 +36,6 @@ class SemanticSafetyGateService:
         except ValidationError as error:
             return SemanticSafetyDecision(
                 accepted=False,
-                reason=f"Semantic-safety assessment is invalid: {error.errors()[0]['msg']}",
+                reason=f"Change rationale is invalid: {error.errors()[0]['msg']}",
             )
         return SemanticSafetyDecision(accepted=True, assessment=assessment)

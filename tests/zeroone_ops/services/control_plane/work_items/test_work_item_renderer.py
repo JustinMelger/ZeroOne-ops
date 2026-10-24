@@ -2,10 +2,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from zeroone_ops.models.analysis import SemanticSafetyAssessment
 from zeroone_ops.models.work_item import (
     ProjectedReviewState,
     ReviewRevisionRequest,
     WorkItemExecutionFailure,
+    WorkItemSemanticSafety,
     WorkItemState,
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_renderer import (
@@ -15,6 +17,8 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_renderer imp
     GitLabWorkItemRenderer,
 )
 
+from .test_batch_finding_sync_coordinator import batch_state
+from .test_batch_finding_sync_coordinator import harness as harness
 from .test_support import build_work_item
 
 
@@ -148,3 +152,67 @@ def test_notice_accepts_equal_command_and_failure_timestamps(
     )
 
     assert "**Last revision failed.**" in body
+
+
+@pytest.mark.parametrize("batch", [False, True])
+@pytest.mark.parametrize("evidence", ["accepted", "rejected", "rejected_only", "empty", "absent"])
+def test_change_rationale_ux_retains_machine_state(harness, batch, evidence):
+    assessment = SemanticSafetyAssessment(
+        current_behavior="The module imports an unused name.",
+        intended_behavior="Remove the unused import without changing runtime behavior.",
+        preservation_evidence=["No references to that name remain."],
+    )
+    reason = "Historical semantic-safety assessment was incomplete."
+    record = (
+        WorkItemSemanticSafety(
+            assessment=assessment if evidence in {"accepted", "rejected"} else None,
+            rejection_reason=reason if evidence in {"rejected", "rejected_only"} else None,
+        )
+        if evidence != "absent"
+        else None
+    )
+    state = (batch_state() if batch else build_work_item()).model_copy(
+        update={"semantic_safety": record}
+    )
+    before = state.model_dump()
+    renderer = harness[1].upsert_service.renderer
+    body = renderer.render_body(state)
+    visible = body.split("## Machine State", maxsplit=1)[0]
+    assert ("## Change Rationale" in visible) == (evidence not in {"empty", "absent"})
+    assert "## Semantic Safety" not in visible
+    if evidence in {"accepted", "rejected"}:
+        assert "- Intended change: Remove the unused import" in visible
+        assert "- Why existing behavior should be preserved:" in visible
+        assert "Model-provided explanation; not independent verification." in visible
+    if evidence in {"rejected", "rejected_only"}:
+        assert f"- Why remediation stopped: {reason}" in visible
+    if evidence == "rejected_only":
+        assert "No change rationale was available." in visible
+    parsed = harness[1].upsert_service.parser.parse_work_item_state(body)
+    assert parsed.semantic_safety == record
+    assert state.model_dump() == before
+    assert ('"semantic_safety"' in body) == (record is not None)
+    if evidence in {"accepted", "rejected"}:
+        assert '"intended_behavior"' in body
+        assert '"preservation_evidence"' in body
+
+
+@pytest.mark.parametrize("batch", [False, True])
+@pytest.mark.parametrize("stage", ["semantic_safety", "validation", "custom_stage"])
+def test_last_execution_stage_is_display_only(harness, batch, stage):
+    failure = WorkItemExecutionFailure(
+        stage=stage,
+        summary="Historical failure evidence is preserved.",
+        retry_count=0,
+        run_id="run-1",
+        occurred_at=datetime(2026, 10, 24, tzinfo=UTC),
+    )
+    state = (batch_state() if batch else build_work_item()).model_copy(
+        update={"status": "blocked", "execution_failure": failure}
+    )
+    body = harness[1].upsert_service.renderer.render_body(state)
+    visible = body.split("## Machine State", maxsplit=1)[0]
+    label = "Change rationale" if stage == "semantic_safety" else stage
+    assert f"- Stage: `{label}`" in visible
+    parsed = harness[1].upsert_service.parser.parse_work_item_state(body)
+    assert parsed.execution_failure == failure

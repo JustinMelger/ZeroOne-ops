@@ -972,7 +972,22 @@ Changed authority is retained without an overwrite; a failed provider write may
 have an uncertain outcome and is not reported as successful completion. A missing/closed issue
 is never recreated by this completion path. A dry run only previews the decision.
 Batch request descriptions distinguish targeted members from verified resolution;
-validation and semantic-safety evidence remain separate.
+validation and change-rationale evidence remain separate.
+
+Work-item issues and PR/MR descriptions use **Change Rationale** for the model's
+current-behavior description, intended change, and explanation of why existing
+behavior should be preserved. The section states: "Model-provided explanation;
+not independent verification. See validation and review results." It is not an
+approval, proof of correctness, or a validation result.
+
+If automatic remediation stops at this step, the issue displays **Why remediation
+stopped** and labels the **Last Execution** stage **Change rationale**. Missing
+assessment evidence is shown as "No change rationale was available." Empty
+records produce no rationale section. Internal `semantic_safety` fields and
+failure-stage values remain unchanged in machine state and structured logs;
+the gate still checks evidence structure and bounds, not semantic truth.
+Historical free-text evidence is retained verbatim, with no bulk rewrite of
+remote issues or change requests. New wording appears on normal rendering.
 
 Internal intake withholds conflicting batch owners, including an old batch
 reopened after replacement, and logs bounded issue references. It does not claim

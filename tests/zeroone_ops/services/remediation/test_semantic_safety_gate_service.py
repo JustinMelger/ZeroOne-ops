@@ -47,6 +47,19 @@ def test_gate_rejects_manual_analysis_without_edit_generation() -> None:
     assert decision.reason == "Manual analysis classification requires operator handling."
 
 
+def test_invalid_evidence_uses_change_rationale_wording_without_claiming_unsafety():
+    analysis = _analysis()
+    invalid = analysis.semantic_safety.model_copy(update={"current_behavior": " "})
+    decision = SemanticSafetyGateService().decide(
+        analysis.model_copy(update={"semantic_safety": invalid})
+    )
+    assert not decision.accepted
+    assert decision.reason == (
+        "Change rationale is invalid: Value error, Change rationale text must not be blank."
+    )
+    assert decision.assessment is None
+
+
 @pytest.mark.parametrize(
     "assessment",
     [

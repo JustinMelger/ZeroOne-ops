@@ -49,7 +49,7 @@ class SemanticSafetyAssessment(BaseModel):
     def _require_non_blank_text(cls, value: str) -> str:
         """Reject empty evidence while preserving the model-provided text."""
         if not value.strip():
-            raise ValueError("Semantic-safety text must not be blank.")
+            raise ValueError("Change rationale text must not be blank.")
         return value
 
     @field_validator("preservation_evidence")
@@ -58,9 +58,9 @@ class SemanticSafetyAssessment(BaseModel):
         """Reject empty or oversized evidence entries without judging their truth."""
         for value in values:
             if not value.strip():
-                raise ValueError("Semantic-safety evidence entries must not be blank.")
+                raise ValueError("Change rationale evidence entries must not be blank.")
             if len(value) > _MAX_PRESERVATION_EVIDENCE_LENGTH:
-                raise ValueError("Semantic-safety evidence entries exceed the allowed length.")
+                raise ValueError("Change rationale evidence entries exceed the allowed length.")
         return values
 
 

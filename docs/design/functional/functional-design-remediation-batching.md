@@ -339,7 +339,7 @@ contract supports them, not on every candidate or approved issue.
 
 Use a task-first layout: short scope explanation, status and next action,
 compact scope counts, and a bounded table with meaningful finding messages.
-Place linked-request, validation, and semantic-safety evidence below this
+Place linked-request, validation, and **Change Rationale** evidence below this
 overview. Collapse full diagnostics/provenance and machine state, not the next
 action or failure summary. Stable member IDs remain in detailed evidence, not
 the primary table in place of useful messages.
@@ -403,7 +403,7 @@ freshness and policy exclusions in scope counts when applicable. Do not display
 validation success before a recorded execution result exists.
 
 Retain existing Last Execution, workflow-log link, review projection, and
-semantic-safety evidence where applicable. Safety evidence must describe the
+**Change Rationale** evidence where applicable. This model-provided claim must describe the
 actual executable scope. Member lists and descriptions remain bounded, with an
 explicit indication of omitted display details; machine authority must retain
 all members. Existing single-finding issues retain their own history and command

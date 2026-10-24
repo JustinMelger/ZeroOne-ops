@@ -221,6 +221,8 @@ Severity control note:
 - select one eligible remediation item per run and produce a bounded patch
 - run explicitly configured environment setup and validation commands before
   publication
+- show a **Change Rationale** in work-item issues and PR/MRs: the model's intended
+  change and behavior-preservation explanation, not independent verification
 - create or reuse a GitLab merge request or GitHub pull request in CI mode
 - use `zeroone-ops work-items sync-status` to converge merged and closed
   change-request state

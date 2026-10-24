@@ -60,11 +60,11 @@ def test_rendering_includes_semantic_safety_evidence_when_present() -> None:
 
     body = GitLabWorkItemRenderer().render_body(work_item)
 
-    assert "## Semantic Safety" in body
+    assert "## Change Rationale" in body
     assert "- Current behavior: The old condition accepts None." in body
-    assert "- Intended behavior: The condition rejects None." in body
+    assert "- Intended change: The condition rejects None." in body
     assert "  - Only the local condition changes." in body
-    assert "## Semantic Safety" not in GitLabWorkItemRenderer().render_body(build_work_item())
+    assert "## Change Rationale" not in GitLabWorkItemRenderer().render_body(build_work_item())
 
 
 def test_render_body_includes_recovery_commands_for_blocked_work_item() -> None:

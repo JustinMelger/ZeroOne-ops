@@ -615,7 +615,9 @@ Extend shared rendering with bounded member details and original/detected/absent
 policy-excluded/unknown/attempt-targeted counts. Tie counts to observation runs;
 excluded detected members are a subset, not an additional population. Retain
 provider-specific terminology and issue command routing. Descriptions distinguish
-targeted findings, confirmed absence, validation, and semantic-safety claims.
+targeted findings, confirmed absence, validation, and **Change Rationale** claims.
+The last is an operator-facing name for internal semantic-safety evidence, not
+independent verification.
 Neither publication nor merge is scanner-verified resolution.
 Unknown freshness can overlap detected or absent counts; show these as last
 confirmed counts with their confirmation references, not a new unknown-presence

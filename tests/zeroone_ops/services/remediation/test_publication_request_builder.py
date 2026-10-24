@@ -36,9 +36,11 @@ def test_description_renders_semantic_safety_for_accepted_work() -> None:
         ),
     )
 
-    assert "## Semantic Safety" in description
+    assert "## Change Rationale" in description
     assert "- Current behavior: The expression exceeds the configured line limit." in description
-    assert "- Intended behavior: The same expression is wrapped across lines." in description
+    assert "- Intended change: The same expression is wrapped across lines." in description
+    assert "- Why existing behavior should be preserved:" in description
+    assert "Model-provided explanation; not independent verification." in description
     assert "  - The expression and evaluated values are unchanged." in description
 
 
@@ -91,6 +93,7 @@ def test_validation_description_uses_execution_evidence(case, expected):
         validation_comparison=comparison,
     )
     assert f"- Status: {expected}" in description
+    assert "## Change Rationale" not in description
     assert "private" not in description
     if case not in {"empty", "unavailable"}:
         assert "- Commands: `uv run pytest`" in description

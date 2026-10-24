@@ -88,14 +88,25 @@ whether generation continues; prompt text alone is never enforcement.
 
 ## Projection And Publication
 
-Add a deterministic **Semantic Safety** section to GitHub and GitLab change
-request descriptions for gate-approved patches. It renders the three bounded
-assessment fields and no raw source evidence.
+Render a deterministic **Change Rationale** section in GitHub and GitLab change
+request descriptions for gate-approved patches. The shared presentation helper
+labels the bounded fields **Current behavior**, **Intended change**, and **Why
+existing behavior should be preserved**, without raw source evidence. Include:
+"Model-provided explanation; not independent verification. See validation and
+review results."
 
 GitHub and GitLab work-item renderers show the same section for semantic-safety
 dismissals, adjacent to `Last Execution`. The machine-state block remains the
 canonical persisted representation. Existing labels and closed-issue mapping
 require no new work-item status.
+
+Rejection evidence is labeled **Why remediation stopped**. If an assessment is
+missing, display "No change rationale was available."; omit the section when
+both assessment and rejection are absent. The issue's `Last Execution` displays
+`semantic_safety` as **Change rationale**, leaving every other stage unchanged.
+Internal identifiers, prompts, schemas, machine state, and structured-log values
+retain their existing names. This is a display-only contract; it does not add
+truth verification, change gate decisions, or migrate historical free-text evidence.
 
 ## Review Context Handoff
 

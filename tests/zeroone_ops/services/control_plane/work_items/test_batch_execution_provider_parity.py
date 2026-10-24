@@ -5,7 +5,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from typer.testing import CliRunner
 
+from zeroone_ops.cli import app
 from zeroone_ops.models.analysis import (
     BatchIssueAnalysis,
     SemanticSafetyAssessment,
@@ -196,10 +198,38 @@ def test_complete_batch_publishes_once_and_retains_full_machine_evidence(
     publisher.publish.assert_called_once()
     request = publisher.publish.call_args.args[0]
     assert "## Batch Targets" in request.description
+    assert "## Change Rationale" in request.description
+    assert "Model-provided explanation; not independent verification." in request.description
     assert "2 of 2" in request.description
     assert "No validation commands configured" in request.description
     assert engine.branch_manager.current_branch() != "main"
     assert model.analyze_issue.call_args.args[0].batch_attempt is not None
+
+
+def test_change_rationale_rejection_reaches_cli_and_preserves_failure_stage(
+    harness, tmp_path, monkeypatch
+):
+    runner, runs, _, model, publisher = setup_execution(harness, tmp_path, monkeypatch)
+    analysis = model.analyze_issue.return_value
+    model.analyze_issue.return_value = analysis.model_copy(
+        update={
+            "semantic_safety": analysis.semantic_safety.model_copy(update={"current_behavior": " "})
+        }
+    )
+    result = runner.run(record=runs.start_run("invalid-rationale"), active_dry_run=False)
+    assert result.status == RunStatus.FAILED
+    state = stored(harness)
+    assert state.status == "blocked"
+    assert state.execution_failure.stage == "semantic_safety"
+    assert state.semantic_safety.rejection_reason.startswith("Change rationale is invalid:")
+    model.generate_structured_edit.assert_not_called()
+    publisher.publish.assert_not_called()
+    monkeypatch.setattr("zeroone_ops.cli.run_remediation", lambda **kwargs: result)
+    output = CliRunner().invoke(app, ["remediation", "run"])
+    assert output.exit_code == 0
+    assert "status=failed" in output.output
+    assert "Batch change rationale could not be prepared; no edit was generated." in output.output
+    assert "semantic-safety" not in output.output.lower()
 
 
 def test_unaddressable_member_rejection_survives_issue_projection_without_accepted_coverage(
@@ -356,6 +386,9 @@ def test_publication_retry_after_absence_never_reanalyzes_or_falls_back(
     if verified:
         assert result.status == RunStatus.CHANGE_REQUEST_CREATED
         assert final.linked_change_request.number == 9
+        description = publisher.publish.call_args.args[0].description
+        assert "## Change Rationale" in description
+        assert "## Semantic Safety" not in description
     else:
         assert result.status == RunStatus.FAILED
         assert final.status == "blocked"

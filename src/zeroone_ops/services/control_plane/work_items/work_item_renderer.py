@@ -228,13 +228,14 @@ class WorkItemRenderer:
                     )
         if work_item.execution_failure is not None:
             failure = work_item.execution_failure
+            stage = "Change rationale" if failure.stage == "semantic_safety" else failure.stage
             lines.extend(
                 [
                     "",
                     "## Last Execution",
                     "",
                     f"- Status: `{failure.status}`",
-                    f"- Stage: `{failure.stage}`",
+                    f"- Stage: `{stage}`",
                     f"- Summary: {failure.summary}",
                     f"- Retries used: `{failure.retry_count}`",
                     f"- Run ID: `{failure.run_id}`",

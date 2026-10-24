@@ -76,9 +76,11 @@ that a complete, bounded claim is present before automation proceeds.
 ## Operator Experience
 
 For a gate-approved patch, the generated pull or merge request includes a short
-**Semantic Safety** section: current behavior, intended behavior, and bounded
-local preservation evidence. It is supporting review evidence, not approval or
-a claim that validation passed.
+**Change Rationale** section: **Current behavior**, **Intended change**, and
+**Why existing behavior should be preserved**. It includes the qualifier:
+"Model-provided explanation; not independent verification. See validation and
+review results." It is supporting review evidence, not approval or a claim that
+validation passed. Internal models and prompts retain semantic-safety terminology.
 
 When the existing review workflow evaluates that pull or merge request, it
 receives the same assessment as explicitly labeled, untrusted remediation
@@ -92,10 +94,12 @@ When the analysis is `manual` or the gate rejects its evidence, the work item
 uses the existing terminal `dismissed` outcome. Its provider issue closes and
 renders:
 
-- `Last Execution` with status `dismissed` and stage `semantic_safety`;
-- a concise reason that automatic remediation stopped because behavior could
-  not be established safely;
-- the semantic-safety assessment when available.
+- `Last Execution` with status `dismissed` and display stage **Change rationale**
+  (the persisted value remains `semantic_safety`);
+- **Why remediation stopped**, explaining manual handling or missing/invalid
+  bounded evidence, without claiming that the proposed change was proven unsafe;
+- the assessment under **Change Rationale** when available, or "No change rationale
+  was available." when only rejection evidence exists. Empty records add no section.
 
 Dismissal remains durable suppression for that exact v1 finding identity. There
 is no new requeue command for semantic-safety dismissals. Operators may resolve

@@ -243,16 +243,18 @@ class AnalysisService:
             summary = f"{summary}. Solution file: {relative_artifact_path}"
         if not semantic_safety.accepted:
             artifact_service.write_manual_rejection(issue_key=selected_issue.source_ref)
-            reason = semantic_safety.reason or "Semantic-safety assessment was rejected."
+            reason = semantic_safety.reason or "Change rationale was missing or incomplete."
             if selected_issue.batch is not None:
                 return AnalysisResult(
-                    summary=f"Batch semantic-safety assessment rejected: {reason}",
+                    summary=f"Batch change rationale could not be prepared: {reason}",
                     validation_passed=False,
                     semantic_safety=semantic_safety,
                     batch_attempt=accepted_attempt,
                     failure=FailureDetails(
                         stage=FailureStage.SEMANTIC_SAFETY,
-                        message="Batch semantic-safety assessment rejected; no edit is allowed.",
+                        message=(
+                            "Batch change rationale could not be prepared; no edit was generated."
+                        ),
                     ),
                 )
             return AnalysisResult(

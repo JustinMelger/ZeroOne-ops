@@ -1,4 +1,4 @@
-"""Render bounded semantic-safety evidence for operator-facing Markdown."""
+"""Present internal semantic-safety evidence as an operator-facing change rationale."""
 
 from __future__ import annotations
 
@@ -17,17 +17,23 @@ def render_semantic_safety_lines(
         assessment = semantic_safety
         rejection_reason = None
 
-    lines = ["", "## Semantic Safety", ""]
+    if assessment is None and rejection_reason is None:
+        return []
+
+    lines = ["", "## Change Rationale", ""]
     if rejection_reason is not None:
-        lines.append(f"- Decision: {_escape_markdown_text(rejection_reason)}")
+        lines.extend([f"- Why remediation stopped: {_escape_markdown_text(rejection_reason)}", ""])
     if assessment is None:
-        lines.append("No semantic-safety assessment was available.")
+        lines.append("No change rationale was available.")
         return lines
     lines.extend(
         [
+            "Model-provided explanation; not independent verification. "
+            "See validation and review results.",
+            "",
             f"- Current behavior: {_escape_markdown_text(assessment.current_behavior)}",
-            f"- Intended behavior: {_escape_markdown_text(assessment.intended_behavior)}",
-            "- Preservation evidence:",
+            f"- Intended change: {_escape_markdown_text(assessment.intended_behavior)}",
+            "- Why existing behavior should be preserved:",
             *[
                 f"  - {_escape_markdown_text(evidence)}"
                 for evidence in assessment.preservation_evidence

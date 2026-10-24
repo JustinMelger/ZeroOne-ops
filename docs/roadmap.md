@@ -14,6 +14,10 @@ history, not here.
 
 ## Implemented
 
+- operator-facing **Change Rationale** in issues, PR/MRs, and failure messages,
+  explicitly labeled as model-provided explanation rather than verification;
+  internal semantic-safety state and gate behavior remain unchanged
+
 - consistent seven-day Renovate/uv cooldown for all normal PyPI updates,
   including operator-approved major upgrades
 

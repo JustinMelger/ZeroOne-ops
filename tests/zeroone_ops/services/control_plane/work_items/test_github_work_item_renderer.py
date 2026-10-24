@@ -103,11 +103,11 @@ def test_rendering_includes_semantic_safety_evidence_when_present() -> None:
 
     body = GitHubWorkItemRenderer().render_body(work_item)
 
-    assert "## Semantic Safety" in body
+    assert "## Change Rationale" in body
     assert "- Current behavior: The old condition accepts None." in body
-    assert "- Intended behavior: The condition rejects None." in body
+    assert "- Intended change: The condition rejects None." in body
     assert "  - Only the local condition changes." in body
-    assert "## Semantic Safety" not in GitHubWorkItemRenderer().render_body(build_work_item())
+    assert "## Change Rationale" not in GitHubWorkItemRenderer().render_body(build_work_item())
 
 
 def test_rendering_includes_distinct_detail_for_non_templated_findings() -> None:
