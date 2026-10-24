@@ -2,15 +2,14 @@
 
 ## Status
 
-**Reviewed contract; internal implementation only, not enabled in production.**
-Current production work items still represent individual findings. Slices 1 through
-3 supply internal planning, projection, execution, and recovery. The ten-member
-default does not activate batching; production integration and operator rollout
-remain slice 4.
+**Reviewed contract; slice 4 activates batching, with live rollout validation pending.**
+New work items use default-ten promotion-time file/rule batching. Existing
+single-finding issues remain independent. A configured limit of one prevents
+multi-member proposals without resizing existing batches.
 The [technical contract](../technical/technical-design-remediation-batching.md)
 specifies schema, persistence sequencing, and implementation boundaries for
-the internal implementation and remaining rollout. Neither document claims
-production activation or release readiness.
+the implementation and remaining rollout. Automated implementation does not
+establish live provider validation or release readiness.
 
 The [file-grouping design](functional-design-finding-file-grouping.md) is
 background, not a prerequisite. This proposal assembles executable batches at
@@ -59,7 +58,7 @@ evidence to group safely retain single-finding handling.
 
 ### Size, Ranking, And Capacity
 
-The proposed default is at most ten findings per work item. Operators can set
+The default is at most ten findings per work item. Operators can set
 one positive maximum; a value of one disables multi-finding batching.
 No per-severity limits are introduced. An exact
 configuration spelling and validation bounds belong to the technical design.
@@ -212,8 +211,8 @@ is a selection problem, not an execution failure. Observation changes never
 automatically unblock it; explicit operator recovery is required. Findings with
 no durable issue remain backlog-only and do not get notification issues.
 
-The projection and slice 3 execution/recovery implementation remain internal;
-production batch creation and intake stay disabled until slice 4.
+The shared production coordinator and intake activate this projection and execution
+contract in slice 4. Live provider validation remains a separate acceptance gate.
 
 If policy later permits an original member again before execution, that member
 may rejoin the executable scope without changing frozen membership. Re-enabling

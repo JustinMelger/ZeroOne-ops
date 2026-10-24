@@ -32,19 +32,19 @@ control-plane installation experience. See the [roadmap](docs/roadmap.md).
 ```mermaid
 flowchart TD
     A[Finding producers\nSonarQube / SARIF] --> B[Normalized finding intake]
-    B --> C{Platform control plane}
-    C --> D[GitLab policy and work-item issues]
-    C --> E[GitHub policy and work-item issues]
-    D --> F[Shared remediation]
-    E --> F
-    F --> G[GitLab MR / GitHub PR]
-    G <--> H[Staged change-request review]
-    G --> I[Lifecycle reconciliation]
-    I --> D
-    I --> E
-    D --> J[Derived operational summaries]
-    E --> J
+    B --> C[Policy filtering, file/rule batching and capacity]
+    C --> D[Git provider work-item issues]
+    D --> E[Shared remediation]
+    E --> F[Git provider change request]
+    F <--> G[Staged review]
+    F --> H[Lifecycle reconciliation]
+    H --> D
+    D --> I[Derived operational summaries]
 ```
+
+The Git provider is GitHub or GitLab. New work is batched at promotion; existing
+single-finding issues remain independent. Review feedback returns to the
+work-item issue, where an operator can authorize a same-request revision.
 
 ## Quick Start
 
@@ -134,8 +134,10 @@ uv run pre-commit run --all-files
 
 - normalize SonarQube and configured SARIF findings into the shared finding
   contract
-- project promoted findings into authoritative GitLab or GitHub work-item
-  issues
+- filter individual findings by policy and dismissal, then batch compatible
+  findings by source, file, and rule before capacity selection
+- project selected work into authoritative Git provider issues, preserving
+  existing single-finding work
 - keep non-promoted findings visible only as aggregate backlog counts in the
   derived operational summary, without turning every finding into an issue
 
@@ -282,6 +284,7 @@ For example:
 - `review.inline_comments_enabled`
 - `remediation.bootstrap_severities`
 - `remediation.max_active_work_items`
+- `remediation.max_findings_per_work_item`
 - `remediation.source_priorities`
 - `remediation.validation_feedback_enabled`
 - `remediation.target_branch`
@@ -298,18 +301,22 @@ producer example.
 
 `remediation.max_active_work_items` bounds active remediation work across the
 repository when using GitHub or GitLab issue control planes. It defaults to
-`10`; only open approved and in-progress remediation work items consume the
+`10`; open approved, in-progress, and review-feedback/revision work consume the
 limit. Deferred findings remain visible through aggregate backlog counts.
 
-`remediation.max_findings_per_work_item` is a **dormant batching foundation**
-setting: strict positive integer, default `10`, with `1` disabling multi-member
-proposals in the standalone planner and internal batch-sync path. Live finding
-sync and remediation do not consume it yet; configuring it does not create batches
-or change current single-finding work. Internal execution/recovery supports complete
-batch coverage and recorded retry scope. Batch prompts and response schemas are
-isolated from single-finding requests; production activation and batch review
-guidance remain slice 4. See the
-[batching roadmap](docs/roadmap.md#remediation-batching).
+New GitHub/GitLab work items group policy-eligible findings by source, file and
+rule, up to `remediation.max_findings_per_work_item` (strict positive integer,
+default `10`). Set it to `1` to prevent multi-member proposals; existing singles
+and frozen batches are never consolidated or resized. One batch consumes one
+active-work slot and produces one one-file PR/MR, with complete analysis coverage
+and all-or-nothing publication. The issue distinguishes observations, planned
+scope and recorded attempts. Missing policy evidence is shown as not evaluated.
+
+Complete batch issue bodies and request descriptions have a 60,000 UTF-8 byte
+application budget. Oversized proposals remain backlog-only with a warning;
+authoritative evidence is never truncated to fit. Scan before sync as usual.
+Live GitHub/GitLab rollout and release-candidate acceptance remain separate
+[roadmap gates](docs/roadmap.md#remediation-batching).
 
 `remediation.source_priorities` optionally ranks policy-eligible work before
 severity when capacity is limited. Lower non-negative values have higher
@@ -446,6 +453,12 @@ as the repository root, so mounting another repository does not hide the bot's
 virtual environment. The published runtime image uses a multi-stage build and
 runs as a non-root user.
 
+The base image does not guarantee your project's package managers, compilers,
+or validation tools. Install them in an operator-owned derived image or through
+trusted CI setup; keep target dependencies separate from the bot environment.
+See the [validation toolchain image contract](docs/runbook.md#validation-toolchain-images)
+for a pinned example, non-root permissions, and GitHub/GitLab integration.
+
 GitHub release automation uses `release-please` plus the publish workflow.
 Stable release tags now follow the `zeroone-ops-vX.Y.Z` pattern.
 Prerelease tags can use `zeroone-ops-vX.Y.Z-rc.N`; those publish explicit
@@ -508,8 +521,9 @@ Use these docs for the deeper operational details:
 - [docs/runbook.md](docs/runbook.md) for CI setup, credentials, rollout order,
   and smoke-test recipes
 - [docs/roadmap.md](docs/roadmap.md) for what is shipped, current, and parked
-- [Proposed remediation batching](docs/design/functional/functional-design-remediation-batching.md)
-  for the file/rule batching contract under review; not implemented behavior
+- [Remediation batching](docs/design/functional/functional-design-remediation-batching.md)
+  for the implemented file/rule batching contract; live provider validation and
+  release-candidate acceptance remain pending
 - [V1 migration guide](docs/migration-v1.md) for retired dashboard commands,
   issue-mode cutover, and safe local-state cleanup
 - [Legacy dashboard retirement audit](docs/design/technical/technical-audit-legacy-dashboard-retirement.md)

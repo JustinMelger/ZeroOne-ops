@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.work_item import WorkItemState
 
@@ -24,6 +25,7 @@ class RemediationIntakeOutcome:
     selected_record: RemediationIntakeRecord | None
     selected_target: RemediationExecutionTarget | None
     item_count: int
+    batch_policy: PolicyState | None = None
 
 
 @dataclass(frozen=True)

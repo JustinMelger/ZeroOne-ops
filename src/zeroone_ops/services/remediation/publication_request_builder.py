@@ -17,6 +17,7 @@ from zeroone_ops.services.remediation.change_request_publisher import ChangeRequ
 from zeroone_ops.services.remediation.semantic_safety_presentation import (
     render_semantic_safety_lines,
 )
+from zeroone_ops.services.shared.projection_payload import validate_batch_payload
 
 
 class RemediationPublicationRequestBuilder:
@@ -163,7 +164,8 @@ class RemediationPublicationRequestBuilder:
             )
         if semantic_safety is not None:
             lines.extend(render_semantic_safety_lines(semantic_safety))
-        return "\n".join(lines).rstrip()
+        body = "\n".join(lines).rstrip()
+        return validate_batch_payload(body) if selected_issue.batch is not None else body
 
     def _publication_options(self) -> tuple[list[str], str | None]:
         """Return provider-local publish options for the configured repository."""

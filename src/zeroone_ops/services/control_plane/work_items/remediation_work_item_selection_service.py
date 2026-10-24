@@ -12,9 +12,6 @@ _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 def is_remediation_execution_eligible(work_item: WorkItemState) -> bool:
     """Return whether one open work item is eligible for execution selection."""
-    # Production batching remains disabled until slice 4 rollout.
-    if work_item.batch is not None:
-        return False
     return is_internal_remediation_execution_eligible(work_item)
 
 

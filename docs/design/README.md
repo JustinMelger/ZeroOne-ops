@@ -26,16 +26,17 @@ historical records that explain how ZeroOne Ops reached its present architecture
 Use the [roadmap](../roadmap.md) to identify the active implementation topic,
 then follow the relevant current contract.
 
-## Proposed And Parked Designs
-
 - [Promotion-time file/rule batching functional design](functional/functional-design-remediation-batching.md)
   and [technical design](technical/technical-design-remediation-batching.md)
-  describe a reviewed contract whose end-to-end workflow is not enabled. They cover bounded batches,
+  describe activated default-ten batches,
   new work items only, and one-file execution on both providers. Existing
   single-finding issues are not migrated or consolidated.
-  Slices 1 through 3 provide dormant models/planning, internal sync/projection,
-  and complete execution/recovery with provider-parity tests. Production batch
-  creation and intake remain disabled until slice 4 UX and rollout validation.
+  Shared sync, intake and complete execution/recovery use provider-parity tests;
+  operator UX and payload guards are activated. Live provider validation and
+  release-candidate acceptance remain separate, unchecked roadmap gates.
+
+## Proposed And Parked Designs
+
 - [Finding file grouping functional design](functional/functional-design-finding-file-grouping.md)
   and [technical design](technical/technical-design-finding-file-grouping.md)
   remain parked background for derived inventories. They are not prerequisites

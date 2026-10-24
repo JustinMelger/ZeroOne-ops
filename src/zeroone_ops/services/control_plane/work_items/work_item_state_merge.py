@@ -63,3 +63,17 @@ def merge_remediation_work_item_state(
 
     # Revalidate attempts against persisted membership instead of trusting the snapshot.
     return WorkItemState.model_validate(merged.model_dump() | {"batch": existing.batch})
+
+
+def merge_batch_claim_state(
+    existing: WorkItemState, incoming: WorkItemState, *, expected: WorkItemState
+) -> WorkItemState:
+    """Persist intake evidence only if the selected authority is still unchanged.
+
+    Fresh reassessment may clear selection evidence and replace an earlier attempt;
+    it must not overwrite an observation refresh or a concurrent execution claim.
+    """
+    if existing != expected or existing.batch is None or incoming.batch is None:
+        raise RuntimeError("Batch changed before claim; retry intake against current authority.")
+    merged = merge_authoritative_work_item_state(existing, incoming)
+    return WorkItemState.model_validate(merged.model_dump())

@@ -778,6 +778,96 @@ If you need them temporarily:
 - rerun the pipeline
 - remove the override once debugging is done
 
+## Validation Toolchain Images
+
+The published ZeroOne Ops image is a thin bot runtime, not a general-purpose
+project build image. It includes Python 3.13, Git, curl, and CA certificates.
+The bot is installed under `/opt/zeroone-ops/.venv`; `/workspace` is the default
+working directory. Its default user is `zeroone` (UID/GID `10001`), with
+`HOME=/home/zeroone`.
+
+Project-specific package managers, compilers, language runtimes, and test tools
+are operator-owned. For example, `uv`, Node.js, Java, and native build dependencies
+are not part of the base-image contract. The Python version bundled for the bot
+is not a promise that every target project's Python requirement is satisfied.
+Existing examples install uv in CI; an operator-owned derived image can instead
+provide stable tooling before the job starts.
+
+### Build A Derived Image
+
+This Python example installs native compilation tools and the uv version used
+by the GitLab template. Adapt those tools to the target repository; pin the base
+to the exact release or RC being validated, and pin additional tool versions or
+image digests according to your own supply-chain policy.
+
+```dockerfile
+ARG ZEROONE_OPS_VERSION
+FROM ghcr.io/justinmelger/zeroone-ops:${ZEROONE_OPS_VERSION}
+
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+USER zeroone
+ARG UV_VERSION=0.11.8
+RUN curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh
+ENV PATH="/home/zeroone/.local/bin:${PATH}"
+WORKDIR /workspace
+```
+
+Build and publish this image to your own registry. Supply the base version
+explicitly, for example `--build-arg ZEROONE_OPS_VERSION=<validated-version>`;
+use a distinct derived-image tag for each base/toolchain combination. Rebuild
+deliberately when either changes. OS packages in this example follow the base
+distribution's repositories; the example is not a reproducible-build guarantee.
+
+Retain the inherited ZeroOne Ops entrypoint and bot environment. Switch to root
+only for image-build installation, then restore the non-root user. Do not install
+project dependencies into `/opt/zeroone-ops/.venv`, replace its Python packages,
+or use an image build to run untrusted target-repository setup commands. Keep
+repository dependencies in their own environment, such as `/workspace/.venv`.
+Never bake registry tokens, provider tokens, or model credentials into image
+layers; supply required credentials through protected CI secrets at runtime.
+
+### Select The Image In CI
+
+Use the derived image in the existing privileged remediation job:
+
+- GitLab: replace the image on `zeroone_ops_control_plane`, or on
+  `.zeroone_ops_base` if every bot job should use it. Retain `entrypoint: [""]`
+  so GitLab can execute the job script.
+- GitHub: replace `jobs.remediate.container.image` in the operations workflow.
+  Apply the same image to other jobs only when those jobs need its tools.
+- Remove redundant tool installation steps only after the derived image supplies
+  those tools. Keep Git identity/authentication setup and existing job permissions,
+  default-branch restrictions, scheduling, and serialization unchanged.
+
+Replacing `ZERO_ONE_OPS_VERSION` alone does not select a custom registry image;
+update the existing job's full image reference. Review jobs must not inherit
+remediation dependency setup or validation just because they share an image.
+
+The effective job user must be able to write the checkout, Git metadata, and its
+tool caches. `/workspace` ownership in the image does not change the ownership
+of a mounted checkout or the runner's actual checkout directory. Configure
+runner permissions accordingly rather than making production jobs privileged
+or defaulting the image to root.
+
+### Verify Before Rollout
+
+Run `zeroone-ops --help` and the required tool version commands inside the
+derived image. Then run your configured setup/check commands against a disposable
+checkout using the same user, mount permissions, credentials, and network access
+as the intended CI job. Confirm private package registries are reachable without
+printing credentials and that setup leaves real repository changes untouched.
+
+Keep dependency setup and checks under `remediation.validation_setup_commands`
+and `remediation.validation_commands`. They remain executable CI policy from the
+trusted default branch. Installing a tool in the image does not configure or
+run validation automatically. A review-only smoke test must not run those commands.
+Finally, validate one complete remediation on each provider using the selected
+image; a successful image build is not live workflow acceptance.
+
 ## Smoke Test Recipe
 
 Use this recipe before you rely on the bot for unattended scheduled runs in a
@@ -815,43 +905,58 @@ Everything else in the JSON config is optional and falls back to application
 defaults unless your repository needs custom behavior.
 
 In GitHub and GitLab issue control-plane modes,
-`remediation.max_active_work_items` defaults to `10` and bounds open approved
-and in-progress remediation work items across all finding sources. Findings
-that exceed the limit remain backlog-only until a later sync finds capacity.
+`remediation.max_active_work_items` defaults to `10` and bounds open approved,
+in-progress, and review-feedback/revision work items across all finding sources.
+Findings that exceed the limit remain backlog-only until a later sync finds capacity.
+Active owned findings are not backlog and are not counted as new promotions on
+repeat syncs. A failed or uncertain capacity-releasing transition retains its
+reservation for that run; the sync warns and later runs can reconcile it.
 
-`remediation.max_findings_per_work_item` is accepted as a strict positive integer
-with default `10` by the dormant batching foundation. It currently affects only
-the standalone planner and internal batch-sync coordinator, not live finding sync,
-intake, or execution. A value of
-`1` produces singleton proposals; no configured value enables batch creation at
-this stage. Keep deployed configurations unchanged until the remaining
-[batching slices](roadmap.md#remediation-batching) are implemented and validated.
+New work uses promotion-time file/rule batching on both GitHub and GitLab.
+`remediation.max_findings_per_work_item` defaults to `10` and accepts only strict
+positive integers. A value of `1` prevents multi-member proposals. Existing
+single-finding issues and frozen batch memberships remain unchanged.
 
-The internal slice 2 coordinator is tested against both provider storage adapters
-but is not wired into runners or the CLI. It refreshes frozen-member observations,
-reconciles policy/capacity deferral and complete-inventory absence, and guards
-batch creation with ownership/dismissal rechecks. Batch records are explicitly
-excluded from production remediation intake until slice 4 rollout. Slice 3 supplies
-internal full-member execution, analysis accounting, and recovery; there is no
-configuration flag that enables this path.
-Single-finding analysis and edit prompts retain their existing contracts. The
-internal batch path has separate prompts and an extended analysis response model;
-production activation and batch reviewer guidance belong to slice 4.
-Observation refresh does not reopen manually closed protected approved batches;
-their ownership is retained, and lifecycle still handles linked PR/MR outcomes.
+Generate current target-branch reports before finding sync. The shared coordinator
+refreshes member observations, applies policy/capacity decisions, and rechecks
+ownership/dismissal before creation. Source priorities rank batches before
+severity; one active batch consumes one work-item slot. Excess members stay in
+aggregate backlog. Incomplete sources cannot establish absence. There is no
+new enablement flag, migration, splitting command, or atomic reservation.
 
-Within this internal path, incompatible executable requirements or refreshed
-evidence outside the frozen file/rule scope block existing safe unstarted work.
-A compact **Selection** section identifies the cause and bounded member references;
-it is not a failed execution record. Closed deferred issues are made visible again
-only after the blocked state is persisted. Observation changes do not automatically
-unblock work; internal fresh operator-authorized reassessment belongs to remediation recovery.
-Ordinary capacity/policy deferrals remain closed. Unpromoted findings do not get
-notification issues, and full batch issue/summary UX remains slice 4.
+Fresh batch intake reads policy once, without creating or updating the policy
+issue, and carries that snapshot through claim and execution. A failed lookup
+withholds fresh batches, not independent single-finding work or recorded retry
+and revision scope. Complete context and analysis accounting are mandatory:
+no representative-only or partial batch change is published.
 
-Internal batch execution targets the complete remaining policy-eligible scope,
-not an arbitrary representative finding. Insufficient context, incomplete analysis
-accounting, or unsafe/manual work blocks the complete batch before editing.
+Batch issues show original, detected, absent, unknown-freshness, policy-excluded,
+planned-targeted and recorded-attempt counts. Policy-dependent counts are marked
+**not evaluated** when no explicit policy is supplied. Display tables show at
+most ten members with 300-character message excerpts; collapsed machine state
+retains all evidence. Targeted, absent, and merged are different facts.
+
+A safely unstarted batch manually closed by an operator releases ownership;
+reported members may create new work. Dismiss it instead to suppress exact
+members. Closing protected/started work does not release ownership. Linked
+request terminal states remain lifecycle-owned. Selection failures remain
+blocked until an authorized operator corrects the cause and posts a new
+`/zeroone remediation requeue` on the work-item issue. Observation refresh
+never unblocks work automatically.
+
+The complete serialized batch issue body and PR/MR description must fit a
+60,000 UTF-8 byte **application** budget, not a claimed provider-native limit.
+Oversized new proposals remain backlog-only with `projection_size_exceeded`;
+existing updates retain previous authority and emit a bounded warning/failure.
+Claim failure prevents execution and publication payload failure prevents push
+or request publication. Evidence is never cut to fit; reduce the new-batch
+limit or resolve the cause before retrying. There is no automatic splitting.
+
+Batch analysis/edit prompts and schemas activate only for typed batch targets.
+Review receives bounded attempt evidence only from unique verified work-item
+linkage and evaluates the diff against it as untrusted claims, never proof.
+Single-finding prompts and schemas retain their contracts.
+
 For rejected batch analysis, **Last Execution** shows bounded affected-member
 references and reasons, plus an omitted count when needed. Correct the stated
 cause before explicitly requeueing. These are rejection diagnostics, not accepted

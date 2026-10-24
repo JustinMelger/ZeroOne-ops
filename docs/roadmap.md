@@ -161,15 +161,18 @@ history, not here.
   deferral, absence reconciliation, safe creation, and GitHub/GitLab parity
 - [x] slice 3 - execution and recovery: complete context and analysis coverage,
   one-file edits, validation, retry/revision evidence, and recovery precedence
-- [ ] slice 4 - operator UX and rollout: issue rendering, summaries, integration
-  verification, production batch prompt/schema activation and review guidance,
-  and live GitHub/GitLab validation before the batching candidate
+- [x] slice 4 automated implementation - production sync/intake activation,
+  task-first issue rendering, summaries, prompt/review contracts, payload guards,
+  and automated integration verification
+- [ ] live-validate GitHub batching: fresh same-file/rule findings, one complete
+  remediation, review/requeue, and merge reconciliation
+- [ ] live-validate GitLab batching with the same operator scenarios
+- [ ] accept the batching release candidate after recorded operator validation
 
 Use a separate reviewable branch per slice and create its detailed implementation
-plan when picked up. Keep batch creation disabled until the end-to-end path is
-ready; the designs above own the detailed contracts. Slices 1 through 3 are internal
-foundations; production sync remains single-finding, and batch intake/execution
-is disabled until slice 4 UX and rollout. End-to-end production batching is not enabled.
+plan when picked up. The shared production path now activates file/rule batching;
+the designs above own the detailed contracts. Keep automated implementation
+completion separate from live rollout and release-candidate acceptance.
 Validate the current `main` release candidate first, then a batching candidate;
 publish stable v1 only after both validation rounds and any required fixes pass.
 
@@ -179,10 +182,10 @@ publish stable v1 only after both validation rounds and any required fixes pass.
 - [ ] confirm remaining GitLab installations have completed issue-mode cutover
   and local-state cleanup before tagging v1
 
-- [ ] document the derived-image toolchain contract for validation: retain the
+- [x] document the derived-image toolchain contract for validation: retain the
   thin non-root base image with Git, curl, and CA certificates; document how
   operators extend it for language-specific tools without changing the
-  ZeroOne Ops image contract
+  ZeroOne Ops image contract; see [validation toolchain images](runbook.md#validation-toolchain-images)
 - [ ] live-validate same-request revisions and failure recovery on GitHub and GitLab
 - [ ] smoke-test manual merge-conflict recovery on both providers: close the
   conflicted PR/MR, reconcile its work item to `blocked`, then explicitly

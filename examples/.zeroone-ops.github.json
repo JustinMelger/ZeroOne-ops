@@ -12,6 +12,7 @@
     "ignored_paths": ["src/generated/"]
   },
   "remediation": {
+    "max_findings_per_work_item": 10,
     "target_branch": "main",
     "validation_setup_commands": [
       "uv sync --all-groups --locked"

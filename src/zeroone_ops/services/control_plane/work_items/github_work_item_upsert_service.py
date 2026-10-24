@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from zeroone_ops.models.github import GitHubIssueInfo
+from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.models.work_item import WorkItemState
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
@@ -148,12 +149,13 @@ class GitHubWorkItemUpsertService:
         repository_id: str,
         existing: GitHubWorkItemLookupResult,
         work_item: WorkItemState,
+        policy_state: PolicyState | None = None,
     ) -> GitHubWorkItemUpsertResult:
         """Update one already-identified authoritative work-item issue directly."""
         if existing.work_item.identity_key != work_item.identity_key:
             raise ValueError("Recovery update must preserve authoritative work-item identity.")
         title = self.renderer.render_title(work_item)
-        body = self.renderer.render_body(work_item)
+        body = self.renderer.render_body(work_item, policy=policy_state)
         labels = self.renderer.render_labels(work_item)
         if existing.issue.title == title and existing.issue.body == body:
             return GitHubWorkItemUpsertResult(

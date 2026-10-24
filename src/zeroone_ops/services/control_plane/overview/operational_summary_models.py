@@ -21,6 +21,10 @@ class FindingSyncObservation:
     policy_reactivated_count: int = 0
     no_longer_detected_count: int = 0
     projection_warning_count: int = 0
+    promoted_work_items: int | None = None
+    selected_member_count: int = 0
+    unknown_freshness_member_count: int = 0
+    selection_blocked_count: int = 0
 
 
 @dataclass(frozen=True)

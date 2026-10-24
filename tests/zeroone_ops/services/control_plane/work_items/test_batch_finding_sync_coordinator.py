@@ -16,8 +16,8 @@ from zeroone_ops.models.work_item import (
     WorkItemSourceRef,
     WorkItemState,
 )
-from zeroone_ops.services.control_plane.work_items.batch_finding_sync_coordinator import (
-    BatchFindingSyncCoordinator,
+from zeroone_ops.services.control_plane.work_items.finding_sync_coordinator import (
+    FindingSyncCoordinator,
 )
 from zeroone_ops.services.control_plane.work_items.github_finding_sync_service import (
     GitHubFindingSyncService,
@@ -249,7 +249,7 @@ def stored(harness, number=1):
 
 
 def sync(harness, findings=(), **changes):
-    return BatchFindingSyncCoordinator(harness[2], clock=lambda: NOW).sync(
+    return FindingSyncCoordinator(harness[2], clock=lambda: NOW).sync(
         **(
             dict(
                 repository_scope=SCOPE,
@@ -274,6 +274,9 @@ def test_create_ten_member_batch_then_reuse_without_expansion(harness):
 
     again = sync(harness, findings, max_active_work_items=1)
     assert again.created_count == 0
+    assert again.promoted_count == 0
+    assert again.backlog_only_count == 13
+    assert "owned" not in again.backlog_reason_counts
     assert stored(harness).batch.members == state.batch.members
     assert harness[0].create_attempts == 1
 
@@ -323,6 +326,147 @@ def test_deferred_reactivation_reopens_before_active_update(harness, status):
     actions = [action for action, _ in harness[0].calls]
     assert actions.index("reopen") < actions.index("update")
     assert result.policy_reactivated_count == 1
+
+
+@pytest.mark.parametrize("reverse_order", [False, True])
+@pytest.mark.parametrize("failure", [None, "update", "close"])
+def test_reactivation_waits_for_confirmed_capacity_release(
+    harness, monkeypatch, reverse_order, failure
+):
+    client = harness[0]
+    pending = batch_state(status="capacity_deferred")
+    stale = batch_state(members=[finding("old", path="src/old.py")], status="approved")
+    states = [(pending, False), (stale, True)]
+    if reverse_order:
+        states.reverse()
+    numbers = {state.work_item_id: seed(harness, state, is_open=opened) for state, opened in states}
+    stale_number, pending_number = numbers[stale.work_item_id], numbers[pending.work_item_id]
+    if failure:
+        method_name = f"{failure}_issue"
+        original_method = getattr(client, method_name)
+
+        def fail_release(**kwargs):
+            number = kwargs.get("issue_number", kwargs.get("issue_iid"))
+            if number == stale_number:
+                client.calls.append((failure, number))
+                raise RuntimeError("release failed")
+            return original_method(**kwargs)
+
+        monkeypatch.setattr(client, method_name, fail_release)
+
+    result = sync(harness, [finding()], max_active_work_items=1)
+
+    assert result.projection_warning_count == int(failure is not None)
+    assert result.promoted_count == int(failure is None)
+    assert result.policy_reactivated_count == int(failure is None)
+    assert client.calls.count(("update", stale_number)) == 1
+    if failure:
+        assert stored(harness, pending_number).status == "capacity_deferred"
+        assert not client.open[pending_number]
+        assert ("reopen", pending_number) not in client.calls
+        assert result.backlog_reason_counts == {"promotion_capacity_exhausted": 1}
+        assert result.no_longer_detected_count == 0
+    else:
+        assert stored(harness, stale_number).resolution == "no_longer_detected"
+        assert not client.open[stale_number]
+        assert stored(harness, pending_number).status == "approved"
+        assert client.calls.index(("close", stale_number)) < client.calls.index(
+            ("reopen", pending_number)
+        )
+        assert result.no_longer_detected_count == 1
+
+
+@pytest.mark.parametrize("single", [False, True])
+@pytest.mark.parametrize(
+    "status", ["approved", "in_progress", "review_feedback_required", "review_revision_queued"]
+)
+@pytest.mark.parametrize("policy_disabled", [False, True])
+def test_active_owned_findings_are_not_backlog_on_repeated_sync(
+    harness, single, status, policy_disabled
+):
+    members = [finding("a"), finding("b")]
+    original = batch_state(
+        members=members,
+        status=status,
+        linked_change_request=ChangeRequestRef(number=7, web_url="https://example/mr/7"),
+    )
+    if single:
+        members = members[:1]
+        original = original.model_copy(
+            update={
+                "batch": None,
+                "source": original.source.model_copy(update={"source_item_key": "a"}),
+            }
+        )
+    seed(harness, original)
+    enabled = policy("low") if policy_disabled else policy()
+    for _ in range(2):
+        result = sync(harness, members, policy_state=enabled)
+        assert result.promoted_count == 0
+        assert result.selected_member_count == 0
+        assert result.backlog_only_count == 0
+        assert result.backlog_reason_counts == {}
+        assert result.normalized_severity_counts == {"medium": len(members)}
+        assert stored(harness).status == status
+    if single:
+        assert original.batch is None
+    else:
+        assert len(original.batch.members) == 2
+
+
+def test_active_members_and_capacity_backlog_use_distinct_counts(harness):
+    active = [finding("a"), finding("b")]
+    seed(harness, batch_state(members=active, status="approved"))
+    waiting = finding("waiting", path="src/waiting.py")
+    result = sync(harness, [*active, waiting], max_active_work_items=1)
+    assert result.promoted_count == 0
+    assert result.backlog_only_count == 1
+    assert result.backlog_reason_counts == {"promotion_capacity_exhausted": 1}
+    assert result.normalized_severity_counts == {"medium": 3}
+
+
+def test_failed_release_does_not_prevent_using_independent_available_capacity(harness, monkeypatch):
+    client = harness[0]
+    seed(harness, batch_state(status="approved", members=[finding("old", path="src/old.py")]))
+    seed(harness, batch_state(status="capacity_deferred"), is_open=False)
+    seed(
+        harness,
+        batch_state(status="capacity_deferred", members=[finding("b", path="src/other.py")]),
+        is_open=False,
+    )
+    original_update = client.update_issue
+
+    def fail_release(**kwargs):
+        if kwargs.get("issue_number", kwargs.get("issue_iid")) == 1:
+            raise RuntimeError("release failed")
+        return original_update(**kwargs)
+
+    monkeypatch.setattr(client, "update_issue", fail_release)
+    result = sync(harness, [finding(), finding("b", path="src/other.py")], max_active_work_items=2)
+    assert stored(harness, 1).status == "approved"
+    assert sorted(stored(harness, number).status for number in (2, 3)) == [
+        "approved",
+        "capacity_deferred",
+    ]
+    assert result.promoted_count == 1
+    assert result.projection_warning_count == 1
+    assert result.backlog_only_count == 1
+
+
+def test_dry_run_simulates_release_before_reopening_without_writes(harness):
+    seed(harness, batch_state(status="capacity_deferred"), is_open=False)
+    seed(harness, batch_state(status="approved", members=[finding("old", path="src/old.py")]))
+    before = dict(harness[0].issues)
+    result = sync(harness, [finding()], max_active_work_items=1, persist=False)
+    assert result.no_longer_detected_count == 1
+    assert result.promoted_count == 1
+    assert result.policy_reactivated_count == 1
+    assert result.backlog_only_count == 0
+    assert harness[0].issues == before
+    assert not harness[0].open[1]
+    assert not any(
+        action in {"update", "create", "close", "reopen"} for action, _ in harness[0].calls
+    )
 
 
 def test_policy_then_capacity_deferral_close_after_state_update(harness):
@@ -529,7 +673,7 @@ def test_dry_run_previews_freed_capacity_without_clock_identity_or_writes(harnes
         "zeroone_ops.services.control_plane.work_items.batch_finding_creation_service.create_finding_batch_identity",
         side_effect=AssertionError("identity allocated"),
     ):
-        result = BatchFindingSyncCoordinator(harness[2], clock=clock).sync(
+        result = FindingSyncCoordinator(harness[2], clock=clock).sync(
             repository_scope=SCOPE,
             findings=[finding("new", path="src/new.py")],
             policy_state=policy(),
@@ -545,26 +689,19 @@ def test_dry_run_previews_freed_capacity_without_clock_identity_or_writes(harnes
     assert harness[0].create_attempts == 0
 
 
-def test_deployed_sync_still_creates_single_findings_not_batches(harness):
+def test_deployed_sync_creates_a_batch_and_intake_admits_it(harness):
     client, service, _ = harness
-    with patch.object(
-        BatchFindingSyncCoordinator, "sync", side_effect=AssertionError("batch route activated")
-    ):
-        if client.provider == "github":
-            result = GitHubFindingSyncService(work_item_service=service).sync(
-                repository_id=SCOPE, findings=[finding(), finding("b")], policy_state=policy()
-            )
-        else:
-            result = GitLabFindingSyncService(work_item_service=service).sync(
-                project_id=SCOPE, findings=[finding(), finding("b")], policy_state=policy()
-            )
-    assert result.created_count == 2
-    assert stored(harness, 1).batch is None
-    assert stored(harness, 2).batch is None
-
-
-def test_batch_intake_is_explicitly_unavailable_until_execution_slice():
-    assert not is_remediation_execution_eligible(batch_state(status="approved"))
+    sync_service = (
+        GitHubFindingSyncService(work_item_service=service)
+        if client.provider == "github"
+        else GitLabFindingSyncService(work_item_service=service)
+    )
+    scope = {"repository_id" if client.provider == "github" else "project_id": SCOPE}
+    result = sync_service.sync(**scope, findings=[finding(), finding("b")], policy_state=policy())
+    assert result.created_count == 1
+    assert result.selected_member_count == 2
+    assert len(stored(harness).batch.members) == 2
+    assert is_remediation_execution_eligible(stored(harness))
 
 
 def test_unknown_grouping_keeps_single_finding_identity(harness):

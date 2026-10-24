@@ -51,6 +51,10 @@ class BatchFindingSyncStorage(FindingSyncStorage, Protocol):
         """Find exact assigned identity in both issue states without creating work."""
         ...
 
+    def validate_work_item_projection(self, work_item: WorkItemState) -> None:
+        """Check the full serialized issue projection before transport."""
+        ...
+
     def create_work_item(
         self, *, repository_scope: str, work_item: WorkItemState
     ) -> FindingSyncWriteResult:

@@ -1,5 +1,6 @@
 """Facade over GitLab work-item lookup and upsert services."""
 
+from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.models.remediation import RemediationCompletionRequest, RemediationCompletionResult
 from zeroone_ops.models.work_item import WorkItemKind, WorkItemSourceRef, WorkItemState
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
@@ -112,12 +113,14 @@ class GitLabWorkItemService:
         project_id: str,
         existing: GitLabWorkItemLookupResult,
         work_item: WorkItemState,
+        policy_state: PolicyState | None = None,
     ) -> GitLabWorkItemUpsertResult:
         """Update one already-identified authoritative work-item issue directly."""
         return self.upsert_service.update_existing_work_item(
             project_id=project_id,
             existing=existing,
             work_item=work_item,
+            policy_state=policy_state,
         )
 
     def find_open_work_item_by_change_request(

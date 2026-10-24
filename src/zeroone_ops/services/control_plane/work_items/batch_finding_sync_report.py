@@ -2,6 +2,7 @@
 
 from collections import Counter
 from collections.abc import Sequence
+from dataclasses import replace
 
 from zeroone_ops.models.finding import NormalizedFinding
 from zeroone_ops.models.finding_batch_promotion import (
@@ -16,7 +17,11 @@ from zeroone_ops.models.finding_batch_sync import (
 )
 from zeroone_ops.models.finding_sync import FindingSyncResult
 from zeroone_ops.models.policy import PolicyState
-from zeroone_ops.services.intake.finding_batch_ownership import retains_finding_batch_ownership
+from zeroone_ops.models.work_item import is_active_remediation_status
+from zeroone_ops.services.intake.finding_batch_ownership import (
+    retains_finding_batch_ownership,
+    work_item_member_identities,
+)
 
 
 class BatchFindingSyncReport:
@@ -40,9 +45,29 @@ class BatchFindingSyncReport:
                     )
                     if dispositions.get(identity) == "owned":
                         dispositions[identity] = entry.selection_reason
+        active_members = self._active_member_identities(prepared)
         self._reasons: Counter[str] = Counter(
-            reason for reason in dispositions.values() if reason != "selected"
+            reason
+            for identity, reason in dispositions.items()
+            if reason != "selected"
+            and not (
+                identity in active_members
+                and reason in {"owned", "severity_disabled", "issue_class_excluded"}
+            )
         )
+
+    @staticmethod
+    def _active_member_identities(
+        prepared: Sequence[PreparedBatchWorkItem],
+    ) -> set[FindingBatchMemberIdentity]:
+        """Active authority is not backlog, even when current policy would exclude its members."""
+        return {
+            identity
+            for entry in prepared
+            if is_active_remediation_status(entry.work_item.status)
+            and retains_finding_batch_ownership(replace(entry.original, work_item=entry.work_item))
+            for identity in work_item_member_identities(entry.work_item)
+        }
 
     def record_projection(
         self, outcome: BatchProjectionOutcome, selected: FindingBatchPromotionUnit | None

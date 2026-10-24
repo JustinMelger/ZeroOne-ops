@@ -84,7 +84,8 @@ def test_fixture_analysis_uses_same_schema_selection_as_live_requests(tmp_path, 
         assert "batch_coverage" not in result.model_dump()
 
 
-def test_review_batch_prompt_handoff_remains_deferred():
+@pytest.mark.parametrize("verified", [False, True])
+def test_review_batch_prompt_handoff_requires_verified_linkage(verified):
     target = batch_target()
     context = ChangeRequestReviewContext(
         change_request_number=1,
@@ -94,9 +95,12 @@ def test_review_batch_prompt_handoff_remains_deferred():
         head_sha="head",
         web_url="https://example/requests/1",
         changed_files=[],
-        remediation_context=RemediationReviewContext(batch_attempt=target.batch_attempt),
+        remediation_context=RemediationReviewContext(
+            batch_attempt=target.batch_attempt,
+            verified_work_item_url="https://example/issues/1" if verified else None,
+        ),
     )
     prompt = build_candidate_review_prompt(context)
-    assert "Verified batch attempt" not in prompt
-    assert "member-0" not in prompt
-    assert "targeted scope and accounting" not in prompt
+    assert ("Verified linked batch attempt evidence" in prompt) == verified
+    assert ("member-0" in prompt) == verified
+    assert ("Compare the diff with the recorded batch targets" in prompt) == verified

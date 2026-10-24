@@ -226,14 +226,17 @@ def test_sync_findings_uses_gitlab_work_items_in_issue_mode(
         policy_state,
         managed_source_ids,
         max_active_work_items,
+        max_findings_per_work_item,
         source_priorities,
         persist,
         run_id,
     ):
         del self, policy_state, managed_source_ids, source_priorities, run_id
+        assert max_findings_per_work_item == 10
         sync_calls.append((project_id, len(findings), max_active_work_items, persist))
         return GitLabFindingSyncResult(
             promoted_count=1,
+            selected_member_count=1,
             backlog_only_count=0,
             created_count=0,
             updated_count=0,
@@ -256,7 +259,7 @@ def test_sync_findings_uses_gitlab_work_items_in_issue_mode(
     summary = sync_findings(dry_run=True)
 
     assert summary.status.value == "synced"
-    assert "Dry-run identified 1 findings eligible under the configured policy" in summary.message
+    assert "Dry-run identified 1 work items eligible under the configured policy" in summary.message
     assert "loaded authoritative work-item indexes but made no changes" in summary.message
     assert policy_calls == [("123", False)]
     assert sync_calls == [("123", 1, 10, False)]
