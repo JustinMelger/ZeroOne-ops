@@ -453,6 +453,12 @@ as the repository root, so mounting another repository does not hide the bot's
 virtual environment. The published runtime image uses a multi-stage build and
 runs as a non-root user.
 
+The base image does not guarantee your project's package managers, compilers,
+or validation tools. Install them in an operator-owned derived image or through
+trusted CI setup; keep target dependencies separate from the bot environment.
+See the [validation toolchain image contract](docs/runbook.md#validation-toolchain-images)
+for a pinned example, non-root permissions, and GitHub/GitLab integration.
+
 GitHub release automation uses `release-please` plus the publish workflow.
 Stable release tags now follow the `zeroone-ops-vX.Y.Z` pattern.
 Prerelease tags can use `zeroone-ops-vX.Y.Z-rc.N`; those publish explicit

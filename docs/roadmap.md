@@ -182,10 +182,10 @@ publish stable v1 only after both validation rounds and any required fixes pass.
 - [ ] confirm remaining GitLab installations have completed issue-mode cutover
   and local-state cleanup before tagging v1
 
-- [ ] document the derived-image toolchain contract for validation: retain the
+- [x] document the derived-image toolchain contract for validation: retain the
   thin non-root base image with Git, curl, and CA certificates; document how
   operators extend it for language-specific tools without changing the
-  ZeroOne Ops image contract
+  ZeroOne Ops image contract; see [validation toolchain images](runbook.md#validation-toolchain-images)
 - [ ] live-validate same-request revisions and failure recovery on GitHub and GitLab
 - [ ] smoke-test manual merge-conflict recovery on both providers: close the
   conflicted PR/MR, reconcile its work item to `blocked`, then explicitly

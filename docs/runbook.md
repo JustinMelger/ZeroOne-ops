@@ -778,6 +778,96 @@ If you need them temporarily:
 - rerun the pipeline
 - remove the override once debugging is done
 
+## Validation Toolchain Images
+
+The published ZeroOne Ops image is a thin bot runtime, not a general-purpose
+project build image. It includes Python 3.13, Git, curl, and CA certificates.
+The bot is installed under `/opt/zeroone-ops/.venv`; `/workspace` is the default
+working directory. Its default user is `zeroone` (UID/GID `10001`), with
+`HOME=/home/zeroone`.
+
+Project-specific package managers, compilers, language runtimes, and test tools
+are operator-owned. For example, `uv`, Node.js, Java, and native build dependencies
+are not part of the base-image contract. The Python version bundled for the bot
+is not a promise that every target project's Python requirement is satisfied.
+Existing examples install uv in CI; an operator-owned derived image can instead
+provide stable tooling before the job starts.
+
+### Build A Derived Image
+
+This Python example installs native compilation tools and the uv version used
+by the GitLab template. Adapt those tools to the target repository; pin the base
+to the exact release or RC being validated, and pin additional tool versions or
+image digests according to your own supply-chain policy.
+
+```dockerfile
+ARG ZEROONE_OPS_VERSION
+FROM ghcr.io/justinmelger/zeroone-ops:${ZEROONE_OPS_VERSION}
+
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+USER zeroone
+ARG UV_VERSION=0.11.8
+RUN curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh
+ENV PATH="/home/zeroone/.local/bin:${PATH}"
+WORKDIR /workspace
+```
+
+Build and publish this image to your own registry. Supply the base version
+explicitly, for example `--build-arg ZEROONE_OPS_VERSION=<validated-version>`;
+use a distinct derived-image tag for each base/toolchain combination. Rebuild
+deliberately when either changes. OS packages in this example follow the base
+distribution's repositories; the example is not a reproducible-build guarantee.
+
+Retain the inherited ZeroOne Ops entrypoint and bot environment. Switch to root
+only for image-build installation, then restore the non-root user. Do not install
+project dependencies into `/opt/zeroone-ops/.venv`, replace its Python packages,
+or use an image build to run untrusted target-repository setup commands. Keep
+repository dependencies in their own environment, such as `/workspace/.venv`.
+Never bake registry tokens, provider tokens, or model credentials into image
+layers; supply required credentials through protected CI secrets at runtime.
+
+### Select The Image In CI
+
+Use the derived image in the existing privileged remediation job:
+
+- GitLab: replace the image on `zeroone_ops_control_plane`, or on
+  `.zeroone_ops_base` if every bot job should use it. Retain `entrypoint: [""]`
+  so GitLab can execute the job script.
+- GitHub: replace `jobs.remediate.container.image` in the operations workflow.
+  Apply the same image to other jobs only when those jobs need its tools.
+- Remove redundant tool installation steps only after the derived image supplies
+  those tools. Keep Git identity/authentication setup and existing job permissions,
+  default-branch restrictions, scheduling, and serialization unchanged.
+
+Replacing `ZERO_ONE_OPS_VERSION` alone does not select a custom registry image;
+update the existing job's full image reference. Review jobs must not inherit
+remediation dependency setup or validation just because they share an image.
+
+The effective job user must be able to write the checkout, Git metadata, and its
+tool caches. `/workspace` ownership in the image does not change the ownership
+of a mounted checkout or the runner's actual checkout directory. Configure
+runner permissions accordingly rather than making production jobs privileged
+or defaulting the image to root.
+
+### Verify Before Rollout
+
+Run `zeroone-ops --help` and the required tool version commands inside the
+derived image. Then run your configured setup/check commands against a disposable
+checkout using the same user, mount permissions, credentials, and network access
+as the intended CI job. Confirm private package registries are reachable without
+printing credentials and that setup leaves real repository changes untouched.
+
+Keep dependency setup and checks under `remediation.validation_setup_commands`
+and `remediation.validation_commands`. They remain executable CI policy from the
+trusted default branch. Installing a tool in the image does not configure or
+run validation automatically. A review-only smoke test must not run those commands.
+Finally, validate one complete remediation on each provider using the selected
+image; a successful image build is not live workflow acceptance.
+
 ## Smoke Test Recipe
 
 Use this recipe before you rely on the bot for unattended scheduled runs in a
