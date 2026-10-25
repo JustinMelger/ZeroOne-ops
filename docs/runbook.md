@@ -462,9 +462,26 @@ The `Validation` section distinguishes `Validation passed`, `Validation baseline
 preserved`, and `No validation commands configured`. Missing retained evidence
 is shown as `Validation evidence unavailable`, including publication-only
 retries that lack the original result. Publication success alone never implies
-validation passed. No raw command output is included. Same-request revisions
-do not currently refresh this section; check the revision's workflow logs for
-its validation result.
+validation passed. No raw command output is included.
+
+After a successful same-request revision push, ZeroOne Ops refreshes the
+description's managed validation and Change Rationale block with evidence from
+that execution and the published commit SHA. Keep operator notes outside the
+`zeroone:publication-evidence` HTML-comment markers; text inside is bot-owned.
+Text outside the markers is preserved byte-for-byte. Older unmarked descriptions
+receive a prepended **Latest Revision Evidence** block explicitly superseding
+earlier validation and rationale; the original text is not removed or inferred
+to be bot-owned. Later revisions replace that block rather than appending more.
+
+The linked request must still be open on the expected branch and published head
+when read. Closed requests, changed heads, duplicate/damaged markers, oversized
+batch descriptions, and API failures prevent the description update and produce
+a warning in logs and the CLI summary. The successful revision remains
+successful, and issue evidence continues updating independently. The complete
+batch description must fit the existing 60,000-byte application budget; neither
+operator notes nor batch authority is truncated. No automatic retry or bulk
+rewrite is performed. Read-before-write is not atomic: concurrent description
+edits after the read are not protected by provider compare-and-set.
 
 ## Recommended GitLab CI Setup
 

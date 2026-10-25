@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from zeroone_ops.models.change_request import ChangeRequestInfo
+from zeroone_ops.models.change_request import ChangeRequestDescription, ChangeRequestInfo
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.providers.github_client import GitHubClient, GitHubClientError
 from zeroone_ops.providers.gitlab_client import GitLabClient
@@ -44,6 +44,12 @@ class RemediationChangeRequestPublisher(Protocol):
     def publish(self, request: ChangeRequestPublishRequest) -> PublishedChangeRequest:
         """Create or reuse one provider-backed change request."""
 
+    def read_description(self, number: int) -> ChangeRequestDescription:
+        """Read the exact linked request without branch search or creation."""
+
+    def update_description(self, number: int, description: str) -> None:
+        """Update only the description of the exact linked request."""
+
 
 class GitLabRemediationChangeRequestPublisher:
     """Publish remediation change requests through GitLab."""
@@ -51,6 +57,21 @@ class GitLabRemediationChangeRequestPublisher:
     def __init__(self, gitlab_client: GitLabClient) -> None:
         """Initialize the GitLab remediation publisher."""
         self.gitlab_client = gitlab_client
+
+    def read_description(self, number: int) -> ChangeRequestDescription:
+        """Read the linked merge request and its current description."""
+        return self.gitlab_client.get_merge_request_description(
+            project_id=self.gitlab_client.config.project_id,
+            merge_request_iid=number,
+        )
+
+    def update_description(self, number: int, description: str) -> None:
+        """Preserve all merge-request metadata except its description."""
+        self.gitlab_client.update_merge_request_description(
+            project_id=self.gitlab_client.config.project_id,
+            merge_request_iid=number,
+            description=description,
+        )
 
     def publish(self, request: ChangeRequestPublishRequest) -> PublishedChangeRequest:
         """Create or reuse one GitLab merge request."""
@@ -90,6 +111,21 @@ class GitHubRemediationChangeRequestPublisher:
     def __init__(self, github_client: GitHubClient) -> None:
         """Initialize the GitHub remediation publisher."""
         self.github_client = github_client
+
+    def read_description(self, number: int) -> ChangeRequestDescription:
+        """Read the linked pull request and its current description."""
+        return self.github_client.get_pull_request_description(
+            repository_id=self.github_client.config.repository,
+            pull_request_number=number,
+        )
+
+    def update_description(self, number: int, description: str) -> None:
+        """Preserve all pull-request metadata except its description."""
+        self.github_client.update_pull_request_description(
+            repository_id=self.github_client.config.repository,
+            pull_request_number=number,
+            description=description,
+        )
 
     def publish(self, request: ChangeRequestPublishRequest) -> PublishedChangeRequest:
         """Create or reuse one GitHub pull request."""

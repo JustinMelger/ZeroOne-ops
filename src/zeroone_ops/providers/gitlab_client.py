@@ -7,7 +7,11 @@ from urllib.parse import quote_plus, urlencode
 
 import httpx
 
-from zeroone_ops.models.change_request import ChangeRequestInfo
+from zeroone_ops.models.change_request import (
+    ChangeRequestDescription,
+    ChangeRequestInfo,
+    ChangeRequestState,
+)
 from zeroone_ops.models.config import GitLabConnectionConfig
 
 
@@ -152,6 +156,46 @@ class GitLabClient:
         if not isinstance(user_id, int):
             raise GitLabClientError("Unexpected GitLab user id structure.")
         return user_id
+
+    def get_merge_request_description(
+        self, *, project_id: str, merge_request_iid: int
+    ) -> ChangeRequestDescription:
+        """Read a merge-request description with its current head and lifecycle state."""
+        response = self._http_client.get(
+            f"/api/v4/projects/{quote_plus(project_id)}/merge_requests/{merge_request_iid}"
+        )
+        payload = _parse_json_response(response)
+        if not isinstance(payload, dict):
+            raise GitLabClientError("Unexpected GitLab merge request description payload.")
+        info = _normalize_merge_request(payload)
+        state, branch, sha = payload.get("state"), payload.get("source_branch"), payload.get("sha")
+        if not isinstance(state, str) or not isinstance(branch, str) or not isinstance(sha, str):
+            raise GitLabClientError("Unexpected GitLab merge request head or state.")
+        if "description" not in payload or (
+            payload["description"] is not None and not isinstance(payload["description"], str)
+        ):
+            raise GitLabClientError("Unexpected GitLab merge request description.")
+        return ChangeRequestDescription(
+            request=ChangeRequestState(
+                iid=info.iid,
+                web_url=info.web_url,
+                state=state,
+                source_branch=branch,
+                head_sha=sha,
+            ),
+            description=payload["description"] or "",
+        )
+
+    def update_merge_request_description(
+        self, *, project_id: str, merge_request_iid: int, description: str
+    ) -> None:
+        """Update only the description of the specified merge request."""
+        response = self._http_client.put(
+            f"/api/v4/projects/{quote_plus(project_id)}/merge_requests/{merge_request_iid}",
+            content=_encode_form_data([("description", description)]),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        _parse_json_response(response)
 
 
 def _parse_json_response(response: httpx.Response) -> dict[str, Any] | list[Any]:

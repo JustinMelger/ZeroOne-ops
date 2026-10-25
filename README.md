@@ -224,6 +224,8 @@ Severity control note:
 - show a **Change Rationale** in work-item issues and PR/MRs: the model's intended
   change and behavior-preservation explanation, not independent verification
 - create or reuse a GitLab merge request or GitHub pull request in CI mode
+- refresh bot-owned validation and Change Rationale evidence after successful
+  revisions, preserving operator notes outside the managed description block
 - use `zeroone-ops work-items sync-status` to converge merged and closed
   change-request state
 - preserve closed-unmerged change requests as blocked records until an

@@ -407,9 +407,21 @@ class ExecutionService:
                     commit_sha=commit_sha,
                     publish_attempted=True,
                 )
+            warning = self.publish_service.refresh_revision_evidence(
+                selected_issue=selected_issue,
+                source_branch=branch_name,
+                commit_sha=commit_sha,
+                validation_comparison=analysis_result.validation_comparison,
+                validation_result=analysis_result.validation_result,
+                semantic_safety=(
+                    analysis_result.semantic_safety.assessment
+                    if analysis_result.semantic_safety is not None
+                    else None
+                ),
+            )
             return ExecutionResult(
                 analysis_result=analysis_result,
-                status_message=analysis_result.summary,
+                status_message=analysis_result.summary + (f"\n{warning}" if warning else ""),
                 branch_name=branch_name,
                 commit_sha=commit_sha,
                 change_request_url=revision_change_request.web_url,

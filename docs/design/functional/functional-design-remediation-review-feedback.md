@@ -174,6 +174,14 @@ as stale feedback. The revision does not overwrite the branch and returns to
 
 ## Provider Parity And Authorization
 
+After a successful revision, the existing request displays its latest validation
+evidence and **Change Rationale**, correlated with the published commit. Operator
+notes outside the managed evidence block remain unchanged. Legacy descriptions
+are preserved below a clearly labelled latest-evidence block, not rewritten by
+guessing ownership. A refresh warning means the request description may be stale,
+not that the successfully pushed revision failed; consult the issue and workflow
+logs. This behavior is equivalent on GitHub and GitLab.
+
 GitHub accepts the command only from the existing authorized work-item issue
 comment boundary. GitLab accepts it only from the existing authorized work-item
 issue-note polling boundary. The shared decision logic receives the authorized

@@ -25,3 +25,10 @@ class ChangeRequestState(BaseModel):
     source_branch: str
     head_sha: str
     state: str
+
+
+class ChangeRequestDescription(BaseModel):
+    """Keep editable description text paired with the request head read alongside it."""
+
+    request: ChangeRequestState
+    description: str

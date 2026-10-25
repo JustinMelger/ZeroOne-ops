@@ -379,9 +379,12 @@ def test_execute_uses_deterministic_merge_request_description_in_ci_mode(
             "- Message: Fixture issue",
             "",
             "",
+            "<!-- zeroone:publication-evidence:start -->",
             "## Validation",
             "- Status: Validation passed",
             "- Commands: `uv run pytest`",
+            "",
+            "<!-- zeroone:publication-evidence:end -->",
         ]
     )
 

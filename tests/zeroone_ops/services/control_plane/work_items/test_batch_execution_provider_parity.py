@@ -15,7 +15,11 @@ from zeroone_ops.models.analysis import (
     TextEdit,
 )
 from zeroone_ops.models.batch_execution import BatchAnalysisCoverage, BatchUnaddressableMember
-from zeroone_ops.models.change_request import ChangeRequestInfo, ChangeRequestState
+from zeroone_ops.models.change_request import (
+    ChangeRequestDescription,
+    ChangeRequestInfo,
+    ChangeRequestState,
+)
 from zeroone_ops.models.config import AppConfig, GitHubConfig, GitLabConfig, RemediationConfig
 from zeroone_ops.models.remediation_intake import RemediationIntakeRecord
 from zeroone_ops.models.state import AppState, RepositoryState, RunStatus
@@ -647,6 +651,25 @@ def test_same_request_revision_uses_checked_out_context_and_original_batch_scope
         change_request_title="Adjust constant",
         change_request_description="Correct the reviewed local constant.",
     )
+    model.analyze_issue.return_value = model.analyze_issue.return_value.model_copy(
+        update={
+            "semantic_safety": SemanticSafetyAssessment(
+                current_behavior="Published constant needs correction.",
+                intended_behavior="Correct the published constant to two.",
+                preservation_evidence=["The constant remains numeric."],
+            ),
+        }
+    )
+    publisher.read_description.side_effect = lambda number: ChangeRequestDescription(
+        request=ChangeRequestState(
+            iid=9,
+            web_url="https://example/requests/9",
+            source_branch=branch,
+            head_sha=git("rev-parse", f"origin/{branch}"),
+            state="opened",
+        ),
+        description="Operator MR notes",
+    )
     result = runner.run(record=runs.start_run("revision"), active_dry_run=False)
     final = stored(harness)
     assert result.status == RunStatus.CHANGE_REQUEST_CREATED
@@ -662,6 +685,15 @@ def test_same_request_revision_uses_checked_out_context_and_original_batch_scope
     assert "revision-only guidance" in revision_context.repository_guidance[0].summary
     assert revision_context.prior_review_feedback.findings[0].evidence == "value = 1"
     assert git("show", f"origin/{branch}:src/routes.py") == "value = 2"
+    publisher.update_description.assert_called_once()
+    number, description = publisher.update_description.call_args.args
+    assert number == 9
+    assert description.endswith("Operator MR notes")
+    assert "Correct the published constant to two." in description
+    assert (
+        final.semantic_safety.assessment.intended_behavior
+        == "Correct the published constant to two."
+    )
 
 
 def test_link_sync_recovers_batch_evidence_after_publish_start_projection_failure(

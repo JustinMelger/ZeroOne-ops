@@ -147,6 +147,8 @@ history, not here.
   claim exclusion, failure evidence, and persisted projection repair;
   live rollout validation remains below
 - live-validated same-SHA review-projection repair after a recoverable warning
+- successful revision publication refreshes managed validation/rationale evidence
+  on GitHub/GitLab requests, preserving operator notes and warning on stale output
 
 ## Current Focus
 

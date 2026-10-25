@@ -29,8 +29,12 @@ from zeroone_ops.services.remediation.control_plane import (
     RemediationControlPlane,
     build_remediation_control_plane,
 )
+from zeroone_ops.services.remediation.publication_evidence import render_publication_evidence
 from zeroone_ops.services.remediation.publication_request_builder import (
     RemediationPublicationRequestBuilder,
+)
+from zeroone_ops.services.remediation.revision_evidence_projection import (
+    refresh_revision_description,
 )
 from zeroone_ops.services.shared.branch_manager import (
     BranchManager,
@@ -195,6 +199,49 @@ class PublishService:
             selected_issue=selected_issue,
             remediation_intent=remediation_intent,
         )
+
+    def refresh_revision_evidence(
+        self,
+        *,
+        selected_issue: RemediationExecutionTarget,
+        source_branch: str,
+        commit_sha: str,
+        validation_comparison: ValidationComparison | None,
+        validation_result: ValidationResult | None,
+        semantic_safety: SemanticSafetyAssessment | None,
+    ) -> str | None:
+        """Best-effort description projection must never replace a successful push outcome."""
+        try:
+            linked = selected_issue.revision_change_request
+            if linked is None:
+                raise ValueError("Revision evidence requires the verified linked request.")
+            publisher = self.change_request_publisher or build_remediation_change_request_publisher(
+                self.config
+            )
+            evidence = render_publication_evidence(
+                validation_comparison=validation_comparison,
+                validation_result=validation_result,
+                semantic_safety=semantic_safety,
+                commit_sha=commit_sha,
+            )
+            refresh_revision_description(
+                publisher=publisher,
+                number=linked.number,
+                source_branch=source_branch,
+                commit_sha=commit_sha,
+                evidence=evidence,
+                is_batch=selected_issue.batch is not None,
+            )
+        except Exception as error:
+            LOGGER.warning(
+                "Revision description evidence refresh failed; description may be stale",
+                extra={"error_type": type(error).__name__, "commit_sha": commit_sha},
+            )
+            return (
+                "Warning: revision was published, but its PR/MR description evidence could not "
+                "be refreshed and may be stale. Inspect the work-item issue for latest evidence."
+            )
+        return None
 
     def build_change_request_description(
         self,

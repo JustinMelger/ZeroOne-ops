@@ -260,8 +260,11 @@ def test_publish_service_builds_deterministic_description() -> None:
             "- Message: Fixture issue",
             "",
             "",
+            "<!-- zeroone:publication-evidence:start -->",
             "## Validation",
             "- Status: Validation evidence unavailable",
+            "",
+            "<!-- zeroone:publication-evidence:end -->",
         ]
     )
 

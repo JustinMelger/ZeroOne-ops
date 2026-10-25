@@ -11,11 +11,12 @@ from zeroone_ops.models.analysis import (
     IssueAnalysis,
     PatchProposal,
     SemanticSafetyAssessment,
+    SemanticSafetyDecision,
     StructuredEditProposal,
     TextEdit,
     ValidationResult,
 )
-from zeroone_ops.models.change_request import ChangeRequestState
+from zeroone_ops.models.change_request import ChangeRequestDescription, ChangeRequestState
 from zeroone_ops.models.config import AppConfig, GitHubConfig, GitLabConfig, RemediationConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.state import AppState, FailureDetails, FailureStage, RepositoryState
@@ -102,10 +103,31 @@ def revision_target(sha: str):
     )
 
 
+def description_transport_for(root, description="Operator notes"):
+    transport = Mock()
+
+    def read_description(number):
+        assert number == 9
+        return ChangeRequestDescription(
+            request=ChangeRequestState(
+                iid=9,
+                web_url="https://example.com/pr/9",
+                source_branch="remediation",
+                head_sha=git(root, "rev-parse", "origin/remediation"),
+                state="opened",
+            ),
+            description=description,
+        )
+
+    transport.read_description.side_effect = read_description
+    return transport
+
+
+@pytest.mark.parametrize("description_failure", [False, True])
 @pytest.mark.parametrize("base_has_target", [False, True])
 @pytest.mark.parametrize("existing_local_branch", [False, True])
 def test_revision_reads_checked_out_context_and_pushes_existing_request(
-    tmp_path, monkeypatch, base_has_target, existing_local_branch
+    tmp_path, monkeypatch, base_has_target, existing_local_branch, description_failure
 ):
     root, sha = revision_repository(tmp_path, base_has_target=base_has_target)
     if not existing_local_branch:
@@ -113,6 +135,11 @@ def test_revision_reads_checked_out_context_and_pushes_existing_request(
     service = ExecutionService(root, build_config(execution_mode="ci"))
     publisher = Mock(side_effect=AssertionError("Must not create or search for a request"))
     monkeypatch.setattr(service.publish_service, "publish", publisher)
+    original_description = "Operator notes\n## Semantic Safety\nInitial rationale."
+    description_transport = description_transport_for(root, original_description)
+    service.publish_service.change_request_publisher = description_transport
+    if description_failure:
+        description_transport.update_description.side_effect = RuntimeError("private error")
 
     def analyze(*, selected_issue, context, dry_run):
         assert git(root, "rev-parse", "HEAD") == sha
@@ -125,6 +152,14 @@ def test_revision_reads_checked_out_context_and_pushes_existing_request(
             patch_applied=True,
             validation_passed=True,
             validation_result=ValidationResult(passed=True, results=[], summary="Passed"),
+            semantic_safety=SemanticSafetyDecision(
+                accepted=True,
+                assessment=SemanticSafetyAssessment(
+                    current_behavior="The published value needs revision.",
+                    intended_behavior="Correct the value while retaining its string type.",
+                    preservation_evidence=["The revised value remains a string."],
+                ),
+            ),
             patch=PatchProposal(
                 issue_key=selected_issue.source_ref,
                 files_touched=[selected_issue.file_path],
@@ -144,6 +179,16 @@ def test_revision_reads_checked_out_context_and_pushes_existing_request(
     assert git(root, "rev-parse", "origin/remediation") == result.commit_sha
     assert git(root, "rev-parse", "HEAD^") == sha
     assert git(root, "show", "--format=", "--name-only", "HEAD") == "src/service.py"
+    description_transport.read_description.assert_called_once_with(9)
+    description_transport.update_description.assert_called_once()
+    number, body = description_transport.update_description.call_args.args
+    assert number == 9
+    assert body.endswith(original_description)
+    assert f"Published commit: `{result.commit_sha}`" in body
+    assert "No validation commands configured" in body
+    assert "Correct the value while retaining its string type." in body
+    assert ("may be stale" in result.status_message) == description_failure
+    assert "private error" not in result.status_message
     publisher.assert_not_called()
 
 
@@ -226,6 +271,7 @@ def test_revision_real_patch_validation_and_scope(tmp_path, monkeypatch, outcome
         ).model_dump_json()
     )
     service = ExecutionService(root, config)
+    service.publish_service.change_request_publisher = description_transport_for(root)
     monkeypatch.setattr(
         service.analysis_service,
         "_build_llm_client",
@@ -283,7 +329,17 @@ class WorkItemStore:
 @pytest.mark.parametrize("platform", ["github", "gitlab"])
 @pytest.mark.parametrize(
     "outcome",
-    ["success", "context", "semantic", "validation", "push", "closed", "drift", "refspec"],
+    [
+        "success",
+        "description",
+        "context",
+        "semantic",
+        "validation",
+        "push",
+        "closed",
+        "drift",
+        "refspec",
+    ],
 )
 def test_queued_revision_provider_parity(tmp_path, monkeypatch, platform, outcome):
     root, sha = revision_repository(tmp_path, base_has_target=False)
@@ -339,6 +395,10 @@ def test_queued_revision_provider_parity(tmp_path, monkeypatch, platform, outcom
         state=AppState(repository=RepositoryState(base_branch="main")),
     )
     execution = ExecutionService(root, config)
+    description_transport = description_transport_for(root)
+    execution.publish_service.change_request_publisher = description_transport
+    if outcome == "description":
+        description_transport.update_description.side_effect = RuntimeError("private diagnostics")
 
     def analyze(*, selected_issue, context, dry_run):
         assert outcome not in {"context", "closed", "drift", "refspec"}
@@ -417,10 +477,13 @@ def test_queued_revision_provider_parity(tmp_path, monkeypatch, platform, outcom
             "checkout_existing_remote_branch",
             Mock(side_effect=AssertionError("Refspec must never reach checkout")),
         )
-    runner.run(record=run_state.start_run("revision-run"), active_dry_run=False)
+    result = runner.run(record=run_state.start_run("revision-run"), active_dry_run=False)
+    revision_published = outcome in {"success", "description"}
+    assert ("may be stale" in result.message) == (outcome == "description")
+    assert "private diagnostics" not in result.message
     assert store.work_item.work_item_id == "work-1"
     assert store.work_item.status == (
-        "in_progress" if outcome == "success" else "review_feedback_required"
+        "in_progress" if revision_published else "review_feedback_required"
     )
     assert store.work_item.linked_change_request == linked
     assert store.work_item.projected_review.feedback == feedback
@@ -428,7 +491,9 @@ def test_queued_revision_provider_parity(tmp_path, monkeypatch, platform, outcom
     assert store.work_item.review_revision_request is None
     assert store.work_item.last_revision_command is not None
     assert store.work_item.last_revision_command.request_reference == "comment-1"
-    if outcome != "success":
+    if not revision_published:
+        description_transport.read_description.assert_not_called()
+        description_transport.update_description.assert_not_called()
         assert store.work_item.execution_failure is not None
         assert store.work_item.review_action_required_at is not None
         assert (
@@ -437,3 +502,4 @@ def test_queued_revision_provider_parity(tmp_path, monkeypatch, platform, outcom
         )
     else:
         assert git(root, "rev-parse", "origin/remediation") != sha
+        description_transport.update_description.assert_called_once()

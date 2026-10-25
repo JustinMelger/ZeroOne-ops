@@ -7,7 +7,11 @@ from urllib.parse import quote
 
 import httpx
 
-from zeroone_ops.models.change_request import ChangeRequestInfo, ChangeRequestState
+from zeroone_ops.models.change_request import (
+    ChangeRequestDescription,
+    ChangeRequestInfo,
+    ChangeRequestState,
+)
 from zeroone_ops.models.config import GitHubConnectionConfig
 
 
@@ -158,6 +162,36 @@ class GitHubClient:
             json={"labels": labels},
         )
         _parse_list_response(response, error_message="Unexpected GitHub issue labels payload.")
+
+    def get_pull_request_description(
+        self, *, repository_id: str, pull_request_number: int
+    ) -> ChangeRequestDescription:
+        """Read a pull-request body with its current head and lifecycle state."""
+        response = self._http_client.get(
+            _repository_path(repository_id, f"pulls/{pull_request_number}")
+        )
+        payload = _parse_dict_response(
+            response, error_message="Unexpected GitHub pull request description payload."
+        )
+        if "body" not in payload or (
+            payload["body"] is not None and not isinstance(payload["body"], str)
+        ):
+            raise GitHubClientError("Unexpected GitHub pull request body.")
+        return ChangeRequestDescription(
+            request=_normalize_pull_request_state(payload), description=payload["body"] or ""
+        )
+
+    def update_pull_request_description(
+        self, *, repository_id: str, pull_request_number: int, description: str
+    ) -> None:
+        """Update only the description of the specified pull request."""
+        response = self._http_client.patch(
+            _repository_path(repository_id, f"pulls/{pull_request_number}"),
+            json={"body": description},
+        )
+        _parse_dict_response(
+            response, error_message="Unexpected GitHub description update payload."
+        )
 
     def assign_issue(
         self,

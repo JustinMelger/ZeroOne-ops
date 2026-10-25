@@ -221,6 +221,27 @@ Finding sync and capacity planning preserve them as protected linked work.
 
 ## Failure Behavior
 
+Successful revision pushes project the actual execution's validation and
+rationale onto the same linked request using shared evidence rendering and
+provider-local description read/update operations. The read includes the current
+request state, branch, and head; all must match the published revision before
+writing. Updates change the description only and never search for or create
+another request. This projection is separate from authoritative issue updates.
+
+Initial publication encloses evidence in a single managed HTML-comment block.
+Revisions replace exactly that block, preserving surrounding text byte-for-byte;
+unmarked historical descriptions retain their entire text below a prepended
+**Latest Revision Evidence** block. The block names the published commit and
+explicitly supersedes earlier validation/rationale. Missing, duplicate, malformed,
+or out-of-order markers are never repaired by guessing ownership. Escaped
+external evidence cannot introduce ownership delimiters. Complete batch bodies
+remain subject to the 60,000-byte UTF-8 budget, without truncation.
+
+Description lookup, verification, rendering, budget, and transport failures warn
+without changing a successful revision outcome or suppressing issue evidence.
+No retry is introduced. This retains the v1 read-before-write limitation;
+concurrent description edits after the read are not atomically protected.
+
 All provider projection, lookup, checkout, and push failures are bounded and
 logged. They must not create a second PR/MR, clear the existing link, or alter
 the reviewed branch. Failed revisions restore workspace state through the

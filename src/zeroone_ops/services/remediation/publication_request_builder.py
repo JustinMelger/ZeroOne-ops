@@ -14,8 +14,8 @@ from zeroone_ops.models.analysis import (
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget, remediation_profile_for
 from zeroone_ops.services.remediation.change_request_publisher import ChangeRequestPublishRequest
-from zeroone_ops.services.remediation.semantic_safety_presentation import (
-    render_semantic_safety_lines,
+from zeroone_ops.services.remediation.publication_evidence import (
+    render_publication_evidence,
 )
 from zeroone_ops.services.shared.projection_payload import validate_batch_payload
 
@@ -139,31 +139,16 @@ class RemediationPublicationRequestBuilder:
                     "",
                 ]
             )
-        result = (
-            validation_comparison.post_edit
-            if validation_comparison is not None
-            else validation_result
+        lines.extend(
+            [
+                "",
+                render_publication_evidence(
+                    validation_comparison=validation_comparison,
+                    validation_result=validation_result,
+                    semantic_safety=semantic_safety,
+                ),
+            ]
         )
-        if (
-            validation_comparison is not None
-            and validation_comparison.outcome == "baseline_preserved"
-        ):
-            status = "Validation baseline preserved"
-        elif result is None:
-            status = "Validation evidence unavailable"
-        elif not result.passed or any(command.exit_code != 0 for command in result.results):
-            status = "Validation failed"
-        elif not result.results:
-            status = "No validation commands configured"
-        else:
-            status = "Validation passed"
-        lines.extend(["", "## Validation", f"- Status: {status}"])
-        if result is not None and result.results:
-            lines.append(
-                "- Commands: " + ", ".join(f"`{command.command}`" for command in result.results)
-            )
-        if semantic_safety is not None:
-            lines.extend(render_semantic_safety_lines(semantic_safety))
         body = "\n".join(lines).rstrip()
         return validate_batch_payload(body) if selected_issue.batch is not None else body
 
