@@ -5,6 +5,7 @@ This module owns patch application, validation, retry, and rollback behavior.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -31,6 +32,7 @@ from zeroone_ops.services.remediation.validation_feedback.validation_baseline_se
 )
 from zeroone_ops.services.remediation.validation_feedback.validation_comparison_service import (
     ValidationComparisonService,
+    validation_evidence_failure,
 )
 from zeroone_ops.services.remediation.validation_feedback.validation_feedback_builder import (
     ValidationFeedbackBuilder,
@@ -45,6 +47,8 @@ from zeroone_ops.services.shared.workspace_snapshot import (
     WorkspaceSnapshot,
     WorkspaceSnapshotService,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -106,6 +110,10 @@ class PatchExecutionService:
         patch_factory: Callable[..., PatchProposal],
     ) -> PatchExecutionResult:
         """Apply a patch locally and run configured validation commands."""
+        LOGGER.info(
+            "Validation baseline mode: enabled=%s",
+            self.config.remediation.validation_feedback_enabled,
+        )
         bootstrap_failure = self._bootstrap_validation_environment()
         if bootstrap_failure is not None:
             return PatchExecutionResult(
@@ -236,16 +244,43 @@ class PatchExecutionService:
         patch_factory: Callable[..., PatchProposal],
     ) -> PatchExecutionResult:
         """Run the opt-in baseline-aware one-file validation feedback loop."""
+        try:
+            original_snapshot = self.workspace_snapshot_service.capture(patch.files_touched)
+        except (OSError, UnicodeError):
+            return _blocked_validation_evidence(
+                summary=summary,
+                patch=patch,
+                reason="Validation source evidence could not be read.",
+            )
         baseline = ValidationBaselineService(self.validator).capture(
             self.config.remediation.validation_commands
         )
         comparison_service = ValidationComparisonService()
+        baseline_failure = validation_evidence_failure(
+            baseline.result, self.config.remediation.validation_commands
+        )
+        if baseline_failure is not None:
+            comparison = comparison_service.compare(
+                baseline=baseline,
+                post_edit=baseline.result,
+                files_touched=patch.files_touched,
+                expected_commands=self.config.remediation.validation_commands,
+            )
+            LOGGER.info("Validation baseline blocked: %s", baseline_failure)
+            return _blocked_validation_evidence(
+                summary=summary,
+                patch=patch,
+                reason=baseline_failure,
+                validation_result=baseline.result,
+                workspace_snapshot=original_snapshot,
+                validation_comparison=comparison,
+            )
         feedback_builder = ValidationFeedbackBuilder()
         allowed_files = tuple(sorted(set(patch.files_touched)))
         attempts = 1 if self.config.remediation.max_retry_count > 0 else 0
 
         for attempt in range(attempts + 1):
-            snapshot = self.workspace_snapshot_service.capture(patch.files_touched)
+            snapshot = original_snapshot
             try:
                 self.patch_applier.validate(patch)
                 self.patch_applier.apply(patch)
@@ -266,10 +301,29 @@ class PatchExecutionService:
                 )
 
             post_edit = self.validator.run_all(self.config.remediation.validation_commands)
+            try:
+                source_changes = self.workspace_snapshot_service.source_changes(original_snapshot)
+            except (OSError, UnicodeError):
+                self.workspace_snapshot_service.restore(snapshot)
+                return _blocked_validation_evidence(
+                    summary=summary,
+                    patch=patch,
+                    reason="Validation source evidence could not be read.",
+                    validation_result=post_edit,
+                    workspace_snapshot=snapshot,
+                    retry_count=attempt,
+                )
             comparison = comparison_service.compare(
                 baseline=baseline,
                 post_edit=post_edit,
                 files_touched=patch.files_touched,
+                source_changes=source_changes,
+                expected_commands=self.config.remediation.validation_commands,
+            )
+            LOGGER.info(
+                "Validation comparison: outcome=%s reason=%s",
+                comparison.outcome,
+                comparison.blocking_reason or "diagnostic comparison complete",
             )
             if comparison.allows_publication:
                 mode_label = "dry-run" if dry_run else "run"
@@ -391,6 +445,34 @@ class PatchExecutionService:
         return None
 
 
+def _blocked_validation_evidence(
+    *,
+    summary: str,
+    patch: PatchProposal,
+    reason: str,
+    validation_result: ValidationResult | None = None,
+    workspace_snapshot: WorkspaceSnapshot | None = None,
+    validation_comparison: ValidationComparison | None = None,
+    retry_count: int = 0,
+) -> PatchExecutionResult:
+    """Unusable baseline/source evidence blocks without model regeneration."""
+    return PatchExecutionResult(
+        summary=f"{summary}. {reason}",
+        patch=patch,
+        patch_applied=False,
+        validation_passed=False,
+        validation_result=validation_result,
+        workspace_snapshot=workspace_snapshot,
+        validation_comparison=validation_comparison,
+        failure=_build_validation_failure(
+            validation_summary=reason,
+            retry_count=retry_count,
+            command_result=_first_failed_command(validation_result) if validation_result else None,
+            validation_outcome="unscoped_regression",
+        ),
+    )
+
+
 def _build_validation_failure(
     *,
     validation_summary: str,
@@ -477,4 +559,4 @@ def _validation_outcome_summary(
             else "no correction attempt was permitted."
         )
         return f"Validation introduced a new diagnostic in {diagnostic.file_path}; {retry_summary}"
-    return "Validation failed outside the one-file repair boundary."
+    return comparison.blocking_reason or "Validation failed outside the one-file repair boundary."

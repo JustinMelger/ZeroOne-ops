@@ -382,6 +382,11 @@ file.
 validation commands before and after a remediation patch, preserving known
 baseline failures and allowing one correction attempt only for a new diagnostic
 in the same editable file.
+MyPy/Ruff check diagnostics use occurrence-aware comparison with proven
+unchanged-line relocation; missing tooling or incomplete evidence always
+blocks. Other commands retain exact-output fallback. See the
+[runbook configuration example](docs/runbook.md) for stable MyPy flags and
+explicit opt-in when validating a repository with existing type errors.
 
 New remediation PR/MR descriptions show a `Validation` section independently of
 feedback mode: validation passed with executed commands, baseline preserved, or

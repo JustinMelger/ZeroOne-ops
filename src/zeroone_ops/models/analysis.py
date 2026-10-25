@@ -168,6 +168,7 @@ class ValidationComparison(BaseModel):
     post_edit: ValidationResult
     new_relevant_diagnostics: list[ValidationDiagnostic] = Field(default_factory=list)
     baseline_failure_count: int = Field(ge=0)
+    blocking_reason: str | None = None
 
     @property
     def allows_publication(self) -> bool:

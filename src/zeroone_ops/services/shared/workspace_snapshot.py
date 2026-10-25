@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from zeroone_ops.models.validation_evidence import SourceChange
+
 
 @dataclass(frozen=True)
 class WorkspaceSnapshot:
@@ -63,3 +65,14 @@ class WorkspaceSnapshotService:
                     target.unlink()
                 continue
             target.write_text(content, encoding="utf-8")
+
+    def source_changes(self, original: WorkspaceSnapshot) -> tuple[SourceChange, ...]:
+        """Read current contents alongside the original snapshot without persisting either."""
+        return tuple(
+            SourceChange(
+                file_path=target.relative_to(self.repo_root).as_posix(),
+                before=before,
+                after=target.read_text(encoding="utf-8") if target.exists() else None,
+            )
+            for target, before in original.files.items()
+        )

@@ -109,6 +109,39 @@ single-file patch. It may retry once only for a newly introduced diagnostic in
 that same file; known baseline failures are retained as evidence rather than
 sent to the model.
 
+The default is `false`. For a repository with existing MyPy debt, explicitly
+opt in and use stable plain-text output, for example:
+
+```json
+{
+  "remediation": {
+    "validation_feedback_enabled": true,
+    "validation_setup_commands": ["uv sync --all-groups --locked"],
+    "validation_commands": [
+      "uv run ruff format --check .",
+      "uv run pytest",
+      "uv run mypy src --no-error-summary --no-pretty --no-color-output"
+    ]
+  }
+}
+```
+
+MyPy and Ruff check diagnostics are compared by occurrence, including code and
+message. Verified unchanged source lines may move after an import removal;
+ambiguous relocation stays conservative. Recognized tool summaries may change
+as errors are removed. Unsupported commands (including pytest and formatting)
+require exact output for preserved failures. Missing tools, timeouts,
+permission errors, scanner execution errors, unexpected output, and incomplete
+command results block without model regeneration. Repair tooling before retrying.
+Logs report baseline mode and comparison reasons without raw diagnostic output.
+`baseline_failure_count` counts failed commands, not findings.
+
+After deploying, live-test an unused-import removal against existing MyPy
+errors and an incorrect annotation that introduces an error. Neither automated
+tests nor publication prove that every targeted scanner finding was resolved;
+keep live GitHub/GitLab acceptance separate. No remote demo config is changed
+automatically.
+
 V1 rejects retired configuration aliases, even when their canonical replacements
 are also supplied. Use top-level `platform`, `remediation.target_branch`,
 `remediation.bootstrap_severities`, and remediation-owned validation commands.

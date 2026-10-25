@@ -14,6 +14,8 @@ from zeroone_ops.models.analysis import (
     SemanticSafetyAssessment,
     StructuredEditProposal,
     TextEdit,
+    ValidationCommandResult,
+    ValidationResult,
 )
 from zeroone_ops.models.batch_execution import BatchAnalysisCoverage, BatchUnaddressableMember
 from zeroone_ops.models.change_request import ChangeRequestInfo, ChangeRequestState
@@ -205,6 +207,63 @@ def test_complete_batch_publishes_once_and_retains_full_machine_evidence(
     assert "No validation commands configured" in request.description
     assert engine.branch_manager.current_branch() != "main"
     assert model.analyze_issue.call_args.args[0].batch_attempt is not None
+
+
+@pytest.mark.parametrize("mode", ["preserved", "unscoped", "unavailable"])
+def test_baseline_validation_preserves_provider_publication_and_failure_boundaries(
+    harness,
+    tmp_path,
+    monkeypatch,
+    mode,
+):
+    command = "uv run mypy src"
+    runner, runs, engine, model, publisher = setup_execution(
+        harness, tmp_path, monkeypatch, validation_commands=[command]
+    )
+    engine.config.remediation.validation_feedback_enabled = True
+    patch_service = engine.analysis_service.patch_execution_service
+    outputs = iter(
+        [
+            "src/routes.py:3: error: Existing issue  [assignment]",
+            (
+                "src/other.py:1: error: New issue  [attr-defined]"
+                if mode == "unscoped"
+                else "src/routes.py:1: error: Existing issue  [assignment]"
+            ),
+        ]
+    )
+
+    def validate(commands):
+        assert commands == [command]
+        return ValidationResult(
+            passed=False,
+            results=[
+                ValidationCommandResult(
+                    command=command,
+                    exit_code=127 if mode == "unavailable" else 1,
+                    stdout="command unavailable" if mode == "unavailable" else next(outputs),
+                    stderr="",
+                    duration_ms=1,
+                )
+            ],
+            summary="validation failed",
+        )
+
+    monkeypatch.setattr(patch_service.validator, "run_all", validate)
+    result = runner.run(record=runs.start_run("baseline"), active_dry_run=False)
+    state = stored(harness)
+    if mode == "preserved":
+        assert result.status == RunStatus.CHANGE_REQUEST_CREATED
+        publisher.publish.assert_called_once()
+        assert "Validation baseline preserved" in publisher.publish.call_args.args[0].description
+        assert state.status == "in_progress"
+    else:
+        assert result.status == RunStatus.FAILED
+        assert state.status == "blocked"
+        assert state.execution_failure.validation_outcome == "unscoped_regression"
+        assert (tmp_path / "src/routes.py").read_text() == "import os\nimport sys\nvalue = 1\n"
+        publisher.publish.assert_not_called()
+    assert model.generate_structured_edit.call_count == 1
 
 
 def test_change_rationale_rejection_reaches_cli_and_preserves_failure_stage(

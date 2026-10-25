@@ -60,11 +60,18 @@ repair scope. The generated change request must retain that distinction.
 
 ## 6. Diagnostic Relevance
 
-V1 uses a conservative text-based relevance rule:
+V1 uses bounded MyPy plain-text and Ruff concise/default-console parsing:
 
 - a diagnostic is eligible for model feedback only when its output identifies a
   normalized repository path that is in the patch's `files_touched` set;
-- the diagnostic must be absent from the baseline result for the same command;
+- compare diagnostic multisets for the same ordered command, retaining path,
+  severity, code, message, line, column, and duplicate occurrences; removed
+  diagnostics are improvements, while increased occurrences are regressions;
+- recognize only tool summaries and presentation context. Unexpected output
+  blocks rather than silently disappearing from the comparison;
+- actual pre-edit and post-edit source contents may prove that an unchanged
+  line moved after an insertion/deletion. Changed lines, ambiguous repeated
+  source text, and missing mapping evidence never establish relocation;
 - feedback contains only the command, exit code, relevant diagnostic excerpts,
   and the allowed file paths;
 - output that is malformed, pathless, outside the repository, or refers to a
@@ -75,9 +82,13 @@ but it remains `unscoped_regression` unless its output can be connected to an
 edited file. This favors a clear operator handoff over speculative multi-file
 repair.
 
-The first version limits feedback to ten diagnostics and 4,000 total characters
-after truncation. Structured tool-specific parsing may improve relevance later,
-but it is not required for this phase.
+Feedback remains limited to ten diagnostics and 4,000 total characters.
+Unsupported commands use exact-output comparison, without MyPy/Ruff summary
+filtering. Timeouts, unavailable/non-executable tools, terminated processes,
+scanner execution errors, and incomplete/contradictory evidence always block,
+even when identical at baseline. These failures never trigger model correction.
+The default remains opt-in; this prevents regressions, not proof that all
+targeted scanner findings have been resolved.
 
 ## 7. Retry Rules
 

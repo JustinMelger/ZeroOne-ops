@@ -150,6 +150,10 @@ class Validator:
             stdout = _coerce_output(error.stdout)
             stderr = _coerce_output(error.stderr)
             stderr = f"{stderr}\nCommand timed out after {self.timeout_seconds}s.".strip()
+        except OSError as error:
+            returncode = 127 if isinstance(error, FileNotFoundError) else 126
+            stdout = ""
+            stderr = "Validation command could not be started."
         duration_ms = int((time.perf_counter() - started) * 1000)
         return ValidationCommandResult(
             command=command,

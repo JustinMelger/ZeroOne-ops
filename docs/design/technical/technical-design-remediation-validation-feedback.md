@@ -39,6 +39,7 @@ ValidationComparison
   post_edit: ValidationResult
   new_relevant_diagnostics: list[ValidationDiagnostic]
   baseline_failure_count: int
+  blocking_reason: str | None
 ```
 
 Extend `PatchExecutionResult` and the remediation execution result with the
@@ -65,11 +66,26 @@ services/remediation/validation_feedback/
 complete ordered `ValidationResult`. An empty command list retains the current
 no-validation behavior.
 
-`ValidationComparisonService` compares results by configured command position
-and command text, never by volatile duration. For each failed post-edit command
-it extracts bounded output lines containing normalized relative repository
-paths, rejects absolute or escaping paths, selects paths in `files_touched`,
-and removes matching diagnostics from the same baseline command.
+`ValidationComparisonService` requires complete, consistent results for the
+configured ordered command sequence. Operational failures are rejected before
+baseline acceptance, including repeated failures or a later clean result after
+an unusable baseline. Failure counts count commands, not diagnostics.
+
+Pure `diagnostic_parser.py` recognizes MyPy plain text and Ruff concise/default
+console output. It retains each diagnostic occurrence and rejects unexpected
+output; only recognized summaries, notes, and presentation context are omitted.
+Unknown commands require exact stdout/stderr and exit-code equality for a
+preserved failure. Tool-specific filtering never applies to other commands.
+
+Frozen, non-persisted `ToolDiagnostic`, `ParsedValidationOutput`, and
+`SourceChange` records live in `models/validation_evidence.py`. The snapshot
+service alone reads source contents. Pure `source_line_mapping.py` maps equal
+source lines from the original snapshot to each attempted result. Relocation
+of repeated text is withheld as ambiguous; changed lines and missing contents
+have no map. Columns remain part of identity on unchanged mapped lines.
+Structured comparison subtracts multisets, never sets or total error counts.
+Codes, messages, severities, paths, locations, and duplicate occurrences remain
+significant. Only new diagnostics in safe `files_touched` paths reach feedback.
 
 The service returns deterministic, path-and-line-sorted diagnostics. A clean
 post-edit result is `passed`; known baseline-only failures are
@@ -95,8 +111,12 @@ When `config.remediation.validation_feedback_enabled` is true,
 7. restore and return structured failure for `unscoped_regression` or an
    exhausted correction attempt.
 
-The baseline is not repeated for the correction attempt. This bounds command
-execution and keeps both comparisons against the same repository state.
+The baseline and original source snapshot are captured once, after setup and
+before the first patch. Every correction compares against that original
+baseline and its actual source changes, not the previous failed patch. Missing
+source evidence blocks with rollback. Content-free info logs report enabled
+mode, comparison outcome, and the blocking reason. Source snapshots are never
+persisted or forwarded as validation feedback.
 
 When the feature is disabled, retain the existing execution flow exactly. The
 implementation must make this an explicit branch rather than mixing two retry
@@ -161,7 +181,7 @@ for GitHub and GitLab rendering.
 
 ## 8. Deferred Work
 
-- structured diagnostic parsers for SARIF, pytest, MyPy, and other tools;
+- structured diagnostic parsers for SARIF, pytest, and other unsupported tools;
 - multi-file repair and test-repair loops;
 - review-finding-driven revision of an already-published PR/MR;
 - more than one feedback-driven correction attempt;

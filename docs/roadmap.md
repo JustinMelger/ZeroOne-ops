@@ -14,6 +14,11 @@ history, not here.
 
 ## Implemented
 
+- reliable opt-in baseline-aware validation: MyPy/Ruff diagnostic multisets,
+  source-proven unchanged-line relocation, original-baseline retry comparison,
+  and blocking operational/incomplete evidence; unsupported commands retain
+  exact-output fallback and live demo acceptance remains separate
+
 - operator-facing **Change Rationale** in issues, PR/MRs, and failure messages,
   explicitly labeled as model-provided explanation rather than verification;
   internal semantic-safety state and gate behavior remain unchanged
