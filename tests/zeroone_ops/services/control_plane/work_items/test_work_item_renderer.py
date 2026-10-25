@@ -3,6 +3,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from zeroone_ops.models.analysis import SemanticSafetyAssessment
+from zeroone_ops.models.batch_execution import (
+    BatchAnalysisRejection,
+    BatchAttemptEvidence,
+    BatchRejectedMember,
+)
 from zeroone_ops.models.work_item import (
     ProjectedReviewState,
     ReviewRevisionRequest,
@@ -216,3 +221,63 @@ def test_last_execution_stage_is_display_only(harness, batch, stage):
     assert f"- Stage: `{label}`" in visible
     parsed = harness[1].upsert_service.parser.parse_work_item_state(body)
     assert parsed.execution_failure == failure
+
+
+@pytest.mark.parametrize("current", [True, False])
+def test_batch_revision_stop_notice_and_retained_rationale_are_current_only(
+    harness, failed_revision, current
+):
+    state = batch_state(status="review_feedback_required")
+    assessment = SemanticSafetyAssessment(
+        current_behavior="Imports are unused.",
+        intended_behavior="Remove unused imports.",
+        preservation_evidence=["Names have no references."],
+    )
+    failure = failed_revision.execution_failure.model_copy(
+        update={
+            "stage": "analysis",
+            "summary": "Historical generic batch failure.",
+            "batch_rejection": BatchAnalysisRejection(
+                reason="manual_classification",
+                members=(
+                    BatchRejectedMember(finding_reference="a", reason="Needs manual reasoning."),
+                ),
+            ),
+        }
+    )
+    command = failed_revision.last_revision_command
+    if not current:
+        command = command.model_copy(update={"reviewed_sha": "superseded"})
+    state = state.model_copy(
+        update={
+            "execution_failure": failure,
+            "last_revision_command": command,
+            "projected_review": failed_revision.projected_review,
+            "batch_attempt": BatchAttemptEvidence(
+                batch_id=state.work_item_id,
+                attempt_number=1,
+                run_id="earlier-run-not-current-revision",
+                members=state.batch.members,
+                observation_run_ids=(),
+            ),
+            "semantic_safety": WorkItemSemanticSafety(assessment=assessment),
+        }
+    )
+    before = state.model_dump_json()
+    renderer = harness[1].upsert_service.renderer
+    body = renderer.render_body(state)
+    visible = body.split("## Machine State")[0]
+    assert ("### Latest Attempt" in visible) == current
+    assert ("## Retained Change Rationale" in visible) == current
+    assert "Historical generic batch failure." in visible
+    assert "Model requested manual handling." in visible
+    if current:
+        assert visible.index("### Latest Attempt") < visible.index("## Members")
+        assert "Recorded location: src/routes.py:10; rule: F401" in visible
+        assert "Retained from earlier analysis; not produced by this failed attempt." in visible
+        assert "[View workflow logs](https://ci.example.com/runs/1)" in visible
+    assert "earlier-run-not-current-revision" not in visible
+    parsed = harness[1].upsert_service.parser.parse_work_item_state(body)
+    assert parsed.execution_failure == failure
+    assert parsed.semantic_safety.assessment == assessment
+    assert state.model_dump_json() == before

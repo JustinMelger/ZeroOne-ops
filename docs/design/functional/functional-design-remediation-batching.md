@@ -403,8 +403,17 @@ freshness and policy exclusions in scope counts when applicable. Do not display
 validation success before a recorded execution result exists.
 
 Retain existing Last Execution, workflow-log link, review projection, and
-**Change Rationale** evidence where applicable. This model-provided claim must describe the
-actual executable scope. Member lists and descriptions remain bounded, with an
+**Change Rationale** evidence where applicable. Failed batch analysis shows a
+concise **Latest Attempt** explanation near **Next Action**, distinguishing manual
+handling from missing/inconsistent accounting or unaddressable members. Recorded
+locations are not asserted to match the current checkout. Earlier rationale is
+labelled **Retained Change Rationale**, not evidence produced by the failed
+attempt. Bounded details, technical references, and workflow logs remain in
+**Last Execution**; operators inspect these before manual correction or a new
+authorized requeue on the work-item issue.
+
+The model-provided rationale must describe the actual executable scope.
+Member lists and descriptions remain bounded, with an
 explicit indication of omitted display details; machine authority must retain
 all members. Existing single-finding issues retain their own history and command
 guidance; batch creation does not redirect or rewrite them.

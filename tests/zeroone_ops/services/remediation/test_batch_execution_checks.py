@@ -11,6 +11,7 @@ from zeroone_ops.models.batch_execution import (
     BatchUnaddressableMember,
 )
 from zeroone_ops.services.remediation.batch_analysis_rejection_presentation import (
+    build_batch_analysis_rejection_view,
     render_batch_analysis_rejection_lines,
 )
 from zeroone_ops.services.remediation.batch_execution_checks import (
@@ -54,7 +55,9 @@ def test_rejection_has_bounded_display_references_reasons_and_omitted_count(manu
     assert all(len(member.reason) <= 600 for member in rejection.members)
     if manual:
         assert all(member.reason.endswith("...") for member in rejection.members)
-    assert "2 more members" in "\n".join(render_batch_analysis_rejection_lines(rejection))
+    view = build_batch_analysis_rejection_view(rejection, attempt=attempt)
+    assert "2 more affected findings" in "\n".join(render_batch_analysis_rejection_lines(view))
+    assert all("line unavailable" in member.recorded_location for member in view.members)
     assert attempt.coverage is None
 
 

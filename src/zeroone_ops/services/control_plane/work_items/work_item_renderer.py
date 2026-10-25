@@ -12,14 +12,20 @@ from zeroone_ops.models.work_item import WorkItemState, work_item_resolution_dis
 from zeroone_ops.services.control_plane.work_items.batch_work_item_view import (
     render_batch_task_lines,
 )
+from zeroone_ops.services.control_plane.work_items.work_item_execution_view import (
+    current_batch_rejection_view,
+    has_current_revision_failure,
+)
 from zeroone_ops.services.control_plane.work_items.work_item_labels import (
     AUTHORITATIVE_WORK_ITEM_LABEL,
     render_work_item_labels,
 )
 from zeroone_ops.services.remediation.batch_analysis_rejection_presentation import (
+    build_batch_analysis_rejection_view,
     render_batch_analysis_rejection_lines,
 )
 from zeroone_ops.services.remediation.semantic_safety_presentation import (
+    render_retained_change_rationale_lines,
     render_semantic_safety_lines,
 )
 from zeroone_ops.services.shared.projection_payload import validate_batch_payload
@@ -150,18 +156,7 @@ class WorkItemRenderer:
                     "",
                 ]
             )
-            failure = work_item.execution_failure
-            revision = work_item.last_revision_command
-            review = work_item.projected_review
-            if (
-                failure is not None
-                and revision is not None
-                and review is not None
-                and revision.reviewed_sha == review.reviewed_sha
-                and failure.occurred_at.tzinfo is not None
-                and revision.occurred_at.tzinfo is not None
-                and failure.occurred_at >= revision.occurred_at
-            ):
+            if has_current_revision_failure(work_item):
                 lines.extend(
                     [
                         "**Last revision failed.** Check **Last Execution**, address the cause, "
@@ -229,6 +224,11 @@ class WorkItemRenderer:
         if work_item.execution_failure is not None:
             failure = work_item.execution_failure
             stage = "Change rationale" if failure.stage == "semantic_safety" else failure.stage
+            summary = (
+                _escape_feedback_text(failure.summary)
+                if failure.batch_rejection
+                else failure.summary
+            )
             lines.extend(
                 [
                     "",
@@ -236,7 +236,7 @@ class WorkItemRenderer:
                     "",
                     f"- Status: `{failure.status}`",
                     f"- Stage: `{stage}`",
-                    f"- Summary: {failure.summary}",
+                    f"- Summary: {summary}",
                     f"- Retries used: `{failure.retry_count}`",
                     f"- Run ID: `{failure.run_id}`",
                     f"- Recorded: `{failure.occurred_at.isoformat()}`",
@@ -251,9 +251,21 @@ class WorkItemRenderer:
             if failure.execution_url is not None:
                 lines.append(f"- Run: [View workflow logs]({failure.execution_url})")
             if failure.batch_rejection is not None:
-                lines.extend(render_batch_analysis_rejection_lines(failure.batch_rejection))
+                rejection = build_batch_analysis_rejection_view(
+                    failure.batch_rejection,
+                    attempt=work_item.batch_attempt,
+                    file_path=work_item.file_path,
+                    rule_id=work_item.remediation_context.diagnostic_code,
+                )
+                lines.extend(render_batch_analysis_rejection_lines(rejection))
         if work_item.semantic_safety is not None:
-            lines.extend(render_semantic_safety_lines(work_item.semantic_safety))
+            if (
+                current_batch_rejection_view(work_item) is not None
+                and work_item.semantic_safety.assessment is not None
+            ):
+                lines.extend(render_retained_change_rationale_lines(work_item.semantic_safety))
+            else:
+                lines.extend(render_semantic_safety_lines(work_item.semantic_safety))
         if work_item.policy_deferral is not None:
             deferral = work_item.policy_deferral
             lines.extend(
@@ -298,7 +310,13 @@ class WorkItemRenderer:
     def _render_recovery_instructions(self, work_item: WorkItemState) -> list[str]:
         """Render compact operator instructions for one blocked remediation item."""
         if work_item.execution_failure is not None:
-            blocker = f"This remediation is blocked because {work_item.execution_failure.summary}"
+            failure = work_item.execution_failure
+            summary = (
+                _escape_feedback_text(failure.summary)
+                if failure.batch_rejection
+                else failure.summary
+            )
+            blocker = f"This remediation is blocked because {summary}"
         elif work_item.publication_retry is not None:
             blocker = f"This remediation is blocked because {self._vocabulary.publication_failure}"
         else:

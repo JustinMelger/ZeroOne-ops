@@ -223,6 +223,9 @@ Severity control note:
   publication
 - show a **Change Rationale** in work-item issues and PR/MRs: the model's intended
   change and behavior-preservation explanation, not independent verification
+- explain batch analysis stops near **Next Action**, with recorded locations,
+  bounded reasons, and existing request/workflow links; failed attempts do not
+  present earlier rationale as newly generated evidence
 - create or reuse a GitLab merge request or GitHub pull request in CI mode
 - use `zeroone-ops work-items sync-status` to converge merged and closed
   change-request state

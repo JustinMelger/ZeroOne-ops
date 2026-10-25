@@ -6,8 +6,14 @@ from dataclasses import dataclass
 from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.models.remediation import remediation_source_display_name
 from zeroone_ops.models.work_item import WorkItemState, work_item_resolution_display_name
+from zeroone_ops.services.control_plane.work_items.work_item_execution_view import (
+    current_batch_rejection_view,
+)
 from zeroone_ops.services.intake.finding_batch_ownership import is_safe_unstarted_batch
 from zeroone_ops.services.intake.finding_workflow_policy_service import FindingWorkflowPolicyService
+from zeroone_ops.services.remediation.batch_analysis_rejection_presentation import (
+    render_batch_analysis_stop_lines,
+)
 
 
 @dataclass(frozen=True)
@@ -87,12 +93,24 @@ def render_batch_task_lines(
         "## Next Action",
         "",
         _next_action(work_item),
-        "",
-        "## Members",
-        "",
-        "| Line | Last confirmed | Freshness | Message |",
-        "| --- | --- | --- | --- |",
     ]
+    rejection = current_batch_rejection_view(work_item)
+    if rejection is not None:
+        lines.extend(render_batch_analysis_stop_lines(rejection))
+        if work_item.linked_change_request is not None:
+            lines.append(f"- Existing change request: {work_item.linked_change_request.web_url}")
+        failure = work_item.execution_failure
+        if failure is not None and failure.execution_url is not None:
+            lines.append(f"- Workflow logs: {failure.execution_url}")
+    lines.extend(
+        [
+            "",
+            "## Members",
+            "",
+            "| Line | Last confirmed | Freshness | Message |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
     observations = {o.finding_id: o for o in batch.observations}
     for member in batch.members[:10]:
         observation = observations[member.finding_id]
@@ -136,6 +154,11 @@ def _count(value: int | None) -> str:
 
 
 def _next_action(work_item: WorkItemState) -> str:
+    if current_batch_rejection_view(work_item) is not None:
+        return (
+            "Inspect the latest attempt explanation and any linked request before deciding on "
+            "manual correction or a new `/zeroone remediation requeue` command on this issue."
+        )
     if work_item.status == "blocked":
         return (
             "Address the blocker, then post `/zeroone remediation requeue` here; "
