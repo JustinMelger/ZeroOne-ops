@@ -957,11 +957,21 @@ Review receives bounded attempt evidence only from unique verified work-item
 linkage and evaluates the diff against it as untrusted claims, never proof.
 Single-finding prompts and schemas retain their contracts.
 
-For rejected batch analysis, **Last Execution** shows bounded affected-member
-references and reasons, plus an omitted count when needed. Correct the stated
-cause before explicitly requeueing. These are rejection diagnostics, not accepted
-analysis coverage; no partial edit is generated. Long references are visibly
-truncated for display. Existing recovery clears the current failure display.
+For rejected batch analysis, **Latest Attempt** near **Next Action** distinguishes
+model-requested manual handling from missing/inconsistent batch accounting and
+unaddressable findings. It shows up to three explanations with recorded
+file/rule/line locations; these are not claimed to be current checkout locations.
+**Last Execution** retains up to ten explanations and collapsed technical
+references, with explicit omitted counts. Unknown or truncated references never
+infer a line. No edit is generated or published by the rejected attempt.
+Inspect the explanation, linked request, and workflow logs before deciding on
+manual correction or a new authorized requeue on the work-item issue. A failed
+revision returns to `review_feedback_required`; its existing request is retained.
+Earlier assessment evidence is labelled **Retained Change Rationale**, not a
+claim produced by that failed attempt. Existing recovery clears the current
+failure notice. CLI output includes the same category and bounded explanations
+plus existing issue/request links. A reported `status=failed` does not change the
+existing CLI exit-code contract; do not infer remediation success from job color.
 Recorded publication retries and same-request revisions retain their original
 targeted scope even after later scans show absence. Fresh operator-authorized
 recovery alone can complete current all-absent work as `no_longer_detected`.

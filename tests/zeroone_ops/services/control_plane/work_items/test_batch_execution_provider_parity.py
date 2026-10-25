@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 
 from zeroone_ops.cli import app
 from zeroone_ops.models.analysis import (
+    AnalysisClassification,
     BatchIssueAnalysis,
     SemanticSafetyAssessment,
     StructuredEditProposal,
@@ -266,7 +267,10 @@ def test_unaddressable_member_rejection_survives_issue_projection_without_accept
     assert "\n## fake heading" not in body
     assert "[click](https://evil)" not in body
     assert "<b>do not execute</b>" not in body
-    assert "before requeueing" in body
+    assert "Inspect the latest attempt explanation" in body
+    assert body.index("### Latest Attempt") < body.index("## Members")
+    assert "Recorded location: src/routes.py:2; rule: F401" in body
+    assert "Model could not address every targeted finding." in result.message
     assert engine.branch_manager.current_branch() == "main"
     model.generate_structured_edit.assert_not_called()
     publisher.publish.assert_not_called()
@@ -566,8 +570,9 @@ def test_internal_batch_dry_run_never_claims_or_writes(harness):
     persist.assert_not_called()
 
 
+@pytest.mark.parametrize("manual_refusal", [False, True])
 def test_same_request_revision_uses_checked_out_context_and_original_batch_scope(
-    harness, tmp_path, monkeypatch
+    harness, tmp_path, monkeypatch, manual_refusal
 ):
     runner, runs, engine, model, publisher = setup_execution(harness, tmp_path, monkeypatch)
     runner.run(record=runs.start_run("execution"), active_dry_run=False)
@@ -647,10 +652,35 @@ def test_same_request_revision_uses_checked_out_context_and_original_batch_scope
         change_request_title="Adjust constant",
         change_request_description="Correct the reviewed local constant.",
     )
+    if manual_refusal:
+        model.analyze_issue.return_value = model.analyze_issue.return_value.model_copy(
+            update={
+                "classification": AnalysisClassification.MANUAL,
+                "summary": "Non-string titles need manual reasoning.",
+            }
+        )
+        model.generate_structured_edit.reset_mock()
     result = runner.run(record=runs.start_run("revision"), active_dry_run=False)
     final = stored(harness)
-    assert result.status == RunStatus.CHANGE_REQUEST_CREATED
-    assert final.status == "in_progress"
+    if manual_refusal:
+        assert result.status == RunStatus.FAILED
+        assert final.status == "review_feedback_required"
+        assert final.execution_failure.batch_rejection.reason == "manual_classification"
+        assert "Model requested manual handling." in result.message
+        assert "Non-string titles need manual reasoning." in result.message
+        assert "Work item:" in result.message
+        assert "Existing change request: https://example/requests/9" in result.message
+        assert final.semantic_safety == state.semantic_safety
+        model.generate_structured_edit.assert_not_called()
+        assert git("rev-parse", f"origin/{branch}") == reviewed_sha
+        monkeypatch.setattr("zeroone_ops.cli.run_remediation", lambda **kwargs: result)
+        cli = CliRunner().invoke(app, ["remediation", "run"])
+        assert cli.exit_code == 0
+        assert "Model requested manual handling." in cli.stdout
+    else:
+        assert result.status == RunStatus.CHANGE_REQUEST_CREATED
+        assert final.status == "in_progress"
+        assert git("show", f"origin/{branch}:src/routes.py") == "value = 2"
     assert final.linked_change_request == state.linked_change_request
     assert final.batch_attempt.members == original_attempt.members
     assert final.batch_attempt.run_id == original_attempt.run_id
@@ -661,7 +691,6 @@ def test_same_request_revision_uses_checked_out_context_and_original_batch_scope
     assert revision_context.snippet.content == "   1: value = 1"
     assert "revision-only guidance" in revision_context.repository_guidance[0].summary
     assert revision_context.prior_review_feedback.findings[0].evidence == "value = 1"
-    assert git("show", f"origin/{branch}:src/routes.py") == "value = 2"
 
 
 def test_link_sync_recovers_batch_evidence_after_publish_start_projection_failure(

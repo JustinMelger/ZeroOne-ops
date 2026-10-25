@@ -168,6 +168,8 @@ history, not here.
 - [x] slice 4 automated implementation - production sync/intake activation,
   task-first issue rendering, summaries, prompt/review contracts, payload guards,
   and automated integration verification
+- [x] explain batch analysis failures with bounded recorded locations, current
+  attempt notices, retained-rationale labels, and GitHub/GitLab parity coverage
 - [ ] live-validate GitHub batching: fresh same-file/rule findings, one complete
   remediation, review/requeue, and merge reconciliation
 - [ ] live-validate GitLab batching with the same operator scenarios

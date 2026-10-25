@@ -138,6 +138,19 @@ providers render this packet under **Last Execution** with escaped text. Fresh
 recovery clears the current failure through existing transitions; history may
 retain the prior rejection. No partial edit or publication is authorized.
 
+Shared presentation derives a bounded failure view from that existing packet,
+without schema or execution changes. Exact, unambiguous attempt-member matches
+provide recorded file/rule/line locations; unresolved or truncated references
+show shared scope with no inferred line. A current blocked analysis rejection,
+or failed revision correlated by command timestamp and reviewed SHA, receives a
+**Latest Attempt** notice near **Next Action** (three 300-character excerpts).
+**Last Execution** shows the ten bounded explanations and collapsed technical
+references. Both surfaces disclose omissions and escape external evidence.
+Retained assessment evidence is labelled **Retained Change Rationale**, without
+inventing run/publication provenance. CLI summaries reuse the category and
+bounded explanation view and already-known issue/request URLs; no extra provider
+reads or exit-code changes are introduced. Rendering never changes authority.
+
 Batch context uses one enclosing excerpt or the full file. Missing locations
 require full-file context; invalid locations or spans outside the existing file
 byte/line budget stop before model calls. Large-file excerpts retain the existing

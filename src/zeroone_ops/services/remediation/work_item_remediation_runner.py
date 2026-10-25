@@ -234,11 +234,25 @@ class WorkItemRemediationRunner:
                 semantic_safety=_semantic_safety_record(execution_result),
                 batch_rejection=execution_result.analysis_result.batch_rejection,
             )
+            message = _failure_summary_message(execution_result.failure)
+            if execution_result.analysis_result.batch_rejection is not None:
+                message += (
+                    f"\nWork item: {selected_target.work_item_url or selected_target.item_id}"
+                )
+                if claimed_work_item.linked_change_request is not None:
+                    message += (
+                        "\nExisting change request: "
+                        + claimed_work_item.linked_change_request.web_url
+                    )
+                message += (
+                    "\nInspect the explanation before deciding on manual correction or a new "
+                    "authorized attempt; remediation commands belong on the work-item issue."
+                )
             return self.run_state_service.finish_work_item(
                 record=record,
                 work_item_id=selected_target.item_id,
                 status=RunStatus.FAILED,
-                message=_failure_summary_message(execution_result.failure),
+                message=message,
                 branch_name=execution_result.branch_name,
                 commit_sha=execution_result.commit_sha,
                 failure=execution_result.failure,

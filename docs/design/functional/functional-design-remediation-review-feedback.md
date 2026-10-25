@@ -174,6 +174,14 @@ as stale feedback. The revision does not overwrite the branch and returns to
 
 ## Provider Parity And Authorization
 
+For a batch revision stopped during analysis, the issue explains why the model
+requested manual handling or could not account for the complete scope. A current
+**Latest Attempt** notice shows bounded explanations and recorded locations,
+alongside the existing request and workflow logs. Earlier rationale is explicitly
+retained evidence, not a claim from the failed revision. The operator inspects
+the cause before deciding on manual correction or a new authorized requeue;
+this display introduces no automatic retry or new command.
+
 GitHub accepts the command only from the existing authorized work-item issue
 comment boundary. GitLab accepts it only from the existing authorized work-item
 issue-note polling boundary. The shared decision logic receives the authorized

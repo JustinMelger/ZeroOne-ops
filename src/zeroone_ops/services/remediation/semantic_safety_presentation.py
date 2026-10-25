@@ -10,6 +10,24 @@ def render_semantic_safety_lines(
     semantic_safety: WorkItemSemanticSafety | SemanticSafetyAssessment,
 ) -> list[str]:
     """Return deterministic Markdown lines without exposing raw execution evidence."""
+    return _render_rationale_lines(semantic_safety, "Change Rationale")
+
+
+def render_retained_change_rationale_lines(semantic_safety: WorkItemSemanticSafety) -> list[str]:
+    """Identify earlier rationale without inventing a run or publication association."""
+    return _render_rationale_lines(
+        semantic_safety,
+        "Retained Change Rationale",
+        "Retained from earlier analysis; not produced by this failed attempt.",
+    )
+
+
+def _render_rationale_lines(
+    semantic_safety: WorkItemSemanticSafety | SemanticSafetyAssessment,
+    heading: str,
+    context_note: str | None = None,
+) -> list[str]:
+    """Share escaping and assessment presentation across current and retained evidence."""
     if isinstance(semantic_safety, WorkItemSemanticSafety):
         assessment = semantic_safety.assessment
         rejection_reason = semantic_safety.rejection_reason
@@ -20,7 +38,9 @@ def render_semantic_safety_lines(
     if assessment is None and rejection_reason is None:
         return []
 
-    lines = ["", "## Change Rationale", ""]
+    lines = ["", f"## {heading}", ""]
+    if context_note is not None:
+        lines.extend([context_note, ""])
     if rejection_reason is not None:
         lines.extend([f"- Why remediation stopped: {_escape_markdown_text(rejection_reason)}", ""])
     if assessment is None:

@@ -1,5 +1,6 @@
 """Immutable batch execution scope and structural analysis accounting."""
 
+from dataclasses import dataclass
 from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -9,6 +10,25 @@ from zeroone_ops.models.finding_batch_snapshot import BatchFindingSnapshot
 type BatchAnalysisRejectionReason = Literal[
     "missing_coverage", "invalid_coverage", "unaddressable_members", "manual_classification"
 ]
+
+
+@dataclass(frozen=True)
+class BatchRejectedMemberView:
+    """Keep bounded display evidence separate from executable member authority."""
+
+    recorded_location: str
+    explanation: str
+    finding_reference: str
+
+
+@dataclass(frozen=True)
+class BatchAnalysisRejectionView:
+    """Describe a pre-edit analysis stop without adding persisted workflow state."""
+
+    summary: str
+    members: tuple[BatchRejectedMemberView, ...]
+    reason_code: BatchAnalysisRejectionReason
+    omitted_member_count: int
 
 
 class BatchUnaddressableMember(BaseModel):

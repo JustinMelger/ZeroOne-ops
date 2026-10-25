@@ -227,6 +227,15 @@ the reviewed branch. Failed revisions restore workspace state through the
 existing execution safeguards and project the item back to
 `review_feedback_required` with compact execution evidence.
 
+For typed pre-edit batch analysis rejections, shared issue presentation shows a
+**Latest Attempt** explanation near **Next Action** only when failure time and
+reviewed SHA correlate with the latest revision command. It distinguishes manual
+handling from accounting failures, uses recorded member locations, and preserves
+the linked request/log URLs. Earlier assessment evidence is displayed as
+**Retained Change Rationale**, without inferring a publication/run association.
+Historical failure evidence remains in **Last Execution**; successful follow-up
+transitions remove the current-failure notice through existing state changes.
+
 ## Implementation Slices
 
 1. Add shared state, projected feedback packet, renderer/parser support, and

@@ -26,6 +26,10 @@ from zeroone_ops.providers.llm_client import (
     LLMClientError,
     OpenAILLMClient,
 )
+from zeroone_ops.services.remediation.batch_analysis_rejection_presentation import (
+    build_batch_analysis_rejection_view,
+    format_batch_analysis_stop,
+)
 from zeroone_ops.services.remediation.batch_execution_checks import (
     BatchAnalysisRejected,
     accept_batch_analysis,
@@ -222,14 +226,21 @@ class AnalysisService:
             try:
                 accepted_attempt = accept_batch_analysis(accepted_attempt, analysis)
             except BatchAnalysisRejected as error:
-                message = "Batch analysis coverage is incomplete or unaddressable."
+                message = format_batch_analysis_stop(
+                    build_batch_analysis_rejection_view(
+                        error.rejection,
+                        attempt=selected_issue.batch_attempt,
+                        file_path=selected_issue.batch.group.file_path,
+                        rule_id=selected_issue.batch.group.rule_id,
+                    )
+                )
                 return AnalysisResult(
                     summary=message,
                     validation_passed=False,
                     batch_rejection=error.rejection,
                     failure=FailureDetails(
                         stage=FailureStage.ANALYSIS,
-                        message="Batch analysis coverage rejected; no partial edit is allowed.",
+                        message=message,
                     ),
                 )
         semantic_safety = self.semantic_safety_gate_service.decide(analysis)
