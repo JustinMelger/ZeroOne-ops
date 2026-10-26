@@ -176,11 +176,22 @@ class ValidationComparison(BaseModel):
         return self.outcome in {"passed", "baseline_preserved"}
 
 
+class ValidationCommandFeedback(BaseModel):
+    """Bounded command evidence, independent of the permitted edit paths."""
+
+    command: str
+    exit_code: int
+    baseline_exit_code: int
+    excerpt: str
+
+
 class ValidationFeedback(BaseModel):
     """Represent the bounded validator evidence supplied to one retry."""
 
     allowed_file_paths: list[str] = Field(default_factory=list)
     diagnostics: list[ValidationDiagnostic] = Field(default_factory=list)
+    failures: list[ValidationCommandFeedback] = Field(default_factory=list)
+    omitted_failure_count: int = 0
 
 
 class IssueContext(BaseModel):

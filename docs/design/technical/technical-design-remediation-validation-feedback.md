@@ -74,8 +74,10 @@ an unusable baseline. Failure counts count commands, not diagnostics.
 Pure `diagnostic_parser.py` recognizes MyPy plain text and Ruff concise/default
 console output. It retains each diagnostic occurrence and rejects unexpected
 output; only recognized summaries, notes, and presentation context are omitted.
-Unknown commands require exact stdout/stderr and exit-code equality for a
-preserved failure. Tool-specific filtering never applies to other commands.
+Unknown commands require clean validation, both at baseline and publication.
+Tool-specific filtering never applies to other commands. Pure execution-health
+classification is independent of parser recognition, including wrapped tool
+errors and narrowly recognized pytest collection-error exit 2.
 
 Frozen, non-persisted `ToolDiagnostic`, `ParsedValidationOutput`, and
 `SourceChange` records live in `models/validation_evidence.py`. The snapshot
@@ -85,17 +87,25 @@ of repeated text is withheld as ambiguous; changed lines and missing contents
 have no map. Columns remain part of identity on unchanged mapped lines.
 Structured comparison subtracts multisets, never sets or total error counts.
 Codes, messages, severities, paths, locations, and duplicate occurrences remain
-significant. Only new diagnostics in safe `files_touched` paths reach feedback.
+significant. Absolute repository-contained locations are normalized before
+comparison. Escaping/external paths and unresolved directory-changing invocation
+semantics cannot establish structured baseline evidence.
 
 The service returns deterministic, path-and-line-sorted diagnostics. A clean
 post-edit result is `passed`; known baseline-only failures are
 `baseline_preserved`; new relevant diagnostics are `actionable_regression`; and
 other new failures are `unscoped_regression`.
 
-`ValidationFeedbackBuilder` converts only an actionable regression into a
-bounded structured-edit prompt addition. It includes edited paths, command,
-exit code, and at most ten excerpts totaling 4,000 characters. It explicitly
-excludes baseline-only and unscoped output.
+Non-persisted `ValidationCommandAssessment`, `ValidationCorrectionDecision`, and
+`ValidationAssessment` separate command health, correction, and publication.
+The assessment retains the actual blocking command position, not the first
+nonzero exit. Every blocker must be correction-eligible.
+
+`ValidationFeedbackBuilder` accepts that independent decision and produces
+command-level evidence: command, baseline/post-edit exits, and bounded failure
+context. Allowed edit paths remain separate. The packet contains at most ten
+entries and 4,000 characters, discloses omitted failures, and excludes preserved
+baseline diagnostics. Empty/unusable evidence withholds correction.
 
 ## 5. Patch Execution Changes
 
@@ -107,9 +117,11 @@ When `config.remediation.validation_feedback_enabled` is true,
 3. apply the patch and run post-edit validation;
 4. compare post-edit output with the baseline;
 5. continue only for `passed` or `baseline_preserved`;
-6. restore and regenerate once only for `actionable_regression`;
-7. restore and return structured failure for `unscoped_regression` or an
-   exhausted correction attempt.
+6. restore and regenerate at most once when the independent correction decision
+   is eligible and usable feedback fits; the publication outcome need not be
+   `actionable_regression`;
+7. restore and return structured failure when correction is withheld, disabled,
+   or exhausted. A later pass/preserved result alone permits publication.
 
 The baseline and original source snapshot are captured once, after setup and
 before the first patch. Every correction compares against that original

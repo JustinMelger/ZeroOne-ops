@@ -27,7 +27,7 @@ def build_result(*, command: str, exit_code: int, output: str = "") -> Validatio
     )
 
 
-def test_compare_preserves_baseline_failures_without_prompt_feedback() -> None:
+def test_compare_rejects_unsupported_baseline_failures_without_prompt_feedback() -> None:
     baseline = ValidationBaseline(
         result=build_result(
             command="uv run pytest",
@@ -35,17 +35,18 @@ def test_compare_preserves_baseline_failures_without_prompt_feedback() -> None:
             output="tests/other_test.py: assertion failed",
         )
     )
-    comparison = ValidationComparisonService().compare(
+    assessment = ValidationComparisonService().assess(
         baseline=baseline,
         post_edit=baseline.result,
         files_touched=["src/service.py"],
     )
 
-    assert comparison.outcome == "baseline_preserved"
-    assert comparison.allows_publication is True
+    comparison = assessment.comparison
+    assert comparison.outcome == "unscoped_regression"
+    assert comparison.allows_publication is False
     assert (
         ValidationFeedbackBuilder().build(
-            comparison=comparison,
+            assessment=assessment,
             files_touched=["src/service.py"],
         )
         is None
@@ -82,19 +83,20 @@ def test_compare_marks_new_edited_file_diagnostic_actionable() -> None:
         output="src/service.py:12:1: E999 generated regression",
     )
 
-    comparison = ValidationComparisonService().compare(
+    assessment = ValidationComparisonService().assess(
         baseline=baseline,
         post_edit=post_edit,
         files_touched=["src/service.py"],
     )
 
+    comparison = assessment.comparison
     assert comparison.outcome == "actionable_regression"
     feedback = ValidationFeedbackBuilder().build(
-        comparison=comparison,
+        assessment=assessment,
         files_touched=["src/service.py"],
     )
     assert feedback is not None
-    assert feedback.diagnostics[0].file_path == "src/service.py"
+    assert "src/service.py" in feedback.failures[0].excerpt
 
 
 def test_compare_blocks_new_diagnostic_outside_editable_file() -> None:
@@ -187,7 +189,7 @@ def test_compare_rejects_unsafe_paths_and_subtracts_baseline_lines() -> None:
 
 
 def test_feedback_builder_limits_the_rendered_packet_length() -> None:
-    comparison = ValidationComparisonService().compare(
+    assessment = ValidationComparisonService().assess(
         baseline=ValidationBaseline(result=build_result(command="ruff check .", exit_code=0)),
         post_edit=build_result(
             command="ruff check .",
@@ -198,7 +200,7 @@ def test_feedback_builder_limits_the_rendered_packet_length() -> None:
     )
 
     feedback = ValidationFeedbackBuilder().build(
-        comparison=comparison,
+        assessment=assessment,
         files_touched=["src/service.py"],
     )
 
@@ -208,8 +210,9 @@ def test_feedback_builder_limits_the_rendered_packet_length() -> None:
             "Allowed files: " + ", ".join(f"`{path}`" for path in feedback.allowed_file_paths),
             "New diagnostics:",
             *[
-                f"- `{diagnostic.file_path}` via `{diagnostic.command}`: {diagnostic.excerpt}"
-                for diagnostic in feedback.diagnostics
+                f"Command: {failure.command}\nBaseline exit: {failure.baseline_exit_code}; "
+                f"post-edit exit: {failure.exit_code}\n{failure.excerpt}"
+                for failure in feedback.failures
             ],
         ]
     )

@@ -20,6 +20,7 @@ from zeroone_ops.models.analysis import (
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.state import FailureDetails, FailureStage
+from zeroone_ops.models.validation_evidence import ValidationAssessment
 from zeroone_ops.providers.llm_client import LLMClientError
 from zeroone_ops.services.remediation.edit_renderer import EditRenderError
 from zeroone_ops.services.remediation.fix_generator import FixGenerator
@@ -32,7 +33,6 @@ from zeroone_ops.services.remediation.validation_feedback.validation_baseline_se
 )
 from zeroone_ops.services.remediation.validation_feedback.validation_comparison_service import (
     ValidationComparisonService,
-    validation_evidence_failure,
 )
 from zeroone_ops.services.remediation.validation_feedback.validation_feedback_builder import (
     ValidationFeedbackBuilder,
@@ -256,16 +256,15 @@ class PatchExecutionService:
             self.config.remediation.validation_commands
         )
         comparison_service = ValidationComparisonService()
-        baseline_failure = validation_evidence_failure(
-            baseline.result, self.config.remediation.validation_commands
+        baseline_assessment = comparison_service.assess(
+            baseline=baseline,
+            post_edit=baseline.result,
+            files_touched=patch.files_touched,
+            expected_commands=self.config.remediation.validation_commands,
+            repository_root=str(self.workspace_snapshot_service.repo_root.absolute()),
         )
-        if baseline_failure is not None:
-            comparison = comparison_service.compare(
-                baseline=baseline,
-                post_edit=baseline.result,
-                files_touched=patch.files_touched,
-                expected_commands=self.config.remediation.validation_commands,
-            )
+        if baseline_assessment.problem is not None:
+            baseline_failure = baseline_assessment.problem.reason
             LOGGER.info("Validation baseline blocked: %s", baseline_failure)
             return _blocked_validation_evidence(
                 summary=summary,
@@ -273,7 +272,8 @@ class PatchExecutionService:
                 reason=baseline_failure,
                 validation_result=baseline.result,
                 workspace_snapshot=original_snapshot,
-                validation_comparison=comparison,
+                validation_comparison=baseline_assessment.comparison,
+                command_result=_assessment_failed_command(baseline_assessment),
             )
         feedback_builder = ValidationFeedbackBuilder()
         allowed_files = tuple(sorted(set(patch.files_touched)))
@@ -313,13 +313,15 @@ class PatchExecutionService:
                     workspace_snapshot=snapshot,
                     retry_count=attempt,
                 )
-            comparison = comparison_service.compare(
+            assessment = comparison_service.assess(
                 baseline=baseline,
                 post_edit=post_edit,
                 files_touched=patch.files_touched,
                 source_changes=source_changes,
                 expected_commands=self.config.remediation.validation_commands,
+                repository_root=str(self.workspace_snapshot_service.repo_root.absolute()),
             )
+            comparison = assessment.comparison
             LOGGER.info(
                 "Validation comparison: outcome=%s reason=%s",
                 comparison.outcome,
@@ -339,11 +341,10 @@ class PatchExecutionService:
                 )
 
             self.workspace_snapshot_service.restore(snapshot)
-            if comparison.outcome == "actionable_regression" and attempt < attempts:
-                feedback = feedback_builder.build(
-                    comparison=comparison,
-                    files_touched=patch.files_touched,
-                )
+            feedback = feedback_builder.build(
+                assessment=assessment, files_touched=patch.files_touched
+            )
+            if assessment.correction.eligible and feedback is not None and attempt < attempts:
                 try:
                     regenerated_context = context.model_copy(
                         update={"validation_feedback": feedback}
@@ -382,11 +383,12 @@ class PatchExecutionService:
                         ),
                     )
 
+            correction_summary = _correction_summary(
+                assessment, attempt, attempts, feedback is not None
+            )
+            failure_summary = f"{_validation_outcome_summary(comparison)} {correction_summary}"
             return PatchExecutionResult(
-                summary=(
-                    f"{summary}. "
-                    f"{_validation_outcome_summary(comparison, correction_attempted=attempt > 0)}"
-                ),
+                summary=(f"{summary}. {failure_summary}"),
                 patch=patch,
                 patch_applied=False,
                 validation_passed=False,
@@ -394,12 +396,9 @@ class PatchExecutionService:
                 workspace_snapshot=snapshot,
                 validation_comparison=comparison,
                 failure=_build_validation_failure(
-                    validation_summary=_validation_outcome_summary(
-                        comparison,
-                        correction_attempted=attempt > 0,
-                    ),
+                    validation_summary=failure_summary,
                     retry_count=attempt,
-                    command_result=_first_failed_command(post_edit),
+                    command_result=_assessment_failed_command(assessment),
                     validation_outcome=comparison.outcome,
                 ),
             )
@@ -454,6 +453,7 @@ def _blocked_validation_evidence(
     workspace_snapshot: WorkspaceSnapshot | None = None,
     validation_comparison: ValidationComparison | None = None,
     retry_count: int = 0,
+    command_result: ValidationCommandResult | None = None,
 ) -> PatchExecutionResult:
     """Unusable baseline/source evidence blocks without model regeneration."""
     return PatchExecutionResult(
@@ -467,10 +467,40 @@ def _blocked_validation_evidence(
         failure=_build_validation_failure(
             validation_summary=reason,
             retry_count=retry_count,
-            command_result=_first_failed_command(validation_result) if validation_result else None,
+            command_result=command_result,
             validation_outcome="unscoped_regression",
         ),
     )
+
+
+def _assessment_failed_command(assessment: ValidationAssessment) -> ValidationCommandResult | None:
+    """Select the actual blocker, not an earlier baseline-preserved failed command."""
+    problem = assessment.problem
+    if problem is None or problem.command_index is None:
+        return None
+    result = (
+        assessment.comparison.baseline
+        if problem.phase == "baseline"
+        else assessment.comparison.post_edit
+    )
+    return result.results[problem.command_index]
+
+
+def _correction_summary(
+    assessment: ValidationAssessment,
+    attempt: int,
+    attempts: int,
+    has_feedback: bool,
+) -> str:
+    if attempt:
+        return "One correction attempt was used; final validation still blocks publication."
+    if not assessment.correction.eligible:
+        return "Correction withheld because validation evidence is not eligible."
+    if not attempts:
+        return "No correction attempt was permitted by configuration."
+    if not has_feedback:
+        return "Correction withheld because usable feedback could not fit the evidence budget."
+    return "Validation blocks publication."
 
 
 def _build_validation_failure(
@@ -541,11 +571,7 @@ def _first_failed_command(result: ValidationResult) -> ValidationCommandResult |
     return next((command for command in result.results if command.exit_code != 0), None)
 
 
-def _validation_outcome_summary(
-    comparison: ValidationComparison,
-    *,
-    correction_attempted: bool = False,
-) -> str:
+def _validation_outcome_summary(comparison: ValidationComparison) -> str:
     """Render the concise operator-facing validation outcome."""
     if comparison.outcome == "passed":
         return "Validation passed."
@@ -553,10 +579,5 @@ def _validation_outcome_summary(
         return "Validation preserved the existing baseline failures."
     if comparison.outcome == "actionable_regression":
         diagnostic = comparison.new_relevant_diagnostics[0]
-        retry_summary = (
-            "one correction attempt was used."
-            if correction_attempted
-            else "no correction attempt was permitted."
-        )
-        return f"Validation introduced a new diagnostic in {diagnostic.file_path}; {retry_summary}"
+        return f"Validation introduced a new diagnostic in {diagnostic.file_path}."
     return comparison.blocking_reason or "Validation failed outside the one-file repair boundary."

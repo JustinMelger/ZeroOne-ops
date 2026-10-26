@@ -51,7 +51,7 @@ baseline-only failures to the model or claim that it fixed them.
 | `passed` | All post-edit validation commands pass. | Continue to approval and publication. |
 | `baseline_preserved` | The repository had known failures, but the patch introduced no new diagnostics relevant to its editable file. | Continue with an explicit baseline warning in execution evidence. |
 | `actionable_regression` | The patch introduced a new diagnostic tied to an edited file. | Restore the workspace and request one corrected patch. |
-| `unscoped_regression` | A new failure exists but cannot be safely tied to the editable file. | Restore the workspace and block for operator review. |
+| `unscoped_regression` | Validation does not meet publication requirements, including command-level failures. | Restore; independently assess eligibility for one constrained correction, otherwise block. |
 | `setup_failed` | Validation setup could not prepare a clean environment. | Block without generating a retry. |
 
 `baseline_preserved` is not reported as a clean validation pass. It means the
@@ -62,8 +62,8 @@ repair scope. The generated change request must retain that distinction.
 
 V1 uses bounded MyPy plain-text and Ruff concise/default-console parsing:
 
-- a diagnostic is eligible for model feedback only when its output identifies a
-  normalized repository path that is in the patch's `files_touched` set;
+- normalize supported diagnostic paths against the trusted repository root;
+  absolute and relative aliases must share identity, and unresolved paths block;
 - compare diagnostic multisets for the same ordered command, retaining path,
   severity, code, message, line, column, and duplicate occurrences; removed
   diagnostics are improvements, while increased occurrences are regressions;
@@ -77,14 +77,19 @@ V1 uses bounded MyPy plain-text and Ruff concise/default-console parsing:
 - output that is malformed, pathless, outside the repository, or refers to a
   different file is never offered as a request to edit more files.
 
-A command that passes at baseline and fails after the patch is a new failure,
-but it remains `unscoped_regression` unless its output can be connected to an
-edited file. This favors a clear operator handoff over speculative multi-file
-repair.
+A previously passing command that now reports a normal validation failure may
+receive one correction, regardless of language or diagnostic paths. Importing
+tests and traceback callers are evidence, not additional editable files. This
+observation justifies an attempt, not proof that the patch caused the failure.
+Execution health, correction eligibility, and publication are separate decisions.
 
 Feedback remains limited to ten diagnostics and 4,000 total characters.
-Unsupported commands use exact-output comparison, without MyPy/Ruff summary
-filtering. Timeouts, unavailable/non-executable tools, terminated processes,
+Unsupported commands, including pytest, must pass at baseline and before
+publication. Identical failed output never authorizes remediation. A generic
+exit 1 with nonempty evidence permits correction unless operational evidence
+is detected. Pytest exit 2 permits correction only with collection-error and
+exception evidence; usage errors, interruption, and no tests collected block.
+Other unknown nonzero exits remain unclassified. Timeouts, unavailable/non-executable tools, terminated processes,
 scanner execution errors, and incomplete/contradictory evidence always block,
 even when identical at baseline. These failures never trigger model correction.
 The default remains opt-in; this prevents regressions, not proof that all
@@ -99,8 +104,11 @@ targeted scanner findings have been resolved.
   generation.
 - The retry receives the original remediation context plus a bounded validation
   feedback packet; it does not receive unrelated baseline output.
-- A failed retry, patch-apply failure, or unscoped regression blocks the item
-  with the latest execution evidence.
+- Every blocking command must permit correction. Mixed operational failures
+  prevent regeneration even when another failure would otherwise qualify.
+- A failed retry, patch-apply failure, or ineligible correction blocks with
+  latest execution evidence. Publication still requires passed or reliably
+  preserved diagnostics; an LLM response never establishes validation success.
 
 The existing `remediation.max_retry_count` remains the rollout control. During
 this phase, validation feedback consumes at most one of its allowed retries;

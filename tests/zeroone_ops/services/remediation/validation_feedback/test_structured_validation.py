@@ -178,7 +178,7 @@ def test_supported_tool_output_keeps_diagnostic_evidence(command: str, output: s
 
 def test_unsupported_commands_require_exact_output_including_occurrences() -> None:
     assert compare("failed\nfailed", "failed", command="pytest").outcome == "unscoped_regression"
-    assert compare("failed", "failed", command="pytest").outcome == "baseline_preserved"
+    assert compare("failed", "failed", command="pytest").outcome == "unscoped_regression"
 
 
 @pytest.mark.parametrize(

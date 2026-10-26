@@ -1,66 +1,58 @@
-"""Build bounded validator feedback for one remediation correction attempt."""
+"""Build bounded command feedback without granting additional edit scope."""
 
-from __future__ import annotations
+from zeroone_ops.models.analysis import ValidationCommandFeedback, ValidationFeedback
+from zeroone_ops.models.validation_evidence import ValidationAssessment
 
-from zeroone_ops.models.analysis import (
-    ValidationComparison,
-    ValidationDiagnostic,
-    ValidationFeedback,
-)
-
-_MAX_DIAGNOSTICS = 10
+_MAX_FAILURES = 10
 _MAX_CHARACTERS = 4_000
 
 
 class ValidationFeedbackBuilder:
-    """Translate an actionable comparison into safe prompt context."""
+    """Translate an independent correction decision into untrusted prompt evidence."""
 
     def build(
         self,
         *,
-        comparison: ValidationComparison,
+        assessment: ValidationAssessment,
         files_touched: list[str],
     ) -> ValidationFeedback | None:
-        """Return bounded feedback only for an edited-file regression."""
-        if comparison.outcome != "actionable_regression":
+        """Decline correction if essential failure evidence cannot fit the bounded packet."""
+        if not assessment.correction.eligible:
             return None
-        allowed_file_paths = sorted(set(files_touched))
-        diagnostics: list[ValidationDiagnostic] = []
-        for diagnostic in comparison.new_relevant_diagnostics:
-            if len(diagnostics) >= _MAX_DIAGNOSTICS:
+        paths = sorted(set(files_touched))
+        remaining = _MAX_CHARACTERS - len(", ".join(paths)) - 200
+        failures: list[ValidationCommandFeedback] = []
+        comparison = assessment.comparison
+        for index in assessment.correction.command_indices[:_MAX_FAILURES]:
+            result = comparison.post_edit.results[index]
+            overhead = len(result.command) + 150
+            if remaining <= overhead:
                 break
-            remaining = _MAX_CHARACTERS - _rendered_length(
-                allowed_file_paths=allowed_file_paths,
-                diagnostics=diagnostics,
+            output = "\n".join(
+                value.strip() for value in (result.stdout, result.stderr) if value.strip()
             )
-            if remaining <= 0:
-                break
-            prefix_length = len(f"\n- `{diagnostic.file_path}` via `{diagnostic.command}`: ")
-            if remaining <= prefix_length:
-                break
-            diagnostics.append(
-                diagnostic.model_copy(
-                    update={"excerpt": diagnostic.excerpt[: remaining - prefix_length]}
+            introduced = assessment.commands[index].new_diagnostics
+            if introduced:
+                output = "\n".join(
+                    f"{d.file_path}:{d.line}: {d.severity}: {d.message} [{d.code}]"
+                    for d in introduced
+                )
+            excerpt = output[-min(2_000, remaining - overhead) :]
+            if not excerpt:
+                continue
+            failures.append(
+                ValidationCommandFeedback(
+                    command=result.command,
+                    exit_code=result.exit_code,
+                    baseline_exit_code=comparison.baseline.results[index].exit_code,
+                    excerpt=excerpt,
                 )
             )
+            remaining -= overhead + len(excerpt)
+        if not failures:
+            return None
         return ValidationFeedback(
-            allowed_file_paths=allowed_file_paths,
-            diagnostics=diagnostics,
+            allowed_file_paths=paths,
+            failures=failures,
+            omitted_failure_count=len(assessment.correction.command_indices) - len(failures),
         )
-
-
-def _rendered_length(
-    *,
-    allowed_file_paths: list[str],
-    diagnostics: list[ValidationDiagnostic],
-) -> int:
-    """Return the exact prompt-section length for the current feedback packet."""
-    lines = [
-        "Allowed files: " + ", ".join(f"`{path}`" for path in allowed_file_paths),
-        "New diagnostics:",
-        *[
-            f"- `{diagnostic.file_path}` via `{diagnostic.command}`: {diagnostic.excerpt}"
-            for diagnostic in diagnostics
-        ],
-    ]
-    return len("\n".join(lines))

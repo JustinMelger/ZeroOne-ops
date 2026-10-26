@@ -178,8 +178,9 @@ def test_retries_compare_actual_source_to_original_baseline_and_restore_between_
         assert source.read_text(encoding="utf-8") == original
         feedback = kwargs["context"].validation_feedback
         assert feedback is not None
-        assert len(feedback.diagnostics) == 1
-        assert "attr-defined" in feedback.diagnostics[0].excerpt
+        assert len(feedback.failures) == 1
+        assert "attr-defined" in feedback.failures[0].excerpt
+        assert "Missing annotation" not in feedback.failures[0].excerpt
         return build_patch()
 
     outcome = service.execute(
@@ -634,7 +635,7 @@ def test_patch_execution_service_retries_once_with_actionable_validation_feedbac
     assert result.patch_applied is True
     assert len(feedback_contexts) == 1
     assert feedback_contexts[0].validation_feedback is not None
-    assert feedback_contexts[0].validation_feedback.diagnostics[0].file_path == "src/service.py"
+    assert "src/service.py" in feedback_contexts[0].validation_feedback.failures[0].excerpt
 
 
 def test_patch_execution_service_accepts_preserved_baseline_without_clean_claim(
@@ -645,7 +646,7 @@ def test_patch_execution_service_accepts_preserved_baseline_without_clean_claim(
     (tmp_path / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
     service = PatchExecutionService(
         config=build_config(
-            validation_commands=["uv run pytest"],
+            validation_commands=["uv run mypy src"],
             validation_feedback_enabled=True,
         ),
         patch_applier=PatchApplier(tmp_path),
@@ -656,9 +657,9 @@ def test_patch_execution_service_accepts_preserved_baseline_without_clean_claim(
         passed=False,
         results=[
             ValidationCommandResult(
-                command="uv run pytest",
+                command="uv run mypy src",
                 exit_code=1,
-                stdout="tests/unrelated.py:1: failed",
+                stdout="tests/unrelated.py:1: error: Missing annotation  [no-untyped-def]",
                 stderr="",
                 duration_ms=1,
             )
@@ -747,7 +748,7 @@ def test_patch_execution_service_reports_when_feedback_retry_is_not_permitted(
 
     assert result.failure is not None
     assert result.failure.validation_outcome == "actionable_regression"
-    assert "no correction attempt was permitted" in result.failure.message
+    assert "No correction attempt was permitted" in result.failure.message
 
 
 def test_patch_execution_service_rejects_setup_that_changes_repository_files(

@@ -380,11 +380,13 @@ file.
 
 `remediation.validation_feedback_enabled` is opt-in. It compares configured
 validation commands before and after a remediation patch, preserving known
-baseline failures and allowing one correction attempt only for a new diagnostic
-in the same editable file.
+baseline failures and allowing one constrained correction for new validation
+failures. Traceback callers do not expand the original one-file edit scope.
 MyPy/Ruff check diagnostics use occurrence-aware comparison with proven
 unchanged-line relocation; missing tooling or incomplete evidence always
-blocks. Other commands retain exact-output fallback. See the
+blocks. Other diagnostic contracts require clean validation at baseline and
+publication; identical failed output is not accepted. Correction eligibility is
+independent of publication eligibility. See the
 [runbook configuration example](docs/runbook.md) for stable MyPy flags and
 explicit opt-in when validating a repository with existing type errors.
 

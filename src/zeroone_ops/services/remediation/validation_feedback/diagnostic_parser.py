@@ -28,18 +28,8 @@ _SUMMARY = {
 
 
 def validation_tool(command: str) -> Literal["mypy", "ruff"] | None:
-    """Recognize direct invocations only; shell compositions retain exact-output fallback."""
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
-        return None
-    if any(character in command for character in "|;&><`\n$"):
-        return None
-    if len(tokens) >= 2 and PurePosixPath(tokens[0]).name == "uv" and tokens[1] == "run":
-        tokens = _uv_command(tokens[2:])
-    if len(tokens) >= 3 and re.fullmatch(r"python(?:3(?:\.\d+)?)?", PurePosixPath(tokens[0]).name):
-        if tokens[1] == "-m":
-            tokens = tokens[2:]
+    """Recognize supported diagnostic contracts; other commands require clean validation."""
+    tokens = _command_tokens(command)
     if not tokens:
         return None
     executable = PurePosixPath(tokens[0]).name
@@ -48,6 +38,36 @@ def validation_tool(command: str) -> Literal["mypy", "ruff"] | None:
     if executable == "ruff" and tokens[1:2] == ["check"]:
         return "ruff"
     return None
+
+
+def validation_executable(command: str) -> str | None:
+    """Recognize executable exit contracts independently of diagnostic parsing."""
+    tokens = _command_tokens(command)
+    return PurePosixPath(tokens[0]).name if tokens else None
+
+
+def _command_tokens(command: str) -> list[str]:
+    """Unwrap bounded invocations, refusing shell composition or changed directory semantics."""
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return []
+    if any(character in command for character in "|;&><`\n$"):
+        return []
+    if tokens and PurePosixPath(tokens[0]).name == "env":
+        tokens = tokens[1:]
+        while tokens and re.fullmatch(r"[A-Za-z_][A-Za-z_0-9]*=.*", tokens[0]):
+            tokens = tokens[1:]
+        if tokens[:1] == ["--"]:
+            tokens = tokens[1:]
+        if not tokens or tokens[0].startswith("-"):
+            return []
+    if len(tokens) >= 2 and PurePosixPath(tokens[0]).name == "uv" and tokens[1] == "run":
+        tokens = _uv_command(tokens[2:])
+    if len(tokens) >= 3 and re.fullmatch(r"python(?:3(?:\.\d+)?)?", PurePosixPath(tokens[0]).name):
+        if tokens[1] == "-m":
+            tokens = tokens[2:]
+    return tokens
 
 
 def _uv_command(tokens: list[str]) -> list[str]:
@@ -73,8 +93,6 @@ def _uv_command(tokens: list[str]) -> list[str]:
     valued = {
         "--group",
         "--no-group",
-        "--project",
-        "--directory",
         "--package",
         "--python",
         "--extra",
@@ -100,14 +118,29 @@ def execution_failure(result: ValidationCommandResult) -> bool:
         result.exit_code < 0
         or result.exit_code in {124, 126, 127}
         or result.exit_code >= 128
-        or (validation_tool(result.command) is not None and result.exit_code not in {0, 1})
         or (
-            result.exit_code != 0
-            and any(
-                marker in result.stderr.lower()
-                for marker in ("command not found", "permission denied")
-            )
+            validation_executable(result.command) in {"mypy", "ruff"}
+            and result.exit_code not in {0, 1}
         )
+        or (result.exit_code != 0 and _startup_failure(result))
+    )
+
+
+def _startup_failure(result: ValidationCommandResult) -> bool:
+    """Recognize operational evidence without treating traceback caller paths as policy."""
+    output = f"{result.stdout}\n{result.stderr}"
+    return (
+        any(
+            marker in result.stderr.lower() for marker in ("command not found", "permission denied")
+        )
+        or re.search(r"(?im)^(?:.*: )?No module named ['\"]?(?:pytest|mypy|ruff)\b", output)
+        is not None
+        or re.search(
+            r"(?im)^(?:error: )?(?:unable to access jarfile|failed to (?:fetch|download|resolve) "
+            r"(?:package|dependencies|https?://)|authentication failed|unauthorized access)",
+            output,
+        )
+        is not None
     )
 
 

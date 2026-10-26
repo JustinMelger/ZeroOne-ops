@@ -105,9 +105,9 @@ Authority note:
 
 Validation feedback is opt-in through `remediation.validation_feedback_enabled`.
 When enabled, remediation captures validation evidence before applying a
-single-file patch. It may retry once only for a newly introduced diagnostic in
-that same file; known baseline failures are retained as evidence rather than
-sent to the model.
+single-file patch. It may retry once for a normal failure from a previously
+passing command, or a new structured diagnostic. Callers in a traceback do not
+expand edit permissions. Known baseline failures are not sent as repair requests.
 
 The default is `false`. For a repository with existing MyPy debt, explicitly
 opt in and use stable plain-text output, for example:
@@ -129,10 +129,15 @@ opt in and use stable plain-text output, for example:
 MyPy and Ruff check diagnostics are compared by occurrence, including code and
 message. Verified unchanged source lines may move after an import removal;
 ambiguous relocation stays conservative. Recognized tool summaries may change
-as errors are removed. Unsupported commands (including pytest and formatting)
-require exact output for preserved failures. Missing tools, timeouts,
+as errors are removed. Unsupported diagnostic contracts (including pytest and
+formatting) must pass at baseline and before publication; repeated failed output
+is not accepted. This is stricter than the previous exact-output fallback.
+Generic exit 1 with evidence may receive correction; pytest collection-error
+exit 2 requires exception evidence. Usage errors, no tests collected, and unknown
+nonzero exits block. Missing tools, timeouts,
 permission errors, scanner execution errors, unexpected output, and incomplete
-command results block without model regeneration. Repair tooling before retrying.
+command results block without model regeneration. A mixture of operational and
+normal failures also withholds correction. Repair tooling before retrying.
 Logs report baseline mode and comparison reasons without raw diagnostic output.
 `baseline_failure_count` counts failed commands, not findings.
 
