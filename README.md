@@ -389,6 +389,8 @@ publication; identical failed output is not accepted. Correction eligibility is
 independent of publication eligibility. See the
 [runbook configuration example](docs/runbook.md) for stable MyPy flags and
 explicit opt-in when validating a repository with existing type errors.
+After a clean baseline, an unsupported diagnostic format does not alone prevent
+one correction for a normal failure; publication still requires reliable validation.
 
 Blocked issues and CLI output identify the validation phase and actual failed
 command, with a bounded, sanitized exception-focused excerpt and workflow-log

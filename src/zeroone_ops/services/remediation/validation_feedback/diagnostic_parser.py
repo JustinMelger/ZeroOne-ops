@@ -212,14 +212,21 @@ def parse_validation_output(result: ValidationCommandResult) -> ParsedValidation
                     continue
                 if fix_context and re.fullmatch(r"(?:\d+\s*)?[+-](?: .*|$)", line):
                     continue
-            return ParsedValidationOutput(tool=tool, recognized=False)
+            return ParsedValidationOutput(
+                tool=tool, recognized=False, failure_kind="unsupported_format"
+            )
 
     consistent = pending is None and all(
         d.line > 0 and (d.column is None or d.column > 0) for d in diagnostics
     )
     consistent = consistent and ((result.exit_code == 0) == (not diagnostics))
     consistent = consistent and all(count == len(diagnostics) for count in summary_counts)
-    return ParsedValidationOutput(tool, tuple(diagnostics), consistent)
+    return ParsedValidationOutput(
+        tool,
+        tuple(diagnostics),
+        consistent,
+        failure_kind=None if consistent else "contradictory",
+    )
 
 
 def _summary_count(line: str) -> int | None:

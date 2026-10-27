@@ -78,6 +78,11 @@ Unknown commands require clean validation, both at baseline and publication.
 Tool-specific filtering never applies to other commands. Pure execution-health
 classification is independent of parser recognition, including wrapped tool
 errors and narrowly recognized pytest collection-error exit 2.
+Parsed output distinguishes unsupported formats from contradictory evidence
+and unresolved paths. After a clean baseline, a normal validation failure in an
+unsupported format uses command-level correction evidence; strict parsing is
+still required to preserve a failed baseline. Malformed consistency evidence
+and unresolved paths do not receive that fallback.
 
 Frozen, non-persisted `ToolDiagnostic`, `ParsedValidationOutput`, and
 `SourceChange` records live in `models/validation_evidence.py`. The snapshot
@@ -100,7 +105,10 @@ other new failures are `unscoped_regression`.
 decisions. It sanitizes both streams before selecting exception/diagnostic
 summaries and nearby locations, falling back to a bounded tail. Source/local
 variable displays are excluded. Excerpts contain at most twenty lines and
-2,000 characters, including omission notices. Credentials, auth headers,
+2,000 characters, including omission notices.
+Pytest's `E File ...` location lines are recognized before filtering `E`-prefixed
+source displays, preserving syntax-error origins without introducing attribution
+or edit-scope decisions. Credentials, auth headers,
 sensitive arguments, credential-bearing URLs, and terminal controls are
 redacted when recognizable; this is not universal secret detection.
 

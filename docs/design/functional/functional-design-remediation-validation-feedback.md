@@ -67,8 +67,10 @@ V1 uses bounded MyPy plain-text and Ruff concise/default-console parsing:
 - compare diagnostic multisets for the same ordered command, retaining path,
   severity, code, message, line, column, and duplicate occurrences; removed
   diagnostics are improvements, while increased occurrences are regressions;
-- recognize only tool summaries and presentation context. Unexpected output
-  blocks rather than silently disappearing from the comparison;
+- recognize only tool summaries and presentation context for baseline
+  preservation. An unsupported diagnostic format after a clean baseline can
+  still support one correction for a normal failure, but cannot authorize
+  publication. Contradictory evidence and unresolved paths still block;
 - actual pre-edit and post-edit source contents may prove that an unchanged
   line moved after an insertion/deletion. Changed lines, ambiguous repeated
   source text, and missing mapping evidence never establish relocation;
@@ -124,6 +126,8 @@ Validation failures also identify baseline versus post-edit phase and the
 original exit code for the actual blocking command. A bounded, sanitized
 diagnostic excerpt prioritizes the exception and relevant locations over test
 session headers. CLI and GitHub/GitLab **Last Execution** share that evidence.
+Pytest-prefixed syntax-error file locations are retained as evidence, without
+including the displayed source or treating callers as extra editable files.
 Messages distinguish correction disabled, withheld, and exhausted; traceback
 callers never establish that a defect originates outside the editable file.
 Redaction is defensive handling of recognizable credentials, not a guarantee

@@ -34,6 +34,7 @@ class ParsedValidationOutput:
     tool: Literal["mypy", "ruff"] | None
     diagnostics: tuple[ToolDiagnostic, ...] = ()
     recognized: bool = True
+    failure_kind: Literal["unsupported_format", "contradictory", "unresolved_path"] | None = None
 
 
 @dataclass(frozen=True)

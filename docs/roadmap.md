@@ -17,7 +17,8 @@ history, not here.
 - opt-in validation with separate execution-health, bounded language-neutral
   correction, and strict publication decisions; MyPy/Ruff diagnostic multisets
   and proven relocation preserve supported baselines, while other contracts
-  must pass; sanitized exception-focused CLI/issue evidence and automated
+  must pass; format-independent clean-baseline correction, retained syntax-error
+  origins, sanitized CLI/issue evidence, and automated
   provider parity are complete, with live rollout acceptance remaining separate
 
 - operator-facing **Change Rationale** in issues, PR/MRs, and failure messages,

@@ -133,6 +133,56 @@ def test_baseline_execution_failure_blocks_before_patch_or_regeneration(
     assert "enabled=True" in caplog.text
 
 
+def test_real_ruff_syntax_failure_can_receive_one_correction(tmp_path, monkeypatch):
+    source = tmp_path / "src/service.py"
+    source.parent.mkdir()
+    original = "unused = 0\nvalue = 1\n"
+    source.write_text(original, encoding="utf-8")
+    command = f"{sys.executable} -m ruff check --isolated --no-cache src/service.py"
+    service = PatchExecutionService(
+        config=build_config(
+            validation_commands=[command], validation_feedback_enabled=True, max_retry_count=1
+        ),
+        patch_applier=PatchApplier(tmp_path),
+        validator=Validator(tmp_path),
+        workspace_snapshot_service=WorkspaceSnapshotService(tmp_path),
+    )
+    contents = iter(["value = (\n", "value = 1\n"])
+    monkeypatch.setattr(service.patch_applier, "validate", lambda patch: None)
+    monkeypatch.setattr(
+        service.patch_applier,
+        "apply",
+        lambda patch: source.write_text(next(contents), encoding="utf-8"),
+    )
+    corrections = []
+
+    def regenerate(**kwargs):
+        assert source.read_text(encoding="utf-8") == original
+        feedback = kwargs["context"].validation_feedback
+        assert feedback.allowed_file_paths == ["src/service.py"]
+        assert feedback.failures[0].baseline_exit_code == 0
+        assert feedback.failures[0].exit_code == 1
+        assert "invalid-syntax:" in feedback.failures[0].excerpt
+        assert "src/service.py" in feedback.failures[0].excerpt
+        corrections.append(feedback)
+        return build_patch()
+
+    outcome = service.execute(
+        dry_run=True,
+        patch=build_patch(),
+        summary="summary",
+        fix_generator=StubFixGenerator(),
+        selected_issue=build_issue(),
+        context=build_context(),
+        patch_factory=regenerate,
+    )
+    assert len(corrections) == 1
+    assert outcome.patch_applied
+    assert outcome.validation_passed
+    assert outcome.validation_comparison.outcome == "passed"
+    assert source.read_text(encoding="utf-8") == "value = 1\n"
+
+
 def test_retries_compare_actual_source_to_original_baseline_and_restore_between_attempts(
     tmp_path: Path,
     monkeypatch,

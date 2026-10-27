@@ -211,11 +211,13 @@ def test_complete_batch_publishes_once_and_retains_full_machine_evidence(
 
 
 @pytest.mark.parametrize("repair", ["success", "still_fails", "extra_file"])
+@pytest.mark.parametrize("defect", ["annotation", "syntax"])
 def test_real_collection_failure_allows_one_scoped_correction_and_strict_publication(
     harness,
     tmp_path,
     monkeypatch,
     repair,
+    defect,
 ):
     command = f"{sys.executable} -m pytest -q --color=no --tb=short"
     runner, runs, engine, model, publisher = setup_execution(
@@ -239,7 +241,7 @@ def test_real_collection_failure_allows_one_scoped_correction_and_strict_publica
     original_state = stored(harness)
     base_proposal = model.generate_structured_edit.return_value
 
-    def proposal(annotation):
+    def proposal(replacement):
         return base_proposal.model_copy(
             update={
                 "edits": [
@@ -247,14 +249,15 @@ def test_real_collection_failure_allows_one_scoped_correction_and_strict_publica
                     TextEdit(
                         file_path="src/routes.py",
                         search_text="value = 1",
-                        replace_text=f"value: {annotation} = 1",
+                        replace_text=replacement,
                     ),
                 ]
             }
         )
 
-    bad = proposal("MissingType")
-    corrected = proposal("int" if repair != "still_fails" else "MissingType")
+    bad = proposal("value: MissingType = 1" if defect == "annotation" else "value = (")
+    error_name = "NameError" if defect == "annotation" else "SyntaxError"
+    corrected = proposal("value: int = 1") if repair != "still_fails" else bad
     if repair == "extra_file":
         corrected = corrected.model_copy(
             update={
@@ -282,8 +285,9 @@ def test_real_collection_failure_allows_one_scoped_correction_and_strict_publica
         assert feedback.allowed_file_paths == ["src/routes.py"]
         assert feedback.failures[0].exit_code == 2
         assert feedback.failures[0].baseline_exit_code == 0
-        assert "NameError" in feedback.failures[0].excerpt
+        assert error_name in feedback.failures[0].excerpt
         assert "tests/test_api.py" in feedback.failures[0].excerpt
+        assert "src/routes.py" in feedback.failures[0].excerpt
         return corrected
 
     model.generate_structured_edit.side_effect = generate
@@ -312,14 +316,16 @@ def test_real_collection_failure_allows_one_scoped_correction_and_strict_publica
             assert failure.exit_code == 2
             assert failure.failed_command == command
             assert failure.retry_count == 1
-            assert "NameError" in failure.diagnostic_excerpt
+            assert error_name in failure.diagnostic_excerpt
+            assert "src/routes.py" in failure.diagnostic_excerpt
             assert "One correction attempt was used" in failure.summary
-            assert "NameError" in result.message
+            assert error_name in result.message
             assert "outside the one-file" not in result.message
             body = (
                 harness[1].upsert_service.renderer.render_body(final).split("## Machine State")[0]
             )
-            assert "NameError" in body
+            assert error_name in body
+            assert "src/routes.py" in body
             assert "https://ci.example/runs/collection" in body
 
 

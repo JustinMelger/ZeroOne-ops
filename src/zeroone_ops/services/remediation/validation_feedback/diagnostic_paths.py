@@ -15,12 +15,12 @@ def normalize_diagnostic_paths(
     for diagnostic in output.diagnostics:
         path = PurePosixPath(diagnostic.file_path)
         if ".." in path.parts or "\\" in diagnostic.file_path:
-            return replace(output, recognized=False)
+            return replace(output, recognized=False, failure_kind="unresolved_path")
         if path.is_absolute():
             if root is None or not root.is_absolute() or not path.is_relative_to(root):
-                return replace(output, recognized=False)
+                return replace(output, recognized=False, failure_kind="unresolved_path")
             path = path.relative_to(root)
         if path.as_posix() == ".":
-            return replace(output, recognized=False)
+            return replace(output, recognized=False, failure_kind="unresolved_path")
         normalized.append(replace(diagnostic, file_path=path.as_posix()))
     return replace(output, diagnostics=tuple(normalized))

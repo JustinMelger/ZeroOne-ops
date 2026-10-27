@@ -141,11 +141,18 @@ normal failures also withholds correction. Repair tooling before retrying.
 Logs report baseline mode and comparison reasons without raw diagnostic output.
 `baseline_failure_count` counts failed commands, not findings.
 
+A supported tool's normal failure after a clean baseline may receive one
+correction even when its output format is not recognized, such as Ruff's
+default syntax-error display. That fallback never preserves a failing baseline
+or authorizes publication. Contradictory evidence and unresolved paths still block.
+
 On failure, **Last Execution** and CLI output identify the command, exit code,
 baseline/post-edit phase, baseline exit, and whether correction was disabled,
 withheld, or exhausted. A sanitized diagnostic excerpt keeps the exception
 and relevant traceback locations instead of only the first session-header
-characters. It is limited to twenty lines and 2,000 characters; omission
+characters. It is limited to twenty lines and 2,000 characters.
+Pytest-prefixed syntax-error locations identify the failing file and line, while
+the corresponding source displays remain excluded. Omission
 notices and the workflow-log link indicate where evidence is incomplete.
 Recognizable credentials are redacted, but avoid secrets in validation command
 arguments or output; redaction cannot identify every possible secret.

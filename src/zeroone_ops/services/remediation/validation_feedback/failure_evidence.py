@@ -9,7 +9,7 @@ _SENSITIVE_KEY = (
 _EXCEPTION = re.compile(r"^(?:E\s+)?[\w.]*(?:Error|Exception|Interrupt|Exit)(?::|$)")
 _DIAGNOSTIC = re.compile(r"^.+:\d+(?::\d+)?:\s*(?:error|warning|[A-Z]+\d+)\b")
 _LOCATION = re.compile(
-    r"^(?:File [\"'].*[\"'], line \d+(?:, in .*)?|[^\s]+:\d+(?::\d+)?(?:: in .*)?)$"
+    r"^(?:E\s+)?(?:File [\"'].*[\"'], line \d+(?:, in .*)?|[^\s]+:\d+(?::\d+)?(?:: in .*)?)$"
 )
 
 

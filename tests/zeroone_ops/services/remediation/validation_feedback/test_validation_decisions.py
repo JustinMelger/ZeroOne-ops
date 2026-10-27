@@ -202,3 +202,36 @@ def test_feedback_omits_a_whole_failure_instead_of_truncating_its_exception():
     assert len(feedback.failures) == 1
     assert feedback.omitted_failure_count == 1
     assert "NameError: " + "x" * 1_700 in feedback.failures[0].excerpt
+
+
+@pytest.mark.parametrize("command", ["mypy src", "ruff check src"])
+def test_unsupported_format_after_clean_baseline_can_only_authorize_correction(command):
+    output = "A new diagnostic format that this parser does not support"
+    assessment = assess(command, 1, output)
+    assert assessment.commands[0].health == "validation_failure"
+    assert assessment.correction.eligible
+    assert not assessment.comparison.allows_publication
+    feedback = ValidationFeedbackBuilder().build(
+        assessment=assessment, files_touched=["src/app.py"]
+    )
+    assert output in feedback.failures[0].excerpt
+    assert feedback.allowed_file_paths == ["src/app.py"]
+
+    failed_baseline = assess(command, 1, output, baseline_code=1, baseline_output=output)
+    assert not failed_baseline.correction.eligible
+    assert not failed_baseline.comparison.allows_publication
+    assert failed_baseline.problem.phase == "baseline"
+
+
+@pytest.mark.parametrize(
+    "command, output",
+    [
+        ("ruff check src", "All checks passed!"),
+        ("mypy src", "Success: no issues found in 1 source file"),
+        ("mypy src", "src/app.py:0: error: Bad location  [assignment]"),
+    ],
+)
+def test_contradictory_evidence_still_withholds_correction_after_clean_baseline(command, output):
+    assessment = assess(command, 1, output)
+    assert not assessment.correction.eligible
+    assert not assessment.comparison.allows_publication

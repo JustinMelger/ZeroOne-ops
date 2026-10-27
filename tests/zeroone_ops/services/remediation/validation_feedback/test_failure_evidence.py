@@ -99,3 +99,24 @@ def test_standard_traceback_preserves_file_location_without_source_or_locals():
 
 def test_empty_evidence_is_absent():
     assert failure_excerpt(" \n", "") is None
+
+
+def test_pytest_syntax_error_preserves_prefixed_origin_not_source_displays():
+    output = (
+        "_____ ERROR collecting tests/test_api.py _____\n"
+        "tests/test_api.py:1: in <module>\n"
+        "    import broken_app\n"
+        'E     File "/repo/src/broken_app.py", line 3\n'
+        "E       def broken(\n"
+        "E                 ^\n"
+        "E   SyntaxError: '(' was never closed\n"
+        "ERROR tests/test_api.py\n"
+    )
+    excerpt = failure_excerpt(output, "")
+    assert 'E     File "/repo/src/broken_app.py", line 3' in excerpt
+    assert "SyntaxError" in excerpt
+    assert "tests/test_api.py:1" in excerpt
+    assert "def broken(" not in excerpt
+    assert "import broken_app" not in excerpt
+    assert len(excerpt) <= 2_000
+    assert len(excerpt.splitlines()) <= 20

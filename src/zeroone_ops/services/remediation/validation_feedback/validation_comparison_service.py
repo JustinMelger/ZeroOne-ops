@@ -156,6 +156,19 @@ def _assess_command(
             "Validation could not execute reliably; check the validation environment and output.",
         )
     if not parsed.recognized:
+        if (
+            before.exit_code == 0
+            and health == "validation_failure"
+            and parsed.failure_kind == "unsupported_format"
+        ):
+            return ValidationCommandAssessment(
+                index,
+                health,
+                False,
+                True,
+                "A previously passing command now reports a validation failure in an unsupported "
+                "diagnostic format; successful validation is required.",
+            )
         return ValidationCommandAssessment(
             index,
             "unclassified",
