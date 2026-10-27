@@ -32,6 +32,52 @@ def renderer(request: pytest.FixtureRequest) -> GitHubWorkItemRenderer | GitLabW
     return request.param()
 
 
+def test_validation_diagnostics_are_shared_escaped_and_round_trip(renderer):
+    failure = WorkItemExecutionFailure(
+        stage="validation",
+        summary="Correction withheld; validation failed.",
+        retry_count=0,
+        run_id="validation-1",
+        occurred_at=datetime(2026, 10, 26, tzinfo=UTC),
+        failed_command="pytest",
+        exit_code=2,
+        validation_phase="post_edit",
+        baseline_exit_code=0,
+        diagnostic_excerpt=(
+            "src/app.py:3: in <module>\nE NameError: </pre><script>bad</script> ` ```"
+        ),
+        execution_url="https://ci.example/run/1",
+    )
+    state = build_work_item(status="blocked").model_copy(update={"execution_failure": failure})
+    decoded = WorkItemState.model_validate_json(state.model_dump_json())
+    assert decoded.execution_failure == failure
+    body = renderer.render_body(decoded).split("## Machine State")[0]
+    assert "Validation phase: `post_edit`" in body
+    assert "Baseline exit code: `0`" in body
+    assert "Exit code: `2`" in body
+    assert "### Validation Diagnostic" in body
+    assert "&lt;/pre&gt;&lt;script&gt;" in body
+    assert "<script>" not in body
+    assert "[View workflow logs](https://ci.example/run/1)" in body
+
+
+def test_historical_failure_fields_remain_optional(renderer):
+    failure = WorkItemExecutionFailure.model_validate(
+        {
+            "stage": "validation",
+            "summary": "Failed",
+            "retry_count": 0,
+            "run_id": "old",
+            "occurred_at": "2026-01-01T00:00:00Z",
+        }
+    )
+    assert failure.validation_phase is None
+    assert failure.diagnostic_excerpt is None
+    state = build_work_item(status="blocked").model_copy(update={"execution_failure": failure})
+    body = renderer.render_body(state)
+    assert "### Validation Diagnostic" not in body
+
+
 @pytest.fixture
 def failed_revision() -> WorkItemState:
     requested_at = datetime(2026, 9, 19, tzinfo=UTC)

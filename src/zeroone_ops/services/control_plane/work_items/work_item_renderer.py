@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from html import escape
 from pathlib import Path
 
 from zeroone_ops.models.policy import PolicyState
@@ -27,6 +28,9 @@ from zeroone_ops.services.remediation.batch_analysis_rejection_presentation impo
 from zeroone_ops.services.remediation.semantic_safety_presentation import (
     render_retained_change_rationale_lines,
     render_semantic_safety_lines,
+)
+from zeroone_ops.services.remediation.validation_feedback.failure_evidence import (
+    sanitize_validation_text,
 )
 from zeroone_ops.services.shared.projection_payload import validate_batch_payload
 
@@ -226,7 +230,7 @@ class WorkItemRenderer:
             stage = "Change rationale" if failure.stage == "semantic_safety" else failure.stage
             summary = (
                 _escape_feedback_text(failure.summary)
-                if failure.batch_rejection
+                if failure.batch_rejection or failure.diagnostic_excerpt
                 else failure.summary
             )
             lines.extend(
@@ -243,13 +247,21 @@ class WorkItemRenderer:
                 ]
             )
             if failure.failed_command is not None:
-                lines.append(f"- Command: `{failure.failed_command}`")
+                command = _escape_inline_code(sanitize_validation_text(failure.failed_command))
+                lines.append(f"- Command: `{command}`")
             if failure.exit_code is not None:
                 lines.append(f"- Exit code: `{failure.exit_code}`")
             if failure.validation_outcome is not None:
                 lines.append(f"- Validation outcome: `{failure.validation_outcome}`")
+            if failure.validation_phase is not None:
+                lines.append(f"- Validation phase: `{failure.validation_phase}`")
+            if failure.baseline_exit_code is not None:
+                lines.append(f"- Baseline exit code: `{failure.baseline_exit_code}`")
             if failure.execution_url is not None:
                 lines.append(f"- Run: [View workflow logs]({failure.execution_url})")
+            if failure.diagnostic_excerpt:
+                excerpt = escape(sanitize_validation_text(failure.diagnostic_excerpt))
+                lines.extend(["", "### Validation Diagnostic", "", f"<pre>{excerpt}</pre>"])
             if failure.batch_rejection is not None:
                 rejection = build_batch_analysis_rejection_view(
                     failure.batch_rejection,

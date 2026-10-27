@@ -11,9 +11,9 @@ only persist the final execution outcome and render it.
 
 ## 2. Existing Boundary
 
-`PatchExecutionService` already owns patch application, validation, rollback,
-and retry. It currently regenerates a patch after any failed validation without
-passing validation evidence to the generator. Extend this service rather than
+`PatchExecutionService` owns patch application, validation, rollback,
+and retry. Feedback-disabled execution retains its blind regeneration behavior;
+feedback-enabled execution uses the shared assessments. Extend this service rather than
 adding a provider-specific runner or a second retry loop.
 
 The loop runs before commit, branch push, and change-request publication. It
@@ -96,6 +96,22 @@ post-edit result is `passed`; known baseline-only failures are
 `baseline_preserved`; new relevant diagnostics are `actionable_regression`; and
 other new failures are `unscoped_regression`.
 
+`failure_evidence.py` selects presentation evidence independently of scope
+decisions. It sanitizes both streams before selecting exception/diagnostic
+summaries and nearby locations, falling back to a bounded tail. Source/local
+variable displays are excluded. Excerpts contain at most twenty lines and
+2,000 characters, including omission notices. Credentials, auth headers,
+sensitive arguments, credential-bearing URLs, and terminal controls are
+redacted when recognizable; this is not universal secret detection.
+
+`FailureDetails` and `WorkItemExecutionFailure` gain optional `validation_phase`,
+`baseline_exit_code`, and `diagnostic_excerpt` fields, defaulting to `None`.
+New failures retain this canonical sanitized excerpt instead of raw stdout/
+stderr prefixes; historical prefix fields remain readable. The assessment's
+blocking index selects the corresponding command and baseline exit. Shared
+CLI/issue presentation uses the same excerpt and preserves workflow-log links.
+Issue HTML is escaped, and final payload-budget checks remain authoritative.
+
 Non-persisted `ValidationCommandAssessment`, `ValidationCorrectionDecision`, and
 `ValidationAssessment` separate command health, correction, and publication.
 The assessment retains the actual blocking command position, not the first
@@ -158,8 +174,8 @@ or refresh descriptions after same-request revisions.
 
 No provider publisher or control-plane adapter may parse raw validator output.
 `WorkItemExecutionFailure` remains the compact persisted record for blocked
-attempts; add only an outcome qualifier and existing command/exit details needed
-for GitHub and GitLab rendering.
+attempts, carrying the outcome, phase, command/exit details, and bounded sanitized
+excerpt needed for equivalent GitHub and GitLab rendering.
 
 ## 7. Implementation Slices
 
@@ -195,6 +211,5 @@ for GitHub and GitLab rendering.
 
 - structured diagnostic parsers for SARIF, pytest, and other unsupported tools;
 - multi-file repair and test-repair loops;
-- review-finding-driven revision of an already-published PR/MR;
 - more than one feedback-driven correction attempt;
 - automatic retry of transient provider or validation-environment failures.

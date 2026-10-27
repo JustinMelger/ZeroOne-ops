@@ -36,7 +36,7 @@ flow is:
 1. run validation environment setup once;
 2. capture a baseline result for every configured validation command before
    applying a patch;
-3. generate and apply the scoped patch;
+3. apply the generated scoped patch;
 4. run the same validation commands after the patch;
 5. compare post-edit diagnostics with the baseline;
 6. either continue, retry once with bounded feedback, or block the item.
@@ -72,8 +72,8 @@ V1 uses bounded MyPy plain-text and Ruff concise/default-console parsing:
 - actual pre-edit and post-edit source contents may prove that an unchanged
   line moved after an insertion/deletion. Changed lines, ambiguous repeated
   source text, and missing mapping evidence never establish relocation;
-- feedback contains only the command, exit code, relevant diagnostic excerpts,
-  and the allowed file paths;
+- feedback contains command, baseline/post-edit exits, bounded diagnostic or
+  traceback excerpts, and the allowed file paths;
 - output that is malformed, pathless, outside the repository, or refers to a
   different file is never offered as a request to edit more files.
 
@@ -120,6 +120,15 @@ Blocked work-item views should continue to show the concise latest execution
 summary, failed command, exit code, retry count, and workflow-run link. Add a
 validation outcome qualifier when available:
 
+Validation failures also identify baseline versus post-edit phase and the
+original exit code for the actual blocking command. A bounded, sanitized
+diagnostic excerpt prioritizes the exception and relevant locations over test
+session headers. CLI and GitHub/GitLab **Last Execution** share that evidence.
+Messages distinguish correction disabled, withheld, and exhausted; traceback
+callers never establish that a defect originates outside the editable file.
+Redaction is defensive handling of recognizable credentials, not a guarantee
+that arbitrary tool output can never contain sensitive data.
+
 - `Validation passed.`
 - `Validation preserved the existing baseline failures.`
 - `Validation introduced a new diagnostic in <file>; one correction attempt was used.`
@@ -143,12 +152,14 @@ operator handoffs are rendered clearly.
 
 ## 10. Acceptance Criteria
 
-- A pre-existing failure in another file is not sent to the model and does not
-  block a non-regressing one-file patch.
+- A reliably compared pre-existing MyPy/Ruff failure is not sent to the model
+  and does not block a non-regressing one-file patch. Other baseline failures
+  stop before patch application.
 - A new diagnostic in an edited file produces at most one corrected-patch
   attempt.
-- A new diagnostic outside the editable-file boundary blocks rather than
-  expanding the patch scope.
+- Caller paths and failures observed in other files may support one constrained
+  correction, but never expand the patch scope. Unresolved validation blocks
+  publication after the correction; operational failures receive no correction.
 - Workspace restoration occurs before every retry and every terminal failure.
 - GitHub and GitLab persist the same execution outcome and render equivalent
   operator evidence.

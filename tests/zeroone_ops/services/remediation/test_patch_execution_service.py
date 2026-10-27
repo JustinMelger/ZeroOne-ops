@@ -247,6 +247,138 @@ def test_post_edit_execution_failure_restores_source_without_regeneration(
     regenerate.assert_not_called()
 
 
+def test_language_neutral_command_can_correct_without_path_attribution(tmp_path, monkeypatch):
+    source = tmp_path / "src/service.py"
+    source.parent.mkdir()
+    original = "unused = 0\nvalue = 1\n"
+    source.write_text(original)
+    command = (
+        "grep -q '^value = 1$' src/service.py || { printf 'AssertionError: wrong value'; exit 1; }"
+    )
+    service = PatchExecutionService(
+        config=build_config(
+            validation_commands=[command], validation_feedback_enabled=True, max_retry_count=1
+        ),
+        patch_applier=PatchApplier(tmp_path),
+        validator=Validator(tmp_path),
+        workspace_snapshot_service=WorkspaceSnapshotService(tmp_path),
+    )
+    contents = iter(["value = 2\n", "value = 1\n"])
+    monkeypatch.setattr(service.patch_applier, "validate", lambda patch: None)
+    monkeypatch.setattr(
+        service.patch_applier, "apply", lambda patch: source.write_text(next(contents))
+    )
+
+    def regenerate(**kwargs):
+        assert source.read_text() == original
+        feedback = kwargs["context"].validation_feedback
+        assert feedback.allowed_file_paths == ["src/service.py"]
+        assert "AssertionError" in feedback.failures[0].excerpt
+        assert feedback.failures[0].exit_code == 1
+        return build_patch()
+
+    outcome = service.execute(
+        dry_run=True,
+        patch=build_patch(),
+        summary="summary",
+        fix_generator=StubFixGenerator(),
+        selected_issue=build_issue(),
+        context=build_context(),
+        patch_factory=regenerate,
+    )
+    assert outcome.patch_applied
+    assert outcome.validation_comparison.outcome == "passed"
+    assert source.read_text() == "value = 1\n"
+
+
+def test_failure_evidence_identifies_actual_command_and_phase(tmp_path, monkeypatch):
+    source = tmp_path / "src/service.py"
+    source.parent.mkdir()
+    source.write_text("value = 1\n")
+    commands = ["mypy src", "pytest"]
+    service = PatchExecutionService(
+        config=build_config(validation_commands=commands, validation_feedback_enabled=True),
+        patch_applier=PatchApplier(tmp_path),
+        validator=Validator(tmp_path),
+        workspace_snapshot_service=WorkspaceSnapshotService(tmp_path),
+    )
+    mypy = validation_result(
+        commands[0], "src/other.py:1: error: Existing issue  [assignment]"
+    ).results[0]
+    pytest_pass = validation_result(commands[1], "", 0).results[0]
+    pytest_failure = validation_result(
+        commands[1],
+        (
+            "_____ ERROR collecting tests/test_api.py _____\n"
+            "src/service.py:1: in <module>\nE NameError: missing annotation\n"
+        ),
+        2,
+    ).results[0]
+    baseline = ValidationResult(passed=False, results=[mypy, pytest_pass], summary="baseline")
+    post = ValidationResult(passed=False, results=[mypy, pytest_failure], summary="post")
+    monkeypatch.setattr(service.validator, "run_all", Mock(side_effect=[baseline, post]))
+    monkeypatch.setattr(service.patch_applier, "validate", lambda patch: None)
+    monkeypatch.setattr(service.patch_applier, "apply", lambda patch: None)
+    outcome = service.execute(
+        dry_run=True,
+        patch=build_patch(),
+        summary="summary",
+        fix_generator=StubFixGenerator(),
+        selected_issue=build_issue(),
+        context=build_context(),
+        patch_factory=Mock(),
+    )
+    assert outcome.failure.failed_command == "pytest"
+    assert outcome.failure.validation_phase == "post_edit"
+    assert outcome.failure.baseline_exit_code == 0
+    assert "NameError" in outcome.failure.diagnostic_excerpt
+    assert "Existing issue" not in outcome.failure.diagnostic_excerpt
+    assert source.read_text() == "value = 1\n"
+
+
+def test_unhealthy_baseline_is_visible_without_applying_a_patch(tmp_path, monkeypatch):
+    command = "pytest"
+    service = PatchExecutionService(
+        config=build_config(
+            validation_commands=[command], validation_feedback_enabled=True, max_retry_count=1
+        ),
+        patch_applier=PatchApplier(tmp_path),
+        validator=Validator(tmp_path),
+        workspace_snapshot_service=WorkspaceSnapshotService(tmp_path),
+    )
+    baseline = validation_result(
+        command,
+        (
+            "_____ ERROR collecting tests/test_api.py _____\n"
+            "src/service.py:3: in <module>\n"
+            "    value: MissingType = 1\nE NameError: MissingType is not defined\n"
+        ),
+        2,
+    )
+    monkeypatch.setattr(service.validator, "run_all", Mock(return_value=baseline))
+    apply = Mock()
+    regenerate = Mock()
+    monkeypatch.setattr(service.patch_applier, "apply", apply)
+    outcome = service.execute(
+        dry_run=True,
+        patch=build_patch(),
+        summary="summary",
+        fix_generator=StubFixGenerator(),
+        selected_issue=build_issue(),
+        context=build_context(),
+        patch_factory=regenerate,
+    )
+    assert outcome.failure.validation_phase == "baseline"
+    assert outcome.failure.baseline_exit_code == 2
+    assert outcome.failure.failed_command == command
+    assert "NameError" in outcome.failure.diagnostic_excerpt
+    assert "value: MissingType = 1" not in outcome.failure.diagnostic_excerpt
+    assert outcome.failure.stdout_excerpt is None
+    assert outcome.failure.stderr_excerpt is None
+    apply.assert_not_called()
+    regenerate.assert_not_called()
+
+
 class StubFixGenerator(FixGenerator):
     def __init__(self) -> None:
         pass

@@ -1,6 +1,7 @@
 """Run internal batch execution through both real issue adapters and shared services."""
 
 import subprocess
+import sys
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -207,6 +208,119 @@ def test_complete_batch_publishes_once_and_retains_full_machine_evidence(
     assert "No validation commands configured" in request.description
     assert engine.branch_manager.current_branch() != "main"
     assert model.analyze_issue.call_args.args[0].batch_attempt is not None
+
+
+@pytest.mark.parametrize("repair", ["success", "still_fails", "extra_file"])
+def test_real_collection_failure_allows_one_scoped_correction_and_strict_publication(
+    harness,
+    tmp_path,
+    monkeypatch,
+    repair,
+):
+    command = f"{sys.executable} -m pytest -q --color=no --tb=short"
+    runner, runs, engine, model, publisher = setup_execution(
+        harness, tmp_path, monkeypatch, validation_commands=[command]
+    )
+    engine.config.remediation.validation_feedback_enabled = True
+    engine.config.remediation.max_retry_count = 1
+    runner.execution_url_builder = lambda: "https://ci.example/runs/collection"
+    (tmp_path / "tests").mkdir()
+    for name in ("test_api.py", "test_store.py"):
+        (tmp_path / "tests" / name).write_text(
+            "from routes import value\n\ndef test_value():\n    assert value == 1\n"
+        )
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.pytest.ini_options]\npythonpath = ["src"]\ntestpaths = ["tests"]\n'
+    )
+    (tmp_path / ".gitignore").write_text("__pycache__/\n.pytest_cache/\n")
+    for arguments in (["git", "add", "."], ["git", "commit", "-m", "validation fixtures"]):
+        subprocess.run(arguments, cwd=tmp_path, check=True, capture_output=True)
+    original = (tmp_path / "src/routes.py").read_text()
+    original_state = stored(harness)
+    base_proposal = model.generate_structured_edit.return_value
+
+    def proposal(annotation):
+        return base_proposal.model_copy(
+            update={
+                "edits": [
+                    *base_proposal.edits,
+                    TextEdit(
+                        file_path="src/routes.py",
+                        search_text="value = 1",
+                        replace_text=f"value: {annotation} = 1",
+                    ),
+                ]
+            }
+        )
+
+    bad = proposal("MissingType")
+    corrected = proposal("int" if repair != "still_fails" else "MissingType")
+    if repair == "extra_file":
+        corrected = corrected.model_copy(
+            update={
+                "edits": [
+                    *corrected.edits,
+                    TextEdit(
+                        file_path="tests/test_api.py",
+                        search_text="assert value == 1",
+                        replace_text="assert True",
+                    ),
+                ]
+            }
+        )
+    calls = 0
+
+    def generate(target, context):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return bad
+        assert (tmp_path / "src/routes.py").read_text() == original
+        assert context.semantic_safety is not None
+        assert context.batch_attempt.coverage.addressable_ids == ("a", "b")
+        feedback = context.validation_feedback
+        assert feedback.allowed_file_paths == ["src/routes.py"]
+        assert feedback.failures[0].exit_code == 2
+        assert feedback.failures[0].baseline_exit_code == 0
+        assert "NameError" in feedback.failures[0].excerpt
+        assert "tests/test_api.py" in feedback.failures[0].excerpt
+        return corrected
+
+    model.generate_structured_edit.side_effect = generate
+    result = runner.run(record=runs.start_run("collection-correction"), active_dry_run=False)
+    final = stored(harness)
+    assert model.generate_structured_edit.call_count == 2
+    assert model.analyze_issue.call_count == 1
+    assert final.batch.members == original_state.batch.members
+    assert final.batch_attempt.coverage.addressable_ids == ("a", "b")
+    if repair == "success":
+        assert result.status == RunStatus.CHANGE_REQUEST_CREATED
+        assert final.status == "in_progress"
+        assert (tmp_path / "src/routes.py").read_text() == "value: int = 1\n"
+        publisher.publish.assert_called_once()
+        assert "Validation passed" in publisher.publish.call_args.args[0].description
+    else:
+        assert result.status == RunStatus.FAILED
+        assert final.status == "blocked"
+        assert (tmp_path / "src/routes.py").read_text() == original
+        assert "assert value == 1" in (tmp_path / "tests/test_api.py").read_text()
+        publisher.publish.assert_not_called()
+        if repair == "still_fails":
+            failure = final.execution_failure
+            assert failure.validation_phase == "post_edit"
+            assert failure.baseline_exit_code == 0
+            assert failure.exit_code == 2
+            assert failure.failed_command == command
+            assert failure.retry_count == 1
+            assert "NameError" in failure.diagnostic_excerpt
+            assert "One correction attempt was used" in failure.summary
+            assert "NameError" in result.message
+            assert "outside the one-file" not in result.message
+            body = (
+                harness[1].upsert_service.renderer.render_body(final).split("## Machine State")[0]
+            )
+            assert "NameError" in body
+            assert "https://ci.example/runs/collection" in body
 
 
 @pytest.mark.parametrize("mode", ["preserved", "unscoped", "unavailable"])

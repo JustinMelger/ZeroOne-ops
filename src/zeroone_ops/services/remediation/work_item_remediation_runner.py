@@ -41,6 +41,9 @@ from zeroone_ops.services.remediation.recovery.publication_retry_service import 
 from zeroone_ops.services.remediation.remediation_context_builder import (
     RemediationContextBuilder,
 )
+from zeroone_ops.services.remediation.validation_feedback.failure_evidence import (
+    sanitize_validation_text,
+)
 from zeroone_ops.services.shared.branch_revision_lookup import build_branch_revision_lookup
 from zeroone_ops.services.shared.projection_payload import ProjectionSizeExceeded
 from zeroone_ops.services.shared.run_state_service import RunStateService, RunSummary
@@ -747,27 +750,46 @@ class WorkItemRemediationRunner:
         return WorkItemExecutionFailure(
             batch_rejection=batch_rejection,
             stage=failure.stage.value,
-            summary=summary,
+            summary=sanitize_validation_text(summary),
             retry_count=failure.retry_count,
             run_id=run_id,
             occurred_at=utc_now(),
-            failed_command=failure.failed_command,
+            failed_command=(
+                sanitize_validation_text(failure.failed_command) if failure.failed_command else None
+            ),
             exit_code=failure.exit_code,
             execution_url=self.execution_url_builder(),
             validation_outcome=failure.validation_outcome,
+            validation_phase=failure.validation_phase,
+            baseline_exit_code=failure.baseline_exit_code,
+            diagnostic_excerpt=(
+                sanitize_validation_text(failure.diagnostic_excerpt)[:2_000]
+                if failure.diagnostic_excerpt
+                else None
+            ),
         )
 
 
 def _failure_summary_message(failure: FailureDetails) -> str:
     """Return a bounded CLI diagnostic without changing persisted failure state."""
-    output = failure.stderr_excerpt or failure.stdout_excerpt
+    details = [sanitize_validation_text(failure.message)]
+    if failure.validation_phase:
+        details.append(f"Validation phase: {failure.validation_phase}")
+    if failure.failed_command:
+        details.append(f"Command: {sanitize_validation_text(failure.failed_command)}")
+    if failure.exit_code is not None:
+        details.append(f"Exit code: {failure.exit_code}")
+    if failure.baseline_exit_code is not None:
+        details.append(f"Baseline exit code: {failure.baseline_exit_code}")
+    output = failure.diagnostic_excerpt or failure.stderr_excerpt or failure.stdout_excerpt
     if output is None or not output.strip():
-        return failure.message
+        return "\n".join(details)
 
-    excerpt = output.strip()
+    excerpt = sanitize_validation_text(output).strip()
     if len(excerpt) > _FAILURE_OUTPUT_LIMIT:
-        excerpt = f"{excerpt[:_FAILURE_OUTPUT_LIMIT]}\n... output truncated"
-    return f"{failure.message}\n\nFailed command output:\n{excerpt}"
+        marker = "\n... output truncated"
+        excerpt = excerpt[: _FAILURE_OUTPUT_LIMIT - len(marker)] + marker
+    return "\n".join(details) + f"\n\nFailed command output:\n{excerpt}"
 
 
 def _validation_outcome(execution_result: ExecutionResult) -> ValidationOutcome | None:

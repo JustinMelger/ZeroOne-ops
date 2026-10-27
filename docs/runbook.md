@@ -141,6 +141,22 @@ normal failures also withholds correction. Repair tooling before retrying.
 Logs report baseline mode and comparison reasons without raw diagnostic output.
 `baseline_failure_count` counts failed commands, not findings.
 
+On failure, **Last Execution** and CLI output identify the command, exit code,
+baseline/post-edit phase, baseline exit, and whether correction was disabled,
+withheld, or exhausted. A sanitized diagnostic excerpt keeps the exception
+and relevant traceback locations instead of only the first session-header
+characters. It is limited to twenty lines and 2,000 characters; omission
+notices and the workflow-log link indicate where evidence is incomplete.
+Recognizable credentials are redacted, but avoid secrets in validation command
+arguments or output; redaction cannot identify every possible secret.
+
+`0 items / 2 errors` means collection failed while loading test modules, not
+that test discovery was disabled. A previously passing pytest command can
+receive one correction for a collection exception even when importing tests
+appear in the traceback. The original file remains the only editable scope.
+Validate this scenario on GitHub and GitLab after deploying, separately from
+automated acceptance; do not infer that the failed edit was present on `main`.
+
 After deploying, live-test an unused-import removal against existing MyPy
 errors and an incorrect annotation that introduces an error. Neither automated
 tests nor publication prove that every targeted scanner finding was resolved;

@@ -390,6 +390,10 @@ independent of publication eligibility. See the
 [runbook configuration example](docs/runbook.md) for stable MyPy flags and
 explicit opt-in when validating a repository with existing type errors.
 
+Blocked issues and CLI output identify the validation phase and actual failed
+command, with a bounded, sanitized exception-focused excerpt and workflow-log
+link on the issue. Pytest collection callers are context, not extra edit targets.
+
 New remediation PR/MR descriptions show a `Validation` section independently of
 feedback mode: validation passed with executed commands, baseline preserved, or
 no validation commands configured. If execution evidence was not retained, such

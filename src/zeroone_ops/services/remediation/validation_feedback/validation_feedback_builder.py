@@ -2,6 +2,10 @@
 
 from zeroone_ops.models.analysis import ValidationCommandFeedback, ValidationFeedback
 from zeroone_ops.models.validation_evidence import ValidationAssessment
+from zeroone_ops.services.remediation.validation_feedback.failure_evidence import (
+    failure_excerpt,
+    sanitize_validation_text,
+)
 
 _MAX_FAILURES = 10
 _MAX_CHARACTERS = 4_000
@@ -25,7 +29,8 @@ class ValidationFeedbackBuilder:
         comparison = assessment.comparison
         for index in assessment.correction.command_indices[:_MAX_FAILURES]:
             result = comparison.post_edit.results[index]
-            overhead = len(result.command) + 150
+            command = sanitize_validation_text(result.command).replace("\n", " ")
+            overhead = len(command) + 150
             if remaining <= overhead:
                 break
             output = "\n".join(
@@ -37,12 +42,14 @@ class ValidationFeedbackBuilder:
                     f"{d.file_path}:{d.line}: {d.severity}: {d.message} [{d.code}]"
                     for d in introduced
                 )
-            excerpt = output[-min(2_000, remaining - overhead) :]
+            excerpt = failure_excerpt(output, "")
             if not excerpt:
                 continue
+            if len(excerpt) > remaining - overhead:
+                break
             failures.append(
                 ValidationCommandFeedback(
-                    command=result.command,
+                    command=command,
                     exit_code=result.exit_code,
                     baseline_exit_code=comparison.baseline.results[index].exit_code,
                     excerpt=excerpt,

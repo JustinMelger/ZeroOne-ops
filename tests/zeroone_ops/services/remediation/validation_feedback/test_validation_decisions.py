@@ -180,3 +180,25 @@ def test_all_failed_commands_must_be_eligible_and_feedback_is_bounded():
     assert 0 < len(feedback.failures) <= 10
     assert feedback.omitted_failure_count == 12 - len(feedback.failures)
     assert sum(len(f.excerpt) + len(f.command) + 150 for f in feedback.failures) < 4_000
+
+
+def test_feedback_omits_a_whole_failure_instead_of_truncating_its_exception():
+    commands = ["validator-" + "a" * 1_000, "validator-" + "b" * 1_000]
+    baseline = result(*(command_result(command) for command in commands))
+    after = result(
+        *(
+            command_result(command, 1, "src/app.py:1: in <module>\nNameError: " + "x" * 1_700)
+            for command in commands
+        )
+    )
+    assessment = ValidationComparisonService().assess(
+        baseline=ValidationBaseline(result=baseline),
+        post_edit=after,
+        files_touched=["src/app.py"],
+    )
+    feedback = ValidationFeedbackBuilder().build(
+        assessment=assessment, files_touched=["src/app.py"]
+    )
+    assert len(feedback.failures) == 1
+    assert feedback.omitted_failure_count == 1
+    assert "NameError: " + "x" * 1_700 in feedback.failures[0].excerpt

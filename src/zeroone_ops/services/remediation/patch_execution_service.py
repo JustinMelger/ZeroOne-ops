@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Literal
 
 from zeroone_ops.models.analysis import (
     IssueContext,
@@ -27,6 +28,10 @@ from zeroone_ops.services.remediation.fix_generator import FixGenerator
 from zeroone_ops.services.remediation.patch_applier import (
     PatchApplier,
     PatchApplyError,
+)
+from zeroone_ops.services.remediation.validation_feedback.failure_evidence import (
+    failure_excerpt,
+    sanitize_validation_text,
 )
 from zeroone_ops.services.remediation.validation_feedback.validation_baseline_service import (
     ValidationBaselineService,
@@ -274,6 +279,7 @@ class PatchExecutionService:
                 workspace_snapshot=original_snapshot,
                 validation_comparison=baseline_assessment.comparison,
                 command_result=_assessment_failed_command(baseline_assessment),
+                validation_phase="baseline",
             )
         feedback_builder = ValidationFeedbackBuilder()
         allowed_files = tuple(sorted(set(patch.files_touched)))
@@ -400,6 +406,8 @@ class PatchExecutionService:
                     retry_count=attempt,
                     command_result=_assessment_failed_command(assessment),
                     validation_outcome=comparison.outcome,
+                    validation_phase="post_edit",
+                    baseline_exit_code=_assessment_baseline_exit(assessment),
                 ),
             )
 
@@ -454,6 +462,7 @@ def _blocked_validation_evidence(
     validation_comparison: ValidationComparison | None = None,
     retry_count: int = 0,
     command_result: ValidationCommandResult | None = None,
+    validation_phase: Literal["baseline", "post_edit"] | None = None,
 ) -> PatchExecutionResult:
     """Unusable baseline/source evidence blocks without model regeneration."""
     return PatchExecutionResult(
@@ -469,6 +478,8 @@ def _blocked_validation_evidence(
             retry_count=retry_count,
             command_result=command_result,
             validation_outcome="unscoped_regression",
+            validation_phase=validation_phase,
+            baseline_exit_code=command_result.exit_code if command_result else None,
         ),
     )
 
@@ -484,6 +495,13 @@ def _assessment_failed_command(assessment: ValidationAssessment) -> ValidationCo
         else assessment.comparison.post_edit
     )
     return result.results[problem.command_index]
+
+
+def _assessment_baseline_exit(assessment: ValidationAssessment) -> int | None:
+    problem = assessment.problem
+    if problem is None or problem.command_index is None:
+        return None
+    return assessment.comparison.baseline.results[problem.command_index].exit_code
 
 
 def _correction_summary(
@@ -509,27 +527,28 @@ def _build_validation_failure(
     retry_count: int,
     command_result: ValidationCommandResult | None,
     validation_outcome: ValidationOutcome | None = None,
+    validation_phase: Literal["baseline", "post_edit"] | None = None,
+    baseline_exit_code: int | None = None,
 ) -> FailureDetails:
     """Build structured validation failure details."""
-    stdout_excerpt = None
-    stderr_excerpt = None
     failed_command = None
     exit_code = None
+    diagnostic_excerpt = None
     if command_result is not None:
-        failed_command = command_result.command
+        failed_command = sanitize_validation_text(command_result.command).replace("\n", " ")
         exit_code = command_result.exit_code
-        stdout_excerpt = _truncate_output(command_result.stdout)
-        stderr_excerpt = _truncate_output(command_result.stderr)
+        diagnostic_excerpt = failure_excerpt(command_result.stdout, command_result.stderr)
     return FailureDetails(
         stage=FailureStage.VALIDATION,
-        message=validation_summary,
+        message=sanitize_validation_text(validation_summary),
         retry_count=retry_count,
-        validation_summary=validation_summary,
+        validation_summary=sanitize_validation_text(validation_summary),
         validation_outcome=validation_outcome,
         failed_command=failed_command,
         exit_code=exit_code,
-        stdout_excerpt=stdout_excerpt,
-        stderr_excerpt=stderr_excerpt,
+        validation_phase=validation_phase,
+        baseline_exit_code=baseline_exit_code,
+        diagnostic_excerpt=diagnostic_excerpt,
     )
 
 
@@ -545,7 +564,7 @@ def _build_validation_bootstrap_failure(
         retry_count=0,
         command_result=command_result,
     )
-    message = f"Validation environment setup failed: {validation_summary}"
+    message = f"Validation environment setup failed: {sanitize_validation_text(validation_summary)}"
     if workspace_may_be_dirty:
         message = f"{message} Inspect the workspace before retrying."
     return failure.model_copy(
@@ -564,11 +583,6 @@ def _truncate_output(value: str, limit: int = 500) -> str | None:
     if len(stripped) <= limit:
         return stripped
     return f"{stripped[:limit]}..."
-
-
-def _first_failed_command(result: ValidationResult) -> ValidationCommandResult | None:
-    """Return the first failed command from complete validator evidence."""
-    return next((command for command in result.results if command.exit_code != 0), None)
 
 
 def _validation_outcome_summary(comparison: ValidationComparison) -> str:
