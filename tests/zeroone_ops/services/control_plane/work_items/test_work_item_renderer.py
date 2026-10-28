@@ -78,6 +78,37 @@ def test_historical_failure_fields_remain_optional(renderer):
     assert "### Validation Diagnostic" not in body
 
 
+@pytest.mark.parametrize("batched", [False, True])
+def test_validation_summary_is_escaped_consistently_in_recovery(renderer, batched):
+    diagnostic_path = "src/[details](https://example.invalid)/<mark>module</mark>.py"
+    summary = f"Validation introduced a new diagnostic in {diagnostic_path}."
+    failure = WorkItemExecutionFailure(
+        stage="validation",
+        summary=summary,
+        retry_count=0,
+        run_id="validation-1",
+        occurred_at=datetime(2026, 10, 28, tzinfo=UTC),
+        diagnostic_excerpt=f"{diagnostic_path}:1: error: Invalid value",
+    )
+    state = batch_state(status="blocked") if batched else build_work_item(status="blocked")
+    state = state.model_copy(update={"execution_failure": failure})
+    before = state.model_dump_json()
+    body = renderer.render_body(state).split("## Machine State")[0]
+    escaped_summary = (
+        r"Validation introduced a new diagnostic in src/\[details\](https://example.invalid)/"
+        "&lt;mark&gt;module&lt;/mark&gt;.py."
+    )
+    last_execution = body.split("## Last Execution", 1)[1].split("## Recovery", 1)[0]
+    recovery = body.split("## Recovery", 1)[1]
+
+    assert f"- Summary: {escaped_summary}" in last_execution
+    assert f"This remediation is blocked because {escaped_summary}" in recovery
+    assert diagnostic_path not in body
+    assert "<mark>" not in body
+    assert "Requeue for remediation: `/zeroone remediation requeue`" in recovery
+    assert state.model_dump_json() == before
+
+
 @pytest.fixture
 def failed_revision() -> WorkItemState:
     requested_at = datetime(2026, 9, 19, tzinfo=UTC)

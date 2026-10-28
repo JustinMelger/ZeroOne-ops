@@ -9,7 +9,11 @@ from pathlib import Path
 
 from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.models.remediation import remediation_source_display_name
-from zeroone_ops.models.work_item import WorkItemState, work_item_resolution_display_name
+from zeroone_ops.models.work_item import (
+    WorkItemExecutionFailure,
+    WorkItemState,
+    work_item_resolution_display_name,
+)
 from zeroone_ops.services.control_plane.work_items.batch_work_item_view import (
     render_batch_task_lines,
 )
@@ -228,11 +232,7 @@ class WorkItemRenderer:
         if work_item.execution_failure is not None:
             failure = work_item.execution_failure
             stage = "Change rationale" if failure.stage == "semantic_safety" else failure.stage
-            summary = (
-                _escape_feedback_text(failure.summary)
-                if failure.batch_rejection or failure.diagnostic_excerpt
-                else failure.summary
-            )
+            summary = _execution_failure_summary(failure)
             lines.extend(
                 [
                     "",
@@ -323,11 +323,7 @@ class WorkItemRenderer:
         """Render compact operator instructions for one blocked remediation item."""
         if work_item.execution_failure is not None:
             failure = work_item.execution_failure
-            summary = (
-                _escape_feedback_text(failure.summary)
-                if failure.batch_rejection
-                else failure.summary
-            )
+            summary = _execution_failure_summary(failure)
             blocker = f"This remediation is blocked because {summary}"
         elif work_item.publication_retry is not None:
             blocker = f"This remediation is blocked because {self._vocabulary.publication_failure}"
@@ -362,6 +358,13 @@ class WorkItemRenderer:
 def _looks_like_template(value: str) -> bool:
     """Return whether source text still contains an unresolved placeholder."""
     return "{" in value and "}" in value
+
+
+def _execution_failure_summary(failure: WorkItemExecutionFailure) -> str:
+    """Apply the same evidence escaping in current execution and recovery views."""
+    if failure.batch_rejection or failure.diagnostic_excerpt:
+        return _escape_feedback_text(failure.summary)
+    return failure.summary
 
 
 def _escape_feedback_text(value: str) -> str:
