@@ -232,7 +232,7 @@ def test_sync_findings_uses_gitlab_work_items_in_issue_mode(
         run_id,
     ):
         del self, policy_state, managed_source_ids, source_priorities, run_id
-        assert max_findings_per_work_item == 10
+        assert max_findings_per_work_item == 5
         sync_calls.append((project_id, len(findings), max_active_work_items, persist))
         return GitLabFindingSyncResult(
             promoted_count=1,

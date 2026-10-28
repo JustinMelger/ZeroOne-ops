@@ -983,7 +983,7 @@ repeat syncs. A failed or uncertain capacity-releasing transition retains its
 reservation for that run; the sync warns and later runs can reconcile it.
 
 New work uses promotion-time file/rule batching on both GitHub and GitLab.
-`remediation.max_findings_per_work_item` defaults to `10` and accepts only strict
+`remediation.max_findings_per_work_item` defaults to `5` and accepts only strict
 positive integers. A value of `1` prevents multi-member proposals. Existing
 single-finding issues and frozen batch memberships remain unchanged.
 

@@ -195,7 +195,7 @@ def test_summary_total_uses_inventory_not_batch_work_item_units(harness):
     result = sync(harness, findings)
     observation = build_finding_sync_observation(result)
     assert (observation.total_findings, observation.promoted_work_items) == (23, 1)
-    assert (observation.promoted_findings, observation.backlog_only_findings) == (10, 13)
+    assert (observation.promoted_findings, observation.backlog_only_findings) == (5, 18)
 
 
 def test_oversized_claim_prevents_analysis_and_publication(harness, tmp_path, monkeypatch):
@@ -366,7 +366,7 @@ def test_batch_summary_counters_roundtrip_with_explicit_units(harness):
     )
     assert OperationalSummaryParser().parse_latest_finding_sync(body) == observation
     assert "Promoted work items: `1`" in body
-    assert "Promoted finding members: `10`" in body
+    assert "Promoted finding members: `5`" in body
     assert "Findings: `23`" in body
     assert "id-0" not in body
 
@@ -391,7 +391,7 @@ def test_repeated_batch_sync_summary_excludes_active_members(harness):
         )
     )
     assert OperationalSummaryParser().parse_latest_finding_sync(body) == observation
-    assert observation.backlog_only_findings == 13
+    assert observation.backlog_only_findings == 18
     assert observation.total_findings == 23
     assert "Promoted work items: `0`" in body
     assert "Promoted finding members: `0`" in body

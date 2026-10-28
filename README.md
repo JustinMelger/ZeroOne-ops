@@ -316,7 +316,7 @@ limit. Deferred findings remain visible through aggregate backlog counts.
 
 New GitHub/GitLab work items group policy-eligible findings by source, file and
 rule, up to `remediation.max_findings_per_work_item` (strict positive integer,
-default `10`). Set it to `1` to prevent multi-member proposals; existing singles
+default `5`). Set it to `1` to prevent multi-member proposals; existing singles
 and frozen batches are never consolidated or resized. One batch consumes one
 active-work slot and produces one one-file PR/MR, with complete analysis coverage
 and all-or-nothing publication. The issue distinguishes observations, planned

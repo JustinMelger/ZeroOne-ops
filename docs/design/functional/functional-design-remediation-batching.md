@@ -3,7 +3,7 @@
 ## Status
 
 **Reviewed contract; slice 4 activates batching, with live rollout validation pending.**
-New work items use default-ten promotion-time file/rule batching. Existing
+New work items use default-five promotion-time file/rule batching. Existing
 single-finding issues remain independent. A configured limit of one prevents
 multi-member proposals without resizing existing batches.
 The [technical contract](../technical/technical-design-remediation-batching.md)
@@ -58,7 +58,7 @@ evidence to group safely retain single-finding handling.
 
 ### Size, Ranking, And Capacity
 
-The default is at most ten findings per work item. Operators can set
+The default is at most five findings per work item. Operators can set
 one positive maximum; a value of one disables multi-finding batching.
 No per-severity limits are introduced. An exact
 configuration spelling and validation bounds belong to the technical design.

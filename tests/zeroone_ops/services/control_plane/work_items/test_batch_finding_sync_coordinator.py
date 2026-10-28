@@ -263,19 +263,26 @@ def sync(harness, findings=(), **changes):
     )
 
 
-def test_create_ten_member_batch_then_reuse_without_expansion(harness):
+@pytest.mark.parametrize("limit", [None, 10])
+def test_create_batch_with_default_or_override_then_reuse_without_expansion(harness, limit):
     findings = [finding(f"f{number:02}") for number in range(23)]
-    result = sync(harness, findings, max_active_work_items=1)
-    assert (result.created_count, result.promoted_count, result.selected_member_count) == (1, 1, 10)
-    assert result.backlog_reason_counts == {"batch_overflow": 13}
+    options = {} if limit is None else {"max_findings_per_work_item": limit}
+    expected_size = 5 if limit is None else limit
+    result = sync(harness, findings, max_active_work_items=1, **options)
+    assert (result.created_count, result.promoted_count, result.selected_member_count) == (
+        1,
+        1,
+        expected_size,
+    )
+    assert result.backlog_reason_counts == {"batch_overflow": 23 - expected_size}
     state = stored(harness)
-    assert len(state.batch.members) == 10
+    assert len(state.batch.members) == expected_size
     assert f"zeroone-batch:{state.work_item_id.removeprefix('work-')}" in harness[0].labels[1]
 
     again = sync(harness, findings, max_active_work_items=1)
     assert again.created_count == 0
     assert again.promoted_count == 0
-    assert again.backlog_only_count == 13
+    assert again.backlog_only_count == 23 - expected_size
     assert "owned" not in again.backlog_reason_counts
     assert stored(harness).batch.members == state.batch.members
     assert harness[0].create_attempts == 1

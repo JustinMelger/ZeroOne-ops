@@ -23,7 +23,7 @@ class BatchSyncContext:
     now: datetime | None
     persist: bool = True
     max_active_work_items: int = 10
-    max_findings_per_work_item: int = 10
+    max_findings_per_work_item: int = 5
     source_priorities: Mapping[str, int] | None = None
 
 

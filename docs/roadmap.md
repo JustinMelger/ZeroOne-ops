@@ -160,7 +160,7 @@ history, not here.
 ### Remediation Batching
 
 - [x] review the [proposed functional contract](design/functional/functional-design-remediation-batching.md)
-  for default-ten promotion-time file/rule batches in new work items only,
+  for default-five promotion-time file/rule batches in new work items only,
   preserving existing issues and one-file execution with no partial publication
 - [x] review the [proposed technical contract](design/technical/technical-design-remediation-batching.md)
   for frozen member state, shared planning, complete execution coverage, and
