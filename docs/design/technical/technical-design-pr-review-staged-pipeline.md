@@ -78,6 +78,15 @@ remains separate, and Luna's earlier mixed outcome remains recorded unchanged.
 
 ### Stage Composition
 
+Candidate and precision prompt builders share remediation-context rendering,
+including bounded batch-attempt evidence when verified work-item linkage exists.
+The context builder/verified-link lookup still owns evidence collection; passing
+the existing context to precision adds no provider reads or schema changes.
+Both stages treat it as untrusted evidence, not approval or scanner-resolution
+proof. This handoff does not add an outside-batch finding filter or change final
+classification ownership. Historical live-evaluation reports precede this fix;
+its latest release-candidate handoff remains to be live-checked.
+
 The current review runner should evolve from one compressed analysis flow into
 an explicitly staged pipeline:
 

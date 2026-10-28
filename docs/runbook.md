@@ -199,6 +199,9 @@ visible request validation; narrower helper concerns need a code-backed contract
 Missing callers alone do not require manual review, and direct deterministic
 defects remain reportable without proving branch-wide reachability. These are
 model instructions, not a guarantee of review precision or a suppression filter.
+Both candidate generation and precision receive the same bounded remediation
+evidence. Batch attempt members are supplied only through verified work-item
+linkage and remain untrusted context, not proof that the findings were resolved.
 
 The control plane includes scheduled lifecycle reconciliation:
 

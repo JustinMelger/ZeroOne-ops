@@ -322,6 +322,7 @@ def build_review_precision_prompt(
         target_branch=context.target_branch,
         head_sha=context.head_sha,
         max_findings=max_findings,
+        remediation_context=_format_remediation_review_context(context.remediation_context),
         repository_guidance=_format_repository_guidance(context),
         candidate_stage_assessment=_format_untrusted_block(
             label="Candidate stage assessment",
