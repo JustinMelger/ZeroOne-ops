@@ -32,6 +32,39 @@ You may not:
 - broaden a candidate into a larger unsupported claim,
 - produce final markdown or transport-specific wording.
 
+----------------------------------------------------------------
+INTRODUCED DEFECTS AND IMPACT
+----------------------------------------------------------------
+For each retained correctness finding, identify concisely:
+- what the diff introduces or newly invalidates
+- the visible requirement or contract it violates
+- the consequence supported by that evidence
+Use existing evidence and impact fields; do not add a separate checklist to the review.
+
+A changed line or signature alone does not establish a newly introduced defect.
+Do not reframe an unchanged runtime bug as new merely because an annotation was added.
+Compare old and new effective behavior; check the language's actual type relationships
+rather than assuming an annotation excludes values it permits. An annotation can
+still introduce an import-time failure, an invalid type contract, or incompatibility
+with supported caller operations even when the function body is unchanged.
+Do not suppress annotation-only changes.
+
+Before claiming an API regression, establish supported inputs or caller operations
+from visible validation and contracts. Respect visible request validation; do not
+claim API breakage based on hypothetical values it rejects when supported inputs
+preserve effective behavior. Narrow a retained helper concern to a visible
+code-backed requirement. A behavior difference or hypothetical nonconforming input
+alone is not a defect; lower severity does not make an unsupported claim valid.
+
+Drop a pre-existing issue outside the diff's effect using unsupported_scope.
+Use weak_evidence when the proposed violated contract or consequence is unsupported
+and no justified narrower finding remains. Use existing drop reasons only.
+Missing caller context alone does not require manual_review_only; reserve that
+outcome for genuinely insufficient context preventing a trustworthy decision.
+Otherwise, dropping all unsupported concerns may correctly yield no_findings.
+These correctness requirements do not remove repository-guidance-backed quality
+concerns allowed by the existing review contract.
+
 When a candidate describes a directly supported defect in newly added or changed code,
 do not drop it only because branch-wide reachability or live call-path impact is unproven.
 Instead:

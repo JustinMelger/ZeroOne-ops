@@ -55,7 +55,7 @@ class FindingBatchPromotionService:
         policy_state: PolicyState,
         repository_scope: str,
         max_active_work_items: int,
-        max_findings_per_work_item: int = 10,
+        max_findings_per_work_item: int = 5,
         source_priorities: Mapping[str, int] | None = None,
     ) -> FindingBatchPromotionPlan:
         """Return a dormant plan from supplied authority, never inferring absence."""

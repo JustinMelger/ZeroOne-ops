@@ -253,7 +253,7 @@ composition, individual ingestion, and one-file patch safety remain intact.
 
 ## Configuration And State Contracts
 
-Use `remediation.max_findings_per_work_item: int = 10`, strictly positive,
+Use `remediation.max_findings_per_work_item: int = 5`, strictly positive,
 rejecting booleans and non-integer coercion. No new numeric ceiling is introduced;
 execution budgets remain hard limits. `1` uses single-finding handling for new
 work. Configuration changes never resize existing batches.
@@ -674,7 +674,7 @@ close/reopen operations, or summary publication.
 
 | Test boundary | Required acceptance cases |
 | --- | --- |
-| Models/planner | Default ten, positive limit, limit one, frozen membership, exact requirements, deterministic source/severity ranking, immutable IDs, terminal versus nonterminal group ownership, twenty-three-to-ten overflow, one slot per unit. |
+| Models/planner | Default five, positive limit, limit one, explicit ten-member override, frozen membership, exact requirements, deterministic source/severity ranking, immutable IDs, terminal versus nonterminal group ownership, twenty-three-to-five overflow, one slot per unit. |
 | Shared sync | Existing singles intact, owned/dismissed members excluded, protected groups, deferred reuse, derived eligibility/counts after policy changes, one/all absent, unavailable inventories, location shifts, blocked observations, authorized all-absent recovery. |
 | Observation continuity | Complete scan marks a member absent, later scan failure marks only freshness unknown, member stays excluded; a later authoritative detection restores eligibility. Previously detected members remain detected-but-stale; unavailable sync introduces no new absence-based completion. |
 | Pipeline contract | Scan before sync, current-pipeline artifact wiring, Sonar analysis completion before collection, no stale artifact substitution after producer failure, existing unavailable-source behavior, fresh reconsideration without reopening old issues. |

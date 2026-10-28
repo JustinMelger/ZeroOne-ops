@@ -162,16 +162,21 @@ def _reasons(plan):
     return {decision.identity[2]: decision.reason for decision in plan.decisions}
 
 
-def test_default_ten_members_and_thirteen_overflow_consume_one_slot():
+@pytest.mark.parametrize(
+    ("limit", "expected_size", "overflow_reason"),
+    [(None, 5, "batch_overflow"), (1, 1, "group_reserved"), (10, 10, "batch_overflow")],
+)
+def test_default_and_explicit_batch_limits_consume_one_slot(limit, expected_size, overflow_reason):
     findings = [_finding(f"f{number:02d}") for number in range(23)]
-    plan = _plan(list(reversed(findings)))
+    options = {} if limit is None else {"max_findings_per_work_item": limit}
+    plan = _plan(list(reversed(findings)), **options)
     assert len(plan.selected_new) == 1
     assert [member.finding_id for member in plan.selected_new[0].members] == [
-        f"f{number:02d}" for number in range(10)
+        f"f{number:02d}" for number in range(expected_size)
     ]
-    assert list(_reasons(plan).values()).count("selected") == 10
-    assert list(_reasons(plan).values()).count("batch_overflow") == 13
-    assert plan == _plan(findings)
+    assert list(_reasons(plan).values()).count("selected") == expected_size
+    assert list(_reasons(plan).values()).count(overflow_reason) == 23 - expected_size
+    assert plan == _plan(findings, **options)
 
 
 @pytest.mark.parametrize("limit", [1, 10])

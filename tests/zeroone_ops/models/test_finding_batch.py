@@ -84,8 +84,9 @@ def test_batch_limit_is_strict_positive_integer(value):
 
 
 def test_batch_limit_defaults_to_ten_and_accepts_one():
-    assert RemediationConfig().max_findings_per_work_item == 10
+    assert RemediationConfig().max_findings_per_work_item == 5
     assert RemediationConfig(max_findings_per_work_item=1).max_findings_per_work_item == 1
+    assert RemediationConfig(max_findings_per_work_item=10).max_findings_per_work_item == 10
 
 
 @pytest.mark.parametrize(

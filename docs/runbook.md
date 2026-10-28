@@ -191,6 +191,15 @@ The review workflow is provider-native:
 - no code modification in the review workflow
 - draft change requests skipped by default
 
+Review correctness claims must identify what the diff introduces or newly
+invalidates, the visible requirement it violates, and the supported consequence.
+Changed annotations do not make existing runtime defects new, but can introduce
+invalid contracts or import-time failures themselves. API-impact claims respect
+visible request validation; narrower helper concerns need a code-backed contract.
+Missing callers alone do not require manual review, and direct deterministic
+defects remain reportable without proving branch-wide reachability. These are
+model instructions, not a guarantee of review precision or a suppression filter.
+
 The control plane includes scheduled lifecycle reconciliation:
 
 - GitLab and GitHub work-item issues retain change-request
@@ -974,7 +983,7 @@ repeat syncs. A failed or uncertain capacity-releasing transition retains its
 reservation for that run; the sync warns and later runs can reconcile it.
 
 New work uses promotion-time file/rule batching on both GitHub and GitLab.
-`remediation.max_findings_per_work_item` defaults to `10` and accepts only strict
+`remediation.max_findings_per_work_item` defaults to `5` and accepts only strict
 positive integers. A value of `1` prevents multi-member proposals. Existing
 single-finding issues and frozen batch memberships remain unchanged.
 

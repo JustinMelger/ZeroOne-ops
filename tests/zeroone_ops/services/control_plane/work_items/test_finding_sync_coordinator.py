@@ -104,6 +104,17 @@ def public_sync(harness, findings=(), **changes):
     )
 
 
+@pytest.mark.parametrize(("limit", "expected_size"), [(None, 5), (1, 1), (10, 7)])
+def test_public_services_respect_default_and_explicit_batch_limits(harness, limit, expected_size):
+    findings = [finding(f"f{number:02}") for number in range(7)]
+    options = {} if limit is None else {"max_findings_per_work_item": limit}
+    result = public_sync(harness, findings, **options)
+    assert result.created_count == result.promoted_count == 1
+    assert result.selected_member_count == expected_size
+    assert result.backlog_only_count == len(findings) - expected_size
+    assert len(stored(harness).batch.members) == expected_size
+
+
 def single_state(status="approved", **changes):
     state = batch_state(status=status).model_copy(
         update={

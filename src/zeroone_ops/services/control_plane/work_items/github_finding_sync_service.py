@@ -42,7 +42,7 @@ class GitHubFindingSyncService:
         policy_state: PolicyState,
         managed_source_ids: set[str] | None = None,
         max_active_work_items: int = 10,
-        max_findings_per_work_item: int = 10,
+        max_findings_per_work_item: int = 5,
         source_priorities: Mapping[str, int] | None = None,
         persist: bool = True,
         run_id: str = "finding-sync",

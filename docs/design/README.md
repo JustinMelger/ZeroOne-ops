@@ -28,7 +28,7 @@ then follow the relevant current contract.
 
 - [Promotion-time file/rule batching functional design](functional/functional-design-remediation-batching.md)
   and [technical design](technical/technical-design-remediation-batching.md)
-  describe activated default-ten batches,
+  describe activated default-five batches,
   new work items only, and one-file execution on both providers. Existing
   single-finding issues are not migrated or consolidated.
   Shared sync, intake and complete execution/recovery use provider-parity tests;

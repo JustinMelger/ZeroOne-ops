@@ -160,7 +160,7 @@ history, not here.
 ### Remediation Batching
 
 - [x] review the [proposed functional contract](design/functional/functional-design-remediation-batching.md)
-  for default-ten promotion-time file/rule batches in new work items only,
+  for default-five promotion-time file/rule batches in new work items only,
   preserving existing issues and one-file execution with no partial publication
 - [x] review the [proposed technical contract](design/technical/technical-design-remediation-batching.md)
   for frozen member state, shared planning, complete execution coverage, and
@@ -195,9 +195,19 @@ publish stable v1 only after both validation rounds and any required fixes pass.
   sanitized offline cases; [report and limitations](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/README.md).
   Historical stage attribution remains inconclusive; no live model replays or
   production prompt changes were made.
-- [ ] review the investigation's precision-contract clarification recommendation
-  separately before implementing prompt/runtime changes; preserve deterministic
-  annotation defects and distinguish API regressions from local concerns
+- [x] clarify candidate/precision defect grounding with offline contract and
+  regression coverage: distinguish pre-existing behavior, newly invalid type
+  contracts, supported API regressions, and narrower local concerns
+- [x] run the bounded three-case live review evaluation with `gpt-5.6-luna`:
+  18 application-level calls, with recorded settings, prompt digests, provenance,
+  and [mixed outcomes](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-2026-10-28.md)
+- [x] repeat the same bounded evaluation with production model `gpt-5.6-terra`:
+  18 calls with identical prompts/settings/context; the known boolean-ID false
+  positive did not survive, and the positive control remained reportable;
+  [Terra results and independent pagination-type check](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-terra-2026-10-28.md)
+- [ ] accept the recorded production-model review-precision results before
+  tagging v1; bounded Terra checks passed, Luna's mixed results remain recorded,
+  and neither run establishes general accuracy; both 18-call budgets are exhausted
 - [x] retire legacy GitLab dashboard runtime and commands with migration guidance
 - [ ] confirm remaining GitLab installations have completed issue-mode cutover
   and local-state cleanup before tagging v1

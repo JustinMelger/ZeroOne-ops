@@ -823,37 +823,36 @@ def test_settings_load_nested_remediation_and_sonarqube_config(
     assert "remediation.analysis.context_lines_before" in caplog.text
 
 
-def test_settings_default_remediation_active_work_item_capacity_is_ten(
+@pytest.mark.parametrize("platform", ["gitlab", "github"])
+def test_settings_default_remediation_limits(
     tmp_path: Path,
     monkeypatch,
+    platform,
 ) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".zeroone-ops.json").write_text(
-        """
-        {
-          "base_branch": "main",
-          "remediation": {
-            "target_branch": "main"
-          },
-          "gitlab": {
-            "labels": []
-          }
-        }
-        """.strip(),
+        json.dumps(
+            {
+                "platform": platform,
+                "base_branch": "main",
+                "remediation": {"target_branch": "main"},
+                platform: {},
+            }
+        ),
         encoding="utf-8",
     )
 
     config = load_config()
 
     assert config.remediation.max_active_work_items == 10
-    assert config.remediation.max_findings_per_work_item == 10
+    assert config.remediation.max_findings_per_work_item == 5
     assert config.remediation.source_priorities == {}
     assert config.remediation.validation_feedback_enabled is False
 
 
 @pytest.mark.parametrize("platform", ["gitlab", "github"])
-@pytest.mark.parametrize("limit", [1, 10, 23])
-def test_settings_load_dormant_batch_limit(tmp_path: Path, monkeypatch, platform, limit) -> None:
+@pytest.mark.parametrize("limit", [1, 5, 10, 23])
+def test_settings_load_batch_limit(tmp_path: Path, monkeypatch, platform, limit) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".zeroone-ops.json").write_text(
         json.dumps(
