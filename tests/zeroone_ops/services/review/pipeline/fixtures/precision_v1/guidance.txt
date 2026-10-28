@@ -1,0 +1,17 @@
+# Demo App Guidance
+
+This Flask task API intentionally contains scanner findings and seeded defects.
+Improve the selected finding without cleaning up unrelated demo scenarios.
+
+## Coding Expectations
+
+- Use concrete types (`Flask`, `Response`, `TaskStore`) and existing models or `TypedDict` definitions for known dictionary shapes.
+- Use `object` only for arbitrary values, not known methods; avoid blanket `Any`, ignores, casts, or disabled checks merely to silence diagnostics.
+- Keep the allowed file boundary; explain if precise typing requires a cross-file model instead of starting an unrelated refactor.
+- Address every executable batch member; preserve response shapes, errors, CSV escaping, locking, and ordering except the targeted correction.
+
+## Review Expectations
+
+- Check that types describe actual values and support operations in both the function and its callers; lower error counts alone do not prove a correct fix.
+- Check behavior against reachable callers; distinguish demonstrated regressions from hypothetical inputs.
+- Treat model rationale as a claim, not proof; distinguish executed checks from unverified resolution.

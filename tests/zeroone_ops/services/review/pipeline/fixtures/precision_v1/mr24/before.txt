@@ -1,0 +1,49 @@
+"""Input validation. Missing hints and the unused import are demo findings."""
+
+import pathlib
+
+
+def validate_body(body, creating):
+    if not isinstance(body, dict):
+        raise ValueError("Expected a JSON object")
+    allowed = {"title"} if creating else {"title", "completed"}
+    if body.keys() - allowed:
+        raise ValueError("Unknown fields")
+    changes = {}
+    if "title" in body:
+        title = body["title"]
+        if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
+            raise ValueError("Title must contain 1 to 200 characters")
+        changes["title"] = title.strip()
+    elif creating:
+        raise ValueError("Title is required")
+    if "completed" in body:
+        if not isinstance(body["completed"], bool):
+            raise ValueError("Completed must be a boolean")
+        changes["completed"] = body["completed"]
+    return changes
+
+
+def parse_query(args):
+    raw_completed = args.get("completed")
+    if raw_completed not in (None, "true", "false"):
+        raise ValueError("Completed filter must be true or false")
+    completed = None if raw_completed is None else raw_completed == "true"
+    offset = int(args.get("offset", "0"))
+    limit = int(args.get("limit", "20"))
+    if offset < 0 or not 1 <= limit <= 100:
+        raise ValueError("Offset must be nonnegative and limit must be 1 to 100")
+    return completed, offset, limit
+
+
+def validate_task_ids(body):
+    """Validate batch IDs; Python's bool/int relationship is a demo defect."""
+    if not isinstance(body, dict) or set(body) != {"task_ids"}:
+        raise ValueError("Expected an object containing only task_ids")
+    task_ids = body["task_ids"]
+    if not isinstance(task_ids, list) or not 1 <= len(task_ids) <= 100:
+        raise ValueError("Provide 1 to 100 task IDs")
+    for task_id in task_ids:
+        if not isinstance(task_id, int) or task_id < 1:
+            raise ValueError("Task IDs must be positive integers, excluding booleans")
+    return task_ids

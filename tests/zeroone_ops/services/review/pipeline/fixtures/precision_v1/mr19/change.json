@@ -1,0 +1,11 @@
+[
+  "@@ -9,7 +9,7 @@ def present_task(task):",
+  "     return {",
+  "         \"id\": task[\"id\"],",
+  "         \"title\": task[\"title\"],",
+  "-        \"completed\": task[\"completed\"] == True,",
+  "+        \"completed\": task[\"completed\"],",
+  "     }",
+  " ",
+  " "
+]

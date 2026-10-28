@@ -1,0 +1,24 @@
+"""Response formatting. Unused import and boolean comparison are demo findings."""
+
+import json
+import csv
+from io import StringIO
+
+
+def present_task(task):
+    return {
+        "id": task["id"],
+        "title": task["title"],
+        "completed": task["completed"],
+    }
+
+
+def export_tasks_csv(tasks):
+    """Export task rows; spreadsheet interpretation of titles is a demo defect."""
+    output = StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["id", "title", "completed"])
+    for task in tasks:
+        title = task["title"]
+        writer.writerow([task["id"], title, task["completed"]])
+    return output.getvalue()

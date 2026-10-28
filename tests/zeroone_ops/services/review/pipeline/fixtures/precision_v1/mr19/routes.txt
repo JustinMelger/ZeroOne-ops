@@ -1,0 +1,60 @@
+"""HTTP routes. Missing hints and the unused import are demo findings."""
+
+import sys
+
+from flask import Response, jsonify, request
+
+from task_api.presentation import export_tasks_csv, present_task
+from task_api.validation import parse_query, validate_body, validate_task_ids
+
+
+def register_routes(app, store):
+    @app.errorhandler(KeyError)
+    def missing_task(error):
+        return jsonify({"detail": "Task not found"}), 404
+
+    @app.errorhandler(ValueError)
+    def invalid_input(error):
+        return jsonify({"detail": str(error)}), 422
+
+    @app.get("/health")
+    def health():
+        return jsonify({"status": "ok"})
+
+    @app.post("/tasks")
+    def create_task():
+        changes = validate_body(request.get_json(silent=True), creating=True)
+        return jsonify(present_task(store.create(changes["title"]))), 201
+
+    @app.get("/tasks")
+    def list_tasks():
+        completed, offset, limit = parse_query(request.args)
+        return jsonify([present_task(task) for task in store.list(completed, offset, limit)])
+
+    @app.get("/tasks/<int:task_id>")
+    def get_task(task_id):
+        return jsonify(present_task(store.get(task_id)))
+
+    @app.patch("/tasks/<int:task_id>")
+    def update_task(task_id):
+        changes = validate_body(request.get_json(silent=True), creating=False)
+        return jsonify(present_task(store.update(task_id, changes)))
+
+    @app.delete("/tasks/<int:task_id>")
+    def delete_task(task_id):
+        store.delete(task_id)
+        return "", 204
+
+    @app.post("/tasks/complete")
+    def complete_tasks():
+        task_ids = validate_task_ids(request.get_json(silent=True))
+        return jsonify([present_task(task) for task in store.complete_many(task_ids)])
+
+    @app.get("/tasks/export")
+    def export_tasks():
+        completed, offset, limit = parse_query(request.args)
+        return Response(
+            export_tasks_csv(store.list(completed, offset, limit)),
+            mimetype="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="tasks.csv"'},
+        )

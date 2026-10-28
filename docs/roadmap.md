@@ -191,6 +191,13 @@ publish stable v1 only after both validation rounds and any required fixes pass.
 
 ### V1 Release Readiness
 
+- [x] complete the bounded !19/!24 review-precision evidence investigation and
+  sanitized offline cases; [report and limitations](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/README.md).
+  Historical stage attribution remains inconclusive; no live model replays or
+  production prompt changes were made.
+- [ ] review the investigation's precision-contract clarification recommendation
+  separately before implementing prompt/runtime changes; preserve deterministic
+  annotation defects and distinguish API regressions from local concerns
 - [x] retire legacy GitLab dashboard runtime and commands with migration guidance
 - [ ] confirm remaining GitLab installations have completed issue-mode cutover
   and local-state cleanup before tagging v1

@@ -24,6 +24,24 @@ This technical design focuses on:
 
 ## 2. Architectural Direction
 
+### V1 Precision Investigation Status
+
+The bounded !19/!24 investigation is recorded with
+[sanitized offline cases and its evidence report](../../../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/README.md).
+It verifies pinned source behavior and current stage wiring, not historical
+model inputs or precision accuracy. Original candidate/precision outputs and
+checkout evidence were unavailable; no live replays or production changes were
+made. Published MR/head metadata alone does not verify local source contents.
+
+Existing ownership remains explicit: context builders supply evidence,
+candidate generation proposes concerns, precision decides and may narrow their
+meaning, and artifact construction preserves that decision. The current
+direct-defect rule does not establish a supported API regression merely from
+uncertain reachability. The recommended contract clarification requires separate
+review and implementation; annotation-only import failures must remain
+reportable. See the report for the pre-existing-validation and local-contract
+distinction rather than treating mocked decisions as model evaluation.
+
 The current review runner should evolve from one compressed analysis flow into
 an explicitly staged pipeline:
 
