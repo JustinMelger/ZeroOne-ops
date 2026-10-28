@@ -1,0 +1,121 @@
+[
+  {
+    "name": "mr24",
+    "source_sha256": {
+      "before": "471d36f574f667c8f25881ddd1551b78be0f85d62b7e2a35a2c1a1e0a229dbaf",
+      "after": "6f727eabba8f59cfdc2aadaeb06d7f7309c0a0edc1e7e8cb6b9bd42ec5192132"
+    },
+    "provenance": "Pinned public source/diff and published/projected finding; model input reconstructed, not captured.",
+    "candidate": {
+      "change_request_number": 24,
+      "title": "chore: remediate no-untyped-def in validation.py",
+      "source_branch": "zeroone-ops-chore/mypy-sarif-7fe74f41862ff8e7/batch-v1-d4e4509ff3544dc18a55a96843254ad7-768d1646c011e289/validation",
+      "target_branch": "main",
+      "web_url": "https://gitlab.com/j.n.r.melger/zeroone-test-app/-/merge_requests/24",
+      "head_sha": "8c498e3484cd49473560412dcd5c921d9a1f69ad",
+      "diff_refs": {
+        "base_sha": "14f6f3b9555a951b7d9e6bb3000f033d33d43e64",
+        "start_sha": "14f6f3b9555a951b7d9e6bb3000f033d33d43e64",
+        "head_sha": "8c498e3484cd49473560412dcd5c921d9a1f69ad"
+      }
+    },
+    "file_path": "src/task_api/validation.py",
+    "review_note_reference": "gitlab-note-4104996340",
+    "reviewed_at": "2026-10-28T06:32:50Z",
+    "work_item_number": 55,
+    "published_identity": "src/task_api/validation.py::inaccurate_type_contract::validate_task_ids::changed-return-annotation-at-line-39-and-element-validation-at-lines-46-48",
+    "finding": {
+      "severity": "low",
+      "file_path": "src/task_api/validation.py",
+      "line_start": 39,
+      "line_end": 48,
+      "symbol": "validate_task_ids",
+      "issue_kind": "inaccurate_type_contract",
+      "region_hint": "Changed return annotation at line 39 and element validation at lines 46-48",
+      "title": "Boolean task IDs bypass validation",
+      "evidence": "The function return annotation is list[int].",
+      "explanation": "Callers can receive a boolean value where the declared positive task-ID contract implies an integer identifier.",
+      "suggested_follow_up": "Reject bool explicitly before accepting integer task IDs."
+    },
+    "reasoning_constraints": [
+      "Boolean acceptance predates the diff; compare runtime behavior before and after.",
+      "Python bool is a subtype of int; list[int] alone does not exclude True.",
+      "Do not propose suppression of every annotation-only diff."
+    ],
+    "mock_disposition": "drop"
+  },
+  {
+    "name": "mr19",
+    "source_sha256": {
+      "before": "89ece30bfa88e1aab35dd90dfdf32889bb24287322ce688ab1008ed72918a73b",
+      "after": "4a72c21b6d377db2954467e2fce2b1a9590ee7f21e6631e4783868fed52a65bb"
+    },
+    "provenance": "Pinned public source/diff and published/projected finding; callers supplied as reconstructed supplemental evidence, not captured model input.",
+    "candidate": {
+      "change_request_number": 19,
+      "title": "chore: remediate E712 in presentation.py",
+      "source_branch": "zeroone-ops-chore/ruff-sarif-9fb4ba99a4827142/batch-v1-09dab7d7d5ff444daa820f8abdc35d0d-37a63e8322175eea/presentation",
+      "target_branch": "main",
+      "web_url": "https://gitlab.com/j.n.r.melger/zeroone-test-app/-/merge_requests/19",
+      "head_sha": "4db6da77a4e0420cf5fe592206e5edd08537d55e",
+      "diff_refs": {
+        "base_sha": "7251e0679c954000744aaa523b91a895699f69a0",
+        "start_sha": "7251e0679c954000744aaa523b91a895699f69a0",
+        "head_sha": "4db6da77a4e0420cf5fe592206e5edd08537d55e"
+      }
+    },
+    "file_path": "src/task_api/presentation.py",
+    "review_note_reference": "gitlab-note-4095240850",
+    "reviewed_at": "2026-10-27T01:11:14Z",
+    "work_item_number": 49,
+    "published_identity": "src/task_api/presentation.py::behavior_change::present_task::returned-mapping-field-completed",
+    "finding": {
+      "severity": "medium",
+      "file_path": "src/task_api/presentation.py",
+      "line_start": 12,
+      "line_end": 12,
+      "symbol": "present_task",
+      "issue_kind": "behavior_change",
+      "region_hint": "returned mapping field `completed`",
+      "title": "`completed` is no longer normalized to a boolean",
+      "evidence": "The original code returned `\"completed\": task[\"completed\"] == True`.",
+      "explanation": "If task[\"completed\"] can be a non-boolean truthy value, the API response can now expose a non-true/false value and change the response contract for callers.",
+      "suggested_follow_up": "Keep the field normalized to a boolean, or verify that upstream values are strictly boolean before passing them through."
+    },
+    "reasoning_constraints": [
+      "Supported HTTP writes validate completed as bool; storage creates False and batch completion assigns True.",
+      "Direct non-boolean helper calls genuinely change behavior, but are not proof of an HTTP regression.",
+      "A narrower local-contract concern is permitted by the current precision contract if its impact is supported."
+    ],
+    "mock_disposition": "narrow"
+  },
+  {
+    "name": "annotation",
+    "provenance": "Synthetic positive control, not a historical review or captured model response. Python 3.13 eager annotation evaluation.",
+    "candidate": {
+      "change_request_number": 9001,
+      "title": "Add an annotation",
+      "source_branch": "synthetic/annotation",
+      "target_branch": "main",
+      "web_url": "https://gitlab.example.test/demo/-/merge_requests/9001",
+      "head_sha": "synthetic-head",
+      "diff_refs": {"base_sha": "synthetic-base", "start_sha": "synthetic-base", "head_sha": "synthetic-head"}
+    },
+    "file_path": "src/presentation.py",
+    "finding": {
+      "severity": "high",
+      "file_path": "src/presentation.py",
+      "line_start": 1,
+      "line_end": 1,
+      "title": "Undefined annotation prevents module import",
+      "evidence": "MissingType is evaluated at function definition on Python 3.13 and is not defined.",
+      "explanation": "Importing the edited module raises NameError before the function can be called.",
+      "suggested_follow_up": "Define or import the intended annotation type."
+    },
+    "reasoning_constraints": [
+      "The base imports; the changed module fails before any call is required.",
+      "Keep this deterministic defect reportable despite annotation-only syntax and uncertain branch-wide reachability."
+    ],
+    "mock_disposition": "retain"
+  }
+]

@@ -1,0 +1,46 @@
+"""In-memory storage. Missing hints and the unused import are demo findings."""
+
+import math
+from threading import Lock
+
+
+class TaskStore:
+    def __init__(self):
+        self.tasks = {}
+        self.next_id = 1
+        self.lock = Lock()
+
+    def create(self, title):
+        with self.lock:
+            task = {"id": self.next_id, "title": title, "completed": False}
+            self.tasks[task["id"]] = task
+            self.next_id += 1
+            return dict(task)
+
+    def list(self, completed, offset, limit):
+        with self.lock:
+            tasks = list(self.tasks.values())
+            if completed is not None:
+                tasks = [task for task in tasks if task["completed"] == completed]
+            return [dict(task) for task in tasks[offset : offset + limit]]
+
+    def get(self, task_id):
+        with self.lock:
+            return dict(self.tasks[task_id])
+
+    def update(self, task_id, changes):
+        with self.lock:
+            task = self.tasks[task_id]
+            task.update(changes)
+            return dict(task)
+
+    def delete(self, task_id):
+        with self.lock:
+            del self.tasks[task_id]
+
+    def complete_many(self, task_ids):
+        """Complete a batch; the mutation-before-lookup order is a demo defect."""
+        with self.lock:
+            for task_id in task_ids:
+                self.tasks[task_id]["completed"] = True
+            return [dict(self.tasks[task_id]) for task_id in task_ids]

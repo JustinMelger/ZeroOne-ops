@@ -1,0 +1,6 @@
+[
+  "@@ -1,2 +1,2 @@",
+  "-def present(value):",
+  "+def present(value: MissingType):",
+  "     return value"
+]
