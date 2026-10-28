@@ -6,6 +6,17 @@ import pytest
 from zeroone_ops.services.remediation.validator import Validator
 
 
+@pytest.mark.parametrize("error, code", [(FileNotFoundError(), 127), (PermissionError(), 126)])
+def test_run_all_normalizes_process_start_failure(tmp_path, monkeypatch, error, code) -> None:
+    def fail(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr("zeroone_ops.services.remediation.validator.subprocess.run", fail)
+    result = Validator(tmp_path).run_all(["mypy src", "ruff check src"])
+    assert not result.passed
+    assert [r.exit_code for r in result.results] == [code, code]
+
+
 def test_run_returns_success_when_no_commands_configured(tmp_path: Path) -> None:
     result = Validator(tmp_path).run([])
 

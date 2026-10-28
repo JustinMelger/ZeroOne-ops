@@ -36,7 +36,7 @@ flow is:
 1. run validation environment setup once;
 2. capture a baseline result for every configured validation command before
    applying a patch;
-3. generate and apply the scoped patch;
+3. apply the generated scoped patch;
 4. run the same validation commands after the patch;
 5. compare post-edit diagnostics with the baseline;
 6. either continue, retry once with bounded feedback, or block the item.
@@ -51,7 +51,7 @@ baseline-only failures to the model or claim that it fixed them.
 | `passed` | All post-edit validation commands pass. | Continue to approval and publication. |
 | `baseline_preserved` | The repository had known failures, but the patch introduced no new diagnostics relevant to its editable file. | Continue with an explicit baseline warning in execution evidence. |
 | `actionable_regression` | The patch introduced a new diagnostic tied to an edited file. | Restore the workspace and request one corrected patch. |
-| `unscoped_regression` | A new failure exists but cannot be safely tied to the editable file. | Restore the workspace and block for operator review. |
+| `unscoped_regression` | Validation does not meet publication requirements, including command-level failures. | Restore; independently assess eligibility for one constrained correction, otherwise block. |
 | `setup_failed` | Validation setup could not prepare a clean environment. | Block without generating a retry. |
 
 `baseline_preserved` is not reported as a clean validation pass. It means the
@@ -60,24 +60,42 @@ repair scope. The generated change request must retain that distinction.
 
 ## 6. Diagnostic Relevance
 
-V1 uses a conservative text-based relevance rule:
+V1 uses bounded MyPy plain-text and Ruff concise/default-console parsing:
 
-- a diagnostic is eligible for model feedback only when its output identifies a
-  normalized repository path that is in the patch's `files_touched` set;
-- the diagnostic must be absent from the baseline result for the same command;
-- feedback contains only the command, exit code, relevant diagnostic excerpts,
-  and the allowed file paths;
+- normalize supported diagnostic paths against the trusted repository root;
+  absolute and relative aliases must share identity, and unresolved paths block;
+- compare diagnostic multisets for the same ordered command, retaining path,
+  severity, code, message, line, column, and duplicate occurrences; removed
+  diagnostics are improvements, while increased occurrences are regressions;
+- recognize only tool summaries and presentation context for baseline
+  preservation. An unsupported diagnostic format after a clean baseline can
+  still support one correction for a normal failure, but cannot authorize
+  publication. Contradictory evidence and unresolved paths still block;
+- actual pre-edit and post-edit source contents may prove that an unchanged
+  line moved after an insertion/deletion. Changed lines, ambiguous repeated
+  source text, and missing mapping evidence never establish relocation;
+- feedback contains command, baseline/post-edit exits, bounded diagnostic or
+  traceback excerpts, and the allowed file paths;
 - output that is malformed, pathless, outside the repository, or refers to a
   different file is never offered as a request to edit more files.
 
-A command that passes at baseline and fails after the patch is a new failure,
-but it remains `unscoped_regression` unless its output can be connected to an
-edited file. This favors a clear operator handoff over speculative multi-file
-repair.
+A previously passing command that now reports a normal validation failure may
+receive one correction, regardless of language or diagnostic paths. Importing
+tests and traceback callers are evidence, not additional editable files. This
+observation justifies an attempt, not proof that the patch caused the failure.
+Execution health, correction eligibility, and publication are separate decisions.
 
-The first version limits feedback to ten diagnostics and 4,000 total characters
-after truncation. Structured tool-specific parsing may improve relevance later,
-but it is not required for this phase.
+Feedback remains limited to ten diagnostics and 4,000 total characters.
+Unsupported commands, including pytest, must pass at baseline and before
+publication. Identical failed output never authorizes remediation. A generic
+exit 1 with nonempty evidence permits correction unless operational evidence
+is detected. Pytest exit 2 permits correction only with collection-error and
+exception evidence; usage errors, interruption, and no tests collected block.
+Other unknown nonzero exits remain unclassified. Timeouts, unavailable/non-executable tools, terminated processes,
+scanner execution errors, and incomplete/contradictory evidence always block,
+even when identical at baseline. These failures never trigger model correction.
+The default remains opt-in; this prevents regressions, not proof that all
+targeted scanner findings have been resolved.
 
 ## 7. Retry Rules
 
@@ -88,8 +106,11 @@ but it is not required for this phase.
   generation.
 - The retry receives the original remediation context plus a bounded validation
   feedback packet; it does not receive unrelated baseline output.
-- A failed retry, patch-apply failure, or unscoped regression blocks the item
-  with the latest execution evidence.
+- Every blocking command must permit correction. Mixed operational failures
+  prevent regeneration even when another failure would otherwise qualify.
+- A failed retry, patch-apply failure, or ineligible correction blocks with
+  latest execution evidence. Publication still requires passed or reliably
+  preserved diagnostics; an LLM response never establishes validation success.
 
 The existing `remediation.max_retry_count` remains the rollout control. During
 this phase, validation feedback consumes at most one of its allowed retries;
@@ -100,6 +121,17 @@ values greater than one do not create extra validation-feedback attempts.
 Blocked work-item views should continue to show the concise latest execution
 summary, failed command, exit code, retry count, and workflow-run link. Add a
 validation outcome qualifier when available:
+
+Validation failures also identify baseline versus post-edit phase and the
+original exit code for the actual blocking command. A bounded, sanitized
+diagnostic excerpt prioritizes the exception and relevant locations over test
+session headers. CLI and GitHub/GitLab **Last Execution** share that evidence.
+Pytest-prefixed syntax-error file locations are retained as evidence, without
+including the displayed source or treating callers as extra editable files.
+Messages distinguish correction disabled, withheld, and exhausted; traceback
+callers never establish that a defect originates outside the editable file.
+Redaction is defensive handling of recognizable credentials, not a guarantee
+that arbitrary tool output can never contain sensitive data.
 
 - `Validation passed.`
 - `Validation preserved the existing baseline failures.`
@@ -124,12 +156,14 @@ operator handoffs are rendered clearly.
 
 ## 10. Acceptance Criteria
 
-- A pre-existing failure in another file is not sent to the model and does not
-  block a non-regressing one-file patch.
+- A reliably compared pre-existing MyPy/Ruff failure is not sent to the model
+  and does not block a non-regressing one-file patch. Other baseline failures
+  stop before patch application.
 - A new diagnostic in an edited file produces at most one corrected-patch
   attempt.
-- A new diagnostic outside the editable-file boundary blocks rather than
-  expanding the patch scope.
+- Caller paths and failures observed in other files may support one constrained
+  correction, but never expand the patch scope. Unresolved validation blocks
+  publication after the correction; operational failures receive no correction.
 - Workspace restoration occurs before every retry and every terminal failure.
 - GitHub and GitLab persist the same execution outcome and render equivalent
   operator evidence.

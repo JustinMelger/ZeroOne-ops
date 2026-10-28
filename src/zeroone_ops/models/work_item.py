@@ -156,6 +156,9 @@ class WorkItemExecutionFailure(BaseModel):
     validation_outcome: str | None = None
     status: Literal["blocked", "dismissed"] = "blocked"
     batch_rejection: BatchAnalysisRejection | None = None
+    validation_phase: Literal["baseline", "post_edit"] | None = None
+    baseline_exit_code: int | None = None
+    diagnostic_excerpt: str | None = Field(default=None, max_length=2_000)
 
 
 class WorkItemSemanticSafety(BaseModel):

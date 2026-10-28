@@ -105,9 +105,70 @@ Authority note:
 
 Validation feedback is opt-in through `remediation.validation_feedback_enabled`.
 When enabled, remediation captures validation evidence before applying a
-single-file patch. It may retry once only for a newly introduced diagnostic in
-that same file; known baseline failures are retained as evidence rather than
-sent to the model.
+single-file patch. It may retry once for a normal failure from a previously
+passing command, or a new structured diagnostic. Callers in a traceback do not
+expand edit permissions. Known baseline failures are not sent as repair requests.
+
+The default is `false`. For a repository with existing MyPy debt, explicitly
+opt in and use stable plain-text output, for example:
+
+```json
+{
+  "remediation": {
+    "validation_feedback_enabled": true,
+    "validation_setup_commands": ["uv sync --all-groups --locked"],
+    "validation_commands": [
+      "uv run ruff format --check .",
+      "uv run pytest",
+      "uv run mypy src --no-error-summary --no-pretty --no-color-output"
+    ]
+  }
+}
+```
+
+MyPy and Ruff check diagnostics are compared by occurrence, including code and
+message. Verified unchanged source lines may move after an import removal;
+ambiguous relocation stays conservative. Recognized tool summaries may change
+as errors are removed. Unsupported diagnostic contracts (including pytest and
+formatting) must pass at baseline and before publication; repeated failed output
+is not accepted. This is stricter than the previous exact-output fallback.
+Generic exit 1 with evidence may receive correction; pytest collection-error
+exit 2 requires exception evidence. Usage errors, no tests collected, and unknown
+nonzero exits block. Missing tools, timeouts,
+permission errors, scanner execution errors, unexpected output, and incomplete
+command results block without model regeneration. A mixture of operational and
+normal failures also withholds correction. Repair tooling before retrying.
+Logs report baseline mode and comparison reasons without raw diagnostic output.
+`baseline_failure_count` counts failed commands, not findings.
+
+A supported tool's normal failure after a clean baseline may receive one
+correction even when its output format is not recognized, such as Ruff's
+default syntax-error display. That fallback never preserves a failing baseline
+or authorizes publication. Contradictory evidence and unresolved paths still block.
+
+On failure, **Last Execution** and CLI output identify the command, exit code,
+baseline/post-edit phase, baseline exit, and whether correction was disabled,
+withheld, or exhausted. A sanitized diagnostic excerpt keeps the exception
+and relevant traceback locations instead of only the first session-header
+characters. It is limited to twenty lines and 2,000 characters.
+Pytest-prefixed syntax-error locations identify the failing file and line, while
+the corresponding source displays remain excluded. Omission
+notices and the workflow-log link indicate where evidence is incomplete.
+Recognizable credentials are redacted, but avoid secrets in validation command
+arguments or output; redaction cannot identify every possible secret.
+
+`0 items / 2 errors` means collection failed while loading test modules, not
+that test discovery was disabled. A previously passing pytest command can
+receive one correction for a collection exception even when importing tests
+appear in the traceback. The original file remains the only editable scope.
+Validate this scenario on GitHub and GitLab after deploying, separately from
+automated acceptance; do not infer that the failed edit was present on `main`.
+
+After deploying, live-test an unused-import removal against existing MyPy
+errors and an incorrect annotation that introduces an error. Neither automated
+tests nor publication prove that every targeted scanner finding was resolved;
+keep live GitHub/GitLab acceptance separate. No remote demo config is changed
+automatically.
 
 V1 rejects retired configuration aliases, even when their canonical replacements
 are also supplied. Use top-level `platform`, `remediation.target_branch`,

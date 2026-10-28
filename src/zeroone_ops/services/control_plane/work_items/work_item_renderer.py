@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from html import escape
 from pathlib import Path
 
 from zeroone_ops.models.policy import PolicyState
 from zeroone_ops.models.remediation import remediation_source_display_name
-from zeroone_ops.models.work_item import WorkItemState, work_item_resolution_display_name
+from zeroone_ops.models.work_item import (
+    WorkItemExecutionFailure,
+    WorkItemState,
+    work_item_resolution_display_name,
+)
 from zeroone_ops.services.control_plane.work_items.batch_work_item_view import (
     render_batch_task_lines,
 )
@@ -27,6 +32,9 @@ from zeroone_ops.services.remediation.batch_analysis_rejection_presentation impo
 from zeroone_ops.services.remediation.semantic_safety_presentation import (
     render_retained_change_rationale_lines,
     render_semantic_safety_lines,
+)
+from zeroone_ops.services.remediation.validation_feedback.failure_evidence import (
+    sanitize_validation_text,
 )
 from zeroone_ops.services.shared.projection_payload import validate_batch_payload
 
@@ -224,11 +232,7 @@ class WorkItemRenderer:
         if work_item.execution_failure is not None:
             failure = work_item.execution_failure
             stage = "Change rationale" if failure.stage == "semantic_safety" else failure.stage
-            summary = (
-                _escape_feedback_text(failure.summary)
-                if failure.batch_rejection
-                else failure.summary
-            )
+            summary = _execution_failure_summary(failure)
             lines.extend(
                 [
                     "",
@@ -243,13 +247,21 @@ class WorkItemRenderer:
                 ]
             )
             if failure.failed_command is not None:
-                lines.append(f"- Command: `{failure.failed_command}`")
+                command = _escape_inline_code(sanitize_validation_text(failure.failed_command))
+                lines.append(f"- Command: `{command}`")
             if failure.exit_code is not None:
                 lines.append(f"- Exit code: `{failure.exit_code}`")
             if failure.validation_outcome is not None:
                 lines.append(f"- Validation outcome: `{failure.validation_outcome}`")
+            if failure.validation_phase is not None:
+                lines.append(f"- Validation phase: `{failure.validation_phase}`")
+            if failure.baseline_exit_code is not None:
+                lines.append(f"- Baseline exit code: `{failure.baseline_exit_code}`")
             if failure.execution_url is not None:
                 lines.append(f"- Run: [View workflow logs]({failure.execution_url})")
+            if failure.diagnostic_excerpt:
+                excerpt = escape(sanitize_validation_text(failure.diagnostic_excerpt))
+                lines.extend(["", "### Validation Diagnostic", "", f"<pre>{excerpt}</pre>"])
             if failure.batch_rejection is not None:
                 rejection = build_batch_analysis_rejection_view(
                     failure.batch_rejection,
@@ -311,11 +323,7 @@ class WorkItemRenderer:
         """Render compact operator instructions for one blocked remediation item."""
         if work_item.execution_failure is not None:
             failure = work_item.execution_failure
-            summary = (
-                _escape_feedback_text(failure.summary)
-                if failure.batch_rejection
-                else failure.summary
-            )
+            summary = _execution_failure_summary(failure)
             blocker = f"This remediation is blocked because {summary}"
         elif work_item.publication_retry is not None:
             blocker = f"This remediation is blocked because {self._vocabulary.publication_failure}"
@@ -350,6 +358,13 @@ class WorkItemRenderer:
 def _looks_like_template(value: str) -> bool:
     """Return whether source text still contains an unresolved placeholder."""
     return "{" in value and "}" in value
+
+
+def _execution_failure_summary(failure: WorkItemExecutionFailure) -> str:
+    """Apply the same evidence escaping in current execution and recovery views."""
+    if failure.batch_rejection or failure.diagnostic_excerpt:
+        return _escape_feedback_text(failure.summary)
+    return failure.summary
 
 
 def _escape_feedback_text(value: str) -> str:

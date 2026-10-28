@@ -96,6 +96,9 @@ class FailureDetails(BaseModel):
     exit_code: int | None = None
     stdout_excerpt: str | None = None
     stderr_excerpt: str | None = None
+    validation_phase: Literal["baseline", "post_edit"] | None = None
+    baseline_exit_code: int | None = None
+    diagnostic_excerpt: str | None = Field(default=None, max_length=2_000)
 
 
 class ReviewDiagnosticCandidate(BaseModel):

@@ -191,6 +191,16 @@ def _format_validation_feedback(context: IssueContext) -> str:
                 "Allowed files: " + ", ".join(f"`{path}`" for path in feedback.allowed_file_paths),
                 "New diagnostics:",
                 *diagnostic_lines,
+                *[
+                    f"Command: {failure.command}\nBaseline exit: {failure.baseline_exit_code}; "
+                    f"post-edit exit: {failure.exit_code}\n{failure.excerpt}"
+                    for failure in feedback.failures
+                ],
+                *(
+                    [f"Omitted failures: {feedback.omitted_failure_count}"]
+                    if feedback.omitted_failure_count
+                    else []
+                ),
             ]
         ),
     )
