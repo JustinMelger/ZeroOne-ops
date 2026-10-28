@@ -239,6 +239,11 @@ Severity control note:
 - deduplicate by change-request identity and head SHA
 - keep the summary note authoritative even when bounded inline comments are enabled
 
+Correctness findings must connect the reviewed change to a violated requirement
+and supported impact. Reviews distinguish pre-existing behavior from introduced
+defects and API regressions from narrower local concerns. Annotation-only changes
+remain reviewable, including invalid type contracts and import-time failures.
+
 ## Dry-Run And Fixtures
 
 Dry-run can use local fixtures before a repository is connected to real

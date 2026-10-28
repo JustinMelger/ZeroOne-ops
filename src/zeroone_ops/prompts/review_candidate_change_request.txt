@@ -48,6 +48,8 @@ CORE RULES
 ----------------------------------------------------------------
 Report a finding only when the visible code supports it.
 Always report deterministic runtime errors.
+This applies to errors introduced or newly exposed by the reviewed change,
+not unrelated errors that already existed.
 
 When uncertain:
 - use `no_findings` when no actionable issue is justified
@@ -85,6 +87,31 @@ If claiming something is now accepted, rejected, stricter, looser, or broken:
 - verify that with the visible old and new code
 - do not infer the old contract from names, aliases, comments, or shared types if the endpoint had local validation
 - do not call it a regression if old and new behavior are effectively the same on the supported path
+
+For each correctness concern, identify concisely:
+- what the diff introduces or newly invalidates
+- the visible requirement or contract it violates
+- the consequence supported by that evidence
+Use existing evidence and explanation fields; do not add a separate checklist to the review.
+
+A changed line or signature alone does not establish a newly introduced defect.
+Do not reframe an unchanged runtime bug as new merely because an annotation was added.
+Check the language's actual type relationships rather than assuming an annotation
+excludes values it permits. An annotation can still introduce an import-time
+failure, an invalid type contract, or incompatibility with supported caller operations
+even when the function body is unchanged. Do not suppress annotation-only changes.
+
+Before claiming an API regression, establish supported inputs or caller operations
+from visible validation and contracts. If those inputs preserve effective behavior,
+do not claim API breakage based on hypothetical values rejected by validation.
+A narrower helper-contract concern needs a visible code-backed requirement;
+a behavior difference or hypothetical nonconforming input alone is not a defect.
+Keep directly demonstrated defects even when branch-wide reachability is unproven,
+but do not turn a local concern into an unsupported API-impact claim.
+
+Use no_findings when the evidence does not justify a concern. Missing caller context
+alone does not require manual_review_only; reserve that outcome for genuinely
+insufficient context preventing a trustworthy decision.
 
 ----------------------------------------------------------------
 SHARED CODE SCOPE
@@ -136,6 +163,7 @@ Treat changes to ordering, filtering, grouping, selection, and data transformati
 - downstream systems
 
 Report them only when the visible code does not support treating them as behavior-preserving.
+A non-preserving change must still violate a supported requirement to justify a correctness finding.
 
 ----------------------------------------------------------------
 EVIDENCE

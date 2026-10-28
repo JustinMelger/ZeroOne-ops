@@ -21,6 +21,7 @@ from zeroone_ops.models.review import (
     PrecisionAcceptedFinding,
     PrecisionReviewDecision,
     ReviewComment,
+    ReviewFileContext,
     ReviewFinding,
     ReviewHelperContext,
     ReviewResult,
@@ -263,6 +264,8 @@ def test_context_and_precision_lineage_reach_artifact_without_reinterpretation(
         for finding in result.reconciled_decision.accepted_findings
     )
     assert "do not drop it only because branch-wide reachability" in client.precision_prompt
+    assert "what the diff introduces or newly invalidates" in client.precision_prompt
+    assert "Do not suppress annotation-only changes." in client.precision_prompt
     assert case.candidate.head_sha in build_candidate_review_prompt(context)
     assert original_context.changed_files[0].content == context.changed_files[0].content
 
@@ -393,6 +396,73 @@ def test_mr19_direct_nonboolean_call_changes_local_contract() -> None:
     new = execute_fixture(CASES[1].source("after"))["present_task"]
     assert old(task)["completed"] is False
     assert new(task)["completed"] == "yes"
+
+
+def test_new_annotation_contract_defect_survives_scripted_precision() -> None:
+    """Prove the type mismatch and wiring independently of model precision."""
+    before = 'def task_title(task):\n    return task["title"]\n'
+    after = 'def task_title(task: dict[str, str]) -> int:\n    return task["title"]\n'
+    old = execute_fixture(before)["task_title"]
+    new = execute_fixture(after)["task_title"]
+    supported_input = {"title": "task"}
+    assert old(supported_input) == new(supported_input) == "task"
+    assert old.__annotations__ == {}
+    assert new.__annotations__["return"] is int
+    assert not isinstance(new(supported_input), new.__annotations__["return"])
+
+    case = PrecisionCase(
+        name="synthetic-annotation-contract",
+        candidate=ChangeRequestReviewCandidate(
+            change_request_number=9002,
+            title="Annotate task titles",
+            source_branch="synthetic/annotation-contract",
+            target_branch="main",
+            web_url="https://gitlab.example.test/demo/-/merge_requests/9002",
+            head_sha="synthetic-contract-head",
+        ),
+        file_path="src/presentation.py",
+        mock_disposition="retain",
+        finding=ReviewFinding(
+            severity="medium",
+            file_path="src/presentation.py",
+            line_start=1,
+            line_end=1,
+            title="Return annotation contradicts supported task titles",
+            evidence="task_title now declares int but returns the str title from dict[str, str].",
+            explanation=(
+                "The new type contract misrepresents the result for supported string titles."
+            ),
+            suggested_follow_up="Declare str as the return type.",
+        ),
+    )
+    context = ChangeRequestReviewContext(
+        **case.candidate.model_dump(exclude={"changes", "draft", "author_username"}),
+        changed_files=[
+            ReviewFileContext(
+                file_path=case.file_path,
+                diff="".join(difflib.unified_diff(before.splitlines(True), after.splitlines(True))),
+                content=after,
+                start_line=1,
+                end_line=2,
+                full_file_included=True,
+                truncated=False,
+            )
+        ],
+    )
+    client = ScriptedReviewClient(case, scripted_precision(case))
+    stage = ReviewCandidateGenerationService(build_config(), lambda: client).analyze(context)
+    result = ReviewReconciliationService(build_config(), lambda: client).reconcile(
+        context=context, candidate_stage_result=stage
+    )
+    assert result.reconciled_decision is not None
+    artifact = (
+        ReviewArtifactBuilder().build(reconciled_decision=result.reconciled_decision).artifact
+    )
+    assert artifact.classification == "findings_present"
+    assert artifact.findings[0].title == case.finding.title
+    assert artifact.findings[0].evidence == case.finding.evidence
+    assert result.reconciled_decision.accepted_findings[0].source_candidate_ids == ["candidate-1"]
+    assert ReviewArtifactValidator().validate(artifact).status == "valid"
 
 
 @pytest.mark.skipif(

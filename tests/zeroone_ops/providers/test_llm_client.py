@@ -812,6 +812,64 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "<<BEGIN UNTRUSTED Changed file: src/service.py>>" in prompt
 
 
+@pytest.mark.parametrize("stage", ["candidate", "precision"])
+def test_review_prompts_require_introduced_defects_without_blanket_suppression(stage: str) -> None:
+    """Check instruction delivery, not whether a live model follows the contract."""
+    context = ChangeRequestReviewContext(
+        change_request_number=24,
+        title="Annotate validation",
+        source_branch="feature/annotations",
+        target_branch="main",
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/24",
+        head_sha="annotation-head",
+        changed_files=[],
+    )
+    if stage == "candidate":
+        prompt = build_candidate_review_prompt(context)
+    else:
+        prompt = build_review_precision_prompt(
+            context,
+            candidates=[],
+            candidate_annotations=[],
+            overlap_packet=None,
+            candidate_stage_summary="No supported introduced defect.",
+            candidate_stage_classification="no_findings",
+            candidate_stage_rationale="The runtime validation is unchanged.",
+            max_findings=3,
+        )
+
+    prompt = " ".join(prompt.split())
+    assert "what the diff introduces or newly invalidates" in prompt
+    assert "the visible requirement or contract it violates" in prompt
+    assert "the consequence supported by that evidence" in prompt
+    assert (
+        "A changed line or signature alone does not establish a newly introduced defect." in prompt
+    )
+    assert "Do not reframe an unchanged runtime bug as new" in prompt
+    assert "actual type relationships" in prompt
+    assert "import-time" in prompt
+    assert "invalid type contract" in prompt
+    assert "supported caller operations" in prompt
+    assert "Do not suppress annotation-only changes." in prompt
+    assert (
+        "Before claiming an API regression, establish supported inputs or caller operations"
+        in prompt
+    )
+    assert "code-backed requirement" in prompt
+    assert "Missing caller context alone does not require manual_review_only" in prompt
+    assert "do not add a separate checklist to the review" in prompt
+    if stage == "precision":
+        assert "lower severity does not make an unsupported claim valid" in prompt
+        assert (
+            "Drop a pre-existing issue outside the diff's effect using unsupported_scope" in prompt
+        )
+        assert "Use weak_evidence when the proposed violated contract" in prompt
+        assert "Use existing drop reasons only" in prompt
+        assert "dropping all unsupported concerns may correctly yield no_findings" in prompt
+        assert "do not drop it only because branch-wide reachability" in prompt
+        assert "do not remove repository-guidance-backed quality" in prompt
+
+
 def test_build_candidate_review_prompt_includes_preloaded_input_context_guardrail() -> None:
     context = ChangeRequestReviewContext(
         change_request_number=370,

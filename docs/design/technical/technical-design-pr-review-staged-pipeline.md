@@ -37,10 +37,46 @@ Existing ownership remains explicit: context builders supply evidence,
 candidate generation proposes concerns, precision decides and may narrow their
 meaning, and artifact construction preserves that decision. The current
 direct-defect rule does not establish a supported API regression merely from
-uncertain reachability. The recommended contract clarification requires separate
-review and implementation; annotation-only import failures must remain
-reportable. See the report for the pre-existing-validation and local-contract
-distinction rather than treating mocked decisions as model evaluation.
+uncertain reachability. The subsequent prompt clarification is implemented in
+the candidate and precision templates; annotation-only import failures remain
+reportable. The investigation report remains historical evidence, not an
+evaluation of these updated prompts. See it for the pre-existing-validation and
+local-contract distinction rather than treating mocked decisions as model evaluation.
+
+The clarification uses existing output fields, classifications, and drop reasons:
+each retained correctness concern must connect the introduced change or newly
+invalid contract to a visible requirement and supported consequence. Precision
+uses `unsupported_scope` for pre-existing issues outside the diff's effect and
+`weak_evidence` when no supported violated contract or narrower concern remains.
+This is an LLM instruction, not a deterministic suppression rule or schema gate.
+Visible input validation bounds API claims; direct local defects need not prove
+branch-wide reachability. Repository-guidance quality rules remain unchanged.
+
+Automated coverage checks rendered instructions, the three investigation cases,
+and a new incompatible-return-annotation control. Scripted stage responses
+verify lineage and artifact preservation, not model precision. Before tagging
+v1, separately evaluate the three investigation cases on the intended release
+model, with at most 18 application-level calls (three candidate/precision pairs
+per case), recording settings, prompt digests, provenance, and decisions.
+Unavailable or inconclusive live evaluation remains an open acceptance gate.
+
+The [2026-10-28 bounded live evaluation](../../../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-2026-10-28.md)
+completed all 18 calls with `gpt-5.6-luna`. !19 and the annotation positive control
+met their case expectations in all three repetitions, but !24's known boolean-ID
+false positive survived precision once. The release acceptance gate remains
+open. These are reconstructed-case results, not historical trace recovery or a
+statistical precision estimate; no prompts were changed during the evaluation.
+
+The [production-model Terra replay](../../../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-terra-2026-10-28.md)
+then used a separately authorized 18-call budget with identical prompts,
+settings, and reconstructed contexts. No known boolean-ID false positive
+survived precision, and all positive controls remained reportable. A separate
+pagination annotation concern was independently supported by MyPy; it is a
+local type-contract mismatch, not evidence of a new HTTP runtime failure.
+These bounded case checks passed for the production model; operator acceptance
+remains separate, and Luna's earlier mixed outcome remains recorded unchanged.
+
+### Stage Composition
 
 The current review runner should evolve from one compressed analysis flow into
 an explicitly staged pipeline:

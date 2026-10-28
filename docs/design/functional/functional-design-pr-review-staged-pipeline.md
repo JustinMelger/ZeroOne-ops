@@ -144,6 +144,22 @@ The reconciliation pass should:
 
 This stage is where precision should dominate over recall.
 
+For correctness findings, the review must explain what the diff introduces or
+newly invalidates, the visible requirement it violates, and the supported
+consequence. An existing runtime defect does not become new just because a
+nearby line or signature changes. Annotation-only changes remain reviewable:
+they can introduce import failures or invalid type contracts even with unchanged
+function bodies. Type claims must respect the language's actual type relationships.
+
+API-regression claims need visible supported-input or caller evidence and must
+respect request validation. A narrower helper concern needs a code-backed
+contract; a behavior difference or hypothetical input alone is not a defect.
+Direct deterministic defects remain actionable without proving branch-wide
+reachability. Dropping an unsupported concern is preferable to retaining it at
+lower severity. Missing callers alone do not require `manual_review_only`;
+reserve that outcome for genuinely insufficient context. Existing
+repository-guidance-backed quality concerns remain supported.
+
 Expected responsibilities:
 
 - unresolved / resolved / new continuity decisions,
