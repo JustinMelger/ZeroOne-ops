@@ -4,7 +4,7 @@
 variables:
   # Keep this release pin aligned with the supported ZeroOne Ops version.
   # Project/group variables may override it when operators upgrade deliberately.
-  ZERO_ONE_OPS_VERSION: "0.56.0"
+  ZERO_ONE_OPS_VERSION: "1.0.0"
   OPERATION: ""
   ZEROONE_STATIC_CODE_SCAN_DIRECTORIES: "."
   ZEROONE_RUFF_SCAN_ENABLED: "true"

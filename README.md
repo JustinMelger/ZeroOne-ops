@@ -327,8 +327,9 @@ scope and recorded attempts. Missing policy evidence is shown as not evaluated.
 Complete batch issue bodies and request descriptions have a 60,000 UTF-8 byte
 application budget. Oversized proposals remain backlog-only with a warning;
 authoritative evidence is never truncated to fit. Scan before sync as usual.
-Live GitHub/GitLab rollout and release-candidate acceptance remain separate
-[roadmap gates](docs/roadmap.md#remediation-batching).
+Latest-RC GitHub/GitLab live validation and operator acceptance are recorded in
+the [roadmap](docs/roadmap.md#remediation-batching). Existing installations must
+still complete their own [v1 migration](docs/migration-v1.md).
 
 `remediation.source_priorities` optionally ranks policy-eligible work before
 severity when capacity is limited. Lower non-negative values have higher
@@ -547,8 +548,8 @@ Use these docs for the deeper operational details:
   and smoke-test recipes
 - [docs/roadmap.md](docs/roadmap.md) for what is shipped, current, and parked
 - [Remediation batching](docs/design/functional/functional-design-remediation-batching.md)
-  for the implemented file/rule batching contract; live provider validation and
-  release-candidate acceptance remain pending
+  for the implemented file/rule batching contract; latest-RC validation on both
+  providers is recorded in the roadmap
 - [V1 migration guide](docs/migration-v1.md) for retired dashboard commands,
   issue-mode cutover, and safe local-state cleanup
 - [Legacy dashboard retirement audit](docs/design/technical/technical-audit-legacy-dashboard-retirement.md)
