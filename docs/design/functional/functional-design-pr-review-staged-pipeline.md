@@ -174,6 +174,8 @@ candidate-bounded rather than turning into a second general-purpose reviewer.
 Expected precision-pass input shape:
 
 - the current reviewed diff and bounded supporting context,
+- the same bounded remediation context used by candidate generation, including
+  recorded batch-attempt evidence from uniquely verified work-item linkage,
 - the candidate finding set from the candidate stage,
 - prior-review context and overlap context when available,
 - clear instructions that candidate findings are the primary decision set.

@@ -243,6 +243,8 @@ Correctness findings must connect the reviewed change to a violated requirement
 and supported impact. Reviews distinguish pre-existing behavior from introduced
 defects and API regressions from narrower local concerns. Annotation-only changes
 remain reviewable, including invalid type contracts and import-time failures.
+Candidate and precision stages receive the same bounded remediation context,
+including attempt evidence when a linked batch work item is uniquely verified.
 
 ## Dry-Run And Fixtures
 

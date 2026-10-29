@@ -198,6 +198,8 @@ publish stable v1 only after both validation rounds and any required fixes pass.
 - [x] clarify candidate/precision defect grounding with offline contract and
   regression coverage: distinguish pre-existing behavior, newly invalid type
   contracts, supported API regressions, and narrower local concerns
+- [x] pass the same bounded remediation context and verified batch-attempt
+  evidence to candidate and precision prompts, without adding finding filters
 - [x] run the bounded three-case live review evaluation with `gpt-5.6-luna`:
   18 application-level calls, with recorded settings, prompt digests, provenance,
   and [mixed outcomes](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-2026-10-28.md)
@@ -207,7 +209,8 @@ publish stable v1 only after both validation rounds and any required fixes pass.
   [Terra results and independent pagination-type check](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-terra-2026-10-28.md)
 - [ ] accept the recorded production-model review-precision results before
   tagging v1; bounded Terra checks passed, Luna's mixed results remain recorded,
-  and neither run establishes general accuracy; both 18-call budgets are exhausted
+  and neither run establishes general accuracy; live-check the latest RC's batch
+  evidence handoff separately, as both recorded 18-call budgets are exhausted
 - [x] retire legacy GitLab dashboard runtime and commands with migration guidance
 - [ ] confirm remaining GitLab installations have completed issue-mode cutover
   and local-state cleanup before tagging v1
