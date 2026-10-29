@@ -5,6 +5,47 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [1.0.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.59.0...zeroone-ops-v1.0.0) (2026-10-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* retire legacy configuration aliases and dead code ([#453](https://github.com/JustinMelger/ZeroOne-ops/issues/453))
+* retire legacy GitLab dashboard support for v1 ([#452](https://github.com/JustinMelger/ZeroOne-ops/issues/452))
+
+### Features
+
+* **control-plane:** add internal batch finding sync ([#457](https://github.com/JustinMelger/ZeroOne-ops/issues/457)) ([fb07f83](https://github.com/JustinMelger/ZeroOne-ops/commit/fb07f83c042899b91c762287256a1bdd6416f821))
+* **remediation:** activate file-rule batching and operator UX ([#461](https://github.com/JustinMelger/ZeroOne-ops/issues/461)) ([1add9ee](https://github.com/JustinMelger/ZeroOne-ops/commit/1add9ee12ad25b5b8727ce750463089cd05d0684))
+* **remediation:** add dormant batch planning foundation ([#456](https://github.com/JustinMelger/ZeroOne-ops/issues/456)) ([04719f3](https://github.com/JustinMelger/ZeroOne-ops/commit/04719f378cff90f801e70648e7ebb10edc47ba51))
+* **remediation:** add internal batch execution and recovery ([#459](https://github.com/JustinMelger/ZeroOne-ops/issues/459)) ([6f5e2d7](https://github.com/JustinMelger/ZeroOne-ops/commit/6f5e2d79a88e0965860141ee742571a11dafdfb8))
+* retire legacy GitLab dashboard support for v1 ([#452](https://github.com/JustinMelger/ZeroOne-ops/issues/452)) ([e8827a5](https://github.com/JustinMelger/ZeroOne-ops/commit/e8827a5c7e114959d096ef9ec48412278a5ac9ef))
+
+
+### Bug Fixes
+
+* **deps:** update dependency openai to v3 ([#357](https://github.com/JustinMelger/ZeroOne-ops/issues/357)) ([b3c201e](https://github.com/JustinMelger/ZeroOne-ops/commit/b3c201e2d15feeef2e1919c49df664d5080a7e8a))
+* **deps:** update python dependencies ([#442](https://github.com/JustinMelger/ZeroOne-ops/issues/442)) ([1830152](https://github.com/JustinMelger/ZeroOne-ops/commit/183015274394f8d814efa6a84a59b2b1712f199c))
+* **deps:** update python dependencies ([#448](https://github.com/JustinMelger/ZeroOne-ops/issues/448)) ([e3bf9cb](https://github.com/JustinMelger/ZeroOne-ops/commit/e3bf9cbd93ef5c0b09e827ad027042a6a7ed4969))
+* **deps:** update python dependencies ([#460](https://github.com/JustinMelger/ZeroOne-ops/issues/460)) ([88ecbff](https://github.com/JustinMelger/ZeroOne-ops/commit/88ecbffb093d438aa31dfaf7938f462ed661dafc))
+* **remediation:** explain batch analysis failures to operators ([#463](https://github.com/JustinMelger/ZeroOne-ops/issues/463)) ([e94ef48](https://github.com/JustinMelger/ZeroOne-ops/commit/e94ef481bb574858f38bd403c05b669efe3f5fc9))
+* **remediation:** make baseline-aware validation reliable ([#464](https://github.com/JustinMelger/ZeroOne-ops/issues/464)) ([26e5edb](https://github.com/JustinMelger/ZeroOne-ops/commit/26e5edb03882cb8053d7fd50bb51e98a7f59c063))
+* **remediation:** show validation evidence regardless of feedback mode ([#451](https://github.com/JustinMelger/ZeroOne-ops/issues/451)) ([8496e6c](https://github.com/JustinMelger/ZeroOne-ops/commit/8496e6c77f1f09cf69defbcece95097ff5cf2611))
+* **review:** clarify defect grounding and record model evaluations ([#466](https://github.com/JustinMelger/ZeroOne-ops/issues/466)) ([637e1d5](https://github.com/JustinMelger/ZeroOne-ops/commit/637e1d5690814142cb58ef7552374f1abf9135c3))
+* **review:** preserve remediation context in precision pass ([#467](https://github.com/JustinMelger/ZeroOne-ops/issues/467)) ([067e246](https://github.com/JustinMelger/ZeroOne-ops/commit/067e2468e75648c13c10ece334d744420a851eeb))
+* **ux:** present semantic safety as change rationale ([947a76b](https://github.com/JustinMelger/ZeroOne-ops/commit/947a76bb84b195149b1dcd2532f20245dc4df880))
+
+
+### Documentation
+
+* design promotion-time remediation batching ([#455](https://github.com/JustinMelger/ZeroOne-ops/issues/455)) ([31a7e84](https://github.com/JustinMelger/ZeroOne-ops/commit/31a7e84ee4da262ce21fabef74f592a1f4039c41))
+* finalize v1 migration and release readiness ([#468](https://github.com/JustinMelger/ZeroOne-ops/issues/468)) ([3578bf3](https://github.com/JustinMelger/ZeroOne-ops/commit/3578bf399369f18f99efce71d204503937c673c0))
+
+
+### Code Refactoring
+
+* retire legacy configuration aliases and dead code ([#453](https://github.com/JustinMelger/ZeroOne-ops/issues/453)) ([b362f21](https://github.com/JustinMelger/ZeroOne-ops/commit/b362f21fd39d826a6d80581167ed661d5155005e))
+
 ## [0.59.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v0.58.0...zeroone-ops-v0.59.0) (2026-09-30)
 
 
