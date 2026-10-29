@@ -14,6 +14,14 @@ commands are removed. Existing installations must follow the
 [v1 migration guide](migration-v1.md), including backup and explicit cleanup of
 meaningful local dashboard history. Remote dashboard issues are not modified.
 
+The supported GitHub/GitLab installation templates pin `1.0.0`; update any
+`ZERO_ONE_OPS_VERSION` override when upgrading. Use that stable pin after image
+publication, or the exact RC tag during testing. Latest-RC validation on both
+providers was confirmed by the operator on 2026-10-29 and is recorded in the
+[release-readiness checklist](roadmap.md#v1-release-readiness). Each installation
+still needs its own cutover checks, policy verification, and current scanner
+reports before automation resumes.
+
 Naming note:
 
 - product brand: `ZeroOne Ops`

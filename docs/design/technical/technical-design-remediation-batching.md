@@ -2,7 +2,7 @@
 
 ## Status And Ownership
 
-**Slice 4 activates shared batch sync and execution; live rollout remains an unchecked release gate.**
+**Implemented shared batch sync and execution; latest-RC live validation on both providers was confirmed by the operator on 2026-10-29. See the [roadmap](../../roadmap.md#remediation-batching).**
 This document specifies the
 [functional batching contract](../functional/functional-design-remediation-batching.md).
 Implemented contracts and their ownership are described below. Live provider
@@ -725,5 +725,6 @@ work items, capacity consumers and transition counts. Inventory totals derive fr
 normalized severity counts. Persisted summary observations accept old observations
 and add optional batch counters. No deferred-member list is published.
 
-Live GitHub/GitLab batch execution, review/requeue and merge reconciliation remain
-operator acceptance gates; automated implementation is not live validation.
+Live GitHub/GitLab batch execution, review/requeue and merge reconciliation were
+confirmed by the operator on the latest RC on 2026-10-29. This acceptance is
+recorded separately from automated implementation in the roadmap.

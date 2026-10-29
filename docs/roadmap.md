@@ -14,222 +14,71 @@ history, not here.
 
 ## Implemented
 
-- opt-in validation with separate execution-health, bounded language-neutral
-  correction, and strict publication decisions; MyPy/Ruff diagnostic multisets
-  and proven relocation preserve supported baselines, while other contracts
-  must pass; format-independent clean-baseline correction, retained syntax-error
-  origins, sanitized CLI/issue evidence, and automated
-  provider parity are complete, with live rollout acceptance remaining separate
-
-- operator-facing **Change Rationale** in issues, PR/MRs, and failure messages,
-  explicitly labeled as model-provided explanation rather than verification;
-  internal semantic-safety state and gate behavior remain unchanged
-
-- consistent seven-day Renovate/uv cooldown for all normal PyPI updates,
-  including operator-approved major upgrades
-
-- v1 configuration alias retirement: canonical platform and remediation fields
-  only, with strict field-specific replacement errors and manual migration
-  guidance
-
-- removed unused legacy branch/severity helpers and Python compatibility
-  accessors; no-op review settings now fail strict validation with v1 removal
-  guidance, preserving historical serialized-field compatibility
-
-- validation evidence in new remediation PR/MR descriptions independently of
-  feedback mode, distinguishing passed checks, preserved baseline, no commands,
-  and unavailable evidence without exposing raw output
-- v1 dashboard runtime and command retirement: GitHub/GitLab issue mode only,
-  neutral `policy run`, explicit local-history cleanup safeguards, and preserved
-  review continuity; [migration guide](migration-v1.md)
-
-- shared GitHub/GitLab post-authorization recovery command processing,
-  preserving provider-local discovery, authorization, replay semantics,
-  authoritative persistence sequencing, and dry-run simulation
-
-- shared GitHub/GitLab finding-sync orchestration with normalized storage
-  adapters, preserving reconciliation order, warning behavior, and dry runs
-
-- shared GitHub/GitLab remediation intake coordination over normalized records,
-  preserving selection, claims, dry runs, and provider-native result contracts
-
-- provider-neutral authoritative work-item state merging and finding-sync result,
-  with provider compatibility imports and existing omission/clearing semantics
-  preserved
-
-- source-focused daily finding dogfood with explicit manual test MyPy publication
-  under a separate namespace and scanner-failure gating before finding sync
-
-- shared policy presentation and bootstrap extracted into neutral models and a
-  pure builder for GitHub/GitLab issue policy
-
-- completed the [legacy dashboard dependency and retirement audit](design/technical/technical-audit-legacy-dashboard-retirement.md)
-  and implemented its v1 runtime-removal follow-up
-- complete paginated SonarQube intake with per-source failure isolation:
-  incomplete inventories never resolve existing work as missing
-
-- dismissal-aware promotion capacity: indexed closed and open dismissals are
-  suppressed before source/severity ranking on GitHub and GitLab
-
-- GitLab and GitHub staged change-request review with continuity, concise
-  developer-facing notes, and bounded inline comments
-- provider-neutral normalized finding ingestion with SonarQube and SARIF/Ruff
-  adapters
-- bounded per-artifact SARIF severity mappings with raw levels retained as
-  source evidence; MyPy dogfood maps its broad error output to medium priority,
-  while unmapped artifacts retain generic SARIF mapping
-- GitHub and GitLab issue control planes: policy issue, authoritative work-item
-  issues, recovery commands, lifecycle reconciliation, and derived operational
-  summaries
-- live-validated GitLab issue-mode policy, remediation, recovery, lifecycle,
-  dismissal suppression, blocked-work handling, stale-claim recovery, and the
-  derived operational summary
-- shared remediation execution, validation setup/check commands, provider-local
-  change-request publishing, and bounded branch naming
-- remediation-owned `validation_setup_commands` and `validation_commands`
-  configuration
-- live-validated opt-in baseline-aware validation feedback on GitHub and
-  GitLab issue-mode repositories: clean validation, preserved baseline
-  failures, one-file correction feedback, compact work-item evidence,
-  provider-native change-request validation summaries, and unscoped-regression
-  blocking
-- live-validated shared promotion capacity for GitHub and GitLab issue-mode
-  repositories, with a configurable active-work limit and aggregate capacity
-  backlog visibility
-- reversible policy and capacity reconciliation for GitHub and GitLab issue
-  mode: protected work stays active, while eligible unlinked work can move
-  between open coordination and closed deferred backlog
-- configurable source promotion priorities for GitHub and GitLab issue mode:
-  policy-eligible work ranks by stable source ID before normalized severity
-  and finding identity, while active `approved` and `in_progress` work remains
-  protected and unspecified sources share a neutral default priority
-- complete-inventory stale reconciliation: absent exact findings close as
-  `no_longer_detected` before policy evaluation, with location-bound identity
-  documented until occurrence-aware reconciliation is designed
-- GitHub live validation from Ruff finding to remediation pull request, review
-  projection, merge, and terminal work-item closure
-- GitLab/GitHub closed-unmerged convergence: preserve traceability, block
-  automatic retries, and require a later explicit operator recovery action
-- runner composition split into focused finding-sync, remediation, recovery,
-  lifecycle, policy, and review workflows while preserving public commands
-- remediation safety hardening: exact declared/parsed patch-path matching,
-  strict repository-config validation, release-pinned operational templates,
-  and documented execution-trust boundaries
-- bounded dirty-workspace remediation diagnostics: preserve the safe
-  pre-branch guard while showing tracked or untracked paths and clear cleanup
-  guidance in provider work-item evidence
-- remediation runtime-workspace ownership: exact configured untracked state,
-  SARIF, and solution-output paths no longer block branch preparation, while
-  tracked, staged, renamed, or unconfigured workspace changes remain protected
-- validation-setup failure guidance in GitHub and GitLab work items: preserve
-  the failed command, exit code, and workflow-log link while directing
-  operators to likely toolchain, lockfile, registry, or authentication causes
-  without persisting command output
-- live-validated fresh-attempt recovery branch identity on GitHub and GitLab
-- resilient multi-source SARIF intake: unavailable artifacts produce bounded
-  diagnostics without blocking available sources or claiming stale
-  reconciliation ownership
-- configured SARIF artifact source IDs are canonical durable namespaces, while
-  scanner-reported tool identities remain provenance
-- operator-focused GitHub and GitLab work-item UX: location-disambiguated
-  titles, concrete change-request summaries, durable bot-dismissal evidence,
-  and intent-aware `fix` or `chore` change requests
-- source-neutral remediation prompts and operator-facing labels, with
-  SonarQube-specific terminology retained only as source evidence
-- retired the repo-local dashboard feedback log; Notion plus provider-native
-  issue and change-request evidence are the active operational feedback sources
-- optional MLflow workflow root traces for live review and remediation, with
-  repository, platform, run, workflow, work-item, change-request, outcome,
-  and validation-outcome correlation; plus Ruff pre-commit checks and current
-  CI workflows
-- copyable GitHub Actions and GitLab CI control-plane installation templates
-- versioned GitLab CI installation template contract: release-pinned image,
-  structured job-DAG and security-boundary checks, and a matching GitLab
-  issue-mode configuration fixture
-- mandatory structural semantic-safety gate with bounded analysis claims,
-  operator evidence, and verified review-context handoff; structural validation
-  does not establish semantic correctness
-- operator-controlled GitHub/GitLab same-request review-feedback revisions,
-  verified checkout before context construction, one-use command receipts,
-  claim exclusion, failure evidence, and persisted projection repair;
-  live rollout validation remains below
-- live-validated same-SHA review-projection repair after a recoverable warning
-
-## Current Focus
+- staged GitHub/GitLab change-request review with durable continuity, bounded
+  comments, defect-grounding guidance, verified remediation context, and
+  recoverable review-projection repair
+- normalized SonarQube and SARIF ingestion with complete pagination, canonical
+  configured source IDs, per-artifact severity mappings, and unavailable-source
+  isolation; incomplete inventories never establish absence
+- provider-native policy and work-item issues, shared promotion/intake/recovery
+  coordination, lifecycle reconciliation, and derived operational summaries
+- source-priority and severity ranking, dismissal suppression, protected active
+  capacity, reversible deferral, and complete-inventory `no_longer_detected`
+  reconciliation
+- promotion-time file/rule batching for new work, defaulting to five findings
+  per work item; existing singles remain independent and publication remains
+  one-file and all-or-nothing; see [Remediation Batching](#remediation-batching)
+- shared remediation execution with one-file patch enforcement, untrusted prompt
+  evidence, validation commands, rollback, and bounded publication retries
+- opt-in baseline-aware validation separating execution health, bounded
+  correction, and publication eligibility, with supported MyPy/Ruff diagnostic
+  comparison and sanitized operator failure evidence
+- operator-controlled same-request review revisions and explicit recovery from
+  blocked or closed-unmerged work, preserving linkage and execution evidence
+- operator-facing validation evidence and **Change Rationale** in work items and
+  PR/MRs; mandatory structural claim validation is not semantic verification
+- safe dirty-workspace diagnostics and exact configured untracked runtime-output
+  exemptions, without weakening protection of operator changes
+- optional MLflow workflow tracing, configurable bounded repository guidance,
+  source-focused dogfood, and release-pinned GitHub/GitLab installation templates
+- v1 retirement of dashboard runtime, commands, and configuration aliases, with
+  strict replacement guidance and explicit local-state safeguards; see the
+  [migration guide](migration-v1.md)
+- shared provider-neutral orchestration with provider-local transport and
+  authorization, automated architecture checks, and seven-day dependency cooldowns
 
 ### Remediation Batching
 
-- [x] review the [proposed functional contract](design/functional/functional-design-remediation-batching.md)
-  for default-five promotion-time file/rule batches in new work items only,
-  preserving existing issues and one-file execution with no partial publication
-- [x] review the [proposed technical contract](design/technical/technical-design-remediation-batching.md)
-  for frozen member state, shared planning, complete execution coverage, and
-  the existing scan-before-sync pipeline contract without new freshness gates
-- [x] slice 1 - models and planning: optional batch state/configuration, frozen
-  membership, identity, ownership, grouping, ranking, and capacity tests;
-  preserve existing single-finding behavior
-- [x] slice 2 - finding sync and projection: member observations, policy/capacity
-  deferral, absence reconciliation, safe creation, and GitHub/GitLab parity
-- [x] slice 3 - execution and recovery: complete context and analysis coverage,
-  one-file edits, validation, retry/revision evidence, and recovery precedence
-- [x] slice 4 automated implementation - production sync/intake activation,
-  task-first issue rendering, summaries, prompt/review contracts, payload guards,
-  and automated integration verification
-- [x] explain batch analysis failures with bounded recorded locations, current
-  attempt notices, retained-rationale labels, and GitHub/GitLab parity coverage
-- [ ] live-validate GitHub batching: fresh same-file/rule findings, one complete
-  remediation, review/requeue, and merge reconciliation
-- [ ] live-validate GitLab batching with the same operator scenarios
-- [ ] accept the batching release candidate after recorded operator validation
+Implemented and accepted on both providers: default-five new file/rule batches,
+frozen membership, complete execution coverage, and one-file publication without
+consolidating existing issues. The [functional contract](design/functional/functional-design-remediation-batching.md)
+and [technical contract](design/technical/technical-design-remediation-batching.md)
+own implementation detail; completed slice checklists remain in Git history.
 
-Use a separate reviewable branch per slice and create its detailed implementation
-plan when picked up. The shared production path now activates file/rule batching;
-the designs above own the detailed contracts. Keep automated implementation
-completion separate from live rollout and release-candidate acceptance.
-Validate the current `main` release candidate first, then a batching candidate;
-publish stable v1 only after both validation rounds and any required fixes pass.
+### Accepted RC Validation
+
+The operator confirmed latest-RC validation on GitHub and GitLab on 2026-10-29,
+including batching, review/requeue, same-request revisions, failure recovery,
+manual merge-conflict recovery, merge reconciliation, and batch evidence handoff.
+This is operator-reported acceptance, separate from automated checks; the exact
+RC tag was not recorded here. No additional remote validation was run for this
+documentation update.
+
+The [review-precision investigation](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/README.md),
+[Luna evaluation](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-2026-10-28.md),
+and [production-model Terra evaluation](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-terra-2026-10-28.md)
+retain provenance and limitations. The bounded results do not establish general
+accuracy; both 18-call evaluation budgets are exhausted.
+
+## Current Focus
 
 ### V1 Release Readiness
 
-- [x] complete the bounded !19/!24 review-precision evidence investigation and
-  sanitized offline cases; [report and limitations](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/README.md).
-  Historical stage attribution remains inconclusive; no live model replays or
-  production prompt changes were made.
-- [x] clarify candidate/precision defect grounding with offline contract and
-  regression coverage: distinguish pre-existing behavior, newly invalid type
-  contracts, supported API regressions, and narrower local concerns
-- [x] pass the same bounded remediation context and verified batch-attempt
-  evidence to candidate and precision prompts, without adding finding filters
-- [x] run the bounded three-case live review evaluation with `gpt-5.6-luna`:
-  18 application-level calls, with recorded settings, prompt digests, provenance,
-  and [mixed outcomes](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-2026-10-28.md)
-- [x] repeat the same bounded evaluation with production model `gpt-5.6-terra`:
-  18 calls with identical prompts/settings/context; the known boolean-ID false
-  positive did not survive, and the positive control remained reportable;
-  [Terra results and independent pagination-type check](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-terra-2026-10-28.md)
-- [ ] accept the recorded production-model review-precision results before
-  tagging v1; bounded Terra checks passed, Luna's mixed results remain recorded,
-  and neither run establishes general accuracy; live-check the latest RC's batch
-  evidence handoff separately, as both recorded 18-call budgets are exhausted
-- [x] retire legacy GitLab dashboard runtime and commands with migration guidance
 - [ ] confirm remaining GitLab installations have completed issue-mode cutover
   and local-state cleanup before tagging v1
-
-- [x] document the derived-image toolchain contract for validation: retain the
-  thin non-root base image with Git, curl, and CA certificates; document how
-  operators extend it for language-specific tools without changing the
-  ZeroOne Ops image contract; see [validation toolchain images](runbook.md#validation-toolchain-images)
-- [ ] live-validate same-request revisions and failure recovery on GitHub and GitLab
-- [ ] smoke-test manual merge-conflict recovery on both providers: close the
-  conflicted PR/MR, reconcile its work item to `blocked`, then explicitly
-  requeue a policy-eligible fresh attempt
-
-Review-feedback design: [functional contract](design/functional/functional-design-remediation-review-feedback.md)
-  and [technical remediation review feedback](design/technical/technical-design-remediation-review-feedback.md)
-
-V1 uses the existing manual recovery path rather than automatic merge-conflict
-detection or rebasing. After a failed revision push in a reused workspace,
-retry from a fresh checkout; automatic local-branch recovery remains post-v1.
+- [ ] confirm final release-PR checks and migration/template changes are merged
+- [ ] publish v1 through Release Please, verify the versioned image, and
+  smoke-test the published image before enabling installation schedules
 
 ## Parked For Later (Post-v1)
 
@@ -269,7 +118,7 @@ retry from a fresh checkout; automatic local-branch recovery remains post-v1.
   confirms the supported installation profile
 - optional derived file-level finding inventories and later goal-based work;
   preserve individual findings and provenance. The parked file-grouping designs
-  are background, not prerequisites for the promotion-time batching proposal
+  are background, not prerequisites for implemented promotion-time batching
 - provider-bound conditional work-item transitions and atomic claims, so
   concurrent finding sync, remediation, recovery, and lifecycle jobs do not
   rely on CI scheduling or resource groups for correctness

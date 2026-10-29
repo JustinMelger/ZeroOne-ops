@@ -2,7 +2,7 @@
 
 ## Status
 
-**Reviewed contract; slice 4 activates batching, with live rollout validation pending.**
+**Implemented contract; latest-RC live validation on both providers was confirmed by the operator on 2026-10-29. See the [roadmap](../../roadmap.md#remediation-batching).**
 New work items use default-five promotion-time file/rule batching. Existing
 single-finding issues remain independent. A configured limit of one prevents
 multi-member proposals without resizing existing batches.
@@ -212,7 +212,8 @@ automatically unblock it; explicit operator recovery is required. Findings with
 no durable issue remain backlog-only and do not get notification issues.
 
 The shared production coordinator and intake activate this projection and execution
-contract in slice 4. Live provider validation remains a separate acceptance gate.
+contract in slice 4. Separate latest-RC live acceptance on both providers was
+confirmed by the operator on 2026-10-29; see the roadmap for the acceptance record.
 
 If policy later permits an original member again before execution, that member
 may rejoin the executable scope without changing frozen membership. Re-enabling

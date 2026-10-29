@@ -9,6 +9,11 @@ dashboard issues. They remain readable history.
 
 Update CI jobs and scripts before upgrading:
 
+The supported installation templates now pin image version `1.0.0`. Update any
+project, group, or repository `ZERO_ONE_OPS_VERSION` override too; it takes
+precedence over the template default. Use the stable pin only after the v1 image
+has been published, or override it with the exact RC tag while testing.
+
 | Removed command | Replacement |
 | --- | --- |
 | `zeroone-ops dashboard sonar` | `zeroone-ops findings sync` |
@@ -52,22 +57,51 @@ review through provider CI rules.
 
 ## Operator Cutover
 
-1. Stop old dashboard jobs and account for existing linked MRs, active claims,
-   blocked work, and dismissed findings before upgrading.
+1. Stop old dashboard jobs and keep finding-sync and remediation schedules paused
+   throughout cutover. Account for existing linked MRs, active claims, blocked
+   work, and dismissed findings before upgrading.
 2. Confirm `remediation.bootstrap_severities`, finding sources, capacity, and
    credentials are appropriate for the new issue control plane.
-3. Set the mode to `"issues"` or omit it, and install the supported CI template
-   using the neutral commands.
-4. Run finding sync. It uses current findings and normal promotion rules to
-   populate policy and authoritative work-item issues.
-5. Reapply desired policy overrides and exclusions through the dedicated policy
-   issue. Historical policy, linkage, claims, dismissals, and recovery records
-   are not transferred automatically; existing findings may otherwise be selected
-   again under their current identities.
+3. Complete the local-state cleanup below, set the mode to `"issues"` or omit
+   it, and install the supported CI template using the neutral commands. Keep
+   automatic execution paused.
+4. Run `zeroone-ops policy run` to establish the dedicated policy issue. Reapply
+   desired policy overrides and exclusions there, then run `zeroone-ops policy run`
+   again to process the commands. Verify the effective policy before promotion.
+5. Generate current target-branch scanner reports, then run
+   `zeroone-ops findings sync --dry-run` and inspect the proposed selection.
+   Run `zeroone-ops findings sync` only after confirming it is appropriate.
+6. Inspect the resulting work items before enabling remediation and resuming
+   schedules. Historical dashboard policy, linkage, claims, dismissals, and
+   recovery records are not transferred automatically; existing findings may
+   otherwise be selected again under their current identities.
 
 Operators may manually label and close the old dashboard after confirming the
 cutover, but ZeroOne Ops does not perform that cleanup. Operational summaries
 remain supported read-only derived views; they are not the retired dashboard.
+
+## Batching For Existing Issue-Mode Installations
+
+V1 groups compatible new findings from the same source, file, and rule into one
+work item and one one-file PR/MR. `remediation.max_findings_per_work_item` defaults
+to `5`. Set it to `1` before the first v1 finding sync to prevent multi-member
+batches:
+
+```json
+{
+  "remediation": {
+    "max_findings_per_work_item": 1
+  }
+}
+```
+
+Merge this setting into existing configuration; do not replace the entire file.
+Existing single-finding issues remain independent, and existing batches are not
+resized when the setting changes. `remediation.max_active_work_items` still
+limits active work items, not individual findings: a batch consumes one slot.
+Generate current target-branch reports before sync and inspect a dry run before
+resuming automation. Existing issue-mode policy remains authoritative; dashboard
+policy cutover is unnecessary for installations already using issue mode.
 
 ## Local State Cleanup
 
@@ -97,7 +131,8 @@ unchanged. No migration command or automatic state/history transfer is provided.
 
 ## Release Validation
 
-Confirm operator cutovers before tagging v1. Run the GitHub and GitLab live
-checks for same-request revisions, failed-revision recovery, and manual
-merge-conflict recovery in addition to automated verification. This document
-does not claim those live checks have completed.
+The maintainer confirmed latest-RC live validation on GitHub and GitLab on
+2026-10-29; acceptance is recorded in the [roadmap](roadmap.md#v1-release-readiness).
+This does not migrate other installations or replace their cutover checks.
+Confirm issue-mode cutover and local-state cleanup for each installation before
+enabling v1 automation.

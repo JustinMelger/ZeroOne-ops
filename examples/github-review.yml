@@ -20,7 +20,7 @@ jobs:
   zeroone-ops-review:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/<owner>/zeroone-ops:${{ vars.ZERO_ONE_OPS_VERSION || '0.56.0' }}
+      image: ghcr.io/<owner>/zeroone-ops:${{ vars.ZERO_ONE_OPS_VERSION || '1.0.0' }}
 
     env:
       ZEROONE_OPS_EXECUTION_MODE: ci
