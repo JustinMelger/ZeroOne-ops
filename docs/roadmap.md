@@ -50,6 +50,10 @@ history, not here.
   batch promotion, real intake, validation correction/rollback, and local Git
   publication; `just test-scenarios` and the normal Quality pytest job exercise
   deterministic external responses without model or provider credentials
+- offline GitHub/GitLab review scenarios covering real prompt/schema contracts,
+  retained/dropped findings, verified batch projection, request isolation, and
+  repeated-review overlap across successive commits;
+  scripted SDK responses test orchestration, not model precision
 
 ### Remediation Batching
 
@@ -88,8 +92,8 @@ accuracy; both 18-call evaluation budgets are exhausted.
 
 - broader end-to-end scenario fixtures across intake, policy, remediation,
   provider-native change requests, lifecycle, and summaries on both providers;
-  extend the initial offline remediation scenarios with review/requeue,
-  lifecycle, and failure-recovery chains
+  extend the initial offline scenarios with same-SHA reuse, projection repair,
+  review/requeue, lifecycle, and failure-recovery chains
 - stable machine-readable run summaries alongside human CLI output, including
   finding, policy decision, validation, request, lifecycle, and bounded errors
 - automatic merge-conflict detection and operator guidance with preserved
