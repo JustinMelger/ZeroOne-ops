@@ -31,6 +31,23 @@ Naming note:
 The old dashboard command aliases no longer exist. Use `zeroone-ops policy run`
 for policy processing and the neutral findings, remediation, and work-items commands.
 
+## Offline Workflow Verification
+
+From a development checkout with dependencies installed, run
+`just test-scenarios`. The existing Quality pipeline includes these scenarios
+through normal pytest collection; there is no new operator CLI command or CI job.
+Both provider paths cover batch creation through real intake, execution, pytest
+validation, and local Git push, including successful and exhausted correction.
+The suite requires Git and installed development dependencies, but no credentials,
+container runtime, model calls, scanner installation, or remote provider access.
+
+Scripted model and in-memory HTTP responses make workflow outcomes reproducible;
+they do not establish model precision or live API compatibility. Continue using
+the GitLab test app for authorized real-model/live-provider RC checks. Review,
+operator requeue, and lifecycle are not exercised by this initial scenario suite.
+See the [scenario guide](../tests/zeroone_ops/integration/scenarios/README.md)
+for isolation and coverage boundaries.
+
 ## Purpose
 
 Use this document when you need to:

@@ -82,6 +82,18 @@ uv run zeroone-ops work-items recover --dry-run
 uv run zeroone-ops review --dry-run
 ```
 
+## Offline Workflow Tests
+
+Contributors can run `just test-scenarios` to exercise batch promotion, real
+intake, validation correction, rollback, and local Git publication for GitHub
+and GitLab without credentials or external services. The scenarios also run
+with ordinary `uv run pytest` in the existing Quality pipeline. Model responses
+and provider HTTP responses are scripted; shared services and local Git/test
+execution remain real. See the [scenario guide](tests/zeroone_ops/integration/scenarios/README.md).
+
+The GitLab test app remains a separate live evaluation environment for model
+quality and release-candidate acceptance; offline checks do not replace it.
+
 ## Operating The Control Plane
 
 CI owns the ZeroOne Ops commands. Operators use provider-native records and
