@@ -20,6 +20,9 @@ security:
 test:
     uv run pytest
 
+test-scenarios:
+    uv run --no-sync pytest tests/zeroone_ops/integration/scenarios --no-cov
+
 check:
     just lint
     just architecture

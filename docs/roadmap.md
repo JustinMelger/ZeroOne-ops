@@ -46,6 +46,10 @@ history, not here.
   [migration guide](migration-v1.md)
 - shared provider-neutral orchestration with provider-local transport and
   authorization, automated architecture checks, and seven-day dependency cooldowns
+- offline GitHub/GitLab workflow scenarios from normalized findings through
+  batch promotion, real intake, validation correction/rollback, and local Git
+  publication; `just test-scenarios` and the normal Quality pytest job exercise
+  deterministic external responses without model or provider credentials
 
 ### Remediation Batching
 
@@ -83,7 +87,9 @@ accuracy; both 18-call evaluation budgets are exhausted.
 ## Parked For Later (Post-v1)
 
 - broader end-to-end scenario fixtures across intake, policy, remediation,
-  provider-native change requests, lifecycle, and summaries on both providers
+  provider-native change requests, lifecycle, and summaries on both providers;
+  extend the initial offline remediation scenarios with review/requeue,
+  lifecycle, and failure-recovery chains
 - stable machine-readable run summaries alongside human CLI output, including
   finding, policy decision, validation, request, lifecycle, and bounded errors
 - automatic merge-conflict detection and operator guidance with preserved
