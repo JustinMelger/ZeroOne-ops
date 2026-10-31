@@ -38,10 +38,14 @@ from zeroone_ops.services.review.pipeline.review_candidate_generation_service im
 from zeroone_ops.services.review.pipeline.review_reconciliation_service import (
     ReviewReconciliationService,
 )
+from zeroone_ops.services.review.pipeline.review_runner import LOGGER as REVIEW_LOGGER
 from zeroone_ops.services.review.pipeline.review_runner import ReviewRunner
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.shared.state_store import StateStore
+from zeroone_ops.services.workflows.provider_workflow_builders import (
+    build_review_remediation_context_resolver,
+)
 
 from .provider_api import REPOSITORY_SCOPE
 from .repository import git
@@ -79,6 +83,10 @@ class ReviewHarness:
         loader = "load_github_connection_config" if github else "load_gitlab_connection_config"
         self.monkeypatch.setattr(
             f"zeroone_ops.services.review.pipeline.review_runner.{loader}", lambda: connection
+        )
+        self.monkeypatch.setattr(
+            f"zeroone_ops.services.workflows.provider_workflow_builders.{loader}",
+            lambda: connection,
         )
         clients = (
             (GitHubReviewClient, GitHubWorkItemClient, GitHubClient)
@@ -134,27 +142,31 @@ class ReviewHarness:
             if self.api.work_items.platform == "github"
             else GitLabReviewClient(self._connection())
         )
+        config = AppConfig(
+            platform=self.api.work_items.platform,
+            base_branch="main",
+            execution_mode="ci",
+            github=GitHubConfig(),
+            gitlab=GitLabConfig(),
+            remediation=RemediationConfig(target_branch="main"),
+            repository_guidance_paths=["AGENTS.md"],
+            review=ReviewConfig(
+                supported_paths=["src/"],
+                max_context_lines_before=100,
+                max_context_lines_after=100,
+                enable_function_context=False,
+                enable_helper_following=False,
+                inline_comments_enabled=True,
+            ),
+        )
         runner = ReviewRunner(
             repo_root=case.root,
-            config=AppConfig(
-                platform=self.api.work_items.platform,
-                base_branch="main",
-                execution_mode="ci",
-                github=GitHubConfig(),
-                gitlab=GitLabConfig(),
-                remediation=RemediationConfig(target_branch="main"),
-                repository_guidance_paths=["AGENTS.md"],
-                review=ReviewConfig(
-                    supported_paths=["src/"],
-                    max_context_lines_before=100,
-                    max_context_lines_after=100,
-                    enable_function_context=False,
-                    enable_helper_following=False,
-                    inline_comments_enabled=True,
-                ),
-            ),
+            config=config,
             review_client=client,
             review_state_service=self.state_service,
+            remediation_context_resolver=build_review_remediation_context_resolver(
+                config, REVIEW_LOGGER
+            ),
         )
         run_id = f"offline-review-{case.number}-{case.head_sha}"
         summary = runner.run(

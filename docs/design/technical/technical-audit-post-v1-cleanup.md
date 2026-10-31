@@ -3,9 +3,9 @@
 ## Scope And Status
 
 This is a behavior-preserving maintenance track, audited on 2026-10-31. Each
-slice is reviewed and merged before the next branch starts. Slices 1-2 are merged.
-Slice 3 is implemented and verified, awaiting branch review and merge;
-slices 4-6 remain proposals, not completed work.
+slice is reviewed and merged before the next branch starts. Slices 1-3 are merged.
+Slice 4 is implemented and verified, awaiting review and merge; slices 5-6 remain
+proposals, not completed work.
 
 No configuration, persisted schema, command, prompt, workflow decision, or
 operator output changes are intended. The [roadmap](../../roadmap.md) owns the
@@ -24,7 +24,7 @@ contributor context, not a dependency of this document.
 | Internal remediation-eligibility wrapper | Production uses the canonical eligibility entrypoint; internal batch tests used a second name for the same checks. Inline those checks into the canonical function and update test imports. | Keep intake, claimed revision, path-safety, and provider-parity tests on the canonical entrypoint. |
 | Deterministic overlap reconciler | No production callers; removed in slice 2 after transferring useful coverage. The active model-backed analysis service, prompt, and response models remain unchanged. | Continuity sequences use the real packet builder and analysis validator with explicit typed model responses. Packet uniqueness and final-artifact handoff are tested at their active boundaries; see the coverage map below. |
 | Finding-sync storage base/batch contracts | Slice 3 consolidates one `FindingSyncStorage` protocol. Its canonical inventory loader retains strict live batch-aware discovery; the old four-index-only loader and unused storage lookup/upsert methods are removed. Active facade methods remain unchanged. | Native-adapter contract tests characterize ten-query order, scope/parser failures, exact snapshot retention, returned persistence authority, and transition ordering. Public sync, intake, execution, and offline provider scenarios retain broader behavior coverage. |
-| Review workflow runner | Active, but also owns provider construction, linked evidence loading, continuity loading, and same-SHA repair. Extract responsibilities in slices 4-5. | Characterize verified linkage and add same-SHA reuse/projection-repair scenarios before extraction. Preserve candidate/precision/artifact ownership. |
+| Review workflow runner | Slice 4 moves linked evidence enrichment into an injected resolver and work-item lookup construction into the provider workflow builder. Continuity loading, same-SHA repair, and projection-factory construction remain for slice 5. | Preserve 48 pre-extraction characterization cases; cover lazy settings/client construction, exact handled errors and warnings, skipped routes, and real lookup over offline provider HTTP. Candidate/precision/artifact ownership remains unchanged. |
 | Remediation work-item runner | Active, but combines ordinary execution, recorded publication retry, revision preparation, and outcome projection. Extract narrowly in slice 6. | Add offline retry/revision scenarios first. Preserve recorded scope, retry precedence, checkout-before-context, rollback, and request reuse. |
 
 Reference searches cover source imports, construction sites, tests, and tracked
@@ -152,3 +152,24 @@ normalization. Policy, capacity, lifecycle, remediation execution, reporting,
 and provider-specific unchanged detection retain their existing ownership.
 No configuration, schema, operator commands, additional reads/writes, retry
 policy, or concurrency guarantee changed. No live provider validation was run.
+
+Slice 4 verification passed: 48 pre-extraction characterization cases, then
+1,381 focused context/review/workflow/work-item/client/offline-scenario tests
+and 2,450 full-suite tests with 91.13% coverage. Ruff, formatting, architecture,
+mypy, Bandit, strict documentation build, and `git diff --check` passed.
+Resolver tests cover lazy settings/client construction, exact exception and
+warning boundaries, historical evidence, input preservation, and evidence
+clearing. Paired offline scenarios use real provider lookup/parsing over fake
+HTTP and cover ambiguous linkage and handled lookup failure without stopping
+review. Dry-run, no-selection, context-failure, and same-SHA routes perform no
+context lookup.
+
+Slice 4 boundary review: the resolver owns exact-link evidence enrichment;
+workflow composition owns lazy provider lookup construction and normalization.
+The existing review logger retains warnings. Candidate generation, precision,
+artifact meaning, publication, and projection retain their previous ownership.
+AST comparisons confirm unchanged runner sequencing except for delegation,
+unchanged continuity/projection methods, and the same handled exceptions and
+warning call. No prompts, schemas, persisted state, provider read counts, or
+concurrency guarantees changed. No live model/provider calls were made;
+continuity and same-SHA repair extraction remain slice 5.

@@ -63,6 +63,10 @@ Repeated-review tests exercise bounded candidate construction, structural result
 validation, and artifact handoff with scripted responses, not live model quality.
 The shared finding-sync storage contract covers singles and batches; its internal
 cleanup does not change scan setup, operator commands, or migration requirements.
+Review-context lookup remains best effort on fresh live reviews: missing or
+ambiguous work-item linkage withholds verified evidence, while known lookup
+failures log the existing warning and allow the review to continue. Descriptions
+do not establish operator command routing.
 
 ## Documentation Website
 

@@ -1,10 +1,18 @@
 """Tests for review workflow composition."""
 
 from pathlib import Path
+from unittest.mock import Mock
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.state import RunStatus
+from zeroone_ops.services.review.context.remediation_review_context_resolver import (
+    RemediationReviewContextResolver,
+)
+from zeroone_ops.services.review.pipeline.review_runner import LOGGER as REVIEW_LOGGER
 from zeroone_ops.services.shared.run_state_service import RunSummary
+from zeroone_ops.services.workflows.provider_workflow_builders import (
+    build_review_remediation_context_resolver,
+)
 from zeroone_ops.services.workflows.review_workflow import ReviewWorkflow
 from zeroone_ops.services.workflows.workflow_run_context import build_workflow_run_context
 
@@ -28,6 +36,11 @@ def test_review_forwards_github_runtime_and_dry_run(tmp_path: Path, monkeypatch)
     """GitHub review keeps its event context and resolved dry-run behavior."""
     monkeypatch.chdir(tmp_path)
     captured: dict[str, object] = {}
+    settings = Mock(side_effect=AssertionError("Context construction must not load credentials"))
+    monkeypatch.setattr(
+        "zeroone_ops.services.workflows.provider_workflow_builders.load_github_connection_config",
+        settings,
+    )
 
     class StubReviewRunner:
         def __init__(self, **kwargs: object) -> None:
@@ -59,6 +72,7 @@ def test_review_forwards_github_runtime_and_dry_run(tmp_path: Path, monkeypatch)
         dry_run=True,
         build_run_id=lambda: "run-1",
         build_context=build_workflow_run_context,
+        build_remediation_context_resolver=build_review_remediation_context_resolver,
         build_platform_runtime=lambda current_config: (
             runtime_calls.append(current_config) or object(),
             "octo-org/octo-repo",
@@ -71,6 +85,10 @@ def test_review_forwards_github_runtime_and_dry_run(tmp_path: Path, monkeypatch)
 
     assert summary.status is RunStatus.REVIEWED
     assert runtime_calls == [config]
+    resolver = captured["init"]["remediation_context_resolver"]
+    assert isinstance(resolver, RemediationReviewContextResolver)
+    assert resolver.logger is REVIEW_LOGGER
+    settings.assert_not_called()
     assert captured["run"] == {
         "repository_id": "octo-org/octo-repo",
         "current_change_request_number": 42,
@@ -88,6 +106,11 @@ def test_review_forwards_gitlab_runtime_without_dashboard_dependencies(
     monkeypatch.chdir(tmp_path)
     captured: dict[str, object] = {}
     review_client = object()
+    settings = Mock(side_effect=AssertionError("Context construction must not load credentials"))
+    monkeypatch.setattr(
+        "zeroone_ops.services.workflows.provider_workflow_builders.load_gitlab_connection_config",
+        settings,
+    )
 
     class StubReviewRunner:
         def __init__(self, **kwargs: object) -> None:
@@ -111,6 +134,7 @@ def test_review_forwards_gitlab_runtime_without_dashboard_dependencies(
         dry_run=False,
         build_run_id=lambda: "run-1",
         build_context=build_workflow_run_context,
+        build_remediation_context_resolver=build_review_remediation_context_resolver,
         build_platform_runtime=lambda _: (
             review_client,
             "group/project",
@@ -120,12 +144,15 @@ def test_review_forwards_gitlab_runtime_without_dashboard_dependencies(
     )
 
     workflow.run()
+    settings.assert_not_called()
+    assert captured["init"]["remediation_context_resolver"].logger is REVIEW_LOGGER
 
     assert captured["init"] == {
         "repo_root": tmp_path,
         "config": workflow.config,
         "review_client": review_client,
         "review_state_service": captured["init"]["review_state_service"],
+        "remediation_context_resolver": captured["init"]["remediation_context_resolver"],
     }
     assert captured["run"] == {
         "repository_id": "group/project",
