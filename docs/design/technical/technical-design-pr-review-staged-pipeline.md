@@ -24,6 +24,23 @@ This technical design focuses on:
 
 ## 2. Architectural Direction
 
+### Current Continuity Ownership And Coverage
+
+`OverlapPacketBuilder` supplies bounded prior/current candidates, not final
+overlap decisions. `ReviewOverlapAnalysisService` obtains the model's typed
+outcomes and deterministically validates their SHA, indices, shape, candidate
+boundaries, and reference consistency. This structural validation does not prove
+semantic correctness. Reconciliation attaches accepted continuity outcomes;
+artifact construction preserves that meaning.
+
+The unused deterministic overlap reconciler has been removed. Continuity tests
+exercise the live builder and analysis service with explicit scripted responses,
+including one-candidate/nonmatching and multi-candidate/selected outcomes. Scripts
+do not reproduce matching heuristics or establish model precision. The existing
+offline repeated-review scenarios cover both providers without external calls;
+same-SHA repair expansion remains a separate cleanup slice. See the
+[cleanup audit](technical-audit-post-v1-cleanup.md) for the coverage mapping.
+
 ### V1 Precision Investigation Status
 
 The bounded !19/!24 investigation is recorded with

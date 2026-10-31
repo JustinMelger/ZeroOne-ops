@@ -1,5 +1,15 @@
 # ZeroOne Ops Staged Review Pipeline Functional Design
 
+## Current Repeated-Review Contract
+
+Application-owned matching supplies bounded candidates for repeated-review
+continuity. A single candidate does not force an unresolved result, and several
+candidates do not force ambiguity: the model-backed continuity decision chooses
+within those boundaries. Structural validation rejects invalid references; it
+does not independently establish that the semantic match is correct. Downstream
+artifact construction preserves the validated decision rather than rematching
+findings. Offline scripted scenarios verify this wiring, not model precision.
+
 ## 1. Purpose
 
 Define the product behavior for a staged review pipeline in ZeroOne Ops.

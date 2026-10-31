@@ -87,7 +87,7 @@ Behavior-preserving slices are reviewed and merged separately; the
 records dependencies, replacement coverage, and retained compatibility.
 
 - [x] remove superseded intake and unused scaffolding
-- [ ] align continuity tests with production and remove the unused reconciler
+- [x] align continuity tests with production and remove the unused reconciler
 - [ ] simplify finding-sync storage contracts
 - [ ] extract verified review-context resolution
 - [ ] extract review continuity and same-SHA repair coordination

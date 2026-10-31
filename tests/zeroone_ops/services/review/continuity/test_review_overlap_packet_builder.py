@@ -193,6 +193,32 @@ def test_build_overlap_packet_returns_none_without_prior_pass() -> None:
     assert packet is None
 
 
+def test_multiple_matching_signals_produce_one_candidate_pair() -> None:
+    finding = _vehicle_details_finding()
+    prior = _build_prior_pass(findings=[finding])
+    prior.findings[0].identity = "historical-unmatched-identity"
+    prior.findings[0].legacy_identity = "historical-unmatched-legacy-identity"
+    packet = OverlapPacketBuilder().build(
+        context=_build_context(prior_pass=prior),
+        review_result=ReviewResult(
+            classification="findings_present", summary="One finding.", findings=[finding]
+        ),
+    )
+
+    assert packet is not None
+    assert [
+        (candidate.current_finding_index, candidate.prior_finding_index)
+        for candidate in packet.candidates
+    ] == [(0, 0)]
+    assert set(packet.candidates[0].reasons) == {
+        "same_file",
+        "symbol",
+        "issue_kind",
+        "region_hint",
+        "title_overlap",
+    }
+
+
 def test_build_overlap_packet_uses_canonical_identity_candidate() -> None:
     prior_finding = _vehicle_details_finding()
     packet = OverlapPacketBuilder().build(
