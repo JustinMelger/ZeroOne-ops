@@ -102,6 +102,8 @@ tracks behavior-preserving maintenance and the active tests that replace
 superseded implementations; it does not introduce another workflow.
 Continuity tests use the live packet/analysis path with scripted model decisions,
 not a second deterministic matching implementation.
+Finding sync uses one storage contract for singles and batches, with provider
+transport and native snapshots kept local.
 
 ## Operating The Control Plane
 

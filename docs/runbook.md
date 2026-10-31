@@ -61,6 +61,8 @@ single active path for both batches and existing singles. The
 tracks replacement coverage; no operator configuration or migration is required.
 Repeated-review tests exercise bounded candidate construction, structural result
 validation, and artifact handoff with scripted responses, not live model quality.
+The shared finding-sync storage contract covers singles and batches; its internal
+cleanup does not change scan setup, operator commands, or migration requirements.
 
 ## Documentation Website
 

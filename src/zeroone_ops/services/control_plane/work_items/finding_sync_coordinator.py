@@ -23,10 +23,10 @@ from zeroone_ops.services.control_plane.work_items.batch_finding_sync_projection
 from zeroone_ops.services.control_plane.work_items.batch_finding_sync_report import (
     BatchFindingSyncReport,
 )
-from zeroone_ops.services.control_plane.work_items.batch_finding_sync_storage import (
-    BatchFindingSyncStorage,
+from zeroone_ops.services.control_plane.work_items.finding_sync_inventory import (
     inventory_records,
 )
+from zeroone_ops.services.control_plane.work_items.finding_sync_storage import FindingSyncStorage
 from zeroone_ops.services.intake.finding_batch_ownership import build_finding_batch_ownership
 from zeroone_ops.services.intake.finding_batch_promotion_service import FindingBatchPromotionService
 from zeroone_ops.services.intake.finding_batch_reconciliation_service import (
@@ -42,7 +42,7 @@ class FindingSyncCoordinator:
 
     def __init__(
         self,
-        storage: BatchFindingSyncStorage,
+        storage: FindingSyncStorage,
         *,
         clock: Callable[[], datetime] | None = None,
         logger: logging.Logger = LOGGER,
@@ -74,7 +74,7 @@ class FindingSyncCoordinator:
         records = tuple(
             record
             for record in inventory_records(
-                self.storage.load_batch_inventory(repository_scope=repository_scope)
+                self.storage.load_inventory(repository_scope=repository_scope)
             )
             if record.work_item.source.repository_scope == repository_scope
         )

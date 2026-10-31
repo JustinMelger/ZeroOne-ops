@@ -1,6 +1,5 @@
 """Narrow normalized storage boundary for finding-sync orchestration."""
 
-from collections.abc import Sequence
 from typing import Protocol
 
 from zeroone_ops.models.finding_sync import (
@@ -8,30 +7,34 @@ from zeroone_ops.models.finding_sync import (
     FindingSyncRecord,
     FindingSyncWriteResult,
 )
-from zeroone_ops.models.work_item import WorkItemKind, WorkItemSourceRef, WorkItemState
+from zeroone_ops.models.work_item import WorkItemState
 
 
 class FindingSyncStorage(Protocol):
     """Expose only the issue operations required by finding sync."""
 
     def load_inventory(self, *, repository_scope: str) -> FindingSyncInventory:
-        """Load open work and the three narrow closed indexes once."""
+        """Load strict ownership inventory, including closed nonterminal batches."""
         ...
 
-    def find_open_work_item_by_source(
-        self, *, repository_scope: str, kind: WorkItemKind, source: WorkItemSourceRef
-    ) -> FindingSyncRecord | None:
-        """Re-read the uniquely matching open authoritative record."""
+    def read_work_item(self, *, repository_scope: str, issue_number: int) -> FindingSyncRecord:
+        """Re-read exact authority and native closure, rejecting malformed state."""
         ...
 
-    def upsert_work_item(
-        self,
-        *,
-        repository_scope: str,
-        work_item: WorkItemState,
-        dismissed_inventory: Sequence[FindingSyncRecord],
+    def rediscover_batch(
+        self, *, repository_scope: str, work_item_id: str
+    ) -> tuple[FindingSyncRecord, ...]:
+        """Find exact assigned identity in both issue states without creating work."""
+        ...
+
+    def validate_work_item_projection(self, work_item: WorkItemState) -> None:
+        """Check the full serialized issue projection before transport."""
+        ...
+
+    def create_work_item(
+        self, *, repository_scope: str, work_item: WorkItemState
     ) -> FindingSyncWriteResult:
-        """Create or reuse work, retaining the final dismissal guard."""
+        """Perform one create after shared ownership authorization, without retries."""
         ...
 
     def update_existing_work_item(

@@ -88,7 +88,7 @@ records dependencies, replacement coverage, and retained compatibility.
 
 - [x] remove superseded intake and unused scaffolding
 - [x] align continuity tests with production and remove the unused reconciler
-- [ ] simplify finding-sync storage contracts
+- [x] simplify finding-sync storage contracts
 - [ ] extract verified review-context resolution
 - [ ] extract review continuity and same-SHA repair coordination
 - [ ] simplify remediation retry/revision route coordination
@@ -99,7 +99,7 @@ records dependencies, replacement coverage, and retained compatibility.
   builds, and read-only PR/deployment permission contracts with main-only publishing
 - [x] add a read-only demo board walkthrough with a dated public snapshot and
   a linked batch work item/MR example
-- [ ] configure GitHub Pages and the `github-pages` environment, then verify
+- [x] configure GitHub Pages and the `github-pages` environment, then verify
   the live site, mobile navigation, search, and diagrams after merging
 
 ### V1 Release Readiness

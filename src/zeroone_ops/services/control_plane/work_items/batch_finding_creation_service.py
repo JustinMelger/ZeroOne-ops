@@ -1,4 +1,4 @@
-"""Authorize and publish one internal batch unit without owning run reporting."""
+"""Authorize and publish one batch unit without owning run reporting."""
 
 from collections import Counter
 from collections.abc import Sequence
@@ -24,10 +24,10 @@ from zeroone_ops.models.finding_batch_sync import (
     PreparedBatchWorkItem,
 )
 from zeroone_ops.models.work_item import WorkItemSourceRef, WorkItemState
-from zeroone_ops.services.control_plane.work_items.batch_finding_sync_storage import (
-    BatchFindingSyncStorage,
+from zeroone_ops.services.control_plane.work_items.finding_sync_inventory import (
     inventory_records,
 )
+from zeroone_ops.services.control_plane.work_items.finding_sync_storage import FindingSyncStorage
 from zeroone_ops.services.intake.finding_batch_identity import create_finding_batch_identity
 from zeroone_ops.services.intake.finding_batch_ownership import build_finding_batch_ownership
 from zeroone_ops.services.intake.finding_batch_promotion_service import FindingBatchPromotionService
@@ -40,9 +40,7 @@ _OWNERSHIP_UNAVAILABLE = "Batch creation withheld because ownership could not be
 class BatchFindingCreationService:
     """Own pre-create authorization and uncertain-write recovery, never aggregate counters."""
 
-    def __init__(
-        self, storage: BatchFindingSyncStorage, planner: FindingBatchPromotionService
-    ) -> None:
+    def __init__(self, storage: FindingSyncStorage, planner: FindingBatchPromotionService) -> None:
         """Retain normalized transport and the shared planner without performing I/O."""
         self.storage = storage
         self.planner = planner
@@ -101,7 +99,7 @@ class BatchFindingCreationService:
     ) -> FindingBatchPromotionPlan:
         """Overlay dry-run decisions only when freshly read authority still matches its original."""
         fresh = inventory_records(
-            self.storage.load_batch_inventory(repository_scope=context.repository_scope)
+            self.storage.load_inventory(repository_scope=context.repository_scope)
         )
         if not context.persist:
             by_number = {entry.original.issue_number: entry for entry in simulated}
@@ -172,7 +170,7 @@ class BatchFindingCreationService:
                 )
                 ownership = build_finding_batch_ownership(
                     records=inventory_records(
-                        self.storage.load_batch_inventory(repository_scope=context.repository_scope)
+                        self.storage.load_inventory(repository_scope=context.repository_scope)
                     ),
                     repository_scope=context.repository_scope,
                 )

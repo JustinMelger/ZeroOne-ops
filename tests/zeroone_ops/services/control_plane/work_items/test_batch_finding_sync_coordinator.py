@@ -1,4 +1,4 @@
-"""Exercise identical internal batch contracts through both real storage adapters."""
+"""Exercise identical finding-sync contracts through both real storage adapters."""
 
 from datetime import UTC, datetime
 from unittest.mock import Mock, patch
@@ -757,7 +757,7 @@ def test_provider_upsert_preserves_omitted_batch_and_honors_explicit_values(harn
 
 def test_closed_discovery_uses_status_indexes_not_general_history(harness):
     seed(harness, batch_state(status="blocked"), is_open=False)
-    harness[2].load_batch_inventory(repository_scope=SCOPE)
+    harness[2].load_inventory(repository_scope=SCOPE)
     closed = [labels for is_open, labels in harness[0].queries if not is_open]
     assert closed
     assert all(len(labels) == 2 and labels[1].startswith("zeroone-status:") for labels in closed)

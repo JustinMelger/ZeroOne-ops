@@ -18,7 +18,7 @@ class FindingSyncRecord:
 
 @dataclass(frozen=True)
 class FindingSyncInventory:
-    """Retain the four ordered inventories inspected by finding sync."""
+    """Retain indexed open, deferred, dismissed, and closed nonterminal work."""
 
     open_work_items: tuple[FindingSyncRecord, ...]
     policy_deferred_work_items: tuple[FindingSyncRecord, ...]
