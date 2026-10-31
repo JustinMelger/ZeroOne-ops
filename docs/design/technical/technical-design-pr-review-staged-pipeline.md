@@ -41,6 +41,34 @@ offline repeated-review scenarios cover both providers without external calls;
 same-SHA repair expansion remains a separate cleanup slice. See the
 [cleanup audit](technical-audit-post-v1-cleanup.md) for the coverage mapping.
 
+### Verified Remediation Context Resolution
+
+`ReviewRunner` requires an injected `RemediationReviewContextResolver`; it no
+longer constructs work-item clients to enrich context. Workflow composition
+builds the resolver with a typed lazy lookup callback and the existing review
+logger. Provider settings, clients, unique open-request lookup, and native issue
+normalization remain in the provider workflow builder. Construction itself
+performs no provider access, and each resolution repeats the existing lookup
+without caching or retrying.
+
+The frozen, non-persisted `LinkedReviewWorkItem` record carries parsed
+`WorkItemState` and the issue URL without exposing native issue objects. It lives
+in a separate model module because work-item models already import review types.
+The resolver verifies the linked request URL exactly before attaching the
+authoritative issue URL, recorded batch attempt, and accepted Change Rationale.
+Absent stored evidence clears the corresponding prior context fields on a valid
+link. Other metadata is preserved, and neither input is mutated. Historical
+work items without an assessment remain supported.
+
+Absent, ambiguous, unlinked, and URL-mismatched lookups leave context unchanged;
+PR/MR descriptions never establish authoritative routing. GitHub/GitLab client,
+settings, and HTTP failures retain the existing warning message, logger, and
+exception logging while allowing review to continue. Other exceptions propagate.
+Resolution stays after successful source/prior-review context construction on
+fresh live reviews only. Dry runs, no selection, context failure, and same-SHA
+reuse do not invoke it. Projection repair and its provider factory remain
+runner-owned until the separate continuity extraction.
+
 ### V1 Precision Investigation Status
 
 The bounded !19/!24 investigation is recorded with

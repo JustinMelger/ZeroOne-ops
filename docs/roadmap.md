@@ -89,7 +89,7 @@ records dependencies, replacement coverage, and retained compatibility.
 - [x] remove superseded intake and unused scaffolding
 - [x] align continuity tests with production and remove the unused reconciler
 - [x] simplify finding-sync storage contracts
-- [ ] extract verified review-context resolution
+- [x] extract verified review-context resolution
 - [ ] extract review continuity and same-SHA repair coordination
 - [ ] simplify remediation retry/revision route coordination
 

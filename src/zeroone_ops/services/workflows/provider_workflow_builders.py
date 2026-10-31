@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
+from zeroone_ops.models.review_linkage import LinkedReviewWorkItem
 from zeroone_ops.models.state import AppState
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_policy_client import GitLabPolicyClient
+from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 from zeroone_ops.providers.review.github import GitHubReviewClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
@@ -36,6 +39,12 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_recovery_ser
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
+)
+from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
+    GitLabWorkItemService,
+)
+from zeroone_ops.services.review.context.remediation_review_context_resolver import (
+    RemediationReviewContextResolver,
 )
 from zeroone_ops.services.shared.run_state_service import RunStateService
 from zeroone_ops.settings import (
@@ -139,3 +148,37 @@ def build_review_platform_runtime(
         load_current_change_request_number(),
         None,
     )
+
+
+def build_review_remediation_context_resolver(
+    config: AppConfig, logger: logging.Logger
+) -> RemediationReviewContextResolver:
+    """Compose provider-local read-only lookup, deferring settings and clients until resolution."""
+
+    def lookup(repository_id: str, change_request_number: int) -> LinkedReviewWorkItem | None:
+        """Normalize a unique open link while keeping construction within guarded resolution."""
+        if config.platform == "github":
+            github_result = GitHubWorkItemService(
+                GitHubWorkItemClient(load_github_connection_config())
+            ).find_open_work_item_by_change_request(
+                repository_id=repository_id, change_request_number=change_request_number
+            )
+            return (
+                None
+                if github_result is None
+                else LinkedReviewWorkItem(github_result.work_item, github_result.issue.web_url)
+            )
+        if config.platform == "gitlab":
+            gitlab_result = GitLabWorkItemService(
+                GitLabWorkItemClient(load_gitlab_connection_config())
+            ).find_open_work_item_by_change_request(
+                project_id=repository_id, change_request_number=change_request_number
+            )
+            return (
+                None
+                if gitlab_result is None
+                else LinkedReviewWorkItem(gitlab_result.work_item, gitlab_result.issue.web_url)
+            )
+        return None
+
+    return RemediationReviewContextResolver(lookup=lookup, logger=logger)

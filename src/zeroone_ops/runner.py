@@ -31,6 +31,7 @@ from zeroone_ops.services.workflows.provider_workflow_builders import (
     build_gitlab_policy_issue_service,
     build_gitlab_policy_processing_runner,
     build_review_platform_runtime,
+    build_review_remediation_context_resolver,
 )
 from zeroone_ops.services.workflows.recovery_workflow import RecoveryWorkflow
 from zeroone_ops.services.workflows.remediation_workflow import RemediationWorkflow
@@ -63,6 +64,7 @@ def review(*, dry_run: bool = False) -> RunSummary:
         build_run_id=_build_run_id,
         build_context=build_workflow_run_context,
         build_platform_runtime=build_review_platform_runtime,
+        build_remediation_context_resolver=build_review_remediation_context_resolver,
     ).run()
 
 

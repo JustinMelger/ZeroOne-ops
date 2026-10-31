@@ -11,11 +11,9 @@ import httpx
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
     ChangeRequestReviewCandidate,
-    ChangeRequestReviewContext,
     PriorReviewContext,
     PriorReviewPass,
     PublishableReviewArtifact,
-    RemediationReviewContext,
     ReviewClassification,
     ReviewComment,
     ReviewResult,
@@ -31,10 +29,8 @@ from zeroone_ops.models.state import (
     ReviewRunDiagnostics,
     RunRecord,
 )
-from zeroone_ops.models.work_item import WorkItemState
-from zeroone_ops.providers.github_client import GitHubClient, GitHubClientError
+from zeroone_ops.providers.github_client import GitHubClient
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
-from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.providers.review.platform import (
@@ -52,6 +48,9 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_service impo
 )
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
+)
+from zeroone_ops.services.review.context.remediation_review_context_resolver import (
+    RemediationReviewContextResolver,
 )
 from zeroone_ops.services.review.context.review_context_builder import (
     ReviewContextBuilder,
@@ -88,7 +87,6 @@ from zeroone_ops.services.review.publish.review_publisher import ReviewPublisher
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.settings import (
-    SettingsError,
     load_github_connection_config,
     load_gitlab_connection_config,
 )
@@ -110,6 +108,7 @@ class ReviewRunner:
         config: AppConfig,
         review_client: ChangeRequestReviewPlatformProtocol,
         review_state_service: ReviewStateService,
+        remediation_context_resolver: RemediationReviewContextResolver,
         prior_context_service: ChangeRequestPriorCommentLoader | None = None,
         prior_note_parser: ChangeRequestPriorCommentParser | None = None,
     ) -> None:
@@ -118,6 +117,7 @@ class ReviewRunner:
         self.config = config
         self.review_client = review_client
         self.review_state_service = review_state_service
+        self.remediation_context_resolver = remediation_context_resolver
         self.prior_context_service = prior_context_service
         self.prior_note_parser = prior_note_parser or ChangeRequestPriorCommentParser()
         self._resolved_bot_author_username: str | None | object = _UNRESOLVED_BOT_AUTHOR_USERNAME
@@ -227,7 +227,7 @@ class ReviewRunner:
         if prior_review_context is not None:
             context = context.model_copy(update={"prior_review_context": prior_review_context})
         if not active_dry_run:
-            context = self._with_verified_remediation_context(
+            context = self.remediation_context_resolver.resolve(
                 repository_id=repository_id,
                 context=context,
             )
@@ -507,62 +507,6 @@ class ReviewRunner:
                 ),
             )
         return None
-
-    def _with_verified_remediation_context(
-        self,
-        *,
-        repository_id: str,
-        context: ChangeRequestReviewContext,
-    ) -> ChangeRequestReviewContext:
-        """Attach persisted remediation evidence only through a verified work-item link."""
-        try:
-            work_item: WorkItemState | None
-            work_item_url: str | None = None
-            if self.config.platform == "github":
-                github_result = GitHubWorkItemService(
-                    GitHubWorkItemClient(load_github_connection_config())
-                ).find_open_work_item_by_change_request(
-                    repository_id=repository_id,
-                    change_request_number=context.change_request_number,
-                )
-                work_item = None if github_result is None else github_result.work_item
-                work_item_url = None if github_result is None else github_result.issue.web_url
-            elif self.config.platform == "gitlab":
-                gitlab_result = GitLabWorkItemService(
-                    GitLabWorkItemClient(load_gitlab_connection_config())
-                ).find_open_work_item_by_change_request(
-                    project_id=repository_id,
-                    change_request_number=context.change_request_number,
-                )
-                work_item = None if gitlab_result is None else gitlab_result.work_item
-                work_item_url = None if gitlab_result is None else gitlab_result.issue.web_url
-            else:
-                return context
-        except (GitHubClientError, GitLabClientError, SettingsError, httpx.HTTPError):
-            LOGGER.warning("review work-item context lookup failed", exc_info=True)
-            return context
-        if (
-            work_item is None
-            or work_item.linked_change_request is None
-            or work_item.linked_change_request.web_url != context.web_url
-        ):
-            return context
-        remediation_context = context.remediation_context or RemediationReviewContext()
-        return context.model_copy(
-            update={
-                "remediation_context": remediation_context.model_copy(
-                    update={
-                        "verified_work_item_url": work_item_url,
-                        "batch_attempt": work_item.batch_attempt,
-                        "semantic_safety": (
-                            None
-                            if work_item.semantic_safety is None
-                            else work_item.semantic_safety.assessment
-                        ),
-                    }
-                )
-            }
-        )
 
     def _retry_same_sha_projection_if_needed(
         self,

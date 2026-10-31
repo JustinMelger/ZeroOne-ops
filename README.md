@@ -104,6 +104,8 @@ Continuity tests use the live packet/analysis path with scripted model decisions
 not a second deterministic matching implementation.
 Finding sync uses one storage contract for singles and batches, with provider
 transport and native snapshots kept local.
+Verified review-context enrichment uses an injected read-only resolver; provider
+lookup stays lazy and requires persisted work-item linkage.
 
 ## Operating The Control Plane
 

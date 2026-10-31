@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import Protocol
 
@@ -13,6 +14,10 @@ from zeroone_ops.services.observability.workflow_trace_service import (
     workflow_execution_url,
     workflow_model,
 )
+from zeroone_ops.services.review.context.remediation_review_context_resolver import (
+    RemediationReviewContextResolver,
+)
+from zeroone_ops.services.review.pipeline.review_runner import LOGGER as REVIEW_LOGGER
 from zeroone_ops.services.review.pipeline.review_runner import ReviewRunner
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
@@ -53,6 +58,9 @@ class ReviewWorkflow:
         build_run_id: Callable[[], str],
         build_context: WorkflowRunContextBuilder,
         build_platform_runtime: ReviewPlatformRuntimeBuilder,
+        build_remediation_context_resolver: Callable[
+            [AppConfig, logging.Logger], RemediationReviewContextResolver
+        ],
     ) -> None:
         """Initialize review composition without loading provider settings."""
         self.config = config
@@ -60,6 +68,7 @@ class ReviewWorkflow:
         self.build_run_id = build_run_id
         self.build_context = build_context
         self.build_platform_runtime = build_platform_runtime
+        self.build_remediation_context_resolver = build_remediation_context_resolver
 
     def run(self) -> RunSummary:
         """Run the staged review pipeline with provider-local event context."""
@@ -85,6 +94,9 @@ class ReviewWorkflow:
             config=self.config,
             review_client=review_client,
             review_state_service=review_state_service,
+            remediation_context_resolver=self.build_remediation_context_resolver(
+                self.config, REVIEW_LOGGER
+            ),
         )
         if context.active_dry_run:
             return runner.run(
