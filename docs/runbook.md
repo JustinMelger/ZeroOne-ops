@@ -55,6 +55,11 @@ construction and schema selection run, but SDK response parsing is not tested.
 See the [scenario guide](https://github.com/JustinMelger/ZeroOne-ops/blob/main/tests/zeroone_ops/integration/scenarios/README.md)
 for isolation and coverage boundaries.
 
+Post-v1 maintenance keeps the shared batch-aware planner and reconciler as the
+single active path for both batches and existing singles. The
+[cleanup audit](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-audit-post-v1-cleanup.md)
+tracks replacement coverage; no operator configuration or migration is required.
+
 ## Documentation Website
 
 The operator site is published at

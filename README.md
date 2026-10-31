@@ -97,6 +97,10 @@ are scripted; shared services and local execution remain real. See the
 The GitLab test app remains a separate live evaluation environment for model
 quality and release-candidate acceptance; offline checks do not replace it.
 
+The [post-v1 cleanup audit](docs/design/technical/technical-audit-post-v1-cleanup.md)
+tracks behavior-preserving maintenance and the active tests that replace
+superseded implementations; it does not introduce another workflow.
+
 ## Operating The Control Plane
 
 CI owns the ZeroOne Ops commands. Operators use provider-native records and

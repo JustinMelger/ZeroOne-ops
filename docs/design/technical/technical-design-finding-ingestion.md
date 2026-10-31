@@ -1,5 +1,15 @@
 # ZeroOne Ops Finding Ingestion Technical Design
 
+## Current Promotion And Reconciliation Ownership
+
+`FindingBatchPromotionService` is the active shared planner for both new batches
+and existing single-finding work. `FindingBatchReconciliationService` owns shared
+observation, absence, policy, and capacity decisions. The superseded single-only
+capacity and reconciliation services have been removed; there is no alternate
+promotion path. `DEFAULT_SOURCE_PRIORITY` lives in the neutral policy model and
+remains `100`. See the [cleanup audit](technical-audit-post-v1-cleanup.md) for
+replacement coverage and intentionally retained boundaries.
+
 ## Dismissal-Aware Capacity
 
 Issue-mode sync loads indexed closed dismissals once, alongside open and deferred

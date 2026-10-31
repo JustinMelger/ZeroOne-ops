@@ -44,6 +44,9 @@ then follow the relevant current contract.
 
 ## Retirement Audits
 
+- [Post-v1 code cleanup audit](technical/technical-audit-post-v1-cleanup.md)
+  records unused paths, replacement coverage, retained compatibility, and ordered
+  behavior-preserving follow-ups. Implementation status lives in the roadmap.
 - [Legacy dashboard dependency and retirement audit](technical/technical-audit-legacy-dashboard-retirement.md)
   records shared dependencies, release-window evidence, and removal prerequisites.
   Runtime retirement is implemented for v1; see the [migration guide](../migration-v1.md).

@@ -35,7 +35,7 @@ from zeroone_ops.services.control_plane.work_items.remediation_intake_coordinato
     RemediationIntakeCoordinator,
 )
 from zeroone_ops.services.control_plane.work_items.remediation_work_item_selection_service import (
-    is_internal_remediation_execution_eligible,
+    is_remediation_execution_eligible,
 )
 from zeroone_ops.services.remediation.change_request_publisher import PublishedChangeRequest
 from zeroone_ops.services.remediation.control_plane import (
@@ -169,7 +169,7 @@ def setup_execution(harness, tmp_path, monkeypatch, *, validation_commands=None)
 
         outcome = RemediationIntakeCoordinator(
             clock=lambda: NOW,
-            eligibility=is_internal_remediation_execution_eligible,
+            eligibility=is_remediation_execution_eligible,
             batch_policy=policy(),
         ).select_and_claim(records=normalized, persist_work_item=persist, **kwargs)
         return SimpleNamespace(
@@ -735,7 +735,7 @@ def test_internal_batch_dry_run_never_claims_or_writes(harness):
     clock = Mock(side_effect=AssertionError("clock read"))
     persist = Mock(side_effect=AssertionError("write attempted"))
     result = RemediationIntakeCoordinator(
-        clock=clock, eligibility=is_internal_remediation_execution_eligible, batch_policy=policy()
+        clock=clock, eligibility=is_remediation_execution_eligible, batch_policy=policy()
     ).select_and_claim(
         records=[RemediationIntakeRecord(state, 1, "https://example/issues/1")],
         persist_work_item=persist,

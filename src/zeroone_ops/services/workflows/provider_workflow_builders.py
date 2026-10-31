@@ -9,7 +9,6 @@ from zeroone_ops.models.state import AppState
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_policy_client import GitLabPolicyClient
-from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
 from zeroone_ops.providers.review.github import GitHubReviewClient
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
 from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
@@ -25,9 +24,6 @@ from zeroone_ops.services.control_plane.policy.github_policy_processing_runner i
 from zeroone_ops.services.control_plane.policy.gitlab_policy_issue_service import (
     GitLabPolicyIssueService,
 )
-from zeroone_ops.services.control_plane.policy.gitlab_policy_note_authorization_service import (
-    GitLabPolicyNoteAuthorizationService,
-)
 from zeroone_ops.services.control_plane.policy.gitlab_policy_processing_runner import (
     GitLabPolicyProcessingRunner,
 )
@@ -40,12 +36,6 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_recovery_ser
 )
 from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
     GitHubWorkItemService,
-)
-from zeroone_ops.services.control_plane.work_items.gitlab_work_item_recovery_service import (
-    GitLabWorkItemRecoveryService,
-)
-from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
-    GitLabWorkItemService,
 )
 from zeroone_ops.services.shared.run_state_service import RunStateService
 from zeroone_ops.settings import (
@@ -121,16 +111,6 @@ def build_github_work_item_recovery_runner(
             run_state_service=run_state_service,
         ),
         work_item_service,
-    )
-
-
-def build_gitlab_work_item_recovery_service() -> GitLabWorkItemRecoveryService:
-    """Build GitLab recovery support only for GitLab issue-mode recovery."""
-    work_item_client = GitLabWorkItemClient(load_gitlab_connection_config())
-    return GitLabWorkItemRecoveryService(
-        note_client=work_item_client,
-        note_authorization_service=GitLabPolicyNoteAuthorizationService(work_item_client),
-        work_item_service=GitLabWorkItemService(work_item_client),
     )
 
 

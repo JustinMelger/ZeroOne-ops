@@ -6,8 +6,8 @@ from zeroone_ops.models.config import SonarQubeConnectionConfig
 from zeroone_ops.models.policy import PolicySeverityStateEntry, PolicyState
 from zeroone_ops.models.sonar import SonarIssue
 from zeroone_ops.providers.sonar_client import SonarClient
-from zeroone_ops.services.intake.finding_promotion_capacity_service import (
-    FindingPromotionCapacityService,
+from zeroone_ops.services.intake.finding_batch_promotion_service import (
+    FindingBatchPromotionService,
 )
 from zeroone_ops.services.intake.sonar_finding_source import (
     SonarFindingSource,
@@ -126,15 +126,19 @@ def test_promotion_can_select_an_eligible_finding_beyond_page_one() -> None:
         ),
     )
     collection = SonarFindingSource(client).collect_open_findings().collection
-    plan = FindingPromotionCapacityService().plan(
+    plan = FindingBatchPromotionService().plan(
         findings=collection.findings,
         policy_state=PolicyState(
             severity_policy=[PolicySeverityStateEntry(severity="high", enabled=True)]
         ),
-        open_work_items=[],
+        records=[],
         repository_scope="org/repo",
         max_active_work_items=1,
     )
     assert collection.metadata.managed_source_ids == ["sonarqube"]
-    assert plan.decision_for(collection.findings[0]).reason == "severity_disabled"
-    assert plan.decision_for(collection.findings[1]).disposition == "promote"
+    assert {decision.identity[2]: decision.reason for decision in plan.decisions} == {
+        "1": "severity_disabled",
+        "2": "selected",
+    }
+    assert len(plan.selected_new) == 1
+    assert plan.selected_new[0].members == (collection.findings[1],)

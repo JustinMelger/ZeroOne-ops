@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import AliasChoices, BaseModel, Field
 
 PolicySeverity = Literal["low", "medium", "high"]
+DEFAULT_SOURCE_PRIORITY = 100
 
 
 class PolicySeverityEntry(BaseModel):

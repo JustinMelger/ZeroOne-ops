@@ -1,4 +1,4 @@
-"""Plan future batch promotion without wiring it into live finding sync."""
+"""Plan promotion of normalized findings and existing work without side effects."""
 
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
@@ -15,7 +15,7 @@ from zeroone_ops.models.finding_batch_promotion import (
     FindingBatchPromotionUnit,
 )
 from zeroone_ops.models.finding_sync import FindingSyncRecord
-from zeroone_ops.models.policy import PolicyState
+from zeroone_ops.models.policy import DEFAULT_SOURCE_PRIORITY, PolicyState
 from zeroone_ops.models.remediation import (
     is_remediation_eligible_category,
     normalize_remediation_category,
@@ -28,7 +28,6 @@ from zeroone_ops.services.intake.finding_batch_ownership import (
     retains_finding_batch_ownership,
     work_item_batch_group,
 )
-from zeroone_ops.services.intake.finding_promotion_capacity_service import DEFAULT_SOURCE_PRIORITY
 from zeroone_ops.services.intake.finding_workflow_policy_service import FindingWorkflowPolicyService
 
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}

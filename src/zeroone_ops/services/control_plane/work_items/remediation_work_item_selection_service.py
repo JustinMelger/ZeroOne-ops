@@ -12,11 +12,6 @@ _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 def is_remediation_execution_eligible(work_item: WorkItemState) -> bool:
     """Return whether one open work item is eligible for execution selection."""
-    return is_internal_remediation_execution_eligible(work_item)
-
-
-def is_internal_remediation_execution_eligible(work_item: WorkItemState) -> bool:
-    """Apply common intake safety checks for internal single and batch execution."""
     if work_item.kind != "remediation" or work_item.status not in {
         "approved",
         "review_revision_queued",
