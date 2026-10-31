@@ -1,5 +1,12 @@
 # ZeroOne Ops Docs
 
+Start with the [operator documentation website](https://justinmelger.github.io/ZeroOne-ops/)
+or its [Markdown home](index.md). The site follows `main`; use a release's Git tag
+for version-specific documentation. This index remains the repository map,
+including designs that are intentionally excluded from the operator site.
+See [Documentation Website](runbook.md#documentation-website) for contribution
+and deployment instructions.
+
 This folder is organized around two needs:
 
 - current operator and project reference docs

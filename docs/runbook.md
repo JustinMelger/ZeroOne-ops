@@ -52,8 +52,62 @@ the GitLab test app for authorized real-model/live-provider RC checks. Same-SHA
 reuse, projection-repair chains, operator requeue, and lifecycle remain outside
 this initial scenario suite. Review SDK responses are typed scripts: prompt
 construction and schema selection run, but SDK response parsing is not tested.
-See the [scenario guide](../tests/zeroone_ops/integration/scenarios/README.md)
+See the [scenario guide](https://github.com/JustinMelger/ZeroOne-ops/blob/main/tests/zeroone_ops/integration/scenarios/README.md)
 for isolation and coverage boundaries.
+
+## Documentation Website
+
+The operator site is published at
+[justinmelger.github.io/ZeroOne-ops](https://justinmelger.github.io/ZeroOne-ops/).
+It follows `main`, not a particular release. For release-specific instructions
+and templates, browse the matching
+[Git tag](https://github.com/JustinMelger/ZeroOne-ops/tags).
+The runbook remains the canonical procedural reference; entry pages link to its
+sections without duplicating detailed procedures.
+
+### Contributing Documentation
+
+Use Python 3.13 and uv. Documentation dependencies live in the `docs` group,
+which is also included by `dev` so a normal `uv sync --locked` can run the full
+test suite. They are not application runtime dependencies. For docs-only work:
+
+```bash
+uv sync --locked --only-group docs
+just docs-serve
+just docs-build
+```
+
+The preview server is local. Stop it before running a separate clean build.
+`just docs-build` performs a clean, strict Zensical build: broken local links
+and missing anchors fail the build. Output goes to ignored `site/`; builder
+cache goes to ignored `.cache/`. A docs-only sync replaces the current virtual
+environment's packages; use `uv sync --locked --all-groups` before returning to
+application development.
+
+Maintain the explicit, root-anchored public-page allowlist and navigation in
+[`zensical.toml`](https://github.com/JustinMelger/ZeroOne-ops/blob/main/zensical.toml)
+when adding a page. Design history, `docs/internal/`, and the repository-only
+index are excluded from both output and search. Use local Markdown links for
+published pages and GitHub links for source, templates, tests, or excluded designs.
+Do not add credentials, live trace exports, or private operational notes to public pages.
+
+### GitHub Pages Setup
+
+A repository administrator must select **Settings > Pages > Build and deployment
+> Source: GitHub Actions**, then restrict the `github-pages` environment's
+deployment branches to `main`. No personal access token or application secret
+is needed for documentation publishing.
+
+The Documentation workflow builds pull requests without deployment privileges.
+Successful `main` pushes and manual runs on `main` upload only `site/` and deploy
+through the official Pages artifact actions. Other branches cannot deploy.
+No generated HTML or `gh-pages` branch is committed. Do not enable
+`pull_request_target` or add model/provider credentials to this workflow.
+
+Automated build acceptance and live publishing acceptance are separate. After
+merging, verify the deployment URL, mobile navigation, search, code blocks, and
+the review diagram; record that acceptance in the roadmap. Local builds do not
+confirm repository Pages settings or a successful live deployment.
 
 ## Purpose
 
@@ -574,7 +628,7 @@ its validation result.
 ## Recommended GitLab CI Setup
 
 Use the supported GitLab CI installation template from
-[examples/.gitlab-ci.example.yml](../examples/.gitlab-ci.example.yml). Its
+[examples/.gitlab-ci.example.yml](https://github.com/JustinMelger/ZeroOne-ops/blob/main/examples/.gitlab-ci.example.yml). Its
 pinned `ZERO_ONE_OPS_VERSION` default is the template compatibility version;
 update it intentionally when upgrading to a later released version. This is an
 include template: the root `.gitlab-ci.yml` must define `zeroone-ops-fix`
@@ -983,13 +1037,13 @@ new repository.
 Make sure the target repository has:
 
 - a valid `.gitlab-ci.yml` based on
-  [examples/.gitlab-ci.example.yml](../examples/.gitlab-ci.example.yml)
+  [examples/.gitlab-ci.example.yml](https://github.com/JustinMelger/ZeroOne-ops/blob/main/examples/.gitlab-ci.example.yml)
 - the published bot image reference pinned to a current release, such as
   `ghcr.io/<owner>/zeroone-ops:0.54.0`; use an immutable digest when the
   repository requires stricter supply-chain pinning
 - a repository-specific `.zeroone-ops.json`, often copied from either:
-  - [examples/.zeroone-ops.minimal.json](../examples/.zeroone-ops.minimal.json)
-  - [examples/.zeroone-ops.json](../examples/.zeroone-ops.json)
+  - [examples/.zeroone-ops.minimal.json](https://github.com/JustinMelger/ZeroOne-ops/blob/main/examples/.zeroone-ops.minimal.json)
+  - [examples/.zeroone-ops.json](https://github.com/JustinMelger/ZeroOne-ops/blob/main/examples/.zeroone-ops.json)
 - required CI variables set
 - at least one open SonarQube issue that is:
   - low severity in the maintainability model
@@ -1140,7 +1194,7 @@ Minimal valid example:
 
 Fuller example:
 
-- [examples/.zeroone-ops.json](../examples/.zeroone-ops.json)
+- [examples/.zeroone-ops.json](https://github.com/JustinMelger/ZeroOne-ops/blob/main/examples/.zeroone-ops.json)
 
 Optional remediation change-request ownership:
 
@@ -1289,7 +1343,7 @@ Do not move to unattended review runs yet if you see:
 
 For GitHub review smoke tests, start from:
 
-- [examples/github-review.yml](../examples/github-review.yml)
+- [examples/github-review.yml](https://github.com/JustinMelger/ZeroOne-ops/blob/main/examples/github-review.yml)
 
 The example is intentionally scoped to review only:
 
@@ -1305,7 +1359,7 @@ Current config note:
 
 ## GitHub Control-Plane Setup
 
-Use [examples/github-operations.yml](../examples/github-operations.yml) as
+Use [examples/github-operations.yml](https://github.com/JustinMelger/ZeroOne-ops/blob/main/examples/github-operations.yml) as
 one installed control-plane workflow. It schedules finding sync, remediation,
 and lifecycle convergence; processes policy comments only on the policy issue;
 and processes recovery comments only on work-item issues.
@@ -1323,7 +1377,7 @@ Required workflow permissions:
 ## Pre-Release Checklist
 
 Promotion-time file/rule batching is a
-[proposed functional design](design/functional/functional-design-remediation-batching.md),
+[proposed functional design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/functional/functional-design-remediation-batching.md),
 not an available feature or an additional release gate. Current work items
 remain single-finding; do not configure the proposed ten-member default.
 The proposal creates new batches only and never migrates existing issues.

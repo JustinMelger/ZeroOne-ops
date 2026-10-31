@@ -23,6 +23,12 @@ test:
 test-scenarios:
     uv run --no-sync pytest tests/zeroone_ops/integration/scenarios --no-cov
 
+docs-serve:
+    uv run --locked --only-group docs zensical serve
+
+docs-build:
+    uv run --locked --only-group docs zensical build --clean --strict
+
 check:
     just lint
     just architecture

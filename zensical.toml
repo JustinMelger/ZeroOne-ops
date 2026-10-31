@@ -1,0 +1,56 @@
+[project]
+site_name = "ZeroOne Ops"
+site_description = "Governed review and remediation workflows for GitHub and GitLab."
+site_url = "https://justinmelger.github.io/ZeroOne-ops/"
+repo_url = "https://github.com/JustinMelger/ZeroOne-ops"
+repo_name = "JustinMelger/ZeroOne-ops"
+edit_uri = "edit/main/docs/"
+docs_dir = "docs"
+site_dir = "site"
+exclude_docs = """
+*
+!/index.md
+!/getting-started.md
+!/configuration.md
+!/workflows.md
+!/troubleshooting.md
+!/migration-v1.md
+!/runbook.md
+!/roadmap.md
+!/engineering-standards.md
+!/review-flow-mermaid.md
+!/review-bot-judgment-strategy.md
+"""
+nav = [
+  { Home = "index.md" },
+  { "Getting Started" = "getting-started.md" },
+  { Configuration = "configuration.md" },
+  { Workflows = "workflows.md" },
+  { Troubleshooting = "troubleshooting.md" },
+  { Migration = "migration-v1.md" },
+  { Reference = [
+    { "Operator Runbook" = "runbook.md" },
+    { "Review Flow" = "review-flow-mermaid.md" },
+    { "Review Judgment" = "review-bot-judgment-strategy.md" },
+    { Roadmap = "roadmap.md" },
+    { "Engineering Standards" = "engineering-standards.md" },
+    { "Design Library (GitHub)" = "https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/README.md" },
+  ] },
+]
+
+[project.theme]
+variant = "modern"
+language = "en"
+features = ["navigation.footer", "content.code.copy"]
+
+[project.markdown_extensions]
+tables = {}
+toc = { permalink = true }
+pymdownx.highlight = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+
+[project.validation]
+invalid_links = true
+invalid_link_anchors = true
