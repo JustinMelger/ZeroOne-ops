@@ -215,6 +215,51 @@ def test_source_priority_precedes_severity_and_other_groups_compete():
     assert len(_plan(findings).selected_new) == 3
 
 
+@pytest.mark.parametrize(
+    "priorities",
+    [
+        {},
+        {"ruff-sarif": 100},
+        {"ruff-sarif": 50, "future-sarif": 50},
+    ],
+)
+def test_equal_or_default_source_priorities_rank_singletons_by_severity(priorities):
+    medium = _finding("medium", rule=None)
+    high = _finding("high", severity="high", source="future-sarif", rule=None)
+    plan = _plan([medium, high], max_active_work_items=1, source_priorities=priorities)
+
+    assert plan.selected_new[0].members == (high,)
+    assert _reasons(plan) == {"high": "selected", "medium": "promotion_capacity_exhausted"}
+
+
+def test_singletons_use_remaining_capacity_and_stable_identity_order():
+    findings = [
+        _finding("b", severity="high", rule=None),
+        _finding("a", severity="high", rule=None),
+    ]
+    active = _single(finding=_finding("active", path="src/active.py"), status="approved")
+    plan = _plan(findings, [active], max_active_work_items=2)
+
+    assert plan.active_work_item_count == 1
+    assert plan.selected_new[0].members == (findings[1],)
+    assert _reasons(plan) == {"a": "selected", "b": "promotion_capacity_exhausted"}
+
+
+def test_lowered_capacity_preserves_existing_active_singles():
+    records = [
+        _single(1, finding=_finding("a", path="src/a.py"), status="approved"),
+        _single(2, finding=_finding("b", path="src/b.py"), status="in_progress"),
+    ]
+    before = [record.work_item.model_dump_json() for record in records]
+    plan = _plan([_finding("new", rule=None)], records, max_active_work_items=1)
+
+    assert plan.active_work_item_count == 2
+    assert not plan.selected_new
+    assert not plan.selected_existing
+    assert _reasons(plan)["new"] == "promotion_capacity_exhausted"
+    assert [record.work_item.model_dump_json() for record in records] == before
+
+
 def test_ties_use_group_and_member_identity_and_highest_member_severity():
     findings = [
         _finding("b", severity="low"),

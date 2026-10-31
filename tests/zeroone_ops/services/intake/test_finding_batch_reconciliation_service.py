@@ -4,6 +4,8 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from unittest.mock import patch
 
+import pytest
+
 from zeroone_ops.models.finding import NormalizedFinding, RemediationContext
 from zeroone_ops.models.finding_batch import WorkItemBatch
 from zeroone_ops.models.finding_batch_sync import BatchSyncContext
@@ -153,3 +155,112 @@ def test_pure_reconciliation_preserves_protected_work():
     assert outcome.work_item.status == "blocked"
     assert outcome.work_item.attempt_number == 2
     assert outcome.work_item.batch.observations[0].last_confirmed_presence == "absent"
+
+
+def _single_record(status, *, linked=False):
+    finding = _finding(severity="high")
+    state = WorkItemState(
+        work_item_id="single-a",
+        kind="remediation",
+        status=status,
+        source=WorkItemSourceRef(
+            source=finding.source_id, source_item_key=finding.finding_id, repository_scope=SCOPE
+        ),
+        summary=finding.title,
+        file_path=finding.repository_path,
+        severity=finding.severity,
+        remediation_context=finding.remediation_context,
+        linked_change_request=(
+            {"number": 2, "web_url": "https://example/changes/2"} if linked else None
+        ),
+    )
+    return FindingSyncRecord(
+        state,
+        1,
+        "https://example/issues/1",
+        status not in {"policy_deferred", "capacity_deferred", "dismissed"},
+    )
+
+
+@pytest.mark.parametrize(
+    "status", ["candidate", "approved", "policy_deferred", "capacity_deferred"]
+)
+@pytest.mark.parametrize("managed", [False, True])
+def test_single_absence_requires_complete_inventory_before_policy_evaluation(status, managed):
+    original = _single_record(status)
+    before = original.work_item.model_dump_json()
+    outcome = FindingBatchReconciliationService().prepare(
+        original,
+        {},
+        {"ruff-sarif"} if managed else set(),
+        context(policy_state=_policy("medium")),
+        frozenset(),
+    )
+
+    assert outcome.work_item.status == ("completed" if managed else status)
+    assert outcome.work_item.resolution == ("no_longer_detected" if managed else None)
+    assert outcome.work_item.policy_deferral is None
+    assert outcome.work_item.capacity_deferral is None
+    assert original.work_item.model_dump_json() == before
+
+
+@pytest.mark.parametrize(
+    "status, linked",
+    [
+        ("in_progress", False),
+        ("blocked", False),
+        ("dismissed", False),
+        ("review_feedback_required", True),
+        ("review_revision_queued", True),
+        ("approved", True),
+    ],
+)
+@pytest.mark.parametrize("present", [False, True])
+def test_single_protected_state_survives_absence_or_disabled_policy(status, linked, present):
+    original = _single_record(status, linked=linked)
+    finding = _finding(severity="high")
+    outcome = FindingBatchReconciliationService().prepare(
+        original,
+        {(finding.source_id, finding.finding_id): finding} if present else {},
+        {finding.source_id},
+        context(policy_state=_policy("medium")),
+        frozenset(),
+    )
+
+    assert not outcome.reconcilable
+    assert outcome.work_item == original.work_item
+
+
+@pytest.mark.parametrize(
+    "status", ["candidate", "approved", "policy_deferred", "capacity_deferred"]
+)
+@pytest.mark.parametrize("eligible", [False, True])
+@pytest.mark.parametrize("selected", [False, True])
+def test_single_policy_and_capacity_transitions_preserve_approved_eligible_work(
+    status, eligible, selected
+):
+    original = _single_record(status)
+    before = original.work_item.model_dump_json()
+    finding = _finding(severity="high")
+    run = context(policy_state=_policy("high" if eligible else "medium"))
+    service = FindingBatchReconciliationService()
+    prepared = service.prepare(
+        original,
+        {(finding.source_id, finding.finding_id): finding},
+        {finding.source_id},
+        run,
+        frozenset(),
+    )
+    outcome = service.capacity_state(prepared, selected, run)
+
+    expected = (
+        "policy_deferred"
+        if not eligible
+        else "approved"
+        if selected or status == "approved"
+        else "capacity_deferred"
+    )
+    assert outcome.status == expected
+    assert (outcome.policy_deferral is not None) == (expected == "policy_deferred")
+    assert (outcome.capacity_deferral is not None) == (expected == "capacity_deferred")
+    assert original.work_item.model_dump_json() == before

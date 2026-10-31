@@ -11,7 +11,7 @@ from zeroone_ops.services.control_plane.work_items.remediation_intake_coordinato
     RemediationIntakeCoordinator,
 )
 from zeroone_ops.services.control_plane.work_items.remediation_work_item_selection_service import (
-    is_internal_remediation_execution_eligible,
+    is_remediation_execution_eligible,
 )
 from zeroone_ops.services.control_plane.work_items.work_item_state_merge import (
     merge_authoritative_work_item_state,
@@ -65,7 +65,7 @@ def test_reopened_duplicate_batches_are_withheld_without_claim_or_clock(
 
     result = RemediationIntakeCoordinator(
         clock=clock,
-        eligibility=is_internal_remediation_execution_eligible,
+        eligibility=is_remediation_execution_eligible,
         batch_policy=policy(),
     ).select_and_claim(records=records, persist_work_item=write, persist=persist)
 
@@ -89,7 +89,7 @@ def test_ambiguous_group_does_not_prevent_unrelated_batch_selection(harness):
     ]
     result = RemediationIntakeCoordinator(
         clock=Mock(),
-        eligibility=is_internal_remediation_execution_eligible,
+        eligibility=is_remediation_execution_eligible,
         batch_policy=policy(),
     ).select_and_claim(records=records, persist_work_item=Mock(), persist=False)
 

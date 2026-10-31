@@ -80,6 +80,19 @@ accuracy; both 18-call evaluation budgets are exhausted.
 
 ## Current Focus
 
+### Post-V1 Code Cleanup
+
+Behavior-preserving slices are reviewed and merged separately; the
+[cleanup audit](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-audit-post-v1-cleanup.md)
+records dependencies, replacement coverage, and retained compatibility.
+
+- [x] remove superseded intake and unused scaffolding
+- [ ] align continuity tests with production and remove the unused reconciler
+- [ ] simplify finding-sync storage contracts
+- [ ] extract verified review-context resolution
+- [ ] extract review continuity and same-SHA repair coordination
+- [ ] simplify remediation retry/revision route coordination
+
 ### Operator Documentation Website
 
 - [x] implement and locally verify the operator-first Zensical site, strict
