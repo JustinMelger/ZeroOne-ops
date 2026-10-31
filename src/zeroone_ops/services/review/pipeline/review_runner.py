@@ -3,23 +3,14 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import cast
-
-import httpx
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
-    ChangeRequestReviewCandidate,
-    PriorReviewContext,
-    PriorReviewPass,
-    PublishableReviewArtifact,
-    ReviewClassification,
-    ReviewComment,
     ReviewResult,
 )
 from zeroone_ops.models.state import (
-    ChangeRequestReviewState,
     FailureDetails,
     FailureStage,
     ReviewDiagnosticCandidate,
@@ -29,41 +20,21 @@ from zeroone_ops.models.state import (
     ReviewRunDiagnostics,
     RunRecord,
 )
-from zeroone_ops.providers.github_client import GitHubClient
-from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
-from zeroone_ops.providers.gitlab_work_item_client import GitLabWorkItemClient
-from zeroone_ops.providers.review.gitlab import GitLabReviewClient
-from zeroone_ops.providers.review.platform import (
-    ChangeRequestReviewPlatformProtocol,
-    ReviewPlatformClientError,
-)
-from zeroone_ops.services.control_plane.review_projection.github_review_projection_service import (
-    GitHubReviewProjectionService,
-)
-from zeroone_ops.services.control_plane.review_projection.gitlab_review_projection_service import (
-    GitLabReviewProjectionService,
-)
-from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
-    GitHubWorkItemService,
-)
-from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
-    GitLabWorkItemService,
-)
+from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
 from zeroone_ops.services.review.context.remediation_review_context_resolver import (
     RemediationReviewContextResolver,
 )
 from zeroone_ops.services.review.context.review_context_builder import (
     ReviewContextBuilder,
 )
+from zeroone_ops.services.review.continuity.review_continuity_context_service import (
+    ReviewContinuityContextService,
+)
 from zeroone_ops.services.review.continuity.review_inline_comment_continuity_service import (
     ReviewInlineCommentContinuityService,
 )
-from zeroone_ops.services.review.continuity.review_prior_comment_loader import (
-    ChangeRequestPriorCommentLoader,
-    extract_machine_safe_review_note_payload,
-)
-from zeroone_ops.services.review.continuity.review_prior_comment_parser import (
-    ChangeRequestPriorCommentParser,
+from zeroone_ops.services.review.continuity.review_projection_repair_service import (
+    ReviewProjectionRepairService,
 )
 from zeroone_ops.services.review.intake.change_request_intake import ChangeRequestIntakeService
 from zeroone_ops.services.review.pipeline.review_artifact_builder import (
@@ -82,20 +53,13 @@ from zeroone_ops.services.review.pipeline.review_reconciliation_service import (
 )
 from zeroone_ops.services.review.publish.review_finalization_service import (
     ReviewFinalizationService,
+    ReviewProjectionService,
 )
 from zeroone_ops.services.review.publish.review_publisher import ReviewPublisher
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
-from zeroone_ops.settings import (
-    load_github_connection_config,
-    load_gitlab_connection_config,
-)
 
 LOGGER = logging.getLogger(__name__)
-_UNRESOLVED_BOT_AUTHOR_USERNAME = object()
-_AUTHORITATIVE_REVIEW_CLASSIFICATIONS = frozenset(
-    {"no_findings", "findings_present", "manual_review_only"}
-)
 
 
 class ReviewRunner:
@@ -109,8 +73,9 @@ class ReviewRunner:
         review_client: ChangeRequestReviewPlatformProtocol,
         review_state_service: ReviewStateService,
         remediation_context_resolver: RemediationReviewContextResolver,
-        prior_context_service: ChangeRequestPriorCommentLoader | None = None,
-        prior_note_parser: ChangeRequestPriorCommentParser | None = None,
+        continuity_context_service: ReviewContinuityContextService,
+        projection_repair_service: ReviewProjectionRepairService,
+        review_projection_factory: Callable[[], ReviewProjectionService | None],
     ) -> None:
         """Initialize the review workflow runner."""
         self.repo_root = repo_root
@@ -118,9 +83,9 @@ class ReviewRunner:
         self.review_client = review_client
         self.review_state_service = review_state_service
         self.remediation_context_resolver = remediation_context_resolver
-        self.prior_context_service = prior_context_service
-        self.prior_note_parser = prior_note_parser or ChangeRequestPriorCommentParser()
-        self._resolved_bot_author_username: str | None | object = _UNRESOLVED_BOT_AUTHOR_USERNAME
+        self.continuity_context_service = continuity_context_service
+        self.projection_repair_service = projection_repair_service
+        self.review_projection_factory = review_projection_factory
 
     def run(
         self,
@@ -155,7 +120,7 @@ class ReviewRunner:
                 message=f"[{self.config.execution_mode}] {intake_result.message}",
             )
 
-        existing_review = self._load_same_sha_review_reference(
+        existing_review = self.continuity_context_service.load_same_sha_review_reference(
             run_id=run_id,
             repository_id=repository_id,
             change_request=selected_change_request,
@@ -164,7 +129,7 @@ class ReviewRunner:
             same_sha_state = self.review_state_service.state.reviews.get(
                 f"{selected_change_request.change_request_number}:{selected_change_request.head_sha}"
             )
-            projection_retry_message = self._retry_same_sha_projection_if_needed(
+            projection_retry_message = self.projection_repair_service.retry_if_needed(
                 run_id=run_id,
                 repository_id=repository_id,
                 change_request=selected_change_request,
@@ -218,7 +183,7 @@ class ReviewRunner:
                 ),
             )
         context = context_result.context
-        prior_review_context = self._load_prior_review_context(
+        prior_review_context = self.continuity_context_service.load_prior_review_context(
             run_id=run_id,
             repository_id=repository_id,
             change_request_number=selected_change_request.change_request_number,
@@ -404,7 +369,7 @@ class ReviewRunner:
 
         finalization_result = ReviewFinalizationService(
             review_publisher=ReviewPublisher(self.review_client),
-            review_projection_factory=self._build_review_projection_service,
+            review_projection_factory=self.review_projection_factory,
         ).finalize(
             run_id=run_id,
             repository_id=repository_id,
@@ -479,400 +444,6 @@ class ReviewRunner:
             ),
             state_path=summary.state_path,
         )
-
-    def _build_review_projection_service(
-        self,
-    ) -> GitHubReviewProjectionService | GitLabReviewProjectionService | None:
-        """Build provider-local review projection support when the platform supports it."""
-        if self.config.platform == "github":
-            github_config = load_github_connection_config()
-            return GitHubReviewProjectionService(
-                GitHubWorkItemService(GitHubWorkItemClient(github_config)),
-                change_request_state_lookup=lambda change_request_number: GitHubClient(
-                    github_config
-                ).get_change_request_state(
-                    repository_id=github_config.repository,
-                    change_request_number=change_request_number,
-                ),
-            )
-        if self.config.platform == "gitlab":
-            gitlab_config = load_gitlab_connection_config()
-            return GitLabReviewProjectionService(
-                GitLabWorkItemService(GitLabWorkItemClient(gitlab_config)),
-                change_request_state_lookup=lambda change_request_number: GitLabReviewClient(
-                    gitlab_config
-                ).get_change_request_state(
-                    project_id=gitlab_config.project_id,
-                    change_request_number=change_request_number,
-                ),
-            )
-        return None
-
-    def _retry_same_sha_projection_if_needed(
-        self,
-        *,
-        run_id: str,
-        repository_id: str,
-        change_request: ChangeRequestReviewCandidate,
-        review_state: ChangeRequestReviewState | None,
-        active_dry_run: bool,
-    ) -> str | None:
-        """Retry one pending projection side effect without re-entering review analysis."""
-        if active_dry_run or review_state is None or not review_state.projection_retry_pending:
-            return None
-        warning_message = self._repair_same_sha_projection(
-            run_id=run_id,
-            repository_id=repository_id,
-            change_request=change_request,
-            classification=review_state.status,
-            note_id=review_state.note_id,
-            note_url=review_state.note_url,
-            artifact=review_state.projection_artifact,
-        )
-        self.review_state_service.update_projection_retry_state(
-            change_request_number=change_request.change_request_number,
-            head_sha=change_request.head_sha,
-            last_run_id=run_id,
-            pending=warning_message is not None,
-            warning=warning_message,
-        )
-        if warning_message is not None:
-            return warning_message
-        return "Repaired pending review projection."
-
-    def _repair_same_sha_projection(
-        self,
-        *,
-        run_id: str,
-        repository_id: str,
-        change_request: ChangeRequestReviewCandidate,
-        classification: str | None,
-        note_id: int | None,
-        note_url: str | None,
-        artifact: PublishableReviewArtifact | None = None,
-    ) -> str | None:
-        """Retry projection only for one previously published same-SHA review."""
-        if classification not in _AUTHORITATIVE_REVIEW_CLASSIFICATIONS:
-            return (
-                "Review projection warning: authoritative same-SHA classification was unavailable."
-            )
-        if note_id is None and note_url is None:
-            return "Review projection warning: persisted review note reference was unavailable."
-        if artifact is None and classification == "findings_present":
-            return (
-                "Review projection warning: persisted structured findings are unavailable; "
-                "a new review is required."
-            )
-        context_result = ReviewContextBuilder(
-            repo_root=self.repo_root,
-            config=self.config,
-        ).build(change_request)
-        context = context_result.context
-        if context is None:
-            return f"Review projection warning: {context_result.message}"
-        projection_service = self._build_review_projection_service()
-        if projection_service is None:
-            return None
-        try:
-            projection_result = projection_service.project_review(
-                repository_id=repository_id,
-                context=context,
-                artifact=artifact
-                or PublishableReviewArtifact(
-                    classification=cast(ReviewClassification, classification),
-                    summary="Previously published review projection repair.",
-                ),
-                reviewed_sha=context.head_sha,
-                review_note_id=note_id,
-                review_note_url=note_url,
-            )
-        except Exception as error:
-            LOGGER.warning(
-                "review same-sha projection repair failed",
-                extra={
-                    "run_id": run_id,
-                    "change_request_number": change_request.change_request_number,
-                    "head_sha": change_request.head_sha,
-                },
-            )
-            return f"Review projection warning: {error}"
-        LOGGER.info(
-            "review same-sha projection repair completed",
-            extra={
-                "run_id": run_id,
-                "change_request_number": change_request.change_request_number,
-                "head_sha": change_request.head_sha,
-                "projection_action": projection_result.action,
-            },
-        )
-        warning = getattr(projection_result, "warning", None)
-        if isinstance(warning, str):
-            return f"Review projection warning: {warning}"
-        return None
-
-    def _resolve_prior_comment_author_username(
-        self,
-        *,
-        run_id: str,
-        change_request_number: int,
-        current_head_sha: str,
-    ) -> str | None:
-        """Resolve and cache the current review-platform username behind the active token."""
-        if self._resolved_bot_author_username is not _UNRESOLVED_BOT_AUTHOR_USERNAME:
-            return self._resolved_bot_author_username  # type: ignore[return-value]
-        try:
-            resolved_username = self.review_client.get_current_user_username()
-        except Exception:
-            LOGGER.warning(
-                "review current user lookup failed; prior-comment author filter disabled",
-                extra={
-                    "run_id": run_id,
-                    "change_request_number": change_request_number,
-                    "head_sha": current_head_sha,
-                },
-            )
-            self._resolved_bot_author_username = None
-            return None
-        self._resolved_bot_author_username = resolved_username
-        LOGGER.info(
-            f"review current user resolved (username={resolved_username})",
-            extra={
-                "run_id": run_id,
-                "change_request_number": change_request_number,
-                "head_sha": current_head_sha,
-                "bot_author_username": resolved_username,
-            },
-        )
-        return resolved_username
-
-    def _load_prior_review_context(
-        self,
-        *,
-        run_id: str,
-        repository_id: str,
-        change_request_number: int,
-        current_head_sha: str,
-    ) -> PriorReviewContext | None:
-        """Load prior review context from the latest earlier machine-safe review comment."""
-        prior_context_service = self.prior_context_service or ChangeRequestPriorCommentLoader(
-            self.review_client,
-            bot_author_username=self._resolve_prior_comment_author_username(
-                run_id=run_id,
-                change_request_number=change_request_number,
-                current_head_sha=current_head_sha,
-            ),
-        )
-        try:
-            selection_result = prior_context_service.select_latest_prior_review_note(
-                repository_id=repository_id,
-                change_request_number=change_request_number,
-                current_head_sha=current_head_sha,
-            )
-        except Exception:  # pragma: no cover - exercised via integration stubs
-            LOGGER.warning(
-                "review prior comment lookup failed; omitting continuity context",
-                extra={
-                    "run_id": run_id,
-                    "change_request_number": change_request_number,
-                    "head_sha": current_head_sha,
-                },
-            )
-            return None
-        if selection_result.selected_note is None:
-            LOGGER.info(
-                (
-                    "review prior comment not found "
-                    f"[reason={selection_result.reason_code} "
-                    f"considered={selection_result.considered_note_count} "
-                    f"author={selection_result.author_matched_note_count} "
-                    f"machine={selection_result.machine_safe_note_count} "
-                    f"parseable={selection_result.parseable_note_count} "
-                    f"current_sha={selection_result.current_sha_skipped_count}]"
-                ),
-                extra={
-                    "run_id": run_id,
-                    "change_request_number": change_request_number,
-                    "head_sha": current_head_sha,
-                    "considered_note_count": selection_result.considered_note_count,
-                    "author_matched_note_count": selection_result.author_matched_note_count,
-                    "machine_safe_note_count": selection_result.machine_safe_note_count,
-                    "parseable_note_count": selection_result.parseable_note_count,
-                    "current_sha_skipped_count": selection_result.current_sha_skipped_count,
-                    "reason_code": selection_result.reason_code,
-                },
-            )
-            return None
-
-        try:
-            parse_result = self.prior_note_parser.parse_note(
-                note=selection_result.selected_note,
-                expected_change_request_number=change_request_number,
-            )
-        except Exception:  # pragma: no cover - defensive guard for malformed parser wiring
-            LOGGER.warning(
-                (
-                    "review prior comment parse crashed; omitting continuity context "
-                    f"(selected_note_id={selection_result.selected_note.id})"
-                ),
-                extra={
-                    "run_id": run_id,
-                    "change_request_number": change_request_number,
-                    "head_sha": current_head_sha,
-                    "selected_note_id": selection_result.selected_note.id,
-                },
-            )
-            return None
-        if parse_result.prior_review_pass is None:
-            LOGGER.warning(
-                (
-                    "review prior comment parse failed; omitting continuity context "
-                    f"[note={selection_result.selected_note.id} "
-                    f"reason={selection_result.reason_code}] "
-                    f"{parse_result.message}"
-                ),
-                extra={
-                    "run_id": run_id,
-                    "change_request_number": change_request_number,
-                    "head_sha": current_head_sha,
-                    "selected_note_id": selection_result.selected_note.id,
-                    "considered_note_count": selection_result.considered_note_count,
-                    "author_matched_note_count": selection_result.author_matched_note_count,
-                    "machine_safe_note_count": selection_result.machine_safe_note_count,
-                    "parseable_note_count": selection_result.parseable_note_count,
-                    "current_sha_skipped_count": selection_result.current_sha_skipped_count,
-                    "reason_code": selection_result.reason_code,
-                },
-            )
-            return None
-
-        LOGGER.info(
-            (
-                "review prior comment selected "
-                f"[note={selection_result.selected_note.id} "
-                f"prior={parse_result.prior_review_pass.reviewed_head_sha} "
-                f"reason={selection_result.reason_code} "
-                f"considered={selection_result.considered_note_count} "
-                f"author={selection_result.author_matched_note_count} "
-                f"machine={selection_result.machine_safe_note_count} "
-                f"parseable={selection_result.parseable_note_count} "
-                f"current_sha={selection_result.current_sha_skipped_count}]"
-            ),
-            extra={
-                "run_id": run_id,
-                "change_request_number": change_request_number,
-                "head_sha": current_head_sha,
-                "selected_note_id": selection_result.selected_note.id,
-                "considered_note_count": selection_result.considered_note_count,
-                "author_matched_note_count": selection_result.author_matched_note_count,
-                "machine_safe_note_count": selection_result.machine_safe_note_count,
-                "parseable_note_count": selection_result.parseable_note_count,
-                "current_sha_skipped_count": selection_result.current_sha_skipped_count,
-                "reason_code": selection_result.reason_code,
-                "prior_head_sha": parse_result.prior_review_pass.reviewed_head_sha,
-            },
-        )
-        return PriorReviewContext(
-            change_request_number=change_request_number,
-            passes=[parse_result.prior_review_pass],
-        )
-
-    def _load_same_sha_review_reference(
-        self,
-        *,
-        run_id: str,
-        repository_id: str,
-        change_request: ChangeRequestReviewCandidate,
-    ) -> PriorReviewPass | None:
-        """Return the authoritative existing review reference for one change-request SHA."""
-        review_state = self.review_state_service.state.reviews.get(
-            f"{change_request.change_request_number}:{change_request.head_sha}"
-        )
-        if review_state is not None and _is_authoritative_review_classification(
-            review_state.status
-        ):
-            return PriorReviewPass(
-                reviewed_head_sha=review_state.head_sha,
-                classification=review_state.status,
-                findings_count=review_state.findings_count,
-                summary=review_state.summary,
-                note_url=review_state.note_url,
-                findings=[],
-            )
-
-        try:
-            notes = self.review_client.list_change_request_comments(
-                repository_id=repository_id,
-                change_request_number=change_request.change_request_number,
-            )
-        except (ReviewPlatformClientError, httpx.HTTPError, OSError) as exc:
-            LOGGER.warning(
-                "review same-sha lookup via provider comment failed; continuing without reuse",
-                extra={
-                    "run_id": run_id,
-                    "change_request_number": change_request.change_request_number,
-                    "head_sha": change_request.head_sha,
-                    "error": str(exc),
-                },
-            )
-            return None
-        bot_author_username = self._resolve_prior_comment_author_username(
-            run_id=run_id,
-            change_request_number=change_request.change_request_number,
-            current_head_sha=change_request.head_sha,
-        )
-        if bot_author_username is None:
-            if self.review_client.allows_machine_safe_comment_fallback():
-                LOGGER.warning(
-                    "review same-sha comment reuse falling back to machine-safe payload only",
-                    extra={
-                        "run_id": run_id,
-                        "change_request_number": change_request.change_request_number,
-                        "head_sha": change_request.head_sha,
-                    },
-                )
-            else:
-                LOGGER.info(
-                    "review same-sha comment reuse disabled because bot username is unresolved",
-                    extra={
-                        "run_id": run_id,
-                        "change_request_number": change_request.change_request_number,
-                        "head_sha": change_request.head_sha,
-                    },
-                )
-                return None
-        candidate_notes: list[ReviewComment] = []
-        for note in notes:
-            if bot_author_username is not None and note.author_username != bot_author_username:
-                continue
-            payload = extract_machine_safe_review_note_payload(note.body)
-            if payload is None:
-                continue
-            reviewed_head_sha = payload.get("reviewed_head_sha")
-            classification = payload.get("classification")
-            if reviewed_head_sha != change_request.head_sha:
-                continue
-            if not isinstance(classification, str) or not _is_authoritative_review_classification(
-                classification
-            ):
-                continue
-            candidate_notes.append(note)
-        if not candidate_notes:
-            return None
-        selected_note = sorted(
-            candidate_notes,
-            key=lambda note: ((note.created_at or ""), note.id),
-            reverse=True,
-        )[0]
-        parse_result = self.prior_note_parser.parse_note(
-            note=selected_note,
-            expected_change_request_number=change_request.change_request_number,
-        )
-        return parse_result.prior_review_pass
-
-
-def _is_authoritative_review_classification(classification: str) -> bool:
-    """Return whether one review classification is authoritative for same-SHA reuse."""
-    return classification in _AUTHORITATIVE_REVIEW_CLASSIFICATIONS
 
 
 def _build_review_run_diagnostics(

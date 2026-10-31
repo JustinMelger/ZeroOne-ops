@@ -67,6 +67,9 @@ Review-context lookup remains best effort on fresh live reviews: missing or
 ambiguous work-item linkage withholds verified evidence, while known lookup
 failures log the existing warning and allow the review to continue. Descriptions
 do not establish operator command routing.
+Same-SHA reruns reuse authoritative reviews without another model call. Pending
+work-item projection repair uses the stored artifact and note reference rather
+than publishing another review; failed repair retains warning/pending evidence.
 
 ## Documentation Website
 

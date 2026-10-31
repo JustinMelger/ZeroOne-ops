@@ -90,7 +90,7 @@ records dependencies, replacement coverage, and retained compatibility.
 - [x] align continuity tests with production and remove the unused reconciler
 - [x] simplify finding-sync storage contracts
 - [x] extract verified review-context resolution
-- [ ] extract review continuity and same-SHA repair coordination
+- [x] extract review continuity and same-SHA repair coordination
 - [ ] simplify remediation retry/revision route coordination
 
 ### Operator Documentation Website

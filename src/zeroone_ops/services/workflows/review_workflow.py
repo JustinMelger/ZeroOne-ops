@@ -17,8 +17,15 @@ from zeroone_ops.services.observability.workflow_trace_service import (
 from zeroone_ops.services.review.context.remediation_review_context_resolver import (
     RemediationReviewContextResolver,
 )
+from zeroone_ops.services.review.continuity.review_continuity_context_service import (
+    ReviewContinuityContextService,
+)
+from zeroone_ops.services.review.continuity.review_projection_repair_service import (
+    ReviewProjectionRepairService,
+)
 from zeroone_ops.services.review.pipeline.review_runner import LOGGER as REVIEW_LOGGER
 from zeroone_ops.services.review.pipeline.review_runner import ReviewRunner
+from zeroone_ops.services.review.publish.review_finalization_service import ReviewProjectionService
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.workflows.workflow_run_context import WorkflowRunContext
@@ -61,6 +68,9 @@ class ReviewWorkflow:
         build_remediation_context_resolver: Callable[
             [AppConfig, logging.Logger], RemediationReviewContextResolver
         ],
+        build_projection_factory: Callable[
+            [AppConfig], Callable[[], ReviewProjectionService | None]
+        ],
     ) -> None:
         """Initialize review composition without loading provider settings."""
         self.config = config
@@ -69,6 +79,7 @@ class ReviewWorkflow:
         self.build_context = build_context
         self.build_platform_runtime = build_platform_runtime
         self.build_remediation_context_resolver = build_remediation_context_resolver
+        self.build_projection_factory = build_projection_factory
 
     def run(self) -> RunSummary:
         """Run the staged review pipeline with provider-local event context."""
@@ -89,11 +100,25 @@ class ReviewWorkflow:
             current_change_request_number,
             triggered_head_sha,
         ) = self.build_platform_runtime(self.config)
+        projection_factory = self.build_projection_factory(self.config)
         runner = ReviewRunner(
             repo_root=context.repo_root,
             config=self.config,
             review_client=review_client,
             review_state_service=review_state_service,
+            continuity_context_service=ReviewContinuityContextService(
+                review_client=review_client,
+                review_state_service=review_state_service,
+                logger=REVIEW_LOGGER,
+            ),
+            projection_repair_service=ReviewProjectionRepairService(
+                repo_root=context.repo_root,
+                config=self.config,
+                review_state_service=review_state_service,
+                review_projection_factory=projection_factory,
+                logger=REVIEW_LOGGER,
+            ),
+            review_projection_factory=projection_factory,
             remediation_context_resolver=self.build_remediation_context_resolver(
                 self.config, REVIEW_LOGGER
             ),

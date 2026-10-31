@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review_linkage import LinkedReviewWorkItem
 from zeroone_ops.models.state import AppState
+from zeroone_ops.providers.github_client import GitHubClient
 from zeroone_ops.providers.github_policy_client import GitHubPolicyClient
 from zeroone_ops.providers.github_work_item_client import GitHubWorkItemClient
 from zeroone_ops.providers.gitlab_policy_client import GitLabPolicyClient
@@ -31,6 +33,12 @@ from zeroone_ops.services.control_plane.policy.gitlab_policy_processing_runner i
     GitLabPolicyProcessingRunner,
 )
 from zeroone_ops.services.control_plane.policy.policy_view_builder import PolicyViewBuilder
+from zeroone_ops.services.control_plane.review_projection.github_review_projection_service import (
+    GitHubReviewProjectionService,
+)
+from zeroone_ops.services.control_plane.review_projection.gitlab_review_projection_service import (
+    GitLabReviewProjectionService,
+)
 from zeroone_ops.services.control_plane.work_items.github_work_item_recovery_runner import (
     GitHubWorkItemRecoveryRunner,
 )
@@ -46,6 +54,7 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service impo
 from zeroone_ops.services.review.context.remediation_review_context_resolver import (
     RemediationReviewContextResolver,
 )
+from zeroone_ops.services.review.publish.review_finalization_service import ReviewProjectionService
 from zeroone_ops.services.shared.run_state_service import RunStateService
 from zeroone_ops.settings import (
     load_current_change_request_number,
@@ -182,3 +191,37 @@ def build_review_remediation_context_resolver(
         return None
 
     return RemediationReviewContextResolver(lookup=lookup, logger=logger)
+
+
+def build_review_projection_factory(
+    config: AppConfig,
+) -> Callable[[], ReviewProjectionService | None]:
+    """Compose one lazy projection factory shared by finalization and same-SHA repair."""
+
+    def build() -> ReviewProjectionService | None:
+        """Load settings and construct clients only inside the caller's failure boundary."""
+        if config.platform == "github":
+            github_config = load_github_connection_config()
+            return GitHubReviewProjectionService(
+                GitHubWorkItemService(GitHubWorkItemClient(github_config)),
+                change_request_state_lookup=lambda change_request_number: GitHubClient(
+                    github_config
+                ).get_change_request_state(
+                    repository_id=github_config.repository,
+                    change_request_number=change_request_number,
+                ),
+            )
+        if config.platform == "gitlab":
+            gitlab_config = load_gitlab_connection_config()
+            return GitLabReviewProjectionService(
+                GitLabWorkItemService(GitLabWorkItemClient(gitlab_config)),
+                change_request_state_lookup=lambda change_request_number: GitLabReviewClient(
+                    gitlab_config
+                ).get_change_request_state(
+                    project_id=gitlab_config.project_id,
+                    change_request_number=change_request_number,
+                ),
+            )
+        return None
+
+    return build

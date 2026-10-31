@@ -29,8 +29,14 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_service impo
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
     GitLabWorkItemService,
 )
+from zeroone_ops.services.review.continuity.review_continuity_context_service import (
+    ReviewContinuityContextService,
+)
 from zeroone_ops.services.review.continuity.review_overlap_analysis_service import (
     ReviewOverlapAnalysisService,
+)
+from zeroone_ops.services.review.continuity.review_projection_repair_service import (
+    ReviewProjectionRepairService,
 )
 from zeroone_ops.services.review.pipeline.review_candidate_generation_service import (
     ReviewCandidateGenerationService,
@@ -44,6 +50,7 @@ from zeroone_ops.services.review.state.review_state_service import ReviewStateSe
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.shared.state_store import StateStore
 from zeroone_ops.services.workflows.provider_workflow_builders import (
+    build_review_projection_factory,
     build_review_remediation_context_resolver,
 )
 
@@ -81,9 +88,6 @@ class ReviewHarness:
         github = self.api.work_items.platform == "github"
         connection = self._connection()
         loader = "load_github_connection_config" if github else "load_gitlab_connection_config"
-        self.monkeypatch.setattr(
-            f"zeroone_ops.services.review.pipeline.review_runner.{loader}", lambda: connection
-        )
         self.monkeypatch.setattr(
             f"zeroone_ops.services.workflows.provider_workflow_builders.{loader}",
             lambda: connection,
@@ -159,11 +163,25 @@ class ReviewHarness:
                 inline_comments_enabled=True,
             ),
         )
+        projection_factory = build_review_projection_factory(config)
         runner = ReviewRunner(
             repo_root=case.root,
             config=config,
             review_client=client,
             review_state_service=self.state_service,
+            continuity_context_service=ReviewContinuityContextService(
+                review_client=client,
+                review_state_service=self.state_service,
+                logger=REVIEW_LOGGER,
+            ),
+            projection_repair_service=ReviewProjectionRepairService(
+                repo_root=case.root,
+                config=config,
+                review_state_service=self.state_service,
+                review_projection_factory=projection_factory,
+                logger=REVIEW_LOGGER,
+            ),
+            review_projection_factory=projection_factory,
             remediation_context_resolver=build_review_remediation_context_resolver(
                 config, REVIEW_LOGGER
             ),

@@ -1876,8 +1876,8 @@ def test_review_same_sha_live_run_repairs_pending_projection_with_url_only_refer
         ),
     )
     monkeypatch.setattr(
-        "zeroone_ops.services.review.pipeline.review_runner.ReviewRunner._build_review_projection_service",
-        lambda self: projection_service,
+        "zeroone_ops.runner.build_review_projection_factory",
+        lambda config: lambda: projection_service,
     )
     monkeypatch.setattr(
         "zeroone_ops.services.review.pipeline.review_candidate_generation_service.ReviewCandidateGenerationService.analyze",

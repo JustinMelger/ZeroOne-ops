@@ -106,6 +106,8 @@ Finding sync uses one storage contract for singles and batches, with provider
 transport and native snapshots kept local.
 Verified review-context enrichment uses an injected read-only resolver; provider
 lookup stays lazy and requires persisted work-item linkage.
+Same-SHA offline scenarios also verify review reuse and projection-only repair
+without additional model calls or duplicate review comments.
 
 ## Operating The Control Plane
 

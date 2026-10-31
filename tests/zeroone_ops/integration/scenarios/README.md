@@ -64,6 +64,13 @@ projection. A negative contract removes precision history and must fail before
 another review is published. These checks verify continuity wiring, not whether
 a real model correctly judges two findings to be equivalent.
 
+Same-SHA scenarios reuse either authoritative local state or a provider comment
+without additional model calls or review comments. The repair sequence injects
+a native issue-update failure after publication, repeats that failure on the
+same SHA, then repairs projection while preserving the original artifact and
+note. Both GitHub and GitLab use real lookup, rendering, projection, and state
+persistence over fake HTTP.
+
 Negative contracts remove source or batch evidence, corrupt forwarded candidate
 evidence, substitute another checkout's context, and redirect publication. Each
 must fail rather than let the SDK script manufacture a successful review.
@@ -82,8 +89,7 @@ command and local-only Git transport. Dependency installation happens before
 the tests, not inside the application fixture.
 
 These scenarios test orchestration, not model quality, authorization, live API
-compatibility, same-SHA reuse, projection-repair chains,
-operator requeue, or lifecycle completion. Existing focused overlap/continuity tests
+compatibility, operator requeue, or lifecycle completion. Existing focused overlap/continuity tests
 remain in place. The GitLab test app remains the separate, explicitly authorized
 real-model/real-provider release-candidate acceptance environment. No live
 evaluation is triggered by this suite.
