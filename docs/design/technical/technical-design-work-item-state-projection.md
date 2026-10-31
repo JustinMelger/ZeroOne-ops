@@ -78,28 +78,47 @@ sync, not a generic control-plane provider abstraction.
 Provider-local adapters retain transport, repository/project argument mapping,
 native lookup snapshots, and actual persistence responses. Each normalized
 record retains its exact native snapshot, even after a later authoritative
-re-read of the same issue. Upsert still delegates the native dismissal inventory
-to the provider facade, preserving its final dismissal recheck and unchanged
-detection behavior. The coordinator receives the provider's logger and display
-label so warning wording and logger ownership remain compatible.
+re-read of the same issue. `FindingSyncRecordStore` retains these native objects
+and records successful open/closed projections without mutating earlier reads.
+GitHub's body/title comparison and GitLab's additional label comparison remain
+provider-local. Provider facades keep their active lookup/upsert operations and
+defensive dismissal rechecks; the storage contract no longer exposes unused
+forwarding versions of those operations.
 
-The execution sequence remains: load open, closed policy-deferred, closed
-capacity-deferred, and closed dismissed inventories once; calculate projected
-capacity; process reported findings; then reconcile missing managed-source
-records. Capacity planning accounts for safe stale transitions before those
-writes occur. An open defer/completion transition re-reads authoritative state,
-updates machine state, then closes; reactivation reopens before the active
-state update. These operations are not atomic.
+`FindingSyncStorage` is one eight-operation contract: `load_inventory`, exact
+`read_work_item`, `rediscover_batch`, payload validation, create, update, close,
+and reopen. There is no separate base/batch protocol or transitional alias.
+`load_inventory()` is the existing strict batch-aware discovery, not the removed
+four-index-only loader. Shared inventory helpers live in
+`finding_sync_inventory.py`; discovery does not interpret labels as authority.
 
-Dry runs retain the same inventory reads and selection, with no writes or
-transition-counter simulation beyond existing behavior. Existing exception
-boundaries are preserved: initial inventory reads, guarded re-reads, ordinary
-promotion writes, and legacy demotion writes propagate failures; the existing
-defer/reactivation/completion projection blocks log caught failures and retain
-their current aggregate counts. In particular, an open capacity-deferral
-projection failure logs a warning without incrementing
-`projection_warning_count`; this extraction does not change that reporting
-limitation or add automatic closure retries.
+Each inventory load retains the existing ten indexed queries, in order: one
+open work-item query; closed policy-deferred, capacity-deferred, and dismissed
+queries; then closed candidate, approved, in-progress, blocked, feedback-required,
+and revision-queued status queries. Closed nonterminal discovery keeps batches
+only. Open and deferred inventories still include existing singles. Complete
+pagination remains provider-client-owned; no general closed-history scan is added.
+Equal repeated snapshots are deduplicated while contradictory snapshots remain
+available to ownership-conflict detection.
+
+The pure scope guard returns the original parsed state or raises the caller's
+existing `ValueError` for missing/cross-repository authority. Only exact reads and
+indexed listings use it. Parsing remains native and parser exceptions propagate
+unchanged; create responses retain their existing parsing/validation behavior.
+Creation continues through shared ownership and dismissal rechecks, with exact
+identity rediscovery after uncertain writes and no blind create retry.
+
+Sync refreshes observations and reconciles safe work before selection. It applies
+capacity-releasing transitions before planning new approvals, using confirmed
+outcomes; uncertain outcomes retain reservations. Projection re-reads authority,
+updates state before closure, and reopens before active updates. A selection
+blocker is persisted before reopening. These operations remain non-atomic.
+
+Dry runs keep the same reads and simulate decisions without provider writes.
+Initial inventory failures propagate instead of becoming empty ownership.
+Guarded projection and creation retain their current warning/exception boundaries,
+reporting, failure isolation, and retry behavior. This storage extraction adds
+no reads, writes, counter changes, or closure retries.
 
 The coordinator does not execute remediation, interpret review commands, or
 reconcile linked PR/MR terminal outcomes. Dashboard runtime is retired in v1;

@@ -1,17 +1,16 @@
 """GitLab transport adapter for normalized finding-sync operations."""
 
-from collections.abc import Sequence
-
 from zeroone_ops.models.finding_sync import (
     FindingSyncInventory,
     FindingSyncRecord,
     FindingSyncWriteResult,
 )
 from zeroone_ops.models.policy import PolicyState
-from zeroone_ops.models.work_item import WorkItemKind, WorkItemSourceRef, WorkItemState
-from zeroone_ops.services.control_plane.work_items.batch_finding_sync_storage import (
-    load_batch_inventory,
+from zeroone_ops.models.work_item import WorkItemState
+from zeroone_ops.services.control_plane.work_items.finding_sync_inventory import (
+    load_finding_sync_inventory,
     rediscover_batch,
+    require_scoped_work_item,
 )
 from zeroone_ops.services.control_plane.work_items.finding_sync_record_store import (
     FindingSyncRecordStore,
@@ -37,61 +36,6 @@ class GitLabFindingSyncStorage:
         self.work_item_service = work_item_service
         self.policy_state = policy_state
         self._records = FindingSyncRecordStore[GitLabWorkItemLookupResult]()
-
-    def load_inventory(self, *, repository_scope: str) -> FindingSyncInventory:
-        """Load the same four indexed inventories in their original order."""
-        return FindingSyncInventory(
-            open_work_items=tuple(
-                self._record_from(result)
-                for result in self.work_item_service.list_open_work_items(
-                    project_id=repository_scope
-                )
-            ),
-            policy_deferred_work_items=tuple(
-                self._record_from(result)
-                for result in self.work_item_service.list_closed_policy_deferred_work_items(
-                    project_id=repository_scope
-                )
-            ),
-            capacity_deferred_work_items=tuple(
-                self._record_from(result)
-                for result in self.work_item_service.list_closed_capacity_deferred_work_items(
-                    project_id=repository_scope
-                )
-            ),
-            dismissed_work_items=tuple(
-                self._record_from(result)
-                for result in self.work_item_service.list_closed_dismissed_work_items(
-                    project_id=repository_scope
-                )
-            ),
-        )
-
-    def find_open_work_item_by_source(
-        self, *, repository_scope: str, kind: WorkItemKind, source: WorkItemSourceRef
-    ) -> FindingSyncRecord | None:
-        """Normalize an authoritative re-read without replacing earlier snapshots."""
-        result = self.work_item_service.find_open_work_item_by_source(
-            project_id=repository_scope, kind=kind, source=source
-        )
-        return self._record_from(result) if result is not None else None
-
-    def upsert_work_item(
-        self,
-        *,
-        repository_scope: str,
-        work_item: WorkItemState,
-        dismissed_inventory: Sequence[FindingSyncRecord],
-    ) -> FindingSyncWriteResult:
-        """Preserve native upsert and its defensive dismissal recheck."""
-        result = self.work_item_service.upsert_work_item(
-            project_id=repository_scope,
-            work_item=work_item,
-            dismissed_inventory=[
-                self._records.native_record(record) for record in dismissed_inventory
-            ],
-        )
-        return self._write_result(result, is_open=result.action != "suppressed")
 
     def update_existing_work_item(
         self, *, repository_scope: str, existing: FindingSyncRecord, work_item: WorkItemState
@@ -119,10 +63,10 @@ class GitLabFindingSyncStorage:
         )
         self._records.record_issue_state(issue_number, is_open=True)
 
-    def load_batch_inventory(self, *, repository_scope: str) -> FindingSyncInventory:
-        """Load strict batch ownership without changing the legacy inventory path."""
-        return load_batch_inventory(
-            lambda is_open, labels: self._batch_records(repository_scope, is_open, labels)
+    def load_inventory(self, *, repository_scope: str) -> FindingSyncInventory:
+        """Load strict ownership for singles and batches through indexed discovery."""
+        return load_finding_sync_inventory(
+            lambda is_open, labels: self._list_records(repository_scope, is_open, labels)
         )
 
     def rediscover_batch(
@@ -131,7 +75,7 @@ class GitLabFindingSyncStorage:
         """Rediscover an assigned batch ID across native issue states."""
         return rediscover_batch(
             work_item_id,
-            lambda is_open, labels: self._batch_records(repository_scope, is_open, labels),
+            lambda is_open, labels: self._list_records(repository_scope, is_open, labels),
         )
 
     def read_work_item(self, *, repository_scope: str, issue_number: int) -> FindingSyncRecord:
@@ -140,9 +84,11 @@ class GitLabFindingSyncStorage:
         issue, is_open = lookup.client.get_issue(
             project_id=repository_scope, issue_iid=issue_number
         )
-        state = lookup.parser.parse_work_item_state(issue.description)
-        if state is None or state.source.repository_scope != repository_scope:
-            raise ValueError("Cannot establish authoritative work-item state.")
+        state = require_scoped_work_item(
+            lookup.parser.parse_work_item_state(issue.description),
+            repository_scope=repository_scope,
+            error_message="Cannot establish authoritative work-item state.",
+        )
         return self._record_from(
             GitLabWorkItemLookupResult(issue=issue, work_item=state, is_open=is_open)
         )
@@ -177,7 +123,7 @@ class GitLabFindingSyncStorage:
             action="created",
         )
 
-    def _batch_records(
+    def _list_records(
         self, repository_scope: str, is_open: bool, labels: list[str]
     ) -> tuple[FindingSyncRecord, ...]:
         """Fail closed on malformed ownership; never silently skip indexed issues."""
@@ -185,9 +131,11 @@ class GitLabFindingSyncStorage:
         listing = lookup.client.list_open_issues if is_open else lookup.client.list_closed_issues
         records = []
         for issue in listing(project_id=repository_scope, labels=labels):
-            state = lookup.parser.parse_work_item_state(issue.description)
-            if state is None or state.source.repository_scope != repository_scope:
-                raise ValueError("Cannot establish complete batch ownership inventory.")
+            state = require_scoped_work_item(
+                lookup.parser.parse_work_item_state(issue.description),
+                repository_scope=repository_scope,
+                error_message="Cannot establish complete batch ownership inventory.",
+            )
             records.append(
                 self._record_from(
                     GitLabWorkItemLookupResult(issue=issue, work_item=state, is_open=is_open)

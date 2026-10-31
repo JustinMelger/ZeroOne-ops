@@ -1,15 +1,12 @@
-"""Internal batch storage contract and shared indexed discovery."""
+"""Shared indexed discovery and authoritative finding-sync scope validation."""
 
 from collections.abc import Callable
-from typing import Protocol
 
 from zeroone_ops.models.finding_sync import (
     FindingSyncInventory,
     FindingSyncRecord,
-    FindingSyncWriteResult,
 )
 from zeroone_ops.models.work_item import WorkItemState
-from zeroone_ops.services.control_plane.work_items.finding_sync_storage import FindingSyncStorage
 from zeroone_ops.services.control_plane.work_items.work_item_labels import (
     AUTHORITATIVE_WORK_ITEM_LABEL,
     batch_identity_label,
@@ -34,35 +31,16 @@ def inventory_records(inventory: FindingSyncInventory) -> tuple[FindingSyncRecor
     return tuple(record for number in sorted(grouped) for record in grouped[number])
 
 
-class BatchFindingSyncStorage(FindingSyncStorage, Protocol):
-    """Expose batch-only discovery without changing deployed sync reads."""
-
-    def load_batch_inventory(self, *, repository_scope: str) -> FindingSyncInventory:
-        """Load strict ownership inventory, including closed nonterminal batches."""
-        ...
-
-    def read_work_item(self, *, repository_scope: str, issue_number: int) -> FindingSyncRecord:
-        """Re-read exact authority and native closure, rejecting malformed state."""
-        ...
-
-    def rediscover_batch(
-        self, *, repository_scope: str, work_item_id: str
-    ) -> tuple[FindingSyncRecord, ...]:
-        """Find exact assigned identity in both issue states without creating work."""
-        ...
-
-    def validate_work_item_projection(self, work_item: WorkItemState) -> None:
-        """Check the full serialized issue projection before transport."""
-        ...
-
-    def create_work_item(
-        self, *, repository_scope: str, work_item: WorkItemState
-    ) -> FindingSyncWriteResult:
-        """Perform one create after shared ownership authorization, without retries."""
-        ...
+def require_scoped_work_item(
+    state: WorkItemState | None, *, repository_scope: str, error_message: str
+) -> WorkItemState:
+    """Return original parsed authority or reject missing and cross-repository state."""
+    if state is None or state.source.repository_scope != repository_scope:
+        raise ValueError(error_message)
+    return state
 
 
-def load_batch_inventory(
+def load_finding_sync_inventory(
     list_records: Callable[[bool, list[str]], tuple[FindingSyncRecord, ...]],
 ) -> FindingSyncInventory:
     """Query nonterminal status indexes, never general closed issue history."""

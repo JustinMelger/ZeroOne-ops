@@ -3,9 +3,9 @@
 ## Scope And Status
 
 This is a behavior-preserving maintenance track, audited on 2026-10-31. Each
-slice is reviewed and merged before the next branch starts. Slice 1 is merged.
-Slice 2 is implemented and verified, awaiting branch review and merge;
-slices 3-6 remain proposals, not completed work.
+slice is reviewed and merged before the next branch starts. Slices 1-2 are merged.
+Slice 3 is implemented and verified, awaiting branch review and merge;
+slices 4-6 remain proposals, not completed work.
 
 No configuration, persisted schema, command, prompt, workflow decision, or
 operator output changes are intended. The [roadmap](../../roadmap.md) owns the
@@ -23,7 +23,7 @@ contributor context, not a dependency of this document.
 | `utils.command.repo_root()` | No production or test callers; only returns the current directory. Remove the unused module. | No replacement abstraction; existing repository-root ownership remains unchanged. |
 | Internal remediation-eligibility wrapper | Production uses the canonical eligibility entrypoint; internal batch tests used a second name for the same checks. Inline those checks into the canonical function and update test imports. | Keep intake, claimed revision, path-safety, and provider-parity tests on the canonical entrypoint. |
 | Deterministic overlap reconciler | No production callers; removed in slice 2 after transferring useful coverage. The active model-backed analysis service, prompt, and response models remain unchanged. | Continuity sequences use the real packet builder and analysis validator with explicit typed model responses. Packet uniqueness and final-artifact handoff are tested at their active boundaries; see the coverage map below. |
-| Finding-sync storage base/batch contracts | Active sync uses batch-aware discovery; old storage inventory, source lookup, and upsert methods have only test consumers. Defer narrowing and consolidation to slice 3. | Preserve native snapshots, indexed discovery, uncertain-write rediscovery, actual persistence responses, warnings, ordering, and provider parity. Facade methods with similar names remain active. |
+| Finding-sync storage base/batch contracts | Slice 3 consolidates one `FindingSyncStorage` protocol. Its canonical inventory loader retains strict live batch-aware discovery; the old four-index-only loader and unused storage lookup/upsert methods are removed. Active facade methods remain unchanged. | Native-adapter contract tests characterize ten-query order, scope/parser failures, exact snapshot retention, returned persistence authority, and transition ordering. Public sync, intake, execution, and offline provider scenarios retain broader behavior coverage. |
 | Review workflow runner | Active, but also owns provider construction, linked evidence loading, continuity loading, and same-SHA repair. Extract responsibilities in slices 4-5. | Characterize verified linkage and add same-SHA reuse/projection-repair scenarios before extraction. Preserve candidate/precision/artifact ownership. |
 | Remediation work-item runner | Active, but combines ordinary execution, recorded publication retry, revision preparation, and outcome projection. Extract narrowly in slice 6. | Add offline retry/revision scenarios first. Preserve recorded scope, retry precedence, checkout-before-context, rollback, and request reuse. |
 
@@ -79,8 +79,27 @@ add live calls or a production injection API.
 - Finding sync owns inventory and policy/capacity projection; remediation owns
   execution and linked requests; lifecycle owns terminal request reconciliation.
 - Labels remain indexes; persisted issue machine state remains authoritative.
-- Leave the untracked legacy prompt, historical dashboard records, folder layout,
-  product changes, and concurrency hardening outside this track.
+- Leave historical dashboard records, folder layout, product changes, and
+  concurrency hardening outside this track. Untracked duplicate copies and the
+  retired prompt were separately removed at the operator's request after slice 2;
+  that housekeeping was not a tracked runtime change.
+
+## Slice 3 Storage Contracts
+
+The storage-specific lookup/upsert forwarding tests are retired with their
+unused methods; provider-facade dismissal and unchanged-detection tests remain.
+The old four-query mock factory has no remaining consumers and is removed.
+Storage tests instead use the existing paired native-client harness with real
+parsers, renderers, facades, and adapters. No new production test seam is added.
+
+Before extraction, 44 native-adapter characterization tests passed against the
+live `load_batch_inventory()` path. Those same tests now exercise canonical
+`load_inventory()` with identical queries and outcomes. Additional pure guard
+tests check returned object identity, input non-mutation, and caller messages.
+The complete guard is applied only to exact reads and listings; create-response
+validation and the native snapshot store remain unchanged. The technical
+[state-projection design](technical-design-work-item-state-projection.md)
+describes the canonical boundary.
 
 ## Verification
 
@@ -113,3 +132,23 @@ validation, continuity attachment, and artifact construction retain their
 existing ownership and behavior. No prompt, schema, configuration, provider
 transport, or fallback changed. Scripted outcomes demonstrate wiring and
 validation, not semantic accuracy; no live model/provider validation was run.
+
+Slice 3 verification passed: 44 native-adapter characterization tests before
+extraction, then 1,522 focused storage/sync/intake/remediation/offline-scenario
+tests and 2,363 full-suite tests with 91.04% coverage. Ruff, formatting,
+architecture, mypy, Bandit, strict documentation build, and `git diff --check`
+passed. No source/test/CI references to the retired protocol or loader remain.
+
+AST comparisons confirm unchanged discovery, normalization, rediscovery, provider
+create/update/close/reopen, payload validation, and snapshot-normalization bodies.
+Coordinator, creation, and guarded-projection bodies differ only by canonical
+contract names. The scope guard retains the same condition and error messages;
+its tests cover original-object return, input non-mutation, and parser-error
+propagation. Create-response parsing and the native snapshot store are unchanged.
+
+Slice 3 boundary review: inventory discovery and scope validation stay shared;
+providers retain parsing, transport, native snapshots, and persistence-response
+normalization. Policy, capacity, lifecycle, remediation execution, reporting,
+and provider-specific unchanged detection retain their existing ownership.
+No configuration, schema, operator commands, additional reads/writes, retry
+policy, or concurrency guarantee changed. No live provider validation was run.

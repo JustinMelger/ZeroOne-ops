@@ -5,12 +5,10 @@ from dataclasses import replace
 from zeroone_ops.models.finding_batch_sync import BatchProjectionOutcome
 from zeroone_ops.models.finding_sync import FindingSyncRecord
 from zeroone_ops.models.work_item import WorkItemState
-from zeroone_ops.services.control_plane.work_items.batch_finding_sync_storage import (
-    BatchFindingSyncStorage,
-)
 from zeroone_ops.services.control_plane.work_items.finding_sync_projection import (
     FindingSyncProjection,
 )
+from zeroone_ops.services.control_plane.work_items.finding_sync_storage import FindingSyncStorage
 from zeroone_ops.services.shared.projection_payload import ProjectionSizeExceeded
 
 _CLOSED_STATUSES = {"completed", "dismissed", "policy_deferred", "capacity_deferred"}
@@ -19,7 +17,7 @@ _CLOSED_STATUSES = {"completed", "dismissed", "policy_deferred", "capacity_defer
 class BatchFindingSyncProjection:
     """Apply read-before-write guards and return explicit transport outcomes."""
 
-    def __init__(self, storage: BatchFindingSyncStorage) -> None:
+    def __init__(self, storage: FindingSyncStorage) -> None:
         """Retain transport and shared ordering without performing I/O."""
         self.storage = storage
         self.projection = FindingSyncProjection(storage)

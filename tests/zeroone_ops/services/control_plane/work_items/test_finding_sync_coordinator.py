@@ -1,36 +1,15 @@
 """Characterize finding-sync orchestration through both provider boundaries."""
 
 from datetime import UTC, datetime
-from unittest.mock import Mock
 
 import pytest
 
-from zeroone_ops.models.github import GitHubIssueInfo
-from zeroone_ops.models.gitlab import GitLabIssueInfo
 from zeroone_ops.models.work_item import ChangeRequestRef, WorkItemClaim
 from zeroone_ops.services.control_plane.work_items.github_finding_sync_service import (
     GitHubFindingSyncService,
 )
-from zeroone_ops.services.control_plane.work_items.github_work_item_lookup_service import (
-    GitHubWorkItemLookupResult,
-)
-from zeroone_ops.services.control_plane.work_items.github_work_item_service import (
-    GitHubWorkItemService,
-)
-from zeroone_ops.services.control_plane.work_items.github_work_item_upsert_service import (
-    GitHubWorkItemUpsertResult,
-)
 from zeroone_ops.services.control_plane.work_items.gitlab_finding_sync_service import (
     GitLabFindingSyncService,
-)
-from zeroone_ops.services.control_plane.work_items.gitlab_work_item_lookup_service import (
-    GitLabWorkItemLookupResult,
-)
-from zeroone_ops.services.control_plane.work_items.gitlab_work_item_service import (
-    GitLabWorkItemService,
-)
-from zeroone_ops.services.control_plane.work_items.gitlab_work_item_upsert_service import (
-    GitLabWorkItemUpsertResult,
 )
 
 from .test_batch_finding_sync_coordinator import (
@@ -44,50 +23,6 @@ from .test_batch_finding_sync_coordinator import (
     stored,
 )
 from .test_batch_finding_sync_coordinator import harness as harness
-from .test_support import build_work_item
-
-SCOPE = "octo-org/octo-repo"
-INVENTORY_CALLS = [
-    "list_open_work_items",
-    "list_closed_policy_deferred_work_items",
-    "list_closed_capacity_deferred_work_items",
-    "list_closed_dismissed_work_items",
-]
-
-
-def _boundary(provider, *, status=None, closed=False):
-    boundary = Mock(spec=GitHubWorkItemService if provider == "github" else GitLabWorkItemService)
-    state = build_work_item(status=status or "approved")
-    if provider == "github":
-        issue = GitHubIssueInfo(
-            id=11, number=11, web_url="https://example/11", title="Work", body=""
-        )
-        lookup_type = GitHubWorkItemLookupResult
-        result_type = GitHubWorkItemUpsertResult
-        service = GitHubFindingSyncService(work_item_service=boundary)
-        scope = {"repository_id": SCOPE}
-    else:
-        issue = GitLabIssueInfo(
-            id=11, iid=11, web_url="https://example/11", title="Work", description=""
-        )
-        lookup_type = GitLabWorkItemLookupResult
-        result_type = GitLabWorkItemUpsertResult
-        service = GitLabFindingSyncService(work_item_service=boundary)
-        scope = {"project_id": SCOPE}
-    lookup = lookup_type(issue=issue, work_item=state, is_open=not closed)
-    for name in INVENTORY_CALLS:
-        getattr(boundary, name).return_value = []
-    if status is not None:
-        name = f"list_closed_{status}_work_items" if closed else "list_open_work_items"
-        getattr(boundary, name).return_value = [lookup]
-    boundary.find_open_work_item_by_source.return_value = lookup
-    boundary.update_existing_work_item.side_effect = lambda **kwargs: result_type(
-        issue=issue, work_item=kwargs["work_item"], action="updated"
-    )
-    boundary.upsert_work_item.side_effect = lambda **kwargs: result_type(
-        issue=issue, work_item=kwargs["work_item"], action="created"
-    )
-    return service, boundary, scope
 
 
 def public_sync(harness, findings=(), **changes):
