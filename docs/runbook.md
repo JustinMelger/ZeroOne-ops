@@ -38,13 +38,20 @@ From a development checkout with dependencies installed, run
 through normal pytest collection; there is no new operator CLI command or CI job.
 Both provider paths cover batch creation through real intake, execution, pytest
 validation, and local Git push, including successful and exhausted correction.
+Review scenarios exercise real candidate/precision prompts, finding lineage,
+artifact publication, verified work-item projection, and isolation between
+requests using actual local base/head commits. Repeated reviews of one request
+exercise latest-comment loading, unresolved/resolved/new overlap decisions, and
+inline-comment reuse across successive commits.
 The suite requires Git and installed development dependencies, but no credentials,
 container runtime, model calls, scanner installation, or remote provider access.
 
 Scripted model and in-memory HTTP responses make workflow outcomes reproducible;
 they do not establish model precision or live API compatibility. Continue using
-the GitLab test app for authorized real-model/live-provider RC checks. Review,
-operator requeue, and lifecycle are not exercised by this initial scenario suite.
+the GitLab test app for authorized real-model/live-provider RC checks. Same-SHA
+reuse, projection-repair chains, operator requeue, and lifecycle remain outside
+this initial scenario suite. Review SDK responses are typed scripts: prompt
+construction and schema selection run, but SDK response parsing is not tested.
 See the [scenario guide](../tests/zeroone_ops/integration/scenarios/README.md)
 for isolation and coverage boundaries.
 
