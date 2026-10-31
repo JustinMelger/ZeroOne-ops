@@ -31,6 +31,7 @@ PUBLIC_PAGES = frozenset(
         "review-bot-judgment-strategy.md",
     }
 )
+PUBLIC_ASSETS = frozenset({"assets/images/gitlab-demo-board.png"})
 MAIN_ONLY = "github.event_name != 'pull_request' && github.ref == 'refs/heads/main'"
 
 
@@ -64,7 +65,7 @@ def test_site_navigation_exposes_only_selected_operator_docs() -> None:
     ]
     patterns = config["exclude_docs"].splitlines()
     assert patterns[0] == "*"
-    assert set(patterns[1:]) == {f"!/{page}" for page in PUBLIC_PAGES}
+    assert set(patterns[1:]) == {f"!/{path}" for path in PUBLIC_PAGES | PUBLIC_ASSETS}
     local_targets = {
         target for target in _navigation_targets(config["nav"]) if not urlsplit(target).scheme
     }
@@ -133,16 +134,23 @@ def _build_documentation(root: Path, extra_index: str = "") -> subprocess.Comple
     docs = root / "docs"
     docs.mkdir(parents=True)
     shutil.copyfile(REPOSITORY_ROOT / "zensical.toml", root / "zensical.toml")
-    for page in PUBLIC_PAGES:
+    for page in PUBLIC_PAGES | PUBLIC_ASSETS:
+        (docs / page).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(REPOSITORY_ROOT / "docs" / page, docs / page)
     if extra_index:
         index = docs / "index.md"
         index.write_text(index.read_text(encoding="utf-8") + extra_index, encoding="utf-8")
-    excluded_paths = {"README.md", "internal/private.md", "design/history.md", "unlisted.md"}
+    excluded_paths = {
+        "README.md",
+        "internal/private.md",
+        "design/history.md",
+        "unlisted.md",
+        "assets/images/private.png",
+    }
     excluded_paths.update(
         f"{folder}/{page}"
         for folder in ("internal", "design", "internal/nested")
-        for page in PUBLIC_PAGES
+        for page in PUBLIC_PAGES | PUBLIC_ASSETS
     )
     for excluded in excluded_paths:
         path = docs / excluded
@@ -176,6 +184,7 @@ def test_generated_pages_and_search_respect_public_allowlist(built_documentation
     } == expected
     assert not (built_documentation / "internal").exists()
     assert not (built_documentation / "design").exists()
+    assert not (built_documentation / "assets/images/private.png").exists()
     search = json.loads((built_documentation / "search.json").read_text(encoding="utf-8"))
     allowed_locations = {""} | {
         f"{Path(page).stem}/" for page in PUBLIC_PAGES if page != "index.md"
@@ -183,6 +192,25 @@ def test_generated_pages_and_search_respect_public_allowlist(built_documentation
     assert search["items"]
     assert {entry["location"].split("#", 1)[0] for entry in search["items"]} <= allowed_locations
     assert "PRIVATE_DOCS_SENTINEL" not in json.dumps(search)
+
+
+def test_demo_walkthrough_links_examples_and_publishes_only_its_snapshot(
+    built_documentation: Path,
+) -> None:
+    getting_started = (built_documentation / "getting-started/index.html").read_text(
+        encoding="utf-8"
+    )
+    home = (built_documentation / "index.html").read_text(encoding="utf-8")
+    assert 'href="getting-started/#see-it-in-action"' in home
+    assert 'id="see-it-in-action"' in getting_started
+    for endpoint in ("boards#/", "work_items/58", "merge_requests/25"):
+        assert f"https://gitlab.com/j.n.r.melger/zeroone-test-app/-/{endpoint}" in getting_started
+    assert 'src="../assets/images/gitlab-demo-board.png"' in getting_started
+    assert "intentionally seeded findings" in getting_started
+    for relative_path in PUBLIC_ASSETS:
+        published = (built_documentation / relative_path).read_bytes()
+        assert published.startswith(b"\x89PNG\r\n\x1a\n")
+        assert published == (REPOSITORY_ROOT / "docs" / relative_path).read_bytes()
 
 
 def test_generated_site_preserves_markdown_features_and_project_subpath(

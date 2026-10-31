@@ -64,6 +64,8 @@ and templates, browse the matching
 [Git tag](https://github.com/JustinMelger/ZeroOne-ops/tags).
 The runbook remains the canonical procedural reference; entry pages link to its
 sections without duplicating detailed procedures.
+The [demo board walkthrough](getting-started.md#see-it-in-action) includes a
+dated screenshot and a linked example work item/MR; demo contents change during testing.
 
 ### Contributing Documentation
 

@@ -20,6 +20,7 @@ exclude_docs = """
 !/engineering-standards.md
 !/review-flow-mermaid.md
 !/review-bot-judgment-strategy.md
+!/assets/images/gitlab-demo-board.png
 """
 nav = [
   { Home = "index.md" },

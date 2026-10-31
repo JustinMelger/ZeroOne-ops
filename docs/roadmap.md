@@ -84,6 +84,8 @@ accuracy; both 18-call evaluation budgets are exhausted.
 
 - [x] implement and locally verify the operator-first Zensical site, strict
   builds, and read-only PR/deployment permission contracts with main-only publishing
+- [x] add a read-only demo board walkthrough with a dated public snapshot and
+  a linked batch work item/MR example
 - [ ] configure GitHub Pages and the `github-pages` environment, then verify
   the live site, mobile navigation, search, and diagrams after merging
 

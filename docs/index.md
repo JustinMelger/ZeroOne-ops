@@ -15,6 +15,9 @@ review, and provider-native lifecycle evidence remain visible alongside the work
 - [Troubleshooting](troubleshooting.md): interpret failures and find the next action.
 - [V1 Migration](migration-v1.md): upgrade an older installation safely.
 
+Prefer a concrete example? [See It In Action](getting-started.md#see-it-in-action)
+provides a demo board snapshot and a linked batch issue/MR walkthrough.
+
 ## Detailed Reference
 
 The [operator runbook](runbook.md) remains the canonical procedural reference.
