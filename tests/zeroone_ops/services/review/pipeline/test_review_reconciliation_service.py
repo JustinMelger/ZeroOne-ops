@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from unittest.mock import Mock
 
 from zeroone_ops.models.config import (
     AnalysisConfig,
@@ -12,17 +13,23 @@ from zeroone_ops.models.review import (
     CandidateReviewFinding,
     CandidateReviewResult,
     ChangeRequestReviewContext,
+    OverlapPacket,
     OverlapReconciliationResult,
     OverlapResolution,
     PrecisionAcceptedFinding,
     PrecisionReviewDecision,
     PriorReviewContext,
+    PriorReviewFinding,
     PriorReviewPass,
     ReviewFileContext,
     ReviewFinding,
     ReviewResult,
 )
 from zeroone_ops.providers.llm_client import LLMClientError
+from zeroone_ops.services.review.continuity.review_overlap_analysis_service import (
+    ReviewOverlapAnalysisService,
+)
+from zeroone_ops.services.review.pipeline.review_artifact_builder import ReviewArtifactBuilder
 from zeroone_ops.services.review.pipeline.review_candidate_generation_service import (
     ReviewCandidateStageResult,
 )
@@ -265,7 +272,7 @@ def test_reconcile_uses_precision_output_as_final_review_meaning(monkeypatch) ->
     assert result.reconciled_decision.reconciled_at == datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
 
 
-def test_reconcile_attaches_continuity_status_from_overlap_result() -> None:
+def test_reconcile_attaches_validated_continuity_to_final_artifact(monkeypatch) -> None:
     service = ReviewReconciliationService(
         build_config(),
         llm_client_builder=lambda: FakePrecisionLLMClient(
@@ -297,7 +304,7 @@ def test_reconcile_attaches_continuity_status_from_overlap_result() -> None:
             )
         ),
     )
-    service._reconcile_overlap = lambda *, context, review_result: OverlapReconciliationResult(
+    scripted_response = OverlapReconciliationResult(
         prior_reviewed_head_sha="prior-sha",
         resolutions=[
             OverlapResolution(
@@ -309,8 +316,42 @@ def test_reconcile_attaches_continuity_status_from_overlap_result() -> None:
         ],
     )
 
+    context = build_context(with_prior=True)
+    prior = context.prior_review_context.passes[0]
+    prior.findings = [
+        PriorReviewFinding(
+            summary="src/service.py: Missing regression coverage",
+            file_path="src/service.py",
+            title="Missing regression coverage",
+            severity="medium",
+        )
+    ]
+    received_packets: list[OverlapPacket] = []
+
+    def respond(packet: OverlapPacket) -> OverlapReconciliationResult:
+        """Return the one scripted decision only for the expected live overlap packet."""
+        assert not received_packets, "Unexpected extra overlap request"
+        assert packet.change_request_number == context.change_request_number
+        assert packet.current_head_sha == context.head_sha
+        assert packet.prior_head_sha == prior.reviewed_head_sha
+        assert packet.prior_findings == prior.findings
+        assert len(packet.current_findings) == 1
+        assert packet.current_findings[0].title == "Missing regression coverage"
+        assert [
+            (candidate.current_finding_index, candidate.prior_finding_index)
+            for candidate in packet.candidates
+        ] == [(0, 0)]
+        received_packets.append(packet.model_copy(deep=True))
+        return scripted_response.model_copy(deep=True)
+
+    overlap_client = Mock(spec=["review_overlap_reconciliation"])
+    overlap_client.review_overlap_reconciliation.side_effect = respond
+    monkeypatch.setattr(
+        ReviewOverlapAnalysisService, "_build_llm_client", lambda self: overlap_client
+    )
+
     result = service.reconcile(
-        context=build_context(with_prior=True),
+        context=context,
         candidate_stage_result=build_candidate_stage_result(),
     )
 
@@ -318,6 +359,19 @@ def test_reconcile_attaches_continuity_status_from_overlap_result() -> None:
     assert result.reconciled_decision is not None
     assert result.reconciled_decision.prior_review_context_used is True
     assert result.reconciled_decision.accepted_findings[0].continuity_status == "unresolved"
+    assert len(received_packets) == 1
+    overlap_client.review_overlap_reconciliation.assert_called_once()
+    artifact = (
+        ReviewArtifactBuilder()
+        .build(reconciled_decision=result.reconciled_decision, overlap_result=result.overlap_result)
+        .artifact
+    )
+    assert artifact.findings[0].continuity_status == "unresolved"
+    assert artifact.findings[0].title == "Missing regression coverage"
+    assert result.reconciled_decision.accepted_findings[0].source_candidate_ids == ["candidate-1"]
+    assert artifact.findings[0].evidence == result.review_result.findings[0].evidence
+    assert artifact.classification == result.review_result.classification == "findings_present"
+    assert any("unresolved" in line for line in artifact.follow_up_lines)
 
 
 def test_reconcile_preserves_guidance_style_concern_as_advisory_note() -> None:

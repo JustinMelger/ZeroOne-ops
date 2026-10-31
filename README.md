@@ -100,6 +100,8 @@ quality and release-candidate acceptance; offline checks do not replace it.
 The [post-v1 cleanup audit](docs/design/technical/technical-audit-post-v1-cleanup.md)
 tracks behavior-preserving maintenance and the active tests that replace
 superseded implementations; it does not introduce another workflow.
+Continuity tests use the live packet/analysis path with scripted model decisions,
+not a second deterministic matching implementation.
 
 ## Operating The Control Plane
 

@@ -59,6 +59,8 @@ Post-v1 maintenance keeps the shared batch-aware planner and reconciler as the
 single active path for both batches and existing singles. The
 [cleanup audit](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-audit-post-v1-cleanup.md)
 tracks replacement coverage; no operator configuration or migration is required.
+Repeated-review tests exercise bounded candidate construction, structural result
+validation, and artifact handoff with scripted responses, not live model quality.
 
 ## Documentation Website
 

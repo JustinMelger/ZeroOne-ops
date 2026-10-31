@@ -1,3 +1,5 @@
+import pytest
+
 from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
@@ -264,3 +266,155 @@ def test_analyze_rejects_overlap_result_reusing_one_prior_finding(monkeypatch) -
         "Structured review overlap reconciliation returned an invalid result: "
         "prior finding is referenced by multiple overlap resolutions"
     )
+
+
+@pytest.mark.parametrize(
+    "resolution, expected_error",
+    [
+        (
+            OverlapResolution(outcome="new_in_this_pass", current_finding_index=-1),
+            "current finding index is out of range",
+        ),
+        (
+            OverlapResolution(outcome="new_in_this_pass", current_finding_index=1),
+            "current finding index is out of range",
+        ),
+        (
+            OverlapResolution(outcome="no_longer_present", prior_finding_index=-1),
+            "prior finding index is out of range",
+        ),
+        (
+            OverlapResolution(outcome="no_longer_present", prior_finding_index=1),
+            "prior finding index is out of range",
+        ),
+        (
+            OverlapResolution(
+                outcome="overlap_ambiguous",
+                current_finding_index=0,
+                related_prior_finding_indices=[-1],
+            ),
+            "related prior finding index is out of range",
+        ),
+        (
+            OverlapResolution(
+                outcome="overlap_ambiguous",
+                current_finding_index=0,
+                related_prior_finding_indices=[1],
+            ),
+            "related prior finding index is out of range",
+        ),
+        (
+            OverlapResolution(outcome="still_unresolved", current_finding_index=0),
+            "still_unresolved resolution must reference one current and one prior finding",
+        ),
+        (
+            OverlapResolution(outcome="still_unresolved", prior_finding_index=0),
+            "still_unresolved resolution must reference one current and one prior finding",
+        ),
+        (
+            OverlapResolution(outcome="new_in_this_pass"),
+            "new_in_this_pass resolution must reference only one current finding",
+        ),
+        (
+            OverlapResolution(
+                outcome="new_in_this_pass", current_finding_index=0, prior_finding_index=0
+            ),
+            "new_in_this_pass resolution must reference only one current finding",
+        ),
+        (
+            OverlapResolution(outcome="no_longer_present"),
+            "no_longer_present resolution must reference only one prior finding",
+        ),
+        (
+            OverlapResolution(
+                outcome="no_longer_present", current_finding_index=0, prior_finding_index=0
+            ),
+            "no_longer_present resolution must reference only one prior finding",
+        ),
+        (
+            OverlapResolution(outcome="overlap_ambiguous", related_prior_finding_indices=[0]),
+            "overlap_ambiguous resolution must reference one current finding",
+        ),
+        (
+            OverlapResolution(outcome="overlap_ambiguous", current_finding_index=0),
+            "overlap_ambiguous resolution must reference related prior findings",
+        ),
+        (
+            OverlapResolution(
+                outcome="overlap_ambiguous",
+                current_finding_index=0,
+                prior_finding_index=0,
+                related_prior_finding_indices=[0],
+            ),
+            "overlap_ambiguous resolution must not set one direct prior finding",
+        ),
+    ],
+)
+def test_analysis_rejects_invalid_resolution_indices_and_shapes(
+    monkeypatch, resolution, expected_error
+) -> None:
+    service = ReviewOverlapAnalysisService(build_config())
+    response = OverlapReconciliationResult(
+        prior_reviewed_head_sha="abc123", resolutions=[resolution]
+    )
+    monkeypatch.setattr(service, "_build_llm_client", lambda: FakeReviewOverlapLLMClient(response))
+
+    result = service.analyze(build_packet())
+
+    assert result.status == "invalid_result"
+    assert result.overlap_result is None
+    assert result.message.endswith(expected_error)
+
+
+@pytest.mark.parametrize("outcome", ["still_unresolved", "overlap_ambiguous"])
+def test_analysis_rejects_matches_without_candidate_authority(monkeypatch, outcome) -> None:
+    packet = build_packet()
+    packet.candidates = []
+    resolution = OverlapResolution(
+        outcome=outcome,
+        current_finding_index=0,
+        prior_finding_index=0 if outcome == "still_unresolved" else None,
+        related_prior_finding_indices=[0],
+    )
+    service = ReviewOverlapAnalysisService(build_config())
+    monkeypatch.setattr(
+        service,
+        "_build_llm_client",
+        lambda: FakeReviewOverlapLLMClient(
+            OverlapReconciliationResult(prior_reviewed_head_sha="abc123", resolutions=[resolution])
+        ),
+    )
+
+    result = service.analyze(packet)
+
+    assert result.status == "invalid_result"
+    assert result.overlap_result is None
+    assert "candidate set" in result.message
+
+
+def test_analysis_rejects_in_range_ambiguous_prior_outside_candidates(monkeypatch) -> None:
+    packet = build_packet()
+    packet.prior_findings.append(PriorReviewFinding(summary="Other prior finding"))
+    service = ReviewOverlapAnalysisService(build_config())
+    monkeypatch.setattr(
+        service,
+        "_build_llm_client",
+        lambda: FakeReviewOverlapLLMClient(
+            OverlapReconciliationResult(
+                prior_reviewed_head_sha="abc123",
+                resolutions=[
+                    OverlapResolution(
+                        outcome="overlap_ambiguous",
+                        current_finding_index=0,
+                        related_prior_finding_indices=[1],
+                    )
+                ],
+            )
+        ),
+    )
+
+    result = service.analyze(packet)
+
+    assert result.status == "invalid_result"
+    assert result.overlap_result is None
+    assert "priors outside the packet" in result.message
