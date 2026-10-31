@@ -556,6 +556,13 @@ including majors, observe the seven-day uv cooldown. See the
 
 ## Docs
 
+The [documentation website](https://justinmelger.github.io/ZeroOne-ops/) provides
+operator-first setup, configuration, workflow, and troubleshooting navigation.
+It follows `main`; use a matching Git tag for release-specific documentation
+and templates. The [documentation contribution guide](docs/runbook.md#documentation-website)
+explains local preview, strict builds, and Pages setup.
+For a visual introduction, see the [demo board walkthrough](docs/getting-started.md#see-it-in-action).
+
 Use these docs for the deeper operational details:
 
 - [docs/README.md](docs/README.md) for the documentation map

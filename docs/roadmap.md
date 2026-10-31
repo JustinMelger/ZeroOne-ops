@@ -59,8 +59,8 @@ history, not here.
 
 Implemented and accepted on both providers: default-five new file/rule batches,
 frozen membership, complete execution coverage, and one-file publication without
-consolidating existing issues. The [functional contract](design/functional/functional-design-remediation-batching.md)
-and [technical contract](design/technical/technical-design-remediation-batching.md)
+consolidating existing issues. The [functional contract](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/functional/functional-design-remediation-batching.md)
+and [technical contract](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-design-remediation-batching.md)
 own implementation detail; completed slice checklists remain in Git history.
 
 ### Accepted RC Validation
@@ -72,20 +72,29 @@ This is operator-reported acceptance, separate from automated checks; the exact
 RC tag was not recorded here. No additional remote validation was run for this
 documentation update.
 
-The [review-precision investigation](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/README.md),
-[Luna evaluation](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-2026-10-28.md),
-and [production-model Terra evaluation](../tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-terra-2026-10-28.md)
+The [review-precision investigation](https://github.com/JustinMelger/ZeroOne-ops/blob/main/tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/README.md),
+[Luna evaluation](https://github.com/JustinMelger/ZeroOne-ops/blob/main/tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-2026-10-28.md),
+and [production-model Terra evaluation](https://github.com/JustinMelger/ZeroOne-ops/blob/main/tests/zeroone_ops/services/review/pipeline/fixtures/precision_v1/live-evaluation-terra-2026-10-28.md)
 retain provenance and limitations. The bounded results do not establish general
 accuracy; both 18-call evaluation budgets are exhausted.
 
 ## Current Focus
 
+### Operator Documentation Website
+
+- [x] implement and locally verify the operator-first Zensical site, strict
+  builds, and read-only PR/deployment permission contracts with main-only publishing
+- [x] add a read-only demo board walkthrough with a dated public snapshot and
+  a linked batch work item/MR example
+- [ ] configure GitHub Pages and the `github-pages` environment, then verify
+  the live site, mobile navigation, search, and diagrams after merging
+
 ### V1 Release Readiness
 
-- [ ] confirm remaining GitLab installations have completed issue-mode cutover
+- [x] confirm remaining GitLab installations have completed issue-mode cutover
   and local-state cleanup before tagging v1
-- [ ] confirm final release-PR checks and migration/template changes are merged
-- [ ] publish v1 through Release Please, verify the versioned image, and
+- [x] confirm final release-PR checks and migration/template changes are merged
+- [x] publish v1 through Release Please, verify the versioned image, and
   smoke-test the published image before enabling installation schedules
 
 ## Parked For Later (Post-v1)
@@ -135,21 +144,6 @@ accuracy; both 18-call evaluation budgets are exhausted.
 
 ## Reference Docs
 
-- [README.md](README.md)
+- [Documentation Home](index.md)
 - [runbook.md](runbook.md)
-- [design/README.md](design/README.md)
-- [design/functional/functional-design-finding-ingestion.md](design/functional/functional-design-finding-ingestion.md)
-- [design/technical/technical-design-finding-ingestion.md](design/technical/technical-design-finding-ingestion.md)
-- [design/functional/functional-design-finding-file-grouping.md](design/functional/functional-design-finding-file-grouping.md)
-- [design/technical/technical-design-finding-file-grouping.md](design/technical/technical-design-finding-file-grouping.md)
-- [design/functional/functional-design-remediation-batching.md](design/functional/functional-design-remediation-batching.md)
-- [design/technical/technical-design-remediation-batching.md](design/technical/technical-design-remediation-batching.md)
-- [design/functional/functional-design-work-item-state-projection.md](design/functional/functional-design-work-item-state-projection.md)
-- [design/technical/technical-design-work-item-state-projection.md](design/technical/technical-design-work-item-state-projection.md)
-- [design/functional/functional-design-remediation-recovery.md](design/functional/functional-design-remediation-recovery.md)
-- [design/technical/technical-design-remediation-recovery.md](design/technical/technical-design-remediation-recovery.md)
-- [design/functional/functional-design-remediation-review-feedback.md](design/functional/functional-design-remediation-review-feedback.md)
-- [design/technical/technical-design-remediation-review-feedback.md](design/technical/technical-design-remediation-review-feedback.md)
-- [design/functional/functional-design-remediation-semantic-safety.md](design/functional/functional-design-remediation-semantic-safety.md)
-- [design/technical/technical-design-remediation-semantic-safety.md](design/technical/technical-design-remediation-semantic-safety.md)
-- [design/functional/functional-design-pr-review-staged-pipeline.md](design/functional/functional-design-pr-review-staged-pipeline.md)
+- [Design library and current contracts (GitHub)](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/README.md)
