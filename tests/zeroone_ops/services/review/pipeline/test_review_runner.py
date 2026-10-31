@@ -15,6 +15,12 @@ from zeroone_ops.models.state import ChangeRequestReviewState, FailureStage, Run
 from zeroone_ops.services.review.context.remediation_review_context_resolver import (
     RemediationReviewContextResolver,
 )
+from zeroone_ops.services.review.continuity.review_continuity_context_service import (
+    ReviewContinuityContextService,
+)
+from zeroone_ops.services.review.continuity.review_projection_repair_service import (
+    ReviewProjectionRepairService,
+)
 from zeroone_ops.services.review.pipeline.review_candidate_generation_service import (
     ReviewCandidateGenerationService,
 )
@@ -95,6 +101,19 @@ def test_review_routes_skip_verified_context_lookup(tmp_path, monkeypatch, platf
         config=config,
         review_client=client,
         review_state_service=state_service,
+        continuity_context_service=ReviewContinuityContextService(
+            review_client=client,
+            review_state_service=state_service,
+            logger=LOGGER,
+        ),
+        projection_repair_service=ReviewProjectionRepairService(
+            repo_root=tmp_path,
+            config=config,
+            review_state_service=state_service,
+            review_projection_factory=lambda: None,
+            logger=LOGGER,
+        ),
+        review_projection_factory=lambda: None,
         remediation_context_resolver=RemediationReviewContextResolver(lookup=lookup, logger=LOGGER),
     )
 

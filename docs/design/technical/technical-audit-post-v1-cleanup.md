@@ -3,9 +3,9 @@
 ## Scope And Status
 
 This is a behavior-preserving maintenance track, audited on 2026-10-31. Each
-slice is reviewed and merged before the next branch starts. Slices 1-3 are merged.
-Slice 4 is implemented and verified, awaiting review and merge; slices 5-6 remain
-proposals, not completed work.
+slice is reviewed and merged before the next branch starts. Slices 1-4 are merged.
+Slice 5 is implemented and verified, awaiting review and merge; slice 6 remains
+a proposal, not completed work.
 
 No configuration, persisted schema, command, prompt, workflow decision, or
 operator output changes are intended. The [roadmap](../../roadmap.md) owns the
@@ -24,7 +24,7 @@ contributor context, not a dependency of this document.
 | Internal remediation-eligibility wrapper | Production uses the canonical eligibility entrypoint; internal batch tests used a second name for the same checks. Inline those checks into the canonical function and update test imports. | Keep intake, claimed revision, path-safety, and provider-parity tests on the canonical entrypoint. |
 | Deterministic overlap reconciler | No production callers; removed in slice 2 after transferring useful coverage. The active model-backed analysis service, prompt, and response models remain unchanged. | Continuity sequences use the real packet builder and analysis validator with explicit typed model responses. Packet uniqueness and final-artifact handoff are tested at their active boundaries; see the coverage map below. |
 | Finding-sync storage base/batch contracts | Slice 3 consolidates one `FindingSyncStorage` protocol. Its canonical inventory loader retains strict live batch-aware discovery; the old four-index-only loader and unused storage lookup/upsert methods are removed. Active facade methods remain unchanged. | Native-adapter contract tests characterize ten-query order, scope/parser failures, exact snapshot retention, returned persistence authority, and transition ordering. Public sync, intake, execution, and offline provider scenarios retain broader behavior coverage. |
-| Review workflow runner | Slice 4 moves linked evidence enrichment into an injected resolver and work-item lookup construction into the provider workflow builder. Continuity loading, same-SHA repair, and projection-factory construction remain for slice 5. | Preserve 48 pre-extraction characterization cases; cover lazy settings/client construction, exact handled errors and warnings, skipped routes, and real lookup over offline provider HTTP. Candidate/precision/artifact ownership remains unchanged. |
+| Review workflow runner | Slice 4 extracts linked evidence enrichment. Slice 5 extracts continuity reference loading and same-SHA repair into explicit collaborators, and moves lazy projection construction into workflow composition. | Preserve slice-4 characterization; add paired offline state/comment reuse and repeated-failure/repair scenarios before extraction. Direct tests cover shared author caching, precedence, failure propagation, lazy factories, and retry persistence ordering. Candidate/precision/artifact ownership remains unchanged. |
 | Remediation work-item runner | Active, but combines ordinary execution, recorded publication retry, revision preparation, and outcome projection. Extract narrowly in slice 6. | Add offline retry/revision scenarios first. Preserve recorded scope, retry precedence, checkout-before-context, rollback, and request reuse. |
 
 Reference searches cover source imports, construction sites, tests, and tracked
@@ -173,3 +173,29 @@ unchanged continuity/projection methods, and the same handled exceptions and
 warning call. No prompts, schemas, persisted state, provider read counts, or
 concurrency guarantees changed. No live model/provider calls were made;
 continuity and same-SHA repair extraction remain slice 5.
+
+Slice 5 verification passed: six paired offline same-SHA scenarios passed before
+extraction and continue passing afterward. They cover local-state reuse,
+provider-comment reuse, failed projection, repeated failure, and successful
+repair with the original artifact and note. Then 502 focused review, workflow,
+client, and offline-scenario tests and 2,493 full-suite tests passed with 91.27%
+coverage. Ruff, formatting, architecture, mypy, Bandit, strict documentation
+build, and `git diff --check` passed.
+
+Direct tests protect per-runner author caching, local-state precedence, distinct
+comment reads, parser/loader injection, platform fallback permissions, repair
+guards, unchanged warning behavior, and persistence ordering. Projection
+factory tests verify lazy settings/client construction without caching.
+Initial-finalization factory failures remain warning-only; repair factory and
+context-construction failures continue propagating rather than being silently
+converted into warnings. This retained asymmetry is not hardened in this slice.
+
+Slice 5 boundary review: continuity supplies reference/context evidence, repair
+coordinates existing projection and delegates writes to `ReviewStateService`,
+and workflow composition owns provider construction. `ReviewRunner` remains the
+high-level sequencer; precision and artifact meaning remain unchanged. AST
+comparisons confirm equivalent runner sequencing, all five extracted method
+bodies, and lazy factory construction after delegation/logger/type-only
+normalization. No additional model calls, review comments, provider reads,
+prompts, schemas, commands, or concurrency guarantees were introduced. No live
+model/provider calls were made; remediation route extraction remains slice 6.

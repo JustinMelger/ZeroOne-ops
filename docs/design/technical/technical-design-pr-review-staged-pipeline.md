@@ -37,8 +37,8 @@ The unused deterministic overlap reconciler has been removed. Continuity tests
 exercise the live builder and analysis service with explicit scripted responses,
 including one-candidate/nonmatching and multi-candidate/selected outcomes. Scripts
 do not reproduce matching heuristics or establish model precision. The existing
-offline repeated-review scenarios cover both providers without external calls;
-same-SHA repair expansion remains a separate cleanup slice. See the
+offline repeated-review, same-SHA reuse, and recoverable projection-repair
+scenarios cover both providers without external calls. See the
 [cleanup audit](technical-audit-post-v1-cleanup.md) for the coverage mapping.
 
 ### Verified Remediation Context Resolution
@@ -66,8 +66,37 @@ settings, and HTTP failures retain the existing warning message, logger, and
 exception logging while allowing review to continue. Other exceptions propagate.
 Resolution stays after successful source/prior-review context construction on
 fresh live reviews only. Dry runs, no selection, context failure, and same-SHA
-reuse do not invoke it. Projection repair and its provider factory remain
-runner-owned until the separate continuity extraction.
+reuse do not invoke it.
+
+### Continuity References And Same-SHA Repair
+
+Workflow composition injects `ReviewContinuityContextService` and
+`ReviewProjectionRepairService` into `ReviewRunner`, which retains high-level
+sequencing. The continuity service owns author resolution, earlier-note
+selection/parsing, and same-SHA reference lookup. Its author cache lives for
+one runner instance and is shared across those two lookup paths, including
+failed author resolution. The paths keep their separate comment reads and
+existing filtering and exception rules. Authoritative local review state takes
+precedence over provider-comment discovery; historical payload parsing and
+provider-specific machine-safe fallback permissions remain unchanged.
+
+The repair service checks pending state, reconstructs context, and projects the
+recorded artifact and note reference without model calls or new review comments.
+It updates pending/warning evidence through `ReviewStateService` before the
+runner records same-SHA reuse. Dry runs skip repair and retry-state writes.
+Missing structured findings still withhold findings-present repair; historical
+no-findings/manual-only repair retains the existing minimal artifact fallback.
+
+A single lazy projection factory is composed by the provider workflow builder
+and shared by repair and finalization. No settings or clients are loaded until
+the factory is invoked, and each invocation constructs dependencies anew.
+Failure boundaries deliberately remain asymmetric: finalization catches
+factory and projection errors as warnings; repair constructs context and the
+factory outside its projection-call catch, so construction failures continue
+propagating. Projection-call failures retain pending state and their warning.
+The existing review logger, messages, structured fields, provider reads, and
+persistence order are preserved. These services do not determine continuity
+meaning, regenerate artifacts, publish reviews, or change projection decisions.
 
 ### V1 Precision Investigation Status
 

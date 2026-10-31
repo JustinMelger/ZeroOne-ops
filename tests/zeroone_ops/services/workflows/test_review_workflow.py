@@ -11,6 +11,7 @@ from zeroone_ops.services.review.context.remediation_review_context_resolver imp
 from zeroone_ops.services.review.pipeline.review_runner import LOGGER as REVIEW_LOGGER
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.workflows.provider_workflow_builders import (
+    build_review_projection_factory,
     build_review_remediation_context_resolver,
 )
 from zeroone_ops.services.workflows.review_workflow import ReviewWorkflow
@@ -73,6 +74,7 @@ def test_review_forwards_github_runtime_and_dry_run(tmp_path: Path, monkeypatch)
         build_run_id=lambda: "run-1",
         build_context=build_workflow_run_context,
         build_remediation_context_resolver=build_review_remediation_context_resolver,
+        build_projection_factory=build_review_projection_factory,
         build_platform_runtime=lambda current_config: (
             runtime_calls.append(current_config) or object(),
             "octo-org/octo-repo",
@@ -88,6 +90,11 @@ def test_review_forwards_github_runtime_and_dry_run(tmp_path: Path, monkeypatch)
     resolver = captured["init"]["remediation_context_resolver"]
     assert isinstance(resolver, RemediationReviewContextResolver)
     assert resolver.logger is REVIEW_LOGGER
+    assert (
+        captured["init"]["projection_repair_service"].review_projection_factory
+        is captured["init"]["review_projection_factory"]
+    )
+    assert captured["init"]["continuity_context_service"].logger is REVIEW_LOGGER
     settings.assert_not_called()
     assert captured["run"] == {
         "repository_id": "octo-org/octo-repo",
@@ -135,6 +142,7 @@ def test_review_forwards_gitlab_runtime_without_dashboard_dependencies(
         build_run_id=lambda: "run-1",
         build_context=build_workflow_run_context,
         build_remediation_context_resolver=build_review_remediation_context_resolver,
+        build_projection_factory=build_review_projection_factory,
         build_platform_runtime=lambda _: (
             review_client,
             "group/project",
@@ -146,12 +154,19 @@ def test_review_forwards_gitlab_runtime_without_dashboard_dependencies(
     workflow.run()
     settings.assert_not_called()
     assert captured["init"]["remediation_context_resolver"].logger is REVIEW_LOGGER
+    assert (
+        captured["init"]["projection_repair_service"].review_projection_factory
+        is captured["init"]["review_projection_factory"]
+    )
 
     assert captured["init"] == {
         "repo_root": tmp_path,
         "config": workflow.config,
         "review_client": review_client,
         "review_state_service": captured["init"]["review_state_service"],
+        "continuity_context_service": captured["init"]["continuity_context_service"],
+        "projection_repair_service": captured["init"]["projection_repair_service"],
+        "review_projection_factory": captured["init"]["review_projection_factory"],
         "remediation_context_resolver": captured["init"]["remediation_context_resolver"],
     }
     assert captured["run"] == {
