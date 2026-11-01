@@ -43,14 +43,18 @@ artifact publication, verified work-item projection, and isolation between
 requests using actual local base/head commits. Repeated reviews of one request
 exercise latest-comment loading, unresolved/resolved/new overlap decisions, and
 inline-comment reuse across successive commits.
+Same-SHA scenarios cover persisted-state and provider-comment reuse, plus repeated
+projection failure followed by repair without another model call or review comment.
+Remediation route scenarios cover recorded publication failure/retry and successful
+or failed same-request revisions while preserving the original scope and linkage.
 The suite requires Git and installed development dependencies, but no credentials,
 container runtime, model calls, scanner installation, or remote provider access.
 
 Scripted model and in-memory HTTP responses make workflow outcomes reproducible;
 they do not establish model precision or live API compatibility. Continue using
-the GitLab test app for authorized real-model/live-provider RC checks. Same-SHA
-reuse, projection-repair chains, operator requeue, and lifecycle remain outside
-this initial scenario suite. Review SDK responses are typed scripts: prompt
+the GitLab test app for authorized real-model/live-provider RC checks. Command
+authorization, operator requeue routing, and lifecycle completion remain outside
+this scenario suite. Review SDK responses are typed scripts: prompt
 construction and schema selection run, but SDK response parsing is not tested.
 See the [scenario guide](https://github.com/JustinMelger/ZeroOne-ops/blob/main/tests/zeroone_ops/integration/scenarios/README.md)
 for isolation and coverage boundaries.
@@ -111,6 +115,30 @@ when adding a page. Design history, `docs/internal/`, and the repository-only
 index are excluded from both output and search. Use local Markdown links for
 published pages and GitHub links for source, templates, tests, or excluded designs.
 Do not add credentials, live trace exports, or private operational notes to public pages.
+
+### Styling And Public Assets
+
+The modern Zensical theme remains the navigation and article layout owner.
+Documentation branding lives in `assets/stylesheets/zeroone.css` and the
+hand-authored `assets/images/zeroone-mark.svg`, both under `docs/`. The SVG is
+a documentation header/favicon mark, not a separate product-brand contract.
+The theme configuration selects IBM Plex Sans and IBM Plex Mono through the
+existing Google Fonts delivery mechanism, with built-in fallback fonts.
+
+Use theme color variables for shared styling and scope homepage layout to
+`zeroone-home`, `zeroone-actions`, and `zeroone-start`. The roadmap uses
+`zeroone-milestones` only for its implemented capability list; dates and future
+commitments must not be inferred from that presentation. Keep article widths,
+search, mobile navigation, tables, code controls, and diagrams theme-owned.
+Use native Markdown cards, buttons, and callouts instead of custom JavaScript
+or template overrides. Preserve heading anchors when adjusting entry pages.
+
+New public styles or images must be explicitly listed in `zensical.toml` and
+`PUBLIC_ASSETS` in `tests/zeroone_ops/test_documentation_site.py`. Do not replace
+those lists with directory-wide wildcards. Preview changes at desktop, tablet,
+and mobile widths; check keyboard focus and text contrast. Run the documentation
+tests and strict build before publishing. Local verification does not establish
+that the same assets have been deployed: verify the Pages site after merging.
 
 ### GitHub Pages Setup
 

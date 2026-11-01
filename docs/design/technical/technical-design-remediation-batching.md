@@ -7,7 +7,7 @@ This document specifies the
 [functional batching contract](../functional/functional-design-remediation-batching.md).
 Implemented contracts and their ownership are described below. Live provider
 validation and release-candidate acceptance are separate from automated completion.
-Production activation and release placement remain separate decisions. The
+Production batching is active; the roadmap records operator-reported acceptance. The
 [file-grouping design](technical-design-finding-file-grouping.md) is optional
 background, not an ingestion prerequisite.
 
@@ -201,8 +201,9 @@ until atomic provider transitions are introduced.
 
 Minimal request descriptions enumerate targeted identities and
 retain validation/safety evidence without claiming scanner-verified fixes.
-Production sync and intake use this shared execution path; slice 4 adds
-full issue/summary UX, provider body-size safeguards, and live validation.
+Production sync and intake use this shared execution path, with full issue/summary
+UX and provider body-size safeguards delivered in slice 4. Live validation is
+recorded separately from automated verification.
 
 Immediately before each create, refresh ownership and exact dismissal inventory
 and re-plan the proposed unit without shrinking it. Allocate identity only after
@@ -651,8 +652,8 @@ alongside existing operator guidance. Compute safe-unstarted versus protected
 wording using the same shared predicate as ownership selection. Closing is not
 dismissal: explain possible replacement for safe work, and retained ownership for
 protected work. Preserve existing command eligibility; never advertise unsupported
-dismissal/requeue commands on unstarted issues. This is proposed renderer behavior,
-not a change to currently shipped issue bodies.
+dismissal/requeue commands on unstarted issues. This rendering is implemented in
+the shared issue presentation used by both providers.
 
 Never truncate authoritative membership to fit a provider body. If full state
 cannot fit, stop promotion with a bounded warning. Keep paths escaped and evidence
@@ -684,25 +685,24 @@ close/reopen operations, or summary publication.
 | Recovery precedence | Publication retry retains recorded commit/scope even after all members become absent; verification failure stays blocked without fresh fallback; fresh recovery alone may complete all-absent work without publication. |
 | Rendering/reporting | Task-first layout, stable title count, meaningful member table, planned versus persisted attempt scope, state-derived next action, count units, unknown freshness, bounded escaped evidence, provider body overflow, truthful targeted/absent/merged wording, state-aware closing consequences, only supported commands. |
 
-Delivery remains sequential and reviewable:
+The original four-slice delivery sequence is complete. The following records the
+historical implementation boundaries, not current activation restrictions:
 
-1. Add optional typed state, configuration, identity/ownership expansion, and pure
+1. Added optional typed state, configuration, identity/ownership expansion, and pure
    planner tests without enabling batch publication.
-2. Extend provider indexes/storage, sync observations, and projection under the
-   existing scan-before-sync contract. Keep batch publication unavailable until
-   execution support is complete.
-3. Integrate internal context coverage, analysis, one-file execution, evidence
-   persistence, recovery/retries, typed review context, and minimal publication evidence.
-   Keep production batch creation and intake disabled.
-4. Complete operator UX, rollout safeguards, GitHub/GitLab parity, existing-single
-   regressions, production prompt/schema activation, batch review guidance, and
-   live validation. Document scan-before-sync
-   requirements and stale-report limitations.
+2. Extended provider indexes/storage, sync observations, and projection under the
+   existing scan-before-sync contract; publication remained unavailable at this stage.
+3. Integrated internal context coverage, analysis, one-file execution, evidence
+   persistence, recovery/retries, typed review context, and minimal publication
+   evidence, with production batch creation and intake still disabled at this stage.
+4. Completed operator UX, rollout safeguards, GitHub/GitLab parity, existing-single
+   regressions, production prompt/schema activation, and batch review guidance.
+   Documented scan-before-sync requirements and stale-report limitations; subsequent
+   operator-reported live acceptance is recorded in the roadmap.
 
-Implementation must run Ruff, formatting, architecture checks, mypy, Bandit,
-and the full suite, followed by workflow boundary review. This documentation-only
-slice requires local links, fenced blocks, and whitespace validation. Publishing
-the design does not complete an implementation or release-gate checkbox.
+Implementation changes require Ruff, formatting, architecture checks, mypy, Bandit,
+and the full suite, followed by workflow boundary review. Automated checks do not
+establish live provider acceptance; the roadmap records that evidence separately.
 
 ## Slice 4 Operator Projection And Payload Budget
 

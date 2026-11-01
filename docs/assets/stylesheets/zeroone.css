@@ -1,0 +1,201 @@
+:root {
+  --zeroone-canvas: #f7f5ef;
+  --zeroone-surface: #fdfcf9;
+  --zeroone-ink: #273b38;
+  --zeroone-muted: #52615c;
+  --zeroone-teal: #00675d;
+  --zeroone-teal-dark: #004d46;
+  --zeroone-tint: #e3efea;
+  --zeroone-border: #c3cfc9;
+  --zeroone-radius: 0.6rem;
+  --zeroone-space: 1rem;
+}
+
+[data-md-color-scheme="default"] {
+  --md-default-bg-color: var(--zeroone-canvas);
+  --md-default-fg-color: var(--zeroone-ink);
+  --md-default-fg-color--light: var(--zeroone-muted);
+  --md-primary-fg-color: var(--zeroone-teal);
+  --md-primary-fg-color--light: var(--zeroone-teal);
+  --md-primary-fg-color--dark: var(--zeroone-teal-dark);
+  --md-primary-bg-color: var(--zeroone-surface);
+  --md-accent-fg-color: var(--zeroone-teal-dark);
+  --md-accent-fg-color--transparent: var(--zeroone-tint);
+  --md-typeset-a-color: var(--zeroone-teal);
+  --md-code-bg-color: #eeede7;
+  --md-admonition-bg-color: var(--zeroone-surface);
+}
+
+.md-header {
+  background: var(--zeroone-surface);
+  border-bottom: 1px solid var(--zeroone-border);
+  box-shadow: none;
+}
+
+.md-header__button.md-logo img {
+  height: 1.65rem;
+  width: 1.65rem;
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  color: var(--zeroone-ink);
+}
+
+.md-typeset a {
+  text-underline-offset: 0.18em;
+}
+
+.md-nav__link--active {
+  color: var(--zeroone-teal);
+  background-color: var(--zeroone-tint);
+}
+
+body :is(a, button, input, summary):focus-visible {
+  outline: 3px solid var(--zeroone-teal);
+  outline-offset: 3px;
+}
+
+.md-typeset .zeroone-home h1 {
+  margin-bottom: 0.35em;
+  font-size: 2.6em;
+  letter-spacing: -0.04em;
+}
+
+.md-typeset .zeroone-lead {
+  margin-top: 0;
+  color: var(--zeroone-teal-dark);
+  font-size: 1.3em;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.zeroone-actions {
+  margin-block: calc(var(--zeroone-space) * 1.5);
+}
+
+.zeroone-actions > p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.md-typeset .zeroone-actions .md-button {
+  padding: 0.6em 1.1em;
+  border-radius: var(--zeroone-radius);
+  border-color: var(--zeroone-teal);
+  background: var(--zeroone-surface);
+  color: var(--zeroone-teal);
+  text-decoration: none;
+}
+
+.md-typeset .zeroone-actions .md-button--primary {
+  background: var(--zeroone-teal);
+  color: var(--zeroone-surface);
+}
+
+.md-typeset .zeroone-actions .md-button:hover {
+  background: var(--zeroone-teal-dark);
+  color: var(--zeroone-surface);
+}
+
+.md-typeset .zeroone-start {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--zeroone-space);
+}
+
+.md-typeset .zeroone-start > ul > li {
+  padding: var(--zeroone-space);
+  background: var(--zeroone-surface);
+  border: 1px solid var(--zeroone-border);
+  border-radius: var(--zeroone-radius);
+  box-shadow: none;
+  transition: none;
+}
+
+.md-typeset .zeroone-start > ul > li:hover {
+  border-color: var(--zeroone-border);
+  box-shadow: none;
+  transform: none;
+}
+
+.md-typeset .zeroone-start > ul > li > p:first-child {
+  margin-top: 0;
+  font-size: 1.15em;
+}
+
+.md-typeset .zeroone-start > ul > li > p:last-child {
+  margin-bottom: 0;
+  color: var(--zeroone-muted);
+}
+
+.md-typeset .zeroone-home .admonition.info {
+  background: var(--zeroone-surface);
+  border-color: var(--zeroone-teal);
+  border-radius: var(--zeroone-radius);
+  box-shadow: none;
+}
+
+.md-typeset .zeroone-home .info > .admonition-title {
+  background: var(--zeroone-tint);
+}
+
+.md-typeset .zeroone-home .info > .admonition-title::before {
+  background-color: var(--zeroone-teal);
+}
+
+.md-typeset .zeroone-milestones > ul {
+  margin-inline-start: 0.35rem;
+  padding: 0;
+}
+
+.md-typeset .zeroone-milestones > ul > li::marker {
+  color: transparent;
+}
+
+.md-typeset .zeroone-milestones > ul > li {
+  position: relative;
+  margin: 0;
+  padding-inline-start: calc(var(--zeroone-space) * 1.4);
+  padding-block-end: calc(var(--zeroone-space) * 1.4);
+  border-inline-start: 2px solid var(--zeroone-border);
+}
+
+.md-typeset .zeroone-milestones > ul > li::before {
+  position: absolute;
+  content: "";
+  inset-inline-start: -0.3rem;
+  inset-block-start: 0.35rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--zeroone-teal);
+  box-shadow: 0 0 0 0.2rem var(--zeroone-canvas);
+}
+
+.md-typeset .zeroone-milestones > ul > li:last-child {
+  border-inline-start-color: transparent;
+  padding-block-end: 0;
+}
+
+.md-typeset .zeroone-milestones > ul > li > p:first-child {
+  margin-top: 0;
+  margin-bottom: 0.4em;
+  color: var(--zeroone-teal-dark);
+  font-size: 1.1em;
+}
+
+.md-typeset .zeroone-milestones > ul > li > p:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 40rem) {
+  .md-typeset .zeroone-start {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .md-typeset .zeroone-home h1 {
+    font-size: 2.2em;
+  }
+}

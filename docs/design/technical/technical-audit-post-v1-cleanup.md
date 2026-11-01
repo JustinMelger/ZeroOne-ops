@@ -3,9 +3,10 @@
 ## Scope And Status
 
 This is a behavior-preserving maintenance track, audited on 2026-10-31. Each
-slice is reviewed and merged before the next branch starts. Slices 1-5 are merged.
-Slice 6 is implemented and verified, awaiting review and merge. All six cleanup
-slices are implemented; this does not complete parked product or concurrency work.
+slice was reviewed and merged before the next branch started. All six cleanup
+slices are implemented, verified, and merged; this does not complete parked product
+or concurrency work. The verification notes below retain each slice's historical
+scope and handoff boundaries.
 
 No configuration, persisted schema, command, prompt, workflow decision, or
 operator output changes are intended. The [roadmap](../../roadmap.md) owns the
