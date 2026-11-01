@@ -31,15 +31,17 @@ from zeroone_ops.services.remediation.control_plane import (
     build_remediation_control_plane,
 )
 from zeroone_ops.services.remediation.execution_service import ExecutionResult, ExecutionService
-from zeroone_ops.services.remediation.publication_request_builder import (
-    RemediationPublicationRequestBuilder,
-)
 from zeroone_ops.services.remediation.recovery.publication_retry_service import (
-    PublicationRetryResult,
     PublicationRetryService,
+)
+from zeroone_ops.services.remediation.recovery.recorded_publication_retry_coordinator import (
+    RecordedPublicationRetryCoordinator,
 )
 from zeroone_ops.services.remediation.remediation_context_builder import (
     RemediationContextBuilder,
+)
+from zeroone_ops.services.remediation.revision_target_preparation_service import (
+    RevisionTargetPreparationService,
 )
 from zeroone_ops.services.remediation.validation_feedback.failure_evidence import (
     sanitize_validation_text,
@@ -47,7 +49,6 @@ from zeroone_ops.services.remediation.validation_feedback.failure_evidence impor
 from zeroone_ops.services.shared.branch_revision_lookup import build_branch_revision_lookup
 from zeroone_ops.services.shared.projection_payload import ProjectionSizeExceeded
 from zeroone_ops.services.shared.run_state_service import RunStateService, RunSummary
-from zeroone_ops.utils.git import is_literal_branch_argument
 
 LOGGER = logging.getLogger(__name__)
 _FAILURE_OUTPUT_LIMIT = 2_000
@@ -143,7 +144,9 @@ class WorkItemRemediationRunner:
                 issue_count=intake_result.item_count,
             )
 
-        revision_target, revision_failure = self._prepare_revision_target(
+        revision_target, revision_failure = RevisionTargetPreparationService(
+            change_request_state_lookup=self.change_request_state_lookup,
+        ).prepare(
             selected_target=selected_target,
             claimed_work_item=claimed_work_item,
         )
@@ -165,7 +168,13 @@ class WorkItemRemediationRunner:
         selected_target = revision_target
 
         if claimed_work_item.publication_retry is not None:
-            return self._retry_recorded_publication(
+            return RecordedPublicationRetryCoordinator(
+                config=self.config,
+                run_state_service=self.run_state_service,
+                remediation_control_plane=self.remediation_control_plane,
+                retry_service_factory=self._build_publication_retry_service,
+                logger=LOGGER,
+            ).run(
                 selected_target=selected_target,
                 claimed_work_item=claimed_work_item,
                 record=record,
@@ -502,122 +511,6 @@ class WorkItemRemediationRunner:
         except Exception:
             LOGGER.warning("work-item change-request link projection failed", exc_info=True)
 
-    def _retry_recorded_publication(
-        self,
-        *,
-        selected_target: RemediationExecutionTarget,
-        claimed_work_item: WorkItemState,
-        record: RunRecord,
-        active_dry_run: bool,
-    ) -> RunSummary:
-        """Retry only a recorded branch publication through the normal remediation runner."""
-        publication_retry = claimed_work_item.publication_retry
-        if publication_retry is None:  # pragma: no cover - guarded by caller
-            raise ValueError("Publication retry requires recorded retry state.")
-        if selected_target.batch is not None:
-            decision = BatchExecutionScopeService().resolve(claimed_work_item, None)
-            if decision.disposition != "execute":
-                if not active_dry_run:
-                    self._mark_publish_retry_blocked_best_effort(
-                        selected_target=selected_target,
-                        claimed_work_item=claimed_work_item,
-                        publication_retry=publication_retry,
-                    )
-                failure = FailureDetails(
-                    stage=FailureStage.PUBLISH,
-                    message=decision.reason or "Recorded batch scope is unavailable.",
-                )
-                return self.run_state_service.finish_work_item(
-                    record=record,
-                    work_item_id=selected_target.item_id,
-                    status=RunStatus.FAILED,
-                    message=failure.message,
-                    failure=failure,
-                )
-            selected_target = selected_target.model_copy(update={"batch_attempt": decision.attempt})
-        if active_dry_run:
-            return self.run_state_service.finish_work_item(
-                record=record,
-                work_item_id=selected_target.item_id,
-                status=RunStatus.SELECTED,
-                message="Dry-run would verify and retry recorded branch publication.",
-                branch_name=publication_retry.branch_name,
-                commit_sha=publication_retry.commit_sha,
-            )
-        retry_service = self.publication_retry_service or PublicationRetryService(
-            branch_revision_lookup=build_branch_revision_lookup(self.config),
-            change_request_publisher=build_remediation_change_request_publisher(self.config),
-        )
-        try:
-            result = retry_service.retry(
-                publication_retry=publication_retry,
-                request=RemediationPublicationRequestBuilder(self.config).build(
-                    selected_issue=selected_target,
-                    source_branch=publication_retry.branch_name,
-                    change_summary="Retrying publication for the existing remediation branch.",
-                    remediation_intent=publication_retry.remediation_intent,
-                    semantic_safety=publication_retry.semantic_safety,
-                ),
-            )
-        except ProjectionSizeExceeded:
-            result = PublicationRetryResult(
-                error_message="Recorded batch publication exceeds the application payload budget."
-            )
-        if not result.succeeded or result.change_request is None:
-            message = result.error_message or "Recorded branch publication retry failed."
-            failure = FailureDetails(stage=FailureStage.PUBLISH, message=message)
-            self._mark_publish_retry_blocked_best_effort(
-                selected_target=selected_target,
-                claimed_work_item=claimed_work_item,
-                publication_retry=publication_retry,
-            )
-            return self.run_state_service.finish_work_item(
-                record=record,
-                work_item_id=selected_target.item_id,
-                status=RunStatus.FAILED,
-                message=message,
-                branch_name=publication_retry.branch_name,
-                commit_sha=publication_retry.commit_sha,
-                failure=failure,
-            )
-        self.remediation_control_plane.sync_change_request_link(
-            selected_issue=selected_target,
-            published_change_request=result.change_request,
-            existing_work_item=claimed_work_item,
-            semantic_safety=(
-                None
-                if publication_retry.semantic_safety is None
-                else WorkItemSemanticSafety(assessment=publication_retry.semantic_safety)
-            ),
-        )
-        return self.run_state_service.finish_work_item(
-            record=record,
-            work_item_id=selected_target.item_id,
-            status=RunStatus.CHANGE_REQUEST_CREATED,
-            message="Recorded branch publication retry completed.",
-            branch_name=publication_retry.branch_name,
-            commit_sha=publication_retry.commit_sha,
-            change_request_url=result.change_request.web_url,
-            change_request_action=result.action,
-        )
-
-    def _mark_publish_retry_blocked_best_effort(
-        self,
-        *,
-        selected_target: RemediationExecutionTarget,
-        claimed_work_item: WorkItemState,
-        publication_retry: PublicationRetryState,
-    ) -> None:
-        """Preserve retry state when a repeated publication attempt fails."""
-        try:
-            self.remediation_control_plane.mark_publish_blocked(
-                selected_issue=selected_target,
-                existing_work_item=claimed_work_item,
-                publication_retry=publication_retry,
-            )
-        except Exception:
-            LOGGER.warning("work-item publication retry projection failed", exc_info=True)
-
     def _mark_dismissed_best_effort(
         self,
         *,
@@ -677,64 +570,12 @@ class WorkItemRemediationRunner:
         """Return one provider-local work-item selection and claim."""
         raise NotImplementedError
 
-    def _prepare_revision_target(
-        self,
-        *,
-        selected_target: RemediationExecutionTarget,
-        claimed_work_item: WorkItemState,
-    ) -> tuple[RemediationExecutionTarget, FailureDetails | None]:
-        """Verify a queued revision still targets the reviewed open change request."""
-        if claimed_work_item.status != "review_revision_queued":
-            return selected_target, None
-        if claimed_work_item.batch is not None:
-            scope = BatchExecutionScopeService().resolve(claimed_work_item, None)
-            if scope.disposition != "execute":
-                return selected_target, FailureDetails(
-                    stage=FailureStage.ISSUE_INTAKE,
-                    message=scope.reason or "Recorded batch revision scope is missing.",
-                )
-        linked = claimed_work_item.linked_change_request
-        projected = claimed_work_item.projected_review
-        if linked is None or projected is None or projected.feedback is None:
-            return selected_target, FailureDetails(
-                stage=FailureStage.ISSUE_INTAKE,
-                message="Queued review revision is missing linked change-request feedback.",
-            )
-        if self.change_request_state_lookup is None:
-            return selected_target, FailureDetails(
-                stage=FailureStage.ISSUE_INTAKE,
-                message="Queued review revision cannot load the linked change request.",
-            )
-        try:
-            state = self.change_request_state_lookup(linked.number)
-        except Exception as error:
-            return selected_target, FailureDetails(
-                stage=FailureStage.ISSUE_INTAKE,
-                message=(
-                    f"Queued review revision could not verify the linked change request: {error}"
-                ),
-            )
-        if (
-            state.iid != linked.number
-            or state.web_url != linked.web_url
-            or state.state != "opened"
-            or state.head_sha != projected.reviewed_sha
-            or not is_literal_branch_argument(state.source_branch)
-        ):
-            return selected_target, FailureDetails(
-                stage=FailureStage.ISSUE_INTAKE,
-                message=(
-                    "Queued review revision is stale; request a current review before requeueing."
-                ),
-            )
-        return selected_target.model_copy(
-            update={
-                "review_feedback": projected.feedback,
-                "revision_branch": state.source_branch,
-                "reviewed_sha": projected.reviewed_sha,
-                "revision_change_request": linked,
-            }
-        ), None
+    def _build_publication_retry_service(self) -> PublicationRetryService:
+        """Use the injected retry service or lazily construct the existing provider boundary."""
+        return self.publication_retry_service or PublicationRetryService(
+            branch_revision_lookup=build_branch_revision_lookup(self.config),
+            change_request_publisher=build_remediation_change_request_publisher(self.config),
+        )
 
     def _build_execution_failure(
         self,

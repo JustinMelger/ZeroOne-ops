@@ -80,6 +80,22 @@ and follow-up to verify that persisted meaning still matches precision output.
 
 ## Isolation And Live Evaluation
 
+Remediation route scenarios cover failed publication, repeated failure, and
+successful retry of the exact remote commit. They also simulate a provider
+create that succeeds before its response fails, verifying reuse rather than a
+duplicate request. Recorded retries keep their original attempt even after
+observations show absence; they perform no further model calls, validation,
+commit, or push. Paired revision scenarios persist typed review feedback and a
+queued request through real issue rendering, start from the default branch,
+and exercise successful fast-forward publication or validation-failed rollback.
+They preserve the same request, member scope, and operator feedback. Authorization
+and command transport are not simulated by this state setup.
+
+The native HTTP fake permits branch-head and exact-request reads only when a
+scenario explicitly supplies local-remote revision lookup. Searching existing
+requests after publication remains rejected unless the retry scenario explicitly
+enables reuse. Unexpected endpoints and cross-repository access still fail.
+
 Only basic process environment is inherited; Git configuration/identity are local,
 Git transport is file-only, tracing is disabled, `.env` loading is rejected, and
 child pytest plugin/options inheritance is removed. Unexpected HTTP endpoints,
