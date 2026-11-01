@@ -78,8 +78,34 @@ Issue-mode recovery adapters own discovery, authorization, normalization, and
 provider-local persistence. Shared command decisions own the authoritative
 transitions, including blocked-work recovery and review-feedback requeue. They
 must not compose execution or publication dependencies. The normal remediation
-runner is the single owner of claiming approved work, selecting the recorded
-publication-retry path or fresh execution path, and projecting the final outcome.
+runner remains the high-level owner of selecting the recorded publication-retry
+path or fresh execution path. It delegates claims to intake, retry coordination
+to `RecordedPublicationRetryCoordinator`, and authoritative writes to the
+existing control-plane and run-state services.
+
+### Recorded Publication Route Coordination
+
+The coordinator receives the selected target, claimed work item, run record,
+and dry-run mode. It resolves the recorded batch attempt before considering
+fresh observations, builds the publication request, and delegates remote-SHA
+verification and create/reuse to `PublicationRetryService`. It never analyzes,
+edits, validates, commits, or pushes. An absent observation does not replace the
+recorded scope or authorize fresh execution. Dry runs preview the recorded
+branch/commit without constructing retry clients or performing provider writes.
+
+The runner supplies a lazy factory using its existing injected retry service or
+the existing provider builders. Constructors remain cheap. Factory errors,
+unexpected publication errors, and successful-link projection failures retain
+their existing propagation; payload-budget errors retain their bounded failure
+result. Failed retries delegate `mark_publish_blocked` to the control plane,
+retaining retry evidence, and then finish the run. Blocked-projection failures
+retain the original warning and do not replace the primary retry outcome.
+Successful linkage precedes the final run-state write.
+
+Routing remains intake/claim, revision preparation, recorded retry, then normal
+or revision execution. Recorded retry precedes fresh batch reassessment and
+context construction. Ordinary outcome projection, execution-failure evidence,
+rollback, and lifecycle reconciliation are not owned by this coordinator.
 
 ### Shared Issue-Mode Command Processing
 

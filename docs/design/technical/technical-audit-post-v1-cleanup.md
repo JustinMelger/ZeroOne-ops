@@ -3,9 +3,10 @@
 ## Scope And Status
 
 This is a behavior-preserving maintenance track, audited on 2026-10-31. Each
-slice is reviewed and merged before the next branch starts. Slices 1-4 are merged.
-Slice 5 is implemented and verified, awaiting review and merge; slice 6 remains
-a proposal, not completed work.
+slice was reviewed and merged before the next branch started. All six cleanup
+slices are implemented, verified, and merged; this does not complete parked product
+or concurrency work. The verification notes below retain each slice's historical
+scope and handoff boundaries.
 
 No configuration, persisted schema, command, prompt, workflow decision, or
 operator output changes are intended. The [roadmap](../../roadmap.md) owns the
@@ -25,7 +26,7 @@ contributor context, not a dependency of this document.
 | Deterministic overlap reconciler | No production callers; removed in slice 2 after transferring useful coverage. The active model-backed analysis service, prompt, and response models remain unchanged. | Continuity sequences use the real packet builder and analysis validator with explicit typed model responses. Packet uniqueness and final-artifact handoff are tested at their active boundaries; see the coverage map below. |
 | Finding-sync storage base/batch contracts | Slice 3 consolidates one `FindingSyncStorage` protocol. Its canonical inventory loader retains strict live batch-aware discovery; the old four-index-only loader and unused storage lookup/upsert methods are removed. Active facade methods remain unchanged. | Native-adapter contract tests characterize ten-query order, scope/parser failures, exact snapshot retention, returned persistence authority, and transition ordering. Public sync, intake, execution, and offline provider scenarios retain broader behavior coverage. |
 | Review workflow runner | Slice 4 extracts linked evidence enrichment. Slice 5 extracts continuity reference loading and same-SHA repair into explicit collaborators, and moves lazy projection construction into workflow composition. | Preserve slice-4 characterization; add paired offline state/comment reuse and repeated-failure/repair scenarios before extraction. Direct tests cover shared author caching, precedence, failure propagation, lazy factories, and retry persistence ordering. Candidate/precision/artifact ownership remains unchanged. |
-| Remediation work-item runner | Active, but combines ordinary execution, recorded publication retry, revision preparation, and outcome projection. Extract narrowly in slice 6. | Add offline retry/revision scenarios first. Preserve recorded scope, retry precedence, checkout-before-context, rollback, and request reuse. |
+| Remediation work-item runner | Slice 6 delegates recorded-publication retry and verified revision preparation to focused shared collaborators. The runner retains normal execution sequencing and general outcome projection. | Six pre-extraction offline provider scenarios protect retry and revision paths; extended cases cover uncertain creates and retry precedence after absence. Direct tests protect lazy construction, propagation, state-write order, and request-identity guards. Existing execution, recovery, publication, and provider suites remain authoritative. |
 
 Reference searches cover source imports, construction sites, tests, and tracked
 documentation. Dedicated tests are not evidence that an implementation remains
@@ -199,3 +200,34 @@ bodies, and lazy factory construction after delegation/logger/type-only
 normalization. No additional model calls, review comments, provider reads,
 prompts, schemas, commands, or concurrency guarantees were introduced. No live
 model/provider calls were made; remediation route extraction remains slice 6.
+
+Slice 6 verification passed: six paired offline retry/revision scenarios passed
+before extraction. Eight final scenarios additionally cover uncertain creates
+and recorded retry after all observations become absent. Then 1,488 focused
+remediation/control-plane/workflow/offline tests and 2,528 full-suite tests passed
+with 91.39% coverage. Ruff, formatting, architecture, mypy, Bandit, strict
+documentation build, and `git diff --check` passed.
+
+Retry scenarios inspect the actual local remote commit, frozen membership,
+recorded attempt/rationale, cleared claims, and create/reuse results. Retry
+performs no new analysis, validation, commit, or push. Revision scenarios begin
+on the default branch and verify checkout-before-context, one-file commits,
+fast-forward publication to the existing request, or validation-failed rollback
+with preserved feedback. Command authorization is outside their typed queued
+state setup. Direct tests retain preparation guards, lazy factory behavior,
+payload handling, failure propagation, blocked-projection warnings, and
+link-before-run-state ordering. Existing branch/recovery/publication suites
+continue covering missing/drifted branches, scope safety, and dry runs.
+
+Slice 6 boundary review: `RecordedPublicationRetryCoordinator` coordinates the
+existing retry service and delegates authority to control-plane/run-state
+services. `RevisionTargetPreparationService` verifies read-only provider state
+and returns a typed target/failure pair. The runner retains normal execution,
+general outcome routing, and failure-evidence construction. Provider wrappers
+and constructor injection remain unchanged. AST comparisons confirm equivalent
+runner routing, all extracted method bodies, unchanged retained methods, and
+the same lazy construction expression after delegation/logger normalization.
+Revision preparation still precedes retry selection; retry still precedes fresh
+batch reassessment. No state merger, transition authority, configuration,
+schema, command, prompt, operator wording, or concurrency guarantee changed.
+No live model/provider calls or release actions were performed.

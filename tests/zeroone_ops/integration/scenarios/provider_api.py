@@ -1,6 +1,7 @@
 """Small in-memory HTTP responses behind the real GitHub and GitLab clients."""
 
 import json
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Literal
@@ -23,6 +24,8 @@ class ScenarioProviderAPI:
     requests: dict[int, dict[str, object]] = field(default_factory=dict)
     issue_writes: list[dict[str, object]] = field(default_factory=list)
     calls: list[tuple[str, str]] = field(default_factory=list)
+    branch_head_lookup: Callable[[str], str | None] | None = None
+    allow_request_reuse: bool = False
 
     def respond(self, request: httpx.Request) -> httpx.Response:
         """Fail closed for endpoints outside the exercised installation contract."""
@@ -39,6 +42,32 @@ class ScenarioProviderAPI:
         path = request.url.path
         issues_path = f"{prefix}/issues"
         requests_path = f"{prefix}/" + ("pulls" if self.platform == "github" else "merge_requests")
+        branch_path = f"{prefix}/" + (
+            "git/ref/heads/" if self.platform == "github" else "repository/branches/"
+        )
+        if path.startswith(branch_path):
+            assert request.method == "GET" and self.branch_head_lookup is not None
+            sha = self.branch_head_lookup(path.removeprefix(branch_path))
+            return httpx.Response(
+                404 if sha is None else 200,
+                json={"object": {"sha": sha}, "commit": {"id": sha}},
+            )
+        if path.startswith(f"{requests_path}/"):
+            number = path.removeprefix(f"{requests_path}/")
+            assert request.method == "GET" and number.isdigit()
+            assert int(number) in self.requests and self.branch_head_lookup is not None
+            payload = self.requests[int(number)]
+            branch = str(payload["head" if self.platform == "github" else "source_branch"])
+            return httpx.Response(
+                200,
+                json=payload
+                | {
+                    "head": {"ref": branch, "sha": self.branch_head_lookup(branch)},
+                    "source_branch": branch,
+                    "sha": self.branch_head_lookup(branch),
+                    "merged": False,
+                },
+            )
         if path == issues_path:
             return self._issues_response(request)
         if path == requests_path:
@@ -86,7 +115,22 @@ class ScenarioProviderAPI:
             assert request.url.params.get(target_key) == self.target_branch, (
                 "Unexpected request target branch"
             )
-            assert not self.requests, "Scenario unexpectedly searched after publication"
+            if self.requests:
+                assert self.allow_request_reuse, "Scenario unexpectedly searched after publication"
+                source = request.url.params[
+                    "head" if self.platform == "github" else "source_branch"
+                ]
+                if self.platform == "github":
+                    source = source.split(":", 1)[-1]
+                return httpx.Response(
+                    200,
+                    json=[
+                        payload
+                        for payload in self.requests.values()
+                        if payload["head" if self.platform == "github" else "source_branch"]
+                        == source
+                    ],
+                )
             return httpx.Response(200, json=[])
         assert request.method == "POST"
         fields = self._payload(request)

@@ -93,18 +93,29 @@ not a dated release sequence; active work and future ideas remain separate below
 - **Offline Remediation Scenarios**
 
     Offline GitHub/GitLab workflow scenarios from normalized findings through
-    batch promotion, real intake, validation correction/rollback, and local Git
-    publication; `just test-scenarios` and the normal Quality pytest job exercise
+    batch promotion, real intake, validation correction/rollback, local Git
+    publication, recorded retry, and same-request revision success/failure;
+    `just test-scenarios` and the normal Quality pytest job exercise
     deterministic external responses without model or provider credentials
 
 - **Offline Review Scenarios**
 
     Offline GitHub/GitLab review scenarios covering real prompt/schema contracts,
     retained/dropped findings, verified batch projection, request isolation, and
-    repeated-review overlap across successive commits;
+    repeated-review overlap across successive commits, same-SHA reuse, and
+    projection-only repair;
     scripted SDK responses test orchestration, not model precision
 
 </div>
+
+### Post-V1 Code Cleanup
+
+All six behavior-preserving slices are implemented and verified: unused-code
+removal, active continuity coverage, canonical sync storage, verified review
+context, continuity/repair coordination, and remediation retry/revision routes.
+The [cleanup audit](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-audit-post-v1-cleanup.md)
+retains coverage, verification, and ownership details. Completed slice
+checklists remain in Git history.
 
 ### Remediation Batching
 
@@ -129,48 +140,32 @@ and [production-model Terra evaluation](https://github.com/JustinMelger/ZeroOne-
 retain provenance and limitations. The bounded results do not establish general
 accuracy; both 18-call evaluation budgets are exhausted.
 
-## Current Focus
-
-### Post-V1 Code Cleanup
-
-Behavior-preserving slices are reviewed and merged separately; the
-[cleanup audit](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-audit-post-v1-cleanup.md)
-records dependencies, replacement coverage, and retained compatibility.
-
-- [x] remove superseded intake and unused scaffolding
-- [x] align continuity tests with production and remove the unused reconciler
-- [x] simplify finding-sync storage contracts
-- [x] extract verified review-context resolution
-- [x] extract review continuity and same-SHA repair coordination
-- [ ] simplify remediation retry/revision route coordination
-
 ### Operator Documentation Website
 
-- [x] implement and locally verify the warm-neutral/teal styling refresh,
-  homepage navigation cards, implemented milestones, documentation mark, and
-  accessible keyboard states
-- [ ] verify the refreshed styling and assets on the deployed Pages site after merge
-- [x] implement and locally verify the operator-first Zensical site, strict
-  builds, and read-only PR/deployment permission contracts with main-only publishing
-- [x] add a read-only demo board walkthrough with a dated public snapshot and
-  a linked batch work item/MR example
-- [x] configure GitHub Pages and the `github-pages` environment, then verify
-  the live site, mobile navigation, search, and diagrams after merging
+The operator-first Zensical site is published through main-only GitHub Pages
+deployment, with strict builds and a read-only demo walkthrough. The original
+site's navigation, search, and diagrams were verified live. The warm-neutral/teal
+refresh, homepage cards, implemented milestones, documentation mark, and keyboard
+states are implemented and locally verified; refreshed deployment acceptance
+remains open below.
 
 ### V1 Release Readiness
 
-- [x] confirm remaining GitLab installations have completed issue-mode cutover
-  and local-state cleanup before tagging v1
-- [x] confirm final release-PR checks and migration/template changes are merged
-- [x] publish v1 through Release Please, verify the versioned image, and
-  smoke-test the published image before enabling installation schedules
+V1 release readiness is complete: issue-mode cutover and local-state cleanup,
+final release-PR checks and migration/template changes, and publication through
+Release Please with versioned-image verification and a container smoke test.
+This heading is retained for existing release-readiness links.
+
+## Current Focus
+
+- [ ] verify the refreshed styling and assets on the deployed Pages site after merge
 
 ## Parked For Later (Post-v1)
 
 - broader end-to-end scenario fixtures across intake, policy, remediation,
   provider-native change requests, lifecycle, and summaries on both providers;
-  extend the initial offline scenarios with same-SHA reuse, projection repair,
-  review/requeue, lifecycle, and failure-recovery chains
+  extend offline scenarios with authorized review/requeue command routing,
+  lifecycle, and longer failure-recovery chains
 - stable machine-readable run summaries alongside human CLI output, including
   finding, policy decision, validation, request, lifecycle, and bounded errors
 - automatic merge-conflict detection and operator guidance with preserved

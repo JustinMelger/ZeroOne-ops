@@ -116,9 +116,18 @@ this extraction preserves that existing rule. Source priorities remain a
 promotion concern and are not added to intake ranking. The coordinator adds no
 provider reads or atomicity guarantees.
 
-The shared runner verifies the linked revision after intake and before branch
-checkout, repository context construction, or model calls, then prepares the
-explicit revision execution target. V1 does not claim provider-bound
+After intake, the shared runner delegates to `RevisionTargetPreparationService`
+before branch checkout, repository context construction, or model calls. The
+service verifies recorded batch scope, persisted linkage and feedback, exact
+request number/URL, open state, reviewed head SHA, and literal source branch,
+then returns a prepared target or the existing intake failure details. Its
+provider lookup callback remains provider-local; it performs no checkout,
+execution, or state writes and does not alter either input. Missing or failed
+lookup retains the existing failure behavior. The runner still owns failure
+routing and delegates authoritative transitions to the control plane.
+
+Revision preparation remains before recorded-publication retry selection;
+execution still owns verified checkout before context construction. V1 does not claim provider-bound
 compare-and-set behavior; stronger atomic claims remain deferred to the
 corresponding roadmap work.
 Revision claims persist existing claim metadata so stale-claim recovery can

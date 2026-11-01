@@ -108,6 +108,8 @@ Verified review-context enrichment uses an injected read-only resolver; provider
 lookup stays lazy and requires persisted work-item linkage.
 Same-SHA offline scenarios also verify review reuse and projection-only repair
 without additional model calls or duplicate review comments.
+Remediation route scenarios cover recorded publication retry and same-request
+revision success/rollback using real local Git and validation subprocesses.
 
 ## Operating The Control Plane
 
