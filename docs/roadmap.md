@@ -47,13 +47,24 @@ history, not here.
 - shared provider-neutral orchestration with provider-local transport and
   authorization, automated architecture checks, and seven-day dependency cooldowns
 - offline GitHub/GitLab workflow scenarios from normalized findings through
-  batch promotion, real intake, validation correction/rollback, and local Git
-  publication; `just test-scenarios` and the normal Quality pytest job exercise
+  batch promotion, real intake, validation correction/rollback, local Git
+  publication, recorded retry, and same-request revision success/failure;
+  `just test-scenarios` and the normal Quality pytest job exercise
   deterministic external responses without model or provider credentials
 - offline GitHub/GitLab review scenarios covering real prompt/schema contracts,
   retained/dropped findings, verified batch projection, request isolation, and
-  repeated-review overlap across successive commits;
+  repeated-review overlap across successive commits, same-SHA reuse, and
+  projection-only repair;
   scripted SDK responses test orchestration, not model precision
+
+### Post-V1 Code Cleanup
+
+All six behavior-preserving slices are implemented and verified: unused-code
+removal, active continuity coverage, canonical sync storage, verified review
+context, continuity/repair coordination, and remediation retry/revision routes.
+The [cleanup audit](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-audit-post-v1-cleanup.md)
+retains coverage, verification, and ownership details; slice 6 awaits review
+and merge. Completed slice checklists remain in Git history.
 
 ### Remediation Batching
 
@@ -80,19 +91,6 @@ accuracy; both 18-call evaluation budgets are exhausted.
 
 ## Current Focus
 
-### Post-V1 Code Cleanup
-
-Behavior-preserving slices are reviewed and merged separately; the
-[cleanup audit](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-audit-post-v1-cleanup.md)
-records dependencies, replacement coverage, and retained compatibility.
-
-- [x] remove superseded intake and unused scaffolding
-- [x] align continuity tests with production and remove the unused reconciler
-- [x] simplify finding-sync storage contracts
-- [x] extract verified review-context resolution
-- [x] extract review continuity and same-SHA repair coordination
-- [ ] simplify remediation retry/revision route coordination
-
 ### Operator Documentation Website
 
 - [x] implement and locally verify the operator-first Zensical site, strict
@@ -114,8 +112,8 @@ records dependencies, replacement coverage, and retained compatibility.
 
 - broader end-to-end scenario fixtures across intake, policy, remediation,
   provider-native change requests, lifecycle, and summaries on both providers;
-  extend the initial offline scenarios with same-SHA reuse, projection repair,
-  review/requeue, lifecycle, and failure-recovery chains
+  extend offline scenarios with authorized review/requeue command routing,
+  lifecycle, and longer failure-recovery chains
 - stable machine-readable run summaries alongside human CLI output, including
   finding, policy decision, validation, request, lifecycle, and bounded errors
 - automatic merge-conflict detection and operator guidance with preserved

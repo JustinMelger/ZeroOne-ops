@@ -70,6 +70,9 @@ do not establish operator command routing.
 Same-SHA reruns reuse authoritative reviews without another model call. Pending
 work-item projection repair uses the stored artifact and note reference rather
 than publishing another review; failed repair retains warning/pending evidence.
+Recorded remediation publication retries verify and publish the existing remote
+commit without another model call or validation run. Revision execution instead
+checks out the reviewed request head before building context and revalidating.
 
 ## Documentation Website
 
