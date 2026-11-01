@@ -5,66 +5,17 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from zeroone_ops.models.analysis import (
-    BatchIssueAnalysis,
-    IssueContext,
-    SemanticSafetyAssessment,
-    StructuredEditProposal,
-    TextEdit,
-)
-from zeroone_ops.models.batch_execution import BatchAnalysisCoverage
-from zeroone_ops.models.remediation import RemediationExecutionTarget
 from zeroone_ops.models.work_item import (
     ProjectedReviewFeedback,
     ProjectedReviewFinding,
     ProjectedReviewState,
     ReviewRevisionRequest,
-    WorkItemState,
-)
-from zeroone_ops.providers.review.gitlab import GitLabReviewClient
-from zeroone_ops.services.remediation.recovery.publication_retry_service import (
-    PublicationRetryService,
-)
-from zeroone_ops.services.shared.branch_revision_lookup import (
-    GitHubBranchRevisionLookup,
-    GitLabBranchRevisionLookup,
 )
 
-from .harness import RUN_ID, SCOPE, ScenarioHarness, compose_scenario
+from .harness import RUN_ID, compose_scenario
 from .provider_api import ScenarioProviderAPI
-from .repository import TARGET_PATH, ScenarioRepository, create_repository, git
-
-
-def _persist(harness: ScenarioHarness, state: WorkItemState) -> WorkItemState:
-    """Seed authorized route state through real provider rendering and persistence."""
-    options = {"repository_id" if harness.api.platform == "github" else "project_id": SCOPE}
-    return harness.work_items.upsert_work_item(work_item=state, **options).work_item
-
-
-def _lookup(harness: ScenarioHarness, http: httpx.Client) -> None:
-    """Keep native lookup and retry services real while routing their HTTP offline."""
-    publisher = harness.engine.publish_service.change_request_publisher
-    if harness.api.platform == "github":
-        client = publisher.github_client
-        harness.runner.change_request_state_lookup = lambda number: client.get_change_request_state(
-            repository_id=SCOPE,
-            change_request_number=number,
-        )
-        branch_lookup = GitHubBranchRevisionLookup(client)
-    else:
-        client = publisher.gitlab_client
-        review_client = GitLabReviewClient(client.config, http_client=http)
-        harness.runner.change_request_state_lookup = lambda number: (
-            review_client.get_change_request_state(
-                project_id=SCOPE,
-                change_request_number=number,
-            )
-        )
-        branch_lookup = GitLabBranchRevisionLookup(client)
-    harness.runner.publication_retry_service = PublicationRetryService(
-        branch_revision_lookup=branch_lookup,
-        change_request_publisher=publisher,
-    )
+from .repository import TARGET_PATH, create_repository, git
+from .revision import RevisionModel, configure_request_lookup, persist_work_item
 
 
 @pytest.mark.parametrize("platform", ["github", "gitlab"])
@@ -107,7 +58,7 @@ def test_recorded_retry_publishes_existing_commit_without_execution(
         api.branch_head_lookup = lambda branch: git(
             repository.remote, "rev-parse", f"refs/heads/{branch}"
         )
-        _lookup(harness, http)
+        configure_request_lookup(harness, http)
         blocked = blocked.model_copy(
             update={
                 "batch": blocked.batch.model_copy(
@@ -120,7 +71,7 @@ def test_recorded_retry_publishes_existing_commit_without_execution(
                 )
             }
         )
-        _persist(harness, blocked.model_copy(update={"status": "approved"}))
+        persist_work_item(harness, blocked.model_copy(update={"status": "approved"}))
         before = git(repository.root, "rev-parse", "HEAD")
         model_counts = (len(harness.model.analysis_contexts), len(harness.model.edit_contexts))
         validations = []
@@ -148,7 +99,9 @@ def test_recorded_retry_publishes_existing_commit_without_execution(
             assert repeat.status.value == "failed"
             assert harness.work_item().publication_retry == retry
             assert harness.work_item().claim is None
-            _persist(harness, harness.work_item().model_copy(update={"status": "approved"}))
+            persist_work_item(
+                harness, harness.work_item().model_copy(update={"status": "approved"})
+            )
         fail_create = False
         summary = harness.runner.run(
             record=harness.runs.start_run("retry-success"), active_dry_run=False
@@ -184,79 +137,6 @@ def test_recorded_retry_publishes_existing_commit_without_execution(
         )
 
 
-class RevisionModel:
-    """Supply one analysis and a bounded edit script against the checked-out revision."""
-
-    def __init__(
-        self,
-        harness: ScenarioHarness,
-        repository: ScenarioRepository,
-        original: WorkItemState,
-        sha: str,
-        succeeds: bool,
-    ) -> None:
-        """Retain expected revision evidence and one finite edit script."""
-        self.harness, self.repository, self.original, self.sha = harness, repository, original, sha
-        self.succeeds = succeeds
-        self.analysis_count = self.edit_count = 0
-        self.source = repository.source.read_text()
-
-    def analyze_issue(
-        self,
-        issue: RemediationExecutionTarget,
-        context: IssueContext,
-    ) -> BatchIssueAnalysis:
-        """Require a persisted revision claim and the verified checkout before analysis."""
-        assert self.analysis_count == 0
-        self.analysis_count += 1
-        assert git(self.repository.root, "rev-parse", "HEAD") == self.sha
-        assert self.repository.source.read_text() == self.source
-        assert "import os" not in context.snippet.content
-        assert context.prior_review_feedback.findings[0].evidence == "Keep the exported value"
-        assert context.batch_attempt.members == self.original.batch_attempt.members
-        current = self.harness.work_item()
-        assert current.status == "review_revision_queued" and current.claim is not None
-        return BatchIssueAnalysis(
-            issue_key=issue.source_ref,
-            classification="auto_fixable",
-            summary="Annotate value",
-            proposed_strategy="Preserve the value",
-            batch_coverage=BatchAnalysisCoverage(
-                addressable_ids=tuple(member.finding_id for member in issue.batch_attempt.members)
-            ),
-            semantic_safety=SemanticSafetyAssessment(
-                current_behavior="Export value 1",
-                intended_behavior="Annotate the same value",
-                preservation_evidence=["Value remains 1"],
-            ),
-        )
-
-    def generate_structured_edit(
-        self,
-        issue: RemediationExecutionTarget,
-        context: IssueContext,
-    ) -> StructuredEditProposal:
-        """Generate only the scripted one-file revision from restored source evidence."""
-        assert self.edit_count < (1 if self.succeeds else 2)
-        assert self.repository.source.read_text() == self.source
-        assert context.batch_attempt.members == self.original.batch_attempt.members
-        assert context.semantic_safety is not None
-        self.edit_count += 1
-        return StructuredEditProposal(
-            issue_key=issue.source_ref,
-            edits=[
-                TextEdit(
-                    file_path=TARGET_PATH,
-                    search_text="value = 1",
-                    replace_text="value: int = 1" if self.succeeds else "value: MissingType = 1",
-                )
-            ],
-            commit_message="Annotate value",
-            change_request_title="Annotate value",
-            change_request_description="Retain the exported value",
-        )
-
-
 @pytest.mark.parametrize("platform", ["github", "gitlab"])
 @pytest.mark.parametrize("succeeds", [True, False])
 def test_revision_uses_verified_checkout_and_original_request(
@@ -278,7 +158,7 @@ def test_revision_uses_verified_checkout_and_original_request(
         api.branch_head_lookup = lambda branch: git(
             repository.remote, "rev-parse", f"refs/heads/{branch}"
         )
-        _lookup(harness, http)
+        configure_request_lookup(harness, http)
         feedback = ProjectedReviewFeedback(
             summary="Preserve value",
             finding_count=1,
@@ -309,7 +189,7 @@ def test_revision_uses_verified_checkout_and_original_request(
                 ),
             }
         )
-        _persist(harness, queued)
+        persist_work_item(harness, queued)
         model = RevisionModel(harness, repository, original, sha, succeeds)
         monkeypatch.setattr(harness.engine.analysis_service, "_build_llm_client", lambda: model)
         git(repository.root, "checkout", "main")

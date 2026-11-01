@@ -78,7 +78,7 @@ Response snapshots are deep copies, independent of emitted responses and fixture
 expectations. Negative tests also change final finding severity, evidence, impact,
 and follow-up to verify that persisted meaning still matches precision output.
 
-## Isolation And Live Evaluation
+## Remediation Routes
 
 Remediation route scenarios cover failed publication, repeated failure, and
 successful retry of the exact remote commit. They also simulate a provider
@@ -88,13 +88,42 @@ observations show absence; they perform no further model calls, validation,
 commit, or push. Paired revision scenarios persist typed review feedback and a
 queued request through real issue rendering, start from the default branch,
 and exercise successful fast-forward publication or validation-failed rollback.
-They preserve the same request, member scope, and operator feedback. Authorization
-and command transport are not simulated by this state setup.
+They preserve the same request, member scope, and operator feedback. These route
+fixtures seed queued state; the separate operator-loop scenarios below exercise
+authorization and command transport rather than bypassing them.
 
 The native HTTP fake permits branch-head and exact-request reads only when a
 scenario explicitly supplies local-remote revision lookup. Searching existing
 requests after publication remains rejected unless the retry scenario explicitly
 enables reuse. Unexpected endpoints and cross-repository access still fail.
+
+## Authorized Recovery And Lifecycle
+
+Three operator flows run on both providers over a published batch: authorized
+requeue followed by a successful revision and merged completion; failed revision,
+consumed-command replay, and a later authorized successful attempt; and a request
+closed without merge, blocked reconciliation, and fresh recovery. Feedback setup
+uses real issue rendering/persistence, while only real command processing queues
+the revision. These flows do not run the review runner.
+
+Real authorization services load scripted native permission responses. GitHub
+targets the triggering comment only; GitLab polls all notes and uses durable
+receipts. Additional scenarios cover insufficient permissions, permission lookup
+failures, stale commands, dry runs, preserved feedback states, stale revision
+claims, linked-request outages, and terminal issue-close failures with later repair.
+Fixed event timestamps and the failure action-boundary clock make ordering explicit.
+
+Assertions inspect parsed machine state, command receipts, batch membership and
+attempt scope, actual model calls, local/remote commits, provider writes, warnings,
+and run summaries. Terminal machine state must be persisted before native issue
+closure. Repeated reconciliation and consumed commands must not repeat transitions.
+Permission and merge responses are fixture data, not live authorization or native
+merge execution. Full review-to-completion orchestration, operational-summary
+publication, and post-merge scanner freshness remain separate follow-ups.
+Transport contracts reject swapped issue-write methods and invalid state payloads
+before changing authority; GitHub uses PATCH/state and GitLab uses PUT/state_event.
+
+## Isolation And Live Evaluation
 
 Only basic process environment is inherited; Git configuration/identity are local,
 Git transport is file-only, tracing is disabled, `.env` loading is rejected, and
@@ -104,8 +133,9 @@ network sandbox: child-process isolation relies on the fixed local validation
 command and local-only Git transport. Dependency installation happens before
 the tests, not inside the application fixture.
 
-These scenarios test orchestration, not model quality, authorization, live API
-compatibility, operator requeue, or lifecycle completion. Existing focused overlap/continuity tests
-remain in place. The GitLab test app remains the separate, explicitly authorized
+These scenarios test orchestration, including authorization decisions, operator
+requeue, and lifecycle transitions over scripted provider responses, not model
+quality or live API compatibility. Existing focused overlap/continuity tests remain
+in place. The GitLab test app remains the separate, explicitly authorized
 real-model/real-provider release-candidate acceptance environment. No live
 evaluation is triggered by this suite.

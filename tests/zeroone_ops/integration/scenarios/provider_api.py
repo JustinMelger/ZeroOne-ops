@@ -26,6 +26,9 @@ class ScenarioProviderAPI:
     calls: list[tuple[str, str]] = field(default_factory=list)
     branch_head_lookup: Callable[[str], str | None] | None = None
     allow_request_reuse: bool = False
+    issue_comments: dict[int, list[dict[str, object]]] = field(default_factory=dict)
+    repository_permissions: dict[str, str | None] = field(default_factory=dict)
+    project_access_levels: dict[int, int | None] = field(default_factory=dict)
 
     def respond(self, request: httpx.Request) -> httpx.Response:
         """Fail closed for endpoints outside the exercised installation contract."""
@@ -45,6 +48,23 @@ class ScenarioProviderAPI:
         branch_path = f"{prefix}/" + (
             "git/ref/heads/" if self.platform == "github" else "repository/branches/"
         )
+        permission_prefix = f"{prefix}/collaborators/"
+        member_prefix = f"{prefix}/members/all/"
+        if self.platform == "github" and path.startswith(permission_prefix):
+            suffix = path.removeprefix(permission_prefix)
+            assert request.method == "GET" and suffix.endswith("/permission")
+            username = suffix.removesuffix("/permission")
+            assert username in self.repository_permissions, "Unexpected permission lookup"
+            permission = self.repository_permissions[username]
+            return httpx.Response(
+                503 if permission is None else 200, json={"permission": permission}
+            )
+        if self.platform == "gitlab" and path.startswith(member_prefix):
+            identifier = path.removeprefix(member_prefix)
+            assert request.method == "GET" and identifier.isdigit()
+            assert int(identifier) in self.project_access_levels, "Unexpected member lookup"
+            access = self.project_access_levels[int(identifier)]
+            return httpx.Response(503 if access is None else 200, json={"access_level": access})
         if path.startswith(branch_path):
             assert request.method == "GET" and self.branch_head_lookup is not None
             sha = self.branch_head_lookup(path.removeprefix(branch_path))
@@ -65,7 +85,7 @@ class ScenarioProviderAPI:
                     "head": {"ref": branch, "sha": self.branch_head_lookup(branch)},
                     "source_branch": branch,
                     "sha": self.branch_head_lookup(branch),
-                    "merged": False,
+                    "merged": payload.get("merged_at") is not None,
                 },
             )
         if path == issues_path:
@@ -74,6 +94,13 @@ class ScenarioProviderAPI:
             return self._requests_response(request)
         if path.startswith(f"{issues_path}/"):
             suffix = path.removeprefix(f"{issues_path}/")
+            comment_kind = "comments" if self.platform == "github" else "notes"
+            if suffix.endswith(f"/{comment_kind}"):
+                number = suffix.removesuffix(f"/{comment_kind}")
+                assert request.method == "GET" and number.isdigit()
+                assert int(number) in self.issues and int(number) in self.issue_comments
+                assert dict(request.url.params) == {"page": "1", "per_page": "100"}
+                return httpx.Response(200, json=self.issue_comments[int(number)])
             if (
                 self.platform == "github"
                 and suffix.endswith("/labels")
@@ -85,8 +112,20 @@ class ScenarioProviderAPI:
             number = int(suffix)
             if request.method == "GET":
                 return httpx.Response(200, json=self.issues[number])
-            assert request.method in {"PATCH", "PUT"}
-            self.issues[number].update(self._payload(request))
+            expected_method = "PATCH" if self.platform == "github" else "PUT"
+            assert request.method == expected_method, "Unexpected issue update method"
+            fields = self._payload(request)
+            if self.platform == "github":
+                assert "state_event" not in fields, "Unexpected GitHub state_event"
+                if "state" in fields:
+                    assert fields["state"] in {"open", "closed"}, "Unexpected GitHub state"
+            else:
+                assert "state" not in fields, "GitLab issue state requires state_event"
+            if "state_event" in fields:
+                event = fields.pop("state_event")
+                assert event in {"close", "reopen"}, "Unexpected GitLab state_event"
+                fields["state"] = "closed" if event == "close" else "opened"
+            self.issues[number].update(fields)
             self.issue_writes.append(deepcopy(self.issues[number]))
             return httpx.Response(200, json=self.issues[number])
         raise AssertionError(f"Unexpected provider request: {request.method} {path}")
