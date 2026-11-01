@@ -1,5 +1,6 @@
 """Prove the offline harness rejects corrupted model and publication inputs."""
 
+from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 from typing import Literal
@@ -135,3 +136,88 @@ def test_transport_rejects_wrong_target_before_request_creation(platform: Platfo
     with pytest.raises(AssertionError, match="Unexpected request target branch"):
         api.respond(request)
     assert not api.requests
+
+
+@pytest.fixture
+def issue_transport(platform: Platform) -> tuple[ScenarioProviderAPI, str]:
+    """Provide one native issue snapshot for transport-only contract checks."""
+    api = ScenarioProviderAPI(platform)
+    api.issues[1] = {
+        "state": "open" if platform == "github" else "opened",
+        "title": "Preserve this issue",
+        "labels": ["zeroone"],
+    }
+    prefix = (
+        f"/repos/{api.repository_scope}"
+        if platform == "github"
+        else f"/api/v4/projects/{api.repository_scope}"
+    )
+    return api, f"https://provider.invalid{prefix}/issues/1"
+
+
+def _issue_update_request(
+    api: ScenarioProviderAPI, url: str, method: str, fields: dict[str, str]
+) -> httpx.Request:
+    """Encode each provider's real transport format without sending a request."""
+    if api.platform == "github":
+        return httpx.Request(method, url, json=fields)
+    return httpx.Request(method, url, data=fields)
+
+
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+def test_issue_transport_rejects_swapped_update_methods(platform, issue_transport):
+    api, url = issue_transport
+    before = deepcopy(api.issues)
+    method = "PUT" if platform == "github" else "PATCH"
+    fields = {"state": "closed"} if platform == "github" else {"state_event": "close"}
+    with pytest.raises(AssertionError, match="Unexpected issue update method"):
+        api.respond(_issue_update_request(api, url, method, fields))
+    assert api.issues == before and not api.issue_writes
+
+
+@pytest.mark.parametrize(
+    ("platform", "fields", "message"),
+    [
+        ("github", {"state_event": "close"}, "Unexpected GitHub state_event"),
+        ("github", {"state": "opened"}, "Unexpected GitHub state"),
+        (
+            "github",
+            {"state": "closed", "state_event": "close"},
+            "Unexpected GitHub state_event",
+        ),
+        ("gitlab", {"state": "closed"}, "GitLab issue state requires state_event"),
+        ("gitlab", {"state": "opened"}, "GitLab issue state requires state_event"),
+        (
+            "gitlab",
+            {"state": "closed", "state_event": "close"},
+            "GitLab issue state requires state_event",
+        ),
+        ("gitlab", {"state_event": "closed"}, "Unexpected GitLab state_event"),
+    ],
+)
+def test_issue_transport_rejects_invalid_state_payloads(platform, fields, message, issue_transport):
+    api, url = issue_transport
+    before = deepcopy(api.issues)
+    method = "PATCH" if platform == "github" else "PUT"
+    with pytest.raises(AssertionError, match=message):
+        api.respond(_issue_update_request(api, url, method, fields))
+    assert api.issues == before and not api.issue_writes
+
+
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+@pytest.mark.parametrize("event", ["close", "reopen"])
+def test_issue_transport_accepts_native_close_and_reopen(platform, event, issue_transport):
+    api, url = issue_transport
+    api.issues[1]["state"] = "open" if platform == "github" else "opened"
+    if event == "reopen":
+        api.issues[1]["state"] = "closed"
+    expected = "closed" if event == "close" else ("open" if platform == "github" else "opened")
+    fields = {"state": expected} if platform == "github" else {"state_event": event}
+    method = "PATCH" if platform == "github" else "PUT"
+    response = api.respond(_issue_update_request(api, url, method, fields))
+    assert response.status_code == 200 and response.json()["state"] == expected
+    assert api.issues[1]["state"] == expected
+    assert api.issues[1]["title"] == "Preserve this issue"
+    assert api.issues[1]["labels"] == ["zeroone"]
+    assert api.issue_writes == [api.issues[1]]
+    assert "state_event" not in api.issues[1]
