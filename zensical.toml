@@ -7,6 +7,7 @@ repo_name = "JustinMelger/ZeroOne-ops"
 edit_uri = "edit/main/docs/"
 docs_dir = "docs"
 site_dir = "site"
+extra_css = ["assets/stylesheets/zeroone.css"]
 exclude_docs = """
 *
 !/index.md
@@ -21,6 +22,8 @@ exclude_docs = """
 !/review-flow-mermaid.md
 !/review-bot-judgment-strategy.md
 !/assets/images/gitlab-demo-board.png
+!/assets/images/zeroone-mark.svg
+!/assets/stylesheets/zeroone.css
 """
 nav = [
   { Home = "index.md" },
@@ -43,8 +46,15 @@ nav = [
 variant = "modern"
 language = "en"
 features = ["navigation.footer", "content.code.copy"]
+logo = "assets/images/zeroone-mark.svg"
+favicon = "assets/images/zeroone-mark.svg"
+font = { text = "IBM Plex Sans", code = "IBM Plex Mono" }
+palette = { scheme = "default", primary = "custom", accent = "custom" }
 
 [project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
 tables = {}
 toc = { permalink = true }
 pymdownx.highlight = {}

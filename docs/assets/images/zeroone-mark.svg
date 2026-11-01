@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+  <title>ZeroOne Ops</title>
+  <rect width="40" height="40" rx="10" fill="#00675d"/>
+  <g fill="none" stroke="#fdfcf9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="8" y="11" width="10" height="18" rx="5"/>
+    <path d="m24 15 5-4v18m-5 0h10"/>
+  </g>
+</svg>

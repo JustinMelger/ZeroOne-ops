@@ -8,9 +8,10 @@ import subprocess
 import sys
 import tomllib
 from collections.abc import Iterator
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import pytest
 import yaml
@@ -31,7 +32,13 @@ PUBLIC_PAGES = frozenset(
         "review-bot-judgment-strategy.md",
     }
 )
-PUBLIC_ASSETS = frozenset({"assets/images/gitlab-demo-board.png"})
+PUBLIC_ASSETS = frozenset(
+    {
+        "assets/images/gitlab-demo-board.png",
+        "assets/images/zeroone-mark.svg",
+        "assets/stylesheets/zeroone.css",
+    }
+)
 MAIN_ONLY = "github.event_name != 'pull_request' && github.ref == 'refs/heads/main'"
 
 
@@ -74,6 +81,19 @@ def test_site_navigation_exposes_only_selected_operator_docs() -> None:
     assert config["validation"] == {"invalid_links": True, "invalid_link_anchors": True}
     assert config["theme"]["variant"] == "modern"
     assert "plugins" not in config
+
+
+def test_styling_uses_supported_theme_configuration_and_explicit_assets() -> None:
+    config = _site_config()
+    assert config["extra_css"] == ["assets/stylesheets/zeroone.css"]
+    assert config["theme"]["logo"] == config["theme"]["favicon"] == "assets/images/zeroone-mark.svg"
+    assert config["theme"]["font"] == {"text": "IBM Plex Sans", "code": "IBM Plex Mono"}
+    assert config["theme"]["palette"] == {
+        "scheme": "default",
+        "primary": "custom",
+        "accent": "custom",
+    }
+    assert "extra_javascript" not in config and "custom_dir" not in config["theme"]
 
 
 def test_documentation_dependencies_are_not_runtime_dependencies() -> None:
@@ -146,6 +166,8 @@ def _build_documentation(root: Path, extra_index: str = "") -> subprocess.Comple
         "design/history.md",
         "unlisted.md",
         "assets/images/private.png",
+        "assets/images/private.svg",
+        "assets/stylesheets/private.css",
     }
     excluded_paths.update(
         f"{folder}/{page}"
@@ -185,6 +207,8 @@ def test_generated_pages_and_search_respect_public_allowlist(built_documentation
     assert not (built_documentation / "internal").exists()
     assert not (built_documentation / "design").exists()
     assert not (built_documentation / "assets/images/private.png").exists()
+    assert not (built_documentation / "assets/images/private.svg").exists()
+    assert not (built_documentation / "assets/stylesheets/private.css").exists()
     search = json.loads((built_documentation / "search.json").read_text(encoding="utf-8"))
     allowed_locations = {""} | {
         f"{Path(page).stem}/" for page in PUBLIC_PAGES if page != "index.md"
@@ -209,8 +233,136 @@ def test_demo_walkthrough_links_examples_and_publishes_only_its_snapshot(
     assert "intentionally seeded findings" in getting_started
     for relative_path in PUBLIC_ASSETS:
         published = (built_documentation / relative_path).read_bytes()
-        assert published.startswith(b"\x89PNG\r\n\x1a\n")
+        if relative_path.endswith(".png"):
+            assert published.startswith(b"\x89PNG\r\n\x1a\n")
         assert published == (REPOSITORY_ROOT / "docs" / relative_path).read_bytes()
+
+
+class _PageElements(HTMLParser):
+    """Read generated markup without coupling contracts to full HTML snapshots."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.elements: list[tuple[str, dict[str, str | None]]] = []
+        self.card_links: list[str | None] = []
+        self._card_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        self.elements.append((tag, attributes))
+        if tag == "div" and (
+            self._card_depth or "zeroone-start" in (attributes.get("class") or "").split()
+        ):
+            self._card_depth += 1
+        if tag == "a" and self._card_depth:
+            self.card_links.append(attributes.get("href"))
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "div" and self._card_depth:
+            self._card_depth -= 1
+
+
+def test_homepage_uses_native_cards_actions_and_preserved_anchors(
+    built_documentation: Path,
+) -> None:
+    page = _PageElements()
+    html = (built_documentation / "index.html").read_text(encoding="utf-8")
+    page.feed(html)
+    anchors = {attrs.get("id") for _, attrs in page.elements}
+    assert {"zeroone-ops", "start-operating", "detailed-reference"} <= anchors
+    actions = {
+        attrs["href"]
+        for tag, attrs in page.elements
+        if tag == "a" and "md-button" in (attrs.get("class") or "").split()
+    }
+    assert actions == {"getting-started/", "getting-started/#see-it-in-action"}
+    assert any(
+        {"grid", "cards", "zeroone-start"} <= set((attrs.get("class") or "").split())
+        for _, attrs in page.elements
+    )
+    assert page.card_links == ["configuration/", "workflows/", "troubleshooting/", "migration-v1/"]
+    assert "Documentation version" in html and "<code>main</code>" in html
+    assert any(
+        {"admonition", "info"} <= set((attrs.get("class") or "").split())
+        for _, attrs in page.elements
+    )
+
+
+@pytest.mark.parametrize(
+    "page_path", ["index.html", "runbook/index.html", "configuration/index.html"]
+)
+def test_brand_assets_resolve_under_project_subpath(
+    built_documentation: Path, page_path: str
+) -> None:
+    page = _PageElements()
+    page.feed((built_documentation / page_path).read_text(encoding="utf-8"))
+    root = _site_config()["site_url"]
+    current = urljoin(
+        root, "" if page_path == "index.html" else page_path.removesuffix("index.html")
+    )
+    found: set[str] = set()
+    for tag, attrs in page.elements:
+        reference = attrs.get("src" if tag == "img" else "href")
+        if not reference or not reference.endswith(("zeroone.css", "zeroone-mark.svg")):
+            continue
+        absolute = urljoin(current, reference)
+        assert absolute.startswith(root)
+        relative = absolute.removeprefix(root)
+        assert relative in PUBLIC_ASSETS
+        assert (built_documentation / relative).is_file()
+        found.add(relative)
+    assert found == {"assets/stylesheets/zeroone.css", "assets/images/zeroone-mark.svg"}
+
+
+def test_documentation_palette_has_accessible_text_contrast() -> None:
+    css = (REPOSITORY_ROOT / "docs/assets/stylesheets/zeroone.css").read_text(encoding="utf-8")
+    tokens = dict(re.findall(r"(--zeroone-[\w-]+):\s*(#[a-fA-F0-9]{6});", css))
+
+    def luminance(color: str) -> float:
+        channels = [int(color[offset : offset + 2], 16) / 255 for offset in (1, 3, 5)]
+        linear = [
+            value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+            for value in channels
+        ]
+        return sum(
+            value * weight for value, weight in zip(linear, (0.2126, 0.7152, 0.0722), strict=True)
+        )
+
+    for foreground in ("ink", "muted", "teal", "teal-dark"):
+        for background in ("canvas", "surface", "tint"):
+            values = sorted(
+                (
+                    luminance(tokens[f"--zeroone-{foreground}"]),
+                    luminance(tokens[f"--zeroone-{background}"]),
+                )
+            )
+            assert (values[1] + 0.05) / (values[0] + 0.05) >= 4.5, (foreground, background)
+
+
+def test_roadmap_milestones_are_implemented_capabilities_not_future_work(
+    built_documentation: Path,
+) -> None:
+    source = (REPOSITORY_ROOT / "docs/roadmap.md").read_text(encoding="utf-8")
+    block = source.split('<div class="zeroone-milestones" markdown="1">', 1)[1].split("</div>", 1)[
+        0
+    ]
+    titles = re.findall(r"^- \*\*(.+)\*\*$", block, re.MULTILINE)
+    assert titles and len(titles) == len(set(titles))
+    assert "## Current Focus" not in block and "## Parked For Later" not in block
+    assert "not a dated release sequence" in source
+    html = (built_documentation / "roadmap/index.html").read_text(encoding="utf-8")
+    timeline = html.split('<div class="zeroone-milestones">', 1)[1].split("</div>", 1)[0]
+    assert timeline.count("<ul>") == 1 and timeline.count("<li>") == len(titles)
+    entries = re.findall(r"<li>(.*?)</li>", timeline, re.DOTALL)
+    assert all(entry.count("<p>") >= 2 for entry in entries)
+    for title in titles:
+        assert f"<strong>{title}</strong>" in timeline
+    assert 'href="#remediation-batching"' in timeline
+    assert 'href="../migration-v1/"' in timeline
+    assert 'id="current-focus"' in html and 'id="parked-for-later-post-v1"' in html
+    assert "zeroone-milestones" not in (built_documentation / "index.html").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_generated_site_preserves_markdown_features_and_project_subpath(
