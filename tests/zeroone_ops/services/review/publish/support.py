@@ -1,6 +1,7 @@
 import json
 from typing import cast
 
+from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.gitlab import GitLabMergeRequestState, MergeRequestNote
 from zeroone_ops.models.review import (
     ChangeRequestDiffRefs,
@@ -12,6 +13,7 @@ from zeroone_ops.models.review import (
     PublishableReviewArtifact,
     PublishableReviewFinding,
     ReviewClassification,
+    ReviewComment,
     ReviewFileContext,
 )
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
@@ -260,6 +262,9 @@ class FakeGitLabReviewClient:
         self.updated_body: str | None = None
         self.fail_inline_publish = False
         self.fail_note_update = False
+        self.comments: list[ReviewComment] = []
+        self.events: list[str] = []
+        self.head_sha = "abc123"
 
     def create_merge_request_note(
         self,
@@ -281,12 +286,58 @@ class FakeGitLabReviewClient:
         repository_id: str,
         change_request_number: int,
         body: str,
-    ) -> MergeRequestNote:
-        return self.create_merge_request_note(
+    ) -> ReviewComment:
+        assert (repository_id, change_request_number) == ("123", 17)
+        assert not self.comments
+        note = self.create_merge_request_note(
             project_id=repository_id,
             merge_request_iid=change_request_number,
             body=body,
         )
+        comment = ReviewComment(
+            id=note.id,
+            web_url=note.web_url,
+            body=body,
+            author_username=self.get_current_user_username(),
+        )
+        self.comments = [comment]
+        self.events.append("overview_create")
+        return comment.model_copy(deep=True)
+
+    def get_change_request(
+        self,
+        *,
+        repository_id: str,
+        change_request_number: int,
+    ) -> ChangeRequestReviewCandidate:
+        raise AssertionError("Publication must not fetch the full request diff.")
+
+    def get_change_request_state(
+        self,
+        *,
+        repository_id: str,
+        change_request_number: int,
+    ) -> ChangeRequestState:
+        assert (repository_id, change_request_number) == ("123", 17)
+        return ChangeRequestState(
+            iid=17,
+            head_sha=self.head_sha,
+            state="opened",
+            source_branch="feature/review",
+            web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        )
+
+    def list_change_request_comments(
+        self,
+        *,
+        repository_id: str,
+        change_request_number: int,
+    ) -> list[ReviewComment]:
+        assert (repository_id, change_request_number) == ("123", 17)
+        return [comment.model_copy(deep=True) for comment in self.comments]
+
+    def allows_machine_safe_comment_fallback(self) -> bool:
+        raise AssertionError("Overview publication must verify author identity.")
 
     def list_open_merge_requests(self, *, project_id: str) -> list[ChangeRequestReviewCandidate]:
         del project_id
@@ -337,13 +388,24 @@ class FakeGitLabReviewClient:
         change_request_number: int,
         note_id: int,
         body: str,
-    ) -> MergeRequestNote:
-        return self.update_merge_request_note(
+    ) -> ReviewComment:
+        assert (repository_id, change_request_number) == ("123", 17)
+        assert self.comments and self.comments[0].id == note_id
+        note = self.update_merge_request_note(
             project_id=repository_id,
             merge_request_iid=change_request_number,
             note_id=note_id,
             body=body,
         )
+        comment = ReviewComment(
+            id=note.id,
+            web_url=note.web_url,
+            body=body,
+            author_username=self.get_current_user_username(),
+        )
+        self.comments = [comment]
+        self.events.append("overview_update")
+        return comment.model_copy(deep=True)
 
     def create_merge_request_inline_comment(
         self,
@@ -379,8 +441,9 @@ class FakeGitLabReviewClient:
         old_path: str,
         new_path: str,
         new_line: int,
-    ) -> MergeRequestNote:
-        return self.create_merge_request_inline_comment(
+    ) -> ReviewComment:
+        assert self.comments and self.events[0] == "overview_create"
+        note = self.create_merge_request_inline_comment(
             project_id=repository_id,
             merge_request_iid=change_request_number,
             body=body,
@@ -390,6 +453,13 @@ class FakeGitLabReviewClient:
             old_path=old_path,
             new_path=new_path,
             new_line=new_line,
+        )
+        self.events.append("inline")
+        return ReviewComment(
+            id=note.id,
+            web_url=note.web_url,
+            body=body,
+            author_username=self.get_current_user_username(),
         )
 
 

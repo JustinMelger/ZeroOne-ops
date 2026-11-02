@@ -2,11 +2,17 @@
 
 ## Status And Ownership
 
-**Proposed for design review; not implemented.** Implements the proposed
+**Slice 1 implemented and automatically verified; live acceptance pending.** Persistent
+overview publication implements the
 [functional contract](../functional/functional-design-review-overview.md).
+Report collection, manifest wiring, CI/JUnit/Cobertura evidence, and evidence-only
+refresh remain proposed for slices 2 and 3. Aggregate checks and paired offline
+scenarios verify Slice 1's implementation; live gates remain separate.
 The [current staged-review design](technical-design-pr-review-staged-pipeline.md)
-continues to describe deployed behavior until an implementation slice explicitly
-replaces its publication sections. Existing historical decoders remain supported.
+continues to own candidate/precision/overlap and inline semantics. This design's
+Slice 1 publication identity and durable overview contract replace per-revision
+summary identity, not those stage boundaries. Existing historical decoders remain
+supported.
 
 This design changes publication identity and adds optional quality evidence.
 Candidate/precision/overlap meaning, prompt inputs, authorization, and remediation
@@ -26,12 +32,12 @@ flowchart TD
 
 ## Current Behavior And Required Separation
 
-`ReviewPublisher` currently creates an authoritative summary for each new review,
-publishes inline comments, then may update that summary with inline metadata.
+Before Slice 1, `ReviewPublisher` created an authoritative summary for each new
+review, published inline comments, then could update that summary with inline metadata.
 Machine-safe v1 summaries support reconstruction, while `ReviewStateService`
 stores bounded local review records and projection artifacts. Prior-note loading
 uses native comment creation time/ID; those cannot order passes once one comment
-is reused. Same-SHA reuse can currently return a compact reference, insufficient
+is reused. Legacy same-SHA reuse can return a compact reference, insufficient
 to regenerate a complete overview in a fresh workspace.
 
 Keep three identities separate:
@@ -101,6 +107,12 @@ No provider CAS is promised. A head/body change between the last read and write
 remains possible; preserve CI serialization/resource groups and document this
 read-before-write limitation. Do not claim timestamps alone eliminate races.
 
+The GitHub example serializes on repository and PR number with
+`cancel-in-progress: false`; it omits unscoped manual dispatch, using PR-job reruns
+for retries. GitLab retains its existing review resource group. Preserve the
+review-only token scope and one final-stage invocation; no report-producing
+commands or second quality job are introduced by Slice 1.
+
 ## Durable Pass History And Recovery
 
 The envelope stores the complete current finalized artifact, original run/head
@@ -128,7 +140,7 @@ Use separate application-owned bounds for provider storage and presentation:
   artifact. Current pending repair metadata must not be evicted by display-row
   trimming. Changing a context limit must not delete provider evidence.
 
-These are initial proposed application constants, not new operator configuration.
+These are Slice 1 application constants, not new operator configuration.
 Summary-only rows cannot drive continuity matching or projection repair. Retention
 is bounded, not an unlimited audit history; archived legacy comments remain
 untouched. Payload-budget failure remains explicit rather than silently dropping
@@ -150,18 +162,31 @@ verified work-item linkage, not from rendered overview text.
 ### Publication Ordering
 
 1. Resolve current/prior authority and the pinned head; build the finalized review.
-2. Prepare the new pass and bounded envelope before any publication write.
+2. Prepare the new pass and bounded envelope with projection marked pending
+   before any publication write. Confirm the transport response contains the
+   intended envelope and verified author, or rediscover it without repeating
+   the write, including after a transport timeout.
 3. Create/update the overview, then follow existing bounded inline publication.
 4. Update the same pass's publication metadata with actual returned inline IDs;
    finding meaning does not change. Persist actual transport responses locally.
 5. Run existing best-effort work-item projection and persist repair evidence.
-   Synchronize that repair evidence into the managed envelope when possible.
+   Synchronize actual inline receipts and the confirmed projection outcome into
+   the managed envelope. Keep local repair pending when synchronization fails,
+   even if projection itself succeeded.
 
 An inline or follow-up metadata update failure retains existing warning behavior;
 do not blindly republish inline discussions. Report when provider-backed recovery
 metadata could not be synchronized and preserve local repair evidence. Fresh
 workspaces cannot recover metadata that never reached durable provider storage;
 the design must expose that limitation rather than inventing missing references.
+
+`ReviewOverviewCoordinator` owns verified discovery and guarded writes;
+`ReviewPublisher` retains inline transport, and `ReviewFinalizationService`
+sequences projection and receipt synchronization. Continuity selects only complete
+snapshots; `ReviewStateService` stores the same decoded pass model for recovery.
+Deleted-comment restoration verifies the scope-bound pass identity against the
+original run before using local evidence. Compact legacy references remain
+readable but cannot manufacture complete recovery snapshots.
 
 The complete serialized overview has an application budget of 60,000 UTF-8 bytes,
 not a claimed provider limit. Enforce it before initial publication and subsequent
@@ -170,14 +195,19 @@ truncate the current artifact or retained structured authority. If the payload
 still exceeds the budget, fail the overview write with a bounded diagnostic;
 retain the previous provider body. Do not create another comment as overflow.
 
-Before locking the proposed two-complete/five-summary defaults in implementation,
-test representative and maximum supported finalized artifacts, inline metadata,
+Verification of the two-complete/five-summary defaults must test representative
+and maximum supported finalized artifacts, inline metadata,
 and pending-repair evidence against that budget. If normal supported reviews do
 not fit, revisit representation/retention in design review rather than shipping
 a default where old history routinely blocks new feedback. Do not silently drop
 current authority or add overflow comments to hide the problem.
 
 ## Quality Input Contract
+
+**Proposed for later slices; not implemented in Slice 1.** Quality evidence is
+explicitly not configured until those slices pass their own gates. The quality
+interfaces, parsing, aggregation, and refresh contracts below are future work;
+the bounded execution-failure notice remains part of Slice 1 publication.
 
 Propose optional review-owned report configuration with stable report-group IDs,
 literal repository-relative report paths, format (`junit` or `cobertura`), and

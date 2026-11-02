@@ -1,3 +1,5 @@
+import pytest
+
 from zeroone_ops.models.gitlab import GitLabIssueInfo
 from zeroone_ops.models.review import ChangeRequestReviewContext, RemediationReviewContext
 from zeroone_ops.models.work_item import (
@@ -154,3 +156,64 @@ def test_project_review_accepts_published_gitlab_note_without_web_url() -> None:
     assert result.work_item is not None
     assert result.work_item.projected_review is not None
     assert result.work_item.projected_review.review_note_url is None
+
+
+@pytest.mark.parametrize("review_note_id", [None, 56])
+@pytest.mark.parametrize("review_pass_id", [None, "review-pass-1"])
+def test_project_review_receipt_precedence(
+    review_note_id: int | None, review_pass_id: str | None
+) -> None:
+    work_item_service = FakeGitLabWorkItemService(_work_item())
+    url = "https://gitlab.example.com/group/project/-/merge_requests/17#note_56"
+
+    result = GitLabReviewProjectionService(work_item_service).project_review(  # type: ignore[arg-type]
+        repository_id="group/project",
+        context=_context(),
+        classification="no_findings",
+        reviewed_sha="abc123",
+        review_note_id=review_note_id,
+        review_note_url=url,
+        review_pass_id=review_pass_id,
+    )
+
+    assert result.action == "updated"
+    assert result.work_item is not None
+    assert result.work_item.projected_review is not None
+    assert result.work_item.projected_review.review_note_reference == (
+        review_pass_id or ("gitlab-note-56" if review_note_id is not None else url)
+    )
+
+
+def test_project_review_same_pass_recreated_note_repairs_only_url() -> None:
+    work_item_service = FakeGitLabWorkItemService(_work_item())
+    service = GitLabReviewProjectionService(work_item_service)  # type: ignore[arg-type]
+    first = service.project_review(
+        repository_id="group/project",
+        context=_context(),
+        classification="no_findings",
+        reviewed_sha="abc123",
+        review_note_id=56,
+        review_pass_id="review-pass-1",
+    )
+    assert first.work_item is not None
+    assert first.work_item.projected_review is not None
+    url = "https://gitlab.example.com/group/project/-/merge_requests/17#note_57"
+
+    result = service.project_review(
+        repository_id="group/project",
+        context=_context(),
+        classification="manual_review_only",
+        reviewed_sha="abc123",
+        review_note_id=57,
+        review_note_url=url,
+        review_pass_id="review-pass-1",
+    )
+
+    assert result.action == "updated"
+    assert result.work_item == first.work_item.model_copy(
+        update={
+            "projected_review": first.work_item.projected_review.model_copy(
+                update={"review_note_url": url}
+            )
+        }
+    )

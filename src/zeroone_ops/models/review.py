@@ -68,6 +68,25 @@ class ChangeRequestReviewCandidate(BaseModel):
     changes: list[ChangeRequestChangedFile] = Field(default_factory=list)
 
 
+class ReviewInlineCommentDecision(BaseModel):
+    """Represent one bounded inline-comment decision for rollout diagnostics."""
+
+    finding_identity: str | None = None
+    severity: str
+    file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
+    region_hint: str | None = None
+    inline_comments_enabled: bool
+    location_trust: Literal["trusted", "weak", "untrusted"]
+    existing_inline_comment_found: bool
+    anchor_reuse_decision: Literal["reuse", "new", "summary_only"]
+    anchor_reuse_reason: str
+    authoritative_note_id: int | None = None
+    existing_comment_id: str | None = None
+    new_comment_id: str | None = None
+
+
 class ReviewComment(BaseModel):
     """Represent one provider-backed review comment."""
 

@@ -22,6 +22,8 @@ class ReviewProviderAPI:
     calls: list[tuple[str, str]] = field(default_factory=list)
     active_number: int | None = None
     published_heads: set[tuple[int, str]] = field(default_factory=set)
+    overview_writes: list[str] = field(default_factory=list)
+    comment_creations: dict[int, int] = field(default_factory=dict)
 
     def respond(self, request: httpx.Request) -> httpx.Response:
         """Fail hard even if production treats a transport boundary as best effort."""
@@ -102,6 +104,7 @@ class ReviewProviderAPI:
             "target_branch": "main",
             "sha": case.head_sha,
             "state": "open" if self.work_items.platform == "github" else "opened",
+            "merged": False,
             "diff_refs": {
                 "base_sha": case.base_sha,
                 "start_sha": case.base_sha,
@@ -133,13 +136,13 @@ class ReviewProviderAPI:
                 line = int(str(fields["position[new_line]"]))
             assert line == case.finding.line_start, "Wrong inline finding location"
         else:
+            assert not notes, "Duplicate persistent review overview"
             identity = (case.number, case.head_sha)
-            assert identity not in self.published_heads, "Duplicate authoritative review comment"
             self.published_heads.add(identity)
         note_id = case.number * 100 + (
             len(self.inline_comments.get(case.number, [])) * 10 + 2
             if inline
-            else len(notes) * 10 + 1
+            else self.comment_creations.get(case.number, 0) * 10 + 1
         )
         note = {
             "id": note_id,
@@ -154,6 +157,8 @@ class ReviewProviderAPI:
             self.inline_comments.setdefault(case.number, []).append(note)
         else:
             notes[note_id] = note
+            self.comment_creations[case.number] = self.comment_creations.get(case.number, 0) + 1
+            self.overview_writes.append(str(fields["body"]))
         payload = (
             {"id": str(note_id), "notes": [note]}
             if inline and self.work_items.platform == "gitlab"
@@ -167,6 +172,7 @@ class ReviewProviderAPI:
         notes = self.comments[number]
         assert note_id in notes, "Cross-request review comment update"
         notes[note_id]["body"] = self._fields(request)["body"]
+        self.overview_writes.append(str(notes[note_id]["body"]))
         return httpx.Response(200, json=notes[note_id])
 
     def _fields(self, request: httpx.Request) -> dict[str, object]:

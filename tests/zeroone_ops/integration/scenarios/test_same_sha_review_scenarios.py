@@ -5,6 +5,14 @@ from copy import deepcopy
 import httpx
 import pytest
 
+from zeroone_ops.services.control_plane.work_items.github_work_item_parser import (
+    GitHubWorkItemParser,
+)
+from zeroone_ops.services.control_plane.work_items.gitlab_work_item_parser import (
+    GitLabWorkItemParser,
+)
+from zeroone_ops.services.review.publish.review_overview_codec import decode_overview
+
 from .provider_api import Platform, ScenarioProviderAPI
 from .review_cases import create_review_case
 from .review_harness import compose_review_harness
@@ -13,13 +21,15 @@ from .review_scripted_sdk import ScriptedReviewSDK
 
 
 @pytest.mark.parametrize("platform", ["github", "gitlab"])
-@pytest.mark.parametrize("reference", ["state", "comment", "repair"])
+@pytest.mark.parametrize(
+    "reference", ["state", "comment", "fresh", "stale", "repair", "fresh-repair"]
+)
 def test_same_sha_review_reuses_publication_and_repairs_only_projection(
     tmp_path, monkeypatch, platform: Platform, reference: str
 ):
     case = create_review_case(tmp_path, number=11, name="annotation")
     api = ReviewProviderAPI(ScenarioProviderAPI(platform), cases={case.number: case})
-    fail_projection = reference == "repair"
+    fail_projection = reference in {"repair", "fresh-repair"}
     failed_updates = []
 
     def respond(request: httpx.Request) -> httpx.Response:
@@ -41,6 +51,8 @@ def test_same_sha_review_reuses_publication_and_repairs_only_projection(
         first = harness.run(case, sdk)
         key = f"{case.number}:{case.head_sha}"
         published = deepcopy(api.comments)
+        overview = decode_overview(str(next(iter(published[case.number].values()))["body"]))
+        assert overview is not None
         inline = deepcopy(api.inline_comments)
         artifact = harness.state_service.state.reviews[key].projection_artifact.model_copy(
             deep=True
@@ -49,9 +61,23 @@ def test_same_sha_review_reuses_publication_and_repairs_only_projection(
         if reference == "comment":
             harness.state_service.state.reviews.clear()
             harness.state_service.state_store.save(harness.state_service.state)
-        if reference == "repair":
+        if reference == "stale":
+            review = harness.state_service.state.reviews[key]
+            harness.state_service.state.reviews[key] = review.model_copy(
+                update={
+                    "note_id": -1,
+                    "note_url": "https://provider.invalid/stale",
+                    "projection_artifact": artifact.model_copy(
+                        update={"summary": "Stale local review summary"}
+                    ),
+                }
+            )
+            harness.state_service.state_store.save(harness.state_service.state)
+        if reference in {"fresh", "fresh-repair"}:
+            harness = compose_review_harness(api, http, tmp_path / "fresh-state.json", monkeypatch)
+        if reference in {"repair", "fresh-repair"}:
             assert failed_updates
-            assert harness.state_service.state_store.load().reviews[key].projection_retry_pending
+            assert overview.complete_passes[0].projection_pending
             repeated = harness.run(case, sdk)
             assert "Review projection warning:" in repeated.message
             assert harness.state_service.state_store.load().reviews[key].projection_retry_pending
@@ -64,19 +90,33 @@ def test_same_sha_review_reuses_publication_and_repairs_only_projection(
         assert summary.status.value == "reviewed"
         assert "No new changes after the last review" in summary.message
         assert len(sdk.calls) == 2
-        assert api.comments == published
-        assert api.inline_comments == inline
-        assert (
-            all(method == "GET" for method, _ in api.calls[calls_before:]) or reference == "repair"
+        repaired_overview = decode_overview(
+            str(next(iter(api.comments[case.number].values()))["body"])
         )
+        assert repaired_overview is not None
+        assert repaired_overview.history == overview.history
+        assert repaired_overview.complete_passes[0].pass_id == overview.complete_passes[0].pass_id
+        assert len(api.comments[case.number]) == 1
+        if reference not in {"repair", "fresh-repair"}:
+            assert api.comments == published
+        assert api.inline_comments == inline
+        assert all(method == "GET" for method, _ in api.calls[calls_before:]) or reference in {
+            "repair",
+            "fresh-repair",
+        }
         saved = harness.state_service.state_store.load()
         assert saved.runs[-1].status.value == "reviewed"
-        if reference == "repair":
+        mirrored = saved.reviews[key]
+        assert mirrored.note_id == next(iter(api.comments[case.number]))
+        assert mirrored.review_pass_id == overview.complete_passes[0].pass_id
+        assert mirrored.projection_artifact == artifact
+        if reference in {"repair", "fresh-repair"}:
             assert "Repaired pending review projection." in summary.message
             repaired = saved.reviews[key]
             assert not repaired.projection_retry_pending
             assert repaired.projection_retry_warning is None
             assert repaired.projection_artifact == artifact
+            assert not repaired_overview.complete_passes[0].projection_pending
             assert len(api.work_items.issue_writes) == writes_before + 1
             body = str(
                 api.work_items.issues[1].get("body", api.work_items.issues[1].get("description"))
@@ -85,3 +125,65 @@ def test_same_sha_review_reuses_publication_and_repairs_only_projection(
             assert "review_feedback_required" in body
         else:
             assert len(api.work_items.issue_writes) == writes_before
+
+
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+def test_deleted_overview_restores_receipt_without_restarting_review_action(
+    tmp_path, monkeypatch, platform: Platform
+):
+    case = create_review_case(tmp_path, number=11, name="annotation")
+    api = ReviewProviderAPI(ScenarioProviderAPI(platform), cases={case.number: case})
+    with httpx.Client(
+        base_url="https://provider.invalid", transport=httpx.MockTransport(api.respond)
+    ) as http:
+        state_path = tmp_path / "state.json"
+        harness = compose_review_harness(api, http, state_path, monkeypatch)
+        sdk = ScriptedReviewSDK(case, linked_work_item=harness.seed_link(case))
+        assert harness.run(case, sdk).status.value == "reviewed"
+        original_note = next(iter(api.comments[case.number].values()))
+        original = decode_overview(str(original_note["body"]))
+        assert original is not None
+        parser = GitHubWorkItemParser() if platform == "github" else GitLabWorkItemParser()
+        body_field = "body" if platform == "github" else "description"
+        before = parser.parse_work_item_state(str(api.work_items.issues[1][body_field]))
+        assert before.review_action_required_at is not None
+        inline = deepcopy(api.inline_comments)
+        writes_before = len(api.work_items.issue_writes)
+        overview_writes_before = len(api.overview_writes)
+        api.comments[case.number].clear()
+
+        harness = compose_review_harness(api, http, state_path, monkeypatch)
+        summary = harness.run(case, sdk)
+
+        assert summary.status.value == "reviewed", summary.message
+        assert "No new changes after the last review" in summary.message
+        assert "Repaired pending review projection." in summary.message
+        assert "warning" not in summary.message.lower()
+        assert len(sdk.calls) == 2
+        assert api.inline_comments == inline
+        assert len(api.comments[case.number]) == 1
+        note = next(iter(api.comments[case.number].values()))
+        assert note["id"] != original_note["id"]
+        restored = decode_overview(str(note["body"]))
+        assert restored == original
+        staged = decode_overview(api.overview_writes[overview_writes_before])
+        assert staged.complete_passes[0].projection_pending
+        assert staged.history == original.history
+        saved = harness.state_service.state_store.load().reviews[f"{case.number}:{case.head_sha}"]
+        assert saved.note_id == note["id"]
+        assert saved.review_pass_id == original.complete_passes[0].pass_id
+        assert not saved.projection_retry_pending
+        after = parser.parse_work_item_state(str(api.work_items.issues[1][body_field]))
+        assert after.status == before.status
+        assert after.review_action_required_at == before.review_action_required_at
+        assert after.review_revision_request == before.review_revision_request
+        assert after.batch_attempt == before.batch_attempt
+        assert after.projected_review == before.projected_review.model_copy(
+            update={"review_note_url": saved.note_url}
+        )
+        assert len(api.work_items.issue_writes) == writes_before + 1
+        writes_after_repair = len(api.overview_writes)
+        assert harness.run(case, sdk).status.value == "reviewed"
+        assert len(api.overview_writes) == writes_after_repair
+        assert len(api.work_items.issue_writes) == writes_before + 1
+        assert api.inline_comments == inline and len(sdk.calls) == 2

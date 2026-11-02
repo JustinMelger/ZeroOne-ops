@@ -328,7 +328,7 @@ fails at analysis instead of trying to widen scope automatically.
 The review workflow is provider-native:
 
 - one merge request or pull request per run
-- one deterministic summary note per reviewed revision
+- one persistent bot-owned overview updated across reviewed revisions
 - dedup by change-request identity and head SHA
 - bounded GitHub inline comments when enabled in `review.inline_comments_enabled`
 - no code modification in the review workflow
@@ -345,6 +345,53 @@ model instructions, not a guarantee of review precision or a suppression filter.
 Both candidate generation and precision receive the same bounded remediation
 evidence. Batch attempt members are supplied only through verified work-item
 linkage and remain untrusted context, not proof that the findings were resolved.
+
+### Persistent Review Overview
+
+Slice 1 is implemented with automated offline verification; live GitHub/GitLab
+acceptance remains pending. Do not treat automated completion as rollout sign-off.
+Report collection, CI/JUnit evidence refresh, and Cobertura comparison
+remain proposed; this slice shows quality evidence as not configured.
+
+The overview stores two complete completed-pass snapshots (current and previous)
+and at most five completed-pass summaries including the current pass. Older rows
+are summary-only, not artifacts for continuity or projection repair. These bounds
+are independent of `review.max_prior_review_passes`, including zero; increasing
+model context cannot reconstruct evicted provider artifacts. History is bounded,
+not an unlimited audit trail. Legacy review comments remain untouched.
+
+A handled failed attempt may update a separate bounded notice on an existing
+verified overview. The last completed artifact, verdict, and reviewed SHA remain
+intact; the attempted SHA is not labeled reviewed. Without a prior overview, use
+ordinary run failure reporting, not a new execution-status comment.
+
+Only an authenticated configured bot author with a valid request-matching machine
+envelope authorizes mutation. Human/foreign-bot markers do not authorize writes.
+Duplicate verified overviews, malformed managed markers, or scope mismatches stop
+publication rather than selecting a convenient comment. Discovery must succeed
+before creation; inaccessible history is not proof of absence. Keep operator
+discussion in replies or separate comments: the entire overview body is managed.
+
+Before writing, re-read the overview and open request head and verify the pinned
+review SHA. Preserve CI serialization: the GitHub example uses repository/request
+concurrency without canceling an active publisher; GitLab retains its review
+resource group. This is read-before-write protection, not provider CAS; another
+writer outside that serialization can still race. An uncertain create requires
+rediscovery before another write, never blind comment creation.
+
+The whole serialized body, including machine evidence and publication/repair
+metadata, must fit a 60,000 UTF-8 byte application budget. Declared history trimming
+comes first; required complete artifacts are not silently truncated. An oversized
+write fails with a bounded diagnostic and leaves the previous provider body in
+place. There is no overflow comment. Inline or metadata synchronization failures
+retain warnings and local repair evidence; a fresh workspace cannot recover
+metadata that never reached provider storage. Projection repair remains separate
+from review publication and must not republish inline discussions.
+
+Keep review as one final consuming stage after existing unit/integration jobs and
+optional coverage aggregation, without running their commands inside review.
+Report handoff wiring belongs to later slices; do not add speculative manifests,
+report configuration, or early-review/late-refresh jobs now.
 
 The control plane includes scheduled lifecycle reconciliation:
 
@@ -1371,7 +1418,7 @@ Start with one merge request that:
    - review classification
    - note publication
 5. open the target merge request
-6. verify there is one deterministic AI review summary note
+6. verify there is one managed AI review overview
 7. confirm the note is clearly one of:
    - findings present
    - no findings in this pass
@@ -1383,7 +1430,7 @@ Start with one merge request that:
 A successful review smoke test should produce:
 
 - one selected merge request
-- one deterministic summary note
+- one managed overview (changed-head reviews update the same comment)
 - a persisted reviewed revision keyed by MR IID and head SHA
 - a clean skip on immediate rerun when the head SHA is unchanged
 
@@ -1406,7 +1453,19 @@ The example is intentionally scoped to review only:
 
 - GitHub pull request trigger
 - summary-comment publication
+- repository/request-scoped concurrency without canceling an active publication
 - no remediation or control-plane workflow yet
+
+Retry with GitHub's rerun action on the PR-triggered job. Existing manual dispatch
+does not select a pull request and uses an isolated run lock, not a request lock.
+Use the same request concurrency group for any additional
+publisher targeting that request. GitHub concurrency is not a FIFO run queue;
+stale-head guards still decide whether a queued run may publish.
+
+Permissions remain `contents: read`, `issues: write`, and `pull-requests: write`;
+do not switch to `pull_request_target` or execute remediation setup/validation to
+enable overview updates. Fork-token limitations still apply. In a larger workflow,
+keep one final review invocation after producer jobs, not a second refresh job.
 
 Current config note:
 

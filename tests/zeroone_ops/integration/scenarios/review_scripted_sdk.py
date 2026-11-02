@@ -33,7 +33,7 @@ class ReviewSDKCall:
 
     schema: type[BaseModel]
     prompt: str
-    output: BaseModel
+    output: BaseModel | None
 
 
 @dataclass
@@ -47,10 +47,13 @@ class ScriptedReviewSDK:
     candidate_ids: tuple[str, ...] = ()
     prior_case: ReviewCase | None = None
     overlap_result: OverlapReconciliationResult | None = None
+    fail_candidate: bool = False
 
     @property
     def expected_call_count(self) -> int:
         """Require the overlap stage only for an explicitly scripted repeated review."""
+        if self.fail_candidate:
+            return 1
         return 3 if self.prior_case is not None else 2
 
     @property
@@ -89,6 +92,9 @@ class ScriptedReviewSDK:
                 return SimpleNamespace(output_parsed=output)
             assert "untrusted" in input[0]["content"].lower()
             self._assert_prompt(prompt)
+            if self.fail_candidate:
+                self.calls.append(ReviewSDKCall(text_format, prompt, None))
+                raise RuntimeError("Scripted offline review SDK outage")
             if index == 0:
                 output = ReviewResult(
                     classification="findings_present",

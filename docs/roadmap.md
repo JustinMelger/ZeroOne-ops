@@ -164,16 +164,21 @@ This heading is retained for existing release-readiness links.
 
 ### Review Overview Design
 
-The proposed [functional design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/functional/functional-design-review-overview.md)
+The [functional design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/functional/functional-design-review-overview.md)
 and [technical design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-design-review-overview.md)
 separate a persistent PR/MR overview from review-pass authority, inline findings,
-and optional structured CI evidence. These are design proposals, not shipped
-capabilities or changes to model judgment.
+and optional structured CI evidence. Slice 1 implementation has automated offline
+verification; live acceptance remains pending.
+Its single bot-owned overview retains two complete passes and five summaries
+independently of model-context limits, separates failed attempts, and enforces a
+60,000 UTF-8 byte budget with ownership and read-before-write guards. Reporting
+and evidence-only refresh remain proposed, not implemented. Model judgment is
+unchanged. Automated completion does not close the separate live gates below.
 Slice 1 is independently shippable. Stop for its live acceptance before report
 integration; validate the smallest JUnit installation before expanding to coverage.
 
-- [ ] review the proposed contracts before implementation
-- [ ] slice 1: persistent overview, durable bounded history, stale-write guards,
+- [x] review the proposed contracts before implementation
+- [x] slice 1: persistent overview, durable bounded history, stale-write guards,
   and existing same-SHA/inline/projection-repair continuity
 - [ ] live-validate slice 1 on GitHub and GitLab, including fresh-workspace and
   partial-publication recovery, before starting slice 2

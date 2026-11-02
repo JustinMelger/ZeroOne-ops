@@ -52,6 +52,7 @@ class GitHubReviewProjectionService:
         classification: ReviewClassification | None = None,
         review_note_id: int | None = None,
         review_note_url: str | None = None,
+        review_pass_id: str | None = None,
     ) -> GitHubReviewProjectionResult:
         """Project one published review onto an existing promoted remediation work item."""
         if review_note_id is None and review_note_url is None:
@@ -83,9 +84,13 @@ class GitHubReviewProjectionService:
             reviewed_sha=reviewed_sha,
             review_note_url=review_note_url,
             review_note_reference=(
-                f"github-comment-{review_note_id}"
-                if review_note_id is not None
-                else review_note_url
+                review_pass_id
+                if review_pass_id is not None
+                else (
+                    f"github-comment-{review_note_id}"
+                    if review_note_id is not None
+                    else review_note_url
+                )
             ),
         )
         return GitHubReviewProjectionResult(

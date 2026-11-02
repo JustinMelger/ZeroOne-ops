@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 
+from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.config import GitHubConnectionConfig
 from zeroone_ops.models.review import (
     ChangeRequestChangedFile,
@@ -13,6 +14,7 @@ from zeroone_ops.models.review import (
     ChangeRequestReviewCandidate,
     ReviewComment,
 )
+from zeroone_ops.providers.github_client import GitHubClientError, _normalize_pull_request_state
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 
 
@@ -52,6 +54,22 @@ class GitHubReviewClient:
             error_message="Unexpected GitHub pull request files payload.",
         )
         return _normalize_pull_request(pull_request, files)
+
+    def get_change_request_state(
+        self,
+        *,
+        repository_id: str,
+        change_request_number: int,
+    ) -> ChangeRequestState:
+        """Fetch current pull-request state without loading changed files."""
+        payload = self._get_json(
+            f"/repos/{repository_id}/pulls/{change_request_number}",
+            error_message="Unexpected GitHub pull request state payload.",
+        )
+        try:
+            return _normalize_pull_request_state(payload)
+        except GitHubClientError as error:
+            raise ReviewPlatformClientError(str(error)) from error
 
     def list_change_request_comments(
         self,

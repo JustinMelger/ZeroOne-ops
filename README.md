@@ -268,9 +268,29 @@ Severity control note:
 ### Change-Request Review
 
 - review one merge request or pull request per run
-- publish one deterministic summary note per reviewed revision
+- update one persistent bot-owned overview per change request
 - deduplicate by change-request identity and head SHA
-- keep the summary note authoritative even when bounded inline comments are enabled
+- keep finalized structured review evidence authoritative when inline comments are enabled
+
+The Slice 1 implementation retains two complete completed-pass snapshots and at
+most five completed-pass summaries, including the current pass. These provider
+bounds are independent of `review.max_prior_review_passes`, which controls model
+context and existing local-history retention. Failed attempts are separate notices;
+they do not replace the last completed review or claim its verdict for a new SHA.
+The whole overview is bot-managed: use replies or separate comments for discussion.
+
+Writes require verified bot ownership, exact request scope, and a fresh read of
+the overview and open request head. CI serialization reduces races but is not
+provider compare-and-swap. The complete overview has a 60,000 UTF-8 byte application
+budget; overflow fails the write, preserving the previous body rather than
+dropping required artifacts or creating overflow comments. See the
+[operator contract](docs/runbook.md#persistent-review-overview).
+
+Slice 1 is implemented and covered by automated offline verification. Live
+GitHub/GitLab acceptance remains pending.
+CI/JUnit/Cobertura reporting and evidence-only refresh are still proposed, not
+implemented; quality evidence is not configured in this slice. Review remains
+one final-stage invocation, not an early-review/late-report job pair.
 
 Correctness findings must connect the reviewed change to a violated requirement
 and supported impact. Reviews distinguish pre-existing behavior from introduced

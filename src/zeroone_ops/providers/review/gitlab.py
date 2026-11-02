@@ -37,7 +37,8 @@ class GitLabReviewClientProtocol(Protocol):
     def get_change_request_state(
         self,
         *,
-        project_id: str,
+        project_id: str | None = None,
+        repository_id: str | None = None,
         change_request_number: int,
     ) -> ChangeRequestState:
         """Fetch one change-request state for reconciliation."""
@@ -143,14 +144,27 @@ class GitLabReviewClient:
     def get_change_request_state(
         self,
         *,
-        project_id: str,
+        project_id: str | None = None,
+        repository_id: str | None = None,
         change_request_number: int,
     ) -> ChangeRequestState:
-        """Fetch one change request state using provider-neutral naming."""
-        return self.get_merge_request_state(
-            project_id=project_id,
-            merge_request_iid=change_request_number,
-        )
+        """Fetch state without changes, retaining the legacy project-ID/error contract."""
+        if project_id is not None and repository_id is not None:
+            raise ValueError("Provide exactly one of project_id or repository_id.")
+
+        resolved_project_id = repository_id if repository_id is not None else project_id
+        if resolved_project_id is None:
+            raise ValueError("Provide exactly one of project_id or repository_id.")
+
+        try:
+            return self.get_merge_request_state(
+                project_id=resolved_project_id,
+                merge_request_iid=change_request_number,
+            )
+        except GitLabClientError as error:
+            if repository_id is None:
+                raise
+            raise ReviewPlatformClientError(str(error)) from error
 
     def get_merge_request_state(
         self,
@@ -274,12 +288,15 @@ class GitLabReviewClient:
     def get_current_user_username(self) -> str:
         """Return the GitLab username associated with the active API token."""
         response = self._http_client.get("/api/v4/user")
-        payload = _parse_json_response(response)
+        try:
+            payload = _parse_json_response(response)
+        except GitLabClientError as error:
+            raise ReviewPlatformClientError(str(error)) from error
         if not isinstance(payload, dict):
-            raise GitLabClientError("Unexpected GitLab current user payload.")
+            raise ReviewPlatformClientError("Unexpected GitLab current user payload.")
         username = payload.get("username")
         if not isinstance(username, str):
-            raise GitLabClientError("Unexpected GitLab current user username.")
+            raise ReviewPlatformClientError("Unexpected GitLab current user username.")
         return username
 
     def allows_machine_safe_comment_fallback(self) -> bool:

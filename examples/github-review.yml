@@ -2,6 +2,8 @@ name: ZeroOne Ops Review
 
 # This review-only workflow never runs remediation setup or validation commands.
 # Set the repository variable ZERO_ONE_OPS_VERSION to upgrade deliberately.
+# In a larger pipeline, keep this as one final-stage invocation after producers.
+# Rerun the PR-triggered job to retry. Manual dispatch does not select a PR.
 
 on:
   pull_request:
@@ -10,6 +12,11 @@ on:
       - synchronize
       - reopened
   workflow_dispatch:
+
+# Do not cancel an in-flight overview/inline publication on a newer head.
+concurrency:
+  group: zeroone-ops-review-${{ github.repository }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
 
 permissions:
   contents: read

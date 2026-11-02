@@ -146,6 +146,29 @@ def test_review_template_does_not_run_remediation_validation() -> None:
     assert review["steps"][-1]["run"] == "zeroone-ops review"
 
 
+def test_review_template_serializes_request_publication_with_least_privilege() -> None:
+    template = GITHUB_REVIEW_TEMPLATE_PATH.read_text(encoding="utf-8")
+    parsed = safe_load(template)
+    assert isinstance(parsed, dict)
+
+    assert parsed["concurrency"] == {
+        "group": (
+            "zeroone-ops-review-${{ github.repository }}-"
+            "${{ github.event.pull_request.number || github.run_id }}"
+        ),
+        "cancel-in-progress": False,
+    }
+    assert parsed["permissions"] == {
+        "contents": "read",
+        "issues": "write",
+        "pull-requests": "write",
+    }
+    assert "workflow_dispatch:" in template
+    assert "pull_request_target:" not in template
+    review = parsed["jobs"]["zeroone-ops-review"]
+    assert sum(step.get("run") == "zeroone-ops review" for step in review["steps"]) == 1
+
+
 def test_gitlab_template_documents_protected_privileged_execution() -> None:
     template = GITLAB_TEMPLATE_PATH.read_text(encoding="utf-8")
     base = _gitlab_job(_load_gitlab_template(), ".zeroone_ops_base")

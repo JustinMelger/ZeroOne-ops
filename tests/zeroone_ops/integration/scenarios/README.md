@@ -59,7 +59,7 @@ an undefined annotation, the same concern after line/wording changes, then its
 fix alongside a new undefined annotation in another function. The real prior-note
 loader and overlap service run with scripted SDK overlap responses. Tests verify
 latest-prior SHA selection, unresolved versus resolved/new outcomes, inline-comment
-reuse, independent published comments, bounded local history, and latest work-item
+reuse, successive passes in one overview, bounded local history, and latest work-item
 projection. A negative contract removes precision history and must fail before
 another review is published. These checks verify continuity wiring, not whether
 a real model correctly judges two findings to be equivalent.
@@ -68,8 +68,18 @@ Same-SHA scenarios reuse either authoritative local state or a provider comment
 without additional model calls or review comments. The repair sequence injects
 a native issue-update failure after publication, repeats that failure on the
 same SHA, then repairs projection while preserving the original artifact and
-note. Both GitHub and GitLab use real lookup, rendering, projection, and state
+logical pass. Both GitHub and GitLab use real lookup, rendering, projection, and state
 persistence over fake HTTP.
+
+Persistent-overview scenarios discard local state to recover complete provider
+history, replace stale local cache from verified provider evidence, and repair
+pending projection from a fresh workspace. Six successive heads retain one
+overview, two complete artifacts, five summaries, and reused inline references.
+Deleted-comment recovery preserves the original logical receipt while repairing
+only its transport URL; review-action timestamps and queued revision evidence
+are not replaced. Handled execution failures preserve the earlier completed
+artifact and SHA, and a failed first review creates no overview. Scripted
+responses establish workflow behavior, not improved model precision.
 
 Negative contracts remove source or batch evidence, corrupt forwarded candidate
 evidence, substitute another checkout's context, and redirect publication. Each

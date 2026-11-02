@@ -46,6 +46,9 @@ from zeroone_ops.services.review.pipeline.review_reconciliation_service import (
 )
 from zeroone_ops.services.review.pipeline.review_runner import LOGGER as REVIEW_LOGGER
 from zeroone_ops.services.review.pipeline.review_runner import ReviewRunner
+from zeroone_ops.services.review.publish.review_overview_coordinator import (
+    ReviewOverviewCoordinator,
+)
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.shared.state_store import StateStore
@@ -164,6 +167,7 @@ class ReviewHarness:
             ),
         )
         projection_factory = build_review_projection_factory(config)
+        overview_coordinator = ReviewOverviewCoordinator(client, config.platform)
         runner = ReviewRunner(
             repo_root=case.root,
             config=config,
@@ -173,6 +177,7 @@ class ReviewHarness:
                 review_client=client,
                 review_state_service=self.state_service,
                 logger=REVIEW_LOGGER,
+                overview_coordinator=overview_coordinator,
             ),
             projection_repair_service=ReviewProjectionRepairService(
                 repo_root=case.root,
@@ -180,6 +185,7 @@ class ReviewHarness:
                 review_state_service=self.state_service,
                 review_projection_factory=projection_factory,
                 logger=REVIEW_LOGGER,
+                overview_coordinator=overview_coordinator,
             ),
             review_projection_factory=projection_factory,
             remediation_context_resolver=build_review_remediation_context_resolver(

@@ -2,8 +2,11 @@
 
 ## Status And Related Contracts
 
-**Proposed for design review; not implemented.** This document describes a new
-publication and quality-evidence surface, not a change to model judgment.
+**Slice 1 implemented and automatically verified; live acceptance pending.** Persistent
+publication is the implemented contract below. CI/JUnit/Cobertura reporting and
+evidence-only refresh remain proposed for later slices, not supported behavior.
+This document changes publication, not model judgment. Automated completion does
+not establish live provider acceptance; keep those acceptance gates unchecked.
 
 The [technical design](../technical/technical-design-review-overview.md) defines
 storage, collection, and failure boundaries. The existing
@@ -29,7 +32,7 @@ concern, a failed pipeline, and unavailable coverage are different signals.
 - Link active findings to existing inline discussions. Findings without a usable
   inline location retain concise, actionable details in the overview.
 - Keep existing inline creation, reuse, and resolved-finding behavior unchanged.
-  This proposal does not automatically resolve or reopen discussions.
+  The overview does not automatically resolve or reopen discussions.
 - Retain a collapsed recent-review history with commit, classification, counts,
   and run link. Initially display at most five completed passes, including the
   current pass. Older displayed entries may be summary-only; label them as such.
@@ -57,6 +60,15 @@ overview's history or remove its current recovery artifact. Initial overview
 bounds are application-owned, without new operator tuning settings; see the
 technical design for complete versus summary-only retention.
 
+Slice 1 retains two complete completed passes and at most five completed summaries
+including the current pass, independent of model-context limits. Its complete
+serialized overview budget is 60,000 UTF-8 bytes, an application bound rather than
+a provider limit. Oversize writes preserve the old overview and fail explicitly;
+they do not silently discard required evidence or create overflow comments.
+Only a verified bot-owned, request-matching overview is editable, following a
+fresh body/head read. CI serialization reduces races but does not supply provider
+compare-and-swap. Failed attempts remain separate from completed-pass authority.
+
 ### Clear Findings And Next Actions
 
 The overview should answer: what commit was reviewed, what needs attention, why,
@@ -83,6 +95,9 @@ If accepted evidence is unclear, that requires a separate review-quality change,
 not another summarization stage hidden in presentation.
 
 ## Quality Signals
+
+**Proposed, not implemented in Slice 1.** The rest of the quality-evidence sections
+describe later delivery; Slice 1 reports quality evidence as not configured.
 
 Quality reporting is optional. With no configured reports, the review continues
 to work and the overview says that quality evidence is not configured.
@@ -361,8 +376,9 @@ That result does not review bbb2222. Quality evidence is labeled by its own test
 | GitHub/GitLab and dry runs | Equivalent semantics; dry runs make no provider writes. |
 
 Deliver separately: persistent overview/continuity, CI and JUnit evidence refresh,
-then Cobertura coverage comparison. Implementation and live provider acceptance
-remain unchecked until each slice is independently reviewed and verified.
+then Cobertura coverage comparison. Slice 1 automated implementation is complete;
+live provider acceptance and later slices remain unchecked until independently
+reviewed and verified.
 
 The persistent overview is a complete, independently shippable improvement
 without report integration. Live-validate overview updates, fresh-workspace

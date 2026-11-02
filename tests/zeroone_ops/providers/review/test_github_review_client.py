@@ -3,6 +3,7 @@ import json
 import httpx
 import pytest
 
+from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.config import GitHubConnectionConfig
 from zeroone_ops.providers.review.github import GitHubReviewClient
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
@@ -157,6 +158,102 @@ def test_get_current_user_username_reads_login() -> None:
     client = build_client(handler)
 
     assert client.get_current_user_username() == "zeroone-ops[bot]"
+
+
+@pytest.mark.parametrize(
+    ("state", "merged_at", "expected_state"),
+    [
+        ("open", None, "opened"),
+        ("closed", None, "closed"),
+        ("closed", "2026-06-18T10:00:00Z", "merged"),
+    ],
+)
+def test_get_change_request_state_does_not_fetch_changed_files(
+    state: str,
+    merged_at: str | None,
+    expected_state: str,
+) -> None:
+    requests: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/repos/octo-org/octo-repo/pulls/17"
+        requests.append(request.url.path)
+        return httpx.Response(
+            200,
+            json={
+                "number": 17,
+                "html_url": "https://github.com/octo-org/octo-repo/pull/17",
+                "head": {"ref": "feature/review", "sha": "abc123"},
+                "state": state,
+                "merged_at": merged_at,
+            },
+        )
+
+    result = build_client(handler).get_change_request_state(
+        repository_id="octo-org/octo-repo",
+        change_request_number=17,
+    )
+
+    assert len(requests) == 1
+    assert result == ChangeRequestState(
+        iid=17,
+        web_url="https://github.com/octo-org/octo-repo/pull/17",
+        source_branch="feature/review",
+        head_sha="abc123",
+        state=expected_state,
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "payload"),
+    [(404, {"message": "Not Found"}), (200, []), (200, {"number": 17})],
+)
+def test_get_change_request_state_surfaces_provider_errors(status: int, payload: object) -> None:
+    client = build_client(lambda request: httpx.Response(status, json=payload))
+
+    with pytest.raises(ReviewPlatformClientError):
+        client.get_change_request_state(
+            repository_id="octo-org/octo-repo",
+            change_request_number=17,
+        )
+
+
+def test_list_change_request_comments_reads_all_pages() -> None:
+    seen_pages: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/repos/octo-org/octo-repo/issues/17/comments"
+        assert request.url.params["per_page"] == "100"
+        page = request.url.params["page"]
+        seen_pages.append(page)
+        headers = {}
+        if page == "1":
+            headers["Link"] = (
+                "<https://api.github.com/repos/octo-org/octo-repo/issues/17/comments"
+                '?page=2&per_page=100>; rel="next"'
+            )
+        return httpx.Response(
+            200,
+            headers=headers,
+            json=[
+                {
+                    "id": int(page),
+                    "body": f"Review {page}",
+                    "user": {"login": "zeroone-ops[bot]"},
+                }
+            ],
+        )
+
+    comments = build_client(handler).list_change_request_comments(
+        repository_id="octo-org/octo-repo",
+        change_request_number=17,
+    )
+
+    assert seen_pages == ["1", "2"]
+    assert [comment.id for comment in comments] == [1, 2]
+    assert [comment.body for comment in comments] == ["Review 1", "Review 2"]
 
 
 def test_create_change_request_inline_comment_posts_single_line_right_comment() -> None:

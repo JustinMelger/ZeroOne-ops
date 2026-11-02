@@ -5,6 +5,12 @@
 This document defines the technical design for a staged review pipeline in
 ZeroOne Ops.
 
+The [persistent overview contract](technical-design-review-overview.md) replaces
+per-revision summary publication with one managed comment and independent logical
+pass identities. Its publication and recovery rules supersede older summary-note
+identity references below; candidate, precision, overlap, and finalized-artifact
+ownership remain unchanged. CI report integration is still proposed.
+
 It complements
 [functional-design-pr-review-staged-pipeline.md](../functional/functional-design-pr-review-staged-pipeline.md),
 which defines the product behavior and stage ownership.
@@ -100,14 +106,13 @@ meaning, regenerate artifacts, publish reviews, or change projection decisions.
 
 ### Proposed Overview Publication Extension
 
-The [review overview technical proposal](technical-design-review-overview.md)
-separates logical review-pass identity from a persistent comment ID and adds
-optional report-derived quality evidence. It is not implemented: per-pass summary
-publication and the continuity/repair behavior above remain the deployed contract.
-Any implementation must adapt provider-backed history, local-cache precedence,
-inline references, and projection repair together. Same-SHA quality refresh must
-not rerun models, create another pass, or supersede remediation feedback. Report
-parsing and overview rendering do not own final review meaning.
+The [review overview technical contract](technical-design-review-overview.md)
+implements logical review-pass identity separately from a persistent comment ID,
+including provider-backed history, verified provider precedence over stale local
+cache, inline receipts, and same-SHA projection repair. Optional report-derived
+quality evidence and same-SHA quality refresh remain proposed. That later refresh
+must not rerun models, create another pass, or supersede remediation feedback.
+Report parsing and overview rendering do not own final review meaning.
 
 ### V1 Precision Investigation Status
 
