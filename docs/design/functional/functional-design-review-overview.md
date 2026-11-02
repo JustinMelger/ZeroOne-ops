@@ -5,6 +5,10 @@
 **Slice 1 implemented and automatically verified; live acceptance pending.** Persistent
 publication is the implemented contract below. CI/JUnit/Cobertura reporting and
 evidence-only refresh remain proposed for later slices, not supported behavior.
+The **What Changed** summary below is a separate proposed follow-up, not part of
+completed Slice 1 or an implemented report feature.
+The **Reviewed Commit Context** UX slice is also proposed; current publication
+still displays full head/base hashes without a provider-supplied commit title.
 This document changes publication, not model judgment. Automated completion does
 not establish live provider acceptance; keep those acceptance gates unchecked.
 
@@ -68,6 +72,84 @@ they do not silently discard required evidence or create overflow comments.
 Only a verified bot-owned, request-matching overview is editable, following a
 fresh body/head read. CI serialization reduces races but does not supply provider
 compare-and-swap. Failed attempts remain separate from completed-pass authority.
+
+### Proposed UX Slice: Reviewed Commit Context
+
+**Proposed; not implemented.** Replace the prominent full head/base hashes with
+a short, clickable reviewed SHA and the reviewed commit's title. Use the first
+line of the commit message, not the PR/MR title or an AI-generated description.
+For example:
+
+```markdown
+**Reviewed commit:** [cb8e089](<exact-commit-url>)
+fix(review): verify installation identity and guard overview authority
+```
+
+Shorten long titles to at most 120 display characters with an explicit omission
+indicator; the commit link provides the original message. Keep the full reviewed
+SHA and comparison-base SHA in collapsed **Review Details**, and retain exact
+identifiers in machine state. Short SHAs and commit titles are display labels,
+never identities used for matching, writes, or recovery.
+
+Fetch metadata for the exact completed review head, not the current branch tip,
+target branch, or a synthetic checkout merge commit. Store it with that logical
+review pass. A commit title describes only that commit; it is not a summary of
+the entire PR/MR. Keep the proposed **What Changed** section separate.
+
+Metadata lookup is best effort. If it fails, returns mismatched commit identity,
+or historical records lack a title, show the short reviewed SHA without inventing
+a label. Missing metadata does not fail review, change its verdict, or weaken
+ownership checks. Reuse and recovery preserve stored metadata without additional
+model calls or metadata backfill reads. Failed attempts leave the earlier
+completed commit label intact. Do not infer an "up to date" badge merely because
+the overview was regenerated.
+
+Deliver this as a separate bounded UX slice: provider metadata lookup, optional
+pass-local persistence, shared rendering, and GitHub/GitLab parity tests. Include
+new-head updates, same-SHA and fresh-workspace reuse, missing historical fields,
+lookup failure, mismatched SHAs, escaping, and long/Unicode titles. Implementation
+and live acceptance remain unchecked; report-slice numbering is unchanged.
+
+### Proposed: What Changed
+
+**Proposed; not implemented.** Add a short **What Changed** section before the AI
+verdict, with one to three factual bullets describing the current reviewed diff
+between its pinned comparison base and head. Prefer two or three bullets when
+useful; do not pad a small change merely to fill the section.
+
+Keep this separate from the review-outcome summary, findings, Change Rationale,
+and quality evidence. A description of a change is not approval, proof that a
+finding was fixed, or evidence that validation passed. Describe supplied code and
+diff evidence, not unsupported claims copied from the PR/MR title or description.
+Do not claim full-branch coverage when review inputs are filtered or truncated;
+show a short reviewed-scope limitation when appropriate.
+
+For example, a review of the persistent-overview implementation could show:
+
+```markdown
+### What Changed
+- Replaces per-review summary comments with one persistent overview.
+- Retains bounded review history and pending recovery evidence.
+- Adds authenticated identity lookup for GitHub installation tokens.
+```
+
+Generate this description within an existing review call, not through another
+model stage or additional repository retrieval. Store it with the completed
+artifact. A successful review of a new head may replace it with a description of
+that head's full reviewed diff, not merely the latest push. Same-SHA reuse,
+projection repair, comment recreation, and future quality-only refresh preserve
+the stored description without another model call or logical review pass.
+
+Historical artifacts without this field remain valid. Omit the section when no
+usable description is available; never invent one from the verdict, confidence,
+old history rows, or request title. A failed attempt must not replace the earlier
+completed description with a claim about unreviewed code.
+
+Acceptance covers summaries with and without findings, limited review scope,
+missing historical fields, escaped repository-controlled text, new-head updates,
+and unchanged descriptions during reuse and recovery on both providers. This
+follow-up requires design review before implementation and does not reopen the
+completed Slice 1 checklist or renumber the reporting slices.
 
 ### Clear Findings And Next Actions
 
@@ -397,7 +479,10 @@ trend dashboards and broad format/tool compatibility remain outside it.
 
 ## Non-Goals
 
-No prompt changes, specialist reviewers, model/provider migration, Tree-sitter,
-new merge gates, shell-based investigation, automatic discussion resolution,
+No finding-adjudication prompt changes, specialist reviewers, model/provider
+migration, Tree-sitter, new merge gates, shell-based investigation, automatic discussion resolution,
 developer-feedback ingestion, or changes to remediation validation. Quality
 reports are not new intake findings and are not added to model prompts.
+The proposed **What Changed** follow-up is limited to extending an existing
+call's descriptive output instructions and schema; it adds no model stage and
+does not change finding judgment.

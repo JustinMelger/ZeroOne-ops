@@ -182,6 +182,13 @@ integration; validate the smallest JUnit installation before expanding to covera
 - [x] review the proposed contracts before implementation
 - [x] slice 1: persistent overview, durable bounded history, stale-write guards,
   and existing same-SHA/inline/projection-repair continuity
+- [ ] review and implement the bounded **What Changed** follow-up: a separate
+  factual reviewed-diff summary generated within an existing model call,
+  persisted with complete artifacts and preserved during reuse and recovery
+- [ ] **UX slice: Reviewed Commit Context**: show a short linked SHA and the
+  provider-supplied commit title; collapse full head/base details, persist
+  optional pass metadata, and cover lookup failures, exact-SHA matching,
+  historical compatibility, and reuse/recovery without additional model calls
 - [ ] live-validate slice 1 on GitHub and GitLab, including fresh-workspace and
   partial-publication recovery, before starting slice 2
 - [ ] slice 2: CI-provided JUnit reports, producer correlation, and same-SHA

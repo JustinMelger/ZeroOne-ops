@@ -8,6 +8,10 @@ overview publication implements the
 Report collection, manifest wiring, CI/JUnit/Cobertura evidence, and evidence-only
 refresh remain proposed for slices 2 and 3. Aggregate checks and paired offline
 scenarios verify Slice 1's implementation; live gates remain separate.
+The reviewed-change summary described below is an additional proposed follow-up;
+its model/output, persistence, and presentation changes are not implemented.
+The reviewed-commit context UX slice is also proposed and changes presentation
+metadata only, without extending model prompts or review judgment.
 The [current staged-review design](technical-design-pr-review-staged-pipeline.md)
 continues to own candidate/precision/overlap and inline semantics. This design's
 Slice 1 publication identity and durable overview contract replace per-revision
@@ -59,6 +63,116 @@ discussion links; unanchorable findings retain bounded actionable detail in the
 overview. A state-derived next action distinguishes AI concerns, independent CI
 failures, and unavailable evidence without creating approval or new commands.
 Tests must prove the same artifact retains its meaning with and without reports.
+
+## Proposed UX Slice: Reviewed Commit Context
+
+**Proposed; not implemented.** Introduce optional typed reviewed-commit metadata:
+the full requested head SHA, a bounded first-line commit title, and a safe commit
+URL when available. Providers fetch and normalize metadata for that exact SHA
+within the reviewed repository scope. Validate that the returned full SHA equals
+the requested reviewed head before attaching the metadata; never infer identity
+from title text, branch names, request titles, or the local checkout.
+
+Use at most one best-effort metadata lookup for each fresh live completed pass,
+after artifact validation and before initial overview publication. Reuse response
+metadata already available for the same SHA if suitable. Do not refetch changed
+files, search other repositories, introduce a new operator setting, or require
+broader credentials. A normal provider/transport failure or unusable response
+produces a bounded warning and the SHA-only fallback, not a review failure.
+Unexpected programming errors retain existing propagation behavior.
+
+Keep lookup transport in the GitHub/GitLab review adapters and best-effort
+enrichment in shared publication composition. Renderers remain pure and perform
+no API calls. This slice adds no LLM calls or prompt inputs; commit messages are
+repository-controlled presentation data, never instructions or review evidence.
+Store only the first-line label, bounded to 300 characters with disclosed
+omission, not an arbitrary multi-line commit body.
+
+Persist optional metadata with `ReviewOverviewPass`, separately from finding and
+classification authority. Retained history summaries may carry the same bounded
+label/link, derived from their completed pass rather than another lookup. Missing
+fields default to absent for older envelopes and local state. Preserve metadata
+through inline synchronization, same-SHA reuse, fresh-workspace hydration,
+projection repair, deleted-comment recreation, and future quality-only refresh.
+Do not manufacture titles or issue metadata backfill reads for historical passes.
+
+The shared renderer shows a short SHA linked to the exact full commit and a title
+of at most 120 display characters, marking omissions. Use plain short SHA when a
+safe link is unavailable. Move the exact head and comparison-base identifiers
+into collapsed **Review Details**, while preserving their machine values and
+review-pass/projection identities. Do not introduce an unverified freshness badge
+or imply that a single commit title describes the entire reviewed diff.
+
+Escape labels and validate link schemes using existing presentation rules.
+Validate the complete serialized payload against the existing 60,000-byte budget
+after adding metadata and collapsed details; do not resize history or truncate
+authoritative evidence. Provider permissions, head/open-state guards, publication
+ordering, and the separate **What Changed** proposal remain unchanged.
+
+Implement this as one independent UX slice: normalized provider contract and
+exact-SHA lookup; optional publication/history persistence; shared rendering;
+then focused and paired offline tests. Cover GitHub/GitLab success, missing or
+malformed metadata, wrong SHA, unavailable lookup, long/Unicode titles and marker
+injection, historical decoding, repeated heads, and recovery without extra reads
+or models. Verify that no title, link, or display-prefix change resets review
+action timestamps, cancels a queued revision, or changes finalized findings.
+Run normal repository verification and keep live presentation acceptance separate.
+
+## Proposed Reviewed-Change Summary
+
+**Proposed; not implemented.** Introduce a separate optional `change_summary`
+contract rather than repurposing `summary`, `decision_summary`, or
+`review_confidence_reason`. Those fields continue describing review outcome and
+its justification. In particular, the current deterministic `no_findings`
+summary must not overwrite the new description.
+
+Use a small typed description containing one to three nonblank bullets, each at
+most 300 characters, for a maximum of 900 content characters. Generate it in the
+existing candidate-stage call, which already receives the bounded diff and source
+context. Carry the optional description through candidate normalization and
+reconciliation into `PublishableReviewArtifact` as descriptive metadata.
+Precision continues owning finding retention and classification; the change
+description cannot create candidates, supply missing defect evidence, or affect
+confidence, remediation eligibility, or projection decisions. Do not add a
+separate summarization call or a renderer-owned model dependency.
+
+The model describes the supplied base-to-head diff. Derive scope disclosures
+from existing file-selection/truncation evidence, not model assertions of full
+coverage. Do not expand context budgets, follow extra links, or fetch additional
+files for this feature. If the available inputs do not establish full coverage,
+do not describe the section as an exhaustive account of the entire branch.
+
+Validate description bounds during normalization. Omit unusable optional text
+rather than silently truncating a factual claim or changing otherwise valid
+findings; retain existing handling when the overall model response cannot be
+decoded. No additional model retry is introduced to fill a missing description.
+Structural validation establishes shape and bounds, not factual correctness.
+Treat model-produced text as untrusted presentation evidence. Carry it as
+pipeline metadata rather than adding it to precision or overlap prompt inputs;
+those stages continue judging their existing evidence, not this description.
+
+Persist the normalized field in complete provider snapshots and local recovery
+artifacts, with an absent default for historical records. Summary-only history
+rows remain identity/outcome summaries, not a source for reconstructing this
+description. Same-SHA reuse and projection repair use stored text; a fresh review
+on a new head supplies new text without mutating earlier completed snapshots.
+Failed runs preserve the earlier completed artifact and description.
+
+The deterministic renderer places **What Changed** before the verdict and uses
+the existing escaping and complete 60,000-byte payload check. Include the extra
+text in both retained complete snapshots when characterizing payload sizes; do
+not reduce retention or truncate authority to accommodate it. Existing ownership,
+discovery, publication ordering, logical identities, and provider transport remain
+unchanged. No report schema, operator setting, command, or migration is added.
+
+Implement as one bounded follow-up: model/prompt-output contract and normalization,
+artifact propagation and historical defaults, then shared rendering and tests.
+Keep candidate/precision/overlap call counts unchanged. Verify summary presence
+for clean and findings-present outcomes, omission and bounds, scope disclosure,
+injection escaping, old-payload decoding, and GitHub/GitLab persistence through
+successive heads, fresh-workspace reuse, deletion recovery, and projection repair.
+Offline scripts prove propagation and isolation, not summary accuracy; live review
+of representative generated descriptions remains separate acceptance evidence.
 
 ## Overview Ownership And Discovery
 
@@ -478,6 +592,15 @@ must separately verify update permissions, identity, artifact wiring, and UX.
 
 ## Incremental Implementation
 
+The proposed **Reviewed Commit Context** UX slice is independent of the model
+description and reporting slices. It adds only bounded provider-backed labels,
+pass-local persistence, and presentation changes; implementation remains open.
+
+The proposed **What Changed** description is an independent bounded follow-up to
+Slice 1, not a fourth reporting slice. It changes only the existing candidate
+call's descriptive output contract and deterministic propagation/presentation;
+it does not change finding-adjudication prompts or replace live acceptance.
+
 1. Persistent overview: versioned provider history, logical pass identity,
    create/update discovery, stale guards, legacy decoding, local-state/inline/
    projection-repair continuity, deterministic rendering, and paired offline tests.
@@ -512,4 +635,5 @@ artifact discovery, required hosted service, LLM stage, or merge gate is propose
   Do not add coverage adapters, trend storage, or cross-run analytics speculatively.
   Later format support requires demonstrated demand and separate acceptance.
 - Operator readability feedback evaluates the overview, not the review model's
-  precision. Keep model-quality evaluation and prompt changes separate.
+  precision. Keep finding-quality evaluation and adjudication-prompt changes
+  separate from the bounded descriptive-output follow-up.
