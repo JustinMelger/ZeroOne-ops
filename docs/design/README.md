@@ -37,6 +37,11 @@ then follow the relevant current contract.
 
 ## Proposed And Parked Designs
 
+- [Review overview functional design](functional/functional-design-review-overview.md)
+  and [technical design](technical/technical-design-review-overview.md)
+  propose one persistent PR/MR overview with durable review continuity and
+  optional CI-provided JUnit/Cobertura evidence. Design review precedes three
+  implementation slices; model judgment and existing inline behavior are unchanged.
 - [Finding file grouping functional design](functional/functional-design-finding-file-grouping.md)
   and [technical design](technical/technical-design-finding-file-grouping.md)
   remain parked background for derived inventories. They are not prerequisites

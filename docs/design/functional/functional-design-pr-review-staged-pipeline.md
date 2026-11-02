@@ -1,5 +1,13 @@
 # ZeroOne Ops Staged Review Pipeline Functional Design
 
+## Proposed Review Overview Extension
+
+The [review overview proposal](functional-design-review-overview.md) describes
+one persistent PR/MR summary and optional structured CI evidence. It is not
+implemented. Candidate/precision authority, accepted finding meaning, and existing
+inline behavior remain governed here. The proposal must preserve same-SHA reuse
+and provider-backed continuity rather than treating a comment edit as a new pass.
+
 ## Current Repeated-Review Contract
 
 Application-owned matching supplies bounded candidates for repeated-review

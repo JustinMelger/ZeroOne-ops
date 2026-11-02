@@ -162,6 +162,30 @@ This heading is retained for existing release-readiness links.
 
 - [ ] verify the refreshed styling and assets on the deployed Pages site after merge
 
+### Review Overview Design
+
+The proposed [functional design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/functional/functional-design-review-overview.md)
+and [technical design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-design-review-overview.md)
+separate a persistent PR/MR overview from review-pass authority, inline findings,
+and optional structured CI evidence. These are design proposals, not shipped
+capabilities or changes to model judgment.
+Slice 1 is independently shippable. Stop for its live acceptance before report
+integration; validate the smallest JUnit installation before expanding to coverage.
+
+- [ ] review the proposed contracts before implementation
+- [ ] slice 1: persistent overview, durable bounded history, stale-write guards,
+  and existing same-SHA/inline/projection-repair continuity
+- [ ] live-validate slice 1 on GitHub and GitLab, including fresh-workspace and
+  partial-publication recovery, before starting slice 2
+- [ ] slice 2: CI-provided JUnit reports, producer correlation, and same-SHA
+  quality refresh without additional model calls
+- [ ] validate minimal JUnit installation examples and live evidence refresh on
+  both providers before starting slice 3
+- [ ] slice 3: Cobertura line coverage, comparable head/base reports, and
+  changed-code coverage with explicit availability states
+- [ ] live-validate GitHub and GitLab overview updates, report wiring, and recovery
+  separately from automated completion
+
 ## Parked For Later (Post-v1)
 
 - broader end-to-end scenario fixtures across intake, policy, remediation,
@@ -178,8 +202,6 @@ This heading is retained for existing release-readiness links.
 - bounded self-contained review findings as an ongoing quality refinement:
   behavior, causal impact, scoped fix, and locations, with expanded explanation
   only where needed
-- mutable GitHub/GitLab review summaries guarded by reviewed revision, keeping
-  line-level comments and durable continuity evidence separate
 - shared glob semantics for review include/exclude paths and helper context,
   preserving repository-relative path safety
 - optional provider-native remediation reviewer assignment, with explicit

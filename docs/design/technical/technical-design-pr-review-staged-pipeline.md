@@ -98,6 +98,17 @@ The existing review logger, messages, structured fields, provider reads, and
 persistence order are preserved. These services do not determine continuity
 meaning, regenerate artifacts, publish reviews, or change projection decisions.
 
+### Proposed Overview Publication Extension
+
+The [review overview technical proposal](technical-design-review-overview.md)
+separates logical review-pass identity from a persistent comment ID and adds
+optional report-derived quality evidence. It is not implemented: per-pass summary
+publication and the continuity/repair behavior above remain the deployed contract.
+Any implementation must adapt provider-backed history, local-cache precedence,
+inline references, and projection repair together. Same-SHA quality refresh must
+not rerun models, create another pass, or supersede remediation feedback. Report
+parsing and overview rendering do not own final review meaning.
+
 ### V1 Precision Investigation Status
 
 The bounded !19/!24 investigation is recorded with
@@ -632,7 +643,6 @@ class DroppedCandidate(BaseModel):
     candidate_id: str
     drop_reason: DropReason
     notes: str | None
-```
 ```
 
 Recommended semantics:
