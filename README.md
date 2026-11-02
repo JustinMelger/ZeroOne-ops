@@ -286,6 +286,10 @@ budget; overflow fails the write, preserving the previous body rather than
 dropping required artifacts or creating overflow comments. See the
 [operator contract](docs/runbook.md#persistent-review-overview).
 
+GitHub identity verification supports installation tokens such as `GITHUB_TOKEN`
+through an authenticated viewer lookup when REST user lookup is forbidden.
+Conflicting overview authority cannot fall back to cached projection repair.
+
 Slice 1 is implemented and covered by automated offline verification. Live
 GitHub/GitLab acceptance remains pending.
 CI/JUnit/Cobertura reporting and evidence-only refresh are still proposed, not

@@ -260,6 +260,55 @@ class PublicationHarness:
         )
 
 
+@pytest.mark.parametrize("conflict", ["duplicate", "malformed", "changed_pass", "deleted"])
+def test_authority_conflict_after_inline_publication_withholds_projection(
+    publication: PublicationHarness, monkeypatch: pytest.MonkeyPatch, conflict: str
+) -> None:
+    publish_inline = publication.client.create_change_request_inline_comment
+
+    def publish_then_change_authority(**kwargs):
+        inline = publish_inline(**kwargs)
+        note = publication.client.comments[0]
+        if conflict == "duplicate":
+            publication.client.comments.append(note.model_copy(update={"id": note.id + 1}))
+        elif conflict == "malformed":
+            publication.client.comments[0] = note.model_copy(
+                update={"body": "<!-- zeroone:review-overview:v1\ninvalid -->"}
+            )
+        elif conflict == "changed_pass":
+            envelope = codec.decode_overview(note.body)
+            current = envelope.complete_passes[0].model_copy(update={"pass_id": "another-pass"})
+            replacement = envelope.model_copy(
+                update={"complete_passes": [current], "history": [current.summary()]}
+            )
+            publication.client.comments[0] = note.model_copy(
+                update={"body": codec.encode_overview(replacement)}
+            )
+        else:
+            publication.client.comments.clear()
+        return inline
+
+    monkeypatch.setattr(
+        publication.client, "create_change_request_inline_comment", publish_then_change_authority
+    )
+    before = publication.artifact.model_dump(mode="json")
+
+    result = publication.finalize()
+
+    assert result.error_message is None
+    assert result.projection_warning is not None
+    assert "projection is withheld" in result.publish_warning
+    assert result.projection_retry_pending
+    assert result.overview_pass.projection_pending
+    assert result.overview_pass.artifact.findings[0].inline_comment.comment_id == "800"
+    assert result.inline_comment_decisions[0].new_comment_id == "800"
+    assert result.overview_pass.inline_decisions == result.inline_comment_decisions
+    assert not publication.projection.calls
+    assert publication.client.inline_calls == 1
+    assert publication.client.write_count == len(publication.client.durable_writes) == 1
+    assert publication.artifact.model_dump(mode="json") == before
+
+
 @pytest.fixture
 def publication() -> PublicationHarness:
     context = build_context()

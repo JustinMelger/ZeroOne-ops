@@ -24,7 +24,10 @@ from zeroone_ops.services.review.continuity.review_prior_comment_loader import (
 from zeroone_ops.services.review.continuity.review_prior_comment_parser import (
     ChangeRequestPriorCommentParser,
 )
-from zeroone_ops.services.review.publish.review_overview_codec import ReviewOverviewError
+from zeroone_ops.services.review.publish.review_overview_codec import (
+    ReviewOverviewAuthorityError,
+    ReviewOverviewError,
+)
 from zeroone_ops.services.review.state.review_state_service import (
     ReviewStateService,
     build_overview_prior_review_pass,
@@ -112,6 +115,8 @@ class ReviewContinuityContextService:
                 note, overview = self.overview_coordinator.discover(
                     repository_id=repository_id, change_request_number=change_request_number
                 )
+            except ReviewOverviewAuthorityError:
+                raise
             except (ReviewOverviewError, ReviewPlatformClientError, httpx.HTTPError, OSError):
                 self.logger.warning(
                     "review overview history unavailable; retaining read-only legacy loading",
@@ -279,6 +284,8 @@ class ReviewContinuityContextService:
                     repository_id=repository_id,
                     change_request_number=change_request.change_request_number,
                 )
+            except ReviewOverviewAuthorityError:
+                raise
             except (
                 ReviewOverviewError,
                 ReviewPlatformClientError,
@@ -332,6 +339,17 @@ class ReviewContinuityContextService:
                     note=note,
                 )
                 return build_overview_prior_review_pass(review_pass=restored_pass, note=note)
+        if (
+            discovery_error is not None
+            and review_state is not None
+            and review_state.projection_retry_pending
+            and not active_dry_run
+        ):
+            raise ReviewOverviewError(
+                "Pending review projection repair withheld because overview discovery "
+                "is unavailable."
+            ) from discovery_error
+
         if review_state is not None and _is_authoritative_review_classification(
             review_state.status
         ):

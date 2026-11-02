@@ -161,6 +161,100 @@ def test_get_current_user_username_reads_login() -> None:
 
 
 @pytest.mark.parametrize(
+    "api_url,graphql_url",
+    [
+        ("https://api.github.com", "https://api.github.com/graphql"),
+        ("https://git.example.com/api/v3/", "https://git.example.com/api/graphql"),
+    ],
+)
+def test_installation_token_resolves_authenticated_graphql_viewer(api_url, graphql_url) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, str(request.url)))
+        if request.method == "GET":
+            assert request.url.path.endswith("/user")
+            return httpx.Response(403, json={"message": "Resource not accessible by integration"})
+        assert str(request.url) == graphql_url
+        assert json.loads(request.content) == {"query": "query { viewer { login } }"}
+        return httpx.Response(200, json={"data": {"viewer": {"login": "installation-bot[bot]"}}})
+
+    client = GitHubReviewClient(
+        GitHubConnectionConfig(
+            api_url=api_url,
+            server_url="https://git.example.com",
+            token="dummy-installation-token",
+            repository="org/repo",
+        ),
+        http_client=httpx.Client(transport=httpx.MockTransport(handler), base_url=api_url),
+    )
+
+    assert client.get_current_user_username() == "installation-bot[bot]"
+    assert len(calls) == 2
+    assert calls[-1] == ("POST", graphql_url)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"data": None},
+        {"data": {"viewer": None}},
+        {"data": {"viewer": {"login": None}}},
+        {"data": {"viewer": {"login": ""}}},
+        {"data": {"viewer": {"login": " "}}},
+        {"errors": [{"message": "unavailable"}]},
+        {"errors": [{"message": "partial"}], "data": {"viewer": {"login": "unverified"}}},
+        [],
+    ],
+)
+def test_installation_viewer_requires_complete_verified_identity(payload) -> None:
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.method)
+        if request.method == "GET":
+            return httpx.Response(403, json={"message": "Resource not accessible by integration"})
+        assert request.url.path == "/graphql"
+        return httpx.Response(200, json=payload)
+
+    with pytest.raises(ReviewPlatformClientError):
+        build_client(handler).get_current_user_username()
+    assert calls == ["GET", "POST"]
+
+
+@pytest.mark.parametrize("status", [401, 404, 429, 500])
+def test_user_operational_failures_do_not_trigger_graphql_fallback(status: int) -> None:
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.method)
+        assert request.method == "GET" and request.url.path == "/user"
+        return httpx.Response(status, json={"message": "unavailable"})
+
+    with pytest.raises(ReviewPlatformClientError):
+        build_client(handler).get_current_user_username()
+    assert calls == ["GET"]
+
+
+@pytest.mark.parametrize("failure", ["http", "timeout", "invalid_json"])
+def test_installation_viewer_transport_errors_remain_failures(failure: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(403, json={"message": "Resource not accessible by integration"})
+        assert request.url.path == "/graphql"
+        if failure == "timeout":
+            raise httpx.ReadTimeout("Viewer lookup unavailable", request=request)
+        if failure == "http":
+            return httpx.Response(403, json={"message": "GraphQL forbidden"})
+        return httpx.Response(200, text="invalid JSON")
+
+    expected = httpx.ReadTimeout if failure == "timeout" else ReviewPlatformClientError
+    with pytest.raises(expected):
+        build_client(handler).get_current_user_username()
+
+
+@pytest.mark.parametrize(
     ("state", "merged_at", "expected_state"),
     [
         ("open", None, "opened"),

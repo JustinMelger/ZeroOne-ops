@@ -24,7 +24,14 @@ from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 from zeroone_ops.services.review.continuity.review_continuity_context_service import (
     ReviewContinuityContextService,
 )
-from zeroone_ops.services.review.publish.review_overview_codec import ReviewOverviewError
+from zeroone_ops.services.review.publish.review_overview_codec import (
+    ReviewOverviewAuthorityError,
+    ReviewOverviewError,
+    encode_overview,
+)
+from zeroone_ops.services.review.publish.review_overview_coordinator import (
+    ReviewOverviewCoordinator,
+)
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.state_store import StateStore
 
@@ -510,7 +517,9 @@ def test_expected_discovery_failure_allows_only_existing_read_only_reuse(
     state_service = _state_service(tmp_path)
     if reference == "local":
         state_service.hydrate_overview_pass(
-            change_request_number=9, review_pass=_overview_pass(), note=ReviewComment(id=10)
+            change_request_number=9,
+            review_pass=_overview_pass().model_copy(update={"projection_pending": False}),
+            note=ReviewComment(id=10),
         )
     before = state_service.state.model_dump_json()
     client = Mock()
@@ -541,3 +550,99 @@ def test_expected_discovery_failure_allows_only_existing_read_only_reuse(
     coordinator.restore.assert_not_called()
     assert state_service.state.model_dump_json() == before
     assert any("read-only legacy reuse" in record.message for record in caplog.records)
+
+
+@pytest.mark.parametrize("lookup", ["same_sha", "prior"])
+@pytest.mark.parametrize("cached", [False, True])
+@pytest.mark.parametrize("conflict", ["duplicate", "malformed", "wrong_scope"])
+def test_conflicting_authority_never_falls_back_to_cache_or_legacy(
+    tmp_path, lookup, cached, conflict
+):
+    state_service = _state_service(tmp_path)
+    snapshot = _overview_pass()
+    if cached:
+        state_service.hydrate_overview_pass(
+            change_request_number=9, review_pass=snapshot, note=ReviewComment(id=10)
+        )
+    before = state_service.state.model_dump_json()
+    envelope = ReviewOverviewEnvelope(
+        platform="github",
+        repository_id="elsewhere/repo" if conflict == "wrong_scope" else "org/repo",
+        change_request_number=9,
+        complete_passes=[snapshot],
+        history=[snapshot.summary()],
+    )
+    body = encode_overview(envelope)
+    if conflict == "malformed":
+        body = "<!-- zeroone:review-overview:v1\ninvalid -->"
+    client = Mock()
+    client.get_current_user_username.return_value = "bot"
+    comments = [ReviewComment(id=20, author_username="bot", body=body), _note(3)]
+    if conflict == "duplicate":
+        comments.append(ReviewComment(id=21, author_username="bot", body=body))
+    client.list_change_request_comments.return_value = comments
+    service = ReviewContinuityContextService(
+        review_client=client,
+        review_state_service=state_service,
+        logger=logging.getLogger("review-test"),
+        overview_coordinator=ReviewOverviewCoordinator(client, "github"),
+    )
+
+    with pytest.raises(ReviewOverviewAuthorityError):
+        if lookup == "same_sha":
+            service.load_same_sha_review_reference(
+                run_id="rerun", repository_id="org/repo", change_request=_change()
+            )
+        else:
+            service.load_prior_review_context(
+                run_id="rerun",
+                repository_id="org/repo",
+                change_request_number=9,
+                current_head_sha="next-head",
+            )
+
+    assert state_service.state.model_dump_json() == before
+    client.create_change_request_comment.assert_not_called()
+    client.update_change_request_comment.assert_not_called()
+    assert client.list_change_request_comments.call_count == 1
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+@pytest.mark.parametrize(
+    "error_type", [ReviewOverviewError, ReviewPlatformClientError, httpx.ReadTimeout, OSError]
+)
+def test_unavailable_discovery_withholds_pending_repair_but_allows_dry_run(
+    tmp_path, dry_run, error_type
+):
+    state_service = _state_service(tmp_path)
+    state_service.hydrate_overview_pass(
+        change_request_number=9,
+        review_pass=_overview_pass().model_copy(update={"projection_pending": True}),
+        note=ReviewComment(id=10),
+    )
+    before = state_service.state.model_dump_json()
+    coordinator = Mock()
+    coordinator.discover.side_effect = error_type("Discovery unavailable")
+    service = ReviewContinuityContextService(
+        review_client=Mock(),
+        review_state_service=state_service,
+        logger=logging.getLogger("review-test"),
+        overview_coordinator=coordinator,
+    )
+
+    if dry_run:
+        reference = service.load_same_sha_review_reference(
+            run_id="rerun",
+            repository_id="org/repo",
+            change_request=_change(),
+            active_dry_run=True,
+        )
+        assert reference.classification == "findings_present"
+    else:
+        with pytest.raises(ReviewOverviewError, match="repair withheld"):
+            service.load_same_sha_review_reference(
+                run_id="rerun", repository_id="org/repo", change_request=_change()
+            )
+
+    assert state_service.state.model_dump_json() == before
+    coordinator.restore.assert_not_called()

@@ -11,13 +11,150 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_parser impor
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_parser import (
     GitLabWorkItemParser,
 )
-from zeroone_ops.services.review.publish.review_overview_codec import decode_overview
+from zeroone_ops.services.review.publish.review_overview_codec import (
+    decode_overview,
+    encode_overview,
+)
 
 from .provider_api import Platform, ScenarioProviderAPI
-from .review_cases import create_review_case
+from .review_cases import advance_review_case, create_review_case
 from .review_harness import compose_review_harness
 from .review_provider_api import ReviewProviderAPI
 from .review_scripted_sdk import ScriptedReviewSDK
+
+
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+@pytest.mark.parametrize("conflict", ["duplicate", "malformed", "scope", "unavailable", "identity"])
+def test_unverified_overview_withholds_pending_projection_until_authority_recovers(
+    tmp_path, monkeypatch, platform: Platform, conflict: str
+):
+    case = create_review_case(tmp_path, number=11, name="annotation")
+    api = ReviewProviderAPI(ScenarioProviderAPI(platform), cases={case.number: case})
+    fail_projection = True
+    unavailable = False
+    identity_unavailable = False
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        if (
+            fail_projection
+            and request.method in {"PATCH", "PUT"}
+            and request.url.path.endswith("/issues/1")
+        ):
+            return httpx.Response(503, json={"message": "Projection unavailable"})
+        if (
+            unavailable
+            and request.method == "GET"
+            and request.url.path.endswith(("/comments", "/notes"))
+        ):
+            return httpx.Response(503, json={"message": "Overview unavailable"})
+        if identity_unavailable and request.url.path.endswith("/user"):
+            return httpx.Response(503, json={"message": "Identity unavailable"})
+        return api.respond(request)
+
+    with httpx.Client(
+        base_url="https://provider.invalid", transport=httpx.MockTransport(respond)
+    ) as http:
+        harness = compose_review_harness(api, http, tmp_path / "state.json", monkeypatch)
+        sdk = ScriptedReviewSDK(case, linked_work_item=harness.seed_link(case))
+        assert harness.run(case, sdk).status.value == "reviewed"
+        key = f"{case.number}:{case.head_sha}"
+        assert harness.state_service.state.reviews[key].projection_retry_pending
+        healthy_comments = deepcopy(api.comments)
+        note = next(iter(api.comments[case.number].values()))
+        if conflict == "duplicate":
+            duplicate = deepcopy(note)
+            duplicate["id"] = int(note["id"]) + 100
+            api.comments[case.number][duplicate["id"]] = duplicate
+        elif conflict == "malformed":
+            note["body"] = "<!-- zeroone:review-overview:v1\ninvalid -->"
+        elif conflict == "scope":
+            overview = decode_overview(str(note["body"]))
+            note["body"] = encode_overview(
+                overview.model_copy(update={"repository_id": "other/repo"})
+            )
+        unavailable = conflict == "unavailable"
+        identity_unavailable = conflict == "identity"
+        fail_projection = False
+        comments = deepcopy(api.comments)
+        issues = deepcopy(api.work_items.issues)
+        inline = deepcopy(api.inline_comments)
+        writes_before = len(api.work_items.issue_writes)
+        calls_before = len(api.calls)
+
+        blocked = harness.run(case, sdk)
+
+        assert blocked.status.value == "failed"
+        assert "Review overview unavailable" in blocked.message
+        assert len(sdk.calls) == 2
+        assert api.comments == comments and api.inline_comments == inline
+        assert api.work_items.issues == issues
+        assert len(api.work_items.issue_writes) == writes_before
+        assert all(method == "GET" for method, _ in api.calls[calls_before:])
+        saved = harness.state_service.state_store.load().reviews[key]
+        assert saved.projection_retry_pending
+        assert (
+            saved.projection_artifact
+            == harness.state_service.state.reviews[key].projection_artifact
+        )
+
+        api.comments = healthy_comments
+        unavailable = identity_unavailable = False
+        recovered = harness.run(case, sdk)
+
+        assert recovered.status.value == "reviewed"
+        assert "Repaired pending review projection" in recovered.message
+        assert len(sdk.calls) == 2
+        assert not harness.state_service.state_store.load().reviews[key].projection_retry_pending
+        assert len(api.work_items.issue_writes) == writes_before + 1
+
+
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+def test_authority_conflict_while_loading_prior_context_stops_before_model_calls(
+    tmp_path, monkeypatch, platform: Platform
+):
+    case = create_review_case(tmp_path, number=11, name="annotation")
+    api = ReviewProviderAPI(ScenarioProviderAPI(platform), cases={case.number: case})
+    conflict_enabled = False
+    comment_reads = 0
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        nonlocal comment_reads
+        response = api.respond(request)
+        if (
+            conflict_enabled
+            and request.method == "GET"
+            and request.url.path.endswith(("/comments", "/notes"))
+        ):
+            comment_reads += 1
+            if comment_reads >= 3:
+                notes = response.json()
+                duplicate = deepcopy(notes[0])
+                duplicate["id"] += 100
+                return httpx.Response(200, json=[*notes, duplicate])
+        return response
+
+    with httpx.Client(
+        base_url="https://provider.invalid", transport=httpx.MockTransport(respond)
+    ) as http:
+        harness = compose_review_harness(api, http, tmp_path / "state.json", monkeypatch)
+        sdk = ScriptedReviewSDK(case, linked_work_item=harness.seed_link(case))
+        assert harness.run(case, sdk).status.value == "reviewed"
+        following = advance_review_case(
+            case, after=case.after + "\n# Next pinned review head.\n", finding=case.finding
+        )
+        api.cases[case.number] = following
+        conflict_enabled = True
+        comments = deepcopy(api.comments)
+        issues = deepcopy(api.work_items.issues)
+        inline = deepcopy(api.inline_comments)
+
+        blocked = harness.run(following, sdk)
+
+        assert blocked.status.value == "failed"
+        assert "Multiple verified review overviews" in blocked.message
+        assert comment_reads >= 3 and len(sdk.calls) == 2
+        assert api.comments == comments and api.inline_comments == inline
+        assert api.work_items.issues == issues
 
 
 @pytest.mark.parametrize("platform", ["github", "gitlab"])

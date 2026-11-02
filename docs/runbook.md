@@ -372,6 +372,25 @@ publication rather than selecting a convenient comment. Discovery must succeed
 before creation; inaccessible history is not proof of absence. Keep operator
 discussion in replies or separate comments: the entire overview body is managed.
 
+GitHub user tokens resolve identity through REST `/user`. When that endpoint
+returns 403, installation tokens such as the workflow's `GITHUB_TOKEN` use the
+authenticated GraphQL `viewer { login }` query with the same credentials. This is
+an identity read, not a model request or a mutation. It requires no additional
+operator setting or broader workflow permissions. Identity is never inferred
+from `GITHUB_ACTOR`, comment text, or a hard-coded bot username. Failed or partial
+viewer responses do not authorize writes.
+The viewer query is documented in
+[GitHub's installation authentication guidance](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation).
+
+Duplicate, malformed, or wrong-scope managed overviews stop cached and legacy
+reuse as well as projection repair. If discovery is temporarily unavailable,
+cached evidence can support read-only reuse, but live pending repair is withheld
+until authority can be verified. Pending evidence remains intact for a later
+rerun; dry runs do not execute repairs.
+If a conflict is detected after initial publication, retain the completed review
+and actual inline receipts but withhold work-item projection and further metadata
+writes. A later verified rerun can finish the pending projection.
+
 Before writing, re-read the overview and open request head and verify the pinned
 review SHA. Preserve CI serialization: the GitHub example uses repository/request
 concurrency without canceling an active publisher; GitLab retains its review

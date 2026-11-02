@@ -81,6 +81,14 @@ are not replaced. Handled execution failures preserve the earlier completed
 artifact and SHA, and a failed first review creates no overview. Scripted
 responses establish workflow behavior, not improved model precision.
 
+A GitHub installation-token scenario scripts the real REST `/user` 403 and
+authenticated GraphQL viewer response, then verifies publication and same-SHA
+reuse. Paired provider cases introduce duplicate, malformed, wrong-scope, or
+unavailable authority while projection repair is pending. They assert zero
+projection/comment writes and no additional model calls, then restore authority
+and verify successful repair. Another case introduces a conflict during prior
+context loading, before candidate generation. All responses remain offline.
+
 Negative contracts remove source or batch evidence, corrupt forwarded candidate
 evidence, substitute another checkout's context, and redirect publication. Each
 must fail rather than let the SDK script manufacture a successful review.

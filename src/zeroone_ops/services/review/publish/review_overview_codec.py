@@ -17,6 +17,10 @@ class ReviewOverviewError(ValueError):
     """Indicate that overview authority cannot safely be read or written."""
 
 
+class ReviewOverviewAuthorityError(ReviewOverviewError):
+    """Reject conflicting or malformed authority without falling back to cached evidence."""
+
+
 def encode_overview(envelope: ReviewOverviewEnvelope) -> str:
     """Serialize complete evidence, escaping comment delimiters losslessly."""
     payload = json.dumps(
@@ -32,17 +36,21 @@ def decode_overview(body: str | None) -> ReviewOverviewEnvelope | None:
     if "zeroone:review-overview" not in text:
         return None
     if text.count(OVERVIEW_START) != 1 or text.count(OVERVIEW_END) != 1:
-        raise ReviewOverviewError("Managed review overview markers are malformed or duplicated.")
+        raise ReviewOverviewAuthorityError(
+            "Managed review overview markers are malformed or duplicated."
+        )
     start = text.index(OVERVIEW_START) + len(OVERVIEW_START)
     end = text.index(OVERVIEW_END)
     if end < start or len(text.encode("utf-8")) > MAX_OVERVIEW_BYTES:
-        raise ReviewOverviewError(
+        raise ReviewOverviewAuthorityError(
             "Managed review overview is invalid or exceeds the payload budget."
         )
     try:
         return ReviewOverviewEnvelope.model_validate_json(text[start:end])
     except ValidationError as error:
-        raise ReviewOverviewError("Managed review overview evidence is invalid.") from error
+        raise ReviewOverviewAuthorityError(
+            "Managed review overview evidence is invalid."
+        ) from error
 
 
 def validate_overview_payload(body: str) -> str:

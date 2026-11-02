@@ -1,5 +1,6 @@
 """Offline review scenarios preserve final meaning across both provider paths."""
 
+import json
 from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
@@ -58,6 +59,51 @@ def test_review_workflow(
         assert set(state.reviews) == {f"{case.number}:{case.head_sha}" for case in cases}
         assert len(state.runs) == len(cases)
         assert all(len(comments) == 1 for comments in api.comments.values())
+
+
+def test_github_installation_identity_supports_review_publication_and_same_sha_reuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = create_review_case(tmp_path, number=11, name="annotation")
+    api = ReviewProviderAPI(ScenarioProviderAPI("github"), cases={case.number: case})
+    identity_calls = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == "provider.invalid"
+        if request.url.path == "/user":
+            assert request.method == "GET"
+            identity_calls.append(("GET", "/user"))
+            return httpx.Response(403, json={"message": "Resource not accessible by integration"})
+        if request.url.path == "/graphql":
+            assert request.method == "POST"
+            assert json.loads(request.content) == {"query": "query { viewer { login } }"}
+            identity_calls.append(("POST", "/graphql"))
+            return httpx.Response(200, json={"data": {"viewer": {"login": "offline-bot"}}})
+        return api.respond(request)
+
+    with httpx.Client(
+        base_url="https://provider.invalid", transport=httpx.MockTransport(respond)
+    ) as http:
+        harness = compose_review_harness(api, http, tmp_path / "state.json", monkeypatch)
+        sdk = ScriptedReviewSDK(case, linked_work_item=harness.seed_link(case))
+        summary = harness.run(case, sdk)
+        assert summary.status == RunStatus.REVIEWED, summary.message
+        assert_review_outputs(harness, case, sdk)
+        comments = deepcopy(api.comments)
+        inline = deepcopy(api.inline_comments)
+        writes_before = len(api.work_items.issue_writes)
+
+        repeated = harness.run(case, sdk)
+
+        assert repeated.status == RunStatus.REVIEWED
+        assert "No new changes after the last review" in repeated.message
+        assert len(sdk.calls) == 2
+        assert api.comments == comments and api.inline_comments == inline
+        assert len(api.work_items.issue_writes) == writes_before
+        assert len(identity_calls) >= 4 and len(identity_calls) % 2 == 0
+        assert identity_calls == [("GET", "/user"), ("POST", "/graphql")] * (
+            len(identity_calls) // 2
+        )
 
 
 def assert_review_outputs(harness: ReviewHarness, case: ReviewCase, sdk: ScriptedReviewSDK) -> None:

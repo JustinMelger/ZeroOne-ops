@@ -20,6 +20,7 @@ from zeroone_ops.providers.review.platform import (
     ReviewPlatformClientError,
 )
 from zeroone_ops.services.review.publish.review_overview_codec import (
+    ReviewOverviewAuthorityError,
     ReviewOverviewError,
     decode_overview,
 )
@@ -78,10 +79,14 @@ class ReviewOverviewCoordinator:
                 or envelope.repository_id != repository_id
                 or envelope.change_request_number != change_request_number
             ):
-                raise ReviewOverviewError("Managed review overview has mismatched request scope.")
+                raise ReviewOverviewAuthorityError(
+                    "Managed review overview has mismatched request scope."
+                )
             matches.append((comment, envelope))
         if len(matches) > 1:
-            raise ReviewOverviewError("Multiple verified review overviews prevent publication.")
+            raise ReviewOverviewAuthorityError(
+                "Multiple verified review overviews prevent publication."
+            )
         return matches[0] if matches else (None, None)
 
     def publish(
@@ -164,7 +169,7 @@ class ReviewOverviewCoordinator:
             repository_id=repository_id, change_request_number=change_request_number
         )
         if note is None or envelope is None or envelope.complete_passes[0].pass_id != pass_id:
-            raise ReviewOverviewError(
+            raise ReviewOverviewAuthorityError(
                 "Current review overview authority changed or is unavailable."
             )
         current = envelope.complete_passes[0]
@@ -292,7 +297,9 @@ class ReviewOverviewCoordinator:
         if current != expected_envelope or (None if note is None else note.id) != (
             None if expected_note is None else expected_note.id
         ):
-            raise ReviewOverviewError("Review overview authority changed before publication.")
+            raise ReviewOverviewAuthorityError(
+                "Review overview authority changed before publication."
+            )
         try:
             if note is None:
                 response = self.client.create_change_request_comment(

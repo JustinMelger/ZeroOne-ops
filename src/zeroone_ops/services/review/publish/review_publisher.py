@@ -24,7 +24,10 @@ from zeroone_ops.providers.review.platform import (
 from zeroone_ops.services.control_plane.review_projection import (
     review_feedback_projection_decision_service as feedback_projection,
 )
-from zeroone_ops.services.review.publish.review_overview_codec import ReviewOverviewError
+from zeroone_ops.services.review.publish.review_overview_codec import (
+    ReviewOverviewAuthorityError,
+    ReviewOverviewError,
+)
 from zeroone_ops.services.review.publish.review_overview_coordinator import (
     ReviewOverviewCoordinator,
 )
@@ -53,6 +56,7 @@ class ReviewPublishResult:
     error_message: str | None = None
     review_pass_id: str | None = None
     overview_pass: ReviewOverviewPass | None = None
+    authority_error: str | None = None
 
 
 class ReviewPublisher:
@@ -136,6 +140,7 @@ class ReviewPublisher:
         ]
         warnings = _collect_inline_transport_warnings(decisions)
         pass_id = envelope.complete_passes[0].pass_id
+        authority_error = None
         try:
             note = coordinator.write_metadata(
                 repository_id=repository_id,
@@ -144,6 +149,11 @@ class ReviewPublisher:
                 pass_id=pass_id,
                 artifact=published,
                 inline_decisions=decisions,
+            )
+        except ReviewOverviewAuthorityError as error:
+            authority_error = str(error)
+            warnings.append(
+                "Review overview authority could not be verified; work-item projection is withheld."
             )
         except (ReviewOverviewError, ReviewPlatformClientError):
             warnings.append(
@@ -157,6 +167,7 @@ class ReviewPublisher:
             inline_comment_decisions=decisions,
             warning_message=" ".join(warnings) or None,
             review_pass_id=pass_id,
+            authority_error=authority_error,
             overview_pass=envelope.complete_passes[0].model_copy(
                 deep=True, update={"artifact": published, "inline_decisions": decisions}
             ),

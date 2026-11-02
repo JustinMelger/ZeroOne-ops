@@ -74,6 +74,17 @@ an authenticated bot author matching the configured review identity. Existing
 permissive machine-safe fallback may still read legacy history where currently
 allowed, but does not authorize editing a comment when author lookup fails.
 
+GitHub's provider adapter uses authenticated GraphQL viewer identity when REST
+`/user` returns 403, supporting installation tokens without guessing bot identity
+or changing permissions. Malformed and conflicting authority have a distinct
+error boundary: they cannot fall back to cached or legacy evidence. Operational
+discovery failures permit read-only reuse only; pending live projection repair
+is withheld and its evidence preserved until verification succeeds.
+Publication returns known authority conflicts explicitly to finalization: a
+conflict detected after the first durable overview write withholds projection
+and further metadata writes, retaining the completed artifact and actual inline
+receipts as pending recovery evidence.
+
 - Exactly one verified overview: re-read its current body before updating.
 - None: create one after successful discovery, using verified legacy evidence
   or local artifacts where available. Do not convert or delete old summaries.

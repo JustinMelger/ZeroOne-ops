@@ -146,13 +146,39 @@ class GitHubReviewClient:
 
     def get_current_user_username(self) -> str:
         """Return the GitHub login associated with the active API token."""
-        payload = self._get_json(
-            "/user",
+        response = self._http_client.get("/user")
+        if response.status_code == 403:
+            return self._get_installation_viewer_username()
+
+        payload = _parse_dict_response(
+            response,
             error_message="Unexpected GitHub current user payload.",
         )
         login = payload.get("login")
-        if not isinstance(login, str):
+        if not isinstance(login, str) or not login.strip():
             raise ReviewPlatformClientError("Unexpected GitHub current user login.")
+        return login
+
+    def _get_installation_viewer_username(self) -> str:
+        """Resolve the authenticated viewer when an installation cannot use REST /user."""
+        api_url = self.config.api_url.rstrip("/")
+        graphql_url = (
+            f"{api_url.removesuffix('/api/v3')}/api/graphql"
+            if api_url.endswith("/api/v3")
+            else f"{api_url}/graphql"
+        )
+        payload = self._post_json(
+            graphql_url,
+            json={"query": "query { viewer { login } }"},
+            error_message="Unexpected GitHub viewer identity response.",
+        )
+        if "errors" in payload:
+            raise ReviewPlatformClientError("GitHub viewer identity could not be verified.")
+        data = payload.get("data")
+        viewer = data.get("viewer") if isinstance(data, dict) else None
+        login = viewer.get("login") if isinstance(viewer, dict) else None
+        if not isinstance(login, str) or not login.strip():
+            raise ReviewPlatformClientError("GitHub viewer identity could not be verified.")
         return login
 
     def allows_machine_safe_comment_fallback(self) -> bool:

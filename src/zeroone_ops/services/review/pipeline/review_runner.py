@@ -209,12 +209,24 @@ class ReviewRunner:
                 ),
             )
         context = context_result.context
-        prior_review_context = self.continuity_context_service.load_prior_review_context(
-            run_id=run_id,
-            repository_id=repository_id,
-            change_request_number=selected_change_request.change_request_number,
-            current_head_sha=selected_change_request.head_sha,
-        )
+        try:
+            prior_review_context = self.continuity_context_service.load_prior_review_context(
+                run_id=run_id,
+                repository_id=repository_id,
+                change_request_number=selected_change_request.change_request_number,
+                current_head_sha=selected_change_request.head_sha,
+            )
+        except (ReviewOverviewError, ReviewPlatformClientError) as error:
+            return self._fail_review(
+                repository_id=repository_id,
+                change_request=selected_change_request,
+                active_dry_run=active_dry_run,
+                record=record,
+                error_message=(
+                    f"[{self.config.execution_mode}] Review overview unavailable: {error}"
+                ),
+                failure=FailureDetails(stage=FailureStage.REVIEW_PUBLISH, message=str(error)),
+            )
         if prior_review_context is not None:
             context = context.model_copy(update={"prior_review_context": prior_review_context})
         if not active_dry_run:

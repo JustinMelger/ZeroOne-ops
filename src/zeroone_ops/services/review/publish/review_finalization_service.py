@@ -180,8 +180,12 @@ class ReviewFinalizationService:
                     },
                 )
 
-        projection_warning = None
-        if self.review_projection_factory is not None:
+        projection_warning = (
+            f"Review projection warning: {publish_result.authority_error}"
+            if publish_result.authority_error is not None
+            else None
+        )
+        if self.review_projection_factory is not None and publish_result.authority_error is None:
             try:
                 review_projection_service = self.review_projection_factory()
                 if review_projection_service is not None:
@@ -241,7 +245,11 @@ class ReviewFinalizationService:
 
         projection_retry_pending = projection_warning is not None
         projection_retry_warning = projection_warning
-        if self.overview_coordinator is not None and publish_result.review_pass_id is not None:
+        if (
+            self.overview_coordinator is not None
+            and publish_result.review_pass_id is not None
+            and publish_result.authority_error is None
+        ):
             try:
                 self.overview_coordinator.write_metadata(
                     repository_id=repository_id,
