@@ -170,6 +170,13 @@ truncate the current artifact or retained structured authority. If the payload
 still exceeds the budget, fail the overview write with a bounded diagnostic;
 retain the previous provider body. Do not create another comment as overflow.
 
+Before locking the proposed two-complete/five-summary defaults in implementation,
+test representative and maximum supported finalized artifacts, inline metadata,
+and pending-repair evidence against that budget. If normal supported reviews do
+not fit, revisit representation/retention in design review rather than shipping
+a default where old history routinely blocks new feedback. Do not silently drop
+current authority or add overflow comments to hide the problem.
+
 ## Quality Input Contract
 
 Propose optional review-owned report configuration with stable report-group IDs,
@@ -448,3 +455,20 @@ Each slice requires focused tests, Ruff/formatting, architecture, mypy, Bandit,
 full pytest, documentation checks, and a workflow-boundary review. Keep automated
 completion distinct from live acceptance. No new operator command, automatic
 artifact discovery, required hosted service, LLM stage, or merge gate is proposed.
+
+### Stop-And-Validate Gates
+
+- Slice 1 is independently shippable with quality not configured. Require paired
+  offline fresh-workspace and partial-publication/repair scenarios before calling
+  it complete, then record live GitHub/GitLab overview and recovery acceptance.
+  Stop for that acceptance before implementing report integration.
+- Slice 2 first proves one JUnit producer in each real provider installation,
+  including passed, failed, missing/mismatched reports and same-SHA refresh.
+  Ready-to-use examples and the maintained helper must substantiate the promised
+  path-focused operator setup. Keep multi-stage behavior explicit and tested,
+  without building a general CI orchestration framework.
+- Start slice 3 only after the JUnit installation/evidence contract is accepted.
+  Do not add coverage adapters, trend storage, or cross-run analytics speculatively.
+  Later format support requires demonstrated demand and separate acceptance.
+- Operator readability feedback evaluates the overview, not the review model's
+  precision. Keep model-quality evaluation and prompt changes separate.

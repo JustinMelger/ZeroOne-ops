@@ -364,6 +364,21 @@ Deliver separately: persistent overview/continuity, CI and JUnit evidence refres
 then Cobertura coverage comparison. Implementation and live provider acceptance
 remain unchecked until each slice is independently reviewed and verified.
 
+The persistent overview is a complete, independently shippable improvement
+without report integration. Live-validate overview updates, fresh-workspace
+continuity, and partial-publication recovery on both providers before starting
+the report integration slice. Do not hold that delivery for the reporting roadmap.
+
+Next validate the smallest practical JUnit installation on GitHub and GitLab,
+including failed/missing test evidence and same-SHA refresh. Working installation
+examples must demonstrate that operators mainly supply paths, not custom manifest
+scripts. Only after that acceptance should coverage integration proceed.
+
+Evaluate presentation clarity separately from finding quality. A cleaner overview
+does not establish better defect detection or justify stronger AI claims. This
+initiative is a review overview, not a CI analytics platform or a Codecov replacement;
+trend dashboards and broad format/tool compatibility remain outside it.
+
 ## Non-Goals
 
 No prompt changes, specialist reviewers, model/provider migration, Tree-sitter,

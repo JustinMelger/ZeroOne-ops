@@ -169,12 +169,18 @@ and [technical design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/doc
 separate a persistent PR/MR overview from review-pass authority, inline findings,
 and optional structured CI evidence. These are design proposals, not shipped
 capabilities or changes to model judgment.
+Slice 1 is independently shippable. Stop for its live acceptance before report
+integration; validate the smallest JUnit installation before expanding to coverage.
 
 - [ ] review the proposed contracts before implementation
 - [ ] slice 1: persistent overview, durable bounded history, stale-write guards,
   and existing same-SHA/inline/projection-repair continuity
+- [ ] live-validate slice 1 on GitHub and GitLab, including fresh-workspace and
+  partial-publication recovery, before starting slice 2
 - [ ] slice 2: CI-provided JUnit reports, producer correlation, and same-SHA
   quality refresh without additional model calls
+- [ ] validate minimal JUnit installation examples and live evidence refresh on
+  both providers before starting slice 3
 - [ ] slice 3: Cobertura line coverage, comparable head/base reports, and
   changed-code coverage with explicit availability states
 - [ ] live-validate GitHub and GitLab overview updates, report wiring, and recovery
