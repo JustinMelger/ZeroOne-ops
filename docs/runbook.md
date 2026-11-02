@@ -47,13 +47,21 @@ Same-SHA scenarios cover persisted-state and provider-comment reuse, plus repeat
 projection failure followed by repair without another model call or review comment.
 Remediation route scenarios cover recorded publication failure/retry and successful
 or failed same-request revisions while preserving the original scope and linkage.
+Operator-loop scenarios process real provider authorization and recovery runners:
+authorized requeue leads to revision, failed revisions consume their command,
+and later authorization permits another attempt. Lifecycle scenarios cover merge
+completion, closed-unmerged blocking and recovery, stale revision claims, dry runs,
+and conservative lookup/close failure handling. GitHub targets one triggering
+comment; GitLab polls notes with durable replay protection.
 The suite requires Git and installed development dependencies, but no credentials,
 container runtime, model calls, scanner installation, or remote provider access.
 
 Scripted model and in-memory HTTP responses make workflow outcomes reproducible;
 they do not establish model precision or live API compatibility. Continue using
-the GitLab test app for authorized real-model/live-provider RC checks. Command
-authorization, operator requeue routing, and lifecycle completion remain outside
+the GitLab test app for authorized real-model/live-provider RC checks. Native
+permission and merge metadata are scripted: these scenarios do not perform live
+permission checks or native merges. Full review-to-completion orchestration,
+operational-summary publication, and post-merge scanner freshness remain outside
 this scenario suite. Review SDK responses are typed scripts: prompt
 construction and schema selection run, but SDK response parsing is not tested.
 See the [scenario guide](https://github.com/JustinMelger/ZeroOne-ops/blob/main/tests/zeroone_ops/integration/scenarios/README.md)

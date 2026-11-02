@@ -110,6 +110,10 @@ Same-SHA offline scenarios also verify review reuse and projection-only repair
 without additional model calls or duplicate review comments.
 Remediation route scenarios cover recorded publication retry and same-request
 revision success/rollback using real local Git and validation subprocesses.
+Operator-loop scenarios additionally exercise native comment/note authorization,
+requeue and replay protection, revision execution, and merged/closed-unmerged
+lifecycle reconciliation on both providers. Permission and merge responses are
+scripted; these tests do not exercise live permissions or native merge execution.
 
 ## Operating The Control Plane
 

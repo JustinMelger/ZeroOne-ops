@@ -95,6 +95,8 @@ not a dated release sequence; active work and future ideas remain separate below
     Offline GitHub/GitLab workflow scenarios from normalized findings through
     batch promotion, real intake, validation correction/rollback, local Git
     publication, recorded retry, and same-request revision success/failure;
+    authorized requeue/replay, native permission-response handling, and
+    merged/closed-unmerged lifecycle reconciliation;
     `just test-scenarios` and the normal Quality pytest job exercise
     deterministic external responses without model or provider credentials
 
@@ -164,8 +166,9 @@ This heading is retained for existing release-readiness links.
 
 - broader end-to-end scenario fixtures across intake, policy, remediation,
   provider-native change requests, lifecycle, and summaries on both providers;
-  extend offline scenarios with authorized review/requeue command routing,
-  lifecycle, and longer failure-recovery chains
+  extend offline scenarios with full review-to-completion orchestration,
+  operational-summary publication, post-merge scanner freshness, and longer
+  failure-recovery chains beyond the covered requeue/lifecycle flows
 - stable machine-readable run summaries alongside human CLI output, including
   finding, policy decision, validation, request, lifecycle, and bounded errors
 - automatic merge-conflict detection and operator guidance with preserved
