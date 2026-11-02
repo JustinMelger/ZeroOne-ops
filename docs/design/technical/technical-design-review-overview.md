@@ -330,7 +330,10 @@ current authority or add overflow comments to hide the problem.
 ## Quality Input Contract
 
 **Proposed for later slices; not implemented in Slice 1.** Quality evidence is
-explicitly not configured until those slices pass their own gates. The quality
+not collected until those slices pass their own gates. Omit the unconfigured
+notice and empty quality section; render the shared AI/CI disclaimer as a footer.
+Once configured, expected-report failures remain visible in **Quality Checks**,
+independently of the AI verdict. The quality
 interfaces, parsing, aggregation, and refresh contracts below are future work;
 the bounded execution-failure notice remains part of Slice 1 publication.
 

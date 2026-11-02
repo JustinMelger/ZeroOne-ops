@@ -174,6 +174,8 @@ independently of model-context limits, separates failed attempts, and enforces a
 60,000 UTF-8 byte budget with ownership and read-before-write guards. Reporting
 and evidence-only refresh remain proposed, not implemented. Model judgment is
 unchanged. Automated completion does not close the separate live gates below.
+Unconfigured quality reporting has no empty section or upfront notice; the AI/CI
+disclaimer appears in the overview footer.
 Offline regressions cover GitHub installation-token identity and withholding
 projection repair when overview authority is conflicting or unavailable.
 Slice 1 is independently shippable. Stop for its live acceptance before report

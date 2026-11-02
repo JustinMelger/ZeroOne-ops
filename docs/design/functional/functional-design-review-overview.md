@@ -179,10 +179,14 @@ not another summarization stage hidden in presentation.
 ## Quality Signals
 
 **Proposed, not implemented in Slice 1.** The rest of the quality-evidence sections
-describe later delivery; Slice 1 reports quality evidence as not configured.
+describe later delivery; Slice 1 does not collect quality evidence.
 
 Quality reporting is optional. With no configured reports, the review continues
-to work and the overview says that quality evidence is not configured.
+to work without an empty Quality Checks section or an unconfigured-report notice.
+Place the compact disclaimer “AI review does not replace CI checks or merge
+approval.” in a footer below findings, next action, and supporting history.
+When reporting is configured, show a dedicated **Quality Checks** section;
+missing, stale, malformed, or failed expected reports remain visible there.
 
 | Signal | Meaning |
 | --- | --- |

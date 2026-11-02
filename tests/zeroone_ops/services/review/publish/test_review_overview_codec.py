@@ -118,6 +118,19 @@ def test_full_body_gate_counts_visible_text_and_does_not_mutate_authority(
     assert render_overview(overview_envelope) == original_body
 
 
+def test_quality_disclaimer_is_a_footer_without_unconfigured_notice(
+    overview_envelope: ReviewOverviewEnvelope,
+) -> None:
+    body = render_overview(overview_envelope)
+    disclaimer = "AI review does not replace CI checks or merge approval."
+
+    assert "Quality evidence not configured" not in body
+    assert body.count(disclaimer) == 1
+    assert body.index("**Next action:**") < body.index("Recent review history")
+    assert body.index("</details>") < body.index(disclaimer) < body.index(codec.OVERVIEW_START)
+    assert codec.decode_overview(body) == overview_envelope
+
+
 @pytest.mark.parametrize("known_count", [0, 1, 3])
 def test_continuity_counts_do_not_classify_unknown_findings(
     overview_envelope: ReviewOverviewEnvelope, known_count: int

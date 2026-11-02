@@ -278,6 +278,8 @@ bounds are independent of `review.max_prior_review_passes`, which controls model
 context and existing local-history retention. Failed attempts are separate notices;
 they do not replace the last completed review or claim its verdict for a new SHA.
 The whole overview is bot-managed: use replies or separate comments for discussion.
+Without configured quality reporting, no empty quality section is shown; a compact
+footer reminds readers that AI review does not replace CI checks or merge approval.
 
 Writes require verified bot ownership, exact request scope, and a fresh read of
 the overview and open request head. CI serialization reduces races but is not

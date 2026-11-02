@@ -351,7 +351,9 @@ linkage and remain untrusted context, not proof that the findings were resolved.
 Slice 1 is implemented with automated offline verification; live GitHub/GitLab
 acceptance remains pending. Do not treat automated completion as rollout sign-off.
 Report collection, CI/JUnit evidence refresh, and Cobertura comparison
-remain proposed; this slice shows quality evidence as not configured.
+remain proposed. With no configured reports, omit the quality section and show
+only a compact AI/CI disclaimer footer. Once reporting is configured, missing or
+invalid expected reports must remain visible rather than being silently omitted.
 
 The overview stores two complete completed-pass snapshots (current and previous)
 and at most five completed-pass summaries including the current pass. Older rows

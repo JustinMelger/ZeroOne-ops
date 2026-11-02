@@ -50,8 +50,6 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
         f"**Confidence:** {render_confidence_label(artifact)}",
         "",
         escape_overview_text(artifact.summary),
-        "",
-        "Quality evidence not configured. AI review is not CI or merge approval.",
     ]
     if envelope.execution_notice is not None:
         lines.extend(["", "### Latest Execution", escape_overview_text(envelope.execution_notice)])
@@ -137,6 +135,8 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
             "not a full audit archive.",
             "",
             "</details>",
+            "",
+            "AI review does not replace CI checks or merge approval.",
             "",
             encode_overview(envelope),
         ]
