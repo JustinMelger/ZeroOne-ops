@@ -1,10 +1,14 @@
 import json
 
 import pytest
+from markdown_it import MarkdownIt
 
 from zeroone_ops.models.review_overview import ReviewOverviewEnvelope
 from zeroone_ops.services.review.publish import review_overview_codec as codec
-from zeroone_ops.services.review.publish.review_overview_renderer import render_overview
+from zeroone_ops.services.review.publish.review_overview_renderer import (
+    escape_overview_text,
+    render_overview,
+)
 
 
 def test_default_three_finding_retention_fits_encoded_budget_losslessly(
@@ -23,6 +27,53 @@ def test_default_three_finding_retention_fits_encoded_budget_losslessly(
     assert all(
         len(snapshot.inline_decisions) == 3 for snapshot in overview_envelope.complete_passes
     )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The updates don't introduce concerns about the bot's identity.",
+        'Read payload["username"] & check #identity.',
+        '<script>alert("unsafe")</script> <!-- marker -->',
+        "[link](https://example.com) *bold* `code` _name_ \\path",
+        "Literal &#x27; and &quot; entities.",
+    ],
+)
+def test_escaping_preserves_visible_prose_without_active_markdown_or_html(text: str) -> None:
+    parser = MarkdownIt("commonmark", {"html": True})
+    escaped = escape_overview_text(text)
+    tokens = parser.parse(escaped)
+    inline = next(token for token in tokens if token.type == "inline")
+    children = inline.children or []
+
+    assert all(token.type == "text" for token in children)
+    assert "".join(token.content for token in children) == text
+    assert "<script>" not in parser.render(escaped)
+
+
+@pytest.mark.parametrize("inline_url", [None, "javascript:alert(1)", "https://example.com/thread"])
+def test_only_linked_findings_omit_duplicate_reasoning(
+    overview_envelope: ReviewOverviewEnvelope, inline_url: str | None
+) -> None:
+    payload = overview_envelope.model_dump(mode="json")
+    for finding in payload["complete_passes"][0]["artifact"]["findings"]:
+        finding["inline_comment"]["comment_url"] = inline_url
+    envelope = ReviewOverviewEnvelope.model_validate(payload)
+
+    visible = render_overview(envelope).split(codec.OVERVIEW_START)[0]
+
+    assert "High - Commit inventory and reservation atomically" in visible
+    if inline_url is not None and inline_url.startswith("https:"):
+        assert "Evidence:" not in visible
+        assert "Impact:" not in visible
+        assert "Suggested follow-up:" not in visible
+        assert inline_url in visible
+    else:
+        assert "Evidence:" in visible
+        assert "Impact:" in visible
+        assert "Suggested follow-up:" in visible
+        assert "javascript:" not in visible
+    assert codec.decode_overview(render_overview(envelope)) == envelope
 
 
 @pytest.mark.parametrize("full_body", [False, True])
@@ -149,6 +200,46 @@ def test_continuity_counts_do_not_classify_unknown_findings(
         assert f"0 new, {known_count} unresolved" in count_line
         if known_count < 3:
             assert f"{3 - known_count} without continuity classification" in count_line
+
+
+@pytest.mark.parametrize("with_findings", [True, False])
+def test_verdict_precedes_collapsed_provenance_without_changing_authority(
+    overview_envelope: ReviewOverviewEnvelope, with_findings: bool
+) -> None:
+    payload = overview_envelope.model_dump(mode="json")
+    current = payload["complete_passes"][0]
+    provenance = "Follow-up review after the earlier bot pass on `previous-head`."
+    continuity = "The earlier concern from the last pass no longer appears present."
+    current["artifact"]["follow_up_lines"] = [provenance, continuity, ""]
+    if not with_findings:
+        current["artifact"].update(classification="no_findings", findings=[])
+        payload["history"][0].update(classification="no_findings", findings_count=0)
+    envelope = ReviewOverviewEnvelope.model_validate(payload)
+    before = envelope.model_dump(mode="json")
+
+    body = render_overview(envelope)
+    visible, details = body.split("<details>", 1)
+    review_details, history = details.split("</details>", 1)
+
+    assert "### AI Review: " in visible
+    expected_verdict = "Block" if with_findings else "Clear"
+    assert f"### AI Review: {expected_verdict}" in visible
+    assert visible.index("### AI Review:") < visible.index("**Risk:**")
+    assert "**Next action:**" in visible
+    assert "**Reviewed commit:**" not in visible
+    assert "**Comparison base:**" not in visible
+    assert "Follow-up review after" not in visible
+    assert continuity in visible
+    assert continuity not in review_details
+    assert "Review workflow" not in visible
+    assert "<summary>Review Details</summary>" in review_details
+    assert current["head_sha"] in review_details
+    assert current["diff_refs"]["base_sha"] in review_details
+    assert "Follow-up review after" in review_details
+    assert "Review workflow" in review_details
+    assert "Recent review history" in history
+    assert codec.decode_overview(body) == envelope
+    assert envelope.model_dump(mode="json") == before
 
 
 def test_utf8_budget_rejects_without_mutating_or_truncating_evidence(

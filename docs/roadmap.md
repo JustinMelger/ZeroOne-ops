@@ -176,6 +176,10 @@ and evidence-only refresh remain proposed, not implemented. Model judgment is
 unchanged. Automated completion does not close the separate live gates below.
 Unconfigured quality reporting has no empty section or upfront notice; the AI/CI
 disclaimer appears in the overview footer.
+The verdict is prioritized above findings; exact commit metadata and follow-up
+provenance are collapsed into Review Details without changing review authority.
+Linked findings avoid repeating inline reasoning; unlinked findings retain full
+details. Shared presentation preserves punctuation without activating Markdown/HTML.
 Offline regressions cover GitHub installation-token identity and withholding
 projection repair when overview authority is conflicting or unavailable.
 Slice 1 is independently shippable. Stop for its live acceptance before report

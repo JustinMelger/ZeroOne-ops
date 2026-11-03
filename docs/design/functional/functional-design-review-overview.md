@@ -33,6 +33,11 @@ concern, a failed pipeline, and unavailable coverage are different signals.
   rather than posting another full summary.
 - Show the reviewed commit, AI verdict/risk/confidence, accepted finding count,
   new/unresolved/resolved counts when continuity is available, and workflow links.
+- Give the AI verdict its own prominent heading, with risk and confidence beneath
+  it. Keep actionable findings, continuity counts, and next action visible. Put
+  exact head/base hashes, workflow links, and prior-review framing inside collapsed
+  **Review Details**, separate from recent history. Prior-review references are
+  provenance, not active findings; preserve them without crowding the result.
 - Link active findings to existing inline discussions. Findings without a usable
   inline location retain concise, actionable details in the overview.
 - Keep existing inline creation, reuse, and resolved-finding behavior unchanged.
@@ -157,9 +162,10 @@ The overview should answer: what commit was reviewed, what needs attention, why,
 and where the operator should look next. Use plain-language labels and a concise
 state-derived next action; do not make readers interpret counts or risk alone.
 
-For an anchored finding, show its accepted title, location, concise impact, and
-discussion link. Put detailed reasoning in the existing inline discussion rather
-than duplicating the whole finding in the overview. For a summary-only finding,
+For a finding with a usable discussion link, show its severity, accepted title,
+location, and discussion link. Keep evidence, impact, and suggested follow-up in
+the self-contained inline discussion rather than repeating its impact in the
+overview. For a summary-only finding or an unusable discussion link,
 render the same accepted evidence directly in a bounded structured block:
 
 ```markdown

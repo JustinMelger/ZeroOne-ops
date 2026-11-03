@@ -21,11 +21,11 @@ from zeroone_ops.services.review.publish.review_response_state import (
 
 
 def escape_overview_text(value: str) -> str:
-    """Escape external prose without changing the stored accepted artifact."""
-    escaped = html.escape(value, quote=True)
+    """Escape Markdown before HTML so generated entities remain renderable."""
+    escaped = value
     for character in ("\\", "`", "*", "_", "[", "]", "|", "#"):
         escaped = escaped.replace(character, f"\\{character}")
-    return escaped
+    return html.escape(escaped, quote=True)
 
 
 def _link(label: str, url: str | None) -> str:
@@ -38,23 +38,20 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
     """Render bounded history and complete serialized authority, never truncating it."""
     current = envelope.complete_passes[0]
     artifact = current.artifact
+    provenance_lines = [
+        line for line in artifact.follow_up_lines if line.startswith("Follow-up review after")
+    ]
     lines = [
         "## Review Overview",
         "",
-        f"**Reviewed commit:** `{escape_overview_text(current.head_sha)}`",
-        f"**Comparison base:** `{escape_overview_text(current.diff_refs.base_sha)}`"
-        if current.diff_refs is not None
-        else "**Comparison base:** unavailable",
-        f"**AI verdict:** {render_verdict(artifact)} | "
-        f"**Risk:** {render_risk(artifact)} | "
-        f"**Confidence:** {render_confidence_label(artifact)}",
+        f"### AI Review: {render_verdict(artifact)}",
+        "",
+        f"**Risk:** {render_risk(artifact)} | **Confidence:** {render_confidence_label(artifact)}",
         "",
         escape_overview_text(artifact.summary),
     ]
     if envelope.execution_notice is not None:
         lines.extend(["", "### Latest Execution", escape_overview_text(envelope.execution_notice)])
-    if current.workflow_url:
-        lines.extend(["", _link("Review workflow", current.workflow_url)])
     new_count = sum(finding.continuity_status == "new" for finding in artifact.findings)
     unresolved_count = sum(
         finding.continuity_status == "unresolved" for finding in artifact.findings
@@ -67,23 +64,18 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
         if unknown_count:
             counts += f", {unknown_count} without continuity classification"
         counts += ")"
-    lines.extend(
-        [
-            "",
-            counts,
-            *[escape_overview_text(line) for line in artifact.follow_up_lines],
-        ]
-    )
+    lines.extend(["", counts])
+    for line in artifact.follow_up_lines:
+        if line.strip() and line not in provenance_lines:
+            lines.extend(["", escape_overview_text(line)])
     for index, finding in enumerate(artifact.findings, start=1):
         location = finding.file_path
         if finding.line_start is not None:
             location += f":{finding.line_start}"
-        title = f"{finding.title} ({location})"
+        title = f"{finding.severity.capitalize()} - {finding.title} ({location})"
         inline_url = None if finding.inline_comment is None else finding.inline_comment.comment_url
         lines.extend(["", f"{index}. {_link(title, inline_url)}"])
-        if inline_url is not None:
-            lines.append(f"   Impact: {escape_overview_text(finding.explanation)}")
-        else:
+        if inline_url is None or urlsplit(inline_url).scheme not in {"https", "http"}:
             lines.extend(
                 [
                     f"   Evidence: {escape_overview_text(finding.evidence)}",
@@ -114,6 +106,25 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
         [
             "",
             f"**Next action:** {next_action}",
+            "",
+            "<details>",
+            "<summary>Review Details</summary>",
+            "",
+            f"**Reviewed commit:** `{escape_overview_text(current.head_sha)}`",
+            "",
+            f"**Comparison base:** `{escape_overview_text(current.diff_refs.base_sha)}`"
+            if current.diff_refs is not None
+            else "**Comparison base:** unavailable",
+        ]
+    )
+    if current.workflow_url:
+        lines.extend(["", _link("Review workflow", current.workflow_url)])
+    for line in provenance_lines:
+        lines.extend(["", escape_overview_text(line)])
+    lines.extend(
+        [
+            "",
+            "</details>",
             "",
             "<details>",
             "<summary>Recent review history</summary>",

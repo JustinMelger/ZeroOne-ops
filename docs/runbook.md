@@ -354,6 +354,12 @@ Report collection, CI/JUnit evidence refresh, and Cobertura comparison
 remain proposed. With no configured reports, omit the quality section and show
 only a compact AI/CI disclaimer footer. Once reporting is configured, missing or
 invalid expected reports must remain visible rather than being silently omitted.
+The AI verdict has a dedicated heading. Risk, confidence, active continuity counts,
+findings, and next action stay visible; expand **Review Details** for the exact
+reviewed head/base, workflow link, and earlier-review context.
+Use linked finding titles to open their self-contained inline discussions. The
+overview avoids repeating their impact; findings without a usable discussion link
+retain evidence, impact, and suggested follow-up directly in the overview.
 
 The overview stores two complete completed-pass snapshots (current and previous)
 and at most five completed-pass summaries including the current pass. Older rows

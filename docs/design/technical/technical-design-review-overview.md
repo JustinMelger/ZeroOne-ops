@@ -66,6 +66,20 @@ Tests must prove the same artifact retains its meaning with and without reports.
 
 ## Proposed UX Slice: Reviewed Commit Context
 
+The shared renderer already prioritizes the verdict as an **AI Review** heading
+and puts risk/confidence beneath it. Exact head/base identifiers, workflow links,
+and stored follow-up framing are rendered inside collapsed **Review Details**.
+Active continuity counts remain visible; moving provenance must not alter the
+artifact, logical pass identity, or serialized recovery evidence. The metadata
+lookup and short commit-title presentation below remain proposed.
+
+Linked finding entries show severity, accepted title, and location without
+duplicating the inline impact paragraph. A missing or unsafe discussion URL
+retains full evidence, impact, and follow-up in the overview. Shared prose escaping
+applies Markdown escaping before HTML escaping so generated character entities
+render normally, while repository HTML and Markdown remain inactive. Neither
+presentation choice changes accepted artifacts or inline discussion content.
+
 **Proposed; not implemented.** Introduce optional typed reviewed-commit metadata:
 the full requested head SHA, a bounded first-line commit title, and a safe commit
 URL when available. Providers fetch and normalize metadata for that exact SHA

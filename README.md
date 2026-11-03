@@ -280,6 +280,11 @@ they do not replace the last completed review or claim its verdict for a new SHA
 The whole overview is bot-managed: use replies or separate comments for discussion.
 Without configured quality reporting, no empty quality section is shown; a compact
 footer reminds readers that AI review does not replace CI checks or merge approval.
+The verdict, findings, and next action take priority; commit metadata and
+follow-up provenance are available in collapsed **Review Details**.
+Linked findings provide severity, title, and location; open their inline
+discussion for evidence, impact, and suggested follow-up. Unlinked findings keep
+those details in the overview.
 
 Writes require verified bot ownership, exact request scope, and a fresh read of
 the overview and open request head. CI serialization reduces races but is not
