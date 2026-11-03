@@ -260,7 +260,18 @@ class PublicationHarness:
         )
 
 
-@pytest.mark.parametrize("conflict", ["duplicate", "malformed", "changed_pass", "deleted"])
+@pytest.mark.parametrize(
+    "conflict",
+    [
+        "duplicate",
+        "malformed",
+        "changed_pass",
+        "deleted",
+        "head_changed",
+        "closed",
+        "state_unavailable",
+    ],
+)
 def test_authority_conflict_after_inline_publication_withholds_projection(
     publication: PublicationHarness, monkeypatch: pytest.MonkeyPatch, conflict: str
 ) -> None:
@@ -284,8 +295,24 @@ def test_authority_conflict_after_inline_publication_withholds_projection(
             publication.client.comments[0] = note.model_copy(
                 update={"body": codec.encode_overview(replacement)}
             )
-        else:
+        elif conflict == "deleted":
             publication.client.comments.clear()
+        else:
+
+            def changed_request(**kwargs):
+                if conflict == "state_unavailable":
+                    raise ReviewPlatformClientError("Request state unavailable.")
+                return ChangeRequestState(
+                    iid=publication.context.change_request_number,
+                    head_sha="another-head"
+                    if conflict == "head_changed"
+                    else publication.context.head_sha,
+                    state="closed" if conflict == "closed" else "opened",
+                    source_branch=publication.context.source_branch,
+                    web_url=publication.context.web_url,
+                )
+
+            monkeypatch.setattr(publication.client, "get_change_request_state", changed_request)
         return inline
 
     monkeypatch.setattr(
@@ -309,13 +336,13 @@ def test_authority_conflict_after_inline_publication_withholds_projection(
     assert publication.artifact.model_dump(mode="json") == before
 
 
-@pytest.fixture
-def publication() -> PublicationHarness:
+@pytest.fixture(params=["github", "gitlab"])
+def publication(request: pytest.FixtureRequest) -> PublicationHarness:
     context = build_context()
     artifact = build_artifact()
     finding = artifact.findings[0]
     client = RecordingReviewClient(context)
-    coordinator = ReviewOverviewCoordinator(client, "github")
+    coordinator = ReviewOverviewCoordinator(client, request.param)
     return PublicationHarness(
         client,
         coordinator,

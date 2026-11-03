@@ -66,7 +66,8 @@ Tests must prove the same artifact retains its meaning with and without reports.
 
 ## Proposed UX Slice: Reviewed Commit Context
 
-The shared renderer already prioritizes the verdict as an **AI Review** heading
+The shared renderer prioritizes the verdict in one **Review Overview: verdict**
+heading
 and puts risk/confidence beneath it. Exact head/base identifiers, workflow links,
 and stored follow-up framing are rendered inside collapsed **Review Details**.
 Active continuity counts remain visible; moving provenance must not alter the
@@ -79,6 +80,11 @@ retains full evidence, impact, and follow-up in the overview. Shared prose escap
 applies Markdown escaping before HTML escaping so generated character entities
 render normally, while repository HTML and Markdown remain inactive. Neither
 presentation choice changes accepted artifacts or inline discussion content.
+
+Newly generated follow-up wording maps unmatched prior concerns to **not reported
+in this pass**. Keep the machine outcome `no_longer_present` for compatibility;
+this is not source-backed resolution evidence. Historical stored text remains
+unchanged, and no concern registry or additional model stage is introduced.
 
 **Proposed; not implemented.** Introduce optional typed reviewed-commit metadata:
 the full requested head SHA, a bounded first-line commit title, and a safe commit
@@ -234,6 +240,13 @@ Before creating/updating, fetch current request head and current overview state.
 Require the request to remain open and the pinned review head to equal its head.
 Compare retained pass identity and producer-attempt metadata, not comment creation
 time or file mtime.
+Request closure, head drift, or inability to verify request state are authority
+failures, including during post-inline metadata synchronization. Withhold linked
+work-item projection and preserve actual inline receipts and pending repair
+evidence; do not downgrade these failures to metadata-only warnings that permit
+projection. Ordinary transport failures writing metadata retain their existing
+best-effort warning behavior. Provider identity must reject empty or
+whitespace-only usernames before overview discovery can authorize creation.
 For same-head quality updates, merge only the quality section with the currently
 authoritative artifact; never replace it from an older local artifact.
 

@@ -299,12 +299,16 @@ def test_invalid_bot_authority_blocks_publication(corruption: str) -> None:
     assert client.writes == []
 
 
-@pytest.mark.parametrize("failure", ["identity_denied", "identity_empty", "comments_denied"])
+@pytest.mark.parametrize(
+    "failure", ["identity_denied", "identity_empty", "identity_whitespace", "comments_denied"]
+)
 def test_inaccessible_discovery_never_means_confirmed_absence(failure: str) -> None:
     client = FakeOverviewClient()
     client.identity_error = failure == "identity_denied"
     if failure == "identity_empty":
         client.username = ""
+    elif failure == "identity_whitespace":
+        client.username = " \t\n"
     elif failure == "comments_denied":
         client.reads.append(ReviewPlatformClientError("Comments inaccessible."))
 

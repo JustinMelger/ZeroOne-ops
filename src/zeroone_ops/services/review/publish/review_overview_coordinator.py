@@ -60,7 +60,7 @@ class ReviewOverviewCoordinator:
         """Resolve unique valid authority using complete exact-request discovery."""
         try:
             username = self.client.get_current_user_username()
-            if not username:
+            if not username.strip():
                 raise ReviewOverviewError("Verified review bot identity is unavailable.")
             comments = self.client.list_change_request_comments(
                 repository_id=repository_id, change_request_number=change_request_number
@@ -286,9 +286,9 @@ class ReviewOverviewCoordinator:
                 repository_id=repository_id, change_request_number=envelope.change_request_number
             )
         except (ReviewPlatformClientError, httpx.HTTPError) as error:
-            raise ReviewOverviewError("Review request verification failed.") from error
+            raise ReviewOverviewAuthorityError("Review request verification failed.") from error
         if request.state != "opened" or request.head_sha != head_sha:
-            raise ReviewOverviewError(
+            raise ReviewOverviewAuthorityError(
                 "Review overview write withheld: request closed or head changed."
             )
         note, current = self.discover(

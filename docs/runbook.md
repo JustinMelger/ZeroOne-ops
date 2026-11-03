@@ -41,7 +41,7 @@ validation, and local Git push, including successful and exhausted correction.
 Review scenarios exercise real candidate/precision prompts, finding lineage,
 artifact publication, verified work-item projection, and isolation between
 requests using actual local base/head commits. Repeated reviews of one request
-exercise latest-comment loading, unresolved/resolved/new overlap decisions, and
+exercise latest-comment loading, unresolved/unmatched-prior/new overlap decisions, and
 inline-comment reuse across successive commits.
 Same-SHA scenarios cover persisted-state and provider-comment reuse, plus repeated
 projection failure followed by repair without another model call or review comment.
@@ -354,12 +354,17 @@ Report collection, CI/JUnit evidence refresh, and Cobertura comparison
 remain proposed. With no configured reports, omit the quality section and show
 only a compact AI/CI disclaimer footer. Once reporting is configured, missing or
 invalid expected reports must remain visible rather than being silently omitted.
-The AI verdict has a dedicated heading. Risk, confidence, active continuity counts,
+The single heading is **Review Overview: Concern/Clear** (or the existing Block/
+Needs review verdict). Risk, confidence, active continuity counts,
 findings, and next action stay visible; expand **Review Details** for the exact
 reviewed head/base, workflow link, and earlier-review context.
 Use linked finding titles to open their self-contained inline discussions. The
 overview avoids repeating their impact; findings without a usable discussion link
 retain evidence, impact, and suggested follow-up directly in the overview.
+An earlier concern **not reported in this pass** has not been independently
+verified as fixed. Overlap compares finding lists, not current source code.
+Head drift, request closure, or failed request-state verification after inline
+publication withholds work-item projection while retaining pending evidence.
 
 The overview stores two complete completed-pass snapshots (current and previous)
 and at most five completed-pass summaries including the current pass. Older rows

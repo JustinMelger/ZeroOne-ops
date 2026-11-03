@@ -462,7 +462,13 @@ def test_get_current_user_username_normalizes_response() -> None:
 
 @pytest.mark.parametrize(
     "status,payload",
-    [(503, {"message": "unavailable"}), (200, []), (200, {"username": None})],
+    [
+        (503, {"message": "unavailable"}),
+        (200, []),
+        (200, {"username": None}),
+        (200, {"username": ""}),
+        (200, {"username": " \t\n"}),
+    ],
 )
 def test_current_user_failures_use_neutral_review_boundary(status, payload) -> None:
     client = GitLabReviewClient(

@@ -58,11 +58,13 @@ A repeated-review scenario advances one request through three actual commits:
 an undefined annotation, the same concern after line/wording changes, then its
 fix alongside a new undefined annotation in another function. The real prior-note
 loader and overlap service run with scripted SDK overlap responses. Tests verify
-latest-prior SHA selection, unresolved versus resolved/new outcomes, inline-comment
+latest-prior SHA selection, unresolved versus unmatched-prior/new outcomes, inline-comment
 reuse, successive passes in one overview, bounded local history, and latest work-item
 projection. A negative contract removes precision history and must fail before
 another review is published. These checks verify continuity wiring, not whether
 a real model correctly judges two findings to be equivalent.
+Unmatched prior findings are presented as not reported in this pass; the scripted
+overlap outcome does not establish source-backed resolution.
 
 Same-SHA scenarios reuse either authoritative local state or a provider comment
 without additional model calls or review comments. The repair sequence injects

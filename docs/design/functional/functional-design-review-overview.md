@@ -32,12 +32,17 @@ concern, a failed pipeline, and unavailable coverage are different signals.
 - Maintain one managed overview per request, updating it after a completed review
   rather than posting another full summary.
 - Show the reviewed commit, AI verdict/risk/confidence, accepted finding count,
-  new/unresolved/resolved counts when continuity is available, and workflow links.
-- Give the AI verdict its own prominent heading, with risk and confidence beneath
+  new/unresolved counts when continuity is available, and workflow links.
+- Use one prominent **Review Overview: Concern/Clear** verdict heading, with risk
+  and confidence beneath
   it. Keep actionable findings, continuity counts, and next action visible. Put
   exact head/base hashes, workflow links, and prior-review framing inside collapsed
   **Review Details**, separate from recent history. Prior-review references are
   provenance, not active findings; preserve them without crowding the result.
+- Describe unmatched prior concerns as **not reported in this pass**, not as
+  verified fixes. Finding-list overlap does not reassess current code. Retain the
+  existing machine outcomes and discussion behavior; code-aware resolution and a
+  persistent concern registry require separate design.
 - Link active findings to existing inline discussions. Findings without a usable
   inline location retain concise, actionable details in the overview.
 - Keep existing inline creation, reuse, and resolved-finding behavior unchanged.
@@ -410,7 +415,7 @@ reports say no actionable findings in the reviewed scope, not that tests passed.
 ```markdown
 ## ZeroOne Ops Review
 Last completed review: abc1234 | Verdict: Concern | Risk: Medium
-2 active findings: 1 new, 1 unresolved. Since the previous review: 1 resolved.
+2 active findings: 1 new, 1 unresolved. One earlier concern was not reported in this pass.
 
 - New: Missing authorization check - view inline discussion
 - Unresolved: Request timeout is ignored - view inline discussion

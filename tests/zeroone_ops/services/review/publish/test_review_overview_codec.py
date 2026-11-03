@@ -221,10 +221,11 @@ def test_verdict_precedes_collapsed_provenance_without_changing_authority(
     visible, details = body.split("<details>", 1)
     review_details, history = details.split("</details>", 1)
 
-    assert "### AI Review: " in visible
+    assert "## Review Overview: " in visible
     expected_verdict = "Block" if with_findings else "Clear"
-    assert f"### AI Review: {expected_verdict}" in visible
-    assert visible.index("### AI Review:") < visible.index("**Risk:**")
+    assert visible.startswith(f"## Review Overview: {expected_verdict}\n")
+    assert "### AI Review:" not in visible
+    assert visible.index("## Review Overview:") < visible.index("**Risk:**")
     assert "**Next action:**" in visible
     assert "**Reviewed commit:**" not in visible
     assert "**Comparison base:**" not in visible

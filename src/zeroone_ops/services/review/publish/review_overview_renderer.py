@@ -42,9 +42,7 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
         line for line in artifact.follow_up_lines if line.startswith("Follow-up review after")
     ]
     lines = [
-        "## Review Overview",
-        "",
-        f"### AI Review: {render_verdict(artifact)}",
+        f"## Review Overview: {render_verdict(artifact)}",
         "",
         f"**Risk:** {render_risk(artifact)} | **Confidence:** {render_confidence_label(artifact)}",
         "",

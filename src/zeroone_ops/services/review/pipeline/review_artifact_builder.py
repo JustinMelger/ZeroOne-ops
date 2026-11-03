@@ -187,8 +187,8 @@ def _render_overlap_summary_lines(
             lines.append(
                 _counted_phrase(
                     resolved_count,
-                    "The earlier concern from the last pass no longer appears present.",
-                    "earlier concerns from the last pass no longer appear present.",
+                    "The earlier concern was not reported in this pass.",
+                    "earlier concerns were not reported in this pass.",
                 )
             )
         if overlap_ambiguous:
@@ -209,8 +209,8 @@ def _render_overlap_summary_lines(
     if no_longer_present and new_in_this_pass:
         resolved_phrase = _counted_phrase(
             resolved_count,
-            "One earlier concern no longer appears present",
-            "earlier concerns no longer appear present",
+            "One earlier concern was not reported in this pass",
+            "earlier concerns were not reported in this pass",
         )
         new_phrase = _counted_phrase(new_count, "a new concern", "new concerns")
         lines.append(f"{resolved_phrase}, but this pass also introduces {new_phrase}.")
@@ -218,8 +218,8 @@ def _render_overlap_summary_lines(
         lines.append(
             _counted_phrase(
                 resolved_count,
-                "One earlier concern from the last pass no longer appears present.",
-                "earlier concerns from the last pass no longer appear present.",
+                "One earlier concern was not reported in this pass.",
+                "earlier concerns were not reported in this pass.",
             )
         )
     elif new_in_this_pass:

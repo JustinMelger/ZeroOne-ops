@@ -31,7 +31,7 @@ from .review_scripted_sdk import ScriptedReviewSDK
 
 
 @pytest.mark.parametrize("platform", ["github", "gitlab"])
-def test_repeated_review_tracks_unresolved_resolved_and_new_findings(
+def test_repeated_review_tracks_unresolved_unreported_and_new_findings(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: Platform
 ) -> None:
     first = create_review_case(tmp_path, number=11, name="annotation")
@@ -208,7 +208,8 @@ def _assert_continuity(
     assert cases[0].head_sha in " ".join(artifacts[1].follow_up_lines)
     assert cases[1].head_sha in " ".join(artifacts[2].follow_up_lines)
     assert any("unresolved" in line for line in artifacts[1].follow_up_lines)
-    assert any("no longer" in line for line in artifacts[2].follow_up_lines)
+    assert any("not reported in this pass" in line for line in artifacts[2].follow_up_lines)
+    assert not any("no longer appear" in line for line in artifacts[2].follow_up_lines)
     assert any("new" in line.lower() for line in artifacts[2].follow_up_lines)
     latest_body = str(api.comments[cases[0].number][reviews[-1].note_id]["body"])
     assert "1 new, 0 unresolved" in latest_body

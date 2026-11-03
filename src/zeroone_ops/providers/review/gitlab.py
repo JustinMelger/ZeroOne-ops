@@ -295,7 +295,7 @@ class GitLabReviewClient:
         if not isinstance(payload, dict):
             raise ReviewPlatformClientError("Unexpected GitLab current user payload.")
         username = payload.get("username")
-        if not isinstance(username, str):
+        if not isinstance(username, str) or not username.strip():
             raise ReviewPlatformClientError("Unexpected GitLab current user username.")
         return username
 

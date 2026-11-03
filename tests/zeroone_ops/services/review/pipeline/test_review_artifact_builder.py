@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from zeroone_ops.models.review import (
     OverlapReconciliationResult,
     OverlapResolution,
@@ -199,3 +201,38 @@ def test_artifact_to_review_result_preserves_follow_up_lines() -> None:
 
     assert "advisory_notes" not in review_result.model_dump()
     assert review_result.follow_up_lines == artifact.follow_up_lines
+
+
+@pytest.mark.parametrize("classification", ["no_findings", "findings_present"])
+@pytest.mark.parametrize("prior_count", [1, 2])
+@pytest.mark.parametrize("with_new_finding", [False, True])
+def test_unmatched_prior_concerns_are_not_reported_rather_than_resolved(
+    classification: str, prior_count: int, with_new_finding: bool
+) -> None:
+    resolutions = [
+        OverlapResolution(
+            outcome="no_longer_present",
+            prior_finding_index=index,
+            related_prior_finding_indices=[index],
+        )
+        for index in range(prior_count)
+    ]
+    if with_new_finding:
+        resolutions.append(OverlapResolution(outcome="new_in_this_pass", current_finding_index=0))
+    overlap = OverlapReconciliationResult(prior_reviewed_head_sha="abc123", resolutions=resolutions)
+    before = overlap.model_dump(mode="json")
+
+    artifact = (
+        ReviewArtifactBuilder()
+        .build(reconciled_decision=build_decision(classification), overlap_result=overlap)
+        .artifact
+    )
+
+    text = " ".join(artifact.follow_up_lines)
+    assert "not reported in this pass" in text
+    if prior_count > 1:
+        assert "2 earlier concerns were not reported" in text
+    assert "no longer appear" not in text
+    assert "resolved" not in text
+    assert artifact.classification == classification
+    assert overlap.model_dump(mode="json") == before
