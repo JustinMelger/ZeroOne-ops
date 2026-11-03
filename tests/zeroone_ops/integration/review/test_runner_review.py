@@ -69,6 +69,28 @@ class _ReviewAPI:
             else "https://gitlab.example.com/group/project/-/merge_requests/17"
         )
         if request.method == "GET":
+            commit_path = (
+                f"{root}/git/commits/{self.head_sha}"
+                if github
+                else f"{root}/repository/commits/{self.head_sha}"
+            )
+            if path == commit_path:
+                assert dict(request.url.params) == ({} if github else {"stats": "false"})
+                commit_url = (
+                    f"https://github.com/octo-org/octo-repo/commit/{self.head_sha}"
+                    if github
+                    else f"https://gitlab.example.com/group/project/-/commit/{self.head_sha}"
+                )
+                return httpx.Response(
+                    200,
+                    json={
+                        "sha": self.head_sha,
+                        "id": self.head_sha,
+                        "message": "Update the reviewed code",
+                        "html_url": commit_url,
+                        "web_url": commit_url,
+                    },
+                )
             if path == ("/user" if github else "/api/v4/user"):
                 if self.username_unavailable:
                     return httpx.Response(503, json={"message": "cannot resolve bot username"})

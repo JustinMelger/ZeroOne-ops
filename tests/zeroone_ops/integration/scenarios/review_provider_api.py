@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from .provider_api import ScenarioProviderAPI
+from .repository import git
 from .review_cases import REVIEW_PATH, ReviewCase
 
 
@@ -24,6 +25,8 @@ class ReviewProviderAPI:
     published_heads: set[tuple[int, str]] = field(default_factory=set)
     overview_writes: list[str] = field(default_factory=list)
     comment_creations: dict[int, int] = field(default_factory=dict)
+    commit_calls: list[tuple[int, str]] = field(default_factory=list)
+    commit_status: int = 200
 
     def respond(self, request: httpx.Request) -> httpx.Response:
         """Fail hard even if production treats a transport boundary as best effort."""
@@ -50,6 +53,28 @@ class ReviewProviderAPI:
         assert request.url.path.startswith(prefix), "Wrong review repository/project scope"
         suffix = request.url.path.removeprefix(prefix)
         parts = suffix.split("/")
+        commit_prefix = ["git", "commits"] if github else ["repository", "commits"]
+        if len(parts) == 3 and parts[:2] == commit_prefix:
+            assert request.method == "GET", "Unexpected commit metadata write"
+            assert self.active_number in self.cases, "Missing active commit request"
+            case = self.cases[self.active_number]
+            assert parts[2] == case.head_sha, "Wrong reviewed commit SHA"
+            assert dict(request.url.params) == ({} if github else {"stats": "false"})
+            self.commit_calls.append((case.number, case.head_sha))
+            if self.commit_status != 200:
+                return httpx.Response(self.commit_status, json={"message": "Commit unavailable"})
+            url = f"https://provider.invalid/offline/application/commit/{case.head_sha}"
+            message = git(case.root, "show", "-s", "--format=%B", case.head_sha)
+            return httpx.Response(
+                200,
+                json={
+                    "sha": case.head_sha,
+                    "id": case.head_sha,
+                    "message": message,
+                    "html_url": url,
+                    "web_url": url,
+                },
+            )
         request_kind = "pulls" if github else "merge_requests"
         if parts[0] == request_kind and len(parts) >= 2:
             assert parts[1].isdigit() and int(parts[1]) in self.cases, "Unknown review request"

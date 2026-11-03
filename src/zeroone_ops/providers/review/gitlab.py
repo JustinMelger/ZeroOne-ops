@@ -16,7 +16,9 @@ from zeroone_ops.models.review import (
     ChangeRequestReviewCandidate,
     ReviewComment,
 )
+from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
 from zeroone_ops.providers.gitlab_client import GitLabClientError, _parse_json_response
+from zeroone_ops.providers.review.commit_metadata import normalize_reviewed_commit
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 
 
@@ -93,6 +95,9 @@ class GitLabReviewClientProtocol(Protocol):
     ) -> list[MergeRequestNote]:
         """List every note for one merge request."""
 
+    def get_reviewed_commit(self, *, repository_id: str, head_sha: str) -> ReviewedCommitMetadata:
+        """Read presentation metadata for one exact commit."""
+
     def get_current_user_username(self) -> str:
         """Return the username associated with the active API token."""
 
@@ -111,6 +116,24 @@ class GitLabReviewClient:
             base_url=str(config.url).rstrip("/"),
             headers={"PRIVATE-TOKEN": config.token},
             timeout=30.0,
+        )
+
+    def get_reviewed_commit(self, *, repository_id: str, head_sha: str) -> ReviewedCommitMetadata:
+        """Read the exact project commit without fetching its diff or statistics."""
+        try:
+            response = self._http_client.get(
+                f"/api/v4/projects/{quote_plus(repository_id)}/repository/commits/{quote_plus(head_sha)}",
+                params={"stats": "false"},
+            )
+            payload = _parse_json_response(response)
+        except (GitLabClientError, httpx.HTTPError) as error:
+            raise ReviewPlatformClientError("Reviewed commit lookup failed.") from error
+        if not isinstance(payload, dict):
+            raise ReviewPlatformClientError("Unexpected GitLab reviewed commit payload.")
+        return normalize_reviewed_commit(
+            head_sha=payload.get("id"),
+            message=payload.get("message"),
+            web_url=payload.get("web_url"),
         )
 
     def list_open_merge_requests(self, *, project_id: str) -> list[ChangeRequestReviewCandidate]:

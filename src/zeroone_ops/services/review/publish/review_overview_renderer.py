@@ -6,6 +6,7 @@ import html
 from urllib.parse import quote, urlsplit
 
 from zeroone_ops.models.review_overview import ReviewOverviewEnvelope
+from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
 from zeroone_ops.services.control_plane.review_projection import (
     review_feedback_projection_decision_service as feedback_projection,
 )
@@ -34,6 +35,17 @@ def _link(label: str, url: str | None) -> str:
     return f"[{escape_overview_text(label)}]({quote(url, safe=':/?=&%#')})"
 
 
+def _commit_label(head_sha: str, metadata: ReviewedCommitMetadata | None) -> str:
+    """Shorten presentation only; full identifiers remain in the serialized authority."""
+    label = _link(head_sha[:7], None if metadata is None else metadata.web_url)
+    if metadata is not None and metadata.title:
+        title = metadata.title
+        if len(title) > 120:
+            title = title[:117] + "..."
+        label += f" - {escape_overview_text(title)}"
+    return label
+
+
 def render_overview(envelope: ReviewOverviewEnvelope) -> str:
     """Render bounded history and complete serialized authority, never truncating it."""
     current = envelope.complete_passes[0]
@@ -47,6 +59,8 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
         f"**Risk:** {render_risk(artifact)} | **Confidence:** {render_confidence_label(artifact)}",
         "",
         escape_overview_text(artifact.summary),
+        "",
+        f"**Reviewed commit:** {_commit_label(current.head_sha, current.reviewed_commit)}",
     ]
     if envelope.execution_notice is not None:
         lines.extend(["", "### Latest Execution", escape_overview_text(envelope.execution_notice)])
@@ -133,7 +147,8 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
     for summary in envelope.history:
         availability = "" if summary.pass_id in complete_ids else " (summary only)"
         lines.append(
-            f"- Pass {summary.sequence}: `{escape_overview_text(summary.head_sha)}` - "
+            f"- Pass {summary.sequence}: "
+            f"{_commit_label(summary.head_sha, summary.reviewed_commit)} - "
             f"{summary.classification}, {summary.findings_count} findings; "
             f"{_link(summary.run_id, summary.workflow_url)}{availability}"
         )

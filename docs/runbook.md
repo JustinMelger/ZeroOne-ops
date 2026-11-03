@@ -358,6 +358,14 @@ The single heading is **Review Overview: Concern/Clear** (or the existing Block/
 Needs review verdict). Risk, confidence, active continuity counts,
 findings, and next action stay visible; expand **Review Details** for the exact
 reviewed head/base, workflow link, and earlier-review context.
+Below the result summary, **Reviewed commit** shows a seven-character linked SHA
+and the provider's commit title, shortened to 120 display characters when needed.
+The first message line is stored with the completed pass (at most 300 characters),
+not supplied to review models. Exact head/base identities remain in Review Details.
+If the exact-SHA lookup fails or metadata is missing, review continues with a
+short SHA; an unsafe browser link is omitted without discarding a usable title.
+Same-SHA reuse, fresh-workspace recovery, and projection repair reuse stored
+labels without metadata backfill. Historical passes can remain SHA-only.
 Use linked finding titles to open their self-contained inline discussions. The
 overview avoids repeating their impact; findings without a usable discussion link
 retain evidence, impact, and suggested follow-up directly in the overview.

@@ -183,21 +183,37 @@ details. Shared presentation preserves punctuation without activating Markdown/H
 The overview uses one verdict heading; unmatched prior concerns are described as
 not reported, not verified fixes. Publication guards reject blank GitLab identity
 and withhold projection on failed request/head revalidation after inline writes.
+Reviewed commit labels now combine a short SHA with optional provider-supplied
+titles, persisted per pass and reused without model calls or metadata backfill.
+Live commit-label presentation acceptance remains unchecked.
 Offline regressions cover GitHub installation-token identity and withholding
 projection repair when overview authority is conflicting or unavailable.
-Slice 1 is independently shippable. Stop for its live acceptance before report
-integration; validate the smallest JUnit installation before expanding to coverage.
+Before merging, close the visibility regression for overview-only findings that
+are not reported in a later pass. A collapsed **Earlier Findings** section is the
+proposed direction; define retention and eviction explicitly rather than treating
+two retained complete snapshots as durable operator-accessible history.
+Keep live acceptance separate and complete it before report integration; validate
+the smallest JUnit installation before expanding to coverage.
 
 - [x] review the proposed contracts before implementation
 - [x] slice 1: persistent overview, durable bounded history, stale-write guards,
   and existing same-SHA/inline/projection-repair continuity
+- [ ] **Pre-merge: Earlier Findings visibility**: preserve operator-readable
+  evidence and reviewed SHA for overview-only concerns not reported again,
+  explicitly label **Resolution not verified**, and define bounded retention and
+  eviction behavior. Review the design and cover successive passes,
+  fresh-workspace recovery, escaping, and the complete payload budget before
+  considering the visibility regression fixed; do not infer resolution from
+  absence in a later finding list
 - [ ] review and implement the bounded **What Changed** follow-up: a separate
   factual reviewed-diff summary generated within an existing model call,
   persisted with complete artifacts and preserved during reuse and recovery
-- [ ] **UX slice: Reviewed Commit Context**: show a short linked SHA and the
+- [x] **UX slice: Reviewed Commit Context**: show a short linked SHA and the
   provider-supplied commit title; collapse full head/base details, persist
   optional pass metadata, and cover lookup failures, exact-SHA matching,
   historical compatibility, and reuse/recovery without additional model calls
+- [ ] live-validate reviewed commit labels on GitHub and GitLab separately from
+  automated verification
 - [ ] live-validate slice 1 on GitHub and GitLab, including fresh-workspace and
   partial-publication recovery, before starting slice 2
 - [ ] slice 2: CI-provided JUnit reports, producer correlation, and same-SHA

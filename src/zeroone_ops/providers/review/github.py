@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -14,7 +15,9 @@ from zeroone_ops.models.review import (
     ChangeRequestReviewCandidate,
     ReviewComment,
 )
+from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
 from zeroone_ops.providers.github_client import GitHubClientError, _normalize_pull_request_state
+from zeroone_ops.providers.review.commit_metadata import normalize_reviewed_commit
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 
 
@@ -36,6 +39,21 @@ class GitHubReviewClient:
                 "X-GitHub-Api-Version": "2022-11-28",
             },
             timeout=30.0,
+        )
+
+    def get_reviewed_commit(self, *, repository_id: str, head_sha: str) -> ReviewedCommitMetadata:
+        """Read a Git commit object without loading its changed-file patches."""
+        try:
+            payload = self._get_json(
+                f"/repos/{repository_id}/git/commits/{quote(head_sha, safe='')}",
+                error_message="Unexpected GitHub reviewed commit payload.",
+            )
+        except httpx.HTTPError as error:
+            raise ReviewPlatformClientError("Reviewed commit lookup failed.") from error
+        return normalize_reviewed_commit(
+            head_sha=payload.get("sha"),
+            message=payload.get("message"),
+            web_url=payload.get("html_url"),
         )
 
     def get_change_request(

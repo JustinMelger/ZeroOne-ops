@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import Literal
+from urllib.parse import urlsplit
 from uuid import NAMESPACE_URL, uuid5
 
 import httpx
@@ -14,6 +16,7 @@ from zeroone_ops.models.review import (
     ReviewComment,
 )
 from zeroone_ops.models.review_overview import ReviewOverviewEnvelope, ReviewOverviewPass
+from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
 from zeroone_ops.models.state import ReviewInlineCommentDecision
 from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPlatformProtocol,
@@ -25,6 +28,8 @@ from zeroone_ops.services.review.publish.review_overview_codec import (
     decode_overview,
 )
 from zeroone_ops.services.review.publish.review_overview_renderer import render_overview
+
+LOGGER = logging.getLogger(__name__)
 
 
 def review_pass_identity(
@@ -120,6 +125,7 @@ class ReviewOverviewCoordinator:
             return note, previous
         if previous is not None and previous.complete_passes[0].head_sha == context.head_sha:
             raise ReviewOverviewError("This head already has a completed review; reuse its pass.")
+        reviewed_commit = self._load_reviewed_commit(repository_id=repository_id, context=context)
         completed = ReviewOverviewPass(
             pass_id=pass_id,
             projection_reference=pass_id,
@@ -131,6 +137,7 @@ class ReviewOverviewCoordinator:
             artifact=artifact.model_copy(deep=True),
             inline_decisions=[decision.model_copy(deep=True) for decision in inline_decisions],
             workflow_url=workflow_url,
+            reviewed_commit=reviewed_commit,
             verified_work_item_url=(
                 None
                 if context.remediation_context is None
@@ -151,6 +158,29 @@ class ReviewOverviewCoordinator:
             expected_envelope=previous,
             envelope=envelope,
         ), envelope
+
+    def _load_reviewed_commit(
+        self, *, repository_id: str, context: ChangeRequestReviewContext
+    ) -> ReviewedCommitMetadata | None:
+        """Attach optional presentation only when exact-head metadata is trustworthy."""
+        try:
+            metadata = self.client.get_reviewed_commit(
+                repository_id=repository_id, head_sha=context.head_sha
+            )
+            if metadata.head_sha != context.head_sha:
+                raise ReviewPlatformClientError("Reviewed commit identity mismatch.")
+        except (ReviewPlatformClientError, httpx.HTTPError):
+            LOGGER.warning(
+                "reviewed commit metadata unavailable; using SHA-only presentation",
+                extra={
+                    "change_request_number": context.change_request_number,
+                    "head_sha": context.head_sha,
+                },
+            )
+            return None
+        if not _safe_commit_url(metadata.web_url, context.web_url, context.head_sha):
+            metadata = metadata.model_copy(update={"web_url": None})
+        return metadata
 
     def write_metadata(
         self,
@@ -333,3 +363,25 @@ class ReviewOverviewCoordinator:
             if recovered_note is not None and recovered == envelope:
                 return recovered_note
             raise ReviewOverviewError("Review overview write could not be confirmed.") from error
+
+
+def _safe_commit_url(url: str | None, request_url: str, head_sha: str) -> bool:
+    """Allow only same-origin browser links identifying the full reviewed commit."""
+    if url is None or url != url.strip():
+        return False
+    if any(ord(character) < 32 or ord(character) == 127 for character in url):
+        return False
+    try:
+        target = urlsplit(url)
+        request = urlsplit(request_url)
+        return (
+            target.scheme in {"http", "https"}
+            and target.hostname is not None
+            and (target.scheme, target.hostname, target.port)
+            == (request.scheme, request.hostname, request.port)
+            and target.username is None
+            and target.password is None
+            and target.path.endswith(f"/commit/{head_sha}")
+        )
+    except ValueError:
+        return False

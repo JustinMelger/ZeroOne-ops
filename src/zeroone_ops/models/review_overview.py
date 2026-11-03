@@ -13,6 +13,7 @@ from zeroone_ops.models.review import (
     ReviewClassification,
     ReviewInlineCommentDecision,
 )
+from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
 
 
 class ReviewOverviewSummary(BaseModel):
@@ -28,6 +29,14 @@ class ReviewOverviewSummary(BaseModel):
     classification: ReviewClassification
     findings_count: int = Field(ge=0)
     workflow_url: str | None = None
+    reviewed_commit: ReviewedCommitMetadata | None = None
+
+    @model_validator(mode="after")
+    def validate_commit_metadata(self) -> ReviewOverviewSummary:
+        """Keep optional labels correlated with their exact history head."""
+        if self.reviewed_commit is not None and self.reviewed_commit.head_sha != self.head_sha:
+            raise ValueError("Reviewed commit metadata must match its history head.")
+        return self
 
 
 class ReviewOverviewPass(BaseModel):
@@ -48,6 +57,7 @@ class ReviewOverviewPass(BaseModel):
     projection_reference: str | None = None
     workflow_url: str | None = None
     verified_work_item_url: str | None = None
+    reviewed_commit: ReviewedCommitMetadata | None = None
 
     @model_validator(mode="after")
     def validate_identity(self) -> ReviewOverviewPass:
@@ -56,6 +66,8 @@ class ReviewOverviewPass(BaseModel):
             raise ValueError("Review completion time must be timezone aware.")
         if self.diff_refs is not None and self.diff_refs.head_sha != self.head_sha:
             raise ValueError("Review diff head must match its completed pass.")
+        if self.reviewed_commit is not None and self.reviewed_commit.head_sha != self.head_sha:
+            raise ValueError("Reviewed commit metadata must match its completed pass.")
         return self
 
     def summary(self) -> ReviewOverviewSummary:
@@ -69,6 +81,7 @@ class ReviewOverviewPass(BaseModel):
             classification=self.artifact.classification,
             findings_count=len(self.artifact.findings),
             workflow_url=self.workflow_url,
+            reviewed_commit=self.reviewed_commit,
         )
 
 

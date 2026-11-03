@@ -182,6 +182,14 @@ def _assert_published_pass(
     assert overview is not None
     completed = overview.complete_passes[0]
     assert completed.head_sha == case.head_sha
+    assert api.commit_calls.count((case.number, case.head_sha)) == 1
+    assert completed.reviewed_commit is not None
+    assert completed.reviewed_commit.head_sha == case.head_sha
+    assert completed.reviewed_commit.title == git(
+        case.root, "show", "-s", "--format=%s", case.head_sha
+    )
+    assert review.overview_pass.reviewed_commit == completed.reviewed_commit
+    assert all(completed.reviewed_commit.title not in call.prompt for call in sdk.calls)
     assert completed.artifact == artifact
     assert (
         completed.artifact.findings[0].inline_comment.comment_id
@@ -336,6 +344,10 @@ def test_successive_heads_bound_overview_history_and_recover_inline_references(
             artifacts.insert(0, overview.complete_passes[0].artifact)
             assert [entry.head_sha for entry in overview.complete_passes] == heads[:2]
             assert [entry.head_sha for entry in overview.history] == heads[:5]
+            assert len(api.commit_calls) == index + 1
+            assert all(
+                entry.reviewed_commit.head_sha == entry.head_sha for entry in overview.history
+            )
             assert [entry.sequence for entry in overview.history] == list(
                 range(index + 1, max(0, index - 4), -1)
             )

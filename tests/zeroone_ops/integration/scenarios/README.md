@@ -65,6 +65,12 @@ another review is published. These checks verify continuity wiring, not whether
 a real model correctly judges two findings to be equivalent.
 Unmatched prior findings are presented as not reported in this pass; the scripted
 overlap outcome does not establish source-backed resolution.
+Commit-label scenarios use real provider adapters over fake exact-SHA endpoints.
+Labels are checked against actual temporary Git commits and persisted pass/history
+metadata. Each fresh pass reads metadata once; same-SHA reuse, fresh-workspace
+recovery, projection repair, and deleted-overview restoration do not backfill it.
+An unavailable metadata endpoint preserves review publication with SHA-only
+presentation and no additional model calls. Commit labels stay out of prompts.
 
 Same-SHA scenarios reuse either authoritative local state or a provider comment
 without additional model calls or review comments. The repair sequence injects

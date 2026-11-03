@@ -20,6 +20,7 @@ from zeroone_ops.services.review.pipeline.review_artifact_builder import ReviewA
 from zeroone_ops.services.review.publish.review_overview_codec import decode_overview
 
 from .provider_api import Platform, ScenarioProviderAPI
+from .repository import git
 from .review_cases import REVIEW_PATH, ReviewCase, advance_review_case, create_review_case
 from .review_harness import ReviewHarness, compose_review_harness
 from .review_provider_api import ReviewProviderAPI
@@ -106,6 +107,41 @@ def test_github_installation_identity_supports_review_publication_and_same_sha_r
         )
 
 
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+def test_commit_metadata_outage_preserves_review_and_does_not_backfill(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: Platform
+) -> None:
+    case = create_review_case(tmp_path, number=11, name="annotation")
+    api = ReviewProviderAPI(
+        ScenarioProviderAPI(platform), cases={case.number: case}, commit_status=503
+    )
+    with httpx.Client(
+        base_url="https://provider.invalid", transport=httpx.MockTransport(api.respond)
+    ) as http:
+        harness = compose_review_harness(api, http, tmp_path / "review-state.json", monkeypatch)
+        sdk = ScriptedReviewSDK(case, linked_work_item=harness.seed_link(case))
+
+        result = harness.run(case, sdk)
+
+        assert result.status == RunStatus.REVIEWED, result.message
+        note = next(iter(api.comments[case.number].values()))
+        overview = decode_overview(str(note["body"]))
+        assert overview.complete_passes[0].reviewed_commit is None
+        assert len(overview.complete_passes[0].artifact.findings) == 1
+        assert api.commit_calls == [(case.number, case.head_sha)]
+        assert len(sdk.calls) == 2
+        comments = deepcopy(api.comments)
+        inline = deepcopy(api.inline_comments)
+        api.commit_status = 200
+
+        repeated = harness.run(case, sdk)
+
+        assert repeated.status == RunStatus.REVIEWED
+        assert api.commit_calls == [(case.number, case.head_sha)]
+        assert api.comments == comments and api.inline_comments == inline
+        assert len(sdk.calls) == 2
+
+
 def assert_review_outputs(harness: ReviewHarness, case: ReviewCase, sdk: ScriptedReviewSDK) -> None:
     """Compare actual native publication, serialized state, lineage, and projection."""
     state = harness.state_service.state_store.load()
@@ -120,6 +156,14 @@ def assert_review_outputs(harness: ReviewHarness, case: ReviewCase, sdk: Scripte
     assert overview.change_request_number == case.number
     completed = overview.complete_passes[0]
     assert completed.head_sha == case.head_sha
+    assert harness.api.commit_calls.count((case.number, case.head_sha)) == 1
+    assert completed.reviewed_commit is not None
+    assert completed.reviewed_commit.head_sha == case.head_sha
+    assert completed.reviewed_commit.title == git(
+        case.root, "show", "-s", "--format=%s", case.head_sha
+    )
+    assert persisted.overview_pass.reviewed_commit == completed.reviewed_commit
+    assert all(completed.reviewed_commit.title not in call.prompt for call in sdk.calls)
     assert completed.artifact == artifact
     assert not completed.projection_pending
     assert len(overview.history) == len(overview.complete_passes) == 1
@@ -127,6 +171,9 @@ def assert_review_outputs(harness: ReviewHarness, case: ReviewCase, sdk: Scripte
     assert completed.artifact.classification == persisted.status == artifact.classification
     writes = [decode_overview(body) for body in harness.api.overview_writes]
     writes = [entry for entry in writes if entry.change_request_number == case.number]
+    assert all(
+        entry.complete_passes[0].reviewed_commit == completed.reviewed_commit for entry in writes
+    )
     assert len(writes) >= 2
     assert all(entry.history == overview.history for entry in writes)
     assert writes[0].complete_passes[0].projection_pending

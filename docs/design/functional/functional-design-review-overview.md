@@ -7,8 +7,9 @@ publication is the implemented contract below. CI/JUnit/Cobertura reporting and
 evidence-only refresh remain proposed for later slices, not supported behavior.
 The **What Changed** summary below is a separate proposed follow-up, not part of
 completed Slice 1 or an implemented report feature.
-The **Reviewed Commit Context** UX slice is also proposed; current publication
-still displays full head/base hashes without a provider-supplied commit title.
+The **Reviewed Commit Context** UX slice is implemented and automatically verified;
+live acceptance remains pending. Completed passes retain
+optional provider-supplied commit labels independently of model findings.
 This document changes publication, not model judgment. Automated completion does
 not establish live provider acceptance; keep those acceptance gates unchecked.
 
@@ -83,16 +84,18 @@ Only a verified bot-owned, request-matching overview is editable, following a
 fresh body/head read. CI serialization reduces races but does not supply provider
 compare-and-swap. Failed attempts remain separate from completed-pass authority.
 
-### Proposed UX Slice: Reviewed Commit Context
+<a id="proposed-ux-slice-reviewed-commit-context"></a>
 
-**Proposed; not implemented.** Replace the prominent full head/base hashes with
-a short, clickable reviewed SHA and the reviewed commit's title. Use the first
+### Reviewed Commit Context
+
+**Implemented; live acceptance pending.** Show a seven-character, clickable
+reviewed SHA and the reviewed commit's title beneath the verdict and summary.
+Keep exact head/base hashes in Review Details. Use the first
 line of the commit message, not the PR/MR title or an AI-generated description.
 For example:
 
 ```markdown
-**Reviewed commit:** [cb8e089](<exact-commit-url>)
-fix(review): verify installation identity and guard overview authority
+**Reviewed commit:** [cb8e089](<exact-commit-url>) - fix(review): verify installation identity
 ```
 
 Shorten long titles to at most 120 display characters with an explicit omission
@@ -114,11 +117,12 @@ model calls or metadata backfill reads. Failed attempts leave the earlier
 completed commit label intact. Do not infer an "up to date" badge merely because
 the overview was regenerated.
 
-Deliver this as a separate bounded UX slice: provider metadata lookup, optional
-pass-local persistence, shared rendering, and GitHub/GitLab parity tests. Include
+This bounded UX slice uses provider metadata lookup, optional pass-local
+persistence, shared rendering, and GitHub/GitLab parity tests. Coverage includes
 new-head updates, same-SHA and fresh-workspace reuse, missing historical fields,
 lookup failure, mismatched SHAs, escaping, and long/Unicode titles. Implementation
-and live acceptance remain unchecked; report-slice numbering is unchanged.
+completion is recorded separately from live acceptance; report-slice numbering
+is unchanged.
 
 ### Proposed: What Changed
 

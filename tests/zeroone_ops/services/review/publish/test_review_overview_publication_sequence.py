@@ -13,6 +13,7 @@ from zeroone_ops.models.review import (
     ReviewInlineCommentDecision,
 )
 from zeroone_ops.models.review_overview import ReviewOverviewEnvelope
+from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 from zeroone_ops.services.review.publish import review_overview_codec as codec
 from zeroone_ops.services.review.publish.review_finalization_service import (
@@ -47,6 +48,12 @@ class RecordingReviewClient:
         self.inline_bodies: list[str] = []
         self.discovery_error = False
         self.inline_error = False
+        self.commit_reads: list[str] = []
+
+    def get_reviewed_commit(self, *, repository_id: str, head_sha: str) -> ReviewedCommitMetadata:
+        assert repository_id == REPOSITORY
+        self.commit_reads.append(head_sha)
+        return ReviewedCommitMetadata(head_sha=head_sha, title="Fix the reviewed branch")
 
     def get_current_user_username(self) -> str:
         return BOT
@@ -682,5 +689,6 @@ def test_dry_run_avoids_all_real_publication_side_effects(publication: Publicati
     assert result.review_pass_id is None
     assert result.overview_pass is None
     assert publication.client.comments == []
+    assert publication.client.commit_reads == []
     assert publication.client.events == []
     assert publication.projection.calls == []

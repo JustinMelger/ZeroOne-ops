@@ -283,6 +283,11 @@ footer reminds readers that AI review does not replace CI checks or merge approv
 One **Review Overview: verdict** heading leads the result. Findings and next action
 take priority; commit metadata and
 follow-up provenance are available in collapsed **Review Details**.
+Below the result, the reviewed commit appears as a short linked SHA and its
+provider-supplied first-line title. Exact head/base hashes remain in Review
+Details. Titles describe that commit, not the whole PR/MR; unavailable metadata
+falls back to the short SHA and never blocks review. Reuse and repair retain the
+stored label without another lookup or model call.
 Linked findings provide severity, title, and location; open their inline
 discussion for evidence, impact, and suggested follow-up. Unlinked findings keep
 those details in the overview.

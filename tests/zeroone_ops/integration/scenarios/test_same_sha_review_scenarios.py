@@ -191,6 +191,9 @@ def test_same_sha_review_reuses_publication_and_repairs_only_projection(
         overview = decode_overview(str(next(iter(published[case.number].values()))["body"]))
         assert overview is not None
         inline = deepcopy(api.inline_comments)
+        assert api.commit_calls == [(case.number, case.head_sha)]
+        commit_metadata = overview.complete_passes[0].reviewed_commit
+        assert commit_metadata is not None
         artifact = harness.state_service.state.reviews[key].projection_artifact.model_copy(
             deep=True
         )
@@ -231,6 +234,8 @@ def test_same_sha_review_reuses_publication_and_repairs_only_projection(
             str(next(iter(api.comments[case.number].values()))["body"])
         )
         assert repaired_overview is not None
+        assert api.commit_calls == [(case.number, case.head_sha)]
+        assert repaired_overview.complete_passes[0].reviewed_commit == commit_metadata
         assert repaired_overview.history == overview.history
         assert repaired_overview.complete_passes[0].pass_id == overview.complete_passes[0].pass_id
         assert len(api.comments[case.number]) == 1
@@ -246,6 +251,7 @@ def test_same_sha_review_reuses_publication_and_repairs_only_projection(
         mirrored = saved.reviews[key]
         assert mirrored.note_id == next(iter(api.comments[case.number]))
         assert mirrored.review_pass_id == overview.complete_passes[0].pass_id
+        assert mirrored.overview_pass.reviewed_commit == commit_metadata
         assert mirrored.projection_artifact == artifact
         if reference in {"repair", "fresh-repair"}:
             assert "Repaired pending review projection." in summary.message
@@ -280,6 +286,8 @@ def test_deleted_overview_restores_receipt_without_restarting_review_action(
         original_note = next(iter(api.comments[case.number].values()))
         original = decode_overview(str(original_note["body"]))
         assert original is not None
+        assert original.complete_passes[0].reviewed_commit is not None
+        assert api.commit_calls == [(case.number, case.head_sha)]
         parser = GitHubWorkItemParser() if platform == "github" else GitLabWorkItemParser()
         body_field = "body" if platform == "github" else "description"
         before = parser.parse_work_item_state(str(api.work_items.issues[1][body_field]))
@@ -303,12 +311,14 @@ def test_deleted_overview_restores_receipt_without_restarting_review_action(
         assert note["id"] != original_note["id"]
         restored = decode_overview(str(note["body"]))
         assert restored == original
+        assert api.commit_calls == [(case.number, case.head_sha)]
         staged = decode_overview(api.overview_writes[overview_writes_before])
         assert staged.complete_passes[0].projection_pending
         assert staged.history == original.history
         saved = harness.state_service.state_store.load().reviews[f"{case.number}:{case.head_sha}"]
         assert saved.note_id == note["id"]
         assert saved.review_pass_id == original.complete_passes[0].pass_id
+        assert saved.overview_pass.reviewed_commit == original.complete_passes[0].reviewed_commit
         assert not saved.projection_retry_pending
         after = parser.parse_work_item_state(str(api.work_items.issues[1][body_field]))
         assert after.status == before.status

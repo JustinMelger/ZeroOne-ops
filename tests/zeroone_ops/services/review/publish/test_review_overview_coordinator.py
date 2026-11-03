@@ -16,6 +16,7 @@ from zeroone_ops.models.review import (
     ReviewComment,
 )
 from zeroone_ops.models.review_overview import ReviewOverviewEnvelope, ReviewOverviewPass
+from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 from zeroone_ops.services.review.publish.review_overview_codec import (
     OVERVIEW_START,
@@ -108,6 +109,9 @@ class FakeOverviewClient:
             deque()
         )
         self.username = BOT
+        self.commit_reads: list[str] = []
+        self.commit_metadata: ReviewedCommitMetadata | None = None
+        self.commit_error: Exception | None = None
         self.identity_error = False
         self.identity_exception: httpx.HTTPError | None = None
         self.state_exception: ReviewPlatformClientError | httpx.HTTPError | None = None
@@ -136,6 +140,13 @@ class FakeOverviewClient:
             head_sha=head_sha,
             state="opened",
         )
+
+    def get_reviewed_commit(self, *, repository_id: str, head_sha: str) -> ReviewedCommitMetadata:
+        assert repository_id == REPOSITORY
+        self.commit_reads.append(head_sha)
+        if self.commit_error is not None:
+            raise self.commit_error
+        return self.commit_metadata or ReviewedCommitMetadata(head_sha=head_sha)
 
     def get_current_user_username(self) -> str:
         self.events.append("identity")
@@ -236,6 +247,120 @@ class FakeOverviewClient:
         new_line: int,
     ) -> ReviewComment:
         pytest.fail("Overview coordination must not publish inline comments.")
+
+
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+def test_commit_metadata_loaded_once_and_preserved_without_backfill(platform) -> None:
+    client = FakeOverviewClient()
+    metadata = ReviewedCommitMetadata(
+        head_sha=HEAD, title="Fix the reviewed head", web_url=f"https://example.com/commit/{HEAD}"
+    )
+    client.commit_metadata = metadata
+    _, envelope = _publish(client, platform=platform)
+    snapshot = envelope.complete_passes[0]
+    assert snapshot.reviewed_commit == metadata
+    assert envelope.history[0].reviewed_commit == metadata
+    assert client.commit_reads == [HEAD]
+
+    coordinator = ReviewOverviewCoordinator(client, platform)
+    client.commit_error = AssertionError("No metadata backfill is allowed")
+    coordinator.write_metadata(
+        repository_id=REPOSITORY,
+        change_request_number=REQUEST,
+        head_sha=HEAD,
+        pass_id=snapshot.pass_id,
+        projection_pending=False,
+    )
+    coordinator.record_failure(
+        repository_id=REPOSITORY,
+        change_request_number=REQUEST,
+        head_sha=HEAD,
+        message="A later attempt failed",
+    )
+    _, reused = _publish(client, platform=platform)
+    assert reused.complete_passes[0].reviewed_commit == metadata
+    assert client.commit_reads == [HEAD]
+    client.comments.clear()
+    _, restored = coordinator.restore(
+        repository_id=REPOSITORY,
+        change_request_number=REQUEST,
+        review_pass=reused.complete_passes[0],
+    )
+    assert restored.complete_passes[0].reviewed_commit == metadata
+    assert client.commit_reads == [HEAD]
+
+
+@pytest.mark.parametrize("failure", ["provider", "transport", "wrong_sha"])
+def test_optional_commit_failure_falls_back_without_logging_content(failure, caplog) -> None:
+    client = FakeOverviewClient()
+    secret = "Private message and credential https://token@example.com"
+    if failure == "provider":
+        client.commit_error = ReviewPlatformClientError(secret)
+    elif failure == "transport":
+        client.commit_error = httpx.ReadTimeout(secret)
+    else:
+        client.commit_metadata = ReviewedCommitMetadata(head_sha="wrong-head", title=secret)
+
+    note, envelope = _publish(client)
+
+    assert envelope.complete_passes[0].reviewed_commit is None
+    assert decode_overview(note.body) == envelope
+    assert client.commit_reads == [HEAD]
+    assert "using SHA-only presentation" in caplog.text
+    assert secret not in caplog.text
+    assert all(record.exc_info is None for record in caplog.records)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "javascript:alert(1)",
+        "https://other.example.com/commit/head-1",
+        "https://example.com/commit/wrong-head",
+        "https://user:secret@example.com/commit/head-1",
+        "https://example.com:bad/commit/head-1",
+        "https://[invalid/commit/head-1",
+        "https://example.com/\ncommit/head-1",
+        " https://example.com/commit/head-1",
+        "https://example.com/commit/head-1 ",
+    ],
+)
+def test_unusable_commit_link_does_not_discard_valid_title(url) -> None:
+    client = FakeOverviewClient()
+    client.commit_metadata = ReviewedCommitMetadata(
+        head_sha=HEAD, title="Keep this title", web_url=url
+    )
+    _, envelope = _publish(client)
+    assert envelope.complete_passes[0].reviewed_commit == ReviewedCommitMetadata(
+        head_sha=HEAD, title="Keep this title"
+    )
+
+
+def test_unexpected_commit_lookup_error_propagates_before_writes() -> None:
+    client = FakeOverviewClient()
+    client.commit_error = RuntimeError("Programming error")
+    with pytest.raises(RuntimeError, match="Programming error"):
+        _publish(client)
+    assert not client.writes
+
+
+@pytest.mark.parametrize("origin", ["https://review.internal:8443", "http://review.internal:8080"])
+def test_commit_links_respect_self_hosted_request_origin(origin) -> None:
+    client = FakeOverviewClient()
+    client.commit_metadata = ReviewedCommitMetadata(
+        head_sha=HEAD, title="Self-hosted commit", web_url=f"{origin}/team/app/-/commit/{HEAD}"
+    )
+    context = _context(HEAD).model_copy(
+        update={"web_url": f"{origin}/team/app/-/merge_requests/17"}
+    )
+    _, envelope = ReviewOverviewCoordinator(client, "gitlab").publish(
+        repository_id=REPOSITORY,
+        context=context,
+        artifact=_artifact(),
+        run_id="self-hosted-run",
+        inline_decisions=[],
+    )
+    assert envelope.complete_passes[0].reviewed_commit == client.commit_metadata
 
 
 def _publish(
@@ -689,6 +814,7 @@ def test_same_head_different_run_cannot_create_another_completed_pass() -> None:
     assert client.writes == []
     assert client.events == ["identity", "list"]
     assert client.comments == [note]
+    assert client.commit_reads == [HEAD]
     assert decode_overview(note.body) == completed
 
 

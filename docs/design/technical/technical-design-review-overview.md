@@ -10,8 +10,9 @@ refresh remain proposed for slices 2 and 3. Aggregate checks and paired offline
 scenarios verify Slice 1's implementation; live gates remain separate.
 The reviewed-change summary described below is an additional proposed follow-up;
 its model/output, persistence, and presentation changes are not implemented.
-The reviewed-commit context UX slice is also proposed and changes presentation
-metadata only, without extending model prompts or review judgment.
+The reviewed-commit context UX slice is implemented and automatically verified;
+live acceptance remains pending. It changes presentation metadata
+only, without extending model prompts or review judgment.
 The [current staged-review design](technical-design-pr-review-staged-pipeline.md)
 continues to own candidate/precision/overlap and inline semantics. This design's
 Slice 1 publication identity and durable overview contract replace per-revision
@@ -64,7 +65,9 @@ overview. A state-derived next action distinguishes AI concerns, independent CI
 failures, and unavailable evidence without creating approval or new commands.
 Tests must prove the same artifact retains its meaning with and without reports.
 
-## Proposed UX Slice: Reviewed Commit Context
+<a id="proposed-ux-slice-reviewed-commit-context"></a>
+
+## Reviewed Commit Context
 
 The shared renderer prioritizes the verdict in one **Review Overview: verdict**
 heading
@@ -72,7 +75,7 @@ and puts risk/confidence beneath it. Exact head/base identifiers, workflow links
 and stored follow-up framing are rendered inside collapsed **Review Details**.
 Active continuity counts remain visible; moving provenance must not alter the
 artifact, logical pass identity, or serialized recovery evidence. The metadata
-lookup and short commit-title presentation below remain proposed.
+lookup and short commit-title presentation below are implemented.
 
 Linked finding entries show severity, accepted title, and location without
 duplicating the inline impact paragraph. A missing or unsafe discussion URL
@@ -86,14 +89,21 @@ in this pass**. Keep the machine outcome `no_longer_present` for compatibility;
 this is not source-backed resolution evidence. Historical stored text remains
 unchanged, and no concern registry or additional model stage is introduced.
 
-**Proposed; not implemented.** Introduce optional typed reviewed-commit metadata:
+**Implemented; live acceptance pending.** Optional `ReviewedCommitMetadata` retains
 the full requested head SHA, a bounded first-line commit title, and a safe commit
 URL when available. Providers fetch and normalize metadata for that exact SHA
 within the reviewed repository scope. Validate that the returned full SHA equals
 the requested reviewed head before attaching the metadata; never infer identity
 from title text, branch names, request titles, or the local checkout.
 
-Use at most one best-effort metadata lookup for each fresh live completed pass,
+`get_reviewed_commit(repository_id, head_sha)` is the typed provider boundary.
+GitHub reads its Git-object commit endpoint, without file patches; GitLab reads
+the exact project commit with statistics disabled. A shared provider normalizer
+keeps only the trimmed first message line, bounded to 300 characters including
+`...` when shortened. Missing or blank titles remain absent.
+
+The overview coordinator performs at most one best-effort metadata lookup for
+each fresh live completed pass,
 after artifact validation and before initial overview publication. Reuse response
 metadata already available for the same SHA if suitable. Do not refetch changed
 files, search other repositories, introduce a new operator setting, or require
@@ -109,14 +119,21 @@ Store only the first-line label, bounded to 300 characters with disclosed
 omission, not an arbitrary multi-line commit body.
 
 Persist optional metadata with `ReviewOverviewPass`, separately from finding and
-classification authority. Retained history summaries may carry the same bounded
+classification authority. Retained history summaries carry the same bounded
 label/link, derived from their completed pass rather than another lookup. Missing
 fields default to absent for older envelopes and local state. Preserve metadata
 through inline synchronization, same-SHA reuse, fresh-workspace hydration,
 projection repair, deleted-comment recreation, and future quality-only refresh.
 Do not manufacture titles or issue metadata backfill reads for historical passes.
 
-The shared renderer shows a short SHA linked to the exact full commit and a title
+Both pass and summary validators require metadata SHA to match their owning head.
+Optional browser links must use HTTP(S), match the reviewed request's origin,
+and identify the full reviewed commit; unsafe links are omitted without losing a
+valid title. Lookup failures log bounded metadata only, never commit contents or
+raw provider diagnostics.
+
+The shared renderer shows a seven-character SHA linked to the exact full commit
+and a title
 of at most 120 display characters, marking omissions. Use plain short SHA when a
 safe link is unavailable. Move the exact head and comparison-base identifiers
 into collapsed **Review Details**, while preserving their machine values and
@@ -129,7 +146,7 @@ after adding metadata and collapsed details; do not resize history or truncate
 authoritative evidence. Provider permissions, head/open-state guards, publication
 ordering, and the separate **What Changed** proposal remain unchanged.
 
-Implement this as one independent UX slice: normalized provider contract and
+This independent UX slice uses a normalized provider contract and
 exact-SHA lookup; optional publication/history persistence; shared rendering;
 then focused and paired offline tests. Cover GitHub/GitLab success, missing or
 malformed metadata, wrong SHA, unavailable lookup, long/Unicode titles and marker
@@ -622,7 +639,7 @@ must separately verify update permissions, identity, artifact wiring, and UX.
 
 ## Incremental Implementation
 
-The proposed **Reviewed Commit Context** UX slice is independent of the model
+The implemented **Reviewed Commit Context** UX slice is independent of the model
 description and reporting slices. It adds only bounded provider-backed labels,
 pass-local persistence, and presentation changes; implementation remains open.
 

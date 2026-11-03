@@ -16,6 +16,7 @@ from zeroone_ops.models.review import (
     ReviewComment,
     ReviewFileContext,
 )
+from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 
 
@@ -265,6 +266,10 @@ class FakeGitLabReviewClient:
         self.comments: list[ReviewComment] = []
         self.events: list[str] = []
         self.head_sha = "abc123"
+
+    def get_reviewed_commit(self, *, repository_id: str, head_sha: str) -> ReviewedCommitMetadata:
+        assert repository_id == "123"
+        return ReviewedCommitMetadata(head_sha=head_sha)
 
     def create_merge_request_note(
         self,

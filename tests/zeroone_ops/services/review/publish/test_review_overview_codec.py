@@ -29,6 +29,52 @@ def test_default_three_finding_retention_fits_encoded_budget_losslessly(
     )
 
 
+@pytest.mark.parametrize("length", [119, 120, 121, 300])
+def test_commit_label_is_bounded_linked_and_losslessly_persisted(
+    overview_envelope: ReviewOverviewEnvelope, length: int
+) -> None:
+    payload = overview_envelope.model_dump(mode="json")
+    title = "\u6771" * length
+    for record in [*payload["complete_passes"], *payload["history"]]:
+        record["reviewed_commit"] = {
+            "head_sha": record["head_sha"],
+            "title": title,
+            "web_url": f"https://example.com/commit/{record['head_sha']}",
+        }
+    envelope = ReviewOverviewEnvelope.model_validate(payload)
+    before = envelope.model_dump(mode="json")
+
+    body = render_overview(envelope)
+    visible = body.split("<details>")[0]
+    display_title = title if length <= 120 else title[:117] + "..."
+    head = envelope.complete_passes[0].head_sha
+    expected = f"[{head[:7]}](https://example.com/commit/{head}) - {display_title}"
+
+    assert f"**Reviewed commit:** {expected}" in visible
+    assert visible.index("**Risk:**") < visible.index("**Reviewed commit:**")
+    assert f"- Pass {envelope.history[0].sequence}: {expected}" in body
+    assert f"**Reviewed commit:** `{head}`" in body.split("<details>")[1]
+    assert len(body.encode("utf-8")) <= 60_000
+    assert codec.decode_overview(body) == envelope
+    assert envelope.model_dump(mode="json") == before
+
+
+def test_commit_title_cannot_inject_markdown_or_managed_markers(
+    overview_envelope: ReviewOverviewEnvelope,
+) -> None:
+    payload = overview_envelope.model_dump(mode="json")
+    title = "Fix bot's <script> & [link](https://other.invalid) <!-- zeroone:review-overview:v1 -->"
+    for record in (payload["complete_passes"][0], payload["history"][0]):
+        record["reviewed_commit"] = {"head_sha": record["head_sha"], "title": title}
+    envelope = ReviewOverviewEnvelope.model_validate(payload)
+    body = render_overview(envelope)
+
+    assert escape_overview_text(title) in body
+    assert "<script>" not in body
+    assert body.count(codec.OVERVIEW_START) == body.count(codec.OVERVIEW_END) == 1
+    assert codec.decode_overview(body).complete_passes[0].reviewed_commit.title == title
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -227,7 +273,8 @@ def test_verdict_precedes_collapsed_provenance_without_changing_authority(
     assert "### AI Review:" not in visible
     assert visible.index("## Review Overview:") < visible.index("**Risk:**")
     assert "**Next action:**" in visible
-    assert "**Reviewed commit:**" not in visible
+    assert f"**Reviewed commit:** {current['head_sha'][:7]}" in visible
+    assert current["head_sha"] not in visible
     assert "**Comparison base:**" not in visible
     assert "Follow-up review after" not in visible
     assert continuity in visible
