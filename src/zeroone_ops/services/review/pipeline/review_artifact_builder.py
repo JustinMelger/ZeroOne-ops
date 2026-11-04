@@ -9,6 +9,7 @@ from zeroone_ops.models.review import (
     PublishableReviewArtifact,
     ReconciledReviewDecision,
 )
+from zeroone_ops.models.review_change_summary import ReviewChangeSummary
 
 _INTERNAL_PIPELINE_RATIONALE_MARKERS = (
     "candidate stage",
@@ -40,6 +41,8 @@ class ReviewArtifactBuilder:
         *,
         reconciled_decision: ReconciledReviewDecision,
         overlap_result: OverlapReconciliationResult | None = None,
+        change_summary: ReviewChangeSummary | None = None,
+        review_scope_limited: bool = True,
     ) -> ReviewArtifactBuildResult:
         """Build one publish-shaped artifact from reconciled review meaning."""
         artifact = PublishableReviewArtifact.from_reconciled_decision(
@@ -58,6 +61,8 @@ class ReviewArtifactBuilder:
                 classification=reconciled_decision.review_classification,
                 overlap_result=overlap_result,
             ),
+            change_summary=change_summary,
+            review_scope_limited=review_scope_limited,
         )
         return ReviewArtifactBuildResult(
             artifact=artifact,

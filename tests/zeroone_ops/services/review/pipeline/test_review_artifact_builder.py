@@ -9,9 +9,11 @@ from zeroone_ops.models.review import (
     PrecisionReviewDecision,
     ReconciledReviewDecision,
 )
+from zeroone_ops.models.review_change_summary import ReviewChangeSummary
 from zeroone_ops.services.review.pipeline.review_artifact_builder import (
     ReviewArtifactBuilder,
 )
+from zeroone_ops.services.review.pipeline.review_artifact_validator import ReviewArtifactValidator
 from zeroone_ops.services.review.pipeline.review_reconciled_decision_builder import (
     build_reconciled_review_decision,
 )
@@ -75,6 +77,43 @@ def test_build_preserves_finding_content_for_findings_present() -> None:
     assert len(artifact.findings) == 1
     assert artifact.findings[0].title == "Missing regression coverage"
     assert artifact.follow_up_lines == []
+
+
+@pytest.mark.parametrize(
+    "classification", ["no_findings", "findings_present", "manual_review_only"]
+)
+@pytest.mark.parametrize("limited", [True, False])
+def test_descriptive_metadata_survives_artifact_and_manual_fallback(
+    classification, limited
+) -> None:
+    summary = ReviewChangeSummary(bullets=["Adds descriptive metadata to completed passes."])
+    artifact = (
+        ReviewArtifactBuilder()
+        .build(
+            reconciled_decision=build_decision(classification),
+            change_summary=summary,
+            review_scope_limited=limited,
+        )
+        .artifact
+    )
+    ordinary = (
+        ReviewArtifactBuilder().build(reconciled_decision=build_decision(classification)).artifact
+    )
+
+    assert artifact.change_summary == summary
+    assert artifact.review_scope_limited is limited
+    assert artifact.to_review_result().change_summary == summary
+    assert artifact.summary == ordinary.summary
+    assert artifact.findings == ordinary.findings
+    assert artifact.classification == ordinary.classification
+    validator = ReviewArtifactValidator()
+    invalid = artifact.model_copy(update={"classification": "findings_present", "findings": []})
+    fallback = validator.build_manual_review_only_fallback(
+        artifact=invalid, validation_result=validator.validate(invalid)
+    )
+    assert fallback.classification == "manual_review_only"
+    assert fallback.change_summary == summary
+    assert fallback.review_scope_limited is limited
 
 
 def test_build_sets_no_findings_summary_from_publish_shape() -> None:

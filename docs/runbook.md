@@ -366,6 +366,14 @@ If the exact-SHA lookup fails or metadata is missing, review continues with a
 short SHA; an unsafe browser link is omitted without discarding a usable title.
 Same-SHA reuse, fresh-workspace recovery, and projection repair reuse stored
 labels without metadata backfill. Historical passes can remain SHA-only.
+When present, **What Changed** appears next, before active findings. The existing
+candidate call supplies one to three descriptive bullets, each at most 300
+characters. These are model-provided descriptions of the supplied review context,
+not approval, test evidence, or proof that prior concerns were fixed. Scope
+filtering, excerpts, or unavailable patches add **Some changes may be omitted.**
+Invalid optional descriptions are omitted as a whole without discarding valid
+findings. Historical passes remain readable without the section, and same-SHA
+reuse, projection repair, and restoration do not backfill it.
 Use linked finding titles to open their self-contained inline discussions. The
 overview avoids repeating their impact; findings without a usable discussion link
 retain evidence, impact, and suggested follow-up directly in the overview.

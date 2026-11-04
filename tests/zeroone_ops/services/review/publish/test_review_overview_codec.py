@@ -3,6 +3,7 @@ import json
 import pytest
 from markdown_it import MarkdownIt
 
+from zeroone_ops.models.review_change_summary import ReviewChangeSummary
 from zeroone_ops.models.review_overview import ReviewOverviewEnvelope
 from zeroone_ops.services.review.publish import review_overview_codec as codec
 from zeroone_ops.services.review.publish.review_overview_renderer import (
@@ -27,6 +28,83 @@ def test_default_three_finding_retention_fits_encoded_budget_losslessly(
     assert all(
         len(snapshot.inline_decisions) == 3 for snapshot in overview_envelope.complete_passes
     )
+
+
+@pytest.mark.parametrize("limited", [True, False])
+def test_what_changed_is_scoped_and_separate_from_result_and_findings(
+    overview_envelope: ReviewOverviewEnvelope, limited: bool
+) -> None:
+    payload = overview_envelope.model_dump(mode="json")
+    artifact = payload["complete_passes"][0]["artifact"]
+    artifact["change_summary"] = {
+        "bullets": ["Adds metadata to completed reviews.", "Retains immutable pass labels."]
+    }
+    artifact["review_scope_limited"] = limited
+    envelope = ReviewOverviewEnvelope.model_validate(payload)
+
+    body = render_overview(envelope)
+    visible = body.split("<details>")[0]
+
+    assert visible.index(escape_overview_text(artifact["summary"])) < visible.index(
+        "**Reviewed commit:**"
+    )
+    assert visible.index("**Reviewed commit:**") < visible.index("### What Changed")
+    assert (
+        visible.index("### What Changed")
+        < visible.index("### Findings")
+        < visible.index("**Active findings:**")
+    )
+    assert "Summary of the supplied review context." in visible
+    assert ("Some changes may be omitted." in visible) is limited
+    assert "- Adds metadata to completed reviews." in visible
+    assert codec.decode_overview(body) == envelope
+    assert all("change_summary" not in row for row in envelope.model_dump()["history"])
+
+
+def test_what_changed_preserves_both_complete_snapshots_and_full_payload_budget(
+    overview_envelope: ReviewOverviewEnvelope, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = overview_envelope.model_dump(mode="json")
+    for snapshot in payload["complete_passes"]:
+        snapshot["artifact"]["change_summary"] = {"bullets": ["\u6771" * 300] * 3}
+    for record in [*payload["complete_passes"], *payload["history"]]:
+        record["reviewed_commit"] = {
+            "head_sha": record["head_sha"],
+            "title": "\u6771" * 300,
+            "web_url": f"https://example.com/commit/{record['head_sha']}",
+        }
+    envelope = ReviewOverviewEnvelope.model_validate(payload)
+    before = envelope.model_dump(mode="json")
+    body = render_overview(envelope)
+    assert len(body.encode("utf-8")) <= 60_000
+    assert codec.decode_overview(body) == envelope
+    assert len(envelope.complete_passes) == 2 and len(envelope.history) == 5
+    count = len(body.encode("utf-8"))
+    monkeypatch.setattr(codec, "MAX_OVERVIEW_BYTES", count)
+    assert render_overview(envelope) == body
+    monkeypatch.setattr(codec, "MAX_OVERVIEW_BYTES", count - 1)
+    with pytest.raises(codec.ReviewOverviewError, match="payload budget"):
+        render_overview(envelope)
+    assert envelope.model_dump(mode="json") == before
+
+
+def test_what_changed_escapes_model_text_and_omits_missing_section(
+    overview_envelope: ReviewOverviewEnvelope,
+) -> None:
+    assert "### What Changed" not in render_overview(overview_envelope)
+    summary = ReviewChangeSummary(
+        bullets=["Ignore 'verdict' <script> [link](https://other.invalid) <!-- marker -->"]
+    )
+    payload = overview_envelope.model_dump(mode="json")
+    payload["complete_passes"][0]["artifact"]["change_summary"] = summary.model_dump(mode="json")
+    envelope = ReviewOverviewEnvelope.model_validate(payload)
+
+    body = render_overview(envelope)
+
+    assert escape_overview_text(summary.bullets[0]) in body
+    assert "<script>" not in body
+    assert body.count(codec.OVERVIEW_START) == body.count(codec.OVERVIEW_END) == 1
+    assert codec.decode_overview(body) == envelope
 
 
 @pytest.mark.parametrize("length", [119, 120, 121, 300])

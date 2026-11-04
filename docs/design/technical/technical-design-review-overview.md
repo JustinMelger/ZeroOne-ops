@@ -8,8 +8,9 @@ overview publication implements the
 Report collection, manifest wiring, CI/JUnit/Cobertura evidence, and evidence-only
 refresh remain proposed for slices 2 and 3. Aggregate checks and paired offline
 scenarios verify Slice 1's implementation; live gates remain separate.
-The reviewed-change summary described below is an additional proposed follow-up;
-its model/output, persistence, and presentation changes are not implemented.
+The reviewed-change summary is implemented as a bounded descriptive-output
+extension to the existing candidate call. Automated verification passed;
+live description-quality acceptance remains separate.
 The reviewed-commit context UX slice is implemented and automatically verified;
 live acceptance remains pending. It changes presentation metadata
 only, without extending model prompts or review judgment.
@@ -144,7 +145,7 @@ Escape labels and validate link schemes using existing presentation rules.
 Validate the complete serialized payload against the existing 60,000-byte budget
 after adding metadata and collapsed details; do not resize history or truncate
 authoritative evidence. Provider permissions, head/open-state guards, publication
-ordering, and the separate **What Changed** proposal remain unchanged.
+ordering, and the separate **What Changed** contract remain unchanged.
 
 This independent UX slice uses a normalized provider contract and
 exact-SHA lookup; optional publication/history persistence; shared rendering;
@@ -155,19 +156,24 @@ or models. Verify that no title, link, or display-prefix change resets review
 action timestamps, cancels a queued revision, or changes finalized findings.
 Run normal repository verification and keep live presentation acceptance separate.
 
-## Proposed Reviewed-Change Summary
+<a id="proposed-reviewed-change-summary"></a>
 
-**Proposed; not implemented.** Introduce a separate optional `change_summary`
+## Reviewed-Change Summary
+
+**Implemented; live quality acceptance pending.** Use a separate optional `change_summary`
 contract rather than repurposing `summary`, `decision_summary`, or
 `review_confidence_reason`. Those fields continue describing review outcome and
 its justification. In particular, the current deterministic `no_findings`
 summary must not overwrite the new description.
 
-Use a small typed description containing one to three nonblank bullets, each at
+`ReviewChangeSummary` is a frozen model with one to three nonblank bullets, each at
 most 300 characters, for a maximum of 900 content characters. Generate it in the
 existing candidate-stage call, which already receives the bounded diff and source
 context. Carry the optional description through candidate normalization and
 reconciliation into `PublishableReviewArtifact` as descriptive metadata.
+Preserve it even for clean responses with no candidates. The reconciliation
+result carries it alongside the decision; `ReconciledReviewDecision`, precision,
+and overlap contracts remain unchanged.
 Precision continues owning finding retention and classification; the change
 description cannot create candidates, supply missing defect evidence, or affect
 confidence, remediation eligibility, or projection decisions. Do not add a
@@ -178,11 +184,19 @@ from existing file-selection/truncation evidence, not model assertions of full
 coverage. Do not expand context budgets, follow extra links, or fetch additional
 files for this feature. If the available inputs do not establish full coverage,
 do not describe the section as an exhaustive account of the entire branch.
+Context construction derives `review_scope_limited` from omitted changed files,
+excerpted source, or absent/blank patches. Directly constructed contexts default
+to limited scope. Forward the flag into the artifact; model responses cannot set
+it. Lack of a detected limitation is not proof of provider-wide completeness.
 
-Validate description bounds during normalization. Omit unusable optional text
+Normalize whitespace and validate description bounds during field-local parsing
+of the candidate response. Omit the entire unusable optional description
 rather than silently truncating a factual claim or changing otherwise valid
 findings; retain existing handling when the overall model response cannot be
 decoded. No additional model retry is introduced to fill a missing description.
+This isolation applies before optional prose can invalidate an otherwise valid
+parsed review; invalid finding fields and undecodable overall responses still
+fail through their existing boundaries.
 Structural validation establishes shape and bounds, not factual correctness.
 Treat model-produced text as untrusted presentation evidence. Carry it as
 pipeline metadata rather than adding it to precision or overlap prompt inputs;
@@ -194,15 +208,21 @@ rows remain identity/outcome summaries, not a source for reconstructing this
 description. Same-SHA reuse and projection repair use stored text; a fresh review
 on a new head supplies new text without mutating earlier completed snapshots.
 Failed runs preserve the earlier completed artifact and description.
+Preserve the description and scope flag through manual-review fallback and
+publication metadata updates. Do not backfill historical missing descriptions.
 
-The deterministic renderer places **What Changed** before the verdict and uses
+The deterministic renderer places **What Changed** after the verdict, risk,
+confidence, outcome summary, and commit label, before active findings. It always
+shows **Summary of the supplied review context.** and adds **Some changes may be
+omitted.** when scope is limited or unknown. A Findings subheading separates the
+description from actionable findings. The renderer uses
 the existing escaping and complete 60,000-byte payload check. Include the extra
 text in both retained complete snapshots when characterizing payload sizes; do
 not reduce retention or truncate authority to accommodate it. Existing ownership,
 discovery, publication ordering, logical identities, and provider transport remain
 unchanged. No report schema, operator setting, command, or migration is added.
 
-Implement as one bounded follow-up: model/prompt-output contract and normalization,
+This bounded follow-up includes the model/prompt-output contract and normalization,
 artifact propagation and historical defaults, then shared rendering and tests.
 Keep candidate/precision/overlap call counts unchanged. Verify summary presence
 for clean and findings-present outcomes, omission and bounds, scope disclosure,
@@ -641,9 +661,9 @@ must separately verify update permissions, identity, artifact wiring, and UX.
 
 The implemented **Reviewed Commit Context** UX slice is independent of the model
 description and reporting slices. It adds only bounded provider-backed labels,
-pass-local persistence, and presentation changes; implementation remains open.
+pass-local persistence, and presentation changes; live acceptance remains open.
 
-The proposed **What Changed** description is an independent bounded follow-up to
+The implemented **What Changed** description is an independent bounded follow-up to
 Slice 1, not a fourth reporting slice. It changes only the existing candidate
 call's descriptive output contract and deterministic propagation/presentation;
 it does not change finding-adjudication prompts or replace live acceptance.

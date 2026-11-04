@@ -299,6 +299,8 @@ class ReviewRunner:
             artifact_result = ReviewArtifactBuilder().build(
                 reconciled_decision=reconciliation_result.reconciled_decision,
                 overlap_result=overlap_result,
+                change_summary=reconciliation_result.change_summary,
+                review_scope_limited=context.review_scope_limited,
             )
         publish_artifact = None
         if artifact_result is not None:

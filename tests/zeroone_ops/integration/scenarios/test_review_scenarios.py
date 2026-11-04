@@ -17,7 +17,11 @@ from zeroone_ops.services.control_plane.work_items.gitlab_work_item_parser impor
     GitLabWorkItemParser,
 )
 from zeroone_ops.services.review.pipeline.review_artifact_builder import ReviewArtifactBuilder
-from zeroone_ops.services.review.publish.review_overview_codec import decode_overview
+from zeroone_ops.services.review.publish.review_overview_codec import (
+    OVERVIEW_END,
+    OVERVIEW_START,
+    decode_overview,
+)
 
 from .provider_api import Platform, ScenarioProviderAPI
 from .repository import git
@@ -142,6 +146,44 @@ def test_commit_metadata_outage_preserves_review_and_does_not_backfill(
         assert len(sdk.calls) == 2
 
 
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+def test_historical_description_is_not_backfilled_in_a_fresh_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: Platform
+) -> None:
+    case = create_review_case(tmp_path, number=11, name="annotation")
+    api = ReviewProviderAPI(ScenarioProviderAPI(platform), cases={case.number: case})
+    with httpx.Client(
+        base_url="https://provider.invalid", transport=httpx.MockTransport(api.respond)
+    ) as http:
+        harness = compose_review_harness(api, http, tmp_path / "state.json", monkeypatch)
+        sdk = ScriptedReviewSDK(
+            case, linked_work_item=harness.seed_link(case), omit_change_summary=True
+        )
+        assert harness.run(case, sdk).status == RunStatus.REVIEWED
+        note = next(iter(api.comments[case.number].values()))
+        overview = decode_overview(str(note["body"]))
+        assert overview.complete_passes[0].artifact.change_summary is None
+        assert "### What Changed" not in str(note["body"])
+        payload = overview.model_dump(mode="json")
+        for snapshot in payload["complete_passes"]:
+            snapshot["artifact"].pop("change_summary")
+            snapshot["artifact"].pop("review_scope_limited")
+        note["body"] = f"{OVERVIEW_START}{json.dumps(payload)}{OVERVIEW_END}"
+        original = deepcopy(api.comments)
+        sdk.omit_change_summary = False
+        fresh = compose_review_harness(api, http, tmp_path / "fresh-state.json", monkeypatch)
+
+        result = fresh.run(case, sdk)
+
+        assert result.status == RunStatus.REVIEWED
+        assert "No new changes after the last review" in result.message
+        assert len(sdk.calls) == 2
+        assert api.comments == original
+        saved = fresh.state_service.state_store.load().reviews[f"{case.number}:{case.head_sha}"]
+        assert saved.overview_pass.artifact.change_summary is None
+        assert saved.overview_pass.artifact.review_scope_limited
+
+
 def assert_review_outputs(harness: ReviewHarness, case: ReviewCase, sdk: ScriptedReviewSDK) -> None:
     """Compare actual native publication, serialized state, lineage, and projection."""
     state = harness.state_service.state_store.load()
@@ -165,6 +207,11 @@ def assert_review_outputs(harness: ReviewHarness, case: ReviewCase, sdk: Scripte
     assert persisted.overview_pass.reviewed_commit == completed.reviewed_commit
     assert all(completed.reviewed_commit.title not in call.prompt for call in sdk.calls)
     assert completed.artifact == artifact
+    assert artifact.change_summary == sdk.change_summary
+    assert artifact.change_summary is not None
+    assert not artifact.review_scope_limited
+    assert "### What Changed" in str(note["body"])
+    assert sdk.change_summary.bullets[0] in str(note["body"])
     assert not completed.projection_pending
     assert len(overview.history) == len(overview.complete_passes) == 1
     assert completed.pass_id == persisted.review_pass_id
@@ -347,6 +394,7 @@ def test_handled_review_failure_only_updates_existing_execution_notice(
             original_note = next(iter(api.comments[case.number].values()))
             original = decode_overview(str(original_note["body"]))
             assert original is not None
+            assert original.complete_passes[0].artifact.change_summary is not None
             case = advance_review_case(
                 case,
                 after=f"{case.after}\n# Attempt another review.\n",

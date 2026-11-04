@@ -191,6 +191,8 @@ def _assert_published_pass(
     assert review.overview_pass.reviewed_commit == completed.reviewed_commit
     assert all(completed.reviewed_commit.title not in call.prompt for call in sdk.calls)
     assert completed.artifact == artifact
+    assert artifact.change_summary == sdk.change_summary
+    assert artifact.change_summary.bullets[0] in str(note["body"])
     assert (
         completed.artifact.findings[0].inline_comment.comment_id
         == finding.inline_comment.comment_id
@@ -213,6 +215,7 @@ def _assert_continuity(
     assert findings[1].inline_comment.comment_id == findings[0].inline_comment.comment_id
     assert findings[2].inline_comment.comment_id != findings[1].inline_comment.comment_id
     assert len(api.inline_comments[cases[0].number]) == 2
+    assert len({artifact.change_summary.bullets for artifact in artifacts}) == 3
     assert cases[0].head_sha in " ".join(artifacts[1].follow_up_lines)
     assert cases[1].head_sha in " ".join(artifacts[2].follow_up_lines)
     assert any("unresolved" in line for line in artifacts[1].follow_up_lines)

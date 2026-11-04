@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
@@ -13,6 +14,7 @@ from zeroone_ops.models.review import (
     CandidateReviewFinding,
     CandidateReviewResult,
     ChangeRequestReviewContext,
+    DroppedCandidate,
     OverlapPacket,
     OverlapReconciliationResult,
     OverlapResolution,
@@ -25,6 +27,7 @@ from zeroone_ops.models.review import (
     ReviewFinding,
     ReviewResult,
 )
+from zeroone_ops.models.review_change_summary import ReviewChangeSummary
 from zeroone_ops.providers.llm_client import LLMClientError
 from zeroone_ops.services.review.continuity.review_overlap_analysis_service import (
     ReviewOverlapAnalysisService,
@@ -193,6 +196,46 @@ class FakePrecisionErrorClient:
             max_findings,
         )
         raise LLMClientError("bad precision output")
+
+
+def test_change_summary_is_carried_without_affecting_precision_or_drop_accounting() -> None:
+    stage = build_candidate_stage_result()
+    description = ReviewChangeSummary(bullets=["SUMMARY_ONLY_DO_NOT_FORWARD changes metadata."])
+    described = replace(
+        stage,
+        candidate_result=stage.candidate_result.model_copy(update={"change_summary": description}),
+        raw_review_result=stage.raw_review_result.model_copy(
+            update={"change_summary": description}
+        ),
+    )
+    decision = PrecisionReviewDecision(
+        review_classification="no_findings",
+        decision_summary="No actionable findings.",
+        decision_rationale="Neither candidate establishes a regression.",
+        confidence_level=0.8,
+        dropped_candidates=[
+            DroppedCandidate(candidate_id=identity, drop_reason="weak_evidence")
+            for identity in stage.forwarded_candidate_ids
+        ],
+    )
+    calls = []
+    results = []
+    for candidate_stage in (stage, described):
+        client = FakePrecisionLLMClient(decision)
+        client.review_precision_reconciliation = Mock(wraps=client.review_precision_reconciliation)
+        result = ReviewReconciliationService(
+            build_config(), llm_client_builder=lambda client=client: client
+        ).reconcile(context=build_context(), candidate_stage_result=candidate_stage)
+        results.append(result)
+        calls.append(client.review_precision_reconciliation.call_args)
+    assert calls[0] == calls[1]
+    assert results[0].change_summary is None
+    assert results[1].change_summary == description
+    assert results[0].precision_decision == results[1].precision_decision
+    assert results[0].reconciled_decision.model_dump(exclude={"reconciled_at"}) == results[
+        1
+    ].reconciled_decision.model_dump(exclude={"reconciled_at"})
+    assert "SUMMARY_ONLY_DO_NOT_FORWARD" not in str(calls)
 
 
 def test_reconcile_uses_precision_output_as_final_review_meaning(monkeypatch) -> None:

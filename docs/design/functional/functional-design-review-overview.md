@@ -5,8 +5,9 @@
 **Slice 1 implemented and automatically verified; live acceptance pending.** Persistent
 publication is the implemented contract below. CI/JUnit/Cobertura reporting and
 evidence-only refresh remain proposed for later slices, not supported behavior.
-The **What Changed** summary below is a separate proposed follow-up, not part of
-completed Slice 1 or an implemented report feature.
+The **What Changed** summary is implemented as descriptive metadata in the
+existing candidate call; automated verification passed and live quality
+acceptance remains pending. It is not a report feature or a finding decision.
 The **Reviewed Commit Context** UX slice is implemented and automatically verified;
 live acceptance remains pending. Completed passes retain
 optional provider-supplied commit labels independently of model findings.
@@ -107,7 +108,7 @@ never identities used for matching, writes, or recovery.
 Fetch metadata for the exact completed review head, not the current branch tip,
 target branch, or a synthetic checkout merge commit. Store it with that logical
 review pass. A commit title describes only that commit; it is not a summary of
-the entire PR/MR. Keep the proposed **What Changed** section separate.
+the entire PR/MR. Keep the **What Changed** section separate.
 
 Metadata lookup is best effort. If it fails, returns mismatched commit identity,
 or historical records lack a title, show the short reviewed SHA without inventing
@@ -124,10 +125,13 @@ lookup failure, mismatched SHAs, escaping, and long/Unicode titles. Implementati
 completion is recorded separately from live acceptance; report-slice numbering
 is unchanged.
 
-### Proposed: What Changed
+<a id="proposed-what-changed"></a>
 
-**Proposed; not implemented.** Add a short **What Changed** section before the AI
-verdict, with one to three factual bullets describing the current reviewed diff
+### What Changed
+
+**Implemented; live quality acceptance pending.** Show **What Changed** after the
+verdict, risk/confidence, outcome summary, and commit label, before active findings.
+Use one to three factual bullets describing the current reviewed diff
 between its pinned comparison base and head. Prefer two or three bullets when
 useful; do not pad a small change merely to fill the section.
 
@@ -136,7 +140,8 @@ and quality evidence. A description of a change is not approval, proof that a
 finding was fixed, or evidence that validation passed. Describe supplied code and
 diff evidence, not unsupported claims copied from the PR/MR title or description.
 Do not claim full-branch coverage when review inputs are filtered or truncated;
-show a short reviewed-scope limitation when appropriate.
+always state **Summary of the supplied review context.** When application evidence
+shows limited or unknown scope, also state **Some changes may be omitted.**
 
 For example, a review of the persistent-overview implementation could show:
 
@@ -162,8 +167,8 @@ completed description with a claim about unreviewed code.
 Acceptance covers summaries with and without findings, limited review scope,
 missing historical fields, escaped repository-controlled text, new-head updates,
 and unchanged descriptions during reuse and recovery on both providers. This
-follow-up requires design review before implementation and does not reopen the
-completed Slice 1 checklist or renumber the reporting slices.
+independent follow-up does not reopen the completed Slice 1 checklist or renumber
+the reporting slices. Live description quality remains a separate acceptance gate.
 
 ### Clear Findings And Next Actions
 
@@ -502,6 +507,6 @@ No finding-adjudication prompt changes, specialist reviewers, model/provider
 migration, Tree-sitter, new merge gates, shell-based investigation, automatic discussion resolution,
 developer-feedback ingestion, or changes to remediation validation. Quality
 reports are not new intake findings and are not added to model prompts.
-The proposed **What Changed** follow-up is limited to extending an existing
+The **What Changed** follow-up is limited to extending an existing
 call's descriptive output instructions and schema; it adds no model stage and
 does not change finding judgment.

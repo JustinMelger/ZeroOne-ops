@@ -205,6 +205,13 @@ class ReviewContextBuilder:
                     configured_paths=self.config.repository_guidance_paths,
                 ),
                 changed_files=changed_files,
+                review_scope_limited=(
+                    len(changed_files) != len(change_request.changes)
+                    or any(
+                        changed.truncated or not (changed.diff or "").strip()
+                        for changed in changed_files
+                    )
+                ),
             ),
             message="",
         )

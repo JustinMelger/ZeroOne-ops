@@ -194,6 +194,9 @@ def test_same_sha_review_reuses_publication_and_repairs_only_projection(
         assert api.commit_calls == [(case.number, case.head_sha)]
         commit_metadata = overview.complete_passes[0].reviewed_commit
         assert commit_metadata is not None
+        change_summary = overview.complete_passes[0].artifact.change_summary
+        assert change_summary == sdk.change_summary
+        assert change_summary is not None
         artifact = harness.state_service.state.reviews[key].projection_artifact.model_copy(
             deep=True
         )
@@ -236,6 +239,11 @@ def test_same_sha_review_reuses_publication_and_repairs_only_projection(
         assert repaired_overview is not None
         assert api.commit_calls == [(case.number, case.head_sha)]
         assert repaired_overview.complete_passes[0].reviewed_commit == commit_metadata
+        assert repaired_overview.complete_passes[0].artifact.change_summary == change_summary
+        assert (
+            repaired_overview.complete_passes[0].artifact.review_scope_limited
+            == overview.complete_passes[0].artifact.review_scope_limited
+        )
         assert repaired_overview.history == overview.history
         assert repaired_overview.complete_passes[0].pass_id == overview.complete_passes[0].pass_id
         assert len(api.comments[case.number]) == 1
@@ -252,6 +260,7 @@ def test_same_sha_review_reuses_publication_and_repairs_only_projection(
         assert mirrored.note_id == next(iter(api.comments[case.number]))
         assert mirrored.review_pass_id == overview.complete_passes[0].pass_id
         assert mirrored.overview_pass.reviewed_commit == commit_metadata
+        assert mirrored.overview_pass.artifact.change_summary == change_summary
         assert mirrored.projection_artifact == artifact
         if reference in {"repair", "fresh-repair"}:
             assert "Repaired pending review projection." in summary.message

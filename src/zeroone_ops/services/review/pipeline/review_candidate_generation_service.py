@@ -163,9 +163,10 @@ def _candidate_review_result_from_review_result(
 ) -> CandidateReviewResult:
     """Adapt the raw LLM review output into an explicit candidate artifact."""
     if review_result.classification != "findings_present":
-        return CandidateReviewResult()
+        return CandidateReviewResult(change_summary=review_result.change_summary)
 
     return CandidateReviewResult(
+        change_summary=review_result.change_summary,
         findings=[
             CandidateReviewFinding(
                 candidate_id=f"candidate-{index}",
@@ -183,7 +184,7 @@ def _candidate_review_result_from_review_result(
                 evidence_summary=finding.evidence,
             )
             for index, finding in enumerate(review_result.findings, start=1)
-        ]
+        ],
     )
 
 

@@ -186,6 +186,10 @@ and withhold projection on failed request/head revalidation after inline writes.
 Reviewed commit labels now combine a short SHA with optional provider-supplied
 titles, persisted per pass and reused without model calls or metadata backfill.
 Live commit-label presentation acceptance remains unchecked.
+The bounded **What Changed** implementation carries descriptive output from the
+existing candidate call into completed artifacts without forwarding it as
+precision or overlap evidence. Live description quality is not established by
+the offline scripts; Earlier Findings remains a pre-merge requirement.
 Offline regressions cover GitHub installation-token identity and withholding
 projection repair when overview authority is conflicting or unavailable.
 Before merging, close the visibility regression for overview-only findings that
@@ -205,9 +209,11 @@ the smallest JUnit installation before expanding to coverage.
   fresh-workspace recovery, escaping, and the complete payload budget before
   considering the visibility regression fixed; do not infer resolution from
   absence in a later finding list
-- [ ] review and implement the bounded **What Changed** follow-up: a separate
+- [x] review and implement the bounded **What Changed** follow-up: a separate
   factual reviewed-diff summary generated within an existing model call,
   persisted with complete artifacts and preserved during reuse and recovery
+- [ ] live-validate **What Changed** description quality on GitHub and GitLab;
+  scripted offline tests establish propagation and isolation, not factual quality
 - [x] **UX slice: Reviewed Commit Context**: show a short linked SHA and the
   provider-supplied commit title; collapse full head/base details, persist
   optional pass metadata, and cover lookup failures, exact-SHA matching,

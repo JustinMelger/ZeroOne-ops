@@ -71,6 +71,12 @@ metadata. Each fresh pass reads metadata once; same-SHA reuse, fresh-workspace
 recovery, projection repair, and deleted-overview restoration do not backfill it.
 An unavailable metadata endpoint preserves review publication with SHA-only
 presentation and no additional model calls. Commit labels stay out of prompts.
+What Changed descriptions are independently scripted for each request/head and
+checked in completed artifacts and native overview bodies. Precision and overlap
+must not receive the generated description. Scenarios retain descriptions through
+successive heads, fresh workspaces, same-SHA reuse, failure notices, projection
+repair, and restoration. Historical descriptions are not backfilled. These checks
+verify data flow and isolation, not whether a real model describes a diff well.
 
 Same-SHA scenarios reuse either authoritative local state or a provider comment
 without additional model calls or review comments. The repair sequence injects

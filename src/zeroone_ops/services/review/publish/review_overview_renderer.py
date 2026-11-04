@@ -64,6 +64,20 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
     ]
     if envelope.execution_notice is not None:
         lines.extend(["", "### Latest Execution", escape_overview_text(envelope.execution_notice)])
+    if artifact.change_summary is not None:
+        lines.extend(["", "### What Changed", "", "Summary of the supplied review context."])
+        if artifact.review_scope_limited:
+            lines.append("Some changes may be omitted.")
+        lines.extend(
+            [
+                "",
+                *[
+                    f"- {escape_overview_text(bullet)}"
+                    for bullet in artifact.change_summary.bullets
+                ],
+            ]
+        )
+        lines.extend(["", "### Findings"])
     new_count = sum(finding.continuity_status == "new" for finding in artifact.findings)
     unresolved_count = sum(
         finding.continuity_status == "unresolved" for finding in artifact.findings

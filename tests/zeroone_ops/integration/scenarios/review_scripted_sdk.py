@@ -15,6 +15,7 @@ from zeroone_ops.models.review import (
     PrecisionReviewDecision,
     ReviewResult,
 )
+from zeroone_ops.models.review_change_summary import ReviewChangeSummary
 from zeroone_ops.models.work_item import WorkItemState
 
 from .review_cases import REVIEW_PATH, ReviewCase
@@ -48,6 +49,18 @@ class ScriptedReviewSDK:
     prior_case: ReviewCase | None = None
     overlap_result: OverlapReconciliationResult | None = None
     fail_candidate: bool = False
+    omit_change_summary: bool = False
+
+    @property
+    def change_summary(self) -> ReviewChangeSummary | None:
+        """Supply request-specific description evidence independently of finding outcomes."""
+        if self.omit_change_summary:
+            return None
+        return ReviewChangeSummary(
+            bullets=[
+                f"Updates fixture {self.case.marker} at reviewed head {self.case.head_sha[:7]}."
+            ]
+        )
 
     @property
     def expected_call_count(self) -> int:
@@ -85,6 +98,10 @@ class ScriptedReviewSDK:
             assert reasoning == {"effort": "high" if index == 1 else "medium"}
             assert len(input) == 2 and [message["role"] for message in input] == ["system", "user"]
             prompt = input[1]["content"]
+            if self.change_summary is not None:
+                assert all(bullet not in prompt for bullet in self.change_summary.bullets), (
+                    "Descriptive output leaked into a review-stage prompt"
+                )
             if index == 2:
                 assert "Do not invent new findings" in input[0]["content"]
                 output = self._overlap_response(prompt)
@@ -100,6 +117,7 @@ class ScriptedReviewSDK:
                     classification="findings_present",
                     summary="One candidate requires precision.",
                     findings=[self.case.finding.model_copy(deep=True)],
+                    change_summary=self.change_summary,
                 )
             else:
                 output = self._precision_response(prompt)
