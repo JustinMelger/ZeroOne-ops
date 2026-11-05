@@ -15,7 +15,7 @@ from pydantic import AliasChoices, BaseModel, Field
 from zeroone_ops.models.analysis import ValidationOutcome
 from zeroone_ops.models.review import PublishableReviewArtifact
 from zeroone_ops.models.review import ReviewInlineCommentDecision as ReviewInlineCommentDecision
-from zeroone_ops.models.review_overview import ReviewOverviewPass
+from zeroone_ops.models.review_overview import EarlierReviewFindings, ReviewOverviewPass
 
 
 def utc_now() -> datetime:
@@ -263,6 +263,7 @@ class ChangeRequestReviewState(BaseModel):
     projection_retry_warning: str | None = None
     projection_artifact: PublishableReviewArtifact | None = None
     overview_pass: ReviewOverviewPass | None = None
+    earlier_findings: EarlierReviewFindings = Field(default_factory=EarlierReviewFindings)
     updated_at: datetime = Field(default_factory=utc_now)
 
 

@@ -78,6 +78,14 @@ successive heads, fresh workspaces, same-SHA reuse, failure notices, projection
 repair, and restoration. Historical descriptions are not backfilled. These checks
 verify data flow and isolation, not whether a real model describes a diff well.
 
+Earlier Findings scenarios disable inline publication for the first accepted
+concern, then script a later pass that drops it. Both providers retain its full
+published evidence in a separate collapsed archive, not active findings or work-item
+projection. Same-SHA reuse, fresh-workspace hydration, projection repair, handled
+review failure, and deleted-overview restoration preserve the archive without
+extra model calls or inline comments. Unit tests additionally cover ten-entry
+retention, explicit eviction, reappearance, historical adoption, and payload bounds.
+
 Same-SHA scenarios reuse either authoritative local state or a provider comment
 without additional model calls or review comments. The repair sequence injects
 a native issue-update failure after publication, repeats that failure on the

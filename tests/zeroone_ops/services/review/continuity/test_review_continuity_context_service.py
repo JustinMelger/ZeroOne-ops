@@ -421,7 +421,10 @@ def test_confirmed_deleted_overview_restores_only_complete_snapshot(tmp_path, dr
     assert reference.classification == snapshot.artifact.classification
     if complete and not dry_run:
         coordinator.restore.assert_called_once_with(
-            repository_id="org/repo", change_request_number=9, review_pass=restored
+            repository_id="org/repo",
+            change_request_number=9,
+            review_pass=restored,
+            earlier_findings=state_service.state.reviews["9:head"].earlier_findings,
         )
         recovered = state_service.state_store.load().reviews["9:head"]
         assert recovered.note_id == 99

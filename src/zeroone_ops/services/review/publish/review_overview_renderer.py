@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 from urllib.parse import quote, urlsplit
 
-from zeroone_ops.models.review_overview import ReviewOverviewEnvelope
+from zeroone_ops.models.review_overview import EarlierReviewFindings, ReviewOverviewEnvelope
 from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
 from zeroone_ops.services.control_plane.review_projection import (
     review_feedback_projection_decision_service as feedback_projection,
@@ -44,6 +44,59 @@ def _commit_label(head_sha: str, metadata: ReviewedCommitMetadata | None) -> str
             title = title[:117] + "..."
         label += f" - {escape_overview_text(title)}"
     return label
+
+
+def _render_earlier_findings(archive: EarlierReviewFindings) -> list[str]:
+    """Expose retained evidence without suggesting it is active or resolved."""
+    if not archive.concerns and not archive.evicted_count:
+        return []
+
+    lines = [
+        "",
+        "<details>",
+        "<summary>Earlier Findings</summary>",
+        "",
+        "These concerns were reported earlier but are not reported in the latest pass. "
+        "Resolution not verified.",
+        "",
+        "Up to ten distinct earlier concerns are retained, most recently reported first.",
+    ]
+    if archive.evicted_count:
+        lines.extend(
+            [
+                "",
+                f"Older concern records omitted by the retention limit: {archive.evicted_count}. "
+                "Retention eviction does not establish resolution.",
+            ]
+        )
+    for entry in archive.concerns:
+        finding = entry.finding
+        location = finding.file_path
+        if finding.line_start is not None:
+            location += f":{finding.line_start}"
+            if finding.line_end is not None and finding.line_end != finding.line_start:
+                location += f"-{finding.line_end}"
+        lines.extend(
+            [
+                "",
+                f"**{escape_overview_text(finding.severity.capitalize())} - "
+                f"{escape_overview_text(finding.title)}**",
+                "",
+                f"Location when reported: {escape_overview_text(location)}",
+                "",
+                f"Last reported commit: `{escape_overview_text(entry.head_sha)}`",
+                "",
+                f"Evidence: {escape_overview_text(finding.evidence)}",
+                "",
+                f"Impact: {escape_overview_text(finding.explanation)}",
+                "",
+                f"Suggested follow-up: {escape_overview_text(finding.suggested_follow_up)}",
+            ]
+        )
+        if entry.workflow_url:
+            lines.extend(["", _link("Original review workflow", entry.workflow_url)])
+    lines.extend(["", "</details>"])
+    return lines
 
 
 def render_overview(envelope: ReviewOverviewEnvelope) -> str:
@@ -128,10 +181,10 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
             f"{_link('work-item issue', current.verified_work_item_url)}, "
             "not on this change request."
         )
+    lines.extend(["", f"**Next action:** {next_action}"])
+    lines.extend(_render_earlier_findings(envelope.earlier_findings))
     lines.extend(
         [
-            "",
-            f"**Next action:** {next_action}",
             "",
             "<details>",
             "<summary>Review Details</summary>",

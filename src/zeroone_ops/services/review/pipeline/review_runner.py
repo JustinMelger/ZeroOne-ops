@@ -483,6 +483,7 @@ class ReviewRunner:
             review_pass_id=finalization_result.review_pass_id,
             projection_reference=finalization_result.review_pass_id,
             overview_pass=finalization_result.overview_pass,
+            earlier_findings=finalization_result.earlier_findings,
             dry_run=active_dry_run,
         )
         return RunSummary(

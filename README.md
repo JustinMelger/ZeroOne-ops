@@ -296,6 +296,12 @@ Linked findings provide severity, title, and location; open their inline
 discussion for evidence, impact, and suggested follow-up. Unlinked findings keep
 those details in the overview.
 Earlier concerns described as **not reported in this pass** are not verified fixes.
+Collapsed **Earlier Findings** preserves up to ten distinct overview-only concerns
+that are absent from the latest pass, with their original evidence and last
+reported commit. **Resolution not verified** remains explicit. Retention is
+independent of review count; older entries are evicted only when the ten-concern
+limit is exceeded, with a visible cumulative notice. This history does not change
+active findings or review decisions, and cannot recover already-lost evidence.
 
 Writes require verified bot ownership, exact request scope, and a fresh read of
 the overview and open request head. CI serialization reduces races but is not

@@ -14,7 +14,7 @@ from zeroone_ops.models.review import (
     ReviewClassification,
     ReviewResult,
 )
-from zeroone_ops.models.review_overview import ReviewOverviewPass
+from zeroone_ops.models.review_overview import EarlierReviewFindings, ReviewOverviewPass
 from zeroone_ops.models.state import ReviewInlineCommentDecision
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 from zeroone_ops.services.review.publish.review_overview_codec import ReviewOverviewError
@@ -81,6 +81,7 @@ class ReviewFinalizationResult:
     overview_pass: ReviewOverviewPass | None = None
     projection_retry_pending: bool = False
     projection_retry_warning: str | None = None
+    earlier_findings: EarlierReviewFindings | None = None
 
 
 class ReviewFinalizationService:
@@ -283,6 +284,7 @@ class ReviewFinalizationService:
             projection_warning=projection_warning,
             review_pass_id=publish_result.review_pass_id,
             projection_retry_pending=projection_retry_pending,
+            earlier_findings=publish_result.earlier_findings,
             projection_retry_warning=projection_retry_warning,
             overview_pass=(
                 None

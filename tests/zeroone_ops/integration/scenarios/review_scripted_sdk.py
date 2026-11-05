@@ -50,6 +50,7 @@ class ScriptedReviewSDK:
     overlap_result: OverlapReconciliationResult | None = None
     fail_candidate: bool = False
     omit_change_summary: bool = False
+    precision_result: PrecisionReviewDecision | None = None
 
     @property
     def change_summary(self) -> ReviewChangeSummary | None:
@@ -216,6 +217,8 @@ class ScriptedReviewSDK:
             assert untrusted_block(prompt, "Verified linked batch attempt evidence") == (
                 untrusted_block(self.calls[0].prompt, "Verified linked batch attempt evidence")
             )
+        if self.precision_result is not None:
+            return self.precision_result.model_copy(deep=True)
         if self.case.name == "mr24":
             return PrecisionReviewDecision(
                 review_classification="no_findings",
@@ -262,7 +265,10 @@ class ScriptedReviewSDK:
         assert self.overlap_result.prior_reviewed_head_sha == self.prior_case.head_sha
         current = untrusted_block(prompt, "Current findings")
         prior = untrusted_block(prompt, "Prior findings")
-        assert f"current[0] {REVIEW_PATH}: {self.case.finding.title}" in current
+        if self.precision_result is not None and not self.precision_result.accepted_findings:
+            assert current == "- (none)"
+        else:
+            assert f"current[0] {REVIEW_PATH}: {self.case.finding.title}" in current
         assert f"prior[0] {REVIEW_PATH}: {self.prior_case.finding.title}" in prior
         candidates = untrusted_block(prompt, "Overlap candidates")
         if any(item.outcome == "still_unresolved" for item in self.overlap_result.resolutions):

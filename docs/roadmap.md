@@ -189,26 +189,27 @@ Live commit-label presentation acceptance remains unchecked.
 The bounded **What Changed** implementation carries descriptive output from the
 existing candidate call into completed artifacts without forwarding it as
 precision or overlap evidence. Live description quality is not established by
-the offline scripts; Earlier Findings remains a pre-merge requirement.
+the offline scripts.
 Offline regressions cover GitHub installation-token identity and withholding
 projection repair when overview authority is conflicting or unavailable.
-Before merging, close the visibility regression for overview-only findings that
-are not reported in a later pass. A collapsed **Earlier Findings** section is the
-proposed direction; define retention and eviction explicitly rather than treating
-two retained complete snapshots as durable operator-accessible history.
+The **Earlier Findings** implementation preserves up to ten distinct overview-only
+concerns independently of complete snapshot retention, labels resolution as
+unverified, and discloses retention evictions. Automated verification passed;
+live GitHub/GitLab presentation acceptance remains separate.
 Keep live acceptance separate and complete it before report integration; validate
 the smallest JUnit installation before expanding to coverage.
 
 - [x] review the proposed contracts before implementation
 - [x] slice 1: persistent overview, durable bounded history, stale-write guards,
   and existing same-SHA/inline/projection-repair continuity
-- [ ] **Pre-merge: Earlier Findings visibility**: preserve operator-readable
+- [x] **Pre-merge: Earlier Findings visibility (automated)**: preserve operator-readable
   evidence and reviewed SHA for overview-only concerns not reported again,
   explicitly label **Resolution not verified**, and define bounded retention and
-  eviction behavior. Review the design and cover successive passes,
-  fresh-workspace recovery, escaping, and the complete payload budget before
-  considering the visibility regression fixed; do not infer resolution from
-  absence in a later finding list
+  eviction behavior. Covered successive passes, fresh-workspace recovery,
+  reuse/repair/restoration, escaping, and the complete payload budget; absence
+  in a later finding list never establishes resolution
+- [ ] live-validate **Earlier Findings** presentation and persistence on GitHub
+  and GitLab separately from automated completion
 - [x] review and implement the bounded **What Changed** follow-up: a separate
   factual reviewed-diff summary generated within an existing model call,
   persisted with complete artifacts and preserved during reuse and recovery

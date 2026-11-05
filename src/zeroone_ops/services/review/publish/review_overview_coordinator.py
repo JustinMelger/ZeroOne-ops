@@ -15,13 +15,18 @@ from zeroone_ops.models.review import (
     PublishableReviewArtifact,
     ReviewComment,
 )
-from zeroone_ops.models.review_overview import ReviewOverviewEnvelope, ReviewOverviewPass
+from zeroone_ops.models.review_overview import (
+    EarlierReviewFindings,
+    ReviewOverviewEnvelope,
+    ReviewOverviewPass,
+)
 from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
 from zeroone_ops.models.state import ReviewInlineCommentDecision
 from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPlatformProtocol,
     ReviewPlatformClientError,
 )
+from zeroone_ops.services.review.publish.earlier_review_findings import collect_earlier_findings
 from zeroone_ops.services.review.publish.review_overview_codec import (
     ReviewOverviewAuthorityError,
     ReviewOverviewError,
@@ -150,6 +155,7 @@ class ReviewOverviewCoordinator:
             change_request_number=context.change_request_number,
             complete_passes=[completed, *(previous.complete_passes[:1] if previous else [])],
             history=[completed.summary(), *(previous.history[:4] if previous else [])],
+            earlier_findings=collect_earlier_findings(previous=previous, artifact=artifact),
         )
         return self._write(
             repository_id=repository_id,
@@ -249,6 +255,7 @@ class ReviewOverviewCoordinator:
         repository_id: str,
         change_request_number: int,
         review_pass: ReviewOverviewPass,
+        earlier_findings: EarlierReviewFindings | None = None,
     ) -> tuple[ReviewComment, ReviewOverviewEnvelope]:
         """Recreate confirmed missing transport from complete evidence, keeping its receipt."""
         expected_identity = review_pass_identity(
@@ -272,6 +279,7 @@ class ReviewOverviewCoordinator:
             change_request_number=change_request_number,
             complete_passes=[restored],
             history=[restored.summary()],
+            earlier_findings=earlier_findings or EarlierReviewFindings(),
         )
         return self._write(
             repository_id=repository_id,

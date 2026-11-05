@@ -10,10 +10,45 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from zeroone_ops.models.review import (
     ChangeRequestDiffRefs,
     PublishableReviewArtifact,
+    PublishableReviewFinding,
     ReviewClassification,
     ReviewInlineCommentDecision,
 )
 from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
+
+
+class EarlierReviewFinding(BaseModel):
+    """Retain published evidence without asserting current presence or resolution."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    identity: str = Field(min_length=1)
+    finding: PublishableReviewFinding
+    pass_id: str = Field(min_length=1)
+    head_sha: str = Field(min_length=1)
+    sequence: int = Field(gt=0)
+    workflow_url: str | None = None
+
+
+class EarlierReviewFindings(BaseModel):
+    """Bound presentation history independently of complete review snapshots."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    concerns: tuple[EarlierReviewFinding, ...] = Field(default=(), max_length=10)
+    evicted_count: int = Field(default=0, ge=0)
+    collected_through_sequence: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_order(self) -> EarlierReviewFindings:
+        """Reject duplicate authority and non-deterministic retention ordering."""
+        identities = [concern.identity for concern in self.concerns]
+        if len(set(identities)) != len(identities):
+            raise ValueError("Earlier finding identities must be unique.")
+        order = [(-concern.sequence, concern.identity) for concern in self.concerns]
+        if order != sorted(order):
+            raise ValueError("Earlier findings must follow descending sequence and identity.")
+        return self
 
 
 class ReviewOverviewSummary(BaseModel):
@@ -97,6 +132,7 @@ class ReviewOverviewEnvelope(BaseModel):
     complete_passes: list[ReviewOverviewPass] = Field(min_length=1, max_length=2)
     history: list[ReviewOverviewSummary] = Field(min_length=1, max_length=5)
     execution_notice: str | None = Field(default=None, max_length=2000)
+    earlier_findings: EarlierReviewFindings = Field(default_factory=EarlierReviewFindings)
 
     @model_validator(mode="after")
     def validate_history(self) -> ReviewOverviewEnvelope:

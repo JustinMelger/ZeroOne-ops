@@ -389,6 +389,22 @@ are independent of `review.max_prior_review_passes`, including zero; increasing
 model context cannot reconstruct evicted provider artifacts. History is bounded,
 not an unlimited audit trail. Legacy review comments remain untouched.
 
+The collapsed **Earlier Findings** section separately retains up to ten distinct
+overview-only concerns not reported by the current artifact. Each entry keeps
+its published evidence, impact, suggested follow-up, location, last reported SHA,
+and available workflow link. **Resolution not verified** means exactly that;
+these are not added to active counts or sent back into model or remediation
+decisions. An exact-identity reappearance is shown only in current findings.
+Retention follows the most recently reported sequence, then identity, not the
+number of later clean reviews. A cumulative notice discloses eviction beyond ten;
+eviction is not resolution. Earlier findings survive normal reuse, fresh-workspace
+hydration, projection repair, and deleted-overview restoration from cached evidence.
+Older envelopes can supply only their retained complete snapshots; summary-only
+rows and already-evicted artifacts cannot reconstruct earlier evidence. There is
+no scan of historical workflows/comments or automatic remote rewrite.
+The complete 60,000-byte body limit still applies: oversized archives fail the
+write rather than dropping factual evidence to fit.
+
 A handled failed attempt may update a separate bounded notice on an existing
 verified overview. The last completed artifact, verdict, and reviewed SHA remain
 intact; the attempted SHA is not labeled reviewed. Without a prior overview, use

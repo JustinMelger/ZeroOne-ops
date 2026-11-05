@@ -311,6 +311,7 @@ class ReviewContinuityContextService:
                             change_request_number=change_request.change_request_number,
                             review_pass=review_pass,
                             note=note,
+                            earlier_findings=overview.earlier_findings,
                         )
                     return build_overview_prior_review_pass(review_pass=review_pass, note=note)
             elif (
@@ -327,6 +328,7 @@ class ReviewContinuityContextService:
                     repository_id=repository_id,
                     change_request_number=change_request.change_request_number,
                     review_pass=restored_pass,
+                    earlier_findings=review_state.earlier_findings,
                 )
                 restored_pass = next(
                     snapshot
@@ -337,6 +339,7 @@ class ReviewContinuityContextService:
                     change_request_number=change_request.change_request_number,
                     review_pass=restored_pass,
                     note=note,
+                    earlier_findings=overview.earlier_findings,
                 )
                 return build_overview_prior_review_pass(review_pass=restored_pass, note=note)
         if (

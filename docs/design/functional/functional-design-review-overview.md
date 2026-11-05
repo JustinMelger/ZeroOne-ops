@@ -47,6 +47,16 @@ concern, a failed pipeline, and unavailable coverage are different signals.
   persistent concern registry require separate design.
 - Link active findings to existing inline discussions. Findings without a usable
   inline location retain concise, actionable details in the overview.
+- Retain up to ten distinct overview-only concerns that disappear from later
+  passes in collapsed **Earlier Findings**, after next action and before Review
+  Details. Show original evidence, impact, follow-up, location, last reported
+  commit, and available workflow link. Label the section **Resolution not
+  verified**; archived concerns do not contribute to active findings or verdicts.
+- Keep the most recently reported concerns, with identity breaking sequence ties.
+  Clean reviews do not age them out. Disclose cumulative evictions beyond ten;
+  retention eviction is never resolution. Exact-identity reappearance moves the
+  concern to current findings without displaying a duplicate. This is visibility
+  history, not a semantic matching or resolution registry.
 - Keep existing inline creation, reuse, and resolved-finding behavior unchanged.
   The overview does not automatically resolve or reopen discussions.
 - Retain a collapsed recent-review history with commit, classification, counts,
@@ -75,6 +85,12 @@ separate concerns. Changing `max_prior_review_passes` must not resize the provid
 overview's history or remove its current recovery artifact. Initial overview
 bounds are application-owned, without new operator tuning settings; see the
 technical design for complete versus summary-only retention.
+
+Earlier Findings is independent of these snapshot/history limits and model-context
+settings. Reuse, failures, fresh-workspace recovery, and transport restoration
+preserve it. Historical adoption can recover retained complete snapshots only,
+not summary-only entries or already-lost evidence. Automated verification passed;
+live GitHub/GitLab acceptance remains pending.
 
 Slice 1 retains two complete completed passes and at most five completed summaries
 including the current pass, independent of model-context limits. Its complete

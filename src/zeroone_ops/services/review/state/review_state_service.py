@@ -14,6 +14,7 @@ from zeroone_ops.models.review import (
     PublishableReviewArtifact,
     ReviewComment,
 )
+from zeroone_ops.models.review_overview import EarlierReviewFindings
 from zeroone_ops.models.state import (
     AppState,
     ChangeRequestReviewState,
@@ -110,6 +111,7 @@ class ReviewStateService:
         review_pass_id: str | None = None,
         projection_reference: str | None = None,
         overview_pass: ReviewOverviewPass | None = None,
+        earlier_findings: EarlierReviewFindings | None = None,
         dry_run: bool,
     ) -> RunSummary:
         """Persist a reviewed change-request revision and return the summary."""
@@ -152,6 +154,9 @@ class ReviewStateService:
                 overview_pass=(
                     overview_pass.model_copy(deep=True) if overview_pass is not None else None
                 ),
+                earlier_findings=(earlier_findings or EarlierReviewFindings()).model_copy(
+                    deep=True
+                ),
             )
             self._trim_prior_reviews_for_change_request(
                 change_request.change_request_number,
@@ -181,6 +186,7 @@ class ReviewStateService:
         change_request_number: int,
         review_pass: ReviewOverviewPass,
         note: ReviewComment,
+        earlier_findings: EarlierReviewFindings | None = None,
     ) -> None:
         """Replace the local cache with one verified provider snapshot."""
         review_pass = self.retain_local_inline_metadata(
@@ -207,6 +213,7 @@ class ReviewStateService:
             projection_retry_warning=review_pass.projection_warning,
             projection_artifact=artifact.model_copy(deep=True),
             overview_pass=review_pass.model_copy(deep=True),
+            earlier_findings=(earlier_findings or EarlierReviewFindings()).model_copy(deep=True),
             updated_at=review_pass.completed_at,
         )
         self._trim_prior_reviews_for_change_request(change_request_number, current_review_key=key)

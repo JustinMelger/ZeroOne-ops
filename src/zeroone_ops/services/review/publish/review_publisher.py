@@ -15,7 +15,7 @@ from zeroone_ops.models.review import (
     ReviewComment,
     ReviewFileContext,
 )
-from zeroone_ops.models.review_overview import ReviewOverviewPass
+from zeroone_ops.models.review_overview import EarlierReviewFindings, ReviewOverviewPass
 from zeroone_ops.models.state import ReviewInlineCommentDecision
 from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPublishClientProtocol,
@@ -57,6 +57,7 @@ class ReviewPublishResult:
     review_pass_id: str | None = None
     overview_pass: ReviewOverviewPass | None = None
     authority_error: str | None = None
+    earlier_findings: EarlierReviewFindings | None = None
 
 
 class ReviewPublisher:
@@ -168,6 +169,7 @@ class ReviewPublisher:
             warning_message=" ".join(warnings) or None,
             review_pass_id=pass_id,
             authority_error=authority_error,
+            earlier_findings=envelope.earlier_findings.model_copy(deep=True),
             overview_pass=envelope.complete_passes[0].model_copy(
                 deep=True, update={"artifact": published, "inline_decisions": decisions}
             ),

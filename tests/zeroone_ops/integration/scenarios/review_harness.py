@@ -73,6 +73,7 @@ class ReviewHarness:
     http: httpx.Client
     state_service: ReviewStateService
     monkeypatch: pytest.MonkeyPatch
+    inline_comments_enabled: bool = True
 
     def _connection(self) -> GitHubConnectionConfig | GitLabConnectionConfig:
         if self.api.work_items.platform == "github":
@@ -163,7 +164,7 @@ class ReviewHarness:
                 max_context_lines_after=100,
                 enable_function_context=False,
                 enable_helper_following=False,
-                inline_comments_enabled=True,
+                inline_comments_enabled=self.inline_comments_enabled,
             ),
         )
         projection_factory = build_review_projection_factory(config)

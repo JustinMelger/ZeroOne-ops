@@ -304,6 +304,42 @@ commands or second quality job are introduced by Slice 1.
 
 ## Durable Pass History And Recovery
 
+### Earlier Findings Visibility
+
+The overview envelope additionally stores `EarlierReviewFindings`: up to ten
+distinct `EarlierReviewFinding` records, a cumulative eviction count, and a
+collected-through sequence cursor. Each record retains the full published finding
+and its latest reporting pass ID, SHA, sequence, and workflow URL. Local current
+review state caches this archive separately from artifacts and complete snapshots,
+so deleted-overview restoration does not require duplication in both artifacts.
+
+Shared publication collects prior findings without a usable published HTTP(S)
+discussion link. It adopts retained complete snapshots from older envelopes, using
+the cursor to prevent recollection and repeated eviction after metadata rewrites.
+Never reconstruct evidence from summary-only rows or fetch historical workflows.
+Use existing stable identities, falling back to the established deterministic
+identity builder; do not perform fuzzy or model-backed archive matching. Remove
+current identities from the archive, sort remaining entries by descending report
+sequence then identity, and retain ten. Increment the eviction count only for
+records actually dropped by this rule. Later clean passes do not expire entries.
+
+The shared renderer places collapsed **Earlier Findings** after next action and
+before Review Details, with **Resolution not verified**, full escaped published
+reasoning, reporting provenance, and retention disclosures. Neither archive
+entries nor eviction count influence active counts, verdicts, model prompts,
+continuity packets, inline publication, or work-item projection. Existing accepted
+review artifacts remain the only inputs to those paths.
+
+Normal publication persists the archive through finalization into the current
+local review cache. Provider hydration replaces stale cached archive content;
+same-SHA reuse, projection repair, and handled failures preserve provider history.
+Deleted-overview restoration uses the cached archive without changing pass identity.
+The 60,000-byte complete-payload gate remains mandatory; size failures cannot
+silently trim concerns, evidence, or required snapshots. Automated checks passed;
+live provider verification remains pending.
+
+### Complete Snapshots And Summaries
+
 The envelope stores the complete current finalized artifact, original run/head
 identity, reviewed base/start/head diff references and diff identity, inline
 references/decisions, and sufficient projection-repair evidence.
