@@ -268,9 +268,67 @@ Severity control note:
 ### Change-Request Review
 
 - review one merge request or pull request per run
-- publish one deterministic summary note per reviewed revision
+- update one persistent bot-owned overview per change request
 - deduplicate by change-request identity and head SHA
-- keep the summary note authoritative even when bounded inline comments are enabled
+- keep finalized structured review evidence authoritative when inline comments are enabled
+
+The Slice 1 implementation retains two complete completed-pass snapshots and at
+most five completed-pass summaries, including the current pass. These provider
+bounds are independent of `review.max_prior_review_passes`, which controls model
+context and existing local-history retention. Failed attempts are separate notices;
+they do not replace the last completed review or claim its verdict for a new SHA.
+The whole overview is bot-managed: use replies or separate comments for discussion.
+Without configured quality reporting, no empty quality section is shown; a compact
+footer reminds readers that AI review does not replace CI checks or merge approval.
+One **Review Overview: verdict** heading leads the result. Findings and next action
+take priority; commit metadata and
+follow-up provenance are available in collapsed **Review Details**.
+Below the result, the reviewed commit appears as a short linked SHA and its
+provider-supplied first-line title. Exact head/base hashes remain in Review
+Details. Titles describe that commit, not the whole PR/MR; unavailable metadata
+falls back to the short SHA and never blocks review. Reuse and repair retain the
+stored label without another lookup or model call.
+When available, **What Changed** follows the result and commit label, before
+active findings. Its one to three bounded bullets describe supplied diff context,
+not approval or verified fixes. Limited scope is disclosed; missing descriptions
+are omitted, and reuse or recovery never generates a replacement description.
+Linked findings provide severity, title, and location; open their inline
+discussion for evidence, impact, and suggested follow-up. Unlinked findings keep
+those details in the overview.
+Earlier concerns described as **not reported in this pass** are not verified fixes.
+Collapsed **Earlier Findings** preserves up to ten distinct overview-only concerns
+that are absent from the latest pass, with their original evidence and last
+reported commit. **Resolution not verified** remains explicit. Retention is
+independent of review count; older entries are evicted only when the ten-concern
+limit is exceeded, with a visible cumulative notice. This history does not change
+active findings or review decisions, and cannot recover already-lost evidence.
+If the overview is deleted before another commit is reviewed, verified
+request-scoped cached evidence can preserve its earlier findings and reporting
+sequence. An existing provider overview always takes precedence. Collapsed history
+discloses when earlier history could not be fully recovered; no old findings are
+invented from missing evidence.
+Malformed optional browser links fall back to escaped text without blocking the
+overview. An unusable inline link keeps the finding's full reasoning visible.
+
+Writes require verified bot ownership, exact request scope, and a fresh read of
+the overview and open request head. CI serialization reduces races but is not
+provider compare-and-swap. The complete overview has a 60,000 UTF-8 byte application
+budget; overflow fails the write, preserving the previous body rather than
+dropping required artifacts or creating overflow comments. See the
+[operator contract](docs/runbook.md#persistent-review-overview).
+
+GitHub identity verification supports installation tokens such as `GITHUB_TOKEN`
+through an authenticated viewer lookup when REST user lookup is forbidden.
+Conflicting overview authority cannot fall back to cached projection repair.
+Closed requests, head drift, or failed request-state verification also withhold
+projection, including after inline publication. Blank GitLab bot identities are
+rejected before overview creation.
+
+Slice 1 is implemented and covered by automated offline verification. Live
+GitHub/GitLab acceptance remains pending.
+CI/JUnit/Cobertura reporting and evidence-only refresh are still proposed, not
+implemented; quality evidence is not configured in this slice. Review remains
+one final-stage invocation, not an early-review/late-report job pair.
 
 Correctness findings must connect the reviewed change to a violated requirement
 and supported impact. Reviews distinguish pre-existing behavior from introduced

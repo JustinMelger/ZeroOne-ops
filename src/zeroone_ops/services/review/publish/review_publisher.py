@@ -15,6 +15,7 @@ from zeroone_ops.models.review import (
     ReviewComment,
     ReviewFileContext,
 )
+from zeroone_ops.models.review_overview import EarlierReviewFindings, ReviewOverviewPass
 from zeroone_ops.models.state import ReviewInlineCommentDecision
 from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPublishClientProtocol,
@@ -23,6 +24,14 @@ from zeroone_ops.providers.review.platform import (
 from zeroone_ops.services.control_plane.review_projection import (
     review_feedback_projection_decision_service as feedback_projection,
 )
+from zeroone_ops.services.review.publish.review_overview_codec import (
+    ReviewOverviewAuthorityError,
+    ReviewOverviewError,
+)
+from zeroone_ops.services.review.publish.review_overview_coordinator import (
+    ReviewOverviewCoordinator,
+)
+from zeroone_ops.services.review.publish.review_overview_renderer import escape_overview_text
 from zeroone_ops.services.review.publish.review_response_state import (
     render_confidence_label,
     render_continuity_line,
@@ -45,14 +54,24 @@ class ReviewPublishResult:
     inline_comment_decisions: list[ReviewInlineCommentDecision] | None = None
     warning_message: str | None = None
     error_message: str | None = None
+    review_pass_id: str | None = None
+    overview_pass: ReviewOverviewPass | None = None
+    authority_error: str | None = None
+    earlier_findings: EarlierReviewFindings | None = None
 
 
 class ReviewPublisher:
     """Render and publish deterministic change-request review notes."""
 
-    def __init__(self, review_client: ChangeRequestReviewPublishClientProtocol) -> None:
+    def __init__(
+        self,
+        review_client: ChangeRequestReviewPublishClientProtocol,
+        *,
+        overview_coordinator: ReviewOverviewCoordinator | None = None,
+    ) -> None:
         """Initialize the review publisher."""
         self.review_client = review_client
+        self.overview_coordinator = overview_coordinator
 
     def publish_artifact(
         self,
@@ -62,65 +81,97 @@ class ReviewPublisher:
         context: ChangeRequestReviewContext,
         artifact: PublishableReviewArtifact,
         inline_comment_decisions: list[ReviewInlineCommentDecision] | None = None,
+        run_id: str | None = None,
+        workflow_url: str | None = None,
     ) -> ReviewPublishResult:
-        """Publish one note from a publish-shaped review artifact."""
-        body = self.render_artifact(
-            context=context,
-            artifact=artifact,
-        )
-        try:
-            note = self.review_client.create_change_request_comment(
-                repository_id=repository_id,
-                change_request_number=change_request_number,
-                body=body,
+        """Publish one managed overview from a finalized review artifact."""
+        if self.overview_coordinator is None or run_id is None:
+            raise ValueError(
+                "Overview publication requires its coordinator and original run identity."
             )
-        except ReviewPlatformClientError as error:
-            return ReviewPublishResult(
-                note=None,
-                body=body,
-                artifact=artifact,
-                inline_comment_decisions=inline_comment_decisions or [],
-                error_message=f"Review note publish failed: {error}",
-            )
-        artifact_to_publish, updated_decisions = self._publish_inline_comments(
+        if change_request_number != context.change_request_number:
+            raise ValueError("Review publication request does not match its context.")
+        return self._publish_overview(
+            coordinator=self.overview_coordinator,
             repository_id=repository_id,
-            change_request_number=change_request_number,
             context=context,
             artifact=artifact,
             inline_comment_decisions=inline_comment_decisions or [],
+            run_id=run_id,
+            workflow_url=workflow_url,
         )
-        warning_messages: list[str] = []
-        warning_messages.extend(_collect_inline_transport_warnings(updated_decisions))
-        updated_decisions = [
-            decision.model_copy(update={"authoritative_note_id": note.id})
-            for decision in updated_decisions
-        ]
-        if artifact_to_publish != artifact:
-            updated_body = self.render_artifact(
+
+    def _publish_overview(
+        self,
+        *,
+        coordinator: ReviewOverviewCoordinator,
+        repository_id: str,
+        context: ChangeRequestReviewContext,
+        artifact: PublishableReviewArtifact,
+        inline_comment_decisions: list[ReviewInlineCommentDecision],
+        run_id: str,
+        workflow_url: str | None,
+    ) -> ReviewPublishResult:
+        try:
+            note, envelope = coordinator.publish(
+                repository_id=repository_id,
                 context=context,
-                artifact=artifact_to_publish,
+                artifact=artifact,
+                run_id=run_id,
+                inline_decisions=inline_comment_decisions,
+                workflow_url=workflow_url,
             )
-            try:
-                note = self.review_client.update_change_request_comment(
-                    repository_id=repository_id,
-                    change_request_number=change_request_number,
-                    note_id=note.id,
-                    body=updated_body,
-                )
-                body = updated_body
-            except ReviewPlatformClientError:
-                warning_messages.append(
-                    "Inline comments were published, but updating the authoritative review note "
-                    "failed. Provider-backed continuity metadata for those inline comments is "
-                    "incomplete, but local mirrored continuity was preserved."
-                )
+        except (ReviewOverviewError, ReviewPlatformClientError) as error:
+            return ReviewPublishResult(
+                note=None,
+                body="",
+                artifact=artifact,
+                inline_comment_decisions=inline_comment_decisions,
+                error_message=f"Review overview publish failed: {error}",
+            )
+        published, decisions = self._publish_inline_comments(
+            repository_id=repository_id,
+            change_request_number=context.change_request_number,
+            context=context,
+            artifact=artifact,
+            inline_comment_decisions=inline_comment_decisions,
+        )
+        decisions = [
+            decision.model_copy(update={"authoritative_note_id": note.id}) for decision in decisions
+        ]
+        warnings = _collect_inline_transport_warnings(decisions)
+        pass_id = envelope.complete_passes[0].pass_id
+        authority_error = None
+        try:
+            note = coordinator.write_metadata(
+                repository_id=repository_id,
+                change_request_number=context.change_request_number,
+                head_sha=context.head_sha,
+                pass_id=pass_id,
+                artifact=published,
+                inline_decisions=decisions,
+            )
+        except ReviewOverviewAuthorityError as error:
+            authority_error = str(error)
+            warnings.append(
+                "Review overview authority could not be verified; work-item projection is withheld."
+            )
+        except (ReviewOverviewError, ReviewPlatformClientError):
+            warnings.append(
+                "Inline publication metadata could not be synchronized to the review overview; "
+                "local evidence is retained and provider-backed recovery may be incomplete."
+            )
         return ReviewPublishResult(
             note=note,
-            body=body,
-            artifact=artifact_to_publish,
-            inline_comment_decisions=updated_decisions,
-            warning_message=(
-                None if not warning_messages else " ".join(dict.fromkeys(warning_messages))
+            body=note.body or "",
+            artifact=published,
+            inline_comment_decisions=decisions,
+            warning_message=" ".join(warnings) or None,
+            review_pass_id=pass_id,
+            authority_error=authority_error,
+            earlier_findings=envelope.earlier_findings.model_copy(deep=True),
+            overview_pass=envelope.complete_passes[0].model_copy(
+                deep=True, update={"artifact": published, "inline_decisions": decisions}
             ),
         )
 
@@ -508,8 +559,15 @@ def _changed_hunk_ranges(diff_text: str) -> list[tuple[int, int]]:
 
 
 def _render_inline_comment_body(finding: PublishableReviewFinding) -> str:
-    """Render one short inline comment body."""
-    return _ensure_terminal_punctuation(finding.title)
+    """Keep accepted reasoning in the discussion linked by the concise overview."""
+    return "\n\n".join(
+        [
+            escape_overview_text(_ensure_terminal_punctuation(finding.title)),
+            f"Evidence: {escape_overview_text(finding.evidence)}",
+            f"Impact: {escape_overview_text(finding.explanation)}",
+            f"Suggested follow-up: {escape_overview_text(finding.suggested_follow_up)}",
+        ]
+    )
 
 
 def _render_clear_detail_sentence(

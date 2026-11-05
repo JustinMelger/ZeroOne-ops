@@ -2,8 +2,17 @@
 
 ## Status And Related Contracts
 
-**Proposed for design review; not implemented.** This document describes a new
-publication and quality-evidence surface, not a change to model judgment.
+**Slice 1 implemented and automatically verified; live acceptance pending.** Persistent
+publication is the implemented contract below. CI/JUnit/Cobertura reporting and
+evidence-only refresh remain proposed for later slices, not supported behavior.
+The **What Changed** summary is implemented as descriptive metadata in the
+existing candidate call; automated verification passed and live quality
+acceptance remains pending. It is not a report feature or a finding decision.
+The **Reviewed Commit Context** UX slice is implemented and automatically verified;
+live acceptance remains pending. Completed passes retain
+optional provider-supplied commit labels independently of model findings.
+This document changes publication, not model judgment. Automated completion does
+not establish live provider acceptance; keep those acceptance gates unchecked.
 
 The [technical design](../technical/technical-design-review-overview.md) defines
 storage, collection, and failure boundaries. The existing
@@ -25,11 +34,31 @@ concern, a failed pipeline, and unavailable coverage are different signals.
 - Maintain one managed overview per request, updating it after a completed review
   rather than posting another full summary.
 - Show the reviewed commit, AI verdict/risk/confidence, accepted finding count,
-  new/unresolved/resolved counts when continuity is available, and workflow links.
+  new/unresolved counts when continuity is available, and workflow links.
+- Use one prominent **Review Overview: Concern/Clear** verdict heading, with risk
+  and confidence beneath
+  it. Keep actionable findings, continuity counts, and next action visible. Put
+  exact head/base hashes, workflow links, and prior-review framing inside collapsed
+  **Review Details**, separate from recent history. Prior-review references are
+  provenance, not active findings; preserve them without crowding the result.
+- Describe unmatched prior concerns as **not reported in this pass**, not as
+  verified fixes. Finding-list overlap does not reassess current code. Retain the
+  existing machine outcomes and discussion behavior; code-aware resolution and a
+  persistent concern registry require separate design.
 - Link active findings to existing inline discussions. Findings without a usable
   inline location retain concise, actionable details in the overview.
+- Retain up to ten distinct overview-only concerns that disappear from later
+  passes in collapsed **Earlier Findings**, after next action and before Review
+  Details. Show original evidence, impact, follow-up, location, last reported
+  commit, and available workflow link. Label the section **Resolution not
+  verified**; archived concerns do not contribute to active findings or verdicts.
+- Keep the most recently reported concerns, with identity breaking sequence ties.
+  Clean reviews do not age them out. Disclose cumulative evictions beyond ten;
+  retention eviction is never resolution. Exact-identity reappearance moves the
+  concern to current findings without displaying a duplicate. This is visibility
+  history, not a semantic matching or resolution registry.
 - Keep existing inline creation, reuse, and resolved-finding behavior unchanged.
-  This proposal does not automatically resolve or reopen discussions.
+  The overview does not automatically resolve or reopen discussions.
 - Retain a collapsed recent-review history with commit, classification, counts,
   and run link. Initially display at most five completed passes, including the
   current pass. Older displayed entries may be summary-only; label them as such.
@@ -57,15 +86,123 @@ overview's history or remove its current recovery artifact. Initial overview
 bounds are application-owned, without new operator tuning settings; see the
 technical design for complete versus summary-only retention.
 
+Earlier Findings is independent of these snapshot/history limits and model-context
+settings. Reuse, failures, fresh-workspace recovery, and transport restoration
+preserve it. Historical adoption can recover retained complete snapshots only,
+not summary-only entries or already-lost evidence. Automated verification passed;
+live GitHub/GitLab acceptance remains pending.
+
+If deletion is followed by a new head, confirmed absence permits publishing the
+new review with trustworthy request-scoped cached history. Keep the old evidence
+under its old SHA and continue logical sequence numbering; never present the old
+artifact as the new review. Existing provider authority always wins. When no
+trustworthy cache or only partial history exists, disclose unavailable earlier
+history in the collapsed history section without inventing or resolving findings.
+
+Slice 1 retains two complete completed passes and at most five completed summaries
+including the current pass, independent of model-context limits. Its complete
+serialized overview budget is 60,000 UTF-8 bytes, an application bound rather than
+a provider limit. Oversize writes preserve the old overview and fail explicitly;
+they do not silently discard required evidence or create overflow comments.
+Only a verified bot-owned, request-matching overview is editable, following a
+fresh body/head read. CI serialization reduces races but does not supply provider
+compare-and-swap. Failed attempts remain separate from completed-pass authority.
+
+<a id="proposed-ux-slice-reviewed-commit-context"></a>
+
+### Reviewed Commit Context
+
+**Implemented; live acceptance pending.** Show a seven-character, clickable
+reviewed SHA and the reviewed commit's title beneath the verdict and summary.
+Keep exact head/base hashes in Review Details. Use the first
+line of the commit message, not the PR/MR title or an AI-generated description.
+For example:
+
+```markdown
+**Reviewed commit:** [cb8e089](<exact-commit-url>) - fix(review): verify installation identity
+```
+
+Shorten long titles to at most 120 display characters with an explicit omission
+indicator; the commit link provides the original message. Keep the full reviewed
+SHA and comparison-base SHA in collapsed **Review Details**, and retain exact
+identifiers in machine state. Short SHAs and commit titles are display labels,
+never identities used for matching, writes, or recovery.
+
+Fetch metadata for the exact completed review head, not the current branch tip,
+target branch, or a synthetic checkout merge commit. Store it with that logical
+review pass. A commit title describes only that commit; it is not a summary of
+the entire PR/MR. Keep the **What Changed** section separate.
+
+Metadata lookup is best effort. If it fails, returns mismatched commit identity,
+or historical records lack a title, show the short reviewed SHA without inventing
+a label. Missing metadata does not fail review, change its verdict, or weaken
+ownership checks. Reuse and recovery preserve stored metadata without additional
+model calls or metadata backfill reads. Failed attempts leave the earlier
+completed commit label intact. Do not infer an "up to date" badge merely because
+the overview was regenerated.
+
+This bounded UX slice uses provider metadata lookup, optional pass-local
+persistence, shared rendering, and GitHub/GitLab parity tests. Coverage includes
+new-head updates, same-SHA and fresh-workspace reuse, missing historical fields,
+lookup failure, mismatched SHAs, escaping, and long/Unicode titles. Implementation
+completion is recorded separately from live acceptance; report-slice numbering
+is unchanged.
+
+<a id="proposed-what-changed"></a>
+
+### What Changed
+
+**Implemented; live quality acceptance pending.** Show **What Changed** after the
+verdict, risk/confidence, outcome summary, and commit label, before active findings.
+Use one to three factual bullets describing the current reviewed diff
+between its pinned comparison base and head. Prefer two or three bullets when
+useful; do not pad a small change merely to fill the section.
+
+Keep this separate from the review-outcome summary, findings, Change Rationale,
+and quality evidence. A description of a change is not approval, proof that a
+finding was fixed, or evidence that validation passed. Describe supplied code and
+diff evidence, not unsupported claims copied from the PR/MR title or description.
+Do not claim full-branch coverage when review inputs are filtered or truncated;
+always state **Summary of the supplied review context.** When application evidence
+shows limited or unknown scope, also state **Some changes may be omitted.**
+
+For example, a review of the persistent-overview implementation could show:
+
+```markdown
+### What Changed
+- Replaces per-review summary comments with one persistent overview.
+- Retains bounded review history and pending recovery evidence.
+- Adds authenticated identity lookup for GitHub installation tokens.
+```
+
+Generate this description within an existing review call, not through another
+model stage or additional repository retrieval. Store it with the completed
+artifact. A successful review of a new head may replace it with a description of
+that head's full reviewed diff, not merely the latest push. Same-SHA reuse,
+projection repair, comment recreation, and future quality-only refresh preserve
+the stored description without another model call or logical review pass.
+
+Historical artifacts without this field remain valid. Omit the section when no
+usable description is available; never invent one from the verdict, confidence,
+old history rows, or request title. A failed attempt must not replace the earlier
+completed description with a claim about unreviewed code.
+
+Acceptance covers summaries with and without findings, limited review scope,
+missing historical fields, escaped repository-controlled text, new-head updates,
+and unchanged descriptions during reuse and recovery on both providers. This
+independent follow-up does not reopen the completed Slice 1 checklist or renumber
+the reporting slices. Live description quality remains a separate acceptance gate.
+
 ### Clear Findings And Next Actions
 
 The overview should answer: what commit was reviewed, what needs attention, why,
 and where the operator should look next. Use plain-language labels and a concise
 state-derived next action; do not make readers interpret counts or risk alone.
 
-For an anchored finding, show its accepted title, location, concise impact, and
-discussion link. Put detailed reasoning in the existing inline discussion rather
-than duplicating the whole finding in the overview. For a summary-only finding,
+For a finding with a usable discussion link, show its severity, accepted title,
+location, and discussion link. Keep evidence, impact, and suggested follow-up in
+the self-contained inline discussion rather than repeating its impact in the
+overview. For a summary-only finding or an unusable discussion link,
 render the same accepted evidence directly in a bounded structured block:
 
 ```markdown
@@ -84,8 +221,15 @@ not another summarization stage hidden in presentation.
 
 ## Quality Signals
 
+**Proposed, not implemented in Slice 1.** The rest of the quality-evidence sections
+describe later delivery; Slice 1 does not collect quality evidence.
+
 Quality reporting is optional. With no configured reports, the review continues
-to work and the overview says that quality evidence is not configured.
+to work without an empty Quality Checks section or an unconfigured-report notice.
+Place the compact disclaimer “AI review does not replace CI checks or merge
+approval.” in a footer below findings, next action, and supporting history.
+When reporting is configured, show a dedicated **Quality Checks** section;
+missing, stale, malformed, or failed expected reports remain visible there.
 
 | Signal | Meaning |
 | --- | --- |
@@ -303,7 +447,7 @@ reports say no actionable findings in the reviewed scope, not that tests passed.
 ```markdown
 ## ZeroOne Ops Review
 Last completed review: abc1234 | Verdict: Concern | Risk: Medium
-2 active findings: 1 new, 1 unresolved. Since the previous review: 1 resolved.
+2 active findings: 1 new, 1 unresolved. One earlier concern was not reported in this pass.
 
 - New: Missing authorization check - view inline discussion
 - Unresolved: Request timeout is ignored - view inline discussion
@@ -361,8 +505,9 @@ That result does not review bbb2222. Quality evidence is labeled by its own test
 | GitHub/GitLab and dry runs | Equivalent semantics; dry runs make no provider writes. |
 
 Deliver separately: persistent overview/continuity, CI and JUnit evidence refresh,
-then Cobertura coverage comparison. Implementation and live provider acceptance
-remain unchecked until each slice is independently reviewed and verified.
+then Cobertura coverage comparison. Slice 1 automated implementation is complete;
+live provider acceptance and later slices remain unchecked until independently
+reviewed and verified.
 
 The persistent overview is a complete, independently shippable improvement
 without report integration. Live-validate overview updates, fresh-workspace
@@ -381,7 +526,10 @@ trend dashboards and broad format/tool compatibility remain outside it.
 
 ## Non-Goals
 
-No prompt changes, specialist reviewers, model/provider migration, Tree-sitter,
-new merge gates, shell-based investigation, automatic discussion resolution,
+No finding-adjudication prompt changes, specialist reviewers, model/provider
+migration, Tree-sitter, new merge gates, shell-based investigation, automatic discussion resolution,
 developer-feedback ingestion, or changes to remediation validation. Quality
 reports are not new intake findings and are not added to model prompts.
+The **What Changed** follow-up is limited to extending an existing
+call's descriptive output instructions and schema; it adds no model stage and
+does not change finding judgment.

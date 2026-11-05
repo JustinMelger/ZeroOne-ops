@@ -35,6 +35,7 @@ from zeroone_ops.models.review import (
     ReviewHelperContext,
     ReviewResult,
 )
+from zeroone_ops.models.review_change_summary import ReviewChangeSummary
 from zeroone_ops.providers.llm_client import FixtureLLMClient, OpenAILLMClient
 from zeroone_ops.providers.llm_fixtures import (
     load_analysis_fixture,
@@ -793,6 +794,14 @@ def test_build_review_prompt_uses_prompt_template() -> None:
     assert "OUTPUT" in prompt
     assert "`summary`: concise candidate-stage assessment" in prompt
     assert "`findings`: evidence-backed candidate findings only" in prompt
+    assert "`change_summary`: optional descriptive metadata" in prompt
+    assert "one to three nonblank factual bullets" in prompt
+    assert "at most 300 characters" in prompt
+    assert "at most 900 characters overall" in prompt
+    assert "supplied base-to-head diff" in prompt
+    assert "not merely the latest push" in prompt
+    assert "do not claim approval, independently verified fixes, passing tests" in prompt
+    assert "description is not evidence for precision or overlap decisions" in prompt
     assert "Do not perform prior-review continuity decisions here." in prompt
     assert "Do not try to decide final publish wording." in prompt
     assert "CLASSIFICATION" in prompt
@@ -1412,12 +1421,13 @@ def test_openai_review_merge_request_uses_medium_reasoning_and_short_system_prom
                 review_confidence=0.9,
                 review_confidence_reason="Visible code does not justify an actionable finding.",
                 findings=[],
+                change_summary=ReviewChangeSummary(bullets=["Adds a safety check."]),
             )
         )
     )
     client.client = SimpleNamespace(responses=SimpleNamespace(parse=parse))
 
-    client.review_merge_request(
+    result = client.review_merge_request(
         ChangeRequestReviewContext(
             change_request_number=17,
             title="feat: add safety check",
@@ -1431,6 +1441,11 @@ def test_openai_review_merge_request_uses_medium_reasoning_and_short_system_prom
     )
 
     kwargs = parse.call_args.kwargs
+    assert parse.call_count == 1
+    assert kwargs["text_format"] is ReviewResult
+    assert result.change_summary == ReviewChangeSummary(bullets=["Adds a safety check."])
+    assert "change_summary" in ReviewResult.model_json_schema()["properties"]
+    assert "factual description of the supplied changes" in kwargs["input"][0]["content"]
     assert kwargs["reasoning"] == {"effort": "medium"}
     assert kwargs["input"][0]["role"] == "system"
     assert "Return strictly structured JSON only." in kwargs["input"][0]["content"]

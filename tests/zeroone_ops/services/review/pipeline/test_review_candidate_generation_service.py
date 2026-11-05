@@ -1,3 +1,5 @@
+import pytest
+
 from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
@@ -13,6 +15,7 @@ from zeroone_ops.models.review import (
     ReviewFinding,
     ReviewResult,
 )
+from zeroone_ops.models.review_change_summary import ReviewChangeSummary
 from zeroone_ops.providers.llm_client import LLMClientError
 from zeroone_ops.services.review.pipeline.review_candidate_generation_service import (
     ReviewCandidateGenerationService,
@@ -70,6 +73,24 @@ class FakeReviewErrorClient:
     def review_merge_request(self, context: ChangeRequestReviewContext) -> ReviewResult:
         del context
         raise LLMClientError("bad output")
+
+
+@pytest.mark.parametrize(
+    "classification", ["no_findings", "findings_present", "manual_review_only"]
+)
+def test_candidate_summary_survives_empty_findings(classification: str) -> None:
+    summary = ReviewChangeSummary(bullets=["Adds bounded metadata."])
+    raw = ReviewResult(
+        classification=classification, summary="Candidate assessment.", change_summary=summary
+    )
+    result = ReviewCandidateGenerationService(
+        build_config(), llm_client_builder=lambda: FakeReviewLLMClient(raw)
+    ).analyze(build_context())
+
+    assert result.candidate_result.change_summary == summary
+    assert result.raw_review_result == raw
+    assert not result.candidate_result.findings
+    assert result.forwarded_candidate_ids == ()
 
 
 def test_analyze_returns_explicit_candidate_stage_result(monkeypatch) -> None:

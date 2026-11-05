@@ -45,6 +45,8 @@ class ReviewArtifactValidator:
             review_confidence_reason=issue_messages or artifact.review_confidence_reason,
             findings=[],
             follow_up_lines=list(artifact.follow_up_lines),
+            change_summary=artifact.change_summary,
+            review_scope_limited=artifact.review_scope_limited,
         )
 
     def _validate_findings_presence(

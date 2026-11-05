@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 import httpx
 
@@ -23,7 +24,19 @@ from zeroone_ops.services.review.continuity.review_prior_comment_loader import (
 from zeroone_ops.services.review.continuity.review_prior_comment_parser import (
     ChangeRequestPriorCommentParser,
 )
-from zeroone_ops.services.review.state.review_state_service import ReviewStateService
+from zeroone_ops.services.review.publish.review_overview_codec import (
+    ReviewOverviewAuthorityError,
+    ReviewOverviewError,
+)
+from zeroone_ops.services.review.state.review_state_service import (
+    ReviewStateService,
+    build_overview_prior_review_pass,
+)
+
+if TYPE_CHECKING:
+    from zeroone_ops.services.review.publish.review_overview_coordinator import (
+        ReviewOverviewCoordinator,
+    )
 
 _UNRESOLVED_BOT_AUTHOR_USERNAME = object()
 AUTHORITATIVE_REVIEW_CLASSIFICATIONS = frozenset(
@@ -42,6 +55,7 @@ class ReviewContinuityContextService:
         logger: logging.Logger,
         prior_context_service: ChangeRequestPriorCommentLoader | None = None,
         prior_note_parser: ChangeRequestPriorCommentParser | None = None,
+        overview_coordinator: ReviewOverviewCoordinator | None = None,
     ) -> None:
         """Retain dependencies without reading provider or persisted state."""
         self.review_client = review_client
@@ -49,6 +63,7 @@ class ReviewContinuityContextService:
         self.logger = logger
         self.prior_context_service = prior_context_service
         self.prior_note_parser = prior_note_parser or ChangeRequestPriorCommentParser()
+        self.overview_coordinator = overview_coordinator
         self._resolved_bot_author_username: str | None | object = _UNRESOLVED_BOT_AUTHOR_USERNAME
 
     def _resolve_prior_comment_author_username(
@@ -95,6 +110,36 @@ class ReviewContinuityContextService:
         current_head_sha: str,
     ) -> PriorReviewContext | None:
         """Load prior review context from the latest earlier machine-safe review comment."""
+        if self.overview_coordinator is not None:
+            try:
+                note, overview = self.overview_coordinator.discover(
+                    repository_id=repository_id, change_request_number=change_request_number
+                )
+            except ReviewOverviewAuthorityError:
+                raise
+            except (ReviewOverviewError, ReviewPlatformClientError, httpx.HTTPError, OSError):
+                self.logger.warning(
+                    "review overview history unavailable; retaining read-only legacy loading",
+                    extra={"run_id": run_id, "head_sha": current_head_sha},
+                )
+                note, overview = None, None
+            if note is not None and overview is not None:
+                if self.review_state_service.max_prior_review_passes <= 0:
+                    return None
+                passes = [
+                    build_overview_prior_review_pass(
+                        review_pass=self.review_state_service.retain_local_inline_metadata(
+                            change_request_number=change_request_number, review_pass=review_pass
+                        ),
+                        note=note,
+                    )
+                    for review_pass in overview.complete_passes
+                    if review_pass.head_sha != current_head_sha
+                ][: max(0, self.review_state_service.max_prior_review_passes)]
+                if passes:
+                    return PriorReviewContext(
+                        change_request_number=change_request_number, passes=passes
+                    )
         prior_context_service = self.prior_context_service or ChangeRequestPriorCommentLoader(
             self.review_client,
             bot_author_username=self._resolve_prior_comment_author_username(
@@ -223,11 +268,91 @@ class ReviewContinuityContextService:
         run_id: str,
         repository_id: str,
         change_request: ChangeRequestReviewCandidate,
+        active_dry_run: bool = False,
     ) -> PriorReviewPass | None:
         """Return the authoritative existing review reference for one change-request SHA."""
         review_state = self.review_state_service.state.reviews.get(
             f"{change_request.change_request_number}:{change_request.head_sha}"
         )
+        discovery_error: (
+            ReviewOverviewError | ReviewPlatformClientError | httpx.HTTPError | OSError | None
+        )
+        discovery_error = None
+        if self.overview_coordinator is not None:
+            try:
+                note, overview = self.overview_coordinator.discover(
+                    repository_id=repository_id,
+                    change_request_number=change_request.change_request_number,
+                )
+            except ReviewOverviewAuthorityError:
+                raise
+            except (
+                ReviewOverviewError,
+                ReviewPlatformClientError,
+                httpx.HTTPError,
+                OSError,
+            ) as error:
+                discovery_error = error
+                note, overview = None, None
+                self.logger.warning(
+                    "review overview discovery unavailable; trying read-only legacy reuse",
+                    extra={"run_id": run_id, "head_sha": change_request.head_sha},
+                )
+            if note is not None and overview is not None:
+                for review_pass in overview.complete_passes:
+                    if review_pass.head_sha != change_request.head_sha:
+                        continue
+                    review_pass = self.review_state_service.retain_local_inline_metadata(
+                        change_request_number=change_request.change_request_number,
+                        review_pass=review_pass,
+                    )
+                    if not active_dry_run:
+                        self.review_state_service.hydrate_overview_pass(
+                            change_request_number=change_request.change_request_number,
+                            review_pass=review_pass,
+                            note=note,
+                            earlier_findings=overview.earlier_findings,
+                        )
+                    return build_overview_prior_review_pass(review_pass=review_pass, note=note)
+            elif (
+                discovery_error is None
+                and review_state is not None
+                and review_state.overview_pass is not None
+                and review_state.overview_pass.head_sha == change_request.head_sha
+                and not active_dry_run
+            ):
+                restored_pass = review_state.overview_pass.model_copy(
+                    update={"projection_pending": True}, deep=True
+                )
+                note, overview = self.overview_coordinator.restore(
+                    repository_id=repository_id,
+                    change_request_number=change_request.change_request_number,
+                    review_pass=restored_pass,
+                    earlier_findings=review_state.earlier_findings,
+                )
+                restored_pass = next(
+                    snapshot
+                    for snapshot in overview.complete_passes
+                    if snapshot.pass_id == restored_pass.pass_id
+                )
+                self.review_state_service.hydrate_overview_pass(
+                    change_request_number=change_request.change_request_number,
+                    review_pass=restored_pass,
+                    note=note,
+                    earlier_findings=overview.earlier_findings,
+                )
+                return build_overview_prior_review_pass(review_pass=restored_pass, note=note)
+        if (
+            discovery_error is not None
+            and review_state is not None
+            and review_state.projection_retry_pending
+            and not active_dry_run
+        ):
+            raise ReviewOverviewError(
+                "Pending review projection repair withheld because overview discovery "
+                "is unavailable."
+            ) from discovery_error
+
         if review_state is not None and _is_authoritative_review_classification(
             review_state.status
         ):
@@ -240,6 +365,21 @@ class ReviewContinuityContextService:
                 findings=[],
             )
 
+        reference = self._load_legacy_same_sha_review_reference(
+            run_id=run_id, repository_id=repository_id, change_request=change_request
+        )
+        if reference is None and discovery_error is not None and not active_dry_run:
+            raise discovery_error
+        return reference
+
+    def _load_legacy_same_sha_review_reference(
+        self,
+        *,
+        run_id: str,
+        repository_id: str,
+        change_request: ChangeRequestReviewCandidate,
+    ) -> PriorReviewPass | None:
+        """Retain historical read-only author fallback without trusting new envelopes."""
         try:
             notes = self.review_client.list_change_request_comments(
                 repository_id=repository_id,

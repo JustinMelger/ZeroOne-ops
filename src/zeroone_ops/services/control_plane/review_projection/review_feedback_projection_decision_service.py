@@ -48,6 +48,17 @@ class ReviewFeedbackProjectionDecisionService:
             and existing.reviewed_sha == reviewed_sha
             and existing.review_note_reference == review_note_reference
         ):
+            if review_note_url is not None and existing.review_note_url != review_note_url:
+                return ReviewFeedbackProjectionDecision(
+                    "updated",
+                    work_item.model_copy(
+                        update={
+                            "projected_review": existing.model_copy(
+                                update={"review_note_url": review_note_url}
+                            )
+                        }
+                    ),
+                )
             if (
                 work_item.status == "review_feedback_required"
                 and work_item.review_action_required_at is None

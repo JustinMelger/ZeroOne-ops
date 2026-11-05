@@ -2,11 +2,23 @@
 
 ## Status And Ownership
 
-**Proposed for design review; not implemented.** Implements the proposed
+**Slice 1 implemented and automatically verified; live acceptance pending.** Persistent
+overview publication implements the
 [functional contract](../functional/functional-design-review-overview.md).
+Report collection, manifest wiring, CI/JUnit/Cobertura evidence, and evidence-only
+refresh remain proposed for slices 2 and 3. Aggregate checks and paired offline
+scenarios verify Slice 1's implementation; live gates remain separate.
+The reviewed-change summary is implemented as a bounded descriptive-output
+extension to the existing candidate call. Automated verification passed;
+live description-quality acceptance remains separate.
+The reviewed-commit context UX slice is implemented and automatically verified;
+live acceptance remains pending. It changes presentation metadata
+only, without extending model prompts or review judgment.
 The [current staged-review design](technical-design-pr-review-staged-pipeline.md)
-continues to describe deployed behavior until an implementation slice explicitly
-replaces its publication sections. Existing historical decoders remain supported.
+continues to own candidate/precision/overlap and inline semantics. This design's
+Slice 1 publication identity and durable overview contract replace per-revision
+summary identity, not those stage boundaries. Existing historical decoders remain
+supported.
 
 This design changes publication identity and adds optional quality evidence.
 Candidate/precision/overlap meaning, prompt inputs, authorization, and remediation
@@ -26,12 +38,12 @@ flowchart TD
 
 ## Current Behavior And Required Separation
 
-`ReviewPublisher` currently creates an authoritative summary for each new review,
-publishes inline comments, then may update that summary with inline metadata.
+Before Slice 1, `ReviewPublisher` created an authoritative summary for each new
+review, published inline comments, then could update that summary with inline metadata.
 Machine-safe v1 summaries support reconstruction, while `ReviewStateService`
 stores bounded local review records and projection artifacts. Prior-note loading
 uses native comment creation time/ID; those cannot order passes once one comment
-is reused. Same-SHA reuse can currently return a compact reference, insufficient
+is reused. Legacy same-SHA reuse can return a compact reference, insufficient
 to regenerate a complete overview in a fresh workspace.
 
 Keep three identities separate:
@@ -54,6 +66,179 @@ overview. A state-derived next action distinguishes AI concerns, independent CI
 failures, and unavailable evidence without creating approval or new commands.
 Tests must prove the same artifact retains its meaning with and without reports.
 
+<a id="proposed-ux-slice-reviewed-commit-context"></a>
+
+## Reviewed Commit Context
+
+The shared renderer prioritizes the verdict in one **Review Overview: verdict**
+heading
+and puts risk/confidence beneath it. Exact head/base identifiers, workflow links,
+and stored follow-up framing are rendered inside collapsed **Review Details**.
+Active continuity counts remain visible; moving provenance must not alter the
+artifact, logical pass identity, or serialized recovery evidence. The metadata
+lookup and short commit-title presentation below are implemented.
+
+Linked finding entries show severity, accepted title, and location without
+duplicating the inline impact paragraph. A missing or unsafe discussion URL
+retains full evidence, impact, and follow-up in the overview. Shared prose escaping
+applies Markdown escaping before HTML escaping so generated character entities
+render normally, while repository HTML and Markdown remain inactive. Neither
+presentation choice changes accepted artifacts or inline discussion content.
+
+Newly generated follow-up wording maps unmatched prior concerns to **not reported
+in this pass**. Keep the machine outcome `no_longer_present` for compatibility;
+this is not source-backed resolution evidence. Historical stored text remains
+unchanged, and no concern registry or additional model stage is introduced.
+
+**Implemented; live acceptance pending.** Optional `ReviewedCommitMetadata` retains
+the full requested head SHA, a bounded first-line commit title, and a safe commit
+URL when available. Providers fetch and normalize metadata for that exact SHA
+within the reviewed repository scope. Validate that the returned full SHA equals
+the requested reviewed head before attaching the metadata; never infer identity
+from title text, branch names, request titles, or the local checkout.
+
+`get_reviewed_commit(repository_id, head_sha)` is the typed provider boundary.
+GitHub reads its Git-object commit endpoint, without file patches; GitLab reads
+the exact project commit with statistics disabled. A shared provider normalizer
+keeps only the trimmed first message line, bounded to 300 characters including
+`...` when shortened. Missing or blank titles remain absent.
+
+The overview coordinator performs at most one best-effort metadata lookup for
+each fresh live completed pass,
+after artifact validation and before initial overview publication. Reuse response
+metadata already available for the same SHA if suitable. Do not refetch changed
+files, search other repositories, introduce a new operator setting, or require
+broader credentials. A normal provider/transport failure or unusable response
+produces a bounded warning and the SHA-only fallback, not a review failure.
+Unexpected programming errors retain existing propagation behavior.
+
+Keep lookup transport in the GitHub/GitLab review adapters and best-effort
+enrichment in shared publication composition. Renderers remain pure and perform
+no API calls. This slice adds no LLM calls or prompt inputs; commit messages are
+repository-controlled presentation data, never instructions or review evidence.
+Store only the first-line label, bounded to 300 characters with disclosed
+omission, not an arbitrary multi-line commit body.
+
+Persist optional metadata with `ReviewOverviewPass`, separately from finding and
+classification authority. Retained history summaries carry the same bounded
+label/link, derived from their completed pass rather than another lookup. Missing
+fields default to absent for older envelopes and local state. Preserve metadata
+through inline synchronization, same-SHA reuse, fresh-workspace hydration,
+projection repair, deleted-comment recreation, and future quality-only refresh.
+Do not manufacture titles or issue metadata backfill reads for historical passes.
+
+Both pass and summary validators require metadata SHA to match their owning head.
+Optional browser links must use HTTP(S), match the reviewed request's origin,
+and identify the full reviewed commit; unsafe links are omitted without losing a
+valid title. Lookup failures log bounded metadata only, never commit contents or
+raw provider diagnostics.
+
+The shared renderer shows a seven-character SHA linked to the exact full commit
+and a title
+of at most 120 display characters, marking omissions. Use plain short SHA when a
+safe link is unavailable. Move the exact head and comparison-base identifiers
+into collapsed **Review Details**, while preserving their machine values and
+review-pass/projection identities. Do not introduce an unverified freshness badge
+or imply that a single commit title describes the entire reviewed diff.
+
+Escape labels and validate link schemes using existing presentation rules.
+Validate the complete serialized payload against the existing 60,000-byte budget
+after adding metadata and collapsed details; do not resize history or truncate
+authoritative evidence. Provider permissions, head/open-state guards, publication
+ordering, and the separate **What Changed** contract remain unchanged.
+
+This independent UX slice uses a normalized provider contract and
+exact-SHA lookup; optional publication/history persistence; shared rendering;
+then focused and paired offline tests. Cover GitHub/GitLab success, missing or
+malformed metadata, wrong SHA, unavailable lookup, long/Unicode titles and marker
+injection, historical decoding, repeated heads, and recovery without extra reads
+or models. Verify that no title, link, or display-prefix change resets review
+action timestamps, cancels a queued revision, or changes finalized findings.
+Run normal repository verification and keep live presentation acceptance separate.
+
+<a id="proposed-reviewed-change-summary"></a>
+
+## Reviewed-Change Summary
+
+**Implemented; live quality acceptance pending.** Use a separate optional `change_summary`
+contract rather than repurposing `summary`, `decision_summary`, or
+`review_confidence_reason`. Those fields continue describing review outcome and
+its justification. In particular, the current deterministic `no_findings`
+summary must not overwrite the new description.
+
+`ReviewChangeSummary` is a frozen model with one to three nonblank bullets, each at
+most 300 characters, for a maximum of 900 content characters. Generate it in the
+existing candidate-stage call, which already receives the bounded diff and source
+context. Carry the optional description through candidate normalization and
+reconciliation into `PublishableReviewArtifact` as descriptive metadata.
+Preserve it even for clean responses with no candidates. The reconciliation
+result carries it alongside the decision; `ReconciledReviewDecision`, precision,
+and overlap contracts remain unchanged.
+Precision continues owning finding retention and classification; the change
+description cannot create candidates, supply missing defect evidence, or affect
+confidence, remediation eligibility, or projection decisions. Do not add a
+separate summarization call or a renderer-owned model dependency.
+
+The model describes the supplied base-to-head diff. Derive scope disclosures
+from existing file-selection/truncation evidence, not model assertions of full
+coverage. Do not expand context budgets, follow extra links, or fetch additional
+files for this feature. If the available inputs do not establish full coverage,
+do not describe the section as an exhaustive account of the entire branch.
+Context construction derives `review_scope_limited` from omitted changed files,
+excerpted source, or absent/blank patches. Directly constructed contexts default
+to limited scope. Forward the flag into the artifact; model responses cannot set
+it. Lack of a detected limitation is not proof of provider-wide completeness.
+
+Normalize whitespace and validate description bounds during field-local parsing
+of the candidate response. Omit the entire unusable optional description
+rather than silently truncating a factual claim or changing otherwise valid
+findings; retain existing handling when the overall model response cannot be
+decoded. No additional model retry is introduced to fill a missing description.
+This isolation applies before optional prose can invalidate an otherwise valid
+parsed review; invalid finding fields and undecodable overall responses still
+fail through their existing boundaries.
+Structural validation establishes shape and bounds, not factual correctness.
+Treat model-produced text as untrusted presentation evidence. Carry it as
+pipeline metadata rather than adding it to precision or overlap prompt inputs;
+those stages continue judging their existing evidence, not this description.
+
+Persist the normalized field in complete provider snapshots and local recovery
+artifacts, with an absent default for historical records. Summary-only history
+rows remain identity/outcome summaries, not a source for reconstructing this
+description. Same-SHA reuse and projection repair use stored text; a fresh review
+on a new head supplies new text without mutating earlier completed snapshots.
+Failed runs preserve the earlier completed artifact and description.
+Preserve the description and scope flag through manual-review fallback and
+publication metadata updates. Do not backfill historical missing descriptions.
+
+The deterministic renderer places **What Changed** after the verdict, risk,
+confidence, outcome summary, and commit label, before active findings. It always
+shows **Summary of the supplied review context.** and adds **Some changes may be
+omitted.** when scope is limited or unknown. A Findings subheading separates the
+description from actionable findings. The renderer uses
+the existing escaping and complete 60,000-byte payload check. Include the extra
+text in both retained complete snapshots when characterizing payload sizes; do
+not reduce retention or truncate authority to accommodate it. Existing ownership,
+discovery, publication ordering, logical identities, and provider transport remain
+unchanged. No report schema, operator setting, command, or migration is added.
+
+Shared overview link validation treats malformed URLs, invalid authorities/ports,
+credentials, controls, and non-HTTP(S) schemes as unavailable display metadata.
+Parsing failures degrade to escaped labels rather than aborting rendering. The
+same predicate controls inline reasoning visibility, recovery-command links, and
+Earlier Findings' durable-discussion check. Unusable inline links preserve full
+reasoning and archive eligibility; original stored URLs and accepted artifacts
+are not rewritten. Complete serialized payload checks remain authoritative.
+
+This bounded follow-up includes the model/prompt-output contract and normalization,
+artifact propagation and historical defaults, then shared rendering and tests.
+Keep candidate/precision/overlap call counts unchanged. Verify summary presence
+for clean and findings-present outcomes, omission and bounds, scope disclosure,
+injection escaping, old-payload decoding, and GitHub/GitLab persistence through
+successive heads, fresh-workspace reuse, deletion recovery, and projection repair.
+Offline scripts prove propagation and isolation, not summary accuracy; live review
+of representative generated descriptions remains separate acceptance evidence.
+
 ## Overview Ownership And Discovery
 
 Introduce a versioned machine envelope, distinct from the existing
@@ -67,6 +252,17 @@ overview requires a structurally valid envelope matching repository/request and
 an authenticated bot author matching the configured review identity. Existing
 permissive machine-safe fallback may still read legacy history where currently
 allowed, but does not authorize editing a comment when author lookup fails.
+
+GitHub's provider adapter uses authenticated GraphQL viewer identity when REST
+`/user` returns 403, supporting installation tokens without guessing bot identity
+or changing permissions. Malformed and conflicting authority have a distinct
+error boundary: they cannot fall back to cached or legacy evidence. Operational
+discovery failures permit read-only reuse only; pending live projection repair
+is withheld and its evidence preserved until verification succeeds.
+Publication returns known authority conflicts explicitly to finalization: a
+conflict detected after the first durable overview write withholds projection
+and further metadata writes, retaining the completed artifact and actual inline
+receipts as pending recovery evidence.
 
 - Exactly one verified overview: re-read its current body before updating.
 - None: create one after successful discovery, using verified legacy evidence
@@ -89,6 +285,13 @@ Before creating/updating, fetch current request head and current overview state.
 Require the request to remain open and the pinned review head to equal its head.
 Compare retained pass identity and producer-attempt metadata, not comment creation
 time or file mtime.
+Request closure, head drift, or inability to verify request state are authority
+failures, including during post-inline metadata synchronization. Withhold linked
+work-item projection and preserve actual inline receipts and pending repair
+evidence; do not downgrade these failures to metadata-only warnings that permit
+projection. Ordinary transport failures writing metadata retain their existing
+best-effort warning behavior. Provider identity must reject empty or
+whitespace-only usernames before overview discovery can authorize creation.
 For same-head quality updates, merge only the quality section with the currently
 authoritative artifact; never replace it from an older local artifact.
 
@@ -101,7 +304,65 @@ No provider CAS is promised. A head/body change between the last read and write
 remains possible; preserve CI serialization/resource groups and document this
 read-before-write limitation. Do not claim timestamps alone eliminate races.
 
+The GitHub example serializes on repository and PR number with
+`cancel-in-progress: false`; it omits unscoped manual dispatch, using PR-job reruns
+for retries. GitLab retains its existing review resource group. Preserve the
+review-only token scope and one final-stage invocation; no report-producing
+commands or second quality job are introduced by Slice 1.
+
 ## Durable Pass History And Recovery
+
+### Earlier Findings Visibility
+
+The overview envelope additionally stores `EarlierReviewFindings`: up to ten
+distinct `EarlierReviewFinding` records, a cumulative eviction count, and a
+collected-through sequence cursor. Each record retains the full published finding
+and its latest reporting pass ID, SHA, sequence, and workflow URL. Local current
+review state caches this archive separately from artifacts and complete snapshots,
+so deleted-overview restoration does not require duplication in both artifacts.
+
+Shared publication collects prior findings without a usable published HTTP(S)
+discussion link. It adopts retained complete snapshots from older envelopes, using
+the cursor to prevent recollection and repeated eviction after metadata rewrites.
+Never reconstruct evidence from summary-only rows or fetch historical workflows.
+Use existing stable identities, falling back to the established deterministic
+identity builder; do not perform fuzzy or model-backed archive matching. Remove
+current identities from the archive, sort remaining entries by descending report
+sequence then identity, and retain ten. Increment the eviction count only for
+records actually dropped by this rule. Later clean passes do not expire entries.
+
+The shared renderer places collapsed **Earlier Findings** after next action and
+before Review Details, with **Resolution not verified**, full escaped published
+reasoning, reporting provenance, and retention disclosures. Neither archive
+entries nor eviction count influence active counts, verdicts, model prompts,
+continuity packets, inline publication, or work-item projection. Existing accepted
+review artifacts remain the only inputs to those paths.
+
+Normal publication persists the archive through finalization into the current
+local review cache. Provider hydration replaces stale cached archive content;
+same-SHA reuse, projection repair, and handled failures preserve provider history.
+Deleted-overview restoration uses the cached archive without changing pass identity.
+The 60,000-byte complete-payload gate remains mandatory; size failures cannot
+silently trim concerns, evidence, or required snapshots. Automated checks passed;
+live provider verification remains pending.
+
+For new-head publication after confirmed overview absence, a lazy typed cache
+loader supplies local review records. A pure recovery function verifies original
+pass identities against exact platform/repository/request scope and stored
+head/run identity, rejects conflicting sequence authority, and reconstructs only
+available complete snapshots and their factual summaries. Use the latest verified
+record's archive, never merge older archives into newer authority. Continue its
+sequence for the new completed pass. The coordinator separately retains the
+provider's actual absent-envelope expectation for read-before-write verification;
+cached history must not masquerade as an existing remote comment.
+Provider discovery errors or existing overviews bypass cache recovery. The new
+pass still uses the current reviewed head, model result, and current metadata
+lookup. Cache-less creation and partial-cache recovery persist a presentation-only
+`history_unavailable` flag with the archive, displayed in collapsed history and
+preserved through later updates/restoration. No model context or work-item
+decision derives from this availability flag or the recovered archive.
+
+### Complete Snapshots And Summaries
 
 The envelope stores the complete current finalized artifact, original run/head
 identity, reviewed base/start/head diff references and diff identity, inline
@@ -128,7 +389,7 @@ Use separate application-owned bounds for provider storage and presentation:
   artifact. Current pending repair metadata must not be evicted by display-row
   trimming. Changing a context limit must not delete provider evidence.
 
-These are initial proposed application constants, not new operator configuration.
+These are Slice 1 application constants, not new operator configuration.
 Summary-only rows cannot drive continuity matching or projection repair. Retention
 is bounded, not an unlimited audit history; archived legacy comments remain
 untouched. Payload-budget failure remains explicit rather than silently dropping
@@ -150,18 +411,31 @@ verified work-item linkage, not from rendered overview text.
 ### Publication Ordering
 
 1. Resolve current/prior authority and the pinned head; build the finalized review.
-2. Prepare the new pass and bounded envelope before any publication write.
+2. Prepare the new pass and bounded envelope with projection marked pending
+   before any publication write. Confirm the transport response contains the
+   intended envelope and verified author, or rediscover it without repeating
+   the write, including after a transport timeout.
 3. Create/update the overview, then follow existing bounded inline publication.
 4. Update the same pass's publication metadata with actual returned inline IDs;
    finding meaning does not change. Persist actual transport responses locally.
 5. Run existing best-effort work-item projection and persist repair evidence.
-   Synchronize that repair evidence into the managed envelope when possible.
+   Synchronize actual inline receipts and the confirmed projection outcome into
+   the managed envelope. Keep local repair pending when synchronization fails,
+   even if projection itself succeeded.
 
 An inline or follow-up metadata update failure retains existing warning behavior;
 do not blindly republish inline discussions. Report when provider-backed recovery
 metadata could not be synchronized and preserve local repair evidence. Fresh
 workspaces cannot recover metadata that never reached durable provider storage;
 the design must expose that limitation rather than inventing missing references.
+
+`ReviewOverviewCoordinator` owns verified discovery and guarded writes;
+`ReviewPublisher` retains inline transport, and `ReviewFinalizationService`
+sequences projection and receipt synchronization. Continuity selects only complete
+snapshots; `ReviewStateService` stores the same decoded pass model for recovery.
+Deleted-comment restoration verifies the scope-bound pass identity against the
+original run before using local evidence. Compact legacy references remain
+readable but cannot manufacture complete recovery snapshots.
 
 The complete serialized overview has an application budget of 60,000 UTF-8 bytes,
 not a claimed provider limit. Enforce it before initial publication and subsequent
@@ -170,14 +444,22 @@ truncate the current artifact or retained structured authority. If the payload
 still exceeds the budget, fail the overview write with a bounded diagnostic;
 retain the previous provider body. Do not create another comment as overflow.
 
-Before locking the proposed two-complete/five-summary defaults in implementation,
-test representative and maximum supported finalized artifacts, inline metadata,
+Verification of the two-complete/five-summary defaults must test representative
+and maximum supported finalized artifacts, inline metadata,
 and pending-repair evidence against that budget. If normal supported reviews do
 not fit, revisit representation/retention in design review rather than shipping
 a default where old history routinely blocks new feedback. Do not silently drop
 current authority or add overflow comments to hide the problem.
 
 ## Quality Input Contract
+
+**Proposed for later slices; not implemented in Slice 1.** Quality evidence is
+not collected until those slices pass their own gates. Omit the unconfigured
+notice and empty quality section; render the shared AI/CI disclaimer as a footer.
+Once configured, expected-report failures remain visible in **Quality Checks**,
+independently of the AI verdict. The quality
+interfaces, parsing, aggregation, and refresh contracts below are future work;
+the bounded execution-failure notice remains part of Slice 1 publication.
 
 Propose optional review-owned report configuration with stable report-group IDs,
 literal repository-relative report paths, format (`junit` or `cobertura`), and
@@ -437,6 +719,15 @@ must separately verify update permissions, identity, artifact wiring, and UX.
 
 ## Incremental Implementation
 
+The implemented **Reviewed Commit Context** UX slice is independent of the model
+description and reporting slices. It adds only bounded provider-backed labels,
+pass-local persistence, and presentation changes; live acceptance remains open.
+
+The implemented **What Changed** description is an independent bounded follow-up to
+Slice 1, not a fourth reporting slice. It changes only the existing candidate
+call's descriptive output contract and deterministic propagation/presentation;
+it does not change finding-adjudication prompts or replace live acceptance.
+
 1. Persistent overview: versioned provider history, logical pass identity,
    create/update discovery, stale guards, legacy decoding, local-state/inline/
    projection-repair continuity, deterministic rendering, and paired offline tests.
@@ -471,4 +762,5 @@ artifact discovery, required hosted service, LLM stage, or merge gate is propose
   Do not add coverage adapters, trend storage, or cross-run analytics speculatively.
   Later format support requires demonstrated demand and separate acceptance.
 - Operator readability feedback evaluates the overview, not the review model's
-  precision. Keep model-quality evaluation and prompt changes separate.
+  precision. Keep finding-quality evaluation and adjudication-prompt changes
+  separate from the bounded descriptive-output follow-up.

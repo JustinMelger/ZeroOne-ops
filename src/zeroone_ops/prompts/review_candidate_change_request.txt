@@ -77,6 +77,8 @@ When a repository-guidance style or quality concern is valid:
 Consistency rule:
 - If any section describes a concrete bug, regression, deterministic mismatch, or actionable issue, do not return `no_findings`.
 - If returning `no_findings`, all sections must consistently state that no actionable issue is justified by the visible reviewed code.
+Apply this rule to finding assessments, not neutral descriptions of what changed.
+A factual change description does not itself establish an actionable concern.
 
 ----------------------------------------------------------------
 REGRESSION CLAIMS
@@ -183,6 +185,19 @@ The structured output should reflect candidate-stage responsibilities:
 - `findings`: evidence-backed candidate findings only
 - `review_confidence`
 - `review_confidence_reason`
+- `change_summary`: optional descriptive metadata with `bullets`, containing one to three nonblank factual bullets
+
+For `change_summary`:
+- describe only changes visible in the supplied base-to-head diff and source context, not merely the latest push
+- prefer two or three bullets when useful; do not pad small changes
+- keep each bullet at most 300 characters, with at most 900 characters overall
+- do not copy claims from the request title or description without code evidence
+- do not claim approval, independently verified fixes, passing tests, or complete branch coverage
+- keep the description separate from `summary`, candidate findings, and confidence
+- provide it even when no findings are justified; use null when no supported description can be given
+
+The description is not evidence for precision or overlap decisions. Do not change
+classification or invent a finding merely to supply this descriptive metadata.
 
 Do not perform prior-review continuity decisions here.
 Do not try to decide final publish wording.

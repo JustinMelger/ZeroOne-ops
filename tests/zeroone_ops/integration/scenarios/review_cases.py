@@ -68,7 +68,7 @@ def create_review_case(directory: Path, *, number: int, name: str) -> ReviewCase
     git(root, "checkout", "-b", f"review/request-{number}")
     source.write_text(after, encoding="utf-8")
     git(root, "add", REVIEW_PATH)
-    git(root, "commit", "-m", "Apply reconstructed review change")
+    git(root, "commit", "-m", f"Apply reconstructed review change {number}")
     head_sha = git(root, "rev-parse", "HEAD")
     diff = git(root, "diff", "--no-ext-diff", base_sha, head_sha, "--", REVIEW_PATH)
     diff = "\n".join(diff.splitlines()[4:])
@@ -87,7 +87,12 @@ def advance_review_case(previous: ReviewCase, *, after: str, finding: ReviewFind
     assert git(previous.root, "rev-parse", "HEAD") == previous.head_sha
     (previous.root / REVIEW_PATH).write_text(after, encoding="utf-8")
     git(previous.root, "add", REVIEW_PATH)
-    git(previous.root, "commit", "-m", "Advance offline review request")
+    git(
+        previous.root,
+        "commit",
+        "-m",
+        f"Advance offline request {previous.number} after {previous.head_sha[:7]}",
+    )
     head_sha = git(previous.root, "rev-parse", "HEAD")
     diff = git(
         previous.root, "diff", "--no-ext-diff", previous.base_sha, head_sha, "--", REVIEW_PATH

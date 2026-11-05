@@ -58,18 +58,63 @@ A repeated-review scenario advances one request through three actual commits:
 an undefined annotation, the same concern after line/wording changes, then its
 fix alongside a new undefined annotation in another function. The real prior-note
 loader and overlap service run with scripted SDK overlap responses. Tests verify
-latest-prior SHA selection, unresolved versus resolved/new outcomes, inline-comment
-reuse, independent published comments, bounded local history, and latest work-item
+latest-prior SHA selection, unresolved versus unmatched-prior/new outcomes, inline-comment
+reuse, successive passes in one overview, bounded local history, and latest work-item
 projection. A negative contract removes precision history and must fail before
 another review is published. These checks verify continuity wiring, not whether
 a real model correctly judges two findings to be equivalent.
+Unmatched prior findings are presented as not reported in this pass; the scripted
+overlap outcome does not establish source-backed resolution.
+Commit-label scenarios use real provider adapters over fake exact-SHA endpoints.
+Labels are checked against actual temporary Git commits and persisted pass/history
+metadata. Each fresh pass reads metadata once; same-SHA reuse, fresh-workspace
+recovery, projection repair, and deleted-overview restoration do not backfill it.
+An unavailable metadata endpoint preserves review publication with SHA-only
+presentation and no additional model calls. Commit labels stay out of prompts.
+What Changed descriptions are independently scripted for each request/head and
+checked in completed artifacts and native overview bodies. Precision and overlap
+must not receive the generated description. Scenarios retain descriptions through
+successive heads, fresh workspaces, same-SHA reuse, failure notices, projection
+repair, and restoration. Historical descriptions are not backfilled. These checks
+verify data flow and isolation, not whether a real model describes a diff well.
+
+Earlier Findings scenarios disable inline publication for the first accepted
+concern, then script a later pass that drops it. Both providers retain its full
+published evidence in a separate collapsed archive, not active findings or work-item
+projection. Same-SHA reuse, fresh-workspace hydration, projection repair, handled
+review failure, and deleted-overview restoration preserve the archive without
+extra model calls or inline comments. Unit tests additionally cover ten-entry
+retention, explicit eviction, reappearance, historical adoption, and payload bounds.
+Deletion followed by a new commit is also covered on both providers: cached
+history preserves earlier concerns and sequence numbering while only the new head
+is reviewed. Empty-cache recreation discloses unavailable history rather than
+inventing prior evidence. Neither path creates duplicate overviews or extra model
+stages.
 
 Same-SHA scenarios reuse either authoritative local state or a provider comment
 without additional model calls or review comments. The repair sequence injects
 a native issue-update failure after publication, repeats that failure on the
 same SHA, then repairs projection while preserving the original artifact and
-note. Both GitHub and GitLab use real lookup, rendering, projection, and state
+logical pass. Both GitHub and GitLab use real lookup, rendering, projection, and state
 persistence over fake HTTP.
+
+Persistent-overview scenarios discard local state to recover complete provider
+history, replace stale local cache from verified provider evidence, and repair
+pending projection from a fresh workspace. Six successive heads retain one
+overview, two complete artifacts, five summaries, and reused inline references.
+Deleted-comment recovery preserves the original logical receipt while repairing
+only its transport URL; review-action timestamps and queued revision evidence
+are not replaced. Handled execution failures preserve the earlier completed
+artifact and SHA, and a failed first review creates no overview. Scripted
+responses establish workflow behavior, not improved model precision.
+
+A GitHub installation-token scenario scripts the real REST `/user` 403 and
+authenticated GraphQL viewer response, then verifies publication and same-SHA
+reuse. Paired provider cases introduce duplicate, malformed, wrong-scope, or
+unavailable authority while projection repair is pending. They assert zero
+projection/comment writes and no additional model calls, then restore authority
+and verify successful repair. Another case introduces a conflict during prior
+context loading, before candidate generation. All responses remain offline.
 
 Negative contracts remove source or batch evidence, corrupt forwarded candidate
 evidence, substitute another checkout's context, and redirect publication. Each

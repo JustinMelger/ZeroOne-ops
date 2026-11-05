@@ -5,10 +5,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from zeroone_ops.models.analysis import RepositoryGuidanceContext, SemanticSafetyAssessment
 from zeroone_ops.models.batch_execution import BatchAttemptEvidence
+from zeroone_ops.models.review_change_summary import ReviewChangeSummary
 
 ReviewClassification = Literal["no_findings", "findings_present", "manual_review_only"]
 ReviewFindingSeverity = Literal["high", "medium", "low"]
@@ -66,6 +67,25 @@ class ChangeRequestReviewCandidate(BaseModel):
     author_username: str | None = None
     diff_refs: ChangeRequestDiffRefs | None = None
     changes: list[ChangeRequestChangedFile] = Field(default_factory=list)
+
+
+class ReviewInlineCommentDecision(BaseModel):
+    """Represent one bounded inline-comment decision for rollout diagnostics."""
+
+    finding_identity: str | None = None
+    severity: str
+    file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
+    region_hint: str | None = None
+    inline_comments_enabled: bool
+    location_trust: Literal["trusted", "weak", "untrusted"]
+    existing_inline_comment_found: bool
+    anchor_reuse_decision: Literal["reuse", "new", "summary_only"]
+    anchor_reuse_reason: str
+    authoritative_note_id: int | None = None
+    existing_comment_id: str | None = None
+    new_comment_id: str | None = None
 
 
 class ReviewComment(BaseModel):
@@ -191,6 +211,7 @@ class ChangeRequestReviewContext(BaseModel):
     prior_review_context: PriorReviewContext | None = None
     repository_guidance: list[RepositoryGuidanceContext] = Field(default_factory=list)
     changed_files: list[ReviewFileContext] = Field(default_factory=list)
+    review_scope_limited: bool = True
 
 
 class ReviewFinding(BaseModel):
@@ -218,6 +239,18 @@ class ReviewResult(BaseModel):
     review_confidence_reason: str | None = None
     findings: list[ReviewFinding] = Field(default_factory=list)
     follow_up_lines: list[str] = Field(default_factory=list)
+    change_summary: ReviewChangeSummary | None = None
+
+    @field_validator("change_summary", mode="before")
+    @classmethod
+    def normalize_change_summary(cls, value: object) -> ReviewChangeSummary | None:
+        """Omit unusable optional prose without masking invalid review findings."""
+        if value is None:
+            return None
+        try:
+            return ReviewChangeSummary.model_validate(value)
+        except ValidationError:
+            return None
 
 
 class DiffReference(BaseModel):
@@ -240,6 +273,7 @@ class CandidateReviewResult(BaseModel):
     """Represent the structured output of the candidate review stage."""
 
     findings: list[CandidateReviewFinding] = Field(default_factory=list)
+    change_summary: ReviewChangeSummary | None = None
 
 
 class CandidateAnnotation(BaseModel):
@@ -385,6 +419,8 @@ class PublishableReviewArtifact(BaseModel):
     findings: list[PublishableReviewFinding] = Field(default_factory=list)
     advisory_notes: list[str] = Field(default_factory=list)
     follow_up_lines: list[str] = Field(default_factory=list)
+    change_summary: ReviewChangeSummary | None = None
+    review_scope_limited: bool = True
 
     @classmethod
     def from_reconciled_decision(
@@ -394,6 +430,8 @@ class PublishableReviewArtifact(BaseModel):
         summary: str | None = None,
         review_confidence_reason: str | None = None,
         follow_up_lines: list[str] | None = None,
+        change_summary: ReviewChangeSummary | None = None,
+        review_scope_limited: bool = True,
     ) -> PublishableReviewArtifact:
         """Build a publish-shaped artifact without changing reconciled review meaning."""
         return cls(
@@ -427,6 +465,8 @@ class PublishableReviewArtifact(BaseModel):
                 for finding in decision.accepted_findings
             ],
             follow_up_lines=follow_up_lines or [],
+            change_summary=change_summary,
+            review_scope_limited=review_scope_limited,
         )
 
     def to_review_result(self) -> ReviewResult:
@@ -453,6 +493,7 @@ class PublishableReviewArtifact(BaseModel):
                 for finding in self.findings
             ],
             follow_up_lines=list(self.follow_up_lines),
+            change_summary=self.change_summary,
         )
 
 

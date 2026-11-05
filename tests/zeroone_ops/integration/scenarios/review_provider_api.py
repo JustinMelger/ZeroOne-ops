@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from .provider_api import ScenarioProviderAPI
+from .repository import git
 from .review_cases import REVIEW_PATH, ReviewCase
 
 
@@ -22,6 +23,10 @@ class ReviewProviderAPI:
     calls: list[tuple[str, str]] = field(default_factory=list)
     active_number: int | None = None
     published_heads: set[tuple[int, str]] = field(default_factory=set)
+    overview_writes: list[str] = field(default_factory=list)
+    comment_creations: dict[int, int] = field(default_factory=dict)
+    commit_calls: list[tuple[int, str]] = field(default_factory=list)
+    commit_status: int = 200
 
     def respond(self, request: httpx.Request) -> httpx.Response:
         """Fail hard even if production treats a transport boundary as best effort."""
@@ -48,6 +53,28 @@ class ReviewProviderAPI:
         assert request.url.path.startswith(prefix), "Wrong review repository/project scope"
         suffix = request.url.path.removeprefix(prefix)
         parts = suffix.split("/")
+        commit_prefix = ["git", "commits"] if github else ["repository", "commits"]
+        if len(parts) == 3 and parts[:2] == commit_prefix:
+            assert request.method == "GET", "Unexpected commit metadata write"
+            assert self.active_number in self.cases, "Missing active commit request"
+            case = self.cases[self.active_number]
+            assert parts[2] == case.head_sha, "Wrong reviewed commit SHA"
+            assert dict(request.url.params) == ({} if github else {"stats": "false"})
+            self.commit_calls.append((case.number, case.head_sha))
+            if self.commit_status != 200:
+                return httpx.Response(self.commit_status, json={"message": "Commit unavailable"})
+            url = f"https://provider.invalid/offline/application/commit/{case.head_sha}"
+            message = git(case.root, "show", "-s", "--format=%B", case.head_sha)
+            return httpx.Response(
+                200,
+                json={
+                    "sha": case.head_sha,
+                    "id": case.head_sha,
+                    "message": message,
+                    "html_url": url,
+                    "web_url": url,
+                },
+            )
         request_kind = "pulls" if github else "merge_requests"
         if parts[0] == request_kind and len(parts) >= 2:
             assert parts[1].isdigit() and int(parts[1]) in self.cases, "Unknown review request"
@@ -102,6 +129,7 @@ class ReviewProviderAPI:
             "target_branch": "main",
             "sha": case.head_sha,
             "state": "open" if self.work_items.platform == "github" else "opened",
+            "merged": False,
             "diff_refs": {
                 "base_sha": case.base_sha,
                 "start_sha": case.base_sha,
@@ -133,13 +161,13 @@ class ReviewProviderAPI:
                 line = int(str(fields["position[new_line]"]))
             assert line == case.finding.line_start, "Wrong inline finding location"
         else:
+            assert not notes, "Duplicate persistent review overview"
             identity = (case.number, case.head_sha)
-            assert identity not in self.published_heads, "Duplicate authoritative review comment"
             self.published_heads.add(identity)
         note_id = case.number * 100 + (
             len(self.inline_comments.get(case.number, [])) * 10 + 2
             if inline
-            else len(notes) * 10 + 1
+            else self.comment_creations.get(case.number, 0) * 10 + 1
         )
         note = {
             "id": note_id,
@@ -154,6 +182,8 @@ class ReviewProviderAPI:
             self.inline_comments.setdefault(case.number, []).append(note)
         else:
             notes[note_id] = note
+            self.comment_creations[case.number] = self.comment_creations.get(case.number, 0) + 1
+            self.overview_writes.append(str(fields["body"]))
         payload = (
             {"id": str(note_id), "notes": [note]}
             if inline and self.work_items.platform == "gitlab"
@@ -167,6 +197,7 @@ class ReviewProviderAPI:
         notes = self.comments[number]
         assert note_id in notes, "Cross-request review comment update"
         notes[note_id]["body"] = self._fields(request)["body"]
+        self.overview_writes.append(str(notes[note_id]["body"]))
         return httpx.Response(200, json=notes[note_id])
 
     def _fields(self, request: httpx.Request) -> dict[str, object]:

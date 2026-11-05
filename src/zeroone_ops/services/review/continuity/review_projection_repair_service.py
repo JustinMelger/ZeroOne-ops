@@ -5,7 +5,9 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol, cast
+from typing import TYPE_CHECKING, Protocol, TypedDict, cast
+
+import httpx
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
@@ -14,18 +16,31 @@ from zeroone_ops.models.review import (
     ReviewClassification,
 )
 from zeroone_ops.models.state import ChangeRequestReviewState
+from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 from zeroone_ops.services.review.context.review_context_builder import ReviewContextBuilder
 from zeroone_ops.services.review.continuity.review_continuity_context_service import (
     AUTHORITATIVE_REVIEW_CLASSIFICATIONS,
 )
 from zeroone_ops.services.review.publish.review_finalization_service import ReviewProjectionService
+from zeroone_ops.services.review.publish.review_overview_codec import ReviewOverviewError
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
+
+if TYPE_CHECKING:
+    from zeroone_ops.services.review.publish.review_overview_coordinator import (
+        ReviewOverviewCoordinator,
+    )
 
 
 class _ProjectionAction(Protocol):
     """Describe the existing result attribute consumed by repair logging."""
 
     action: str
+
+
+class _ProjectionReferenceKwargs(TypedDict, total=False):
+    """Keep the optional logical reference absent for legacy projection callers."""
+
+    review_pass_id: str
 
 
 class ReviewProjectionRepairService:
@@ -39,6 +54,7 @@ class ReviewProjectionRepairService:
         review_state_service: ReviewStateService,
         review_projection_factory: Callable[[], ReviewProjectionService | None],
         logger: logging.Logger,
+        overview_coordinator: ReviewOverviewCoordinator | None = None,
     ) -> None:
         """Retain a lazy factory without constructing provider dependencies."""
         self.repo_root = repo_root
@@ -46,6 +62,7 @@ class ReviewProjectionRepairService:
         self.review_state_service = review_state_service
         self.review_projection_factory = review_projection_factory
         self.logger = logger
+        self.overview_coordinator = overview_coordinator
 
     def retry_if_needed(
         self,
@@ -67,7 +84,38 @@ class ReviewProjectionRepairService:
             note_id=review_state.note_id,
             note_url=review_state.note_url,
             artifact=review_state.projection_artifact,
+            projection_reference=review_state.projection_reference,
         )
+        if self.overview_coordinator is not None and review_state.review_pass_id is not None:
+            try:
+                self.overview_coordinator.write_metadata(
+                    repository_id=repository_id,
+                    change_request_number=change_request.change_request_number,
+                    head_sha=change_request.head_sha,
+                    pass_id=review_state.review_pass_id,
+                    artifact=review_state.projection_artifact,
+                    inline_decisions=(
+                        review_state.overview_pass.inline_decisions
+                        if review_state.overview_pass is not None
+                        else None
+                    ),
+                    projection_pending=warning_message is not None,
+                    projection_warning=warning_message,
+                )
+            except (
+                ReviewOverviewError,
+                ReviewPlatformClientError,
+                httpx.HTTPError,
+                OSError,
+            ) as error:
+                metadata_warning = (
+                    f"Review projection warning: overview metadata repair failed: {error}"
+                )
+                warning_message = (
+                    f"{warning_message} {metadata_warning}"
+                    if warning_message is not None
+                    else metadata_warning
+                )
         self.review_state_service.update_projection_retry_state(
             change_request_number=change_request.change_request_number,
             head_sha=change_request.head_sha,
@@ -89,13 +137,14 @@ class ReviewProjectionRepairService:
         note_id: int | None,
         note_url: str | None,
         artifact: PublishableReviewArtifact | None = None,
+        projection_reference: str | None = None,
     ) -> str | None:
         """Retry projection only for one previously published same-SHA review."""
         if classification not in AUTHORITATIVE_REVIEW_CLASSIFICATIONS:
             return (
                 "Review projection warning: authoritative same-SHA classification was unavailable."
             )
-        if note_id is None and note_url is None:
+        if note_id is None and note_url is None and projection_reference is None:
             return "Review projection warning: persisted review note reference was unavailable."
         if artifact is None and classification == "findings_present":
             return (
@@ -112,6 +161,9 @@ class ReviewProjectionRepairService:
         projection_service = self.review_projection_factory()
         if projection_service is None:
             return None
+        reference_kwargs: _ProjectionReferenceKwargs = {}
+        if projection_reference is not None:
+            reference_kwargs["review_pass_id"] = projection_reference
         try:
             projection_result = projection_service.project_review(
                 repository_id=repository_id,
@@ -124,6 +176,7 @@ class ReviewProjectionRepairService:
                 reviewed_sha=context.head_sha,
                 review_note_id=note_id,
                 review_note_url=note_url,
+                **reference_kwargs,
             )
         except Exception as error:
             self.logger.warning(

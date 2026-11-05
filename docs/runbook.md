@@ -41,7 +41,7 @@ validation, and local Git push, including successful and exhausted correction.
 Review scenarios exercise real candidate/precision prompts, finding lineage,
 artifact publication, verified work-item projection, and isolation between
 requests using actual local base/head commits. Repeated reviews of one request
-exercise latest-comment loading, unresolved/resolved/new overlap decisions, and
+exercise latest-comment loading, unresolved/unmatched-prior/new overlap decisions, and
 inline-comment reuse across successive commits.
 Same-SHA scenarios cover persisted-state and provider-comment reuse, plus repeated
 projection failure followed by repair without another model call or review comment.
@@ -328,7 +328,7 @@ fails at analysis instead of trying to widen scope automatically.
 The review workflow is provider-native:
 
 - one merge request or pull request per run
-- one deterministic summary note per reviewed revision
+- one persistent bot-owned overview updated across reviewed revisions
 - dedup by change-request identity and head SHA
 - bounded GitHub inline comments when enabled in `review.inline_comments_enabled`
 - no code modification in the review workflow
@@ -345,6 +345,135 @@ model instructions, not a guarantee of review precision or a suppression filter.
 Both candidate generation and precision receive the same bounded remediation
 evidence. Batch attempt members are supplied only through verified work-item
 linkage and remain untrusted context, not proof that the findings were resolved.
+
+### Persistent Review Overview
+
+Slice 1 is implemented with automated offline verification; live GitHub/GitLab
+acceptance remains pending. Do not treat automated completion as rollout sign-off.
+Report collection, CI/JUnit evidence refresh, and Cobertura comparison
+remain proposed. With no configured reports, omit the quality section and show
+only a compact AI/CI disclaimer footer. Once reporting is configured, missing or
+invalid expected reports must remain visible rather than being silently omitted.
+The single heading is **Review Overview: Concern/Clear** (or the existing Block/
+Needs review verdict). Risk, confidence, active continuity counts,
+findings, and next action stay visible; expand **Review Details** for the exact
+reviewed head/base, workflow link, and earlier-review context.
+Below the result summary, **Reviewed commit** shows a seven-character linked SHA
+and the provider's commit title, shortened to 120 display characters when needed.
+The first message line is stored with the completed pass (at most 300 characters),
+not supplied to review models. Exact head/base identities remain in Review Details.
+If the exact-SHA lookup fails or metadata is missing, review continues with a
+short SHA; an unsafe browser link is omitted without discarding a usable title.
+Same-SHA reuse, fresh-workspace recovery, and projection repair reuse stored
+labels without metadata backfill. Historical passes can remain SHA-only.
+When present, **What Changed** appears next, before active findings. The existing
+candidate call supplies one to three descriptive bullets, each at most 300
+characters. These are model-provided descriptions of the supplied review context,
+not approval, test evidence, or proof that prior concerns were fixed. Scope
+filtering, excerpts, or unavailable patches add **Some changes may be omitted.**
+Invalid optional descriptions are omitted as a whole without discarding valid
+findings. Historical passes remain readable without the section, and same-SHA
+reuse, projection repair, and restoration do not backfill it.
+Use linked finding titles to open their self-contained inline discussions. The
+overview avoids repeating their impact; findings without a usable discussion link
+retain evidence, impact, and suggested follow-up directly in the overview.
+An earlier concern **not reported in this pass** has not been independently
+verified as fixed. Overlap compares finding lists, not current source code.
+Head drift, request closure, or failed request-state verification after inline
+publication withholds work-item projection while retaining pending evidence.
+
+The overview stores two complete completed-pass snapshots (current and previous)
+and at most five completed-pass summaries including the current pass. Older rows
+are summary-only, not artifacts for continuity or projection repair. These bounds
+are independent of `review.max_prior_review_passes`, including zero; increasing
+model context cannot reconstruct evicted provider artifacts. History is bounded,
+not an unlimited audit trail. Legacy review comments remain untouched.
+
+The collapsed **Earlier Findings** section separately retains up to ten distinct
+overview-only concerns not reported by the current artifact. Each entry keeps
+its published evidence, impact, suggested follow-up, location, last reported SHA,
+and available workflow link. **Resolution not verified** means exactly that;
+these are not added to active counts or sent back into model or remediation
+decisions. An exact-identity reappearance is shown only in current findings.
+Optional workflow, commit, discussion, and work-item URLs use shared HTTP(S)
+validation. Malformed or unsafe links are unavailable presentation metadata, not
+review failures: labels remain escaped text, unusable discussion links retain
+full finding reasoning, and invalid work-item links do not advertise requeue
+routing. Original serialized evidence remains unchanged. Earlier Findings uses
+the same link check before deciding that an inline discussion preserves a concern.
+Retention follows the most recently reported sequence, then identity, not the
+number of later clean reviews. A cumulative notice discloses eviction beyond ten;
+eviction is not resolution. Earlier findings survive normal reuse, fresh-workspace
+hydration, projection repair, and deleted-overview restoration from cached evidence.
+Older envelopes can supply only their retained complete snapshots; summary-only
+rows and already-evicted artifacts cannot reconstruct earlier evidence. There is
+no scan of historical workflows/comments or automatic remote rewrite.
+The complete 60,000-byte body limit still applies: oversized archives fail the
+write rather than dropping factual evidence to fit.
+
+Deleting an overview does not require a same-SHA rerun before the next commit:
+new-head publication can recover bounded prior snapshots and Earlier Findings
+from the local cache, after checking each original pass identity against the
+platform, repository, request number, head, and original run. Confirmed provider
+absence is required; inaccessible, malformed, or ambiguous authority does not
+authorize cached replacement. An existing provider overview wins over cache.
+Publication still verifies the current open request/head and checks absence
+again before creating the new overview. Without trustworthy cached history, the
+review may proceed, but collapsed history states that deleted history, if any,
+could not be fully recovered. The same disclosure applies when only partial
+cached history is available; it is not a claim that earlier concerns were resolved.
+
+A handled failed attempt may update a separate bounded notice on an existing
+verified overview. The last completed artifact, verdict, and reviewed SHA remain
+intact; the attempted SHA is not labeled reviewed. Without a prior overview, use
+ordinary run failure reporting, not a new execution-status comment.
+
+Only an authenticated configured bot author with a valid request-matching machine
+envelope authorizes mutation. Human/foreign-bot markers do not authorize writes.
+Duplicate verified overviews, malformed managed markers, or scope mismatches stop
+publication rather than selecting a convenient comment. Discovery must succeed
+before creation; inaccessible history is not proof of absence. Keep operator
+discussion in replies or separate comments: the entire overview body is managed.
+
+GitHub user tokens resolve identity through REST `/user`. When that endpoint
+returns 403, installation tokens such as the workflow's `GITHUB_TOKEN` use the
+authenticated GraphQL `viewer { login }` query with the same credentials. This is
+an identity read, not a model request or a mutation. It requires no additional
+operator setting or broader workflow permissions. Identity is never inferred
+from `GITHUB_ACTOR`, comment text, or a hard-coded bot username. Failed or partial
+viewer responses do not authorize writes.
+The viewer query is documented in
+[GitHub's installation authentication guidance](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation).
+
+Duplicate, malformed, or wrong-scope managed overviews stop cached and legacy
+reuse as well as projection repair. If discovery is temporarily unavailable,
+cached evidence can support read-only reuse, but live pending repair is withheld
+until authority can be verified. Pending evidence remains intact for a later
+rerun; dry runs do not execute repairs.
+If a conflict is detected after initial publication, retain the completed review
+and actual inline receipts but withhold work-item projection and further metadata
+writes. A later verified rerun can finish the pending projection.
+
+Before writing, re-read the overview and open request head and verify the pinned
+review SHA. Preserve CI serialization: the GitHub example uses repository/request
+concurrency without canceling an active publisher; GitLab retains its review
+resource group. This is read-before-write protection, not provider CAS; another
+writer outside that serialization can still race. An uncertain create requires
+rediscovery before another write, never blind comment creation.
+
+The whole serialized body, including machine evidence and publication/repair
+metadata, must fit a 60,000 UTF-8 byte application budget. Declared history trimming
+comes first; required complete artifacts are not silently truncated. An oversized
+write fails with a bounded diagnostic and leaves the previous provider body in
+place. There is no overflow comment. Inline or metadata synchronization failures
+retain warnings and local repair evidence; a fresh workspace cannot recover
+metadata that never reached provider storage. Projection repair remains separate
+from review publication and must not republish inline discussions.
+
+Keep review as one final consuming stage after existing unit/integration jobs and
+optional coverage aggregation, without running their commands inside review.
+Report handoff wiring belongs to later slices; do not add speculative manifests,
+report configuration, or early-review/late-refresh jobs now.
 
 The control plane includes scheduled lifecycle reconciliation:
 
@@ -1371,7 +1500,7 @@ Start with one merge request that:
    - review classification
    - note publication
 5. open the target merge request
-6. verify there is one deterministic AI review summary note
+6. verify there is one managed AI review overview
 7. confirm the note is clearly one of:
    - findings present
    - no findings in this pass
@@ -1383,7 +1512,7 @@ Start with one merge request that:
 A successful review smoke test should produce:
 
 - one selected merge request
-- one deterministic summary note
+- one managed overview (changed-head reviews update the same comment)
 - a persisted reviewed revision keyed by MR IID and head SHA
 - a clean skip on immediate rerun when the head SHA is unchanged
 
@@ -1406,7 +1535,19 @@ The example is intentionally scoped to review only:
 
 - GitHub pull request trigger
 - summary-comment publication
+- repository/request-scoped concurrency without canceling an active publication
 - no remediation or control-plane workflow yet
+
+Retry with GitHub's rerun action on the PR-triggered job. Existing manual dispatch
+does not select a pull request and uses an isolated run lock, not a request lock.
+Use the same request concurrency group for any additional
+publisher targeting that request. GitHub concurrency is not a FIFO run queue;
+stale-head guards still decide whether a queued run may publish.
+
+Permissions remain `contents: read`, `issues: write`, and `pull-requests: write`;
+do not switch to `pull_request_target` or execute remediation setup/validation to
+enable overview updates. Fork-token limitations still apply. In a larger workflow,
+keep one final review invocation after producer jobs, not a second refresh job.
 
 Current config note:
 

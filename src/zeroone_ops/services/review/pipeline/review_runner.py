@@ -8,6 +8,7 @@ from pathlib import Path
 
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
+    ChangeRequestReviewCandidate,
     ReviewResult,
 )
 from zeroone_ops.models.state import (
@@ -20,7 +21,11 @@ from zeroone_ops.models.state import (
     ReviewRunDiagnostics,
     RunRecord,
 )
-from zeroone_ops.providers.review.platform import ChangeRequestReviewPlatformProtocol
+from zeroone_ops.providers.review.platform import (
+    ChangeRequestReviewPlatformProtocol,
+    ReviewPlatformClientError,
+)
+from zeroone_ops.services.observability.workflow_trace_service import workflow_execution_url
 from zeroone_ops.services.review.context.remediation_review_context_resolver import (
     RemediationReviewContextResolver,
 )
@@ -55,6 +60,10 @@ from zeroone_ops.services.review.publish.review_finalization_service import (
     ReviewFinalizationService,
     ReviewProjectionService,
 )
+from zeroone_ops.services.review.publish.review_overview_codec import ReviewOverviewError
+from zeroone_ops.services.review.publish.review_overview_coordinator import (
+    ReviewOverviewCoordinator,
+)
 from zeroone_ops.services.review.publish.review_publisher import ReviewPublisher
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
@@ -86,6 +95,11 @@ class ReviewRunner:
         self.continuity_context_service = continuity_context_service
         self.projection_repair_service = projection_repair_service
         self.review_projection_factory = review_projection_factory
+        self.overview_coordinator = ReviewOverviewCoordinator(
+            review_client,
+            config.platform,
+            cached_review_loader=review_state_service.overview_recovery_candidates,
+        )
 
     def run(
         self,
@@ -120,11 +134,24 @@ class ReviewRunner:
                 message=f"[{self.config.execution_mode}] {intake_result.message}",
             )
 
-        existing_review = self.continuity_context_service.load_same_sha_review_reference(
-            run_id=run_id,
-            repository_id=repository_id,
-            change_request=selected_change_request,
-        )
+        try:
+            existing_review = self.continuity_context_service.load_same_sha_review_reference(
+                run_id=run_id,
+                repository_id=repository_id,
+                change_request=selected_change_request,
+                active_dry_run=active_dry_run,
+            )
+        except (ReviewOverviewError, ReviewPlatformClientError) as error:
+            return self._fail_review(
+                repository_id=repository_id,
+                change_request=selected_change_request,
+                active_dry_run=active_dry_run,
+                record=record,
+                error_message=(
+                    f"[{self.config.execution_mode}] Review overview unavailable: {error}"
+                ),
+                failure=FailureDetails(stage=FailureStage.REVIEW_PUBLISH, message=str(error)),
+            )
         if existing_review is not None:
             same_sha_state = self.review_state_service.state.reviews.get(
                 f"{selected_change_request.change_request_number}:{selected_change_request.head_sha}"
@@ -174,7 +201,10 @@ class ReviewRunner:
             selected_change_request,
         )
         if context_result.context is None:
-            return self.review_state_service.fail_review(
+            return self._fail_review(
+                repository_id=repository_id,
+                change_request=selected_change_request,
+                active_dry_run=active_dry_run,
                 record=record,
                 error_message=f"[{self.config.execution_mode}] {context_result.message}",
                 failure=FailureDetails(
@@ -183,12 +213,24 @@ class ReviewRunner:
                 ),
             )
         context = context_result.context
-        prior_review_context = self.continuity_context_service.load_prior_review_context(
-            run_id=run_id,
-            repository_id=repository_id,
-            change_request_number=selected_change_request.change_request_number,
-            current_head_sha=selected_change_request.head_sha,
-        )
+        try:
+            prior_review_context = self.continuity_context_service.load_prior_review_context(
+                run_id=run_id,
+                repository_id=repository_id,
+                change_request_number=selected_change_request.change_request_number,
+                current_head_sha=selected_change_request.head_sha,
+            )
+        except (ReviewOverviewError, ReviewPlatformClientError) as error:
+            return self._fail_review(
+                repository_id=repository_id,
+                change_request=selected_change_request,
+                active_dry_run=active_dry_run,
+                record=record,
+                error_message=(
+                    f"[{self.config.execution_mode}] Review overview unavailable: {error}"
+                ),
+                failure=FailureDetails(stage=FailureStage.REVIEW_PUBLISH, message=str(error)),
+            )
         if prior_review_context is not None:
             context = context.model_copy(update={"prior_review_context": prior_review_context})
         if not active_dry_run:
@@ -215,7 +257,10 @@ class ReviewRunner:
 
         candidate_stage_result = ReviewCandidateGenerationService(self.config).analyze(context)
         if candidate_stage_result.raw_review_result is None:
-            return self.review_state_service.fail_review(
+            return self._fail_review(
+                repository_id=repository_id,
+                change_request=selected_change_request,
+                active_dry_run=active_dry_run,
                 record=record,
                 error_message=f"[{self.config.execution_mode}] {candidate_stage_result.message}",
                 failure=FailureDetails(
@@ -258,6 +303,8 @@ class ReviewRunner:
             artifact_result = ReviewArtifactBuilder().build(
                 reconciled_decision=reconciliation_result.reconciled_decision,
                 overlap_result=overlap_result,
+                change_summary=reconciliation_result.change_summary,
+                review_scope_limited=context.review_scope_limited,
             )
         publish_artifact = None
         if artifact_result is not None:
@@ -343,7 +390,10 @@ class ReviewRunner:
             )
 
         if artifact_result is None:
-            return self.review_state_service.fail_review(
+            return self._fail_review(
+                repository_id=repository_id,
+                change_request=selected_change_request,
+                active_dry_run=active_dry_run,
                 record=record,
                 error_message=(
                     f"[{self.config.execution_mode}] Review artifact build failed before publish."
@@ -355,7 +405,10 @@ class ReviewRunner:
             )
 
         if publish_artifact is None:  # pragma: no cover - defensive typing guard
-            return self.review_state_service.fail_review(
+            return self._fail_review(
+                repository_id=repository_id,
+                change_request=selected_change_request,
+                active_dry_run=active_dry_run,
                 record=record,
                 error_message=(
                     f"[{self.config.execution_mode}] "
@@ -368,8 +421,12 @@ class ReviewRunner:
             )
 
         finalization_result = ReviewFinalizationService(
-            review_publisher=ReviewPublisher(self.review_client),
+            review_publisher=ReviewPublisher(
+                self.review_client, overview_coordinator=self.overview_coordinator
+            ),
             review_projection_factory=self.review_projection_factory,
+            overview_coordinator=self.overview_coordinator,
+            workflow_url=workflow_execution_url(),
         ).finalize(
             run_id=run_id,
             repository_id=repository_id,
@@ -380,7 +437,10 @@ class ReviewRunner:
             inline_comment_decisions=inline_comment_continuity_result.decisions,
         )
         if finalization_result.error_message is not None:
-            return self.review_state_service.fail_review(
+            return self._fail_review(
+                repository_id=repository_id,
+                change_request=selected_change_request,
+                active_dry_run=active_dry_run,
                 record=record,
                 error_message=(
                     f"[{self.config.execution_mode}] {finalization_result.error_message}"
@@ -422,8 +482,12 @@ class ReviewRunner:
             artifact=publish_artifact,
             note_id=note_id,
             note_url=note_url,
-            projection_retry_pending=projection_warning is not None,
-            projection_retry_warning=projection_warning,
+            projection_retry_pending=finalization_result.projection_retry_pending,
+            projection_retry_warning=finalization_result.projection_retry_warning,
+            review_pass_id=finalization_result.review_pass_id,
+            projection_reference=finalization_result.review_pass_id,
+            overview_pass=finalization_result.overview_pass,
+            earlier_findings=finalization_result.earlier_findings,
             dry_run=active_dry_run,
         )
         return RunSummary(
@@ -443,6 +507,35 @@ class ReviewRunner:
                 )
             ),
             state_path=summary.state_path,
+        )
+
+    def _fail_review(
+        self,
+        *,
+        repository_id: str,
+        change_request: ChangeRequestReviewCandidate,
+        active_dry_run: bool,
+        record: RunRecord,
+        error_message: str,
+        failure: FailureDetails,
+    ) -> RunSummary:
+        """Persist the failure after a best-effort notice that cannot create review authority."""
+        if not active_dry_run:
+            try:
+                self.overview_coordinator.record_failure(
+                    repository_id=repository_id,
+                    change_request_number=change_request.change_request_number,
+                    head_sha=change_request.head_sha,
+                    message=(
+                        f"Review of {change_request.head_sha} failed during {failure.stage.value}. "
+                        "The earlier completed review and its reviewed commit are unchanged. "
+                        "See the workflow logs for failure details."
+                    ),
+                )
+            except (ReviewOverviewError, ReviewPlatformClientError):
+                LOGGER.warning("review overview execution notice could not be synchronized")
+        return self.review_state_service.fail_review(
+            record=record, error_message=error_message, failure=failure
         )
 
 

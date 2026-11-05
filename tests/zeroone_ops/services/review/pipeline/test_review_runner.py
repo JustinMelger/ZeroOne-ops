@@ -1,14 +1,16 @@
-"""Verify review-context lookup remains outside skipped and dry-run routes."""
+"""Verify review routing and verified overview publication."""
 
 from unittest.mock import Mock
 
 import pytest
 
+from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.config import AppConfig
 from zeroone_ops.models.review import (
     ChangeRequestChangedFile,
     ChangeRequestReviewCandidate,
     PrecisionReviewDecision,
+    ReviewComment,
     ReviewResult,
 )
 from zeroone_ops.models.state import ChangeRequestReviewState, FailureStage, RunStatus
@@ -28,13 +30,16 @@ from zeroone_ops.services.review.pipeline.review_reconciliation_service import (
     ReviewReconciliationService,
 )
 from zeroone_ops.services.review.pipeline.review_runner import LOGGER, ReviewRunner
+from zeroone_ops.services.review.publish.review_overview_codec import decode_overview
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.state_store import StateStore
 
 
 @pytest.mark.parametrize("platform", ["github", "gitlab"])
-@pytest.mark.parametrize("mode", ["dry_run", "no_selection", "context_failure", "same_sha"])
-def test_review_routes_skip_verified_context_lookup(tmp_path, monkeypatch, platform, mode):
+@pytest.mark.parametrize(
+    "mode", ["dry_run", "no_selection", "context_failure", "same_sha", "publish"]
+)
+def test_review_routes_limit_verified_context_lookup(tmp_path, monkeypatch, platform, mode):
     monkeypatch.chdir(tmp_path)
     config = AppConfig.model_validate(
         {
@@ -66,9 +71,37 @@ def test_review_routes_skip_verified_context_lookup(tmp_path, monkeypatch, platf
     )
     client = Mock()
     client.get_change_request.return_value = change
-    client.list_change_request_comments.return_value = []
+    comments: list[ReviewComment] = []
+    client.list_change_request_comments.side_effect = lambda **kwargs: list(comments)
     client.get_current_user_username.return_value = "bot"
     client.allows_machine_safe_comment_fallback.return_value = False
+    if mode == "publish":
+        client.get_change_request_state.return_value = ChangeRequestState(
+            iid=9,
+            state="opened",
+            source_branch="fix",
+            web_url=change.web_url,
+            head_sha=change.head_sha,
+        )
+
+        def create_comment(**kwargs) -> ReviewComment:
+            note = ReviewComment(
+                id=101,
+                web_url=f"{change.web_url}#note-101",
+                body=kwargs["body"],
+                author_username="bot",
+            )
+            comments.append(note)
+            return note
+
+        def update_comment(**kwargs) -> ReviewComment:
+            assert kwargs["note_id"] == comments[0].id
+            note = comments[0].model_copy(update={"body": kwargs["body"]})
+            comments[0] = note
+            return note
+
+        client.create_change_request_comment.side_effect = create_comment
+        client.update_change_request_comment.side_effect = update_comment
     store = StateStore(
         tmp_path / "state.json",
         base_branch="main",
@@ -95,7 +128,11 @@ def test_review_routes_skip_verified_context_lookup(tmp_path, monkeypatch, platf
     )
     for stage in (ReviewCandidateGenerationService, ReviewReconciliationService):
         monkeypatch.setattr(stage, "_build_llm_client", lambda self: model)
-    lookup = Mock(side_effect=AssertionError("Verified context lookup must not run"))
+    lookup = (
+        Mock(return_value=None)
+        if mode == "publish"
+        else Mock(side_effect=AssertionError("Verified context lookup must not run"))
+    )
     runner = ReviewRunner(
         repo_root=tmp_path,
         config=config,
@@ -126,18 +163,41 @@ def test_review_routes_skip_verified_context_lookup(tmp_path, monkeypatch, platf
         active_dry_run=mode == "dry_run",
     )
 
-    lookup.assert_not_called()
+    if mode == "publish":
+        lookup.assert_called_once_with("org/repo", 9)
+    else:
+        lookup.assert_not_called()
     expected = {
         "dry_run": RunStatus.REVIEWED,
         "same_sha": RunStatus.REVIEWED,
         "context_failure": RunStatus.FAILED,
         "no_selection": RunStatus.NO_ISSUE,
+        "publish": RunStatus.REVIEWED,
     }
     assert summary.status == expected[mode]
     if mode == "context_failure":
         assert state_service.state.runs[-1].failure.stage == FailureStage.REVIEW_CONTEXT
     if mode == "same_sha":
         assert "No new changes after the last review" in summary.message
-    client.create_change_request_comment.assert_not_called()
-    client.update_change_request_comment.assert_not_called()
+    if mode == "publish":
+        client.create_change_request_comment.assert_called_once()
+        assert client.update_change_request_comment.called
+        client.get_change_request_state.assert_called_with(
+            repository_id="org/repo", change_request_number=9
+        )
+        assert len(comments) == 1
+        envelope = decode_overview(comments[0].body)
+        assert envelope is not None
+        assert envelope.platform == platform
+        assert envelope.repository_id == "org/repo"
+        assert envelope.change_request_number == 9
+        assert envelope.complete_passes[0].head_sha == "current"
+        assert envelope.complete_passes[0].artifact.classification == "no_findings"
+        assert state_service.state.reviews["9:current"].review_pass_id == (
+            envelope.complete_passes[0].pass_id
+        )
+        assert "could not be synchronized" not in summary.message
+    else:
+        client.create_change_request_comment.assert_not_called()
+        client.update_change_request_comment.assert_not_called()
     client.create_change_request_inline_comment.assert_not_called()

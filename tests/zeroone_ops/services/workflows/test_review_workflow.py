@@ -9,6 +9,9 @@ from zeroone_ops.services.review.context.remediation_review_context_resolver imp
     RemediationReviewContextResolver,
 )
 from zeroone_ops.services.review.pipeline.review_runner import LOGGER as REVIEW_LOGGER
+from zeroone_ops.services.review.publish.review_overview_coordinator import (
+    ReviewOverviewCoordinator,
+)
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.workflows.provider_workflow_builders import (
     build_review_projection_factory,
@@ -95,6 +98,11 @@ def test_review_forwards_github_runtime_and_dry_run(tmp_path: Path, monkeypatch)
         is captured["init"]["review_projection_factory"]
     )
     assert captured["init"]["continuity_context_service"].logger is REVIEW_LOGGER
+    coordinator = captured["init"]["continuity_context_service"].overview_coordinator
+    assert isinstance(coordinator, ReviewOverviewCoordinator)
+    assert captured["init"]["projection_repair_service"].overview_coordinator is coordinator
+    assert coordinator.client is captured["init"]["review_client"]
+    assert coordinator.platform == "github"
     settings.assert_not_called()
     assert captured["run"] == {
         "repository_id": "octo-org/octo-repo",
@@ -154,6 +162,11 @@ def test_review_forwards_gitlab_runtime_without_dashboard_dependencies(
     workflow.run()
     settings.assert_not_called()
     assert captured["init"]["remediation_context_resolver"].logger is REVIEW_LOGGER
+    coordinator = captured["init"]["continuity_context_service"].overview_coordinator
+    assert isinstance(coordinator, ReviewOverviewCoordinator)
+    assert captured["init"]["projection_repair_service"].overview_coordinator is coordinator
+    assert coordinator.client is review_client
+    assert coordinator.platform == "gitlab"
     assert (
         captured["init"]["projection_repair_service"].review_projection_factory
         is captured["init"]["review_projection_factory"]

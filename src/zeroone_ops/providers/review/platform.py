@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.review import (
     ChangeRequestReviewCandidate,
     ReviewComment,
 )
+from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
 
 
 class ReviewPlatformClientError(RuntimeError):
@@ -89,3 +91,14 @@ class ChangeRequestReviewPlatformProtocol(
     Protocol,
 ):
     """Aggregate review protocol for the current Phase 1 runner boundary."""
+
+    def get_reviewed_commit(self, *, repository_id: str, head_sha: str) -> ReviewedCommitMetadata:
+        """Read presentation metadata for an exact commit without fetching its diff."""
+
+    def get_change_request_state(
+        self,
+        *,
+        repository_id: str,
+        change_request_number: int,
+    ) -> ChangeRequestState:
+        """Fetch current change-request state without loading changed files."""

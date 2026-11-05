@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from zeroone_ops.models.review import (
+    ChangeRequestDiffRefs,
     ChangeRequestReviewCandidate,
     PrecisionAcceptedFinding,
     PrecisionReviewDecision,
@@ -8,7 +9,9 @@ from zeroone_ops.models.review import (
     PriorReviewInlineComment,
     PublishableReviewArtifact,
     PublishableReviewFinding,
+    ReviewInlineCommentDecision,
 )
+from zeroone_ops.models.review_overview import ReviewOverviewPass
 from zeroone_ops.models.state import (
     AppState,
     ChangeRequestReviewState,
@@ -37,6 +40,88 @@ def build_change_request() -> ChangeRequestReviewCandidate:
         web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
         head_sha="abc123",
     )
+
+
+def test_completed_local_snapshot_retains_original_provenance_and_tracks_repair(tmp_path):
+    store = StateStore(
+        tmp_path / "state.json",
+        base_branch="main",
+        gitlab_project_id=None,
+        sonarqube_project_key=None,
+    )
+    service = ReviewStateService(state_store=store, state=build_state(), max_prior_review_passes=0)
+    artifact = build_artifact()
+    artifact.findings[0].inline_comment = PriorReviewInlineComment(
+        comment_id="actual-inline",
+        status="published",
+        anchor_file_path="src/service.py",
+        anchor_line_start=10,
+    )
+    snapshot = ReviewOverviewPass(
+        pass_id="original-pass",
+        run_id="original-run",
+        head_sha="abc123",
+        sequence=7,
+        completed_at=datetime(2026, 1, 1, tzinfo=UTC),
+        diff_refs=ChangeRequestDiffRefs(base_sha="base", start_sha="start", head_sha="abc123"),
+        artifact=artifact,
+        projection_reference="logical-reference",
+        inline_decisions=[
+            ReviewInlineCommentDecision(
+                finding_identity=artifact.findings[0].stable_identity,
+                severity="medium",
+                file_path="src/service.py",
+                inline_comments_enabled=True,
+                location_trust="trusted",
+                existing_inline_comment_found=False,
+                anchor_reuse_decision="new",
+                anchor_reuse_reason="New finding",
+                new_comment_id="actual-inline",
+            )
+        ],
+    )
+    record = service.start_run("current-run")
+    service.mark_reviewed(
+        record=record,
+        change_request=build_change_request(),
+        artifact=artifact,
+        note_id=11,
+        note_url="https://note",
+        overview_pass=snapshot,
+        projection_retry_pending=True,
+        projection_retry_warning="Pending metadata",
+        dry_run=False,
+    )
+    persisted = store.load().reviews["17:abc123"]
+    assert persisted.overview_pass.run_id == "original-run"
+    assert persisted.overview_pass.sequence == 7
+    assert persisted.overview_pass.completed_at == snapshot.completed_at
+    assert persisted.overview_pass.diff_refs == snapshot.diff_refs
+    assert persisted.review_pass_id == "original-pass"
+    assert persisted.projection_reference == "logical-reference"
+    assert persisted.overview_pass.projection_pending
+    assert persisted.overview_pass.projection_warning == "Pending metadata"
+    assert persisted.projection_retry_pending
+    assert persisted.projection_retry_warning == "Pending metadata"
+    assert persisted.overview_pass.artifact.findings[0].inline_comment.comment_id == "actual-inline"
+    assert persisted.overview_pass.inline_decisions == snapshot.inline_decisions
+    assert persisted.findings[0].inline_comment.comment_id == "actual-inline"
+    artifact.findings[0].title = "Caller mutation"
+    assert (
+        service.state.reviews["17:abc123"].overview_pass.artifact.findings[0].title
+        != artifact.findings[0].title
+    )
+    service.update_projection_retry_state(
+        change_request_number=17,
+        head_sha="abc123",
+        last_run_id="repair",
+        pending=False,
+        warning=None,
+    )
+    repaired = store.load().reviews["17:abc123"].overview_pass
+    assert repaired.run_id == "original-run"
+    assert not repaired.projection_pending
+    assert repaired.projection_warning is None
 
 
 def build_artifact() -> PublishableReviewArtifact:
@@ -82,12 +167,16 @@ def test_mark_reviewed_persists_review_revision(tmp_path) -> None:
         note_url="https://gitlab.example.com/group/project/-/merge_requests/17#note_55",
         projection_retry_pending=True,
         projection_retry_warning="Review projection warning: projection boom",
+        review_pass_id="logical-pass",
+        projection_reference="logical-reference",
         dry_run=False,
     )
 
     assert summary.status == RunStatus.REVIEWED
     loaded = store.load()
     assert loaded.reviews["17:abc123"].status == "findings_present"
+    assert loaded.reviews["17:abc123"].review_pass_id == "logical-pass"
+    assert loaded.reviews["17:abc123"].projection_reference == "logical-reference"
     assert loaded.reviews["17:abc123"].findings_count == 1
     assert loaded.reviews["17:abc123"].summary == "One finding."
     assert loaded.reviews["17:abc123"].follow_up_lines == [
