@@ -222,6 +222,14 @@ not reduce retention or truncate authority to accommodate it. Existing ownership
 discovery, publication ordering, logical identities, and provider transport remain
 unchanged. No report schema, operator setting, command, or migration is added.
 
+Shared overview link validation treats malformed URLs, invalid authorities/ports,
+credentials, controls, and non-HTTP(S) schemes as unavailable display metadata.
+Parsing failures degrade to escaped labels rather than aborting rendering. The
+same predicate controls inline reasoning visibility, recovery-command links, and
+Earlier Findings' durable-discussion check. Unusable inline links preserve full
+reasoning and archive eligibility; original stored URLs and accepted artifacts
+are not rewritten. Complete serialized payload checks remain authoritative.
+
 This bounded follow-up includes the model/prompt-output contract and normalization,
 artifact propagation and historical defaults, then shared rendering and tests.
 Keep candidate/precision/overlap call counts unchanged. Verify summary presence

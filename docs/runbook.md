@@ -395,6 +395,12 @@ its published evidence, impact, suggested follow-up, location, last reported SHA
 and available workflow link. **Resolution not verified** means exactly that;
 these are not added to active counts or sent back into model or remediation
 decisions. An exact-identity reappearance is shown only in current findings.
+Optional workflow, commit, discussion, and work-item URLs use shared HTTP(S)
+validation. Malformed or unsafe links are unavailable presentation metadata, not
+review failures: labels remain escaped text, unusable discussion links retain
+full finding reasoning, and invalid work-item links do not advertise requeue
+routing. Original serialized evidence remains unchanged. Earlier Findings uses
+the same link check before deciding that an inline discussion preserves a concern.
 Retention follows the most recently reported sequence, then identity, not the
 number of later clean reviews. A cumulative notice discloses eviction beyond ten;
 eviction is not resolution. Earlier findings survive normal reuse, fresh-workspace

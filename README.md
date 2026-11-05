@@ -307,6 +307,8 @@ request-scoped cached evidence can preserve its earlier findings and reporting
 sequence. An existing provider overview always takes precedence. Collapsed history
 discloses when earlier history could not be fully recovered; no old findings are
 invented from missing evidence.
+Malformed optional browser links fall back to escaped text without blocking the
+overview. An unusable inline link keeps the finding's full reasoning visible.
 
 Writes require verified bot ownership, exact request scope, and a fresh read of
 the overview and open request head. CI serialization reduces races but is not

@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import html
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote
 
 from zeroone_ops.models.review_overview import EarlierReviewFindings, ReviewOverviewEnvelope
 from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
 from zeroone_ops.services.control_plane.review_projection import (
     review_feedback_projection_decision_service as feedback_projection,
 )
+from zeroone_ops.services.review.publish.review_links import is_browser_url
 from zeroone_ops.services.review.publish.review_overview_codec import (
     encode_overview,
     validate_overview_payload,
@@ -30,7 +31,7 @@ def escape_overview_text(value: str) -> str:
 
 
 def _link(label: str, url: str | None) -> str:
-    if url is None or urlsplit(url).scheme not in {"https", "http"}:
+    if url is None or not is_browser_url(url):
         return escape_overview_text(label)
     return f"[{escape_overview_text(label)}]({quote(url, safe=':/?=&%#')})"
 
@@ -154,7 +155,7 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
         title = f"{finding.severity.capitalize()} - {finding.title} ({location})"
         inline_url = None if finding.inline_comment is None else finding.inline_comment.comment_url
         lines.extend(["", f"{index}. {_link(title, inline_url)}"])
-        if inline_url is None or urlsplit(inline_url).scheme not in {"https", "http"}:
+        if not is_browser_url(inline_url):
             lines.extend(
                 [
                     f"   Evidence: {escape_overview_text(finding.evidence)}",
@@ -172,8 +173,7 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
         "no_findings": "Check independent validation and human review before merging.",
     }[artifact.classification]
     if (
-        current.verified_work_item_url
-        and urlsplit(current.verified_work_item_url).scheme in {"http", "https"}
+        is_browser_url(current.verified_work_item_url)
         and feedback_projection.build_projected_review_feedback(artifact) is not None
     ):
         next_action += (

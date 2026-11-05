@@ -1,13 +1,12 @@
 """Preserve overview-only evidence without making continuity or resolution decisions."""
 
-from urllib.parse import urlsplit
-
 from zeroone_ops.models.review import PublishableReviewArtifact, PublishableReviewFinding
 from zeroone_ops.models.review_overview import (
     EarlierReviewFinding,
     EarlierReviewFindings,
     ReviewOverviewEnvelope,
 )
+from zeroone_ops.services.review.publish.review_links import is_browser_url
 from zeroone_ops.utils.review_finding_identity import build_review_finding_identity
 
 
@@ -19,21 +18,11 @@ def finding_visibility_identity(finding: PublishableReviewFinding) -> str:
 def _has_published_link(finding: PublishableReviewFinding) -> bool:
     """Require a usable durable discussion before omitting overview-only evidence."""
     receipt = finding.inline_comment
-    if receipt is None or receipt.status != "published" or not receipt.comment_url:
-        return False
-    url = receipt.comment_url
-    if url != url.strip() or any(ord(character) < 32 for character in url):
-        return False
-    try:
-        parsed = urlsplit(url)
-        return (
-            parsed.scheme in {"http", "https"}
-            and parsed.hostname is not None
-            and parsed.username is None
-            and parsed.password is None
-        )
-    except ValueError:
-        return False
+    return (
+        receipt is not None
+        and receipt.status == "published"
+        and is_browser_url(receipt.comment_url)
+    )
 
 
 def collect_earlier_findings(

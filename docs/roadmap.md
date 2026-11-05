@@ -199,6 +199,8 @@ live GitHub/GitLab presentation acceptance remains separate.
 Deleted-overview recreation on a new head now uses verified request-scoped cache
 when available and discloses unavailable/partial history otherwise. Automated
 verification of this recovery follow-up passed; live acceptance remains separate.
+Overview presentation now shares defensive browser-link validation with Earlier
+Findings retention, preserving reasoning when stored URL text is malformed.
 Keep live acceptance separate and complete it before report integration; validate
 the smallest JUnit installation before expanding to coverage.
 

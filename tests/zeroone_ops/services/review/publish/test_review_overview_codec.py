@@ -200,6 +200,63 @@ def test_only_linked_findings_omit_duplicate_reasoning(
     assert codec.decode_overview(render_overview(envelope)) == envelope
 
 
+@pytest.mark.parametrize(
+    "surface", ["workflow", "history", "commit", "inline", "work_item", "earlier"]
+)
+@pytest.mark.parametrize(
+    "url", ["https://[broken", "https://example.com:bad/review", "javascript:bad"]
+)
+def test_malformed_optional_links_fall_back_without_losing_authority(
+    overview_envelope: ReviewOverviewEnvelope, surface: str, url: str
+) -> None:
+    payload = overview_envelope.model_dump(mode="json")
+    current = payload["complete_passes"][0]
+    if surface == "workflow":
+        current["workflow_url"] = url
+        payload["history"][0]["workflow_url"] = url
+    elif surface == "history":
+        payload["history"][-1]["workflow_url"] = url
+    elif surface == "commit":
+        metadata = {"head_sha": current["head_sha"], "title": "Commit label", "web_url": url}
+        current["reviewed_commit"] = metadata
+        payload["history"][0]["reviewed_commit"] = metadata
+    elif surface == "inline":
+        current["artifact"]["findings"][0]["inline_comment"]["comment_url"] = url
+    elif surface == "work_item":
+        current["verified_work_item_url"] = url
+    else:
+        payload["earlier_findings"]["concerns"] = [
+            {
+                "identity": "earlier-concern",
+                "finding": current["artifact"]["findings"][0],
+                "pass_id": "earlier-pass",
+                "head_sha": "a" * 40,
+                "sequence": 1,
+                "workflow_url": url,
+            }
+        ]
+    envelope = ReviewOverviewEnvelope.model_validate(payload)
+    before = envelope.model_dump(mode="json")
+
+    body = render_overview(envelope)
+    visible = body.split(codec.OVERVIEW_START)[0]
+
+    assert url not in visible
+    assert codec.decode_overview(body) == envelope
+    assert envelope.model_dump(mode="json") == before
+    if surface == "inline":
+        finding = envelope.complete_passes[0].artifact.findings[0]
+        assert f"Evidence: {escape_overview_text(finding.evidence)}" in visible
+        assert f"Impact: {escape_overview_text(finding.explanation)}" in visible
+        assert (
+            f"Suggested follow-up: {escape_overview_text(finding.suggested_follow_up)}" in visible
+        )
+    elif surface == "work_item":
+        assert "/zeroone remediation requeue" not in visible
+    elif surface == "commit":
+        assert f"**Reviewed commit:** {current['head_sha'][:7]} - Commit label" in visible
+
+
 @pytest.mark.parametrize("full_body", [False, True])
 def test_comment_delimiters_and_unicode_escape_losslessly(
     overview_envelope: ReviewOverviewEnvelope,

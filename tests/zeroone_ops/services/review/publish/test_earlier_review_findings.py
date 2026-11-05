@@ -89,6 +89,8 @@ def test_concern_survives_clean_passes_and_reappearance_without_mutation(
         ("javascript:alert(1)", "published", True),
         ("https://example.com/discussion/1", "shadow", True),
         ("https://[invalid", "published", True),
+        ("https://example.com:bad/thread", "published", True),
+        ("https://example.com:65536/thread", "published", True),
     ],
 )
 def test_only_usable_published_links_release_visibility(
