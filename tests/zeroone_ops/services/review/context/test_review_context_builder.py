@@ -145,7 +145,7 @@ def test_build_returns_changed_file_context(tmp_path: Path) -> None:
     assert "   3: line3" in result.context.changed_files[0].content
 
 
-def test_build_rejects_when_changed_files_exceed_v1_limit(tmp_path: Path) -> None:
+def test_build_rejects_when_changed_files_exceed_configured_limit(tmp_path: Path) -> None:
     source_dir = tmp_path / "src"
     source_dir.mkdir()
     (source_dir / "a.py").write_text("a = 1\n", encoding="utf-8")
@@ -171,7 +171,10 @@ def test_build_rejects_when_changed_files_exceed_v1_limit(tmp_path: Path) -> Non
     ).build(merge_request)
 
     assert result.context is None
-    assert "exceeds the v1 limit of 1" in result.message
+    assert result.message == (
+        "Could not build review context. The change request changes 2 supported files, "
+        "which exceeds the configured limit of 1."
+    )
 
 
 def test_build_rejects_missing_local_file(tmp_path: Path) -> None:

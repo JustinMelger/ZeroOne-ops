@@ -17,7 +17,7 @@
     "required": true
   },
   "review": {
-    "max_changed_files": 70,
+    "max_changed_files": 80,
     "max_findings_per_review": 5,
     "max_prior_review_passes": 5,
     "supported_paths": ["src/", "tests/", "app/"],
