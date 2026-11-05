@@ -85,6 +85,11 @@ projection. Same-SHA reuse, fresh-workspace hydration, projection repair, handle
 review failure, and deleted-overview restoration preserve the archive without
 extra model calls or inline comments. Unit tests additionally cover ten-entry
 retention, explicit eviction, reappearance, historical adoption, and payload bounds.
+Deletion followed by a new commit is also covered on both providers: cached
+history preserves earlier concerns and sequence numbering while only the new head
+is reviewed. Empty-cache recreation discloses unavailable history rather than
+inventing prior evidence. Neither path creates duplicate overviews or extra model
+stages.
 
 Same-SHA scenarios reuse either authoritative local state or a provider comment
 without additional model calls or review comments. The repair sequence injects

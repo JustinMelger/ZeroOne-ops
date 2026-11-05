@@ -338,6 +338,22 @@ The 60,000-byte complete-payload gate remains mandatory; size failures cannot
 silently trim concerns, evidence, or required snapshots. Automated checks passed;
 live provider verification remains pending.
 
+For new-head publication after confirmed overview absence, a lazy typed cache
+loader supplies local review records. A pure recovery function verifies original
+pass identities against exact platform/repository/request scope and stored
+head/run identity, rejects conflicting sequence authority, and reconstructs only
+available complete snapshots and their factual summaries. Use the latest verified
+record's archive, never merge older archives into newer authority. Continue its
+sequence for the new completed pass. The coordinator separately retains the
+provider's actual absent-envelope expectation for read-before-write verification;
+cached history must not masquerade as an existing remote comment.
+Provider discovery errors or existing overviews bypass cache recovery. The new
+pass still uses the current reviewed head, model result, and current metadata
+lookup. Cache-less creation and partial-cache recovery persist a presentation-only
+`history_unavailable` flag with the archive, displayed in collapsed history and
+preserved through later updates/restoration. No model context or work-item
+decision derives from this availability flag or the recovered archive.
+
 ### Complete Snapshots And Summaries
 
 The envelope stores the complete current finalized artifact, original run/head

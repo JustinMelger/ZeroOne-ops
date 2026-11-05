@@ -104,7 +104,11 @@ class ReviewWorkflow:
             triggered_head_sha,
         ) = self.build_platform_runtime(self.config)
         projection_factory = self.build_projection_factory(self.config)
-        overview_coordinator = ReviewOverviewCoordinator(review_client, self.config.platform)
+        overview_coordinator = ReviewOverviewCoordinator(
+            review_client,
+            self.config.platform,
+            cached_review_loader=review_state_service.overview_recovery_candidates,
+        )
         runner = ReviewRunner(
             repo_root=context.repo_root,
             config=self.config,

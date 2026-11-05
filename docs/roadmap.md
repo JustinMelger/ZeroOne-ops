@@ -196,6 +196,9 @@ The **Earlier Findings** implementation preserves up to ten distinct overview-on
 concerns independently of complete snapshot retention, labels resolution as
 unverified, and discloses retention evictions. Automated verification passed;
 live GitHub/GitLab presentation acceptance remains separate.
+Deleted-overview recreation on a new head now uses verified request-scoped cache
+when available and discloses unavailable/partial history otherwise. Automated
+verification of this recovery follow-up passed; live acceptance remains separate.
 Keep live acceptance separate and complete it before report integration; validate
 the smallest JUnit installation before expanding to coverage.
 

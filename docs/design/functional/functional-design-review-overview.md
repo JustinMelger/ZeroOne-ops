@@ -92,6 +92,13 @@ preserve it. Historical adoption can recover retained complete snapshots only,
 not summary-only entries or already-lost evidence. Automated verification passed;
 live GitHub/GitLab acceptance remains pending.
 
+If deletion is followed by a new head, confirmed absence permits publishing the
+new review with trustworthy request-scoped cached history. Keep the old evidence
+under its old SHA and continue logical sequence numbering; never present the old
+artifact as the new review. Existing provider authority always wins. When no
+trustworthy cache or only partial history exists, disclose unavailable earlier
+history in the collapsed history section without inventing or resolving findings.
+
 Slice 1 retains two complete completed passes and at most five completed summaries
 including the current pass, independent of model-context limits. Its complete
 serialized overview budget is 60,000 UTF-8 bytes, an application bound rather than

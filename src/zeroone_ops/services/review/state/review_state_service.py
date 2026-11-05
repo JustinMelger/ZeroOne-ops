@@ -62,6 +62,17 @@ class ReviewStateService:
         self.state_store.append_run(self.state, record)
         return record
 
+    def overview_recovery_candidates(
+        self, change_request_number: int
+    ) -> list[ChangeRequestReviewState]:
+        """Supply cached request records; publication verifies repository-bound identities."""
+        return [
+            cached.model_copy(deep=True)
+            for cached in self.state.reviews.values()
+            if cached.change_request_number == change_request_number
+            and cached.overview_pass is not None
+        ]
+
     def finish_no_review(self, *, record: RunRecord, message: str) -> RunSummary:
         """Persist a no-review result and return the run summary."""
         record.status = RunStatus.NO_ISSUE

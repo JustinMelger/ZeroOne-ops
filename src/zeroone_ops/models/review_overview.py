@@ -38,6 +38,7 @@ class EarlierReviewFindings(BaseModel):
     concerns: tuple[EarlierReviewFinding, ...] = Field(default=(), max_length=10)
     evicted_count: int = Field(default=0, ge=0)
     collected_through_sequence: int = Field(default=0, ge=0)
+    history_unavailable: bool = False
 
     @model_validator(mode="after")
     def validate_order(self) -> EarlierReviewFindings:

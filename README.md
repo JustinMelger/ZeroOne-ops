@@ -302,6 +302,11 @@ reported commit. **Resolution not verified** remains explicit. Retention is
 independent of review count; older entries are evicted only when the ten-concern
 limit is exceeded, with a visible cumulative notice. This history does not change
 active findings or review decisions, and cannot recover already-lost evidence.
+If the overview is deleted before another commit is reviewed, verified
+request-scoped cached evidence can preserve its earlier findings and reporting
+sequence. An existing provider overview always takes precedence. Collapsed history
+discloses when earlier history could not be fully recovered; no old findings are
+invented from missing evidence.
 
 Writes require verified bot ownership, exact request scope, and a fresh read of
 the overview and open request head. CI serialization reduces races but is not

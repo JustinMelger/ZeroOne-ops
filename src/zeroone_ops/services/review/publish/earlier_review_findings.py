@@ -78,4 +78,5 @@ def collect_earlier_findings(
         collected_through_sequence=max(
             [collected_through, *(snapshot.sequence for snapshot in snapshots)]
         ),
+        history_unavailable=previous.earlier_findings.history_unavailable,
     )

@@ -95,7 +95,11 @@ class ReviewRunner:
         self.continuity_context_service = continuity_context_service
         self.projection_repair_service = projection_repair_service
         self.review_projection_factory = review_projection_factory
-        self.overview_coordinator = ReviewOverviewCoordinator(review_client, config.platform)
+        self.overview_coordinator = ReviewOverviewCoordinator(
+            review_client,
+            config.platform,
+            cached_review_loader=review_state_service.overview_recovery_candidates,
+        )
 
     def run(
         self,

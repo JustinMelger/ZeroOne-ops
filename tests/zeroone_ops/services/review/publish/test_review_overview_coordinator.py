@@ -17,6 +17,7 @@ from zeroone_ops.models.review import (
 )
 from zeroone_ops.models.review_overview import ReviewOverviewEnvelope, ReviewOverviewPass
 from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
+from zeroone_ops.models.state import ChangeRequestReviewState
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 from zeroone_ops.services.review.publish.review_overview_codec import (
     OVERVIEW_START,
@@ -34,6 +35,72 @@ REQUEST = 17
 HEAD = "head-1"
 NEXT_HEAD = "head-2"
 BOT = "review-bot"
+
+
+def test_deleted_overview_new_head_carries_cached_archive_and_revalidates_current_head():
+    client = FakeOverviewClient()
+    coordinator = ReviewOverviewCoordinator(client, "github")
+    coordinator.publish(
+        repository_id=REPOSITORY,
+        context=_context(),
+        artifact=_artifact(),
+        run_id="first",
+        inline_decisions=[],
+    )
+    clean = PublishableReviewArtifact(classification="no_findings", summary="Clear")
+    client.request = client.request.model_copy(update={"head_sha": NEXT_HEAD})
+    _, previous = coordinator.publish(
+        repository_id=REPOSITORY,
+        context=_context(NEXT_HEAD),
+        artifact=clean,
+        run_id="second",
+        inline_decisions=[],
+    )
+    cached = ChangeRequestReviewState(
+        change_request_number=REQUEST,
+        head_sha=NEXT_HEAD,
+        status="no_findings",
+        last_run_id="second",
+        overview_pass=previous.complete_passes[0],
+        earlier_findings=previous.earlier_findings,
+    )
+    client.comments.clear()
+    client.request = client.request.model_copy(update={"head_sha": "head-3"})
+    coordinator = ReviewOverviewCoordinator(
+        client, "github", cached_review_loader=lambda _: [cached]
+    )
+    _, recreated = coordinator.publish(
+        repository_id=REPOSITORY,
+        context=_context("head-3"),
+        artifact=clean,
+        run_id="third",
+        inline_decisions=[],
+    )
+    assert recreated.earlier_findings == previous.earlier_findings
+    assert recreated.history[0].sequence == 3
+    assert recreated.complete_passes[0].head_sha == "head-3"
+    assert recreated.complete_passes[0].artifact == clean
+    assert recreated.complete_passes[1] == previous.complete_passes[0]
+    assert len(client.comments) == 1
+
+
+def test_existing_provider_authority_never_consults_recovery_cache():
+    client = FakeOverviewClient([_note()], head_sha=NEXT_HEAD)
+
+    def unexpected_loader(_):
+        pytest.fail("Provider authority must take precedence over cached history")
+
+    coordinator = ReviewOverviewCoordinator(
+        client, "github", cached_review_loader=unexpected_loader
+    )
+    _, envelope = coordinator.publish(
+        repository_id=REPOSITORY,
+        context=_context(NEXT_HEAD),
+        artifact=_artifact(),
+        run_id="new",
+        inline_decisions=[],
+    )
+    assert envelope.history[0].sequence == 2
 
 
 def _artifact() -> PublishableReviewArtifact:

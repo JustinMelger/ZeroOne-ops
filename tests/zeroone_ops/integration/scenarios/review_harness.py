@@ -168,7 +168,11 @@ class ReviewHarness:
             ),
         )
         projection_factory = build_review_projection_factory(config)
-        overview_coordinator = ReviewOverviewCoordinator(client, config.platform)
+        overview_coordinator = ReviewOverviewCoordinator(
+            client,
+            config.platform,
+            cached_review_loader=self.state_service.overview_recovery_candidates,
+        )
         runner = ReviewRunner(
             repo_root=case.root,
             config=config,

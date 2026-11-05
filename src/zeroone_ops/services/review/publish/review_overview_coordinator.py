@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Literal
 from urllib.parse import urlsplit
-from uuid import NAMESPACE_URL, uuid5
 
 import httpx
 
@@ -21,7 +21,7 @@ from zeroone_ops.models.review_overview import (
     ReviewOverviewPass,
 )
 from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
-from zeroone_ops.models.state import ReviewInlineCommentDecision
+from zeroone_ops.models.state import ChangeRequestReviewState, ReviewInlineCommentDecision
 from zeroone_ops.providers.review.platform import (
     ChangeRequestReviewPlatformProtocol,
     ReviewPlatformClientError,
@@ -32,37 +32,27 @@ from zeroone_ops.services.review.publish.review_overview_codec import (
     ReviewOverviewError,
     decode_overview,
 )
+from zeroone_ops.services.review.publish.review_overview_recovery import recover_cached_overview
 from zeroone_ops.services.review.publish.review_overview_renderer import render_overview
+from zeroone_ops.utils.review_overview_identity import review_pass_identity as review_pass_identity
 
 LOGGER = logging.getLogger(__name__)
-
-
-def review_pass_identity(
-    *,
-    platform: str,
-    repository_id: str,
-    change_request_number: int,
-    head_sha: str,
-    run_id: str,
-) -> str:
-    """Bind a logical pass to its original run and exact repository/request scope."""
-    return str(
-        uuid5(
-            NAMESPACE_URL,
-            repr((platform, repository_id, change_request_number, head_sha, run_id)),
-        )
-    )
 
 
 class ReviewOverviewCoordinator:
     """Keep publication identity and verified bot-owned transport separate."""
 
     def __init__(
-        self, client: ChangeRequestReviewPlatformProtocol, platform: Literal["github", "gitlab"]
+        self,
+        client: ChangeRequestReviewPlatformProtocol,
+        platform: Literal["github", "gitlab"],
+        *,
+        cached_review_loader: Callable[[int], list[ChangeRequestReviewState]] | None = None,
     ) -> None:
         """Retain transport without loading credentials or reading provider state."""
         self.client = client
         self.platform = platform
+        self.cached_review_loader = cached_review_loader
 
     def discover(
         self, *, repository_id: str, change_request_number: int
@@ -113,6 +103,14 @@ class ReviewOverviewCoordinator:
         note, previous = self.discover(
             repository_id=repository_id, change_request_number=context.change_request_number
         )
+        provider_previous = previous
+        if previous is None and self.cached_review_loader is not None:
+            previous = recover_cached_overview(
+                platform=self.platform,
+                repository_id=repository_id,
+                change_request_number=context.change_request_number,
+                candidates=self.cached_review_loader(context.change_request_number),
+            )
         pass_id = review_pass_identity(
             platform=self.platform,
             repository_id=repository_id,
@@ -149,19 +147,22 @@ class ReviewOverviewCoordinator:
                 else context.remediation_context.verified_work_item_url
             ),
         )
+        earlier_findings = collect_earlier_findings(previous=previous, artifact=artifact)
+        if previous is None:
+            earlier_findings = earlier_findings.model_copy(update={"history_unavailable": True})
         envelope = ReviewOverviewEnvelope(
             platform=self.platform,
             repository_id=repository_id,
             change_request_number=context.change_request_number,
             complete_passes=[completed, *(previous.complete_passes[:1] if previous else [])],
             history=[completed.summary(), *(previous.history[:4] if previous else [])],
-            earlier_findings=collect_earlier_findings(previous=previous, artifact=artifact),
+            earlier_findings=earlier_findings,
         )
         return self._write(
             repository_id=repository_id,
             head_sha=context.head_sha,
             expected_note=note,
-            expected_envelope=previous,
+            expected_envelope=provider_previous,
             envelope=envelope,
         ), envelope
 

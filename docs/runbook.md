@@ -405,6 +405,18 @@ no scan of historical workflows/comments or automatic remote rewrite.
 The complete 60,000-byte body limit still applies: oversized archives fail the
 write rather than dropping factual evidence to fit.
 
+Deleting an overview does not require a same-SHA rerun before the next commit:
+new-head publication can recover bounded prior snapshots and Earlier Findings
+from the local cache, after checking each original pass identity against the
+platform, repository, request number, head, and original run. Confirmed provider
+absence is required; inaccessible, malformed, or ambiguous authority does not
+authorize cached replacement. An existing provider overview wins over cache.
+Publication still verifies the current open request/head and checks absence
+again before creating the new overview. Without trustworthy cached history, the
+review may proceed, but collapsed history states that deleted history, if any,
+could not be fully recovered. The same disclosure applies when only partial
+cached history is available; it is not a claim that earlier concerns were resolved.
+
 A handled failed attempt may update a separate bounded notice on an existing
 verified overview. The last completed artifact, verdict, and reviewed SHA remain
 intact; the attempted SHA is not labeled reviewed. Without a prior overview, use

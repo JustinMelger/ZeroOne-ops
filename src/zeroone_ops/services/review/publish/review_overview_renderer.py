@@ -219,6 +219,14 @@ def render_overview(envelope: ReviewOverviewEnvelope) -> str:
             f"{summary.classification}, {summary.findings_count} findings; "
             f"{_link(summary.run_id, summary.workflow_url)}{availability}"
         )
+    if envelope.earlier_findings.history_unavailable:
+        lines.extend(
+            [
+                "",
+                "Earlier overview history may be incomplete. Deleted history, if any, "
+                "could not be fully recovered from trustworthy cached evidence.",
+            ]
+        )
     lines.extend(
         [
             "",
