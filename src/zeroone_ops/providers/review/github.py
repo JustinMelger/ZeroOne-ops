@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
+from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.config import GitHubConnectionConfig
 from zeroone_ops.models.review import (
     ChangeRequestChangedFile,
@@ -13,6 +15,9 @@ from zeroone_ops.models.review import (
     ChangeRequestReviewCandidate,
     ReviewComment,
 )
+from zeroone_ops.models.reviewed_commit import ReviewedCommitMetadata
+from zeroone_ops.providers.github_client import GitHubClientError, _normalize_pull_request_state
+from zeroone_ops.providers.review.commit_metadata import normalize_reviewed_commit
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 
 
@@ -36,6 +41,21 @@ class GitHubReviewClient:
             timeout=30.0,
         )
 
+    def get_reviewed_commit(self, *, repository_id: str, head_sha: str) -> ReviewedCommitMetadata:
+        """Read a Git commit object without loading its changed-file patches."""
+        try:
+            payload = self._get_json(
+                f"/repos/{repository_id}/git/commits/{quote(head_sha, safe='')}",
+                error_message="Unexpected GitHub reviewed commit payload.",
+            )
+        except httpx.HTTPError as error:
+            raise ReviewPlatformClientError("Reviewed commit lookup failed.") from error
+        return normalize_reviewed_commit(
+            head_sha=payload.get("sha"),
+            message=payload.get("message"),
+            web_url=payload.get("html_url"),
+        )
+
     def get_change_request(
         self,
         *,
@@ -52,6 +72,22 @@ class GitHubReviewClient:
             error_message="Unexpected GitHub pull request files payload.",
         )
         return _normalize_pull_request(pull_request, files)
+
+    def get_change_request_state(
+        self,
+        *,
+        repository_id: str,
+        change_request_number: int,
+    ) -> ChangeRequestState:
+        """Fetch current pull-request state without loading changed files."""
+        payload = self._get_json(
+            f"/repos/{repository_id}/pulls/{change_request_number}",
+            error_message="Unexpected GitHub pull request state payload.",
+        )
+        try:
+            return _normalize_pull_request_state(payload)
+        except GitHubClientError as error:
+            raise ReviewPlatformClientError(str(error)) from error
 
     def list_change_request_comments(
         self,
@@ -128,13 +164,39 @@ class GitHubReviewClient:
 
     def get_current_user_username(self) -> str:
         """Return the GitHub login associated with the active API token."""
-        payload = self._get_json(
-            "/user",
+        response = self._http_client.get("/user")
+        if response.status_code == 403:
+            return self._get_installation_viewer_username()
+
+        payload = _parse_dict_response(
+            response,
             error_message="Unexpected GitHub current user payload.",
         )
         login = payload.get("login")
-        if not isinstance(login, str):
+        if not isinstance(login, str) or not login.strip():
             raise ReviewPlatformClientError("Unexpected GitHub current user login.")
+        return login
+
+    def _get_installation_viewer_username(self) -> str:
+        """Resolve the authenticated viewer when an installation cannot use REST /user."""
+        api_url = self.config.api_url.rstrip("/")
+        graphql_url = (
+            f"{api_url.removesuffix('/api/v3')}/api/graphql"
+            if api_url.endswith("/api/v3")
+            else f"{api_url}/graphql"
+        )
+        payload = self._post_json(
+            graphql_url,
+            json={"query": "query { viewer { login } }"},
+            error_message="Unexpected GitHub viewer identity response.",
+        )
+        if "errors" in payload:
+            raise ReviewPlatformClientError("GitHub viewer identity could not be verified.")
+        data = payload.get("data")
+        viewer = data.get("viewer") if isinstance(data, dict) else None
+        login = viewer.get("login") if isinstance(viewer, dict) else None
+        if not isinstance(login, str) or not login.strip():
+            raise ReviewPlatformClientError("GitHub viewer identity could not be verified.")
         return login
 
     def allows_machine_safe_comment_fallback(self) -> bool:

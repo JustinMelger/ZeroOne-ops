@@ -76,7 +76,7 @@ class ReviewContextBuilder:
                 message=(
                     "Could not build review context. "
                     f"The change request changes {len(candidate_changes)} supported files, "
-                    f"which exceeds the v1 limit of {self.config.review.max_changed_files}."
+                    f"which exceeds the configured limit of {self.config.review.max_changed_files}."
                 ),
             )
 
@@ -205,6 +205,13 @@ class ReviewContextBuilder:
                     configured_paths=self.config.repository_guidance_paths,
                 ),
                 changed_files=changed_files,
+                review_scope_limited=(
+                    len(changed_files) != len(change_request.changes)
+                    or any(
+                        changed.truncated or not (changed.diff or "").strip()
+                        for changed in changed_files
+                    )
+                ),
             ),
             message="",
         )

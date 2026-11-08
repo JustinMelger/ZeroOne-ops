@@ -2,11 +2,12 @@
 
 ## Proposed Review Overview Extension
 
-The [review overview proposal](functional-design-review-overview.md) describes
-one persistent PR/MR summary and optional structured CI evidence. It is not
-implemented. Candidate/precision authority, accepted finding meaning, and existing
-inline behavior remain governed here. The proposal must preserve same-SHA reuse
-and provider-backed continuity rather than treating a comment edit as a new pass.
+The [review overview contract](functional-design-review-overview.md) implements
+one persistent PR/MR summary with bounded provider-backed pass history. Optional
+structured CI evidence remains proposed for later slices. Candidate/precision
+authority, accepted finding meaning, and inline ownership remain governed here.
+Publication-specific per-revision summary references below describe the earlier
+transport; logical passes, not comment edits, now identify completed reviews.
 
 ## Current Repeated-Review Contract
 

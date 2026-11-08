@@ -15,6 +15,7 @@ from zeroone_ops.models.review import (
     PrecisionReviewDecision,
     ReviewResult,
 )
+from zeroone_ops.models.review_change_summary import ReviewChangeSummary
 from zeroone_ops.models.work_item import WorkItemState
 
 from .review_cases import REVIEW_PATH, ReviewCase
@@ -33,7 +34,7 @@ class ReviewSDKCall:
 
     schema: type[BaseModel]
     prompt: str
-    output: BaseModel
+    output: BaseModel | None
 
 
 @dataclass
@@ -47,10 +48,26 @@ class ScriptedReviewSDK:
     candidate_ids: tuple[str, ...] = ()
     prior_case: ReviewCase | None = None
     overlap_result: OverlapReconciliationResult | None = None
+    fail_candidate: bool = False
+    omit_change_summary: bool = False
+    precision_result: PrecisionReviewDecision | None = None
+
+    @property
+    def change_summary(self) -> ReviewChangeSummary | None:
+        """Supply request-specific description evidence independently of finding outcomes."""
+        if self.omit_change_summary:
+            return None
+        return ReviewChangeSummary(
+            bullets=[
+                f"Updates fixture {self.case.marker} at reviewed head {self.case.head_sha[:7]}."
+            ]
+        )
 
     @property
     def expected_call_count(self) -> int:
         """Require the overlap stage only for an explicitly scripted repeated review."""
+        if self.fail_candidate:
+            return 1
         return 3 if self.prior_case is not None else 2
 
     @property
@@ -82,6 +99,10 @@ class ScriptedReviewSDK:
             assert reasoning == {"effort": "high" if index == 1 else "medium"}
             assert len(input) == 2 and [message["role"] for message in input] == ["system", "user"]
             prompt = input[1]["content"]
+            if self.change_summary is not None:
+                assert all(bullet not in prompt for bullet in self.change_summary.bullets), (
+                    "Descriptive output leaked into a review-stage prompt"
+                )
             if index == 2:
                 assert "Do not invent new findings" in input[0]["content"]
                 output = self._overlap_response(prompt)
@@ -89,11 +110,15 @@ class ScriptedReviewSDK:
                 return SimpleNamespace(output_parsed=output)
             assert "untrusted" in input[0]["content"].lower()
             self._assert_prompt(prompt)
+            if self.fail_candidate:
+                self.calls.append(ReviewSDKCall(text_format, prompt, None))
+                raise RuntimeError("Scripted offline review SDK outage")
             if index == 0:
                 output = ReviewResult(
                     classification="findings_present",
                     summary="One candidate requires precision.",
                     findings=[self.case.finding.model_copy(deep=True)],
+                    change_summary=self.change_summary,
                 )
             else:
                 output = self._precision_response(prompt)
@@ -192,6 +217,8 @@ class ScriptedReviewSDK:
             assert untrusted_block(prompt, "Verified linked batch attempt evidence") == (
                 untrusted_block(self.calls[0].prompt, "Verified linked batch attempt evidence")
             )
+        if self.precision_result is not None:
+            return self.precision_result.model_copy(deep=True)
         if self.case.name == "mr24":
             return PrecisionReviewDecision(
                 review_classification="no_findings",
@@ -238,7 +265,10 @@ class ScriptedReviewSDK:
         assert self.overlap_result.prior_reviewed_head_sha == self.prior_case.head_sha
         current = untrusted_block(prompt, "Current findings")
         prior = untrusted_block(prompt, "Prior findings")
-        assert f"current[0] {REVIEW_PATH}: {self.case.finding.title}" in current
+        if self.precision_result is not None and not self.precision_result.accepted_findings:
+            assert current == "- (none)"
+        else:
+            assert f"current[0] {REVIEW_PATH}: {self.case.finding.title}" in current
         assert f"prior[0] {REVIEW_PATH}: {self.prior_case.finding.title}" in prior
         candidates = untrusted_block(prompt, "Overlap candidates")
         if any(item.outcome == "still_unresolved" for item in self.overlap_result.resolutions):

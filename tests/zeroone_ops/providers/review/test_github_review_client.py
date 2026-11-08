@@ -3,6 +3,7 @@ import json
 import httpx
 import pytest
 
+from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.config import GitHubConnectionConfig
 from zeroone_ops.providers.review.github import GitHubReviewClient
 from zeroone_ops.providers.review.platform import ReviewPlatformClientError
@@ -157,6 +158,196 @@ def test_get_current_user_username_reads_login() -> None:
     client = build_client(handler)
 
     assert client.get_current_user_username() == "zeroone-ops[bot]"
+
+
+@pytest.mark.parametrize(
+    "api_url,graphql_url",
+    [
+        ("https://api.github.com", "https://api.github.com/graphql"),
+        ("https://git.example.com/api/v3/", "https://git.example.com/api/graphql"),
+    ],
+)
+def test_installation_token_resolves_authenticated_graphql_viewer(api_url, graphql_url) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, str(request.url)))
+        if request.method == "GET":
+            assert request.url.path.endswith("/user")
+            return httpx.Response(403, json={"message": "Resource not accessible by integration"})
+        assert str(request.url) == graphql_url
+        assert json.loads(request.content) == {"query": "query { viewer { login } }"}
+        return httpx.Response(200, json={"data": {"viewer": {"login": "installation-bot[bot]"}}})
+
+    client = GitHubReviewClient(
+        GitHubConnectionConfig(
+            api_url=api_url,
+            server_url="https://git.example.com",
+            token="dummy-installation-token",
+            repository="org/repo",
+        ),
+        http_client=httpx.Client(transport=httpx.MockTransport(handler), base_url=api_url),
+    )
+
+    assert client.get_current_user_username() == "installation-bot[bot]"
+    assert len(calls) == 2
+    assert calls[-1] == ("POST", graphql_url)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"data": None},
+        {"data": {"viewer": None}},
+        {"data": {"viewer": {"login": None}}},
+        {"data": {"viewer": {"login": ""}}},
+        {"data": {"viewer": {"login": " "}}},
+        {"errors": [{"message": "unavailable"}]},
+        {"errors": [{"message": "partial"}], "data": {"viewer": {"login": "unverified"}}},
+        [],
+    ],
+)
+def test_installation_viewer_requires_complete_verified_identity(payload) -> None:
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.method)
+        if request.method == "GET":
+            return httpx.Response(403, json={"message": "Resource not accessible by integration"})
+        assert request.url.path == "/graphql"
+        return httpx.Response(200, json=payload)
+
+    with pytest.raises(ReviewPlatformClientError):
+        build_client(handler).get_current_user_username()
+    assert calls == ["GET", "POST"]
+
+
+@pytest.mark.parametrize("status", [401, 404, 429, 500])
+def test_user_operational_failures_do_not_trigger_graphql_fallback(status: int) -> None:
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.method)
+        assert request.method == "GET" and request.url.path == "/user"
+        return httpx.Response(status, json={"message": "unavailable"})
+
+    with pytest.raises(ReviewPlatformClientError):
+        build_client(handler).get_current_user_username()
+    assert calls == ["GET"]
+
+
+@pytest.mark.parametrize("failure", ["http", "timeout", "invalid_json"])
+def test_installation_viewer_transport_errors_remain_failures(failure: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(403, json={"message": "Resource not accessible by integration"})
+        assert request.url.path == "/graphql"
+        if failure == "timeout":
+            raise httpx.ReadTimeout("Viewer lookup unavailable", request=request)
+        if failure == "http":
+            return httpx.Response(403, json={"message": "GraphQL forbidden"})
+        return httpx.Response(200, text="invalid JSON")
+
+    expected = httpx.ReadTimeout if failure == "timeout" else ReviewPlatformClientError
+    with pytest.raises(expected):
+        build_client(handler).get_current_user_username()
+
+
+@pytest.mark.parametrize(
+    ("state", "merged_at", "expected_state"),
+    [
+        ("open", None, "opened"),
+        ("closed", None, "closed"),
+        ("closed", "2026-06-18T10:00:00Z", "merged"),
+    ],
+)
+def test_get_change_request_state_does_not_fetch_changed_files(
+    state: str,
+    merged_at: str | None,
+    expected_state: str,
+) -> None:
+    requests: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/repos/octo-org/octo-repo/pulls/17"
+        requests.append(request.url.path)
+        return httpx.Response(
+            200,
+            json={
+                "number": 17,
+                "html_url": "https://github.com/octo-org/octo-repo/pull/17",
+                "head": {"ref": "feature/review", "sha": "abc123"},
+                "state": state,
+                "merged_at": merged_at,
+            },
+        )
+
+    result = build_client(handler).get_change_request_state(
+        repository_id="octo-org/octo-repo",
+        change_request_number=17,
+    )
+
+    assert len(requests) == 1
+    assert result == ChangeRequestState(
+        iid=17,
+        web_url="https://github.com/octo-org/octo-repo/pull/17",
+        source_branch="feature/review",
+        head_sha="abc123",
+        state=expected_state,
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "payload"),
+    [(404, {"message": "Not Found"}), (200, []), (200, {"number": 17})],
+)
+def test_get_change_request_state_surfaces_provider_errors(status: int, payload: object) -> None:
+    client = build_client(lambda request: httpx.Response(status, json=payload))
+
+    with pytest.raises(ReviewPlatformClientError):
+        client.get_change_request_state(
+            repository_id="octo-org/octo-repo",
+            change_request_number=17,
+        )
+
+
+def test_list_change_request_comments_reads_all_pages() -> None:
+    seen_pages: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/repos/octo-org/octo-repo/issues/17/comments"
+        assert request.url.params["per_page"] == "100"
+        page = request.url.params["page"]
+        seen_pages.append(page)
+        headers = {}
+        if page == "1":
+            headers["Link"] = (
+                "<https://api.github.com/repos/octo-org/octo-repo/issues/17/comments"
+                '?page=2&per_page=100>; rel="next"'
+            )
+        return httpx.Response(
+            200,
+            headers=headers,
+            json=[
+                {
+                    "id": int(page),
+                    "body": f"Review {page}",
+                    "user": {"login": "zeroone-ops[bot]"},
+                }
+            ],
+        )
+
+    comments = build_client(handler).list_change_request_comments(
+        repository_id="octo-org/octo-repo",
+        change_request_number=17,
+    )
+
+    assert seen_pages == ["1", "2"]
+    assert [comment.id for comment in comments] == [1, 2]
+    assert [comment.body for comment in comments] == ["Review 1", "Review 2"]
 
 
 def test_create_change_request_inline_comment_posts_single_line_right_comment() -> None:

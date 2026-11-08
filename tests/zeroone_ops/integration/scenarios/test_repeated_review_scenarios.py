@@ -20,9 +20,7 @@ from zeroone_ops.services.control_plane.work_items.github_work_item_parser impor
 from zeroone_ops.services.control_plane.work_items.gitlab_work_item_parser import (
     GitLabWorkItemParser,
 )
-from zeroone_ops.services.review.continuity.review_prior_comment_loader import (
-    extract_machine_safe_review_note_payload,
-)
+from zeroone_ops.services.review.publish.review_overview_codec import decode_overview
 
 from .provider_api import Platform, ScenarioProviderAPI
 from .repository import git
@@ -33,7 +31,7 @@ from .review_scripted_sdk import ScriptedReviewSDK
 
 
 @pytest.mark.parametrize("platform", ["github", "gitlab"])
-def test_repeated_review_tracks_unresolved_resolved_and_new_findings(
+def test_repeated_review_tracks_unresolved_unreported_and_new_findings(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: Platform
 ) -> None:
     first = create_review_case(tmp_path, number=11, name="annotation")
@@ -58,6 +56,7 @@ def test_repeated_review_tracks_unresolved_resolved_and_new_findings(
         first_review = harness.state_service.state_store.load().reviews[
             f"{first.number}:{first.head_sha}"
         ]
+        _assert_published_pass(api, first, first_sdk, first_review)
 
         second = _shift_unresolved_case(first)
         api.cases[first.number] = second
@@ -77,6 +76,7 @@ def test_repeated_review_tracks_unresolved_resolved_and_new_findings(
         second_review = harness.state_service.state_store.load().reviews[
             f"{second.number}:{second.head_sha}"
         ]
+        _assert_published_pass(api, second, second_sdk, second_review)
 
         third = _replace_defect_case(second)
         api.cases[first.number] = third
@@ -99,12 +99,22 @@ def test_repeated_review_tracks_unresolved_resolved_and_new_findings(
         cases = (first, second, third)
         reviews = [first_review, second_review, state.reviews[f"{third.number}:{third.head_sha}"]]
         assert set(state.reviews) == {f"{case.number}:{case.head_sha}" for case in (second, third)}
-        assert len(state.runs) == len(api.comments[first.number]) == 3
+        assert len(state.runs) == 3
+        assert len(api.comments[first.number]) == 1
+        assert len({review.note_id for review in reviews}) == 1
         assert len({run.run_id for run in state.runs}) == 3
-        for case, sdk, review in zip(
-            cases, (first_sdk, second_sdk, third_sdk), reviews, strict=True
-        ):
-            _assert_published_pass(api, case, sdk, review)
+        _assert_published_pass(api, third, third_sdk, reviews[-1])
+        overview = decode_overview(str(api.comments[first.number][reviews[-1].note_id]["body"]))
+        assert [entry.head_sha for entry in overview.complete_passes] == [
+            third.head_sha,
+            second.head_sha,
+        ]
+        assert [entry.head_sha for entry in overview.history] == [
+            third.head_sha,
+            second.head_sha,
+            first.head_sha,
+        ]
+        assert overview.complete_passes[1].artifact == second_review.projection_artifact
         _assert_continuity(api, cases, reviews)
         _assert_latest_projection(harness, third, reviews[-1], linked)
         diagnostics = [run.review_diagnostics for run in state.runs]
@@ -168,12 +178,24 @@ def _assert_published_pass(
     assert finding.suggested_follow_up == expected.recommended_follow_up
     assert (finding.line_start, finding.line_end) == (expected.line_start, expected.line_end)
     note = api.comments[case.number][review.note_id]
-    payload = extract_machine_safe_review_note_payload(str(note["body"]))
-    assert payload["reviewed_head_sha"] == case.head_sha
-    assert payload["findings"][0]["identity"] == finding.stable_identity
-    assert payload["findings"][0]["title"] == case.finding.title
+    overview = decode_overview(str(note["body"]))
+    assert overview is not None
+    completed = overview.complete_passes[0]
+    assert completed.head_sha == case.head_sha
+    assert api.commit_calls.count((case.number, case.head_sha)) == 1
+    assert completed.reviewed_commit is not None
+    assert completed.reviewed_commit.head_sha == case.head_sha
+    assert completed.reviewed_commit.title == git(
+        case.root, "show", "-s", "--format=%s", case.head_sha
+    )
+    assert review.overview_pass.reviewed_commit == completed.reviewed_commit
+    assert all(completed.reviewed_commit.title not in call.prompt for call in sdk.calls)
+    assert completed.artifact == artifact
+    assert artifact.change_summary == sdk.change_summary
+    assert artifact.change_summary.bullets[0] in str(note["body"])
     assert (
-        payload["findings"][0]["inline_comment"]["comment_id"] == finding.inline_comment.comment_id
+        completed.artifact.findings[0].inline_comment.comment_id
+        == finding.inline_comment.comment_id
     )
     assert finding.title in str(note["body"])
     assert len(sdk.calls) == sdk.expected_call_count
@@ -193,13 +215,15 @@ def _assert_continuity(
     assert findings[1].inline_comment.comment_id == findings[0].inline_comment.comment_id
     assert findings[2].inline_comment.comment_id != findings[1].inline_comment.comment_id
     assert len(api.inline_comments[cases[0].number]) == 2
+    assert len({artifact.change_summary.bullets for artifact in artifacts}) == 3
     assert cases[0].head_sha in " ".join(artifacts[1].follow_up_lines)
     assert cases[1].head_sha in " ".join(artifacts[2].follow_up_lines)
     assert any("unresolved" in line for line in artifacts[1].follow_up_lines)
-    assert any("no longer" in line for line in artifacts[2].follow_up_lines)
+    assert any("not reported in this pass" in line for line in artifacts[2].follow_up_lines)
+    assert not any("no longer appear" in line for line in artifacts[2].follow_up_lines)
     assert any("new" in line.lower() for line in artifacts[2].follow_up_lines)
     latest_body = str(api.comments[cases[0].number][reviews[-1].note_id]["body"])
-    assert "1 new finding, 1 resolved finding" in latest_body
+    assert "1 new, 0 unresolved" in latest_body
 
 
 def _assert_latest_projection(
@@ -253,3 +277,88 @@ def test_repeated_review_rejects_missing_precision_history(
         assert set(harness.state_service.state_store.load().reviews) == {
             f"{first.number}:{first.head_sha}"
         }
+
+
+@pytest.mark.parametrize("platform", ["github", "gitlab"])
+def test_successive_heads_bound_overview_history_and_recover_inline_references(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: Platform
+) -> None:
+    current = create_review_case(tmp_path, number=11, name="annotation")
+    current = replace(
+        current,
+        finding=current.finding.model_copy(
+            update={
+                "symbol": "present",
+                "issue_kind": "undefined_annotation",
+                "region_hint": "function signature",
+            }
+        ),
+    )
+    api = ReviewProviderAPI(ScenarioProviderAPI(platform), cases={current.number: current})
+    heads = []
+    artifacts = []
+    with httpx.Client(
+        base_url="https://provider.invalid", transport=httpx.MockTransport(api.respond)
+    ) as http:
+        for index in range(6):
+            previous = current if index else None
+            if previous is not None:
+                current = advance_review_case(
+                    previous,
+                    after=f"{previous.after}\n# Review head {index}\n",
+                    finding=previous.finding.model_copy(deep=True),
+                )
+                api.cases[current.number] = current
+            # Each head starts without a local mirror: provider evidence owns continuity.
+            harness = compose_review_harness(
+                api, http, tmp_path / f"workspace-{index}.json", monkeypatch
+            )
+            overlap = (
+                OverlapReconciliationResult(
+                    prior_reviewed_head_sha=previous.head_sha,
+                    resolutions=[
+                        OverlapResolution(
+                            outcome="still_unresolved",
+                            current_finding_index=0,
+                            prior_finding_index=0,
+                        )
+                    ],
+                )
+                if previous is not None
+                else None
+            )
+            sdk = ScriptedReviewSDK(current, prior_case=previous, overlap_result=overlap)
+            summary = harness.run(current, sdk)
+            assert summary.status == RunStatus.REVIEWED, summary.message
+            assert "warning" not in summary.message.lower(), summary.message
+            _assert_published_pass(
+                api,
+                current,
+                sdk,
+                harness.state_service.state_store.load().reviews[
+                    f"{current.number}:{current.head_sha}"
+                ],
+            )
+            heads.insert(0, current.head_sha)
+            assert len(api.comments[current.number]) == 1
+            note = next(iter(api.comments[current.number].values()))
+            overview = decode_overview(str(note["body"]))
+            assert overview is not None
+            artifacts.insert(0, overview.complete_passes[0].artifact)
+            assert [entry.head_sha for entry in overview.complete_passes] == heads[:2]
+            assert [entry.head_sha for entry in overview.history] == heads[:5]
+            assert len(api.commit_calls) == index + 1
+            assert all(
+                entry.reviewed_commit.head_sha == entry.head_sha for entry in overview.history
+            )
+            assert [entry.sequence for entry in overview.history] == list(
+                range(index + 1, max(0, index - 4), -1)
+            )
+            assert [entry.artifact for entry in overview.complete_passes] == artifacts[:2]
+            assert len(api.inline_comments[current.number]) == 1
+            inline_id = str(api.inline_comments[current.number][0]["id"])
+            assert all(
+                entry.artifact.findings[0].inline_comment.comment_id == inline_id
+                for entry in overview.complete_passes
+            )
+        assert len(api.published_heads) == 1

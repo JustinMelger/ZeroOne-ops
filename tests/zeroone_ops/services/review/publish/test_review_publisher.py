@@ -9,6 +9,10 @@ from zeroone_ops.models.review import (
     RemediationReviewContext,
 )
 from zeroone_ops.models.state import ReviewInlineCommentDecision
+from zeroone_ops.services.review.publish.review_overview_codec import decode_overview
+from zeroone_ops.services.review.publish.review_overview_coordinator import (
+    ReviewOverviewCoordinator,
+)
 from zeroone_ops.services.review.publish.review_publisher import ReviewPublisher
 
 from .support import (
@@ -363,9 +367,10 @@ def test_render_artifact_skips_resolution_wording_after_manual_review_only() -> 
 
 def test_publish_artifact_sends_rendered_note_body() -> None:
     review_client = FakeGitLabReviewClient()
-    publisher = ReviewPublisher(review_client)
+    publisher = _overview_publisher(review_client)
 
     result = publisher.publish_artifact(
+        run_id="review-run-17",
         repository_id="123",
         change_request_number=17,
         context=build_context(),
@@ -378,14 +383,19 @@ def test_publish_artifact_sends_rendered_note_body() -> None:
     assert "Missing test coverage" in review_client.published_body
     assert result.artifact is not None
     assert result.artifact.findings[0].inline_comment is None
+    overview = decode_overview(review_client.published_body)
+    assert overview is not None
+    assert overview.complete_passes[0].projection_pending
+    assert overview.complete_passes[0].pass_id == result.review_pass_id
 
 
 def test_publish_artifact_creates_inline_comment_after_summary_note_when_requested() -> None:
     review_client = FakeGitLabReviewClient()
-    publisher = ReviewPublisher(review_client)
+    publisher = _overview_publisher(review_client)
     artifact = build_artifact()
 
     result = publisher.publish_artifact(
+        run_id="review-run-17",
         repository_id="123",
         change_request_number=17,
         context=build_context(),
@@ -409,17 +419,23 @@ def test_publish_artifact_creates_inline_comment_after_summary_note_when_request
 
     assert review_client.inline_comments
     assert review_client.inline_comments[0][1] == 1
-    assert review_client.inline_comments[0][0] == "Missing test coverage."
+    assert review_client.inline_comments[0][0].split("\n\n") == [
+        "Missing test coverage.",
+        r"Evidence: The diff changes \`value = 1\` to \`value = 2\` without any test updates.",
+        "Impact: The change alters branch behavior without test updates.",
+        "Suggested follow-up: Add a regression test for the changed branch.",
+    ]
     assert result.artifact is not None
     assert result.artifact.findings[0].inline_comment is not None
     assert result.artifact.findings[0].inline_comment.comment_id == "789"
     assert result.inline_comment_decisions is not None
     assert result.warning_message is None
+    assert review_client.events == ["overview_create", "inline", "overview_update"]
 
 
-def test_publish_artifact_keeps_inline_comments_to_one_issue_sentence() -> None:
+def test_publish_artifact_keeps_one_issue_title_and_complete_accepted_reasoning() -> None:
     review_client = FakeGitLabReviewClient()
-    publisher = ReviewPublisher(review_client)
+    publisher = _overview_publisher(review_client)
     artifact = PublishableReviewArtifact(
         classification="findings_present",
         summary="One high-risk finding.",
@@ -441,6 +457,7 @@ def test_publish_artifact_keeps_inline_comments_to_one_issue_sentence() -> None:
     )
 
     publisher.publish_artifact(
+        run_id="review-run-17",
         repository_id="123",
         change_request_number=17,
         context=build_context(),
@@ -463,19 +480,22 @@ def test_publish_artifact_keeps_inline_comments_to_one_issue_sentence() -> None:
     )
 
     assert review_client.inline_comments
-    assert (
-        review_client.inline_comments[0][0]
-        == "Unchecked access to `vehicle.types[0]` can raise `IndexError`."
-    )
+    assert review_client.inline_comments[0][0].split("\n\n") == [
+        r"Unchecked access to \`vehicle.types\[0\]\` can raise \`IndexError\`.",
+        r"Evidence: The helper reads \`vehicle.types\[0\]\` directly.",
+        r"Impact: This can raise \`IndexError\` on valid empty-list input.",
+        "Suggested follow-up: Guard the empty-list case.",
+    ]
 
 
 def test_publish_artifact_surfaces_inline_comment_publish_warning() -> None:
     review_client = FakeGitLabReviewClient()
     review_client.fail_inline_publish = True
-    publisher = ReviewPublisher(review_client)
+    publisher = _overview_publisher(review_client)
     artifact = build_artifact()
 
     result = publisher.publish_artifact(
+        run_id="review-run-17",
         repository_id="123",
         change_request_number=17,
         context=build_context(),
@@ -506,10 +526,11 @@ def test_publish_artifact_surfaces_inline_comment_publish_warning() -> None:
 def test_publish_artifact_surfaces_authoritative_note_update_warning() -> None:
     review_client = FakeGitLabReviewClient()
     review_client.fail_note_update = True
-    publisher = ReviewPublisher(review_client)
+    publisher = _overview_publisher(review_client)
     artifact = build_artifact()
 
     result = publisher.publish_artifact(
+        run_id="review-run-17",
         repository_id="123",
         change_request_number=17,
         context=build_context(),
@@ -533,15 +554,21 @@ def test_publish_artifact_surfaces_authoritative_note_update_warning() -> None:
 
     assert result.note is not None
     assert result.warning_message is not None
-    assert "updating the authoritative review note failed" in result.warning_message
-    assert "local mirrored continuity was preserved" in result.warning_message
+    assert result.error_message is None
+    assert "metadata could not be synchronized" in result.warning_message
+    assert "local evidence is retained" in result.warning_message
     assert result.artifact.findings[0].inline_comment is not None
     assert result.artifact.findings[0].inline_comment.comment_id == "789"
+    assert result.overview_pass is not None
+    assert result.overview_pass.artifact == result.artifact
+    overview = decode_overview(review_client.comments[0].body)
+    assert overview is not None
+    assert overview.complete_passes[0].artifact.findings[0].inline_comment is None
 
 
 def test_publish_artifact_prefers_latest_changed_line_within_finding_range() -> None:
     review_client = FakeGitLabReviewClient()
-    publisher = ReviewPublisher(review_client)
+    publisher = _overview_publisher(review_client)
     artifact = PublishableReviewArtifact(
         classification="findings_present",
         summary="One medium-risk finding.",
@@ -565,6 +592,7 @@ def test_publish_artifact_prefers_latest_changed_line_within_finding_range() -> 
     )
 
     publisher.publish_artifact(
+        run_id="review-run-17",
         repository_id="123",
         change_request_number=17,
         context=build_multiline_context(),
@@ -588,6 +616,13 @@ def test_publish_artifact_prefers_latest_changed_line_within_finding_range() -> 
 
     assert review_client.inline_comments
     assert review_client.inline_comments[0][1] == 75
+
+
+def _overview_publisher(review_client: FakeGitLabReviewClient) -> ReviewPublisher:
+    return ReviewPublisher(
+        review_client,
+        overview_coordinator=ReviewOverviewCoordinator(review_client, "gitlab"),
+    )
 
 
 def test_render_artifact_embeds_inline_comment_metadata_when_present() -> None:

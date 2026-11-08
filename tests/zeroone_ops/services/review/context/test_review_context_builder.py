@@ -1,6 +1,8 @@
 import logging
 from pathlib import Path
 
+import pytest
+
 from zeroone_ops.models.config import (
     AnalysisConfig,
     AppConfig,
@@ -77,6 +79,42 @@ def build_merge_request(*, changes: list[ChangeRequestChangedFile]) -> ChangeReq
     )
 
 
+@pytest.mark.parametrize(
+    "limitation", ["none", "filtered", "ignored", "deleted", "excerpt", "no_patch", "blank_patch"]
+)
+def test_review_scope_is_application_derived(tmp_path: Path, limitation: str) -> None:
+    (tmp_path / "src").mkdir()
+    source = "value = 2\n" if limitation != "excerpt" else "value = 2\n" + "other = 3\n" * 10
+    (tmp_path / "src/service.py").write_text(source, encoding="utf-8")
+    patch = (
+        None
+        if limitation == "no_patch"
+        else " "
+        if limitation == "blank_patch"
+        else "@@ -1 +1 @@\n-value = 1\n+value = 2"
+    )
+    changes = [
+        ChangeRequestChangedFile(old_path="src/service.py", new_path="src/service.py", diff=patch)
+    ]
+    if limitation in {"filtered", "ignored", "deleted"}:
+        path = "docs/notes.md" if limitation == "filtered" else "src/other.py"
+        changes.append(
+            ChangeRequestChangedFile(
+                old_path=path, new_path=path, diff="patch", deleted_file=limitation == "deleted"
+            )
+        )
+    config = build_config(
+        supported_paths=["src/"],
+        ignored_paths=["src/other.py"] if limitation == "ignored" else [],
+        enable_function_context=False,
+    )
+
+    result = ReviewContextBuilder(tmp_path, config).build(build_merge_request(changes=changes))
+
+    assert result.context is not None
+    assert result.context.review_scope_limited == (limitation != "none")
+
+
 def test_build_returns_changed_file_context(tmp_path: Path) -> None:
     source_dir = tmp_path / "src"
     source_dir.mkdir()
@@ -107,7 +145,7 @@ def test_build_returns_changed_file_context(tmp_path: Path) -> None:
     assert "   3: line3" in result.context.changed_files[0].content
 
 
-def test_build_rejects_when_changed_files_exceed_v1_limit(tmp_path: Path) -> None:
+def test_build_rejects_when_changed_files_exceed_configured_limit(tmp_path: Path) -> None:
     source_dir = tmp_path / "src"
     source_dir.mkdir()
     (source_dir / "a.py").write_text("a = 1\n", encoding="utf-8")
@@ -133,7 +171,10 @@ def test_build_rejects_when_changed_files_exceed_v1_limit(tmp_path: Path) -> Non
     ).build(merge_request)
 
     assert result.context is None
-    assert "exceeds the v1 limit of 1" in result.message
+    assert result.message == (
+        "Could not build review context. The change request changes 2 supported files, "
+        "which exceeds the configured limit of 1."
+    )
 
 
 def test_build_rejects_missing_local_file(tmp_path: Path) -> None:

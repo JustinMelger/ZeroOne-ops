@@ -164,17 +164,68 @@ This heading is retained for existing release-readiness links.
 
 ### Review Overview Design
 
-The proposed [functional design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/functional/functional-design-review-overview.md)
+The [functional design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/functional/functional-design-review-overview.md)
 and [technical design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-design-review-overview.md)
 separate a persistent PR/MR overview from review-pass authority, inline findings,
-and optional structured CI evidence. These are design proposals, not shipped
-capabilities or changes to model judgment.
-Slice 1 is independently shippable. Stop for its live acceptance before report
-integration; validate the smallest JUnit installation before expanding to coverage.
+and optional structured CI evidence. Slice 1 implementation has automated offline
+verification; live acceptance remains pending.
+Its single bot-owned overview retains two complete passes and five summaries
+independently of model-context limits, separates failed attempts, and enforces a
+60,000 UTF-8 byte budget with ownership and read-before-write guards. Reporting
+and evidence-only refresh remain proposed, not implemented. Model judgment is
+unchanged. Automated completion does not close the separate live gates below.
+Unconfigured quality reporting has no empty section or upfront notice; the AI/CI
+disclaimer appears in the overview footer.
+The verdict is prioritized above findings; exact commit metadata and follow-up
+provenance are collapsed into Review Details without changing review authority.
+Linked findings avoid repeating inline reasoning; unlinked findings retain full
+details. Shared presentation preserves punctuation without activating Markdown/HTML.
+The overview uses one verdict heading; unmatched prior concerns are described as
+not reported, not verified fixes. Publication guards reject blank GitLab identity
+and withhold projection on failed request/head revalidation after inline writes.
+Reviewed commit labels now combine a short SHA with optional provider-supplied
+titles, persisted per pass and reused without model calls or metadata backfill.
+Live commit-label presentation acceptance remains unchecked.
+The bounded **What Changed** implementation carries descriptive output from the
+existing candidate call into completed artifacts without forwarding it as
+precision or overlap evidence. Live description quality is not established by
+the offline scripts.
+Offline regressions cover GitHub installation-token identity and withholding
+projection repair when overview authority is conflicting or unavailable.
+The **Earlier Findings** implementation preserves up to ten distinct overview-only
+concerns independently of complete snapshot retention, labels resolution as
+unverified, and discloses retention evictions. Automated verification passed;
+live GitHub/GitLab presentation acceptance remains separate.
+Deleted-overview recreation on a new head now uses verified request-scoped cache
+when available and discloses unavailable/partial history otherwise. Automated
+verification of this recovery follow-up passed; live acceptance remains separate.
+Overview presentation now shares defensive browser-link validation with Earlier
+Findings retention, preserving reasoning when stored URL text is malformed.
+Keep live acceptance separate and complete it before report integration; validate
+the smallest JUnit installation before expanding to coverage.
 
-- [ ] review the proposed contracts before implementation
-- [ ] slice 1: persistent overview, durable bounded history, stale-write guards,
+- [x] review the proposed contracts before implementation
+- [x] slice 1: persistent overview, durable bounded history, stale-write guards,
   and existing same-SHA/inline/projection-repair continuity
+- [x] **Pre-merge: Earlier Findings visibility (automated)**: preserve operator-readable
+  evidence and reviewed SHA for overview-only concerns not reported again,
+  explicitly label **Resolution not verified**, and define bounded retention and
+  eviction behavior. Covered successive passes, fresh-workspace recovery,
+  reuse/repair/restoration, escaping, and the complete payload budget; absence
+  in a later finding list never establishes resolution
+- [ ] live-validate **Earlier Findings** presentation and persistence on GitHub
+  and GitLab separately from automated completion
+- [x] review and implement the bounded **What Changed** follow-up: a separate
+  factual reviewed-diff summary generated within an existing model call,
+  persisted with complete artifacts and preserved during reuse and recovery
+- [ ] live-validate **What Changed** description quality on GitHub and GitLab;
+  scripted offline tests establish propagation and isolation, not factual quality
+- [x] **UX slice: Reviewed Commit Context**: show a short linked SHA and the
+  provider-supplied commit title; collapse full head/base details, persist
+  optional pass metadata, and cover lookup failures, exact-SHA matching,
+  historical compatibility, and reuse/recovery without additional model calls
+- [ ] live-validate reviewed commit labels on GitHub and GitLab separately from
+  automated verification
 - [ ] live-validate slice 1 on GitHub and GitLab, including fresh-workspace and
   partial-publication recovery, before starting slice 2
 - [ ] slice 2: CI-provided JUnit reports, producer correlation, and same-SHA

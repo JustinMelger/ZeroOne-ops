@@ -1,6 +1,9 @@
+import json
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import parse_qs
 
+import httpx
 import pytest
 
 from zeroone_ops.models.gitlab import MergeRequestNote
@@ -35,8 +38,133 @@ from zeroone_ops.services.review.context.review_context_builder import (
 from zeroone_ops.services.review.continuity.review_overlap_analysis_service import (
     ReviewOverlapAnalysisResult,
 )
-from zeroone_ops.services.review.publish.review_publisher import ReviewPublishResult
+from zeroone_ops.services.review.publish.review_overview_codec import decode_overview
 from zeroone_ops.services.shared.state_store import StateStore
+
+
+class _ReviewAPI:
+    """Persist provider comments while rejecting unexpected transport operations."""
+
+    def __init__(self) -> None:
+        self.head_sha = "abc123"
+        self.username_unavailable = False
+        self.comments: list[dict[str, object]] = []
+        self.requests: list[httpx.Request] = []
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        path = request.url.path
+        github = request.url.host == "api.github.com"
+        assert request.url.host in {"api.github.com", "gitlab.example.com"}
+        root = "/repos/octo-org/octo-repo" if github else "/api/v4/projects/123"
+        request_path = f"{root}/pulls/23" if github else f"{root}/merge_requests/17"
+        comments_path = f"{root}/issues/23/comments" if github else f"{request_path}/notes"
+        note_id = 88 if github else 55
+        update_path = (
+            f"{root}/issues/comments/{note_id}" if github else f"{comments_path}/{note_id}"
+        )
+        web_url = (
+            "https://github.com/octo-org/octo-repo/pull/23"
+            if github
+            else "https://gitlab.example.com/group/project/-/merge_requests/17"
+        )
+        if request.method == "GET":
+            commit_path = (
+                f"{root}/git/commits/{self.head_sha}"
+                if github
+                else f"{root}/repository/commits/{self.head_sha}"
+            )
+            if path == commit_path:
+                assert dict(request.url.params) == ({} if github else {"stats": "false"})
+                commit_url = (
+                    f"https://github.com/octo-org/octo-repo/commit/{self.head_sha}"
+                    if github
+                    else f"https://gitlab.example.com/group/project/-/commit/{self.head_sha}"
+                )
+                return httpx.Response(
+                    200,
+                    json={
+                        "sha": self.head_sha,
+                        "id": self.head_sha,
+                        "message": "Update the reviewed code",
+                        "html_url": commit_url,
+                        "web_url": commit_url,
+                    },
+                )
+            if path == ("/user" if github else "/api/v4/user"):
+                if self.username_unavailable:
+                    return httpx.Response(503, json={"message": "cannot resolve bot username"})
+                return httpx.Response(200, json={"login": "bot", "username": "bot"})
+            if path == comments_path:
+                return httpx.Response(200, json=self.comments)
+            if path == f"{root}/issues":
+                return httpx.Response(200, json=[])
+            if path == request_path:
+                return httpx.Response(
+                    200,
+                    json={
+                        "number": 23,
+                        "iid": 17,
+                        "state": "open" if github else "opened",
+                        "head": {"sha": self.head_sha, "ref": "feature/review"},
+                        "sha": self.head_sha,
+                        "source_branch": "feature/review",
+                        "html_url": web_url,
+                        "web_url": web_url,
+                    },
+                )
+        if (request.method, path) in {
+            ("POST", comments_path),
+            ("PATCH" if github else "PUT", update_path),
+        }:
+            if request.method == "POST":
+                assert not self.comments, "A completed review must reuse its overview."
+            else:
+                assert len(self.comments) == 1
+            body = (
+                json.loads(request.content)["body"]
+                if github
+                else parse_qs(request.content.decode())["body"][0]
+            )
+            envelope = decode_overview(body)
+            assert envelope is not None
+            assert envelope.platform == ("github" if github else "gitlab")
+            assert envelope.repository_id == ("octo-org/octo-repo" if github else "123")
+            assert envelope.change_request_number == (23 if github else 17)
+            note = {
+                "id": note_id,
+                "body": body,
+                "user": {"login": "bot"},
+                "author": {"username": "bot"},
+                "html_url": f"{web_url}#issuecomment-{note_id}",
+                "web_url": f"{web_url}#note_{note_id}",
+                "created_at": "2026-11-02T12:00:00Z",
+            }
+            self.comments[:] = [note]
+            return httpx.Response(201 if request.method == "POST" else 200, json=note)
+        raise AssertionError(f"Unexpected review API request: {request.method} {request.url}")
+
+    def artifact(self) -> PublishableReviewArtifact:
+        assert len(self.comments) == 1
+        envelope = decode_overview(self.comments[0]["body"])
+        assert envelope is not None
+        assert envelope.complete_passes[0].head_sha == self.head_sha
+        return envelope.complete_passes[0].artifact
+
+
+@pytest.fixture(autouse=True)
+def review_api(monkeypatch):
+    """Give internally constructed clients strict local HTTP without replacing services."""
+    api = _ReviewAPI()
+    original_init = httpx.Client.__init__
+
+    def initialize(client, *args, **kwargs):
+        assert "transport" not in kwargs
+        kwargs["transport"] = httpx.MockTransport(api.handle)
+        original_init(client, *args, **kwargs)
+
+    monkeypatch.setattr(httpx.Client, "__init__", initialize)
+    return api
 
 
 class _SelectionResult:
@@ -259,16 +387,6 @@ def _stub_get_current_username(
     return _get
 
 
-def _stub_raise_runtime_error(
-    message: str,
-) -> Callable[[object], str]:
-    def _raise(self: object) -> str:
-        del self
-        raise RuntimeError(message)
-
-    return _raise
-
-
 def _stub_list_comments(
     comments: list[ReviewComment],
 ) -> Callable[[object, str, int], list[ReviewComment]]:
@@ -364,7 +482,9 @@ def _stub_overlap_analysis(
     return _analyze
 
 
-def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> None:
+def test_review_dry_run_creates_review_summary(
+    tmp_path: Path, monkeypatch, review_api: _ReviewAPI
+) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
@@ -446,11 +566,14 @@ def test_review_dry_run_creates_review_summary(tmp_path: Path, monkeypatch) -> N
     assert summary.status.value == "reviewed"
     assert "Reviewed change request #17 at abc123." in summary.message
     assert "Dry-run skipped note publication." in summary.message
+    assert review_api.comments == []
+    assert all(request.method == "GET" for request in review_api.requests)
 
 
 def test_review_github_non_dry_run_publishes_summary_comment(
     tmp_path: Path,
     monkeypatch,
+    review_api: _ReviewAPI,
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
@@ -529,44 +652,14 @@ def test_review_github_non_dry_run_publishes_summary_comment(
         ),
     )
 
-    observed: dict[str, object] = {}
-
-    def capture_publish(  # noqa: ANN001, ANN202
-        self,
-        repository_id,
-        change_request_number,
-        context,
-        artifact,
-        inline_comment_decisions=None,
-    ):
-        del self, context, inline_comment_decisions
-        observed["repository_id"] = repository_id
-        observed["change_request_number"] = change_request_number
-        observed["artifact"] = artifact
-        return ReviewPublishResult(
-            note=type(
-                "Note",
-                (),
-                {
-                    "id": 88,
-                    "web_url": "https://github.com/octo-org/octo-repo/pull/23#issuecomment-88",
-                },
-            )(),
-            body="summary",
-            artifact=artifact,
-        )
-
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
-        capture_publish,
-    )
-
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
-    assert observed["repository_id"] == "octo-org/octo-repo"
-    assert observed["change_request_number"] == 23
-    assert observed["artifact"].classification == "no_findings"
+    envelope = decode_overview(review_api.comments[0]["body"])
+    assert envelope is not None
+    assert envelope.repository_id == "octo-org/octo-repo"
+    assert envelope.change_request_number == 23
+    assert review_api.artifact().classification == "no_findings"
     assert "Review note: https://github.com/octo-org/octo-repo/pull/23#issuecomment-88" in (
         summary.message
     )
@@ -635,6 +728,7 @@ def test_review_github_stops_when_live_head_sha_differs_from_triggered_revision(
 def test_review_non_dry_run_publishes_findings_and_persists_revision(
     tmp_path: Path,
     monkeypatch,
+    review_api: _ReviewAPI,
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
@@ -741,35 +835,6 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         ),
     )
 
-    def publish_artifact_stub(  # noqa: ANN001, ANN202
-        self,
-        repository_id,
-        change_request_number,
-        context,
-        artifact,
-        inline_comment_decisions=None,
-    ):
-        del self, repository_id, change_request_number, context, inline_comment_decisions
-        return ReviewPublishResult(
-            note=type(
-                "Note",
-                (),
-                {
-                    "id": 55,
-                    "web_url": (
-                        "https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
-                    ),
-                },
-            )(),
-            body="summary",
-            artifact=artifact,
-        )
-
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
-        publish_artifact_stub,
-    )
-
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
@@ -785,6 +850,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
         sonarqube_project_key=None,
     ).load()
     assert state.reviews["17:abc123"].status == "findings_present"
+    assert review_api.artifact().classification == "findings_present"
     assert state.runs[-1].review_diagnostics is not None
     diagnostics = state.runs[-1].review_diagnostics
     assert diagnostics.reviewed_head_sha == "abc123"
@@ -801,6 +867,7 @@ def test_review_non_dry_run_publishes_findings_and_persists_revision(
 def test_review_non_dry_run_downgrades_structurally_invalid_artifact_to_manual_review_only(
     tmp_path: Path,
     monkeypatch,
+    review_api: _ReviewAPI,
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
@@ -935,34 +1002,10 @@ def test_review_non_dry_run_downgrades_structurally_invalid_artifact_to_manual_r
         )(),
     )
 
-    observed: dict[str, object] = {}
-
-    def capture_publish(  # noqa: ANN001, ANN202
-        self,
-        repository_id,
-        change_request_number,
-        context,
-        artifact,
-        inline_comment_decisions=None,
-    ):
-        del self, repository_id, change_request_number, context
-        observed["artifact"] = artifact
-        observed["inline_comment_decisions"] = inline_comment_decisions
-        return ReviewPublishResult(
-            note=type("Note", (), {"id": 55, "web_url": None})(),
-            body="summary",
-            artifact=artifact,
-        )
-
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
-        capture_publish,
-    )
-
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
-    artifact = observed["artifact"]
+    artifact = review_api.artifact()
     assert artifact.classification == "manual_review_only"
     state = StateStore(
         tmp_path / ".zeroone-ops-state.json",
@@ -976,7 +1019,9 @@ def test_review_non_dry_run_downgrades_structurally_invalid_artifact_to_manual_r
 def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailable(
     tmp_path: Path,
     monkeypatch,
+    review_api: _ReviewAPI,
 ) -> None:
+    review_api.head_sha = "def456"
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
@@ -1140,49 +1185,17 @@ def test_review_non_dry_run_omits_continuity_when_overlap_analysis_is_unavailabl
         ),
     )
 
-    observed: dict[str, object] = {}
-
-    def capture_publish(  # noqa: ANN001, ANN202
-        self,
-        repository_id,
-        change_request_number,
-        context,
-        artifact,
-        inline_comment_decisions=None,
-    ):
-        del self, repository_id, change_request_number, context
-        observed["artifact"] = artifact
-        observed["inline_comment_decisions"] = inline_comment_decisions
-        return ReviewPublishResult(
-            note=type(
-                "Note",
-                (),
-                {
-                    "id": 55,
-                    "web_url": (
-                        "https://gitlab.example.com/group/project/-/merge_requests/17#note_55"
-                    ),
-                },
-            )(),
-            body="summary",
-            artifact=artifact,
-        )
-
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
-        capture_publish,
-    )
-
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
-    assert observed["artifact"].follow_up_lines == []
+    assert review_api.artifact().follow_up_lines == []
     assert "Reviewed change request #17 at def456." in summary.message
 
 
 def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
     tmp_path: Path,
     monkeypatch,
+    review_api: _ReviewAPI,
 ) -> None:
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
@@ -1261,46 +1274,14 @@ def test_review_non_dry_run_publishes_no_findings_note_for_continuity(
         ),
     )
 
-    observed: dict[str, object] = {}
-
-    def capture_publish(  # noqa: ANN001, ANN202
-        self,
-        repository_id,
-        change_request_number,
-        context,
-        artifact,
-        inline_comment_decisions=None,
-    ):
-        del self, repository_id, change_request_number, context
-        observed["artifact"] = artifact
-        observed["inline_comment_decisions"] = inline_comment_decisions
-        return ReviewPublishResult(
-            note=type(
-                "Note",
-                (),
-                {
-                    "id": 77,
-                    "web_url": (
-                        "https://gitlab.example.com/group/project/-/merge_requests/17#note_77"
-                    ),
-                },
-            )(),
-            body="summary",
-            artifact=artifact,
-        )
-
-    monkeypatch.setattr(
-        "zeroone_ops.services.review.publish.review_publisher.ReviewPublisher.publish_artifact",
-        capture_publish,
-    )
-
     summary = review(dry_run=False)
 
     assert summary.status.value == "reviewed"
     assert "Reviewed change request #17 at abc123." in summary.message
-    assert observed["artifact"].classification == "no_findings"
-    assert observed["artifact"].summary == "No actionable findings in this review pass."
-    assert observed["artifact"].follow_up_lines == []
+    artifact = review_api.artifact()
+    assert artifact.classification == "no_findings"
+    assert artifact.summary == "No actionable findings in this review pass."
+    assert artifact.follow_up_lines == []
     assert "Review note:" in summary.message
 
 
@@ -1580,8 +1561,9 @@ def test_review_skips_unchanged_sha_when_gitlab_note_is_manual_review_only(
 
 
 def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresolved(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path, monkeypatch, review_api: _ReviewAPI
 ) -> None:
+    review_api.username_unavailable = True
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
@@ -1643,10 +1625,6 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
         _stub_select_change_request(merge_request),
     )
     monkeypatch.setattr(
-        "zeroone_ops.providers.review.gitlab.GitLabReviewClient.get_current_user_username",
-        _stub_raise_runtime_error("cannot resolve bot username"),
-    )
-    monkeypatch.setattr(
         "zeroone_ops.providers.review.gitlab.GitLabReviewClient.list_merge_request_notes",
         _stub_list_merge_request_notes(
             [
@@ -1692,8 +1670,9 @@ def test_review_does_not_reuse_gitlab_same_sha_note_when_bot_username_is_unresol
 
 
 def test_review_github_reuses_same_sha_note_when_username_lookup_is_unresolved(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path, monkeypatch, review_api: _ReviewAPI
 ) -> None:
+    review_api.username_unavailable = True
     _install_review_precision_fake(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ZEROONE_OPS_CONFIG", str(tmp_path / ".zeroone-ops.json"))
@@ -1734,10 +1713,6 @@ def test_review_github_reuses_same_sha_note_when_username_lookup_is_unresolved(
                 changes=[],
             )
         ),
-    )
-    monkeypatch.setattr(
-        "zeroone_ops.providers.review.github.GitHubReviewClient.get_current_user_username",
-        _stub_raise_runtime_error("cannot resolve bot username"),
     )
     monkeypatch.setattr(
         "zeroone_ops.providers.review.github.GitHubReviewClient.list_change_request_comments",

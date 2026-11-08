@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 
+from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.config import GitLabConnectionConfig
+from zeroone_ops.providers.gitlab_client import GitLabClientError
 from zeroone_ops.providers.review.gitlab import GitLabReviewClient
+from zeroone_ops.providers.review.platform import ReviewPlatformClientError
 
 
 def build_config() -> GitLabConnectionConfig:
@@ -289,6 +293,123 @@ def test_list_merge_request_notes_paginates_until_gitlab_history_is_exhausted() 
     assert [note.id for note in notes] == [55, 56]
 
 
+def test_list_change_request_comments_reads_all_pages() -> None:
+    seen_pages: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/api/v4/projects/123/merge_requests/17/notes"
+        assert request.url.params["per_page"] == "100"
+        page = request.url.params["page"]
+        seen_pages.append(page)
+        return httpx.Response(
+            200,
+            headers={"X-Next-Page": "2" if page == "1" else ""},
+            json=[
+                {"id": int(page), "body": f"Review {page}", "author": {"username": "ai-sonar-bot"}}
+            ],
+        )
+
+    client = GitLabReviewClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+    comments = client.list_change_request_comments(
+        repository_id="123",
+        change_request_number=17,
+    )
+
+    assert seen_pages == ["1", "2"]
+    assert [comment.id for comment in comments] == [1, 2]
+    assert [comment.body for comment in comments] == ["Review 1", "Review 2"]
+
+
+@pytest.mark.parametrize("identifier", ["repository_id", "project_id"])
+@pytest.mark.parametrize("state", ["opened", "closed", "merged"])
+def test_get_change_request_state_does_not_fetch_changed_files(identifier: str, state: str) -> None:
+    requests: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/api/v4/projects/123/merge_requests/17"
+        requests.append(request.url.path)
+        return httpx.Response(
+            200,
+            json={
+                "iid": 17,
+                "web_url": "https://gitlab.example.com/group/project/-/merge_requests/17",
+                "source_branch": "feature/review",
+                "sha": "abc123",
+                "state": state,
+            },
+        )
+
+    client = GitLabReviewClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+    result = client.get_change_request_state(**{identifier: "123"}, change_request_number=17)
+
+    assert len(requests) == 1
+    assert result == ChangeRequestState(
+        iid=17,
+        web_url="https://gitlab.example.com/group/project/-/merge_requests/17",
+        source_branch="feature/review",
+        head_sha="abc123",
+        state=state,
+    )
+
+
+@pytest.mark.parametrize("identifier", ["repository_id", "project_id"])
+@pytest.mark.parametrize(
+    ("status", "payload"),
+    [(404, {"message": "Not Found"}), (200, []), (200, {"iid": 17})],
+)
+def test_get_change_request_state_preserves_provider_error_contract(
+    identifier: str,
+    status: int,
+    payload: object,
+) -> None:
+    client = GitLabReviewClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(lambda request: httpx.Response(status, json=payload)),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+    expected_error = (
+        ReviewPlatformClientError if identifier == "repository_id" else GitLabClientError
+    )
+
+    with pytest.raises(expected_error):
+        client.get_change_request_state(**{identifier: "123"}, change_request_number=17)
+
+
+@pytest.mark.parametrize("identifiers", [{}, {"project_id": "123", "repository_id": "456"}])
+def test_get_change_request_state_requires_one_repository_identifier(
+    identifiers: dict[str, str],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"Unexpected request: {request.url}")
+
+    client = GitLabReviewClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="exactly one"):
+        client.get_change_request_state(**identifiers, change_request_number=17)
+
+
 def test_get_merge_request_state_normalizes_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/api/v4/projects/123/merge_requests/17"
@@ -337,3 +458,26 @@ def test_get_current_user_username_normalizes_response() -> None:
     username = client.get_current_user_username()
 
     assert username == "custom-bot-user"
+
+
+@pytest.mark.parametrize(
+    "status,payload",
+    [
+        (503, {"message": "unavailable"}),
+        (200, []),
+        (200, {"username": None}),
+        (200, {"username": ""}),
+        (200, {"username": " \t\n"}),
+    ],
+)
+def test_current_user_failures_use_neutral_review_boundary(status, payload) -> None:
+    client = GitLabReviewClient(
+        build_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(lambda request: httpx.Response(status, json=payload)),
+            base_url="https://gitlab.example.com",
+        ),
+    )
+
+    with pytest.raises(ReviewPlatformClientError):
+        client.get_current_user_username()

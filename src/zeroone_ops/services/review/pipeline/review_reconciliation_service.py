@@ -19,6 +19,7 @@ from zeroone_ops.models.review import (
     ReviewFinding,
     ReviewResult,
 )
+from zeroone_ops.models.review_change_summary import ReviewChangeSummary
 from zeroone_ops.providers.llm_client import (
     FixtureLLMClient,
     LLMClientError,
@@ -49,6 +50,7 @@ class ReviewReconciliationResult:
     precision_decision: PrecisionReviewDecision | None
     overlap_result: OverlapReconciliationResult | None
     message: str
+    change_summary: ReviewChangeSummary | None = None
 
 
 class ReviewReconciliationService:
@@ -136,6 +138,7 @@ class ReviewReconciliationService:
 
         return ReviewReconciliationResult(
             review_result=review_result,
+            change_summary=None if candidate_result is None else candidate_result.change_summary,
             reconciled_decision=reconciled_decision,
             precision_decision=precision_decision,
             overlap_result=overlap_result,

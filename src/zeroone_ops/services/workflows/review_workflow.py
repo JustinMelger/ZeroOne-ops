@@ -26,6 +26,9 @@ from zeroone_ops.services.review.continuity.review_projection_repair_service imp
 from zeroone_ops.services.review.pipeline.review_runner import LOGGER as REVIEW_LOGGER
 from zeroone_ops.services.review.pipeline.review_runner import ReviewRunner
 from zeroone_ops.services.review.publish.review_finalization_service import ReviewProjectionService
+from zeroone_ops.services.review.publish.review_overview_coordinator import (
+    ReviewOverviewCoordinator,
+)
 from zeroone_ops.services.review.state.review_state_service import ReviewStateService
 from zeroone_ops.services.shared.run_state_service import RunSummary
 from zeroone_ops.services.workflows.workflow_run_context import WorkflowRunContext
@@ -101,6 +104,11 @@ class ReviewWorkflow:
             triggered_head_sha,
         ) = self.build_platform_runtime(self.config)
         projection_factory = self.build_projection_factory(self.config)
+        overview_coordinator = ReviewOverviewCoordinator(
+            review_client,
+            self.config.platform,
+            cached_review_loader=review_state_service.overview_recovery_candidates,
+        )
         runner = ReviewRunner(
             repo_root=context.repo_root,
             config=self.config,
@@ -110,6 +118,7 @@ class ReviewWorkflow:
                 review_client=review_client,
                 review_state_service=review_state_service,
                 logger=REVIEW_LOGGER,
+                overview_coordinator=overview_coordinator,
             ),
             projection_repair_service=ReviewProjectionRepairService(
                 repo_root=context.repo_root,
@@ -117,6 +126,7 @@ class ReviewWorkflow:
                 review_state_service=review_state_service,
                 review_projection_factory=projection_factory,
                 logger=REVIEW_LOGGER,
+                overview_coordinator=overview_coordinator,
             ),
             review_projection_factory=projection_factory,
             remediation_context_resolver=self.build_remediation_context_resolver(

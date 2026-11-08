@@ -1,3 +1,5 @@
+import pytest
+
 from zeroone_ops.models.change_request import ChangeRequestState
 from zeroone_ops.models.github import GitHubIssueInfo
 from zeroone_ops.models.review import (
@@ -412,3 +414,72 @@ def test_project_review_survives_follow_up_status_upsert() -> None:
     assert follow_up.work_item.projected_review.classification == "findings_present"
     assert follow_up.work_item.projected_review.review_note_reference == "github-comment-1"
     assert follow_up.work_item.projected_review.feedback is not None
+
+
+@pytest.mark.parametrize("review_note_id", [None, 1])
+@pytest.mark.parametrize("review_pass_id", [None, "review-pass-1"])
+def test_project_review_receipt_precedence(
+    review_note_id: int | None, review_pass_id: str | None
+) -> None:
+    client = FakeGitHubWorkItemClient()
+    work_item_service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+    work_item_service.upsert_work_item(
+        repository_id="octo-org/octo-repo", work_item=build_work_item()
+    )
+    url = "https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-1"
+
+    result = GitHubReviewProjectionService(work_item_service).project_review(
+        repository_id="octo-org/octo-repo",
+        context=build_context(),
+        artifact=build_actionable_artifact(),
+        reviewed_sha="abc123",
+        review_note_id=review_note_id,
+        review_note_url=url,
+        review_pass_id=review_pass_id,
+    )
+
+    assert result.action == "updated"
+    assert result.work_item is not None
+    assert result.work_item.projected_review is not None
+    assert result.work_item.projected_review.review_note_reference == (
+        review_pass_id or ("github-comment-1" if review_note_id is not None else url)
+    )
+
+
+def test_project_review_same_pass_recreated_comment_preserves_queued_revision() -> None:
+    client = FakeGitHubWorkItemClient()
+    work_item_service = GitHubWorkItemService(client)  # type: ignore[arg-type]
+    work_item_service.upsert_work_item(
+        repository_id="octo-org/octo-repo", work_item=build_work_item()
+    )
+    service = GitHubReviewProjectionService(work_item_service)
+    first = service.project_review(
+        repository_id="octo-org/octo-repo",
+        context=build_context(),
+        artifact=build_actionable_artifact(),
+        reviewed_sha="abc123",
+        review_note_id=1,
+        review_pass_id="review-pass-1",
+    )
+    assert first.work_item is not None
+    queued = first.work_item.model_copy(update={"status": "review_revision_queued"})
+    work_item_service.upsert_work_item(repository_id="octo-org/octo-repo", work_item=queued)
+    url = "https://github.example.com/octo-org/octo-repo/pull/1#issuecomment-2"
+
+    result = service.project_review(
+        repository_id="octo-org/octo-repo",
+        context=build_context(),
+        classification="no_findings",
+        reviewed_sha="abc123",
+        review_note_id=2,
+        review_note_url=url,
+        review_pass_id="review-pass-1",
+    )
+
+    assert result.action == "updated"
+    assert queued.projected_review is not None
+    assert result.work_item == queued.model_copy(
+        update={
+            "projected_review": queued.projected_review.model_copy(update={"review_note_url": url})
+        }
+    )

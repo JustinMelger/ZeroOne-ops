@@ -22,6 +22,11 @@ historical records that explain how ZeroOne Ops reached its present architecture
 - [Runtime workspace ownership technical design](technical/technical-design-runtime-workspace-ownership.md)
 - [Staged review-pipeline functional design](functional/functional-design-pr-review-staged-pipeline.md)
   and [technical design](technical/technical-design-pr-review-staged-pipeline.md)
+- [Review overview functional design](functional/functional-design-review-overview.md)
+  and [technical design](technical/technical-design-review-overview.md): Slice 1
+  persistent publication implementation with automated offline verification;
+  live acceptance remains pending. Review judgment and inline ownership are unchanged;
+  reporting remains proposed for later slices.
 
 Use the [roadmap](../roadmap.md) to identify the active implementation topic,
 then follow the relevant current contract.
@@ -37,11 +42,6 @@ then follow the relevant current contract.
 
 ## Proposed And Parked Designs
 
-- [Review overview functional design](functional/functional-design-review-overview.md)
-  and [technical design](technical/technical-design-review-overview.md)
-  propose one persistent PR/MR overview with durable review continuity and
-  optional CI-provided JUnit/Cobertura evidence. Design review precedes three
-  implementation slices; model judgment and existing inline behavior are unchanged.
 - [Finding file grouping functional design](functional/functional-design-finding-file-grouping.md)
   and [technical design](technical/technical-design-finding-file-grouping.md)
   remain parked background for derived inventories. They are not prerequisites

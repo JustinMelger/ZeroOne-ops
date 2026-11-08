@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from zeroone_ops.models.review import (
     OverlapReconciliationResult,
     OverlapResolution,
@@ -7,9 +9,11 @@ from zeroone_ops.models.review import (
     PrecisionReviewDecision,
     ReconciledReviewDecision,
 )
+from zeroone_ops.models.review_change_summary import ReviewChangeSummary
 from zeroone_ops.services.review.pipeline.review_artifact_builder import (
     ReviewArtifactBuilder,
 )
+from zeroone_ops.services.review.pipeline.review_artifact_validator import ReviewArtifactValidator
 from zeroone_ops.services.review.pipeline.review_reconciled_decision_builder import (
     build_reconciled_review_decision,
 )
@@ -73,6 +77,43 @@ def test_build_preserves_finding_content_for_findings_present() -> None:
     assert len(artifact.findings) == 1
     assert artifact.findings[0].title == "Missing regression coverage"
     assert artifact.follow_up_lines == []
+
+
+@pytest.mark.parametrize(
+    "classification", ["no_findings", "findings_present", "manual_review_only"]
+)
+@pytest.mark.parametrize("limited", [True, False])
+def test_descriptive_metadata_survives_artifact_and_manual_fallback(
+    classification, limited
+) -> None:
+    summary = ReviewChangeSummary(bullets=["Adds descriptive metadata to completed passes."])
+    artifact = (
+        ReviewArtifactBuilder()
+        .build(
+            reconciled_decision=build_decision(classification),
+            change_summary=summary,
+            review_scope_limited=limited,
+        )
+        .artifact
+    )
+    ordinary = (
+        ReviewArtifactBuilder().build(reconciled_decision=build_decision(classification)).artifact
+    )
+
+    assert artifact.change_summary == summary
+    assert artifact.review_scope_limited is limited
+    assert artifact.to_review_result().change_summary == summary
+    assert artifact.summary == ordinary.summary
+    assert artifact.findings == ordinary.findings
+    assert artifact.classification == ordinary.classification
+    validator = ReviewArtifactValidator()
+    invalid = artifact.model_copy(update={"classification": "findings_present", "findings": []})
+    fallback = validator.build_manual_review_only_fallback(
+        artifact=invalid, validation_result=validator.validate(invalid)
+    )
+    assert fallback.classification == "manual_review_only"
+    assert fallback.change_summary == summary
+    assert fallback.review_scope_limited is limited
 
 
 def test_build_sets_no_findings_summary_from_publish_shape() -> None:
@@ -199,3 +240,38 @@ def test_artifact_to_review_result_preserves_follow_up_lines() -> None:
 
     assert "advisory_notes" not in review_result.model_dump()
     assert review_result.follow_up_lines == artifact.follow_up_lines
+
+
+@pytest.mark.parametrize("classification", ["no_findings", "findings_present"])
+@pytest.mark.parametrize("prior_count", [1, 2])
+@pytest.mark.parametrize("with_new_finding", [False, True])
+def test_unmatched_prior_concerns_are_not_reported_rather_than_resolved(
+    classification: str, prior_count: int, with_new_finding: bool
+) -> None:
+    resolutions = [
+        OverlapResolution(
+            outcome="no_longer_present",
+            prior_finding_index=index,
+            related_prior_finding_indices=[index],
+        )
+        for index in range(prior_count)
+    ]
+    if with_new_finding:
+        resolutions.append(OverlapResolution(outcome="new_in_this_pass", current_finding_index=0))
+    overlap = OverlapReconciliationResult(prior_reviewed_head_sha="abc123", resolutions=resolutions)
+    before = overlap.model_dump(mode="json")
+
+    artifact = (
+        ReviewArtifactBuilder()
+        .build(reconciled_decision=build_decision(classification), overlap_result=overlap)
+        .artifact
+    )
+
+    text = " ".join(artifact.follow_up_lines)
+    assert "not reported in this pass" in text
+    if prior_count > 1:
+        assert "2 earlier concerns were not reported" in text
+    assert "no longer appear" not in text
+    assert "resolved" not in text
+    assert artifact.classification == classification
+    assert overlap.model_dump(mode="json") == before

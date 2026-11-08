@@ -14,6 +14,8 @@ from pydantic import AliasChoices, BaseModel, Field
 
 from zeroone_ops.models.analysis import ValidationOutcome
 from zeroone_ops.models.review import PublishableReviewArtifact
+from zeroone_ops.models.review import ReviewInlineCommentDecision as ReviewInlineCommentDecision
+from zeroone_ops.models.review_overview import EarlierReviewFindings, ReviewOverviewPass
 
 
 def utc_now() -> datetime:
@@ -123,25 +125,6 @@ class ReviewDiagnosticCandidateAnnotation(BaseModel):
     candidate_id: str
     flags: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
-
-
-class ReviewInlineCommentDecision(BaseModel):
-    """Represent one bounded inline-comment decision for rollout diagnostics."""
-
-    finding_identity: str | None = None
-    severity: str
-    file_path: str
-    line_start: int | None = None
-    line_end: int | None = None
-    region_hint: str | None = None
-    inline_comments_enabled: bool
-    location_trust: Literal["trusted", "weak", "untrusted"]
-    existing_inline_comment_found: bool
-    anchor_reuse_decision: Literal["reuse", "new", "summary_only"]
-    anchor_reuse_reason: str
-    authoritative_note_id: int | None = None
-    existing_comment_id: str | None = None
-    new_comment_id: str | None = None
 
 
 class ReviewRunDiagnostics(BaseModel):
@@ -275,8 +258,12 @@ class ChangeRequestReviewState(BaseModel):
     note_id: int | None = None
     note_url: str | None = None
     projection_retry_pending: bool = False
+    review_pass_id: str | None = None
+    projection_reference: str | None = None
     projection_retry_warning: str | None = None
     projection_artifact: PublishableReviewArtifact | None = None
+    overview_pass: ReviewOverviewPass | None = None
+    earlier_findings: EarlierReviewFindings = Field(default_factory=EarlierReviewFindings)
     updated_at: datetime = Field(default_factory=utc_now)
 
 
