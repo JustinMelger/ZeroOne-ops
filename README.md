@@ -577,6 +577,10 @@ See the [validation toolchain image contract](docs/runbook.md#validation-toolcha
 for a pinned example, non-root permissions, and GitHub/GitLab integration.
 
 GitHub release automation uses `release-please` plus the publish workflow.
+The release configuration updates the local package version in `uv.lock` alongside
+`pyproject.toml`; it does not resolve or upgrade dependencies. Keep both in sync
+and run `uv lock --check` before merging a release PR. Locked documentation builds
+remain enabled rather than masking stale release metadata.
 Stable release tags now follow the `zeroone-ops-vX.Y.Z` pattern.
 Prerelease tags can use `zeroone-ops-vX.Y.Z-rc.N`; those publish explicit
 prerelease image tags without updating `latest`, while the workflow still

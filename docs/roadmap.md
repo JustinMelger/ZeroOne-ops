@@ -161,6 +161,9 @@ This heading is retained for existing release-readiness links.
 ## Current Focus
 
 - [ ] verify the refreshed styling and assets on the deployed Pages site after merge
+- [ ] verify the next generated release PR updates the local `uv.lock` package
+  version alongside `pyproject.toml`, without changing dependency versions;
+  the targeted Release Please TOML updater is configured and locally exercised
 
 ### Review Overview Design
 
