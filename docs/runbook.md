@@ -683,6 +683,12 @@ Use this lightweight checklist before cutting a stable release tag.
    - `GITLAB_TOKEN` for GitLab-backed live workflows
 4. when using release-please, prefer squash merge with a conventional PR title
    so the commit that lands on `main` stays parseable for release automation
+   and confirm `uv lock --check` succeeds on the generated release branch.
+   The configured TOML updater changes only the local package's lockfile version,
+   alongside `pyproject.toml`; it does not upgrade dependencies. Its selector uses
+   `.name.value` because Release Please's TOML parser retains scalar-token metadata.
+   Do not replace the documentation workflow's `--locked` checks with `--frozen`
+   or depend on a later Renovate update to repair release metadata.
 5. if the change is significant, publish and test a prerelease tag first, for
    example `zeroone-ops-vX.Y.Z-rc.N`
 6. confirm the publish-image workflow smoke test passes for the container:

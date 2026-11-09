@@ -4,7 +4,14 @@
     ".": {
       "release-type": "python",
       "package-name": "zeroone-ops",
-      "include-v-in-tag": true
+      "include-v-in-tag": true,
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "uv.lock",
+          "jsonpath": "$.package[?(@.name.value=='zeroone-ops')].version"
+        }
+      ]
     }
   }
 }
