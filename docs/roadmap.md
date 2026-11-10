@@ -160,6 +160,9 @@ This heading is retained for existing release-readiness links.
 
 ## Current Focus
 
+- [ ] after merging lockfile-maintenance configuration, approve the first refresh
+  through the Renovate Dependency Dashboard and verify the separate PR respects
+  uv's cutoff; weekly maintenance is configured with explicit operator approval
 - [ ] verify the refreshed styling and assets on the deployed Pages site after merge
 - [ ] verify the next generated release PR updates the local `uv.lock` package
   version alongside `pyproject.toml`, without changing dependency versions;

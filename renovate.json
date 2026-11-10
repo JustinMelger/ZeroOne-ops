@@ -13,12 +13,24 @@
   "updateNotScheduled": false,
   "rangeStrategy": "bump",
   "dependencyDashboard": true,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "* 6-11 * * 1"
+    ]
+  },
   "prCreation": "immediate",
   "prHourlyLimit": 1,
   "prConcurrentLimit": 2,
   "separateMajorMinor": true,
   "automerge": false,
   "packageRules": [
+    {
+      "matchUpdateTypes": [
+        "lockFileMaintenance"
+      ],
+      "dependencyDashboardApproval": true
+    },
     {
       "matchDatasources": [
         "pypi"
