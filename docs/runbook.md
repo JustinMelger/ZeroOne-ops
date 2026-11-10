@@ -653,6 +653,25 @@ Dashboard; automerge is disabled. Vulnerability-alert PRs
 retain Renovate's default schedule/rate-limit exemptions. Existing ordinary
 branches also wait for the maintenance window before updates.
 
+Weekly `lockFileMaintenance` is enabled for `uv.lock`, explicitly using the same
+Monday 06:00-12:00 Europe/Amsterdam window rather than Renovate's earlier default
+maintenance window. It creates a separate lockfile-refresh PR and requires
+Dependency Dashboard approval. Open-ended manifest ranges can allow major
+dependency changes during this refresh, so ordinary major-update gating alone
+is not enough; inspect the full diff before manually merging. Existing PR limits
+and disabled automerge remain unchanged. Maintenance delegates resolution to uv:
+Renovate's release-age filtering is not a transitive-dependency guarantee, while
+`tool.uv.exclude-newer = "7 days"` remains the package-manager cutoff.
+
+To request maintenance manually, merge the configuration to the default branch,
+let the hosted app refresh the Dependency Dashboard, and select the lockfile
+maintenance checkbox. Renovate processes the request on a subsequent app run;
+this is not an immediately dispatched GitHub Actions workflow. Dashboard-forced
+requests can bypass scheduling, but do not remove uv's cutoff. If the entry is
+not present yet, wait for a refreshed dashboard rather than running a local
+unrestricted upgrade or weakening lockfile validation. Full dependency refresh
+is separate from Release Please keeping the local package version synchronized.
+
 After correcting a cooldown rule, merge it into the default branch before
 asking Renovate to rebase or recreate an affected dependency PR. A manifest
 requiring a version younger than the uv cutoff cannot resolve to an older

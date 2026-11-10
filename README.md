@@ -633,6 +633,13 @@ updates. Non-major updates are grouped by ecosystem, with two open PRs maximum;
 major upgrades require Dependency Dashboard approval. All normal PyPI updates,
 including majors, observe the seven-day uv cooldown. See the
 [runbook](docs/runbook.md) for the schedule and security-update exceptions.
+Weekly `uv.lock` maintenance is enabled in the same Monday window and requires
+Dependency Dashboard approval before creating its separate PR. It refreshes
+versions within existing manifest constraints; review the complete diff because
+open-ended ranges can allow major upgrades. uv's seven-day cutoff still applies.
+After this configuration is merged to `main` and processed by Renovate, use the
+dashboard's maintenance checkbox to approve or request the refresh; there is no
+separate GitHub Actions job to dispatch.
 
 ## Docs
 
