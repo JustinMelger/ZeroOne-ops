@@ -5,6 +5,14 @@ Naming note:
 - current product brand: `ZeroOne Ops`
 - current technical release slug: `zeroone-ops`
 - historical entries below still reference older repository and tag names where they were originally published
+## [1.1.1](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v1.1.0...zeroone-ops-v1.1.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **deps:** update python dependencies ([#487](https://github.com/JustinMelger/ZeroOne-ops/issues/487)) ([7b7258f](https://github.com/JustinMelger/ZeroOne-ops/commit/7b7258f175bd243748f57e5542897cf346ce42b5))
+* **release:** synchronize uv lockfile package versions ([#489](https://github.com/JustinMelger/ZeroOne-ops/issues/489)) ([82d4090](https://github.com/JustinMelger/ZeroOne-ops/commit/82d4090778c302b63cdc5409cbd98ab0657b90e8))
+
 ## [1.1.0](https://github.com/JustinMelger/ZeroOne-ops/compare/zeroone-ops-v1.0.0...zeroone-ops-v1.1.0) (2026-11-08)
 
 
