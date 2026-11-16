@@ -158,7 +158,37 @@ final release-PR checks and migration/template changes, and publication through
 Release Please with versioned-image verification and a container smoke test.
 This heading is retained for existing release-readiness links.
 
+### Review Overview Design
+
+Implemented: one persistent GitHub/GitLab overview with bounded provider-backed
+history, same-SHA reuse, inline/projection-repair continuity, reviewed commit
+labels, **What Changed**, and **Earlier Findings** visibility. Earlier concerns
+not reported again remain explicitly unverified, not automatically resolved.
+Ownership, stale-write guards, and the complete 60,000-byte payload budget remain
+part of the publication contract.
+
+The operator confirmed live acceptance on GitHub and GitLab on 2026-11-16,
+closing the overview, presentation, and reuse/recovery gates previously tracked
+here. This is operator-reported acceptance; exact workflow references were not
+recorded here, and no additional remote validation was run for this update.
+Automated coverage and implementation detail remain in the
+[functional design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/functional/functional-design-review-overview.md)
+and [technical design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-design-review-overview.md).
+JUnit, coverage, and evidence-only refresh remain proposed and are parked below.
+
 ## Current Focus
+
+Prioritize remediation quality over adding review-reporting features:
+
+- [ ] make demo contributor guidance representative of ordinary application
+  conventions, keeping ZeroOne execution boundaries and seeded-defect acceptance
+  criteria out of model-visible application guidance
+- [ ] design bounded read-only supporting context for remediation, using demo
+  issues #66/#67 and #71 as acceptance cases; separate supporting evidence from
+  the unchanged one-file edit authority, then measure unnecessary blocking
+  without weakening validation or publication gates
+
+Keep the following operational housekeeping separate from the development track:
 
 - [ ] after merging lockfile-maintenance configuration, approve the first refresh
   through the Renovate Dependency Dashboard and verify the separate PR respects
@@ -168,83 +198,14 @@ This heading is retained for existing release-readiness links.
   version alongside `pyproject.toml`, without changing dependency versions;
   the targeted Release Please TOML updater is configured and locally exercised
 
-### Review Overview Design
-
-The [functional design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/functional/functional-design-review-overview.md)
-and [technical design](https://github.com/JustinMelger/ZeroOne-ops/blob/main/docs/design/technical/technical-design-review-overview.md)
-separate a persistent PR/MR overview from review-pass authority, inline findings,
-and optional structured CI evidence. Slice 1 implementation has automated offline
-verification; live acceptance remains pending.
-Its single bot-owned overview retains two complete passes and five summaries
-independently of model-context limits, separates failed attempts, and enforces a
-60,000 UTF-8 byte budget with ownership and read-before-write guards. Reporting
-and evidence-only refresh remain proposed, not implemented. Model judgment is
-unchanged. Automated completion does not close the separate live gates below.
-Unconfigured quality reporting has no empty section or upfront notice; the AI/CI
-disclaimer appears in the overview footer.
-The verdict is prioritized above findings; exact commit metadata and follow-up
-provenance are collapsed into Review Details without changing review authority.
-Linked findings avoid repeating inline reasoning; unlinked findings retain full
-details. Shared presentation preserves punctuation without activating Markdown/HTML.
-The overview uses one verdict heading; unmatched prior concerns are described as
-not reported, not verified fixes. Publication guards reject blank GitLab identity
-and withhold projection on failed request/head revalidation after inline writes.
-Reviewed commit labels now combine a short SHA with optional provider-supplied
-titles, persisted per pass and reused without model calls or metadata backfill.
-Live commit-label presentation acceptance remains unchecked.
-The bounded **What Changed** implementation carries descriptive output from the
-existing candidate call into completed artifacts without forwarding it as
-precision or overlap evidence. Live description quality is not established by
-the offline scripts.
-Offline regressions cover GitHub installation-token identity and withholding
-projection repair when overview authority is conflicting or unavailable.
-The **Earlier Findings** implementation preserves up to ten distinct overview-only
-concerns independently of complete snapshot retention, labels resolution as
-unverified, and discloses retention evictions. Automated verification passed;
-live GitHub/GitLab presentation acceptance remains separate.
-Deleted-overview recreation on a new head now uses verified request-scoped cache
-when available and discloses unavailable/partial history otherwise. Automated
-verification of this recovery follow-up passed; live acceptance remains separate.
-Overview presentation now shares defensive browser-link validation with Earlier
-Findings retention, preserving reasoning when stored URL text is malformed.
-Keep live acceptance separate and complete it before report integration; validate
-the smallest JUnit installation before expanding to coverage.
-
-- [x] review the proposed contracts before implementation
-- [x] slice 1: persistent overview, durable bounded history, stale-write guards,
-  and existing same-SHA/inline/projection-repair continuity
-- [x] **Pre-merge: Earlier Findings visibility (automated)**: preserve operator-readable
-  evidence and reviewed SHA for overview-only concerns not reported again,
-  explicitly label **Resolution not verified**, and define bounded retention and
-  eviction behavior. Covered successive passes, fresh-workspace recovery,
-  reuse/repair/restoration, escaping, and the complete payload budget; absence
-  in a later finding list never establishes resolution
-- [ ] live-validate **Earlier Findings** presentation and persistence on GitHub
-  and GitLab separately from automated completion
-- [x] review and implement the bounded **What Changed** follow-up: a separate
-  factual reviewed-diff summary generated within an existing model call,
-  persisted with complete artifacts and preserved during reuse and recovery
-- [ ] live-validate **What Changed** description quality on GitHub and GitLab;
-  scripted offline tests establish propagation and isolation, not factual quality
-- [x] **UX slice: Reviewed Commit Context**: show a short linked SHA and the
-  provider-supplied commit title; collapse full head/base details, persist
-  optional pass metadata, and cover lookup failures, exact-SHA matching,
-  historical compatibility, and reuse/recovery without additional model calls
-- [ ] live-validate reviewed commit labels on GitHub and GitLab separately from
-  automated verification
-- [ ] live-validate slice 1 on GitHub and GitLab, including fresh-workspace and
-  partial-publication recovery, before starting slice 2
-- [ ] slice 2: CI-provided JUnit reports, producer correlation, and same-SHA
-  quality refresh without additional model calls
-- [ ] validate minimal JUnit installation examples and live evidence refresh on
-  both providers before starting slice 3
-- [ ] slice 3: Cobertura line coverage, comparable head/base reports, and
-  changed-code coverage with explicit availability states
-- [ ] live-validate GitHub and GitLab overview updates, report wiring, and recovery
-  separately from automated completion
-
 ## Parked For Later (Post-v1)
 
+- structured review quality evidence, preserving the proposed overview designs:
+  slice 2 adds CI-provided JUnit reports, producer correlation, and same-SHA
+  evidence refresh without additional model calls; validate minimal installation
+  examples on both providers before slice 3 adds comparable head/base Cobertura
+  line coverage and changed-code coverage. Neither reporting slice is active;
+  implementation, automated checks, and live acceptance remain future gates
 - broader end-to-end scenario fixtures across intake, policy, remediation,
   provider-native change requests, lifecycle, and summaries on both providers;
   extend offline scenarios with full review-to-completion orchestration,
