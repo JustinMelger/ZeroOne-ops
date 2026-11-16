@@ -180,7 +180,7 @@ JUnit, coverage, and evidence-only refresh remain proposed and are parked below.
 
 Prioritize remediation quality over adding review-reporting features:
 
-- [ ] make demo contributor guidance representative of ordinary application
+- [x] make demo contributor guidance representative of ordinary application
   conventions, keeping ZeroOne execution boundaries and seeded-defect acceptance
   criteria out of model-visible application guidance
 - [ ] design bounded read-only supporting context for remediation, using demo
@@ -190,7 +190,7 @@ Prioritize remediation quality over adding review-reporting features:
 
 Keep the following operational housekeeping separate from the development track:
 
-- [ ] after merging lockfile-maintenance configuration, approve the first refresh
+- [x] after merging lockfile-maintenance configuration, approve the first refresh
   through the Renovate Dependency Dashboard and verify the separate PR respects
   uv's cutoff; weekly maintenance is configured with explicit operator approval
 - [ ] verify the refreshed styling and assets on the deployed Pages site after merge
