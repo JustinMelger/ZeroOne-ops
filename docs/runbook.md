@@ -653,6 +653,11 @@ Dashboard; automerge is disabled. Vulnerability-alert PRs
 retain Renovate's default schedule/rate-limit exemptions. Existing ordinary
 branches also wait for the maintenance window before updates.
 
+Use `pep621` in `matchManagers` for this repository's `pyproject.toml` and
+`uv.lock` handling. uv is the underlying package-manager CLI, not a separate
+Renovate manager; adding `uv` to `matchManagers` invalidates the configuration
+and stops dependency PRs until corrected.
+
 Weekly `lockFileMaintenance` is enabled for `uv.lock`, explicitly using the same
 Monday 06:00-12:00 Europe/Amsterdam window rather than Renovate's earlier default
 maintenance window. It creates a separate lockfile-refresh PR and requires
