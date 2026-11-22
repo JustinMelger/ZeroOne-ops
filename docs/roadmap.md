@@ -178,15 +178,22 @@ JUnit, coverage, and evidence-only refresh remain proposed and are parked below.
 
 ## Current Focus
 
-Prioritize remediation quality over adding review-reporting features:
+Prioritize review quality over adding review-reporting features:
 
-- [x] make demo contributor guidance representative of ordinary application
-  conventions, keeping ZeroOne execution boundaries and seeded-defect acceptance
-  criteria out of model-visible application guidance
-- [ ] design bounded read-only supporting context for remediation, using demo
-  issues #66/#67 and #71 as acceptance cases; separate supporting evidence from
-  the unchanged one-file edit authority, then measure unnecessary blocking
-  without weakening validation or publication gates
+- [ ] design a responsibility-based split between code-correctness candidates
+  and documentation/consistency candidates, feeding shared precision for
+  grounding, deduplication, and final finding meaning; supporting tests,
+  configuration, schemas, and documentation remain evidence for either reviewer,
+  not a separate catch-all stage or a file-extension-only partition
+- [ ] evaluate the proposed split on code-only, docs-only, and mixed changes,
+  including code/documentation contradictions; compare defect retention, false
+  positives, duplicate findings, context size, model calls, cost, and latency
+  before committing to production stages. Preserve publication and continuity
+  ownership; scripted tests establish wiring, not improved model judgment
+
+Demo contributor guidance now reflects ordinary application conventions rather
+than ZeroOne execution boundaries or seeded-defect acceptance criteria
+(operator-confirmed complete).
 
 Keep the following operational housekeeping separate from the development track:
 
@@ -200,6 +207,10 @@ Keep the following operational housekeeping separate from the development track:
 
 ## Parked For Later (Post-v1)
 
+- bounded read-only supporting context for remediation, using demo issues
+  #66/#67 and #71 as acceptance cases; separate supporting evidence from the
+  unchanged one-file edit authority and measure unnecessary blocking without
+  weakening validation or publication gates
 - structured review quality evidence, preserving the proposed overview designs:
   slice 2 adds CI-provided JUnit reports, producer correlation, and same-SHA
   evidence refresh without additional model calls; validate minimal installation
