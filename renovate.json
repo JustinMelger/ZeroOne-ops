@@ -40,8 +40,7 @@
     },
     {
       "matchManagers": [
-        "pep621",
-        "uv"
+        "pep621"
       ],
       "matchDepNames": [
         "python"
@@ -50,8 +49,7 @@
     },
     {
       "matchManagers": [
-        "pep621",
-        "uv"
+        "pep621"
       ],
       "matchUpdateTypes": [
         "patch",
