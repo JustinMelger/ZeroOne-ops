@@ -12,7 +12,9 @@
   ],
   "updateNotScheduled": false,
   "rangeStrategy": "bump",
-  "dependencyDashboard": true,
+  "dependencyDashboard": {
+    "enabled": true
+  },
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": [
