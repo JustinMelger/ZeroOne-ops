@@ -8,12 +8,12 @@ dependencies = [
   "gitpython>=3.2.1",
   "httpx>=0.28.1",
   "mako>=1.4.3",
-  "markdown-it-py>=4.2.0",
+  "markdown-it-py>=4.3.0",
   "mlflow-tracing>=3.18.0",
-  "openai>=3.46.0",
+  "openai>=3.51.0",
   "pydantic>=2.14.3",
   "python-dotenv>=1.2.4",
-  "typer>=0.28.0",
+  "typer>=0.29.1",
   "urllib3==2.8.0",
 ]
 
@@ -50,7 +50,7 @@ exclude-newer = "7 days"
 [dependency-groups]
 docs = [
   "pymdown-extensions>=13.1",
-  "zensical>=0.1.0,<0.2",
+  "zensical>=0.1.1,<0.2",
 ]
 dev = [
   { include-group = "docs" },
@@ -63,7 +63,7 @@ dev = [
   "pytest>=9.2.0",
   "pytest-cov>=7.1.0",
   "pyyaml>=6.0.3",
-  "ruff>=0.17.4",
+  "ruff>=0.17.5",
 ]
 
 [tool.ruff]
